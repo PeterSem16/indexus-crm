@@ -1,10 +1,13 @@
 import { 
-  users, customers,
+  users, customers, products, customerProducts, invoices,
   type User, type InsertUser, type UpdateUser, type SafeUser,
-  type Customer, type InsertCustomer 
+  type Customer, type InsertCustomer,
+  type Product, type InsertProduct,
+  type CustomerProduct, type InsertCustomerProduct,
+  type Invoice, type InsertInvoice
 } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
 const SALT_ROUNDS = 10;
@@ -32,6 +35,27 @@ export interface IStorage {
   createCustomer(customer: InsertCustomer): Promise<Customer>;
   updateCustomer(id: string, customer: Partial<InsertCustomer>): Promise<Customer | undefined>;
   deleteCustomer(id: string): Promise<boolean>;
+
+  // Products
+  getProduct(id: string): Promise<Product | undefined>;
+  getAllProducts(): Promise<Product[]>;
+  createProduct(product: InsertProduct): Promise<Product>;
+  updateProduct(id: string, product: Partial<InsertProduct>): Promise<Product | undefined>;
+  deleteProduct(id: string): Promise<boolean>;
+
+  // Customer Products
+  getCustomerProducts(customerId: string): Promise<(CustomerProduct & { product: Product })[]>;
+  addProductToCustomer(data: InsertCustomerProduct): Promise<CustomerProduct>;
+  updateCustomerProduct(id: string, data: Partial<InsertCustomerProduct>): Promise<CustomerProduct | undefined>;
+  removeProductFromCustomer(id: string): Promise<boolean>;
+
+  // Invoices
+  getInvoice(id: string): Promise<Invoice | undefined>;
+  getInvoicesByCustomer(customerId: string): Promise<Invoice[]>;
+  getAllInvoices(): Promise<Invoice[]>;
+  createInvoice(invoice: InsertInvoice): Promise<Invoice>;
+  updateInvoice(id: string, data: Partial<InsertInvoice>): Promise<Invoice | undefined>;
+  getNextInvoiceNumber(): Promise<string>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -131,6 +155,106 @@ export class DatabaseStorage implements IStorage {
   async deleteCustomer(id: string): Promise<boolean> {
     const result = await db.delete(customers).where(eq(customers.id, id)).returning();
     return result.length > 0;
+  }
+
+  // Products
+  async getProduct(id: string): Promise<Product | undefined> {
+    const [product] = await db.select().from(products).where(eq(products.id, id));
+    return product || undefined;
+  }
+
+  async getAllProducts(): Promise<Product[]> {
+    return db.select().from(products);
+  }
+
+  async createProduct(insertProduct: InsertProduct): Promise<Product> {
+    const [product] = await db.insert(products).values(insertProduct).returning();
+    return product;
+  }
+
+  async updateProduct(id: string, updateData: Partial<InsertProduct>): Promise<Product | undefined> {
+    const [product] = await db
+      .update(products)
+      .set(updateData)
+      .where(eq(products.id, id))
+      .returning();
+    return product || undefined;
+  }
+
+  async deleteProduct(id: string): Promise<boolean> {
+    const result = await db.delete(products).where(eq(products.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Customer Products
+  async getCustomerProducts(customerId: string): Promise<(CustomerProduct & { product: Product })[]> {
+    const cps = await db.select().from(customerProducts).where(eq(customerProducts.customerId, customerId));
+    const result: (CustomerProduct & { product: Product })[] = [];
+    
+    for (const cp of cps) {
+      const product = await this.getProduct(cp.productId);
+      if (product) {
+        result.push({ ...cp, product });
+      }
+    }
+    
+    return result;
+  }
+
+  async addProductToCustomer(data: InsertCustomerProduct): Promise<CustomerProduct> {
+    const [cp] = await db.insert(customerProducts).values(data).returning();
+    return cp;
+  }
+
+  async updateCustomerProduct(id: string, data: Partial<InsertCustomerProduct>): Promise<CustomerProduct | undefined> {
+    const [cp] = await db
+      .update(customerProducts)
+      .set(data)
+      .where(eq(customerProducts.id, id))
+      .returning();
+    return cp || undefined;
+  }
+
+  async removeProductFromCustomer(id: string): Promise<boolean> {
+    const result = await db.delete(customerProducts).where(eq(customerProducts.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Invoices
+  async getInvoice(id: string): Promise<Invoice | undefined> {
+    const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id));
+    return invoice || undefined;
+  }
+
+  async getInvoicesByCustomer(customerId: string): Promise<Invoice[]> {
+    return db.select().from(invoices).where(eq(invoices.customerId, customerId));
+  }
+
+  async getAllInvoices(): Promise<Invoice[]> {
+    return db.select().from(invoices);
+  }
+
+  async createInvoice(invoice: InsertInvoice): Promise<Invoice> {
+    const [inv] = await db.insert(invoices).values(invoice).returning();
+    return inv;
+  }
+
+  async updateInvoice(id: string, data: Partial<InsertInvoice>): Promise<Invoice | undefined> {
+    const [invoice] = await db
+      .update(invoices)
+      .set(data)
+      .where(eq(invoices.id, id))
+      .returning();
+    return invoice || undefined;
+  }
+
+  async getNextInvoiceNumber(): Promise<string> {
+    const year = new Date().getFullYear();
+    const [result] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(invoices);
+    const count = Number(result?.count || 0) + 1;
+    return `INV-${year}-${String(count).padStart(5, '0')}`;
   }
 }
 

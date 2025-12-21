@@ -1,10 +1,17 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertUserSchema, insertCustomerSchema, updateUserSchema, loginSchema, type SafeUser } from "@shared/schema";
+import { 
+  insertUserSchema, insertCustomerSchema, updateUserSchema, loginSchema,
+  insertProductSchema, insertCustomerProductSchema,
+  type SafeUser, type Customer, type Product
+} from "@shared/schema";
 import { z } from "zod";
 import session from "express-session";
 import MemoryStore from "memorystore";
+import PDFDocument from "pdfkit";
+import path from "path";
+import fs from "fs";
 
 declare module "express-session" {
   interface SessionData {
@@ -252,6 +259,324 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting customer:", error);
       res.status(500).json({ error: "Failed to delete customer" });
+    }
+  });
+
+  // Products API (protected)
+  app.get("/api/products", requireAuth, async (req, res) => {
+    try {
+      const products = await storage.getAllProducts();
+      res.json(products);
+    } catch (error) {
+      console.error("Error fetching products:", error);
+      res.status(500).json({ error: "Failed to fetch products" });
+    }
+  });
+
+  app.get("/api/products/:id", requireAuth, async (req, res) => {
+    try {
+      const product = await storage.getProduct(req.params.id);
+      if (!product) {
+        return res.status(404).json({ error: "Product not found" });
+      }
+      res.json(product);
+    } catch (error) {
+      console.error("Error fetching product:", error);
+      res.status(500).json({ error: "Failed to fetch product" });
+    }
+  });
+
+  app.post("/api/products", requireAuth, async (req, res) => {
+    try {
+      const validatedData = insertProductSchema.parse(req.body);
+      const product = await storage.createProduct(validatedData);
+      res.status(201).json(product);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Validation error", details: error.errors });
+      }
+      console.error("Error creating product:", error);
+      res.status(500).json({ error: "Failed to create product" });
+    }
+  });
+
+  app.patch("/api/products/:id", requireAuth, async (req, res) => {
+    try {
+      const partialSchema = insertProductSchema.partial();
+      const validatedData = partialSchema.parse(req.body);
+      
+      const product = await storage.updateProduct(req.params.id, validatedData);
+      if (!product) {
+        return res.status(404).json({ error: "Product not found" });
+      }
+      res.json(product);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Validation error", details: error.errors });
+      }
+      console.error("Error updating product:", error);
+      res.status(500).json({ error: "Failed to update product" });
+    }
+  });
+
+  app.delete("/api/products/:id", requireAuth, async (req, res) => {
+    try {
+      const deleted = await storage.deleteProduct(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Product not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting product:", error);
+      res.status(500).json({ error: "Failed to delete product" });
+    }
+  });
+
+  // Customer Products API (protected)
+  app.get("/api/customers/:customerId/products", requireAuth, async (req, res) => {
+    try {
+      const customerProducts = await storage.getCustomerProducts(req.params.customerId);
+      res.json(customerProducts);
+    } catch (error) {
+      console.error("Error fetching customer products:", error);
+      res.status(500).json({ error: "Failed to fetch customer products" });
+    }
+  });
+
+  app.post("/api/customers/:customerId/products", requireAuth, async (req, res) => {
+    try {
+      const validatedData = insertCustomerProductSchema.parse({
+        ...req.body,
+        customerId: req.params.customerId,
+      });
+      const customerProduct = await storage.addProductToCustomer(validatedData);
+      res.status(201).json(customerProduct);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Validation error", details: error.errors });
+      }
+      console.error("Error adding product to customer:", error);
+      res.status(500).json({ error: "Failed to add product to customer" });
+    }
+  });
+
+  app.delete("/api/customer-products/:id", requireAuth, async (req, res) => {
+    try {
+      const deleted = await storage.removeProductFromCustomer(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Customer product not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error removing product from customer:", error);
+      res.status(500).json({ error: "Failed to remove product from customer" });
+    }
+  });
+
+  // Invoices API (protected)
+  app.get("/api/invoices", requireAuth, async (req, res) => {
+    try {
+      const invoices = await storage.getAllInvoices();
+      res.json(invoices);
+    } catch (error) {
+      console.error("Error fetching invoices:", error);
+      res.status(500).json({ error: "Failed to fetch invoices" });
+    }
+  });
+
+  app.get("/api/customers/:customerId/invoices", requireAuth, async (req, res) => {
+    try {
+      const invoices = await storage.getInvoicesByCustomer(req.params.customerId);
+      res.json(invoices);
+    } catch (error) {
+      console.error("Error fetching customer invoices:", error);
+      res.status(500).json({ error: "Failed to fetch customer invoices" });
+    }
+  });
+
+  // Generate invoice for a single customer
+  app.post("/api/customers/:customerId/invoices/generate", requireAuth, async (req, res) => {
+    try {
+      const customer = await storage.getCustomer(req.params.customerId);
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+
+      const customerProducts = await storage.getCustomerProducts(req.params.customerId);
+      if (customerProducts.length === 0) {
+        return res.status(400).json({ error: "Customer has no products to invoice" });
+      }
+
+      const invoiceNumber = await storage.getNextInvoiceNumber();
+      let totalAmount = 0;
+      
+      for (const cp of customerProducts) {
+        const price = cp.priceOverride ? parseFloat(cp.priceOverride) : parseFloat(cp.product.price);
+        totalAmount += price * cp.quantity;
+      }
+
+      const invoice = await storage.createInvoice({
+        invoiceNumber,
+        customerId: customer.id,
+        totalAmount: totalAmount.toFixed(2),
+        currency: customerProducts[0]?.product.currency || "EUR",
+        status: "generated",
+        pdfPath: null,
+      });
+
+      res.status(201).json(invoice);
+    } catch (error) {
+      console.error("Error generating invoice:", error);
+      res.status(500).json({ error: "Failed to generate invoice" });
+    }
+  });
+
+  // Generate PDF for an invoice
+  app.get("/api/invoices/:id/pdf", requireAuth, async (req, res) => {
+    try {
+      const invoice = await storage.getInvoice(req.params.id);
+      if (!invoice) {
+        return res.status(404).json({ error: "Invoice not found" });
+      }
+
+      const customer = await storage.getCustomer(invoice.customerId);
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+
+      const customerProducts = await storage.getCustomerProducts(invoice.customerId);
+
+      const doc = new PDFDocument({ margin: 50 });
+      
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${invoice.invoiceNumber}.pdf"`);
+      
+      doc.pipe(res);
+
+      // Header
+      doc.fontSize(24).font("Helvetica-Bold").text("Nexus BioLink", { align: "center" });
+      doc.fontSize(10).font("Helvetica").text("Cord Blood Banking Services", { align: "center" });
+      doc.moveDown(2);
+
+      // Invoice details
+      doc.fontSize(18).font("Helvetica-Bold").text("INVOICE", { align: "left" });
+      doc.fontSize(10).font("Helvetica");
+      doc.text(`Invoice Number: ${invoice.invoiceNumber}`);
+      doc.text(`Date: ${new Date(invoice.generatedAt).toLocaleDateString()}`);
+      doc.text(`Status: ${invoice.status.toUpperCase()}`);
+      doc.moveDown();
+
+      // Customer details
+      doc.fontSize(12).font("Helvetica-Bold").text("Bill To:");
+      doc.fontSize(10).font("Helvetica");
+      doc.text(`${customer.firstName} ${customer.lastName}`);
+      doc.text(customer.email);
+      if (customer.address) doc.text(customer.address);
+      if (customer.city) doc.text(customer.city);
+      doc.text(customer.country);
+      doc.moveDown(2);
+
+      // Products table header
+      doc.fontSize(10).font("Helvetica-Bold");
+      const tableTop = doc.y;
+      doc.text("Product", 50, tableTop, { width: 200 });
+      doc.text("Qty", 250, tableTop, { width: 50, align: "center" });
+      doc.text("Price", 300, tableTop, { width: 100, align: "right" });
+      doc.text("Total", 400, tableTop, { width: 100, align: "right" });
+      
+      doc.moveTo(50, doc.y + 5).lineTo(550, doc.y + 5).stroke();
+      doc.moveDown();
+
+      // Products
+      doc.font("Helvetica");
+      let grandTotal = 0;
+      for (const cp of customerProducts) {
+        const price = cp.priceOverride ? parseFloat(cp.priceOverride) : parseFloat(cp.product.price);
+        const lineTotal = price * cp.quantity;
+        grandTotal += lineTotal;
+
+        const y = doc.y;
+        doc.text(cp.product.name, 50, y, { width: 200 });
+        doc.text(cp.quantity.toString(), 250, y, { width: 50, align: "center" });
+        doc.text(`${price.toFixed(2)} ${cp.product.currency}`, 300, y, { width: 100, align: "right" });
+        doc.text(`${lineTotal.toFixed(2)} ${cp.product.currency}`, 400, y, { width: 100, align: "right" });
+        doc.moveDown(0.5);
+      }
+
+      // Total
+      doc.moveTo(50, doc.y + 10).lineTo(550, doc.y + 10).stroke();
+      doc.moveDown();
+      doc.fontSize(12).font("Helvetica-Bold");
+      doc.text(`Total: ${grandTotal.toFixed(2)} ${invoice.currency}`, { align: "right" });
+      doc.moveDown(3);
+
+      // Footer
+      doc.fontSize(8).font("Helvetica").fillColor("gray");
+      doc.text("Thank you for choosing Nexus BioLink for your cord blood banking needs.", { align: "center" });
+
+      doc.end();
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      res.status(500).json({ error: "Failed to generate PDF" });
+    }
+  });
+
+  // Bulk invoice generation
+  app.post("/api/invoices/bulk-generate", requireAuth, async (req, res) => {
+    try {
+      const { customerIds } = req.body as { customerIds: string[] };
+      
+      if (!customerIds || !Array.isArray(customerIds) || customerIds.length === 0) {
+        return res.status(400).json({ error: "Please provide an array of customer IDs" });
+      }
+
+      const results: { customerId: string; success: boolean; invoiceId?: string; error?: string }[] = [];
+
+      for (const customerId of customerIds) {
+        try {
+          const customer = await storage.getCustomer(customerId);
+          if (!customer) {
+            results.push({ customerId, success: false, error: "Customer not found" });
+            continue;
+          }
+
+          const customerProducts = await storage.getCustomerProducts(customerId);
+          if (customerProducts.length === 0) {
+            results.push({ customerId, success: false, error: "No products to invoice" });
+            continue;
+          }
+
+          const invoiceNumber = await storage.getNextInvoiceNumber();
+          let totalAmount = 0;
+          
+          for (const cp of customerProducts) {
+            const price = cp.priceOverride ? parseFloat(cp.priceOverride) : parseFloat(cp.product.price);
+            totalAmount += price * cp.quantity;
+          }
+
+          const invoice = await storage.createInvoice({
+            invoiceNumber,
+            customerId,
+            totalAmount: totalAmount.toFixed(2),
+            currency: customerProducts[0]?.product.currency || "EUR",
+            status: "generated",
+            pdfPath: null,
+          });
+
+          results.push({ customerId, success: true, invoiceId: invoice.id });
+        } catch (error) {
+          results.push({ customerId, success: false, error: "Failed to generate invoice" });
+        }
+      }
+
+      const successCount = results.filter(r => r.success).length;
+      res.json({ 
+        message: `Generated ${successCount} of ${customerIds.length} invoices`,
+        results 
+      });
+    } catch (error) {
+      console.error("Error in bulk invoice generation:", error);
+      res.status(500).json({ error: "Failed to generate invoices" });
     }
   });
 
