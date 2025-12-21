@@ -12,6 +12,8 @@ import { AppSidebar } from "@/components/app-sidebar";
 import Dashboard from "@/pages/dashboard";
 import UsersPage from "@/pages/users";
 import CustomersPage from "@/pages/customers";
+import ProductsPage from "@/pages/products";
+import InvoicesPage from "@/pages/invoices";
 import SettingsPage from "@/pages/settings";
 import LandingPage from "@/pages/landing";
 import NotFound from "@/pages/not-found";
@@ -84,6 +86,8 @@ function AuthenticatedApp() {
                   <Route path="/" component={Dashboard} />
                   <Route path="/users" component={UsersPage} />
                   <Route path="/customers" component={CustomersPage} />
+                  <Route path="/products" component={ProductsPage} />
+                  <Route path="/invoices" component={InvoicesPage} />
                   <Route path="/settings" component={SettingsPage} />
                   <Route path="/login">
                     <Redirect to="/" />

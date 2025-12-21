@@ -6,7 +6,9 @@ import {
   Settings,
   Activity,
   Droplets,
-  LogOut
+  LogOut,
+  Package,
+  FileText
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
@@ -35,6 +37,16 @@ const mainNavItems = [
     title: "Customers",
     url: "/customers",
     icon: Users,
+  },
+  {
+    title: "Products",
+    url: "/products",
+    icon: Package,
+  },
+  {
+    title: "Invoices",
+    url: "/invoices",
+    icon: FileText,
   },
 ];
 
