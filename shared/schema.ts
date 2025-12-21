@@ -73,6 +73,8 @@ export const billingDetails = pgTable("billing_details", {
   bankSwift: text("bank_swift"),
   vatRate: decimal("vat_rate", { precision: 5, scale: 2 }).notNull().default("20"), // VAT percentage
   currency: text("currency").notNull().default("EUR"),
+  paymentTerms: integer("payment_terms").array().notNull().default(sql`ARRAY[7,14,30]::integer[]`), // Payment term options in days
+  defaultPaymentTerm: integer("default_payment_term").notNull().default(14), // Default payment term in days
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
@@ -103,11 +105,23 @@ export const invoices = pgTable("invoices", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   invoiceNumber: text("invoice_number").notNull().unique(),
   customerId: varchar("customer_id").notNull(),
+  subtotal: decimal("subtotal", { precision: 10, scale: 2 }),
+  vatRate: decimal("vat_rate", { precision: 5, scale: 2 }),
+  vatAmount: decimal("vat_amount", { precision: 10, scale: 2 }),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
   currency: text("currency").notNull().default("EUR"),
-  status: text("status").notNull().default("generated"), // generated, sent, paid
+  status: text("status").notNull().default("generated"), // generated, sent, paid, overdue
+  paymentTermDays: integer("payment_term_days").notNull().default(14),
+  dueDate: timestamp("due_date"),
   generatedAt: timestamp("generated_at").notNull().default(sql`now()`),
   pdfPath: text("pdf_path"),
+  billingCompanyName: text("billing_company_name"),
+  billingAddress: text("billing_address"),
+  billingCity: text("billing_city"),
+  billingTaxId: text("billing_tax_id"),
+  billingBankName: text("billing_bank_name"),
+  billingBankIban: text("billing_bank_iban"),
+  billingBankSwift: text("billing_bank_swift"),
 });
 
 // Relations
@@ -225,6 +239,8 @@ export const insertBillingDetailsSchema = createInsertSchema(billingDetails).omi
   bankSwift: z.string().optional().nullable(),
   vatRate: z.string().optional().default("20"),
   currency: z.string().optional().default("EUR"),
+  paymentTerms: z.array(z.number().int().positive()).optional().default([7, 14, 30]),
+  defaultPaymentTerm: z.number().int().positive().optional().default(14),
 });
 
 // Invoice item schemas
@@ -253,6 +269,18 @@ export const insertInvoiceSchema = createInsertSchema(invoices).omit({
   status: z.string().optional().default("generated"),
   pdfPath: z.string().optional().nullable(),
   currency: z.string().optional().default("EUR"),
+  subtotal: z.string().optional().nullable(),
+  vatRate: z.string().optional().nullable(),
+  vatAmount: z.string().optional().nullable(),
+  paymentTermDays: z.number().int().positive().optional().default(14),
+  dueDate: z.date().optional().nullable(),
+  billingCompanyName: z.string().optional().nullable(),
+  billingAddress: z.string().optional().nullable(),
+  billingCity: z.string().optional().nullable(),
+  billingTaxId: z.string().optional().nullable(),
+  billingBankName: z.string().optional().nullable(),
+  billingBankIban: z.string().optional().nullable(),
+  billingBankSwift: z.string().optional().nullable(),
 });
 
 // Types

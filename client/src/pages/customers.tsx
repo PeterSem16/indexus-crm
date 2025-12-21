@@ -74,6 +74,7 @@ function CustomerDetailsContent({
   const [newLineProductId, setNewLineProductId] = useState<string>("");
   const [newLineQty, setNewLineQty] = useState<string>("1");
   const [newLinePrice, setNewLinePrice] = useState<string>("");
+  const [selectedPaymentTerm, setSelectedPaymentTerm] = useState<number | null>(null);
 
   const { data: products = [] } = useQuery<Product[]>({
     queryKey: ["/api/products"],
@@ -147,13 +148,14 @@ function CustomerDetailsContent({
   });
 
   const manualInvoiceMutation = useMutation({
-    mutationFn: (data: { items: Array<{ productId?: string; description: string; quantity: number; unitPrice: string }>; currency: string }) =>
+    mutationFn: (data: { items: Array<{ productId?: string; description: string; quantity: number; unitPrice: string }>; currency: string; paymentTermDays?: number }) =>
       apiRequest("POST", `/api/customers/${customer.id}/invoices/manual`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers", customer.id, "invoices"] });
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
       setIsManualInvoiceOpen(false);
       setInvoiceLines([]);
+      setSelectedPaymentTerm(null);
       toast({ title: "Invoice created successfully" });
     },
     onError: () => {
@@ -194,6 +196,8 @@ function CustomerDetailsContent({
       return;
     }
     
+    const paymentTerm = selectedPaymentTerm || billingDetails?.defaultPaymentTerm || 14;
+    
     manualInvoiceMutation.mutate({
       items: invoiceLines.map(line => ({
         productId: line.productId,
@@ -202,8 +206,11 @@ function CustomerDetailsContent({
         unitPrice: line.unitPrice,
       })),
       currency: invoiceLines[0]?.currency || billingDetails?.currency || "EUR",
+      paymentTermDays: paymentTerm,
     });
   };
+
+  const availablePaymentTerms = billingDetails?.paymentTerms || [7, 14, 30];
 
   const calculateSubtotal = () => {
     return invoiceLines.reduce((sum, line) => {
@@ -553,6 +560,28 @@ function CustomerDetailsContent({
                 </div>
               </div>
             )}
+
+            <div className="space-y-2">
+              <Label>Payment Term</Label>
+              <Select
+                value={(selectedPaymentTerm || billingDetails?.defaultPaymentTerm || 14).toString()}
+                onValueChange={(val) => setSelectedPaymentTerm(parseInt(val))}
+              >
+                <SelectTrigger data-testid="select-payment-term">
+                  <SelectValue placeholder="Select payment term" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availablePaymentTerms.map((days) => (
+                    <SelectItem key={days} value={days.toString()}>
+                      {days} days
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Due date will be calculated from invoice date
+              </p>
+            </div>
 
             <div className="flex gap-2 justify-end pt-4">
               <Button

@@ -415,6 +415,12 @@ export async function registerRoutes(
         totalAmount += price * cp.quantity;
       }
 
+      // Get billing details for the customer's country
+      const billingInfo = await storage.getBillingDetails(customer.country);
+      const paymentTermDays = billingInfo?.defaultPaymentTerm || 14;
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + paymentTermDays);
+
       const invoice = await storage.createInvoice({
         invoiceNumber,
         customerId: customer.id,
@@ -422,6 +428,15 @@ export async function registerRoutes(
         currency: customerProducts[0]?.product.currency || "EUR",
         status: "generated",
         pdfPath: null,
+        paymentTermDays,
+        dueDate,
+        billingCompanyName: billingInfo?.companyName || null,
+        billingAddress: billingInfo?.address || null,
+        billingCity: billingInfo?.city || null,
+        billingTaxId: billingInfo?.taxId || null,
+        billingBankName: billingInfo?.bankName || null,
+        billingBankIban: billingInfo?.bankIban || null,
+        billingBankSwift: billingInfo?.bankSwift || null,
       });
 
       res.status(201).json(invoice);
@@ -444,6 +459,7 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Customer not found" });
       }
 
+      const invoiceItems = await storage.getInvoiceItems(invoice.id);
       const customerProducts = await storage.getCustomerProducts(invoice.customerId);
 
       const doc = new PDFDocument({ margin: 50 });
@@ -453,16 +469,32 @@ export async function registerRoutes(
       
       doc.pipe(res);
 
-      // Header
-      doc.fontSize(24).font("Helvetica-Bold").text("Nexus BioLink", { align: "center" });
-      doc.fontSize(10).font("Helvetica").text("Cord Blood Banking Services", { align: "center" });
+      // Header with billing company info
+      if (invoice.billingCompanyName) {
+        doc.fontSize(18).font("Helvetica-Bold").text(invoice.billingCompanyName, { align: "left" });
+        doc.fontSize(9).font("Helvetica");
+        if (invoice.billingAddress) doc.text(invoice.billingAddress);
+        if (invoice.billingCity) doc.text(invoice.billingCity);
+        if (invoice.billingTaxId) doc.text(`Tax ID: ${invoice.billingTaxId}`);
+        doc.moveDown();
+        if (invoice.billingBankName) doc.text(`Bank: ${invoice.billingBankName}`);
+        if (invoice.billingBankIban) doc.text(`IBAN: ${invoice.billingBankIban}`);
+        if (invoice.billingBankSwift) doc.text(`SWIFT: ${invoice.billingBankSwift}`);
+      } else {
+        doc.fontSize(18).font("Helvetica-Bold").text("Nexus BioLink", { align: "left" });
+        doc.fontSize(10).font("Helvetica").text("Cord Blood Banking Services");
+      }
       doc.moveDown(2);
 
       // Invoice details
-      doc.fontSize(18).font("Helvetica-Bold").text("INVOICE", { align: "left" });
+      doc.fontSize(16).font("Helvetica-Bold").text("INVOICE", { align: "left" });
       doc.fontSize(10).font("Helvetica");
       doc.text(`Invoice Number: ${invoice.invoiceNumber}`);
-      doc.text(`Date: ${new Date(invoice.generatedAt).toLocaleDateString()}`);
+      doc.text(`Issue Date: ${new Date(invoice.generatedAt).toLocaleDateString()}`);
+      if (invoice.dueDate) {
+        doc.text(`Due Date: ${new Date(invoice.dueDate).toLocaleDateString()}`);
+        doc.text(`Payment Terms: ${invoice.paymentTermDays} days`);
+      }
       doc.text(`Status: ${invoice.status.toUpperCase()}`);
       doc.moveDown();
 
@@ -479,7 +511,7 @@ export async function registerRoutes(
       // Products table header
       doc.fontSize(10).font("Helvetica-Bold");
       const tableTop = doc.y;
-      doc.text("Product", 50, tableTop, { width: 200 });
+      doc.text("Description", 50, tableTop, { width: 200 });
       doc.text("Qty", 250, tableTop, { width: 50, align: "center" });
       doc.text("Price", 300, tableTop, { width: 100, align: "right" });
       doc.text("Total", 400, tableTop, { width: 100, align: "right" });
@@ -487,27 +519,51 @@ export async function registerRoutes(
       doc.moveTo(50, doc.y + 5).lineTo(550, doc.y + 5).stroke();
       doc.moveDown();
 
-      // Products
+      // Items - use invoice items if available, otherwise customer products
       doc.font("Helvetica");
-      let grandTotal = 0;
-      for (const cp of customerProducts) {
-        const price = cp.priceOverride ? parseFloat(cp.priceOverride) : parseFloat(cp.product.price);
-        const lineTotal = price * cp.quantity;
-        grandTotal += lineTotal;
+      let subtotal = 0;
+      
+      if (invoiceItems.length > 0) {
+        for (const item of invoiceItems) {
+          const price = parseFloat(item.unitPrice);
+          const lineTotal = parseFloat(item.lineTotal);
+          subtotal += lineTotal;
 
-        const y = doc.y;
-        doc.text(cp.product.name, 50, y, { width: 200 });
-        doc.text(cp.quantity.toString(), 250, y, { width: 50, align: "center" });
-        doc.text(`${price.toFixed(2)} ${cp.product.currency}`, 300, y, { width: 100, align: "right" });
-        doc.text(`${lineTotal.toFixed(2)} ${cp.product.currency}`, 400, y, { width: 100, align: "right" });
-        doc.moveDown(0.5);
+          const y = doc.y;
+          doc.text(item.description, 50, y, { width: 200 });
+          doc.text(item.quantity.toString(), 250, y, { width: 50, align: "center" });
+          doc.text(`${price.toFixed(2)} ${invoice.currency}`, 300, y, { width: 100, align: "right" });
+          doc.text(`${lineTotal.toFixed(2)} ${invoice.currency}`, 400, y, { width: 100, align: "right" });
+          doc.moveDown(0.5);
+        }
+      } else {
+        for (const cp of customerProducts) {
+          const price = cp.priceOverride ? parseFloat(cp.priceOverride) : parseFloat(cp.product.price);
+          const lineTotal = price * cp.quantity;
+          subtotal += lineTotal;
+
+          const y = doc.y;
+          doc.text(cp.product.name, 50, y, { width: 200 });
+          doc.text(cp.quantity.toString(), 250, y, { width: 50, align: "center" });
+          doc.text(`${price.toFixed(2)} ${cp.product.currency}`, 300, y, { width: 100, align: "right" });
+          doc.text(`${lineTotal.toFixed(2)} ${cp.product.currency}`, 400, y, { width: 100, align: "right" });
+          doc.moveDown(0.5);
+        }
       }
 
-      // Total
+      // Totals
       doc.moveTo(50, doc.y + 10).lineTo(550, doc.y + 10).stroke();
       doc.moveDown();
+      doc.fontSize(10).font("Helvetica");
+      
+      if (invoice.subtotal && invoice.vatRate && invoice.vatAmount) {
+        doc.text(`Subtotal: ${parseFloat(invoice.subtotal).toFixed(2)} ${invoice.currency}`, { align: "right" });
+        doc.text(`VAT (${parseFloat(invoice.vatRate).toFixed(0)}%): ${parseFloat(invoice.vatAmount).toFixed(2)} ${invoice.currency}`, { align: "right" });
+        doc.moveDown(0.5);
+      }
+      
       doc.fontSize(12).font("Helvetica-Bold");
-      doc.text(`Total: ${grandTotal.toFixed(2)} ${invoice.currency}`, { align: "right" });
+      doc.text(`Total: ${parseFloat(invoice.totalAmount).toFixed(2)} ${invoice.currency}`, { align: "right" });
       doc.moveDown(3);
 
       // Footer
@@ -554,6 +610,11 @@ export async function registerRoutes(
             totalAmount += price * cp.quantity;
           }
 
+          const billingInfo = await storage.getBillingDetails(customer.country);
+          const paymentTermDays = billingInfo?.defaultPaymentTerm || 14;
+          const dueDate = new Date();
+          dueDate.setDate(dueDate.getDate() + paymentTermDays);
+
           const invoice = await storage.createInvoice({
             invoiceNumber,
             customerId,
@@ -561,6 +622,15 @@ export async function registerRoutes(
             currency: customerProducts[0]?.product.currency || "EUR",
             status: "generated",
             pdfPath: null,
+            paymentTermDays,
+            dueDate,
+            billingCompanyName: billingInfo?.companyName || null,
+            billingAddress: billingInfo?.address || null,
+            billingCity: billingInfo?.city || null,
+            billingTaxId: billingInfo?.taxId || null,
+            billingBankName: billingInfo?.bankName || null,
+            billingBankIban: billingInfo?.bankIban || null,
+            billingBankSwift: billingInfo?.bankSwift || null,
           });
 
           results.push({ customerId, success: true, invoiceId: invoice.id });
@@ -629,9 +699,10 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Customer not found" });
       }
 
-      const { items, currency } = req.body as {
+      const { items, currency, paymentTermDays: requestedPaymentDays } = req.body as {
         items: Array<{ productId?: string; description: string; quantity: number; unitPrice: string }>;
         currency: string;
+        paymentTermDays?: number;
       };
 
       if (!items || items.length === 0) {
@@ -641,6 +712,9 @@ export async function registerRoutes(
       // Get billing details for the customer's country
       const billingInfo = await storage.getBillingDetails(customer.country);
       const vatRate = billingInfo ? parseFloat(billingInfo.vatRate) : 0;
+      const paymentTermDays = requestedPaymentDays || billingInfo?.defaultPaymentTerm || 14;
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + paymentTermDays);
 
       // Calculate totals
       let subtotal = 0;
@@ -666,10 +740,22 @@ export async function registerRoutes(
       const invoice = await storage.createInvoice({
         invoiceNumber,
         customerId: customer.id,
+        subtotal: subtotal.toFixed(2),
+        vatRate: vatRate.toString(),
+        vatAmount: vatAmount.toFixed(2),
         totalAmount: totalAmount.toFixed(2),
         currency: currency || billingInfo?.currency || "EUR",
         status: "generated",
         pdfPath: null,
+        paymentTermDays,
+        dueDate,
+        billingCompanyName: billingInfo?.companyName || null,
+        billingAddress: billingInfo?.address || null,
+        billingCity: billingInfo?.city || null,
+        billingTaxId: billingInfo?.taxId || null,
+        billingBankName: billingInfo?.bankName || null,
+        billingBankIban: billingInfo?.bankIban || null,
+        billingBankSwift: billingInfo?.bankSwift || null,
       });
 
       // Create invoice items

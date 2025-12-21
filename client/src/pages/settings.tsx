@@ -33,7 +33,11 @@ interface BillingFormData {
   bankSwift: string;
   vatRate: string;
   currency: string;
+  paymentTerms: number[];
+  defaultPaymentTerm: number;
 }
+
+const DEFAULT_PAYMENT_TERMS = [7, 14, 30, 45, 60];
 
 function BillingDetailsForm({ countryCode }: { countryCode: string }) {
   const { toast } = useToast();
@@ -60,6 +64,8 @@ function BillingDetailsForm({ countryCode }: { countryCode: string }) {
     bankSwift: "",
     vatRate: "20",
     currency: "EUR",
+    paymentTerms: [7, 14, 30],
+    defaultPaymentTerm: 14,
   });
 
   useEffect(() => {
@@ -75,6 +81,8 @@ function BillingDetailsForm({ countryCode }: { countryCode: string }) {
         bankSwift: billingDetails.bankSwift || "",
         vatRate: billingDetails.vatRate || "20",
         currency: billingDetails.currency || "EUR",
+        paymentTerms: billingDetails.paymentTerms || [7, 14, 30],
+        defaultPaymentTerm: billingDetails.defaultPaymentTerm || 14,
       });
     }
   }, [billingDetails]);
@@ -235,6 +243,69 @@ function BillingDetailsForm({ countryCode }: { countryCode: string }) {
               {CURRENCIES.map((curr) => (
                 <SelectItem key={curr} value={curr}>
                   {curr}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <Separator />
+
+      <h4 className="font-medium">Payment Terms</h4>
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label>Available Payment Terms (days)</Label>
+          <div className="flex flex-wrap gap-2">
+            {DEFAULT_PAYMENT_TERMS.map((days) => (
+              <Button
+                key={days}
+                type="button"
+                size="sm"
+                variant={formData.paymentTerms.includes(days) ? "default" : "outline"}
+                onClick={() => {
+                  if (formData.paymentTerms.includes(days)) {
+                    if (formData.paymentTerms.length > 1) {
+                      const newTerms = formData.paymentTerms.filter(t => t !== days);
+                      setFormData({ 
+                        ...formData, 
+                        paymentTerms: newTerms,
+                        defaultPaymentTerm: newTerms.includes(formData.defaultPaymentTerm) 
+                          ? formData.defaultPaymentTerm 
+                          : newTerms[0]
+                      });
+                    }
+                  } else {
+                    setFormData({ 
+                      ...formData, 
+                      paymentTerms: [...formData.paymentTerms, days].sort((a, b) => a - b) 
+                    });
+                  }
+                }}
+                data-testid={`button-payment-term-${days}-${countryCode}`}
+              >
+                {days} days
+              </Button>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Click to enable/disable payment term options for invoices
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="defaultPaymentTerm">Default Payment Term</Label>
+          <Select
+            value={formData.defaultPaymentTerm.toString()}
+            onValueChange={(value) => setFormData({ ...formData, defaultPaymentTerm: parseInt(value) })}
+          >
+            <SelectTrigger data-testid={`select-default-payment-${countryCode}`}>
+              <SelectValue placeholder="Select default term" />
+            </SelectTrigger>
+            <SelectContent>
+              {formData.paymentTerms.map((days) => (
+                <SelectItem key={days} value={days.toString()}>
+                  {days} days
                 </SelectItem>
               ))}
             </SelectContent>
