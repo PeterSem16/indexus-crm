@@ -46,7 +46,9 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import type { Product } from "@shared/schema";
+import { type Product, COUNTRIES } from "@shared/schema";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
 const productFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -54,6 +56,7 @@ const productFormSchema = z.object({
   price: z.string().min(1, "Price is required"),
   currency: z.string().default("EUR"),
   category: z.string().optional(),
+  countries: z.array(z.string()).default([]),
   isActive: z.boolean().default(true),
 });
 
@@ -90,6 +93,7 @@ function ProductForm({
           price: initialData.price,
           currency: initialData.currency,
           category: initialData.category || "",
+          countries: initialData.countries || [],
           isActive: initialData.isActive,
         }
       : {
@@ -98,6 +102,7 @@ function ProductForm({
           price: "",
           currency: "EUR",
           category: "",
+          countries: [],
           isActive: true,
         },
   });
@@ -204,6 +209,40 @@ function ProductForm({
                   ))}
                 </SelectContent>
               </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="countries"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Available in Countries</FormLabel>
+              <div className="grid grid-cols-2 gap-2 rounded-lg border p-3">
+                {COUNTRIES.map((country) => (
+                  <div key={country.code} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`country-${country.code}`}
+                      checked={field.value?.includes(country.code)}
+                      onCheckedChange={(checked) => {
+                        const newValue = checked
+                          ? [...(field.value || []), country.code]
+                          : (field.value || []).filter((c) => c !== country.code);
+                        field.onChange(newValue);
+                      }}
+                      data-testid={`checkbox-country-${country.code}`}
+                    />
+                    <Label htmlFor={`country-${country.code}`} className="text-sm cursor-pointer">
+                      {country.name}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Select the countries where this product is available
+              </p>
               <FormMessage />
             </FormItem>
           )}
@@ -327,6 +366,28 @@ export default function ProductsPage() {
         <Badge variant="outline" className="capitalize">
           {getCategoryLabel(product.category)}
         </Badge>
+      ),
+    },
+    {
+      key: "countries",
+      header: "Countries",
+      cell: (product: Product) => (
+        <div className="flex flex-wrap gap-1">
+          {product.countries && product.countries.length > 0 ? (
+            product.countries.slice(0, 3).map((code) => (
+              <Badge key={code} variant="secondary" className="text-xs">
+                {code}
+              </Badge>
+            ))
+          ) : (
+            <span className="text-muted-foreground text-sm">All</span>
+          )}
+          {product.countries && product.countries.length > 3 && (
+            <Badge variant="secondary" className="text-xs">
+              +{product.countries.length - 3}
+            </Badge>
+          )}
+        </div>
       ),
     },
     {
