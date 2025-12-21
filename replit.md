@@ -46,6 +46,20 @@ The server follows a layered architecture:
 Database tables:
 - `users`: CRM system users with roles and assigned countries
 - `customers`: Cord blood banking customers with country, status, and service type
+- `products`: Services/products with country availability
+- `customer_products`: Products assigned to customers
+- `invoices`: Generated invoices with billing details snapshot
+- `invoice_items`: Line items for invoices
+- `billing_details`: Country-specific billing configuration (VAT, payment terms)
+- `customer_notes`: Notes on customer records
+- `activity_logs`: User action audit trail
+- `communication_messages`: Email/SMS messages sent to customers
+
+### External Communication Integration
+The system supports sending emails and SMS to customers:
+- **Email**: Via SendGrid API (set `SENDGRID_API_KEY` and `EMAIL_FROM` environment variables)
+- **SMS**: Via Twilio API (set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`)
+- When credentials are not configured, messages are simulated (logged but not actually sent)
 
 ### Key Design Patterns
 - Shared schema definitions between frontend and backend via `@shared/*` path alias

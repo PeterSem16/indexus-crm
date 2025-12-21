@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { 
   insertUserSchema, insertCustomerSchema, updateUserSchema, loginSchema,
   insertProductSchema, insertCustomerProductSchema, insertBillingDetailsSchema,
-  insertCustomerNoteSchema, insertActivityLogSchema,
+  insertCustomerNoteSchema, insertActivityLogSchema, sendEmailSchema, sendSmsSchema,
   type SafeUser, type Customer, type Product, type BillingDetails, type ActivityLog
 } from "@shared/schema";
 import { z } from "zod";
@@ -951,6 +951,214 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching customer activity logs:", error);
       res.status(500).json({ error: "Failed to fetch customer activity logs" });
+    }
+  });
+
+  // Communication Messages API
+  app.get("/api/customers/:customerId/messages", requireAuth, async (req, res) => {
+    try {
+      const messages = await storage.getCommunicationMessagesByCustomer(req.params.customerId);
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching customer messages:", error);
+      res.status(500).json({ error: "Failed to fetch messages" });
+    }
+  });
+
+  app.post("/api/customers/:customerId/messages/email", requireAuth, async (req, res) => {
+    try {
+      const parsed = sendEmailSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
+      }
+      const { subject, content } = parsed.data;
+      
+      const customer = await storage.getCustomer(req.params.customerId);
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+      if (!customer.email) {
+        return res.status(400).json({ error: "Customer has no email address" });
+      }
+
+      const user = req.session.user!;
+      
+      // Create message record
+      const message = await storage.createCommunicationMessage({
+        customerId: req.params.customerId,
+        userId: user.id,
+        type: "email",
+        subject,
+        content,
+        recipientEmail: customer.email,
+        status: "pending",
+      });
+
+      // Try to send email via SendGrid or fallback to simulation
+      const sendGridApiKey = process.env.SENDGRID_API_KEY;
+      const fromEmail = process.env.EMAIL_FROM || "noreply@nexusbiolink.com";
+      
+      if (sendGridApiKey) {
+        try {
+          const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${sendGridApiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              personalizations: [{ to: [{ email: customer.email }] }],
+              from: { email: fromEmail },
+              subject,
+              content: [{ type: "text/plain", value: content }],
+            }),
+          });
+
+          if (response.ok) {
+            await storage.updateCommunicationMessage(message.id, {
+              status: "sent",
+              sentAt: new Date(),
+            });
+            
+            await logActivity(user.id, "send_email", "communication", message.id, 
+              `Email to ${customer.firstName} ${customer.lastName}`, { subject });
+            
+            return res.json({ ...message, status: "sent", sentAt: new Date() });
+          } else {
+            const errorText = await response.text();
+            await storage.updateCommunicationMessage(message.id, {
+              status: "failed",
+              errorMessage: errorText,
+            });
+            return res.status(500).json({ error: "Failed to send email", details: errorText });
+          }
+        } catch (emailError: any) {
+          await storage.updateCommunicationMessage(message.id, {
+            status: "failed",
+            errorMessage: emailError.message,
+          });
+          return res.status(500).json({ error: "Failed to send email", details: emailError.message });
+        }
+      } else {
+        // Simulate sending (for demo purposes when no API key configured)
+        await storage.updateCommunicationMessage(message.id, {
+          status: "sent",
+          sentAt: new Date(),
+        });
+        
+        await logActivity(user.id, "send_email", "communication", message.id, 
+          `Email to ${customer.firstName} ${customer.lastName}`, { subject, simulated: true });
+        
+        res.json({ ...message, status: "sent", sentAt: new Date(), simulated: true });
+      }
+    } catch (error) {
+      console.error("Error sending email:", error);
+      res.status(500).json({ error: "Failed to send email" });
+    }
+  });
+
+  app.post("/api/customers/:customerId/messages/sms", requireAuth, async (req, res) => {
+    try {
+      const parsed = sendSmsSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
+      }
+      const { content } = parsed.data;
+      
+      const customer = await storage.getCustomer(req.params.customerId);
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+      if (!customer.phone) {
+        return res.status(400).json({ error: "Customer has no phone number" });
+      }
+
+      const user = req.session.user!;
+      
+      // Create message record
+      const message = await storage.createCommunicationMessage({
+        customerId: req.params.customerId,
+        userId: user.id,
+        type: "sms",
+        content,
+        recipientPhone: customer.phone,
+        status: "pending",
+      });
+
+      // Try to send SMS via Twilio or fallback to simulation
+      const twilioSid = process.env.TWILIO_ACCOUNT_SID;
+      const twilioToken = process.env.TWILIO_AUTH_TOKEN;
+      const twilioPhone = process.env.TWILIO_PHONE_NUMBER;
+      
+      if (twilioSid && twilioToken && twilioPhone) {
+        try {
+          const response = await fetch(
+            `https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`,
+            {
+              method: "POST",
+              headers: {
+                "Authorization": "Basic " + Buffer.from(`${twilioSid}:${twilioToken}`).toString("base64"),
+                "Content-Type": "application/x-www-form-urlencoded",
+              },
+              body: new URLSearchParams({
+                To: customer.phone,
+                From: twilioPhone,
+                Body: content,
+              }),
+            }
+          );
+
+          if (response.ok) {
+            await storage.updateCommunicationMessage(message.id, {
+              status: "sent",
+              sentAt: new Date(),
+            });
+            
+            await logActivity(user.id, "send_sms", "communication", message.id, 
+              `SMS to ${customer.firstName} ${customer.lastName}`);
+            
+            return res.json({ ...message, status: "sent", sentAt: new Date() });
+          } else {
+            const errorData = await response.json();
+            await storage.updateCommunicationMessage(message.id, {
+              status: "failed",
+              errorMessage: errorData.message || "Twilio error",
+            });
+            return res.status(500).json({ error: "Failed to send SMS", details: errorData.message });
+          }
+        } catch (smsError: any) {
+          await storage.updateCommunicationMessage(message.id, {
+            status: "failed",
+            errorMessage: smsError.message,
+          });
+          return res.status(500).json({ error: "Failed to send SMS", details: smsError.message });
+        }
+      } else {
+        // Simulate sending (for demo purposes when no credentials configured)
+        await storage.updateCommunicationMessage(message.id, {
+          status: "sent",
+          sentAt: new Date(),
+        });
+        
+        await logActivity(user.id, "send_sms", "communication", message.id, 
+          `SMS to ${customer.firstName} ${customer.lastName}`, { simulated: true });
+        
+        res.json({ ...message, status: "sent", sentAt: new Date(), simulated: true });
+      }
+    } catch (error) {
+      console.error("Error sending SMS:", error);
+      res.status(500).json({ error: "Failed to send SMS" });
+    }
+  });
+
+  app.get("/api/communication-messages", requireAuth, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const messages = await storage.getAllCommunicationMessages(limit);
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching communication messages:", error);
+      res.status(500).json({ error: "Failed to fetch messages" });
     }
   });
 

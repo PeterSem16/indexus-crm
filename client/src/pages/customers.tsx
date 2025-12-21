@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -38,7 +38,7 @@ import { useCountryFilter } from "@/contexts/country-filter-context";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCountryFlag, getCountryName } from "@/lib/countries";
-import type { Customer, Product, CustomerProduct, Invoice, BillingDetails, CustomerNote, ActivityLog } from "@shared/schema";
+import type { Customer, Product, CustomerProduct, Invoice, BillingDetails, CustomerNote, ActivityLog, CommunicationMessage } from "@shared/schema";
 import {
   Select,
   SelectContent,
@@ -78,6 +78,9 @@ function CustomerDetailsContent({
   const [newLinePrice, setNewLinePrice] = useState<string>("");
   const [selectedPaymentTerm, setSelectedPaymentTerm] = useState<number | null>(null);
   const [newNoteContent, setNewNoteContent] = useState<string>("");
+  const [emailSubject, setEmailSubject] = useState<string>("");
+  const [emailContent, setEmailContent] = useState<string>("");
+  const [smsContent, setSmsContent] = useState<string>("");
 
   const { data: products = [] } = useQuery<Product[]>({
     queryKey: ["/api/products"],
@@ -125,6 +128,15 @@ function CustomerDetailsContent({
       const res = await fetch(`/api/billing-details/${customer.country}`, { credentials: "include" });
       if (res.status === 404) return null;
       if (!res.ok) throw new Error("Failed to fetch billing details");
+      return res.json();
+    },
+  });
+
+  const { data: communicationMessages = [], isLoading: messagesLoading } = useQuery<CommunicationMessage[]>({
+    queryKey: ["/api/customers", customer.id, "messages"],
+    queryFn: async () => {
+      const res = await fetch(`/api/customers/${customer.id}/messages`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch messages");
       return res.json();
     },
   });
@@ -198,9 +210,60 @@ function CustomerDetailsContent({
     },
   });
 
+  const sendEmailMutation = useMutation({
+    mutationFn: (data: { subject: string; content: string }) =>
+      apiRequest("POST", `/api/customers/${customer.id}/messages/email`, data),
+    onSuccess: (response: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customers", customer.id, "messages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/customers", customer.id, "activity-logs"] });
+      setEmailSubject("");
+      setEmailContent("");
+      const message = response.simulated 
+        ? "Email queued (demo mode - configure SendGrid for actual delivery)" 
+        : "Email sent successfully";
+      toast({ title: message });
+    },
+    onError: () => {
+      toast({ title: "Failed to send email", variant: "destructive" });
+    },
+  });
+
+  const sendSmsMutation = useMutation({
+    mutationFn: (data: { content: string }) =>
+      apiRequest("POST", `/api/customers/${customer.id}/messages/sms`, data),
+    onSuccess: (response: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customers", customer.id, "messages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/customers", customer.id, "activity-logs"] });
+      setSmsContent("");
+      const message = response.simulated 
+        ? "SMS queued (demo mode - configure Twilio for actual delivery)" 
+        : "SMS sent successfully";
+      toast({ title: message });
+    },
+    onError: () => {
+      toast({ title: "Failed to send SMS", variant: "destructive" });
+    },
+  });
+
   const handleAddNote = () => {
     if (!newNoteContent.trim()) return;
     createNoteMutation.mutate(newNoteContent.trim());
+  };
+
+  const handleSendEmail = () => {
+    if (!emailSubject.trim() || !emailContent.trim()) {
+      toast({ title: "Please enter subject and message", variant: "destructive" });
+      return;
+    }
+    sendEmailMutation.mutate({ subject: emailSubject.trim(), content: emailContent.trim() });
+  };
+
+  const handleSendSms = () => {
+    if (!smsContent.trim()) {
+      toast({ title: "Please enter a message", variant: "destructive" });
+      return;
+    }
+    sendSmsMutation.mutate({ content: smsContent.trim() });
   };
 
   const handleAddInvoiceLine = () => {
@@ -331,10 +394,14 @@ function CustomerDetailsContent({
       <Separator />
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview" data-testid="tab-overview">
             <Package className="h-4 w-4 mr-2" />
             Overview
+          </TabsTrigger>
+          <TabsTrigger value="communicate" data-testid="tab-communicate">
+            <Mail className="h-4 w-4 mr-2" />
+            Contact
           </TabsTrigger>
           <TabsTrigger value="notes" data-testid="tab-notes">
             <MessageSquare className="h-4 w-4 mr-2" />
@@ -475,6 +542,125 @@ function CustomerDetailsContent({
                     >
                       <Download className="h-4 w-4" />
                     </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="communicate" className="space-y-6 mt-4">
+          <div className="space-y-4">
+            <h4 className="font-semibold flex items-center gap-2">
+              <Mail className="h-4 w-4" />
+              Send Email
+            </h4>
+            <div className="space-y-3">
+              <div>
+                <Label className="text-xs">To</Label>
+                <Input value={customer.email} disabled className="bg-muted" data-testid="input-email-to" />
+              </div>
+              <div>
+                <Label className="text-xs">Subject</Label>
+                <Input
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  placeholder="Email subject..."
+                  data-testid="input-email-subject"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Message</Label>
+                <Textarea
+                  value={emailContent}
+                  onChange={(e) => setEmailContent(e.target.value)}
+                  placeholder="Write your email message..."
+                  className="min-h-[100px]"
+                  data-testid="input-email-content"
+                />
+              </div>
+              <div className="flex justify-end">
+                <Button
+                  onClick={handleSendEmail}
+                  disabled={!emailSubject.trim() || !emailContent.trim() || sendEmailMutation.isPending}
+                  data-testid="button-send-email"
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  {sendEmailMutation.isPending ? "Sending..." : "Send Email"}
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className="space-y-4">
+            <h4 className="font-semibold flex items-center gap-2">
+              <Phone className="h-4 w-4" />
+              Send SMS
+            </h4>
+            {customer.phone ? (
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-xs">To</Label>
+                  <Input value={customer.phone} disabled className="bg-muted" data-testid="input-sms-to" />
+                </div>
+                <div>
+                  <Label className="text-xs">Message</Label>
+                  <Textarea
+                    value={smsContent}
+                    onChange={(e) => setSmsContent(e.target.value)}
+                    placeholder="Write your SMS message..."
+                    className="min-h-[80px]"
+                    maxLength={160}
+                    data-testid="input-sms-content"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">{smsContent.length}/160 characters</p>
+                </div>
+                <div className="flex justify-end">
+                  <Button
+                    onClick={handleSendSms}
+                    disabled={!smsContent.trim() || sendSmsMutation.isPending}
+                    data-testid="button-send-sms"
+                  >
+                    <Send className="h-4 w-4 mr-2" />
+                    {sendSmsMutation.isPending ? "Sending..." : "Send SMS"}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No phone number on file for this customer.</p>
+            )}
+          </div>
+
+          <Separator />
+
+          <div className="space-y-4">
+            <h4 className="font-semibold">Message History</h4>
+            {messagesLoading ? (
+              <p className="text-sm text-muted-foreground">Loading messages...</p>
+            ) : communicationMessages.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No messages sent yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {communicationMessages.map((msg) => (
+                  <div key={msg.id} className="p-3 rounded-lg bg-muted/50 space-y-1" data-testid={`message-item-${msg.id}`}>
+                    <div className="flex items-center gap-2">
+                      {msg.type === "email" ? (
+                        <Mail className="h-4 w-4 text-primary" />
+                      ) : (
+                        <Phone className="h-4 w-4 text-primary" />
+                      )}
+                      <span className="text-sm font-medium capitalize" data-testid={`message-type-${msg.id}`}>{msg.type}</span>
+                      <Badge variant={msg.status === "sent" ? "default" : msg.status === "failed" ? "destructive" : "secondary"} className="text-xs" data-testid={`message-status-${msg.id}`}>
+                        {msg.status}
+                      </Badge>
+                    </div>
+                    {msg.subject && <p className="text-sm font-medium" data-testid={`message-subject-${msg.id}`}>{msg.subject}</p>}
+                    <p className="text-sm text-muted-foreground line-clamp-2" data-testid={`message-content-${msg.id}`}>{msg.content}</p>
+                    <p className="text-xs text-muted-foreground" data-testid={`message-date-${msg.id}`}>
+                      {format(new Date(msg.createdAt), "MMM dd, yyyy HH:mm")}
+                    </p>
                   </div>
                 ))}
               </div>

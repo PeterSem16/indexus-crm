@@ -1,6 +1,6 @@
 import { 
   users, customers, products, customerProducts, invoices, billingDetails, invoiceItems,
-  customerNotes, activityLogs,
+  customerNotes, activityLogs, communicationMessages,
   type User, type InsertUser, type UpdateUser, type SafeUser,
   type Customer, type InsertCustomer,
   type Product, type InsertProduct,
@@ -9,7 +9,8 @@ import {
   type BillingDetails, type InsertBillingDetails,
   type InvoiceItem, type InsertInvoiceItem,
   type CustomerNote, type InsertCustomerNote,
-  type ActivityLog, type InsertActivityLog
+  type ActivityLog, type InsertActivityLog,
+  type CommunicationMessage, type InsertCommunicationMessage
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, inArray, sql, desc } from "drizzle-orm";
@@ -82,6 +83,12 @@ export interface IStorage {
   getActivityLogsByUser(userId: string, limit?: number): Promise<ActivityLog[]>;
   getActivityLogsByEntity(entityType: string, entityId: string): Promise<ActivityLog[]>;
   getAllActivityLogs(limit?: number): Promise<ActivityLog[]>;
+
+  // Communication Messages
+  createCommunicationMessage(message: InsertCommunicationMessage): Promise<CommunicationMessage>;
+  updateCommunicationMessage(id: string, data: Partial<CommunicationMessage>): Promise<CommunicationMessage | undefined>;
+  getCommunicationMessagesByCustomer(customerId: string): Promise<CommunicationMessage[]>;
+  getAllCommunicationMessages(limit?: number): Promise<CommunicationMessage[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -361,6 +368,33 @@ export class DatabaseStorage implements IStorage {
   async getAllActivityLogs(limit: number = 100): Promise<ActivityLog[]> {
     return db.select().from(activityLogs)
       .orderBy(desc(activityLogs.createdAt))
+      .limit(limit);
+  }
+
+  // Communication Messages
+  async createCommunicationMessage(message: InsertCommunicationMessage): Promise<CommunicationMessage> {
+    const [created] = await db.insert(communicationMessages).values(message).returning();
+    return created;
+  }
+
+  async updateCommunicationMessage(id: string, data: Partial<CommunicationMessage>): Promise<CommunicationMessage | undefined> {
+    const [updated] = await db
+      .update(communicationMessages)
+      .set(data)
+      .where(eq(communicationMessages.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async getCommunicationMessagesByCustomer(customerId: string): Promise<CommunicationMessage[]> {
+    return db.select().from(communicationMessages)
+      .where(eq(communicationMessages.customerId, customerId))
+      .orderBy(desc(communicationMessages.createdAt));
+  }
+
+  async getAllCommunicationMessages(limit: number = 100): Promise<CommunicationMessage[]> {
+    return db.select().from(communicationMessages)
+      .orderBy(desc(communicationMessages.createdAt))
       .limit(limit);
   }
 }

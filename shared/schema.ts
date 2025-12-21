@@ -133,6 +133,22 @@ export const customerNotes = pgTable("customer_notes", {
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
+// Communication messages - tracks emails and SMS sent to customers
+export const communicationMessages = pgTable("communication_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull(),
+  userId: varchar("user_id").notNull(), // who sent the message
+  type: text("type").notNull(), // email, sms
+  subject: text("subject"), // for emails
+  content: text("content").notNull(),
+  recipientEmail: text("recipient_email"),
+  recipientPhone: text("recipient_phone"),
+  status: text("status").notNull().default("pending"), // pending, sent, failed
+  errorMessage: text("error_message"),
+  sentAt: timestamp("sent_at"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
 // Activity logs - tracks all user actions in the system
 export const activityLogs = pgTable("activity_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -175,6 +191,17 @@ export const customerNotesRelations = relations(customerNotes, ({ one }) => ({
 export const activityLogsRelations = relations(activityLogs, ({ one }) => ({
   user: one(users, {
     fields: [activityLogs.userId],
+    references: [users.id],
+  }),
+}));
+
+export const communicationMessagesRelations = relations(communicationMessages, ({ one }) => ({
+  customer: one(customers, {
+    fields: [communicationMessages.customerId],
+    references: [customers.id],
+  }),
+  user: one(users, {
+    fields: [communicationMessages.userId],
     references: [users.id],
   }),
 }));
@@ -342,6 +369,30 @@ export const insertActivityLogSchema = createInsertSchema(activityLogs).omit({
   ipAddress: z.string().optional().nullable(),
 });
 
+// Communication message schemas
+export const insertCommunicationMessageSchema = createInsertSchema(communicationMessages).omit({
+  id: true,
+  createdAt: true,
+  sentAt: true,
+}).extend({
+  subject: z.string().optional().nullable(),
+  recipientEmail: z.string().optional().nullable(),
+  recipientPhone: z.string().optional().nullable(),
+  status: z.string().optional().default("pending"),
+  errorMessage: z.string().optional().nullable(),
+});
+
+// Schema for sending email
+export const sendEmailSchema = z.object({
+  subject: z.string().min(1, "Subject is required"),
+  content: z.string().min(1, "Message content is required"),
+});
+
+// Schema for sending SMS
+export const sendSmsSchema = z.object({
+  content: z.string().min(1, "Message content is required").max(160, "SMS must be 160 characters or less"),
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type UpdateUser = z.infer<typeof updateUserSchema>;
@@ -364,3 +415,5 @@ export type InsertCustomerNote = z.infer<typeof insertCustomerNoteSchema>;
 export type CustomerNote = typeof customerNotes.$inferSelect;
 export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
 export type ActivityLog = typeof activityLogs.$inferSelect;
+export type InsertCommunicationMessage = z.infer<typeof insertCommunicationMessageSchema>;
+export type CommunicationMessage = typeof communicationMessages.$inferSelect;
