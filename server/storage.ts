@@ -1,15 +1,18 @@
 import { 
   users, customers, products, customerProducts, invoices, billingDetails, invoiceItems,
+  customerNotes, activityLogs,
   type User, type InsertUser, type UpdateUser, type SafeUser,
   type Customer, type InsertCustomer,
   type Product, type InsertProduct,
   type CustomerProduct, type InsertCustomerProduct,
   type Invoice, type InsertInvoice,
   type BillingDetails, type InsertBillingDetails,
-  type InvoiceItem, type InsertInvoiceItem
+  type InvoiceItem, type InsertInvoiceItem,
+  type CustomerNote, type InsertCustomerNote,
+  type ActivityLog, type InsertActivityLog
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, inArray, sql } from "drizzle-orm";
+import { eq, inArray, sql, desc } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
 const SALT_ROUNDS = 10;
@@ -68,6 +71,17 @@ export interface IStorage {
   getInvoiceItems(invoiceId: string): Promise<InvoiceItem[]>;
   createInvoiceItem(item: InsertInvoiceItem): Promise<InvoiceItem>;
   createInvoiceItems(items: InsertInvoiceItem[]): Promise<InvoiceItem[]>;
+
+  // Customer Notes
+  getCustomerNotes(customerId: string): Promise<CustomerNote[]>;
+  createCustomerNote(note: InsertCustomerNote): Promise<CustomerNote>;
+  deleteCustomerNote(id: string): Promise<boolean>;
+
+  // Activity Logs
+  createActivityLog(log: InsertActivityLog): Promise<ActivityLog>;
+  getActivityLogsByUser(userId: string, limit?: number): Promise<ActivityLog[]>;
+  getActivityLogsByEntity(entityType: string, entityId: string): Promise<ActivityLog[]>;
+  getAllActivityLogs(limit?: number): Promise<ActivityLog[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -306,6 +320,48 @@ export class DatabaseStorage implements IStorage {
   async createInvoiceItems(items: InsertInvoiceItem[]): Promise<InvoiceItem[]> {
     if (items.length === 0) return [];
     return db.insert(invoiceItems).values(items).returning();
+  }
+
+  // Customer Notes
+  async getCustomerNotes(customerId: string): Promise<CustomerNote[]> {
+    return db.select().from(customerNotes)
+      .where(eq(customerNotes.customerId, customerId))
+      .orderBy(desc(customerNotes.createdAt));
+  }
+
+  async createCustomerNote(note: InsertCustomerNote): Promise<CustomerNote> {
+    const [created] = await db.insert(customerNotes).values(note).returning();
+    return created;
+  }
+
+  async deleteCustomerNote(id: string): Promise<boolean> {
+    const result = await db.delete(customerNotes).where(eq(customerNotes.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Activity Logs
+  async createActivityLog(log: InsertActivityLog): Promise<ActivityLog> {
+    const [created] = await db.insert(activityLogs).values(log).returning();
+    return created;
+  }
+
+  async getActivityLogsByUser(userId: string, limit: number = 100): Promise<ActivityLog[]> {
+    return db.select().from(activityLogs)
+      .where(eq(activityLogs.userId, userId))
+      .orderBy(desc(activityLogs.createdAt))
+      .limit(limit);
+  }
+
+  async getActivityLogsByEntity(entityType: string, entityId: string): Promise<ActivityLog[]> {
+    return db.select().from(activityLogs)
+      .where(sql`${activityLogs.entityType} = ${entityType} AND ${activityLogs.entityId} = ${entityId}`)
+      .orderBy(desc(activityLogs.createdAt));
+  }
+
+  async getAllActivityLogs(limit: number = 100): Promise<ActivityLog[]> {
+    return db.select().from(activityLogs)
+      .orderBy(desc(activityLogs.createdAt))
+      .limit(limit);
   }
 }
 

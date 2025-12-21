@@ -4,7 +4,8 @@ import { storage } from "./storage";
 import { 
   insertUserSchema, insertCustomerSchema, updateUserSchema, loginSchema,
   insertProductSchema, insertCustomerProductSchema, insertBillingDetailsSchema,
-  type SafeUser, type Customer, type Product, type BillingDetails
+  insertCustomerNoteSchema, insertActivityLogSchema,
+  type SafeUser, type Customer, type Product, type BillingDetails, type ActivityLog
 } from "@shared/schema";
 import { z } from "zod";
 import session from "express-session";
@@ -20,6 +21,31 @@ declare module "express-session" {
 }
 
 const MemoryStoreSession = MemoryStore(session);
+
+// Helper function to log user activities
+async function logActivity(
+  userId: string,
+  action: string,
+  entityType?: string,
+  entityId?: string,
+  entityName?: string,
+  details?: object,
+  ipAddress?: string
+) {
+  try {
+    await storage.createActivityLog({
+      userId,
+      action,
+      entityType: entityType || null,
+      entityId: entityId || null,
+      entityName: entityName || null,
+      details: details ? JSON.stringify(details) : null,
+      ipAddress: ipAddress || null,
+    });
+  } catch (error) {
+    console.error("Failed to log activity:", error);
+  }
+}
 
 export async function registerRoutes(
   httpServer: Server,
@@ -67,6 +93,9 @@ export async function registerRoutes(
       const { passwordHash, ...safeUser } = user;
       req.session.user = safeUser;
       
+      // Log login activity
+      await logActivity(user.id, "login", "user", user.id, user.fullName, undefined, req.ip);
+      
       res.json({ user: safeUser });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -77,7 +106,14 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/auth/logout", (req, res) => {
+  app.post("/api/auth/logout", async (req, res) => {
+    const userId = req.session.user?.id;
+    const userName = req.session.user?.fullName;
+    
+    if (userId) {
+      await logActivity(userId, "logout", "user", userId, userName, undefined, req.ip);
+    }
+    
     req.session.destroy((err) => {
       if (err) {
         return res.status(500).json({ error: "Logout failed" });
@@ -220,6 +256,18 @@ export async function registerRoutes(
     try {
       const validatedData = insertCustomerSchema.parse(req.body);
       const customer = await storage.createCustomer(validatedData);
+      
+      // Log activity
+      await logActivity(
+        req.session.user!.id,
+        "create",
+        "customer",
+        customer.id,
+        `${customer.firstName} ${customer.lastName}`,
+        { country: customer.country },
+        req.ip
+      );
+      
       res.status(201).json(customer);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -239,6 +287,18 @@ export async function registerRoutes(
       if (!customer) {
         return res.status(404).json({ error: "Customer not found" });
       }
+      
+      // Log activity
+      await logActivity(
+        req.session.user!.id,
+        "update",
+        "customer",
+        customer.id,
+        `${customer.firstName} ${customer.lastName}`,
+        { changes: Object.keys(validatedData) },
+        req.ip
+      );
+      
       res.json(customer);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -798,6 +858,99 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching invoice details:", error);
       res.status(500).json({ error: "Failed to fetch invoice details" });
+    }
+  });
+
+  // Customer Notes API
+  app.get("/api/customers/:customerId/notes", requireAuth, async (req, res) => {
+    try {
+      const notes = await storage.getCustomerNotes(req.params.customerId);
+      res.json(notes);
+    } catch (error) {
+      console.error("Error fetching customer notes:", error);
+      res.status(500).json({ error: "Failed to fetch notes" });
+    }
+  });
+
+  app.post("/api/customers/:customerId/notes", requireAuth, async (req, res) => {
+    try {
+      const customer = await storage.getCustomer(req.params.customerId);
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+
+      const { content } = req.body;
+      if (!content || typeof content !== "string") {
+        return res.status(400).json({ error: "Note content is required" });
+      }
+
+      const note = await storage.createCustomerNote({
+        customerId: req.params.customerId,
+        userId: req.session.user!.id,
+        content,
+      });
+
+      // Log activity
+      await logActivity(
+        req.session.user!.id,
+        "create_note",
+        "customer",
+        customer.id,
+        `${customer.firstName} ${customer.lastName}`,
+        { noteId: note.id },
+        req.ip
+      );
+
+      res.status(201).json(note);
+    } catch (error) {
+      console.error("Error creating customer note:", error);
+      res.status(500).json({ error: "Failed to create note" });
+    }
+  });
+
+  app.delete("/api/customers/:customerId/notes/:noteId", requireAuth, async (req, res) => {
+    try {
+      const deleted = await storage.deleteCustomerNote(req.params.noteId);
+      if (!deleted) {
+        return res.status(404).json({ error: "Note not found" });
+      }
+      res.json({ message: "Note deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting customer note:", error);
+      res.status(500).json({ error: "Failed to delete note" });
+    }
+  });
+
+  // Activity Logs API
+  app.get("/api/activity-logs", requireAuth, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const logs = await storage.getAllActivityLogs(limit);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching activity logs:", error);
+      res.status(500).json({ error: "Failed to fetch activity logs" });
+    }
+  });
+
+  app.get("/api/users/:userId/activity-logs", requireAuth, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const logs = await storage.getActivityLogsByUser(req.params.userId, limit);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching user activity logs:", error);
+      res.status(500).json({ error: "Failed to fetch user activity logs" });
+    }
+  });
+
+  app.get("/api/customers/:customerId/activity-logs", requireAuth, async (req, res) => {
+    try {
+      const logs = await storage.getActivityLogsByEntity("customer", req.params.customerId);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching customer activity logs:", error);
+      res.status(500).json({ error: "Failed to fetch customer activity logs" });
     }
   });
 

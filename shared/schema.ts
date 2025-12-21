@@ -124,6 +124,28 @@ export const invoices = pgTable("invoices", {
   billingBankSwift: text("billing_bank_swift"),
 });
 
+// Customer notes - individual notes on customer records
+export const customerNotes = pgTable("customer_notes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull(),
+  userId: varchar("user_id").notNull(), // who created the note
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+// Activity logs - tracks all user actions in the system
+export const activityLogs = pgTable("activity_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  action: text("action").notNull(), // login, logout, create, update, delete, view
+  entityType: text("entity_type"), // customer, product, invoice, user, etc.
+  entityId: varchar("entity_id"),
+  entityName: text("entity_name"), // human-readable name for the entity
+  details: text("details"), // JSON string with additional details
+  ipAddress: text("ip_address"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   customers: many(customers),
@@ -136,6 +158,25 @@ export const customersRelations = relations(customers, ({ one, many }) => ({
   }),
   customerProducts: many(customerProducts),
   invoices: many(invoices),
+  notes: many(customerNotes),
+}));
+
+export const customerNotesRelations = relations(customerNotes, ({ one }) => ({
+  customer: one(customers, {
+    fields: [customerNotes.customerId],
+    references: [customers.id],
+  }),
+  user: one(users, {
+    fields: [customerNotes.userId],
+    references: [users.id],
+  }),
+}));
+
+export const activityLogsRelations = relations(activityLogs, ({ one }) => ({
+  user: one(users, {
+    fields: [activityLogs.userId],
+    references: [users.id],
+  }),
 }));
 
 export const productsRelations = relations(products, ({ many }) => ({
@@ -283,6 +324,24 @@ export const insertInvoiceSchema = createInsertSchema(invoices).omit({
   billingBankSwift: z.string().optional().nullable(),
 });
 
+// Customer notes schemas
+export const insertCustomerNoteSchema = createInsertSchema(customerNotes).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Activity logs schemas
+export const insertActivityLogSchema = createInsertSchema(activityLogs).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  entityType: z.string().optional().nullable(),
+  entityId: z.string().optional().nullable(),
+  entityName: z.string().optional().nullable(),
+  details: z.string().optional().nullable(),
+  ipAddress: z.string().optional().nullable(),
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type UpdateUser = z.infer<typeof updateUserSchema>;
@@ -301,3 +360,7 @@ export type InsertBillingDetails = z.infer<typeof insertBillingDetailsSchema>;
 export type BillingDetails = typeof billingDetails.$inferSelect;
 export type InsertInvoiceItem = z.infer<typeof insertInvoiceItemSchema>;
 export type InvoiceItem = typeof invoiceItems.$inferSelect;
+export type InsertCustomerNote = z.infer<typeof insertCustomerNoteSchema>;
+export type CustomerNote = typeof customerNotes.$inferSelect;
+export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
+export type ActivityLog = typeof activityLogs.$inferSelect;

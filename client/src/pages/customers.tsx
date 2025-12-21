@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -36,7 +38,7 @@ import { useCountryFilter } from "@/contexts/country-filter-context";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCountryFlag, getCountryName } from "@/lib/countries";
-import type { Customer, Product, CustomerProduct, Invoice, BillingDetails } from "@shared/schema";
+import type { Customer, Product, CustomerProduct, Invoice, BillingDetails, CustomerNote, ActivityLog } from "@shared/schema";
 import {
   Select,
   SelectContent,
@@ -75,9 +77,28 @@ function CustomerDetailsContent({
   const [newLineQty, setNewLineQty] = useState<string>("1");
   const [newLinePrice, setNewLinePrice] = useState<string>("");
   const [selectedPaymentTerm, setSelectedPaymentTerm] = useState<number | null>(null);
+  const [newNoteContent, setNewNoteContent] = useState<string>("");
 
   const { data: products = [] } = useQuery<Product[]>({
     queryKey: ["/api/products"],
+  });
+
+  const { data: customerNotes = [], isLoading: notesLoading } = useQuery<CustomerNote[]>({
+    queryKey: ["/api/customers", customer.id, "notes"],
+    queryFn: async () => {
+      const res = await fetch(`/api/customers/${customer.id}/notes`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch notes");
+      return res.json();
+    },
+  });
+
+  const { data: activityLogs = [], isLoading: activityLoading } = useQuery<ActivityLog[]>({
+    queryKey: ["/api/customers", customer.id, "activity-logs"],
+    queryFn: async () => {
+      const res = await fetch(`/api/customers/${customer.id}/activity-logs`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch activity logs");
+      return res.json();
+    },
   });
 
   const { data: customerProducts = [], isLoading: productsLoading } = useQuery<CustomerProductWithProduct[]>({
@@ -162,6 +183,25 @@ function CustomerDetailsContent({
       toast({ title: "Failed to create invoice", variant: "destructive" });
     },
   });
+
+  const createNoteMutation = useMutation({
+    mutationFn: (content: string) =>
+      apiRequest("POST", `/api/customers/${customer.id}/notes`, { content }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customers", customer.id, "notes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/customers", customer.id, "activity-logs"] });
+      setNewNoteContent("");
+      toast({ title: "Note added successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to add note", variant: "destructive" });
+    },
+  });
+
+  const handleAddNote = () => {
+    if (!newNoteContent.trim()) return;
+    createNoteMutation.mutate(newNoteContent.trim());
+  };
 
   const handleAddInvoiceLine = () => {
     const product = products.find(p => p.id === newLineProductId);
@@ -290,139 +330,230 @@ function CustomerDetailsContent({
 
       <Separator />
 
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h4 className="font-semibold flex items-center gap-2">
-            <Package className="h-4 w-4" />
-            Assigned Products
-          </h4>
-        </div>
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="overview" data-testid="tab-overview">
+            <Package className="h-4 w-4 mr-2" />
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="notes" data-testid="tab-notes">
+            <MessageSquare className="h-4 w-4 mr-2" />
+            Notes
+          </TabsTrigger>
+          <TabsTrigger value="history" data-testid="tab-history">
+            <History className="h-4 w-4 mr-2" />
+            Activity
+          </TabsTrigger>
+        </TabsList>
 
-        {productsLoading ? (
-          <p className="text-sm text-muted-foreground">Loading products...</p>
-        ) : customerProducts.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No products assigned yet.</p>
-        ) : (
-          <div className="space-y-2">
-            {customerProducts.map((cp) => (
-              <div 
-                key={cp.id} 
-                className="flex items-center justify-between p-2 rounded-md bg-muted/50"
-              >
+        <TabsContent value="overview" className="space-y-6 mt-4">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="font-semibold flex items-center gap-2">
+                <Package className="h-4 w-4" />
+                Assigned Products
+              </h4>
+            </div>
+
+            {productsLoading ? (
+              <p className="text-sm text-muted-foreground">Loading products...</p>
+            ) : customerProducts.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No products assigned yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {customerProducts.map((cp) => (
+                  <div 
+                    key={cp.id} 
+                    className="flex items-center justify-between p-2 rounded-md bg-muted/50"
+                  >
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">{cp.product.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {cp.quantity} x {parseFloat(cp.priceOverride || cp.product.price).toFixed(2)} {cp.product.currency}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeProductMutation.mutate(cp.id)}
+                      disabled={removeProductMutation.isPending}
+                      data-testid={`button-remove-product-${cp.id}`}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {availableProducts.length > 0 && (
+              <div className="flex items-end gap-2">
                 <div className="flex-1">
-                  <p className="font-medium text-sm">{cp.product.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {cp.quantity} x {parseFloat(cp.priceOverride || cp.product.price).toFixed(2)} {cp.product.currency}
-                  </p>
+                  <Label className="text-xs">Add Product</Label>
+                  <Select value={selectedProductId} onValueChange={setSelectedProductId}>
+                    <SelectTrigger data-testid="select-add-product">
+                      <SelectValue placeholder="Select product" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableProducts.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name} - {parseFloat(p.price).toFixed(2)} {p.currency}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="w-20">
+                  <Label className="text-xs">Qty</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                    data-testid="input-product-quantity"
+                  />
                 </div>
                 <Button
-                  variant="ghost"
                   size="icon"
-                  onClick={() => removeProductMutation.mutate(cp.id)}
-                  disabled={removeProductMutation.isPending}
-                  data-testid={`button-remove-product-${cp.id}`}
+                  onClick={() => {
+                    const qty = parseInt(quantity) || 0;
+                    if (selectedProductId && qty > 0) {
+                      addProductMutation.mutate({ productId: selectedProductId, quantity: qty });
+                    } else {
+                      toast({ title: "Please select a product and enter a valid quantity", variant: "destructive" });
+                    }
+                  }}
+                  disabled={!selectedProductId || !quantity || parseInt(quantity) < 1 || addProductMutation.isPending}
+                  data-testid="button-add-product-to-customer"
                 >
-                  <Trash2 className="h-4 w-4 text-destructive" />
+                  <Plus className="h-4 w-4" />
                 </Button>
               </div>
-            ))}
+            )}
           </div>
-        )}
 
-        {availableProducts.length > 0 && (
-          <div className="flex items-end gap-2">
-            <div className="flex-1">
-              <Label className="text-xs">Add Product</Label>
-              <Select value={selectedProductId} onValueChange={setSelectedProductId}>
-                <SelectTrigger data-testid="select-add-product">
-                  <SelectValue placeholder="Select product" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableProducts.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name} - {parseFloat(p.price).toFixed(2)} {p.currency}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <Separator />
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <h4 className="font-semibold flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Invoices
+              </h4>
+              <Button
+                size="sm"
+                onClick={() => setIsManualInvoiceOpen(true)}
+                data-testid="button-create-invoice"
+              >
+                <Calculator className="h-4 w-4 mr-2" />
+                Create Invoice
+              </Button>
             </div>
-            <div className="w-20">
-              <Label className="text-xs">Qty</Label>
-              <Input
-                type="number"
-                min={1}
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                data-testid="input-product-quantity"
+
+            {invoicesLoading ? (
+              <p className="text-sm text-muted-foreground">Loading invoices...</p>
+            ) : customerInvoices.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No invoices generated yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {customerInvoices.map((inv) => (
+                  <div 
+                    key={inv.id} 
+                    className="flex items-center justify-between p-2 rounded-md bg-muted/50"
+                  >
+                    <div>
+                      <p className="font-medium text-sm">{inv.invoiceNumber}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {format(new Date(inv.generatedAt), "MMM dd, yyyy")} - {parseFloat(inv.totalAmount).toFixed(2)} {inv.currency}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDownloadPdf(inv.id, inv.invoiceNumber)}
+                      data-testid={`button-download-invoice-${inv.id}`}
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="notes" className="space-y-4 mt-4">
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <Textarea
+                placeholder="Add a note about this customer..."
+                value={newNoteContent}
+                onChange={(e) => setNewNoteContent(e.target.value)}
+                className="min-h-[80px]"
+                data-testid="input-customer-note"
               />
             </div>
-            <Button
-              size="icon"
-              onClick={() => {
-                const qty = parseInt(quantity) || 0;
-                if (selectedProductId && qty > 0) {
-                  addProductMutation.mutate({ productId: selectedProductId, quantity: qty });
-                } else {
-                  toast({ title: "Please select a product and enter a valid quantity", variant: "destructive" });
-                }
-              }}
-              disabled={!selectedProductId || !quantity || parseInt(quantity) < 1 || addProductMutation.isPending}
-              data-testid="button-add-product-to-customer"
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
-        )}
-      </div>
-
-      <Separator />
-
-      <div className="space-y-4">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <h4 className="font-semibold flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            Invoices
-          </h4>
-          <Button
-            size="sm"
-            onClick={() => setIsManualInvoiceOpen(true)}
-            data-testid="button-create-invoice"
-          >
-            <Calculator className="h-4 w-4 mr-2" />
-            Create Invoice
-          </Button>
-        </div>
-
-        {invoicesLoading ? (
-          <p className="text-sm text-muted-foreground">Loading invoices...</p>
-        ) : customerInvoices.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No invoices generated yet.</p>
-        ) : (
-          <div className="space-y-2">
-            {customerInvoices.map((inv) => (
-              <div 
-                key={inv.id} 
-                className="flex items-center justify-between p-2 rounded-md bg-muted/50"
+            <div className="flex justify-end">
+              <Button
+                onClick={handleAddNote}
+                disabled={!newNoteContent.trim() || createNoteMutation.isPending}
+                data-testid="button-add-note"
               >
-                <div>
-                  <p className="font-medium text-sm">{inv.invoiceNumber}</p>
+                <Send className="h-4 w-4 mr-2" />
+                {createNoteMutation.isPending ? "Adding..." : "Add Note"}
+              </Button>
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className="space-y-3">
+            {notesLoading ? (
+              <p className="text-sm text-muted-foreground">Loading notes...</p>
+            ) : customerNotes.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No notes yet.</p>
+            ) : (
+              customerNotes.map((note) => (
+                <div key={note.id} className="p-3 rounded-lg bg-muted/50 space-y-1">
+                  <p className="text-sm">{note.content}</p>
                   <p className="text-xs text-muted-foreground">
-                    {format(new Date(inv.generatedAt), "MMM dd, yyyy")} - {parseFloat(inv.totalAmount).toFixed(2)} {inv.currency}
+                    {format(new Date(note.createdAt), "MMM dd, yyyy HH:mm")}
                   </p>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleDownloadPdf(inv.id, inv.invoiceNumber)}
-                  data-testid={`button-download-invoice-${inv.id}`}
-                >
-                  <Download className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
+              ))
+            )}
           </div>
-        )}
-      </div>
+        </TabsContent>
+
+        <TabsContent value="history" className="space-y-4 mt-4">
+          <div className="space-y-3">
+            {activityLoading ? (
+              <p className="text-sm text-muted-foreground">Loading activity...</p>
+            ) : activityLogs.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No activity recorded yet.</p>
+            ) : (
+              activityLogs.map((log) => (
+                <div key={log.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+                  <div className="flex-shrink-0 w-2 h-2 mt-2 rounded-full bg-primary" />
+                  <div className="flex-1 space-y-1">
+                    <p className="text-sm font-medium capitalize">
+                      {log.action.replace("_", " ")}
+                    </p>
+                    {log.details && (
+                      <p className="text-xs text-muted-foreground">
+                        {JSON.parse(log.details).changes?.join(", ") || log.details}
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      {format(new Date(log.createdAt), "MMM dd, yyyy HH:mm")}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
 
       <Separator />
 
