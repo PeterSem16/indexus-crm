@@ -173,6 +173,35 @@ export const healthInsuranceCompanies = pgTable("health_insurance_companies", {
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
+// Laboratories - configurable per country in settings
+export const laboratories = pgTable("laboratories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  countryCode: text("country_code").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+// Hospitals - main hospital management module
+export const hospitals = pgTable("hospitals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  isActive: boolean("is_active").notNull().default(true), // Aktívna nemocnica
+  name: text("name").notNull(), // Meno
+  fullName: text("full_name"), // Plné meno
+  streetNumber: text("street_number"), // Ulica číslo
+  representativeId: varchar("representative_id"), // Reprezentant (FK to users)
+  city: text("city"), // Mesto
+  laboratoryId: varchar("laboratory_id"), // Laboratórium (FK to laboratories)
+  postalCode: text("postal_code"), // PSČ
+  autoRecruiting: boolean("auto_recruiting").notNull().default(false), // Auto recruiting
+  region: text("region"), // Oblasť
+  responsiblePersonId: varchar("responsible_person_id"), // Zodpovedná osoba (FK to users)
+  countryCode: text("country_code").notNull(), // Krajina
+  contactPerson: text("contact_person"), // Kontaktná osoba
+  svetZdravia: boolean("svet_zdravia").notNull().default(false), // Svet zdravia
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
 // Client status types
 export const CLIENT_STATUSES = [
   { value: "potential", label: "Potenciálny klient" },
@@ -550,6 +579,33 @@ export const insertHealthInsuranceSchema = createInsertSchema(healthInsuranceCom
   isActive: z.boolean().optional().default(true),
 });
 
+// Laboratory schemas
+export const insertLaboratorySchema = createInsertSchema(laboratories).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  isActive: z.boolean().optional().default(true),
+});
+
+// Hospital schemas
+export const insertHospitalSchema = createInsertSchema(hospitals).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  isActive: z.boolean().optional().default(true),
+  fullName: z.string().optional().nullable(),
+  streetNumber: z.string().optional().nullable(),
+  representativeId: z.string().optional().nullable(),
+  city: z.string().optional().nullable(),
+  laboratoryId: z.string().optional().nullable(),
+  postalCode: z.string().optional().nullable(),
+  autoRecruiting: z.boolean().optional().default(false),
+  region: z.string().optional().nullable(),
+  responsiblePersonId: z.string().optional().nullable(),
+  contactPerson: z.string().optional().nullable(),
+  svetZdravia: z.boolean().optional().default(false),
+});
+
 // Product schemas
 export const insertProductSchema = createInsertSchema(products).omit({
   id: true,
@@ -692,3 +748,7 @@ export type InsertVipStatus = z.infer<typeof insertVipStatusSchema>;
 export type VipStatus = typeof vipStatuses.$inferSelect;
 export type InsertHealthInsurance = z.infer<typeof insertHealthInsuranceSchema>;
 export type HealthInsurance = typeof healthInsuranceCompanies.$inferSelect;
+export type InsertLaboratory = z.infer<typeof insertLaboratorySchema>;
+export type Laboratory = typeof laboratories.$inferSelect;
+export type InsertHospital = z.infer<typeof insertHospitalSchema>;
+export type Hospital = typeof hospitals.$inferSelect;
