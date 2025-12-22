@@ -3,7 +3,7 @@ import { pgTable, text, varchar, boolean, timestamp, decimal, integer } from "dr
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Country codes for the CRM system
+// Country codes for the CRM system (operating countries)
 export const COUNTRIES = [
   { code: "SK", name: "Slovakia", flag: "🇸🇰" },
   { code: "CZ", name: "Czech Republic", flag: "🇨🇿" },
@@ -12,6 +12,112 @@ export const COUNTRIES = [
   { code: "IT", name: "Italy", flag: "🇮🇹" },
   { code: "DE", name: "Germany", flag: "🇩🇪" },
   { code: "US", name: "USA", flag: "🇺🇸" },
+] as const;
+
+// Global country list for address selection
+export const WORLD_COUNTRIES = [
+  { code: "AF", name: "Afghanistan" },
+  { code: "AL", name: "Albania" },
+  { code: "DZ", name: "Algeria" },
+  { code: "AD", name: "Andorra" },
+  { code: "AO", name: "Angola" },
+  { code: "AR", name: "Argentina" },
+  { code: "AM", name: "Armenia" },
+  { code: "AU", name: "Australia" },
+  { code: "AT", name: "Austria" },
+  { code: "AZ", name: "Azerbaijan" },
+  { code: "BS", name: "Bahamas" },
+  { code: "BH", name: "Bahrain" },
+  { code: "BD", name: "Bangladesh" },
+  { code: "BY", name: "Belarus" },
+  { code: "BE", name: "Belgium" },
+  { code: "BZ", name: "Belize" },
+  { code: "BJ", name: "Benin" },
+  { code: "BT", name: "Bhutan" },
+  { code: "BO", name: "Bolivia" },
+  { code: "BA", name: "Bosnia and Herzegovina" },
+  { code: "BR", name: "Brazil" },
+  { code: "BG", name: "Bulgaria" },
+  { code: "CA", name: "Canada" },
+  { code: "CL", name: "Chile" },
+  { code: "CN", name: "China" },
+  { code: "CO", name: "Colombia" },
+  { code: "HR", name: "Croatia" },
+  { code: "CU", name: "Cuba" },
+  { code: "CY", name: "Cyprus" },
+  { code: "CZ", name: "Czech Republic" },
+  { code: "DK", name: "Denmark" },
+  { code: "EC", name: "Ecuador" },
+  { code: "EG", name: "Egypt" },
+  { code: "EE", name: "Estonia" },
+  { code: "FI", name: "Finland" },
+  { code: "FR", name: "France" },
+  { code: "GE", name: "Georgia" },
+  { code: "DE", name: "Germany" },
+  { code: "GR", name: "Greece" },
+  { code: "HU", name: "Hungary" },
+  { code: "IS", name: "Iceland" },
+  { code: "IN", name: "India" },
+  { code: "ID", name: "Indonesia" },
+  { code: "IR", name: "Iran" },
+  { code: "IQ", name: "Iraq" },
+  { code: "IE", name: "Ireland" },
+  { code: "IL", name: "Israel" },
+  { code: "IT", name: "Italy" },
+  { code: "JP", name: "Japan" },
+  { code: "JO", name: "Jordan" },
+  { code: "KZ", name: "Kazakhstan" },
+  { code: "KE", name: "Kenya" },
+  { code: "KR", name: "South Korea" },
+  { code: "KW", name: "Kuwait" },
+  { code: "LV", name: "Latvia" },
+  { code: "LB", name: "Lebanon" },
+  { code: "LY", name: "Libya" },
+  { code: "LI", name: "Liechtenstein" },
+  { code: "LT", name: "Lithuania" },
+  { code: "LU", name: "Luxembourg" },
+  { code: "MY", name: "Malaysia" },
+  { code: "MT", name: "Malta" },
+  { code: "MX", name: "Mexico" },
+  { code: "MD", name: "Moldova" },
+  { code: "MC", name: "Monaco" },
+  { code: "MN", name: "Mongolia" },
+  { code: "ME", name: "Montenegro" },
+  { code: "MA", name: "Morocco" },
+  { code: "NL", name: "Netherlands" },
+  { code: "NZ", name: "New Zealand" },
+  { code: "NG", name: "Nigeria" },
+  { code: "NO", name: "Norway" },
+  { code: "PK", name: "Pakistan" },
+  { code: "PA", name: "Panama" },
+  { code: "PY", name: "Paraguay" },
+  { code: "PE", name: "Peru" },
+  { code: "PH", name: "Philippines" },
+  { code: "PL", name: "Poland" },
+  { code: "PT", name: "Portugal" },
+  { code: "QA", name: "Qatar" },
+  { code: "RO", name: "Romania" },
+  { code: "RU", name: "Russia" },
+  { code: "SA", name: "Saudi Arabia" },
+  { code: "RS", name: "Serbia" },
+  { code: "SG", name: "Singapore" },
+  { code: "SK", name: "Slovakia" },
+  { code: "SI", name: "Slovenia" },
+  { code: "ZA", name: "South Africa" },
+  { code: "ES", name: "Spain" },
+  { code: "SE", name: "Sweden" },
+  { code: "CH", name: "Switzerland" },
+  { code: "TW", name: "Taiwan" },
+  { code: "TH", name: "Thailand" },
+  { code: "TR", name: "Turkey" },
+  { code: "UA", name: "Ukraine" },
+  { code: "AE", name: "United Arab Emirates" },
+  { code: "GB", name: "United Kingdom" },
+  { code: "US", name: "USA" },
+  { code: "UY", name: "Uruguay" },
+  { code: "UZ", name: "Uzbekistan" },
+  { code: "VE", name: "Venezuela" },
+  { code: "VN", name: "Vietnam" },
 ] as const;
 
 export type CountryCode = typeof COUNTRIES[number]["code"];
@@ -29,16 +135,106 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
-// Customers table - cord blood banking customers
+// Configuration tables for settings
+// Complaint types - configurable in settings
+export const complaintTypes = pgTable("complaint_types", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  countryCode: text("country_code"), // null = global
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+// Cooperation types - configurable in settings
+export const cooperationTypes = pgTable("cooperation_types", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  countryCode: text("country_code"), // null = global
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+// VIP statuses - configurable in settings
+export const vipStatuses = pgTable("vip_statuses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  countryCode: text("country_code"), // null = global
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+// Health insurance companies - configurable per country in settings
+export const healthInsuranceCompanies = pgTable("health_insurance_companies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  code: text("code").notNull(), // insurance company code
+  countryCode: text("country_code").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+// Client status types
+export const CLIENT_STATUSES = [
+  { value: "potential", label: "Potenciálny klient" },
+  { value: "acquired", label: "Získaný klient" },
+  { value: "terminated", label: "Ukončený klient" },
+] as const;
+
+export type ClientStatus = typeof CLIENT_STATUSES[number]["value"];
+
+// Customers table - cord blood banking customers (extended)
 export const customers = pgTable("customers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  firstName: text("first_name").notNull(),
-  lastName: text("last_name").notNull(),
-  email: text("email").notNull(),
-  phone: text("phone"),
-  country: text("country").notNull(), // country code
-  city: text("city"),
-  address: text("address"),
+  
+  // Tab Klientka - Personal info
+  titleBefore: text("title_before"), // Titul pred menom
+  firstName: text("first_name").notNull(), // Krstné meno
+  lastName: text("last_name").notNull(), // Priezvisko
+  maidenName: text("maiden_name"), // Rodné meno
+  titleAfter: text("title_after"), // Titul za menom
+  phone: text("phone"), // Telefónne číslo
+  mobile: text("mobile"), // Mobil
+  mobile2: text("mobile_2"), // Mobil 2
+  otherContact: text("other_contact"), // Iný kontakt
+  email: text("email").notNull(), // Email
+  email2: text("email_2"), // Email 2
+  nationalId: text("national_id"), // Rodné číslo
+  idCardNumber: text("id_card_number"), // Číslo občianskeho preukazu
+  dateOfBirth: timestamp("date_of_birth"), // Dátum narodenia
+  newsletter: boolean("newsletter").notNull().default(false), // Obžník
+  
+  // Tab Marketing
+  complaintTypeId: varchar("complaint_type_id"), // FK to complaint_types
+  cooperationTypeId: varchar("cooperation_type_id"), // FK to cooperation_types
+  vipStatusId: varchar("vip_status_id"), // FK to vip_statuses
+  
+  // Tab Adresy - Permanent address
+  country: text("country").notNull(), // Krajina (country code from global list)
+  city: text("city"), // Mesto
+  address: text("address"), // Ulica a číslo
+  postalCode: text("postal_code"), // PSČ
+  region: text("region"), // Oblasť
+  
+  // Correspondence address (if different)
+  useCorrespondenceAddress: boolean("use_correspondence_address").notNull().default(false),
+  corrName: text("corr_name"), // Meno
+  corrAddress: text("corr_address"), // Ulica a číslo domu
+  corrCity: text("corr_city"), // Mesto
+  corrPostalCode: text("corr_postal_code"), // PSČ
+  corrRegion: text("corr_region"), // Oblasť
+  corrCountry: text("corr_country"), // Krajina
+  
+  // Tab Iné - Banking & Health insurance
+  bankAccount: text("bank_account"), // Bankový účet (IBAN)
+  bankCode: text("bank_code"), // Kód banky
+  bankName: text("bank_name"), // Banka
+  bankSwift: text("bank_swift"), // SWIFT kód
+  healthInsuranceId: varchar("health_insurance_id"), // FK to health_insurance_companies
+  
+  // Client status
+  clientStatus: text("client_status").notNull().default("potential"), // potential, acquired, terminated
+  
+  // Legacy/existing fields
   status: text("status").notNull().default("active"), // active, pending, inactive
   serviceType: text("service_type"), // cord_blood, cord_tissue, both
   notes: text("notes"),
@@ -274,13 +470,84 @@ export const insertCustomerSchema = createInsertSchema(customers).omit({
   id: true,
   createdAt: true,
 }).extend({
+  // Personal info
+  titleBefore: z.string().optional().nullable(),
+  maidenName: z.string().optional().nullable(),
+  titleAfter: z.string().optional().nullable(),
   phone: z.string().optional().nullable(),
+  mobile: z.string().optional().nullable(),
+  mobile2: z.string().optional().nullable(),
+  otherContact: z.string().optional().nullable(),
+  email2: z.string().email().optional().nullable().or(z.literal("")),
+  nationalId: z.string().optional().nullable(),
+  idCardNumber: z.string().optional().nullable(),
+  dateOfBirth: z.union([z.date(), z.string()]).optional().nullable().transform((val) => {
+    if (!val) return null;
+    if (typeof val === 'string') return new Date(val);
+    return val;
+  }),
+  newsletter: z.boolean().optional().default(false),
+  // Marketing
+  complaintTypeId: z.string().optional().nullable(),
+  cooperationTypeId: z.string().optional().nullable(),
+  vipStatusId: z.string().optional().nullable(),
+  // Address
   city: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
+  postalCode: z.string().optional().nullable(),
+  region: z.string().optional().nullable(),
+  // Correspondence address
+  useCorrespondenceAddress: z.boolean().optional().default(false),
+  corrName: z.string().optional().nullable(),
+  corrAddress: z.string().optional().nullable(),
+  corrCity: z.string().optional().nullable(),
+  corrPostalCode: z.string().optional().nullable(),
+  corrRegion: z.string().optional().nullable(),
+  corrCountry: z.string().optional().nullable(),
+  // Banking & health
+  bankAccount: z.string().optional().nullable(),
+  bankCode: z.string().optional().nullable(),
+  bankName: z.string().optional().nullable(),
+  bankSwift: z.string().optional().nullable(),
+  healthInsuranceId: z.string().optional().nullable(),
+  // Status
+  clientStatus: z.string().optional().default("potential"),
   status: z.string().optional().default("pending"),
   serviceType: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
   assignedUserId: z.string().optional().nullable(),
+});
+
+// Configuration table schemas
+export const insertComplaintTypeSchema = createInsertSchema(complaintTypes).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  countryCode: z.string().optional().nullable(),
+  isActive: z.boolean().optional().default(true),
+});
+
+export const insertCooperationTypeSchema = createInsertSchema(cooperationTypes).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  countryCode: z.string().optional().nullable(),
+  isActive: z.boolean().optional().default(true),
+});
+
+export const insertVipStatusSchema = createInsertSchema(vipStatuses).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  countryCode: z.string().optional().nullable(),
+  isActive: z.boolean().optional().default(true),
+});
+
+export const insertHealthInsuranceSchema = createInsertSchema(healthInsuranceCompanies).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  isActive: z.boolean().optional().default(true),
 });
 
 // Product schemas
@@ -417,3 +684,11 @@ export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
 export type ActivityLog = typeof activityLogs.$inferSelect;
 export type InsertCommunicationMessage = z.infer<typeof insertCommunicationMessageSchema>;
 export type CommunicationMessage = typeof communicationMessages.$inferSelect;
+export type InsertComplaintType = z.infer<typeof insertComplaintTypeSchema>;
+export type ComplaintType = typeof complaintTypes.$inferSelect;
+export type InsertCooperationType = z.infer<typeof insertCooperationTypeSchema>;
+export type CooperationType = typeof cooperationTypes.$inferSelect;
+export type InsertVipStatus = z.infer<typeof insertVipStatusSchema>;
+export type VipStatus = typeof vipStatuses.$inferSelect;
+export type InsertHealthInsurance = z.infer<typeof insertHealthInsuranceSchema>;
+export type HealthInsurance = typeof healthInsuranceCompanies.$inferSelect;

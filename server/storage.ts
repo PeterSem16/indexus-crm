@@ -1,6 +1,7 @@
 import { 
   users, customers, products, customerProducts, invoices, billingDetails, invoiceItems,
   customerNotes, activityLogs, communicationMessages,
+  complaintTypes, cooperationTypes, vipStatuses, healthInsuranceCompanies,
   type User, type InsertUser, type UpdateUser, type SafeUser,
   type Customer, type InsertCustomer,
   type Product, type InsertProduct,
@@ -10,7 +11,11 @@ import {
   type InvoiceItem, type InsertInvoiceItem,
   type CustomerNote, type InsertCustomerNote,
   type ActivityLog, type InsertActivityLog,
-  type CommunicationMessage, type InsertCommunicationMessage
+  type CommunicationMessage, type InsertCommunicationMessage,
+  type ComplaintType, type InsertComplaintType,
+  type CooperationType, type InsertCooperationType,
+  type VipStatus, type InsertVipStatus,
+  type HealthInsurance, type InsertHealthInsurance
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, inArray, sql, desc } from "drizzle-orm";
@@ -89,6 +94,34 @@ export interface IStorage {
   updateCommunicationMessage(id: string, data: Partial<CommunicationMessage>): Promise<CommunicationMessage | undefined>;
   getCommunicationMessagesByCustomer(customerId: string): Promise<CommunicationMessage[]>;
   getAllCommunicationMessages(limit?: number): Promise<CommunicationMessage[]>;
+
+  // Complaint Types
+  getAllComplaintTypes(): Promise<ComplaintType[]>;
+  getComplaintTypesByCountry(countryCode: string | null): Promise<ComplaintType[]>;
+  createComplaintType(data: InsertComplaintType): Promise<ComplaintType>;
+  updateComplaintType(id: string, data: Partial<InsertComplaintType>): Promise<ComplaintType | undefined>;
+  deleteComplaintType(id: string): Promise<boolean>;
+
+  // Cooperation Types
+  getAllCooperationTypes(): Promise<CooperationType[]>;
+  getCooperationTypesByCountry(countryCode: string | null): Promise<CooperationType[]>;
+  createCooperationType(data: InsertCooperationType): Promise<CooperationType>;
+  updateCooperationType(id: string, data: Partial<InsertCooperationType>): Promise<CooperationType | undefined>;
+  deleteCooperationType(id: string): Promise<boolean>;
+
+  // VIP Statuses
+  getAllVipStatuses(): Promise<VipStatus[]>;
+  getVipStatusesByCountry(countryCode: string | null): Promise<VipStatus[]>;
+  createVipStatus(data: InsertVipStatus): Promise<VipStatus>;
+  updateVipStatus(id: string, data: Partial<InsertVipStatus>): Promise<VipStatus | undefined>;
+  deleteVipStatus(id: string): Promise<boolean>;
+
+  // Health Insurance Companies
+  getAllHealthInsuranceCompanies(): Promise<HealthInsurance[]>;
+  getHealthInsuranceByCountry(countryCode: string): Promise<HealthInsurance[]>;
+  createHealthInsurance(data: InsertHealthInsurance): Promise<HealthInsurance>;
+  updateHealthInsurance(id: string, data: Partial<InsertHealthInsurance>): Promise<HealthInsurance | undefined>;
+  deleteHealthInsurance(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -396,6 +429,125 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(communicationMessages)
       .orderBy(desc(communicationMessages.createdAt))
       .limit(limit);
+  }
+
+  // Complaint Types
+  async getAllComplaintTypes(): Promise<ComplaintType[]> {
+    return db.select().from(complaintTypes).orderBy(complaintTypes.name);
+  }
+
+  async getComplaintTypesByCountry(countryCode: string | null): Promise<ComplaintType[]> {
+    if (countryCode === null) {
+      return db.select().from(complaintTypes)
+        .where(sql`${complaintTypes.countryCode} IS NULL`)
+        .orderBy(complaintTypes.name);
+    }
+    return db.select().from(complaintTypes)
+      .where(sql`${complaintTypes.countryCode} = ${countryCode} OR ${complaintTypes.countryCode} IS NULL`)
+      .orderBy(complaintTypes.name);
+  }
+
+  async createComplaintType(data: InsertComplaintType): Promise<ComplaintType> {
+    const [created] = await db.insert(complaintTypes).values(data).returning();
+    return created;
+  }
+
+  async updateComplaintType(id: string, data: Partial<InsertComplaintType>): Promise<ComplaintType | undefined> {
+    const [updated] = await db.update(complaintTypes).set(data).where(eq(complaintTypes.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteComplaintType(id: string): Promise<boolean> {
+    const result = await db.delete(complaintTypes).where(eq(complaintTypes.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Cooperation Types
+  async getAllCooperationTypes(): Promise<CooperationType[]> {
+    return db.select().from(cooperationTypes).orderBy(cooperationTypes.name);
+  }
+
+  async getCooperationTypesByCountry(countryCode: string | null): Promise<CooperationType[]> {
+    if (countryCode === null) {
+      return db.select().from(cooperationTypes)
+        .where(sql`${cooperationTypes.countryCode} IS NULL`)
+        .orderBy(cooperationTypes.name);
+    }
+    return db.select().from(cooperationTypes)
+      .where(sql`${cooperationTypes.countryCode} = ${countryCode} OR ${cooperationTypes.countryCode} IS NULL`)
+      .orderBy(cooperationTypes.name);
+  }
+
+  async createCooperationType(data: InsertCooperationType): Promise<CooperationType> {
+    const [created] = await db.insert(cooperationTypes).values(data).returning();
+    return created;
+  }
+
+  async updateCooperationType(id: string, data: Partial<InsertCooperationType>): Promise<CooperationType | undefined> {
+    const [updated] = await db.update(cooperationTypes).set(data).where(eq(cooperationTypes.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteCooperationType(id: string): Promise<boolean> {
+    const result = await db.delete(cooperationTypes).where(eq(cooperationTypes.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // VIP Statuses
+  async getAllVipStatuses(): Promise<VipStatus[]> {
+    return db.select().from(vipStatuses).orderBy(vipStatuses.name);
+  }
+
+  async getVipStatusesByCountry(countryCode: string | null): Promise<VipStatus[]> {
+    if (countryCode === null) {
+      return db.select().from(vipStatuses)
+        .where(sql`${vipStatuses.countryCode} IS NULL`)
+        .orderBy(vipStatuses.name);
+    }
+    return db.select().from(vipStatuses)
+      .where(sql`${vipStatuses.countryCode} = ${countryCode} OR ${vipStatuses.countryCode} IS NULL`)
+      .orderBy(vipStatuses.name);
+  }
+
+  async createVipStatus(data: InsertVipStatus): Promise<VipStatus> {
+    const [created] = await db.insert(vipStatuses).values(data).returning();
+    return created;
+  }
+
+  async updateVipStatus(id: string, data: Partial<InsertVipStatus>): Promise<VipStatus | undefined> {
+    const [updated] = await db.update(vipStatuses).set(data).where(eq(vipStatuses.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteVipStatus(id: string): Promise<boolean> {
+    const result = await db.delete(vipStatuses).where(eq(vipStatuses.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Health Insurance Companies
+  async getAllHealthInsuranceCompanies(): Promise<HealthInsurance[]> {
+    return db.select().from(healthInsuranceCompanies).orderBy(healthInsuranceCompanies.name);
+  }
+
+  async getHealthInsuranceByCountry(countryCode: string): Promise<HealthInsurance[]> {
+    return db.select().from(healthInsuranceCompanies)
+      .where(eq(healthInsuranceCompanies.countryCode, countryCode))
+      .orderBy(healthInsuranceCompanies.name);
+  }
+
+  async createHealthInsurance(data: InsertHealthInsurance): Promise<HealthInsurance> {
+    const [created] = await db.insert(healthInsuranceCompanies).values(data).returning();
+    return created;
+  }
+
+  async updateHealthInsurance(id: string, data: Partial<InsertHealthInsurance>): Promise<HealthInsurance | undefined> {
+    const [updated] = await db.update(healthInsuranceCompanies).set(data).where(eq(healthInsuranceCompanies.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteHealthInsurance(id: string): Promise<boolean> {
+    const result = await db.delete(healthInsuranceCompanies).where(eq(healthInsuranceCompanies.id, id)).returning();
+    return result.length > 0;
   }
 }
 

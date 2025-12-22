@@ -5,6 +5,7 @@ import {
   insertUserSchema, insertCustomerSchema, updateUserSchema, loginSchema,
   insertProductSchema, insertCustomerProductSchema, insertBillingDetailsSchema,
   insertCustomerNoteSchema, insertActivityLogSchema, sendEmailSchema, sendSmsSchema,
+  insertComplaintTypeSchema, insertCooperationTypeSchema, insertVipStatusSchema, insertHealthInsuranceSchema,
   type SafeUser, type Customer, type Product, type BillingDetails, type ActivityLog
 } from "@shared/schema";
 import { z } from "zod";
@@ -1159,6 +1160,204 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching communication messages:", error);
       res.status(500).json({ error: "Failed to fetch messages" });
+    }
+  });
+
+  // ========== CONFIGURATION TABLES ==========
+
+  // Complaint Types
+  app.get("/api/config/complaint-types", requireAuth, async (req, res) => {
+    try {
+      const countryCode = req.query.countryCode as string | undefined;
+      const types = countryCode 
+        ? await storage.getComplaintTypesByCountry(countryCode)
+        : await storage.getAllComplaintTypes();
+      res.json(types);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch complaint types" });
+    }
+  });
+
+  app.post("/api/config/complaint-types", requireAuth, async (req, res) => {
+    try {
+      const parsed = insertComplaintTypeSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid data", details: parsed.error.issues });
+      }
+      const type = await storage.createComplaintType(parsed.data);
+      await logActivity(req.session.user!.id, "create", "complaint_type", type.id, type.name);
+      res.status(201).json(type);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create complaint type" });
+    }
+  });
+
+  app.put("/api/config/complaint-types/:id", requireAuth, async (req, res) => {
+    try {
+      const type = await storage.updateComplaintType(req.params.id, req.body);
+      if (!type) return res.status(404).json({ error: "Complaint type not found" });
+      await logActivity(req.session.user!.id, "update", "complaint_type", type.id, type.name);
+      res.json(type);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update complaint type" });
+    }
+  });
+
+  app.delete("/api/config/complaint-types/:id", requireAuth, async (req, res) => {
+    try {
+      const success = await storage.deleteComplaintType(req.params.id);
+      if (!success) return res.status(404).json({ error: "Complaint type not found" });
+      await logActivity(req.session.user!.id, "delete", "complaint_type", req.params.id, "");
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete complaint type" });
+    }
+  });
+
+  // Cooperation Types
+  app.get("/api/config/cooperation-types", requireAuth, async (req, res) => {
+    try {
+      const countryCode = req.query.countryCode as string | undefined;
+      const types = countryCode 
+        ? await storage.getCooperationTypesByCountry(countryCode)
+        : await storage.getAllCooperationTypes();
+      res.json(types);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch cooperation types" });
+    }
+  });
+
+  app.post("/api/config/cooperation-types", requireAuth, async (req, res) => {
+    try {
+      const parsed = insertCooperationTypeSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid data", details: parsed.error.issues });
+      }
+      const type = await storage.createCooperationType(parsed.data);
+      await logActivity(req.session.user!.id, "create", "cooperation_type", type.id, type.name);
+      res.status(201).json(type);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create cooperation type" });
+    }
+  });
+
+  app.put("/api/config/cooperation-types/:id", requireAuth, async (req, res) => {
+    try {
+      const type = await storage.updateCooperationType(req.params.id, req.body);
+      if (!type) return res.status(404).json({ error: "Cooperation type not found" });
+      await logActivity(req.session.user!.id, "update", "cooperation_type", type.id, type.name);
+      res.json(type);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update cooperation type" });
+    }
+  });
+
+  app.delete("/api/config/cooperation-types/:id", requireAuth, async (req, res) => {
+    try {
+      const success = await storage.deleteCooperationType(req.params.id);
+      if (!success) return res.status(404).json({ error: "Cooperation type not found" });
+      await logActivity(req.session.user!.id, "delete", "cooperation_type", req.params.id, "");
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete cooperation type" });
+    }
+  });
+
+  // VIP Statuses
+  app.get("/api/config/vip-statuses", requireAuth, async (req, res) => {
+    try {
+      const countryCode = req.query.countryCode as string | undefined;
+      const statuses = countryCode 
+        ? await storage.getVipStatusesByCountry(countryCode)
+        : await storage.getAllVipStatuses();
+      res.json(statuses);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch VIP statuses" });
+    }
+  });
+
+  app.post("/api/config/vip-statuses", requireAuth, async (req, res) => {
+    try {
+      const parsed = insertVipStatusSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid data", details: parsed.error.issues });
+      }
+      const status = await storage.createVipStatus(parsed.data);
+      await logActivity(req.session.user!.id, "create", "vip_status", status.id, status.name);
+      res.status(201).json(status);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create VIP status" });
+    }
+  });
+
+  app.put("/api/config/vip-statuses/:id", requireAuth, async (req, res) => {
+    try {
+      const status = await storage.updateVipStatus(req.params.id, req.body);
+      if (!status) return res.status(404).json({ error: "VIP status not found" });
+      await logActivity(req.session.user!.id, "update", "vip_status", status.id, status.name);
+      res.json(status);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update VIP status" });
+    }
+  });
+
+  app.delete("/api/config/vip-statuses/:id", requireAuth, async (req, res) => {
+    try {
+      const success = await storage.deleteVipStatus(req.params.id);
+      if (!success) return res.status(404).json({ error: "VIP status not found" });
+      await logActivity(req.session.user!.id, "delete", "vip_status", req.params.id, "");
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete VIP status" });
+    }
+  });
+
+  // Health Insurance Companies
+  app.get("/api/config/health-insurance", requireAuth, async (req, res) => {
+    try {
+      const countryCode = req.query.countryCode as string;
+      const companies = countryCode 
+        ? await storage.getHealthInsuranceByCountry(countryCode)
+        : await storage.getAllHealthInsuranceCompanies();
+      res.json(companies);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch health insurance companies" });
+    }
+  });
+
+  app.post("/api/config/health-insurance", requireAuth, async (req, res) => {
+    try {
+      const parsed = insertHealthInsuranceSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid data", details: parsed.error.issues });
+      }
+      const company = await storage.createHealthInsurance(parsed.data);
+      await logActivity(req.session.user!.id, "create", "health_insurance", company.id, company.name);
+      res.status(201).json(company);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create health insurance company" });
+    }
+  });
+
+  app.put("/api/config/health-insurance/:id", requireAuth, async (req, res) => {
+    try {
+      const company = await storage.updateHealthInsurance(req.params.id, req.body);
+      if (!company) return res.status(404).json({ error: "Health insurance company not found" });
+      await logActivity(req.session.user!.id, "update", "health_insurance", company.id, company.name);
+      res.json(company);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update health insurance company" });
+    }
+  });
+
+  app.delete("/api/config/health-insurance/:id", requireAuth, async (req, res) => {
+    try {
+      const success = await storage.deleteHealthInsurance(req.params.id);
+      if (!success) return res.status(404).json({ error: "Health insurance company not found" });
+      await logActivity(req.session.user!.id, "delete", "health_insurance", req.params.id, "");
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete health insurance company" });
     }
   });
 

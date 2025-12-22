@@ -3,9 +3,9 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
-import { COUNTRIES, type BillingDetails } from "@shared/schema";
+import { COUNTRIES, type BillingDetails, type ComplaintType, type CooperationType, type VipStatus, type HealthInsurance } from "@shared/schema";
 import { Separator } from "@/components/ui/separator";
-import { Droplets, Globe, Shield, Building2, Save, Loader2 } from "lucide-react";
+import { Droplets, Globe, Shield, Building2, Save, Loader2, Plus, Trash2, Settings2, Heart } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +19,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const CURRENCIES = ["EUR", "USD", "CZK", "HUF", "RON", "CHF", "GBP"];
 
@@ -327,25 +337,213 @@ function BillingDetailsForm({ countryCode }: { countryCode: string }) {
   );
 }
 
+// Configuration list manager component
+interface ConfigItem {
+  id: string;
+  name: string;
+  countryCode?: string | null;
+  code?: string;
+  isActive: boolean;
+}
+
+function ConfigListManager({ 
+  title, 
+  description, 
+  apiPath, 
+  queryKey,
+  showCode = false,
+  requireCountry = false,
+}: { 
+  title: string; 
+  description: string; 
+  apiPath: string;
+  queryKey: string;
+  showCode?: boolean;
+  requireCountry?: boolean;
+}) {
+  const { toast } = useToast();
+  const [newName, setNewName] = useState("");
+  const [newCode, setNewCode] = useState("");
+  const [newCountryCode, setNewCountryCode] = useState<string>("");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const { data: items = [], isLoading } = useQuery<ConfigItem[]>({
+    queryKey: [queryKey],
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (data: { name: string; code?: string; countryCode?: string | null }) =>
+      apiRequest("POST", apiPath, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [queryKey] });
+      setNewName("");
+      setNewCode("");
+      setNewCountryCode("");
+      toast({ title: `${title} pridany` });
+    },
+    onError: () => {
+      toast({ title: `Nepodarilo sa pridat ${title.toLowerCase()}`, variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `${apiPath}/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [queryKey] });
+      setDeleteId(null);
+      toast({ title: `${title} odstraneny` });
+    },
+    onError: () => {
+      toast({ title: `Nepodarilo sa odstranit ${title.toLowerCase()}`, variant: "destructive" });
+    },
+  });
+
+  const handleAdd = () => {
+    if (!newName.trim()) {
+      toast({ title: "Nazov je povinny", variant: "destructive" });
+      return;
+    }
+    if (showCode && !newCode.trim()) {
+      toast({ title: "Kod je povinny", variant: "destructive" });
+      return;
+    }
+    if (requireCountry && !newCountryCode) {
+      toast({ title: "Krajina je povinna", variant: "destructive" });
+      return;
+    }
+    createMutation.mutate({
+      name: newName.trim(),
+      code: showCode ? newCode.trim() : undefined,
+      countryCode: newCountryCode || null,
+    });
+  };
+
+  const getCountryName = (code: string | null | undefined) => {
+    if (!code) return "Globalne";
+    const country = COUNTRIES.find(c => c.code === code);
+    return country?.name || code;
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col gap-2">
+        <div className="grid gap-2 sm:grid-cols-4">
+          <Input
+            placeholder="Nazov"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            data-testid={`input-new-${queryKey}`}
+          />
+          {showCode && (
+            <Input
+              placeholder="Kod"
+              value={newCode}
+              onChange={(e) => setNewCode(e.target.value)}
+              data-testid={`input-new-code-${queryKey}`}
+            />
+          )}
+          <Select value={newCountryCode} onValueChange={setNewCountryCode}>
+            <SelectTrigger data-testid={`select-country-${queryKey}`}>
+              <SelectValue placeholder={requireCountry ? "Vyberte krajinu" : "Globalne"} />
+            </SelectTrigger>
+            <SelectContent>
+              {!requireCountry && <SelectItem value="">Globalne (vsetky krajiny)</SelectItem>}
+              {COUNTRIES.map((c) => (
+                <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button onClick={handleAdd} disabled={createMutation.isPending} data-testid={`button-add-${queryKey}`}>
+            {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4 mr-1" />}
+            Pridat
+          </Button>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-4">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : items.length === 0 ? (
+        <p className="text-sm text-muted-foreground py-4">Ziadne polozky.</p>
+      ) : (
+        <div className="space-y-2">
+          {items.map((item) => (
+            <div
+              key={item.id}
+              className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+              data-testid={`config-item-${item.id}`}
+            >
+              <div className="flex items-center gap-3">
+                <span className="font-medium">{item.name}</span>
+                {showCode && item.code && (
+                  <Badge variant="outline">{item.code}</Badge>
+                )}
+                <Badge variant="secondary">{getCountryName(item.countryCode)}</Badge>
+              </div>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => setDeleteId(item.id)}
+                data-testid={`button-delete-${item.id}`}
+              >
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Potvrdit odstranenie</AlertDialogTitle>
+            <AlertDialogDescription>
+              Naozaj chcete odstranit tuto polozku? Tato akcia sa neda vratit spat.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Zrusit</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => deleteId && deleteMutation.mutate(deleteId)}
+              data-testid="button-confirm-delete"
+            >
+              Odstranit
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("billing");
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Settings"
-        description="System configuration and billing details"
+        title="Nastavenia"
+        description="Konfiguracia systemu a fakturacne udaje"
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
+        <TabsList className="flex flex-wrap gap-1 h-auto">
           <TabsTrigger value="billing" data-testid="tab-billing">
             <Building2 className="h-4 w-4 mr-2" />
-            Billing Details
+            Fakturacia
+          </TabsTrigger>
+          <TabsTrigger value="config" data-testid="tab-config">
+            <Settings2 className="h-4 w-4 mr-2" />
+            Konfiguracia
+          </TabsTrigger>
+          <TabsTrigger value="insurance" data-testid="tab-insurance">
+            <Heart className="h-4 w-4 mr-2" />
+            Poistovne
           </TabsTrigger>
           <TabsTrigger value="system" data-testid="tab-system">
             <Shield className="h-4 w-4 mr-2" />
-            System Info
+            System
           </TabsTrigger>
         </TabsList>
 
@@ -390,6 +588,80 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="config" className="mt-6 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Typy staznosti</CardTitle>
+              <CardDescription>
+                Konfigurovatelne typy staznosti pre klientov
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ConfigListManager
+                title="Typ staznosti"
+                description="Typy staznosti"
+                apiPath="/api/config/complaint-types"
+                queryKey="/api/config/complaint-types"
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Typy spoluprace</CardTitle>
+              <CardDescription>
+                Konfigurovatelne typy spoluprace pre klientov
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ConfigListManager
+                title="Typ spoluprace"
+                description="Typy spoluprace"
+                apiPath="/api/config/cooperation-types"
+                queryKey="/api/config/cooperation-types"
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>VIP Statusy</CardTitle>
+              <CardDescription>
+                Konfigurovatelne VIP statusy pre klientov
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ConfigListManager
+                title="VIP Status"
+                description="VIP statusy"
+                apiPath="/api/config/vip-statuses"
+                queryKey="/api/config/vip-statuses"
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="insurance" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Zdravotne poistovne</CardTitle>
+              <CardDescription>
+                Konfigurovatelne zdravotne poistovne pre kazdu krajinu
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ConfigListManager
+                title="Poistovna"
+                description="Zdravotne poistovne"
+                apiPath="/api/config/health-insurance"
+                queryKey="/api/config/health-insurance"
+                showCode={true}
+                requireCountry={true}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="system" className="mt-6">
           <div className="grid gap-6 md:grid-cols-2">
             <Card>
@@ -398,8 +670,8 @@ export default function SettingsPage() {
                   <Droplets className="h-6 w-6 text-primary" />
                 </div>
                 <div>
-                  <CardTitle>About Nexus BioLink</CardTitle>
-                  <CardDescription>CRM System for Cord Blood Banking</CardDescription>
+                  <CardTitle>O Nexus BioLink</CardTitle>
+                  <CardDescription>CRM System pre pupocnikove banky</CardDescription>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">

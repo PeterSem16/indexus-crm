@@ -944,7 +944,13 @@ export default function CustomersPage() {
   );
 
   const createMutation = useMutation({
-    mutationFn: (data: CustomerFormData) => apiRequest("POST", "/api/customers", data),
+    mutationFn: (data: CustomerFormData) => {
+      const serializedData = {
+        ...data,
+        dateOfBirth: data.dateOfBirth ? data.dateOfBirth.toISOString() : null,
+      };
+      return apiRequest("POST", "/api/customers", serializedData);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
       setIsFormOpen(false);
@@ -956,8 +962,13 @@ export default function CustomersPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: CustomerFormData & { id: string }) =>
-      apiRequest("PATCH", `/api/customers/${data.id}`, data),
+    mutationFn: (data: CustomerFormData & { id: string }) => {
+      const serializedData = {
+        ...data,
+        dateOfBirth: data.dateOfBirth ? data.dateOfBirth.toISOString() : null,
+      };
+      return apiRequest("PATCH", `/api/customers/${serializedData.id}`, serializedData);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
       setEditingCustomer(null);
