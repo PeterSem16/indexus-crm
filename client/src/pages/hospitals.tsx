@@ -555,7 +555,11 @@ export default function HospitalsPage() {
                   {t.hospitals.noHospitals}
                 </div>
               ) : (
-                <DataTable columns={columns} data={filteredHospitals} />
+                <DataTable 
+                  columns={columns} 
+                  data={filteredHospitals} 
+                  getRowKey={(hospital) => hospital.id}
+                />
               )}
             </CardContent>
           </Card>
