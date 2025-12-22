@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
+import { useI18n } from "@/i18n";
 import { COUNTRIES, type BillingDetails, type ComplaintType, type CooperationType, type VipStatus, type HealthInsurance } from "@shared/schema";
 import { Separator } from "@/components/ui/separator";
 import { Droplets, Globe, Shield, Building2, Save, Loader2, Plus, Trash2, Settings2, Heart } from "lucide-react";
@@ -518,13 +519,14 @@ function ConfigListManager({
 }
 
 export default function SettingsPage() {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState("billing");
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Nastavenia"
-        description="Konfiguracia systemu a fakturacne udaje"
+        title={t.settings.title}
+        description=""
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Search, FileText, Download, Users, CheckCircle } from "lucide-react";
+import { useI18n } from "@/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,6 +24,7 @@ import { format } from "date-fns";
 
 export default function InvoicesPage() {
   const { toast } = useToast();
+  const { t } = useI18n();
   const [search, setSearch] = useState("");
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
@@ -177,8 +179,8 @@ export default function InvoicesPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Invoices"
-        description="Manage and generate customer invoices"
+        title={t.invoices.title}
+        description=""
       >
         <Button 
           onClick={() => setIsBulkDialogOpen(true)} 

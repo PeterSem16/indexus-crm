@@ -11,6 +11,7 @@ import {
   FileText
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+import { useI18n } from "@/i18n";
 import { Button } from "@/components/ui/button";
 import {
   Sidebar,
@@ -27,45 +28,22 @@ import {
 } from "@/components/ui/sidebar";
 import { CountryFilter } from "./country-filter";
 
-const mainNavItems = [
-  {
-    title: "Dashboard",
-    url: "/",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "Customers",
-    url: "/customers",
-    icon: Users,
-  },
-  {
-    title: "Products",
-    url: "/products",
-    icon: Package,
-  },
-  {
-    title: "Invoices",
-    url: "/invoices",
-    icon: FileText,
-  },
-];
-
-const adminNavItems = [
-  {
-    title: "User Management",
-    url: "/users",
-    icon: UserCog,
-  },
-  {
-    title: "Settings",
-    url: "/settings",
-    icon: Settings,
-  },
-];
-
 export function AppSidebar() {
   const [location, setLocation] = useLocation();
   const { user, logout } = useAuth();
+  const { t } = useI18n();
+
+  const mainNavItems = [
+    { title: t.nav.dashboard, url: "/", icon: LayoutDashboard, testId: "dashboard" },
+    { title: t.nav.customers, url: "/customers", icon: Users, testId: "customers" },
+    { title: t.nav.products, url: "/products", icon: Package, testId: "products" },
+    { title: t.nav.invoices, url: "/invoices", icon: FileText, testId: "invoices" },
+  ];
+
+  const adminNavItems = [
+    { title: t.nav.users, url: "/users", icon: UserCog, testId: "users" },
+    { title: t.nav.settings, url: "/settings", icon: Settings, testId: "settings" },
+  ];
 
   const handleLogout = async () => {
     await logout();
@@ -91,7 +69,7 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarGroup className="px-3 py-2">
           <SidebarGroupLabel className="text-xs uppercase tracking-wider text-muted-foreground mb-2">
-            Country Filter
+            {t.common.filter}
           </SidebarGroupLabel>
           <CountryFilter />
         </SidebarGroup>
@@ -99,16 +77,15 @@ export function AppSidebar() {
         <SidebarSeparator />
 
         <SidebarGroup>
-          <SidebarGroupLabel>Main Menu</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {mainNavItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
+                <SidebarMenuItem key={item.testId}>
                   <SidebarMenuButton 
                     asChild 
                     isActive={location === item.url}
                   >
-                    <Link href={item.url} data-testid={`nav-${item.title.toLowerCase().replace(' ', '-')}`}>
+                    <Link href={item.url} data-testid={`nav-${item.testId}`}>
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
                     </Link>
@@ -120,16 +97,15 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Administration</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {adminNavItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
+                <SidebarMenuItem key={item.testId}>
                   <SidebarMenuButton 
                     asChild 
                     isActive={location === item.url}
                   >
-                    <Link href={item.url} data-testid={`nav-${item.title.toLowerCase().replace(' ', '-')}`}>
+                    <Link href={item.url} data-testid={`nav-${item.testId}`}>
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
                     </Link>
@@ -153,6 +129,7 @@ export function AppSidebar() {
               variant="ghost"
               onClick={handleLogout}
               data-testid="button-logout"
+              title={t.nav.logout}
             >
               <LogOut className="h-4 w-4" />
             </Button>

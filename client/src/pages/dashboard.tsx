@@ -7,6 +7,7 @@ import { DataTable } from "@/components/data-table";
 import { StatusBadge } from "@/components/status-badge";
 import { CountryBadges } from "@/components/country-filter";
 import { useCountryFilter } from "@/contexts/country-filter-context";
+import { useI18n } from "@/i18n";
 import { getCountryFlag, getCountryName } from "@/lib/countries";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
@@ -14,6 +15,7 @@ import type { Customer, User, Invoice } from "@shared/schema";
 
 export default function Dashboard() {
   const { selectedCountries } = useCountryFilter();
+  const { t } = useI18n();
 
   const { data: customers = [], isLoading: customersLoading } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
@@ -77,7 +79,7 @@ export default function Dashboard() {
     },
     {
       key: "country",
-      header: "Country",
+      header: t.common.country,
       cell: (customer: Customer) => (
         <span className="flex items-center gap-2">
           <span>{getCountryFlag(customer.country)}</span>
@@ -87,7 +89,7 @@ export default function Dashboard() {
     },
     {
       key: "service",
-      header: "Service",
+      header: t.customers.serviceType,
       cell: (customer: Customer) => (
         <span className="text-sm capitalize">
           {customer.serviceType?.replace("_", " ") || "-"}
@@ -96,7 +98,7 @@ export default function Dashboard() {
     },
     {
       key: "status",
-      header: "Status",
+      header: t.common.status,
       cell: (customer: Customer) => (
         <StatusBadge status={customer.status as any} />
       ),
@@ -106,30 +108,30 @@ export default function Dashboard() {
   return (
     <div className="space-y-8">
       <PageHeader 
-        title="Dashboard" 
-        description="Overview of your cord blood banking CRM"
+        title={t.dashboard.title}
+        description=""
       />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatsCard
-          title="Total Customers"
+          title={t.dashboard.totalCustomers}
           value={filteredCustomers.length}
           trend={12}
-          description="vs last month"
+          description=""
           icon={<Users className="h-6 w-6" />}
         />
         <StatsCard
-          title="Active Customers"
+          title={t.dashboard.activeCustomers}
           value={activeCustomers}
           trend={8}
-          description="vs last month"
+          description=""
           icon={<UserCheck className="h-6 w-6" />}
         />
         <StatsCard
-          title="Pending Reviews"
+          title={t.dashboard.pendingCustomers}
           value={pendingCustomers}
           trend={-5}
-          description="vs last month"
+          description=""
           icon={<Activity className="h-6 w-6" />}
         />
         <StatsCard

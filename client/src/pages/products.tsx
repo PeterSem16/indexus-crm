@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2, Search, Package } from "lucide-react";
+import { useI18n } from "@/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -285,6 +286,7 @@ function ProductForm({
 
 export default function ProductsPage() {
   const { toast } = useToast();
+  const { t } = useI18n();
   const [search, setSearch] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -444,12 +446,12 @@ export default function ProductsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Products"
-        description="Manage services and products for cord blood banking"
+        title={t.products.title}
+        description=""
       >
         <Button onClick={() => setIsFormOpen(true)} data-testid="button-add-product">
           <Plus className="h-4 w-4 mr-2" />
-          Add Product
+          {t.products.addProduct}
         </Button>
       </PageHeader>
 

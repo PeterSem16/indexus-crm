@@ -4,6 +4,7 @@ import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calcula
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useI18n } from "@/i18n";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -928,6 +929,7 @@ function CustomerDetailsContent({
 
 export default function CustomersPage() {
   const { toast } = useToast();
+  const { t } = useI18n();
   const { selectedCountries } = useCountryFilter();
   const [search, setSearch] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -1093,12 +1095,12 @@ export default function CustomersPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Customers"
-        description="Manage cord blood banking customers"
+        title={t.customers.title}
+        description=""
       >
         <Button onClick={() => setIsFormOpen(true)} data-testid="button-add-customer">
           <Plus className="h-4 w-4 mr-2" />
-          Add Customer
+          {t.customers.addCustomer}
         </Button>
       </PageHeader>
 

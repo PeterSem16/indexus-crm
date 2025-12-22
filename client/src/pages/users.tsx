@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2, UserCheck, UserX, Search, Filter } from "lucide-react";
+import { useI18n } from "@/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -34,6 +35,7 @@ import type { User } from "@shared/schema";
 
 export default function UsersPage() {
   const { toast } = useToast();
+  const { t } = useI18n();
   const [search, setSearch] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -200,12 +202,12 @@ export default function UsersPage() {
   return (
     <div className="space-y-6">
       <PageHeader 
-        title="User Management" 
-        description="Manage CRM users and their country access permissions"
+        title={t.users.title}
+        description=""
       >
         <Button onClick={() => setIsFormOpen(true)} data-testid="button-add-user">
           <Plus className="h-4 w-4 mr-2" />
-          Add User
+          {t.users.addUser}
         </Button>
       </PageHeader>
 
