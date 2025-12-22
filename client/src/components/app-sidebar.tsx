@@ -8,7 +8,8 @@ import {
   Droplets,
   LogOut,
   Package,
-  FileText
+  FileText,
+  Building2
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useI18n } from "@/i18n";
@@ -38,6 +39,7 @@ export function AppSidebar() {
     { title: t.nav.customers, url: "/customers", icon: Users, testId: "customers" },
     { title: t.nav.products, url: "/products", icon: Package, testId: "products" },
     { title: t.nav.invoices, url: "/invoices", icon: FileText, testId: "invoices" },
+    { title: t.nav.hospitals, url: "/hospitals", icon: Building2, testId: "hospitals" },
   ];
 
   const adminNavItems = [

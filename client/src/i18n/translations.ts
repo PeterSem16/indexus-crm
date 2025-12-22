@@ -16,6 +16,7 @@ export interface Translations {
     customers: string;
     products: string;
     invoices: string;
+    hospitals: string;
     users: string;
     settings: string;
     logout: string;
@@ -244,6 +245,40 @@ export interface Translations {
     statusColumn: string;
     countriesColumn: string;
   };
+  hospitals: {
+    title: string;
+    description: string;
+    addHospital: string;
+    editHospital: string;
+    deleteHospital: string;
+    addHospitalDesc: string;
+    editHospitalDesc: string;
+    deleteConfirm: string;
+    searchPlaceholder: string;
+    noHospitals: string;
+    name: string;
+    fullName: string;
+    streetNumber: string;
+    city: string;
+    postalCode: string;
+    region: string;
+    contactPerson: string;
+    representative: string;
+    responsiblePerson: string;
+    laboratory: string;
+    autoRecruiting: string;
+    svetZdravia: string;
+    comingSoon: string;
+    agreementsDesc: string;
+    templatesDesc: string;
+    rewardsDesc: string;
+    tabs: {
+      hospital: string;
+      agreements: string;
+      templates: string;
+      rewards: string;
+    };
+  };
   settings: {
     title: string;
     description: string;
@@ -347,6 +382,7 @@ export const translations: Record<Locale, Translations> = {
       customers: 'Customers',
       products: 'Products',
       invoices: 'Invoices',
+      hospitals: 'Hospitals',
       users: 'Users',
       settings: 'Settings',
       logout: 'Logout',
@@ -575,6 +611,40 @@ export const translations: Record<Locale, Translations> = {
       statusColumn: 'Status',
       countriesColumn: 'Assigned Countries',
     },
+    hospitals: {
+      title: 'Hospitals',
+      description: 'Manage hospitals and medical facilities',
+      addHospital: 'Add Hospital',
+      editHospital: 'Edit Hospital',
+      deleteHospital: 'Delete Hospital',
+      addHospitalDesc: 'Add a new hospital to the system',
+      editHospitalDesc: 'Update hospital information',
+      deleteConfirm: 'Are you sure you want to delete this hospital?',
+      searchPlaceholder: 'Search hospitals...',
+      noHospitals: 'No hospitals found',
+      name: 'Name',
+      fullName: 'Full Name',
+      streetNumber: 'Street and Number',
+      city: 'City',
+      postalCode: 'Postal Code',
+      region: 'Region',
+      contactPerson: 'Contact Person',
+      representative: 'Representative',
+      responsiblePerson: 'Responsible Person',
+      laboratory: 'Laboratory',
+      autoRecruiting: 'Auto Recruiting',
+      svetZdravia: 'Svet Zdravia',
+      comingSoon: 'Coming soon',
+      agreementsDesc: 'Manage hospital agreements and contracts',
+      templatesDesc: 'Manage document templates for hospitals',
+      rewardsDesc: 'Manage reward programs for hospitals',
+      tabs: {
+        hospital: 'Hospital',
+        agreements: 'Agreements',
+        templates: 'Templates',
+        rewards: 'Rewards',
+      },
+    },
     settings: {
       title: 'Settings',
       description: 'System configuration and billing details',
@@ -676,6 +746,7 @@ export const translations: Record<Locale, Translations> = {
       customers: 'Zákazníci',
       products: 'Produkty',
       invoices: 'Faktúry',
+      hospitals: 'Nemocnice',
       users: 'Používatelia',
       settings: 'Nastavenia',
       logout: 'Odhlásiť',
@@ -898,6 +969,40 @@ export const translations: Record<Locale, Translations> = {
       userColumn: 'Používateľ',
       statusColumn: 'Stav',
       countriesColumn: 'Priradené krajiny',
+    },
+    hospitals: {
+      title: 'Nemocnice',
+      description: 'Správa nemocníc a zdravotníckych zariadení',
+      addHospital: 'Pridať nemocnicu',
+      editHospital: 'Upraviť nemocnicu',
+      deleteHospital: 'Odstrániť nemocnicu',
+      addHospitalDesc: 'Pridať novú nemocnicu do systému',
+      editHospitalDesc: 'Aktualizovať informácie o nemocnici',
+      deleteConfirm: 'Naozaj chcete odstrániť túto nemocnicu?',
+      searchPlaceholder: 'Hľadať nemocnice...',
+      noHospitals: 'Žiadne nemocnice nenájdené',
+      name: 'Názov',
+      fullName: 'Plný názov',
+      streetNumber: 'Ulica a číslo',
+      city: 'Mesto',
+      postalCode: 'PSČ',
+      region: 'Oblasť',
+      contactPerson: 'Kontaktná osoba',
+      representative: 'Reprezentant',
+      responsiblePerson: 'Zodpovedná osoba',
+      laboratory: 'Laboratórium',
+      autoRecruiting: 'Auto nábor',
+      svetZdravia: 'Svet zdravia',
+      comingSoon: 'Čoskoro k dispozícii',
+      agreementsDesc: 'Správa dohôd a zmlúv s nemocnicami',
+      templatesDesc: 'Správa šablón dokumentov pre nemocnice',
+      rewardsDesc: 'Správa odmenových programov pre nemocnice',
+      tabs: {
+        hospital: 'Nemocnica',
+        agreements: 'Dohody',
+        templates: 'Šablóny',
+        rewards: 'Odmeny',
+      },
       roles: {
         admin: 'Administrátor',
         manager: 'Manažér',
@@ -1005,6 +1110,7 @@ export const translations: Record<Locale, Translations> = {
       customers: 'Zákazníci',
       products: 'Produkty',
       invoices: 'Faktury',
+      hospitals: 'Nemocnice',
       users: 'Uživatelé',
       settings: 'Nastavení',
       logout: 'Odhlásit',
@@ -1227,6 +1333,40 @@ export const translations: Record<Locale, Translations> = {
       userColumn: 'Uživatel',
       statusColumn: 'Stav',
       countriesColumn: 'Přiřazené země',
+    },
+    hospitals: {
+      title: 'Nemocnice',
+      description: 'Správa nemocnic a zdravotnických zařízení',
+      addHospital: 'Přidat nemocnici',
+      editHospital: 'Upravit nemocnici',
+      deleteHospital: 'Odstranit nemocnici',
+      addHospitalDesc: 'Přidat novou nemocnici do systému',
+      editHospitalDesc: 'Aktualizovat informace o nemocnici',
+      deleteConfirm: 'Opravdu chcete odstranit tuto nemocnici?',
+      searchPlaceholder: 'Hledat nemocnice...',
+      noHospitals: 'Žádné nemocnice nenalezeny',
+      name: 'Název',
+      fullName: 'Plný název',
+      streetNumber: 'Ulice a číslo',
+      city: 'Město',
+      postalCode: 'PSČ',
+      region: 'Oblast',
+      contactPerson: 'Kontaktní osoba',
+      representative: 'Reprezentant',
+      responsiblePerson: 'Zodpovědná osoba',
+      laboratory: 'Laboratoř',
+      autoRecruiting: 'Auto nábor',
+      svetZdravia: 'Svět zdraví',
+      comingSoon: 'Již brzy',
+      agreementsDesc: 'Správa dohod a smluv s nemocnicemi',
+      templatesDesc: 'Správa šablon dokumentů pro nemocnice',
+      rewardsDesc: 'Správa odměnových programů pro nemocnice',
+      tabs: {
+        hospital: 'Nemocnice',
+        agreements: 'Dohody',
+        templates: 'Šablony',
+        rewards: 'Odměny',
+      },
       roles: {
         admin: 'Administrátor',
         manager: 'Manažer',
@@ -1334,6 +1474,7 @@ export const translations: Record<Locale, Translations> = {
       customers: 'Ügyfelek',
       products: 'Termékek',
       invoices: 'Számlák',
+      hospitals: 'Kórházak',
       users: 'Felhasználók',
       settings: 'Beállítások',
       logout: 'Kijelentkezés',
@@ -1556,6 +1697,40 @@ export const translations: Record<Locale, Translations> = {
       userColumn: 'Felhasználó',
       statusColumn: 'Státusz',
       countriesColumn: 'Hozzárendelt országok',
+    },
+    hospitals: {
+      title: 'Kórházak',
+      description: 'Kórházak és egészségügyi létesítmények kezelése',
+      addHospital: 'Kórház hozzáadása',
+      editHospital: 'Kórház szerkesztése',
+      deleteHospital: 'Kórház törlése',
+      addHospitalDesc: 'Új kórház hozzáadása a rendszerhez',
+      editHospitalDesc: 'Kórház információk frissítése',
+      deleteConfirm: 'Biztosan törölni szeretné ezt a kórházat?',
+      searchPlaceholder: 'Kórházak keresése...',
+      noHospitals: 'Nem található kórház',
+      name: 'Név',
+      fullName: 'Teljes név',
+      streetNumber: 'Utca és házszám',
+      city: 'Város',
+      postalCode: 'Irányítószám',
+      region: 'Régió',
+      contactPerson: 'Kapcsolattartó',
+      representative: 'Képviselő',
+      responsiblePerson: 'Felelős személy',
+      laboratory: 'Laboratórium',
+      autoRecruiting: 'Automatikus toborzás',
+      svetZdravia: 'Svet Zdravia',
+      comingSoon: 'Hamarosan',
+      agreementsDesc: 'Kórházi megállapodások és szerződések kezelése',
+      templatesDesc: 'Dokumentumsablonok kezelése kórházakhoz',
+      rewardsDesc: 'Jutalmazási programok kezelése kórházakhoz',
+      tabs: {
+        hospital: 'Kórház',
+        agreements: 'Megállapodások',
+        templates: 'Sablonok',
+        rewards: 'Jutalmak',
+      },
       roles: {
         admin: 'Adminisztrátor',
         manager: 'Menedzser',
@@ -1663,6 +1838,7 @@ export const translations: Record<Locale, Translations> = {
       customers: 'Clienți',
       products: 'Produse',
       invoices: 'Facturi',
+      hospitals: 'Spitale',
       users: 'Utilizatori',
       settings: 'Setări',
       logout: 'Deconectare',
@@ -1885,6 +2061,40 @@ export const translations: Record<Locale, Translations> = {
       userColumn: 'Utilizator',
       statusColumn: 'Status',
       countriesColumn: 'Țări alocate',
+    },
+    hospitals: {
+      title: 'Spitale',
+      description: 'Gestionați spitalele și unitățile medicale',
+      addHospital: 'Adaugă spital',
+      editHospital: 'Editare spital',
+      deleteHospital: 'Șterge spital',
+      addHospitalDesc: 'Adaugă un spital nou în sistem',
+      editHospitalDesc: 'Actualizați informațiile despre spital',
+      deleteConfirm: 'Sigur doriți să ștergeți acest spital?',
+      searchPlaceholder: 'Căutare spitale...',
+      noHospitals: 'Nu s-au găsit spitale',
+      name: 'Nume',
+      fullName: 'Nume complet',
+      streetNumber: 'Stradă și număr',
+      city: 'Oraș',
+      postalCode: 'Cod poștal',
+      region: 'Regiune',
+      contactPerson: 'Persoană de contact',
+      representative: 'Reprezentant',
+      responsiblePerson: 'Persoană responsabilă',
+      laboratory: 'Laborator',
+      autoRecruiting: 'Recrutare automată',
+      svetZdravia: 'Svet Zdravia',
+      comingSoon: 'În curând',
+      agreementsDesc: 'Gestionați acordurile și contractele cu spitalele',
+      templatesDesc: 'Gestionați șabloanele de documente pentru spitale',
+      rewardsDesc: 'Gestionați programele de recompense pentru spitale',
+      tabs: {
+        hospital: 'Spital',
+        agreements: 'Acorduri',
+        templates: 'Șabloane',
+        rewards: 'Recompense',
+      },
       roles: {
         admin: 'Administrator',
         manager: 'Manager',
@@ -1992,6 +2202,7 @@ export const translations: Record<Locale, Translations> = {
       customers: 'Clienti',
       products: 'Prodotti',
       invoices: 'Fatture',
+      hospitals: 'Ospedali',
       users: 'Utenti',
       settings: 'Impostazioni',
       logout: 'Esci',
@@ -2214,6 +2425,40 @@ export const translations: Record<Locale, Translations> = {
       userColumn: 'Utente',
       statusColumn: 'Stato',
       countriesColumn: 'Paesi assegnati',
+    },
+    hospitals: {
+      title: 'Ospedali',
+      description: 'Gestisci ospedali e strutture mediche',
+      addHospital: 'Aggiungi ospedale',
+      editHospital: 'Modifica ospedale',
+      deleteHospital: 'Elimina ospedale',
+      addHospitalDesc: 'Aggiungi un nuovo ospedale al sistema',
+      editHospitalDesc: 'Aggiorna le informazioni dell\'ospedale',
+      deleteConfirm: 'Sei sicuro di voler eliminare questo ospedale?',
+      searchPlaceholder: 'Cerca ospedali...',
+      noHospitals: 'Nessun ospedale trovato',
+      name: 'Nome',
+      fullName: 'Nome completo',
+      streetNumber: 'Via e numero',
+      city: 'Città',
+      postalCode: 'CAP',
+      region: 'Regione',
+      contactPerson: 'Persona di contatto',
+      representative: 'Rappresentante',
+      responsiblePerson: 'Persona responsabile',
+      laboratory: 'Laboratorio',
+      autoRecruiting: 'Reclutamento automatico',
+      svetZdravia: 'Svet Zdravia',
+      comingSoon: 'Prossimamente',
+      agreementsDesc: 'Gestisci accordi e contratti ospedalieri',
+      templatesDesc: 'Gestisci i modelli di documenti per gli ospedali',
+      rewardsDesc: 'Gestisci i programmi di ricompensa per gli ospedali',
+      tabs: {
+        hospital: 'Ospedale',
+        agreements: 'Accordi',
+        templates: 'Modelli',
+        rewards: 'Ricompense',
+      },
       roles: {
         admin: 'Amministratore',
         manager: 'Manager',
@@ -2321,6 +2566,7 @@ export const translations: Record<Locale, Translations> = {
       customers: 'Kunden',
       products: 'Produkte',
       invoices: 'Rechnungen',
+      hospitals: 'Krankenhäuser',
       users: 'Benutzer',
       settings: 'Einstellungen',
       logout: 'Abmelden',
@@ -2543,6 +2789,40 @@ export const translations: Record<Locale, Translations> = {
       userColumn: 'Benutzer',
       statusColumn: 'Status',
       countriesColumn: 'Zugewiesene Länder',
+    },
+    hospitals: {
+      title: 'Krankenhäuser',
+      description: 'Krankenhäuser und medizinische Einrichtungen verwalten',
+      addHospital: 'Krankenhaus hinzufügen',
+      editHospital: 'Krankenhaus bearbeiten',
+      deleteHospital: 'Krankenhaus löschen',
+      addHospitalDesc: 'Ein neues Krankenhaus zum System hinzufügen',
+      editHospitalDesc: 'Krankenhausinformationen aktualisieren',
+      deleteConfirm: 'Sind Sie sicher, dass Sie dieses Krankenhaus löschen möchten?',
+      searchPlaceholder: 'Krankenhäuser suchen...',
+      noHospitals: 'Keine Krankenhäuser gefunden',
+      name: 'Name',
+      fullName: 'Vollständiger Name',
+      streetNumber: 'Straße und Nummer',
+      city: 'Stadt',
+      postalCode: 'Postleitzahl',
+      region: 'Region',
+      contactPerson: 'Kontaktperson',
+      representative: 'Vertreter',
+      responsiblePerson: 'Verantwortliche Person',
+      laboratory: 'Labor',
+      autoRecruiting: 'Automatische Rekrutierung',
+      svetZdravia: 'Svet Zdravia',
+      comingSoon: 'Demnächst verfügbar',
+      agreementsDesc: 'Krankenhausvereinbarungen und Verträge verwalten',
+      templatesDesc: 'Dokumentvorlagen für Krankenhäuser verwalten',
+      rewardsDesc: 'Belohnungsprogramme für Krankenhäuser verwalten',
+      tabs: {
+        hospital: 'Krankenhaus',
+        agreements: 'Vereinbarungen',
+        templates: 'Vorlagen',
+        rewards: 'Belohnungen',
+      },
       roles: {
         admin: 'Administrator',
         manager: 'Manager',
