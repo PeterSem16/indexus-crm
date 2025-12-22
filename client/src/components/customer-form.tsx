@@ -538,14 +538,14 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel }: Cus
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Staznosti</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={(val) => field.onChange(val === "__none__" ? null : val)} defaultValue={field.value || "__none__"}>
                     <FormControl>
                       <SelectTrigger data-testid="select-complaint-type">
                         <SelectValue placeholder="Vyberte typ staznosti" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">Ziadna</SelectItem>
+                      <SelectItem value="__none__">Ziadna</SelectItem>
                       {complaintTypes.filter(t => t.isActive).map((type) => (
                         <SelectItem key={type.id} value={type.id}>
                           {type.name}
@@ -564,14 +564,14 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel }: Cus
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Spolupraca</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={(val) => field.onChange(val === "__none__" ? null : val)} defaultValue={field.value || "__none__"}>
                     <FormControl>
                       <SelectTrigger data-testid="select-cooperation-type">
                         <SelectValue placeholder="Vyberte typ spoluprace" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">Ziadna</SelectItem>
+                      <SelectItem value="__none__">Ziadna</SelectItem>
                       {cooperationTypes.filter(t => t.isActive).map((type) => (
                         <SelectItem key={type.id} value={type.id}>
                           {type.name}
@@ -590,14 +590,14 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel }: Cus
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>VIP Status</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={(val) => field.onChange(val === "__none__" ? null : val)} defaultValue={field.value || "__none__"}>
                     <FormControl>
                       <SelectTrigger data-testid="select-vip-status">
                         <SelectValue placeholder="Vyberte VIP status" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">Ziadny</SelectItem>
+                      <SelectItem value="__none__">Ziadny</SelectItem>
                       {vipStatuses.filter(s => s.isActive).map((status) => (
                         <SelectItem key={status.id} value={status.id}>
                           {status.name}
@@ -889,14 +889,14 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel }: Cus
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Zdravotna poistovna</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={(val) => field.onChange(val === "__none__" ? null : val)} defaultValue={field.value || "__none__"}>
                     <FormControl>
                       <SelectTrigger data-testid="select-health-insurance">
                         <SelectValue placeholder="Vyberte poistovnu" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">Ziadna</SelectItem>
+                      <SelectItem value="__none__">Ziadna</SelectItem>
                       {filteredHealthInsurance.filter(hi => hi.isActive).map((insurance) => (
                         <SelectItem key={insurance.id} value={insurance.id}>
                           {insurance.name} ({insurance.code})
