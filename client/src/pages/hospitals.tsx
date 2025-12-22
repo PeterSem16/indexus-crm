@@ -438,8 +438,8 @@ export default function HospitalsPage() {
   const columns = [
     {
       key: "name",
-      label: t.hospitals.name,
-      render: (hospital: Hospital) => (
+      header: t.hospitals.name,
+      cell: (hospital: Hospital) => (
         <div className="flex items-center gap-2">
           <span className="font-medium">{hospital.name}</span>
           {!hospital.isActive && (
@@ -450,8 +450,8 @@ export default function HospitalsPage() {
     },
     {
       key: "country",
-      label: t.common.country,
-      render: (hospital: Hospital) => (
+      header: t.common.country,
+      cell: (hospital: Hospital) => (
         <span>
           {getCountryFlag(hospital.countryCode)} {getCountryName(hospital.countryCode)}
         </span>
@@ -459,23 +459,23 @@ export default function HospitalsPage() {
     },
     {
       key: "city",
-      label: t.hospitals.city,
-      render: (hospital: Hospital) => hospital.city || "-",
+      header: t.hospitals.city,
+      cell: (hospital: Hospital) => hospital.city || "-",
     },
     {
       key: "laboratory",
-      label: t.hospitals.laboratory,
-      render: (hospital: Hospital) => getLabName(hospital.laboratoryId),
+      header: t.hospitals.laboratory,
+      cell: (hospital: Hospital) => getLabName(hospital.laboratoryId),
     },
     {
       key: "representative",
-      label: t.hospitals.representative,
-      render: (hospital: Hospital) => getUserName(hospital.representativeId),
+      header: t.hospitals.representative,
+      cell: (hospital: Hospital) => getUserName(hospital.representativeId),
     },
     {
       key: "actions",
-      label: t.common.actions,
-      render: (hospital: Hospital) => (
+      header: t.common.actions,
+      cell: (hospital: Hospital) => (
         <div className="flex items-center gap-2">
           <Button
             size="icon"
