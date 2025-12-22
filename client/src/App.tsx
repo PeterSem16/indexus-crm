@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CountryFilterProvider } from "@/contexts/country-filter-context";
 import { AuthProvider, useAuth } from "@/contexts/auth-context";
+import { I18nProvider } from "@/i18n";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import Dashboard from "@/pages/dashboard";
@@ -52,16 +53,22 @@ function AppRouter() {
 
   if (!user) {
     return (
-      <Switch>
-        <Route path="/login" component={LandingPage} />
-        <Route>
-          <Redirect to="/login" />
-        </Route>
-      </Switch>
+      <I18nProvider userCountries={[]}>
+        <Switch>
+          <Route path="/login" component={LandingPage} />
+          <Route>
+            <Redirect to="/login" />
+          </Route>
+        </Switch>
+      </I18nProvider>
     );
   }
 
-  return <AuthenticatedApp />;
+  return (
+    <I18nProvider userCountries={user.assignedCountries || []}>
+      <AuthenticatedApp />
+    </I18nProvider>
+  );
 }
 
 function AuthenticatedApp() {
