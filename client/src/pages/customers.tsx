@@ -354,7 +354,13 @@ function CustomerDetailsContent({
     }
   };
 
-  const activeProducts = products.filter(p => p.isActive);
+  // Filter products by active status and customer's country
+  const activeProducts = products.filter(p => {
+    if (!p.isActive) return false;
+    // Show product if it has no countries assigned (global) or matches customer's country
+    if (!p.countries || p.countries.length === 0) return true;
+    return p.countries.includes(customer.country);
+  });
   const assignedProductIds = customerProducts.map(cp => cp.productId);
   const availableProducts = activeProducts.filter(p => !assignedProductIds.includes(p.id));
 
@@ -840,14 +846,14 @@ function CustomerDetailsContent({
                   <Label className="text-xs">Product</Label>
                   <Select value={newLineProductId} onValueChange={(val) => {
                     setNewLineProductId(val);
-                    const prod = products.find(p => p.id === val);
+                    const prod = activeProducts.find(p => p.id === val);
                     if (prod) setNewLinePrice(prod.price);
                   }}>
                     <SelectTrigger data-testid="select-invoice-product">
                       <SelectValue placeholder="Select product" />
                     </SelectTrigger>
                     <SelectContent>
-                      {products.filter(p => p.isActive).map((p) => (
+                      {activeProducts.map((p) => (
                         <SelectItem key={p.id} value={p.id}>
                           {p.name} - {parseFloat(p.price).toFixed(2)} {p.currency}
                         </SelectItem>
