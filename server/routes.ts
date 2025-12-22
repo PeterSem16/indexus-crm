@@ -1402,6 +1402,17 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/config/health-insurance/:id", requireAuth, async (req, res) => {
+    try {
+      const company = await storage.updateHealthInsurance(req.params.id, req.body);
+      if (!company) return res.status(404).json({ error: "Health insurance company not found" });
+      await logActivity(req.session.user!.id, "update", "health_insurance", company.id, company.name);
+      res.json(company);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update health insurance company" });
+    }
+  });
+
   app.delete("/api/config/health-insurance/:id", requireAuth, async (req, res) => {
     try {
       const success = await storage.deleteHealthInsurance(req.params.id);
@@ -1441,6 +1452,17 @@ export async function registerRoutes(
   });
 
   app.put("/api/config/laboratories/:id", requireAuth, async (req, res) => {
+    try {
+      const laboratory = await storage.updateLaboratory(req.params.id, req.body);
+      if (!laboratory) return res.status(404).json({ error: "Laboratory not found" });
+      await logActivity(req.session.user!.id, "update", "laboratory", laboratory.id, laboratory.name);
+      res.json(laboratory);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update laboratory" });
+    }
+  });
+
+  app.patch("/api/config/laboratories/:id", requireAuth, async (req, res) => {
     try {
       const laboratory = await storage.updateLaboratory(req.params.id, req.body);
       if (!laboratory) return res.status(404).json({ error: "Laboratory not found" });
