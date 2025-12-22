@@ -12,7 +12,7 @@ import { COUNTRIES } from "@/lib/countries";
 import { useCountryFilter } from "@/contexts/country-filter-context";
 
 export function CountryFilter() {
-  const { selectedCountries, toggleCountry, selectAll, clearAll } = useCountryFilter();
+  const { selectedCountries, toggleCountry, selectAll, clearAll, availableCountries } = useCountryFilter();
 
   return (
     <DropdownMenu>
@@ -25,8 +25,10 @@ export function CountryFilter() {
           <div className="flex items-center gap-2">
             <Globe className="h-4 w-4" />
             <span className="truncate">
-              {selectedCountries.length === COUNTRIES.length 
-                ? "All Countries" 
+              {selectedCountries.length === availableCountries.length 
+                ? availableCountries.length === COUNTRIES.length 
+                  ? "All Countries"
+                  : `${availableCountries.length} Countries`
                 : selectedCountries.length === 0
                   ? "No Countries"
                   : `${selectedCountries.length} Countries`}
@@ -57,7 +59,7 @@ export function CountryFilter() {
           </Button>
         </div>
         <DropdownMenuSeparator />
-        {COUNTRIES.map(country => (
+        {availableCountries.map(country => (
           <DropdownMenuItem
             key={country.code}
             onClick={() => toggleCountry(country.code)}
