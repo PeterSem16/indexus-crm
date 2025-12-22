@@ -37,9 +37,9 @@ export function AppSidebar() {
   const mainNavItems = [
     { title: t.nav.dashboard, url: "/", icon: LayoutDashboard, testId: "dashboard" },
     { title: t.nav.customers, url: "/customers", icon: Users, testId: "customers" },
+    { title: t.nav.hospitals, url: "/hospitals", icon: Building2, testId: "hospitals" },
     { title: t.nav.products, url: "/products", icon: Package, testId: "products" },
     { title: t.nav.invoices, url: "/invoices", icon: FileText, testId: "invoices" },
-    { title: t.nav.hospitals, url: "/hospitals", icon: Building2, testId: "hospitals" },
   ];
 
   const adminNavItems = [
