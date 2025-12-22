@@ -364,7 +364,7 @@ function ConfigListManager({
   const { toast } = useToast();
   const [newName, setNewName] = useState("");
   const [newCode, setNewCode] = useState("");
-  const [newCountryCode, setNewCountryCode] = useState<string>("");
+  const [newCountryCode, setNewCountryCode] = useState<string>("__global__");
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const { data: items = [], isLoading } = useQuery<ConfigItem[]>({
@@ -407,14 +407,14 @@ function ConfigListManager({
       toast({ title: "Kod je povinny", variant: "destructive" });
       return;
     }
-    if (requireCountry && !newCountryCode) {
+    if (requireCountry && (!newCountryCode || newCountryCode === "__global__")) {
       toast({ title: "Krajina je povinna", variant: "destructive" });
       return;
     }
     createMutation.mutate({
       name: newName.trim(),
       code: showCode ? newCode.trim() : undefined,
-      countryCode: newCountryCode || null,
+      countryCode: newCountryCode === "__global__" ? null : newCountryCode,
     });
   };
 
@@ -447,7 +447,7 @@ function ConfigListManager({
               <SelectValue placeholder={requireCountry ? "Vyberte krajinu" : "Globalne"} />
             </SelectTrigger>
             <SelectContent>
-              {!requireCountry && <SelectItem value="">Globalne (vsetky krajiny)</SelectItem>}
+              {!requireCountry && <SelectItem value="__global__">Globalne (vsetky krajiny)</SelectItem>}
               {COUNTRIES.map((c) => (
                 <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
               ))}
