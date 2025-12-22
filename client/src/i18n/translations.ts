@@ -142,6 +142,11 @@ export interface Translations {
       cordTissue: string;
       both: string;
     };
+    statuses: {
+      active: string;
+      pending: string;
+      inactive: string;
+    };
     none: string;
   };
   products: {
@@ -445,6 +450,11 @@ export const translations: Record<Locale, Translations> = {
         cordTissue: 'Cord Tissue',
         both: 'Both',
       },
+      statuses: {
+        active: 'Active',
+        pending: 'Pending',
+        inactive: 'Inactive',
+      },
       none: 'None',
     },
     products: {
@@ -745,6 +755,11 @@ export const translations: Record<Locale, Translations> = {
         cordBlood: 'Pupočníková krv',
         cordTissue: 'Pupočníkové tkanivo',
         both: 'Obe',
+      },
+      statuses: {
+        active: 'Aktívny',
+        pending: 'Čakajúci',
+        inactive: 'Neaktívny',
       },
       none: 'Žiadna',
     },
@@ -1047,6 +1062,11 @@ export const translations: Record<Locale, Translations> = {
         cordTissue: 'Pupečníková tkáň',
         both: 'Obě',
       },
+      statuses: {
+        active: 'Aktivní',
+        pending: 'Čekající',
+        inactive: 'Neaktivní',
+      },
       none: 'Žádná',
     },
     products: {
@@ -1347,6 +1367,11 @@ export const translations: Record<Locale, Translations> = {
         cordBlood: 'Köldökzsinórvér',
         cordTissue: 'Köldökzsinór szövet',
         both: 'Mindkettő',
+      },
+      statuses: {
+        active: 'Aktív',
+        pending: 'Várakozó',
+        inactive: 'Inaktív',
       },
       none: 'Nincs',
     },
@@ -1649,6 +1674,11 @@ export const translations: Record<Locale, Translations> = {
         cordTissue: 'Țesut din cordon',
         both: 'Ambele',
       },
+      statuses: {
+        active: 'Activ',
+        pending: 'În așteptare',
+        inactive: 'Inactiv',
+      },
       none: 'Niciunul',
     },
     products: {
@@ -1950,6 +1980,11 @@ export const translations: Record<Locale, Translations> = {
         cordTissue: 'Tessuto cordonale',
         both: 'Entrambi',
       },
+      statuses: {
+        active: 'Attivo',
+        pending: 'In attesa',
+        inactive: 'Inattivo',
+      },
       none: 'Nessuno',
     },
     products: {
@@ -2250,6 +2285,11 @@ export const translations: Record<Locale, Translations> = {
         cordBlood: 'Nabelschnurblut',
         cordTissue: 'Nabelschnurgewebe',
         both: 'Beides',
+      },
+      statuses: {
+        active: 'Aktiv',
+        pending: 'Ausstehend',
+        inactive: 'Inaktiv',
       },
       none: 'Keine',
     },

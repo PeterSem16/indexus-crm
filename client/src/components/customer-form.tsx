@@ -496,9 +496,9 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel }: Cus
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="active">{t.dashboard.statuses.active}</SelectItem>
-                        <SelectItem value="pending">{t.dashboard.statuses.pending}</SelectItem>
-                        <SelectItem value="inactive">{t.dashboard.statuses.inactive}</SelectItem>
+                        <SelectItem value="active">{t.customers.statuses.active}</SelectItem>
+                        <SelectItem value="pending">{t.customers.statuses.pending}</SelectItem>
+                        <SelectItem value="inactive">{t.customers.statuses.inactive}</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
