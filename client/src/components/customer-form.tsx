@@ -290,38 +290,109 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel }: Cus
               <FormField
                 control={form.control}
                 name="dateOfBirth"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>{t.customers.fields.dateOfBirth}</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "pl-3 text-left font-normal",
-                              !field.value && "text-muted-foreground"
-                            )}
-                            data-testid="input-date-of-birth"
-                          >
-                            {field.value ? format(field.value, "dd.MM.yyyy") : t.customers.fields.selectDate}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value || undefined}
-                          onSelect={field.onChange}
-                          disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                render={({ field }) => {
+                  const currentDate = field.value || null;
+                  const currentYear = currentDate ? currentDate.getFullYear() : undefined;
+                  const currentMonth = currentDate ? currentDate.getMonth() : undefined;
+                  const currentDay = currentDate ? currentDate.getDate() : undefined;
+                  
+                  const years = Array.from({ length: 100 }, (_, i) => new Date().getFullYear() - i);
+                  const months = [
+                    { value: 0, label: "1" },
+                    { value: 1, label: "2" },
+                    { value: 2, label: "3" },
+                    { value: 3, label: "4" },
+                    { value: 4, label: "5" },
+                    { value: 5, label: "6" },
+                    { value: 6, label: "7" },
+                    { value: 7, label: "8" },
+                    { value: 8, label: "9" },
+                    { value: 9, label: "10" },
+                    { value: 10, label: "11" },
+                    { value: 11, label: "12" },
+                  ];
+                  
+                  const getDaysInMonth = (year?: number, month?: number) => {
+                    if (year === undefined || month === undefined) return 31;
+                    return new Date(year, month + 1, 0).getDate();
+                  };
+                  
+                  const daysInMonth = getDaysInMonth(currentYear, currentMonth);
+                  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+                  
+                  const handleDateChange = (type: 'day' | 'month' | 'year', value: string) => {
+                    const numValue = parseInt(value);
+                    let newDate = currentDate ? new Date(currentDate) : new Date();
+                    
+                    if (type === 'year') {
+                      newDate.setFullYear(numValue);
+                    } else if (type === 'month') {
+                      newDate.setMonth(numValue);
+                      const maxDay = getDaysInMonth(newDate.getFullYear(), numValue);
+                      if (newDate.getDate() > maxDay) {
+                        newDate.setDate(maxDay);
+                      }
+                    } else if (type === 'day') {
+                      newDate.setDate(numValue);
+                    }
+                    
+                    field.onChange(newDate);
+                  };
+                  
+                  return (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>{t.customers.fields.dateOfBirth}</FormLabel>
+                      <div className="flex gap-2">
+                        <Select
+                          value={currentDay?.toString() || ""}
+                          onValueChange={(val) => handleDateChange('day', val)}
+                        >
+                          <SelectTrigger className="w-[80px]" data-testid="select-dob-day">
+                            <SelectValue placeholder="Day" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {days.map((day) => (
+                              <SelectItem key={day} value={day.toString()}>
+                                {day}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={currentMonth?.toString() || ""}
+                          onValueChange={(val) => handleDateChange('month', val)}
+                        >
+                          <SelectTrigger className="w-[90px]" data-testid="select-dob-month">
+                            <SelectValue placeholder="Month" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {months.map((month) => (
+                              <SelectItem key={month.value} value={month.value.toString()}>
+                                {month.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={currentYear?.toString() || ""}
+                          onValueChange={(val) => handleDateChange('year', val)}
+                        >
+                          <SelectTrigger className="w-[90px]" data-testid="select-dob-year">
+                            <SelectValue placeholder="Year" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {years.map((year) => (
+                              <SelectItem key={year} value={year.toString()}>
+                                {year}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
             </div>
 
