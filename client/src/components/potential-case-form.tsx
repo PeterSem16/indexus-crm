@@ -1114,7 +1114,7 @@ export function EmbeddedPotentialCaseForm({ customer }: EmbeddedPotentialCaseFor
                   <SelectItem value="_none">--</SelectItem>
                   {SALES_CHANNELS.map((channel) => (
                     <SelectItem key={channel} value={channel}>
-                      {pc.salesChannels[channel as keyof typeof pc.salesChannels] || channel}
+                      {channel}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1133,7 +1133,7 @@ export function EmbeddedPotentialCaseForm({ customer }: EmbeddedPotentialCaseFor
                   <SelectItem value="_none">--</SelectItem>
                   {INFO_SOURCES.map((source) => (
                     <SelectItem key={source} value={source}>
-                      {pc.infoSources[source as keyof typeof pc.infoSources] || source}
+                      {pc.infoSources?.[source as keyof typeof pc.infoSources] || source}
                     </SelectItem>
                   ))}
                 </SelectContent>
