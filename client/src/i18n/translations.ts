@@ -544,6 +544,69 @@ export interface Translations {
     billingCompany: string;
     note: string;
   };
+  potentialCase: {
+    title: string;
+    tabs: {
+      status: string;
+      collection: string;
+      father: string;
+      product: string;
+      other: string;
+    };
+    fields: {
+      caseStatus: string;
+      expectedDate: string;
+      hospital: string;
+      obstetrician: string;
+      multiplePregnancy: string;
+      childCount: string;
+      fatherTitleBefore: string;
+      fatherFirstName: string;
+      fatherLastName: string;
+      fatherTitleAfter: string;
+      fatherPhone: string;
+      fatherMobile: string;
+      fatherEmail: string;
+      fatherStreet: string;
+      fatherCity: string;
+      fatherPostalCode: string;
+      fatherRegion: string;
+      fatherCountry: string;
+      product: string;
+      productType: string;
+      paymentType: string;
+      giftVoucher: string;
+      contactDate: string;
+      existingContracts: string;
+      recruiting: string;
+      salesChannel: string;
+      infoSource: string;
+      marketingAction: string;
+      marketingCode: string;
+      newsletterOptIn: string;
+      notes: string;
+    };
+    statuses: {
+      realized: string;
+      duplicate: string;
+      in_progress: string;
+      postponed: string;
+      no_interest: string;
+      cancelled: string;
+    };
+    infoSources: {
+      internet: string;
+      friends: string;
+      doctor: string;
+      positive_experience: string;
+      conference: string;
+      tv: string;
+      radio: string;
+      prenatal_course: string;
+      hospital_doctor: string;
+      other: string;
+    };
+  };
 }
 
 export const translations: Record<Locale, Translations> = {
@@ -1081,6 +1144,69 @@ export const translations: Record<Locale, Translations> = {
       billingCompany: 'Billing Company',
       note: 'Note',
     },
+    potentialCase: {
+      title: 'Potential Client Case',
+      tabs: {
+        status: 'Status',
+        collection: 'Collection',
+        father: 'Father',
+        product: 'Product',
+        other: 'Other',
+      },
+      fields: {
+        caseStatus: 'Case Status',
+        expectedDate: 'Expected Date',
+        hospital: 'Hospital',
+        obstetrician: 'Obstetrician',
+        multiplePregnancy: 'Multiple Pregnancy',
+        childCount: 'Number of Children',
+        fatherTitleBefore: 'Title Before',
+        fatherFirstName: 'First Name',
+        fatherLastName: 'Last Name',
+        fatherTitleAfter: 'Title After',
+        fatherPhone: 'Phone',
+        fatherMobile: 'Mobile',
+        fatherEmail: 'Email',
+        fatherStreet: 'Street',
+        fatherCity: 'City',
+        fatherPostalCode: 'Postal Code',
+        fatherRegion: 'Region',
+        fatherCountry: 'Country',
+        product: 'Product',
+        productType: 'Product Type',
+        paymentType: 'Payment Type',
+        giftVoucher: 'Gift Voucher',
+        contactDate: 'Contact Date',
+        existingContracts: 'Existing Contracts',
+        recruiting: 'Recruiting',
+        salesChannel: 'Sales Channel',
+        infoSource: 'Information Source',
+        marketingAction: 'Marketing Action',
+        marketingCode: 'Marketing Code',
+        newsletterOptIn: 'Newsletter Subscription',
+        notes: 'Notes',
+      },
+      statuses: {
+        realized: 'Realized',
+        duplicate: 'Duplicate',
+        in_progress: 'In Progress',
+        postponed: 'Postponed',
+        no_interest: 'No Interest',
+        cancelled: 'Cancelled',
+      },
+      infoSources: {
+        internet: 'Internet',
+        friends: 'Friends',
+        doctor: 'Doctor',
+        positive_experience: 'Positive Experience',
+        conference: 'Conference',
+        tv: 'TV',
+        radio: 'Radio',
+        prenatal_course: 'Prenatal Course',
+        hospital_doctor: 'Hospital Doctor',
+        other: 'Other',
+      },
+    },
   },
   sk: {
     nav: {
@@ -1615,6 +1741,69 @@ export const translations: Record<Locale, Translations> = {
       laboratory: 'Laboratórium',
       billingCompany: 'Fakturačná spoločnosť',
       note: 'Poznámka',
+    },
+    potentialCase: {
+      title: 'Potenciálny klient',
+      tabs: {
+        status: 'Stav',
+        collection: 'Odber',
+        father: 'Otec',
+        product: 'Produkt',
+        other: 'Iné',
+      },
+      fields: {
+        caseStatus: 'Stav prípadu',
+        expectedDate: 'Očakávaný dátum',
+        hospital: 'Nemocnica',
+        obstetrician: 'Pôrodník',
+        multiplePregnancy: 'Viacpočetné tehotenstvo',
+        childCount: 'Počet detí',
+        fatherTitleBefore: 'Titul pred',
+        fatherFirstName: 'Meno',
+        fatherLastName: 'Priezvisko',
+        fatherTitleAfter: 'Titul za',
+        fatherPhone: 'Telefón',
+        fatherMobile: 'Mobil',
+        fatherEmail: 'Email',
+        fatherStreet: 'Ulica',
+        fatherCity: 'Mesto',
+        fatherPostalCode: 'PSČ',
+        fatherRegion: 'Kraj',
+        fatherCountry: 'Krajina',
+        product: 'Produkt',
+        productType: 'Typ produktu',
+        paymentType: 'Typ platby',
+        giftVoucher: 'Darčekový poukaz',
+        contactDate: 'Dátum kontaktu',
+        existingContracts: 'Existujúce zmluvy',
+        recruiting: 'Náber',
+        salesChannel: 'Predajný kanál',
+        infoSource: 'Zdroj informácií',
+        marketingAction: 'Marketingová akcia',
+        marketingCode: 'Marketingový kód',
+        newsletterOptIn: 'Odber newslettera',
+        notes: 'Poznámky',
+      },
+      statuses: {
+        realized: 'Zrealizovaný',
+        duplicate: 'Duplikát',
+        in_progress: 'Prebieha',
+        postponed: 'Odložený',
+        no_interest: 'Nezáujem',
+        cancelled: 'Zrušený',
+      },
+      infoSources: {
+        internet: 'Internet',
+        friends: 'Známi',
+        doctor: 'Lekár',
+        positive_experience: 'Pozitívna skúsenosť',
+        conference: 'Konferencia',
+        tv: 'TV',
+        radio: 'Rádio',
+        prenatal_course: 'Predpôrodný kurz',
+        hospital_doctor: 'Lekár v nemocnici',
+        other: 'Iné',
+      },
     },
   },
   cs: {
@@ -2151,6 +2340,69 @@ export const translations: Record<Locale, Translations> = {
       billingCompany: 'Fakturační společnost',
       note: 'Poznámka',
     },
+    potentialCase: {
+      title: 'Potenciální klient',
+      tabs: {
+        status: 'Stav',
+        collection: 'Odběr',
+        father: 'Otec',
+        product: 'Produkt',
+        other: 'Ostatní',
+      },
+      fields: {
+        caseStatus: 'Stav případu',
+        expectedDate: 'Očekávané datum',
+        hospital: 'Nemocnice',
+        obstetrician: 'Porodník',
+        multiplePregnancy: 'Vícečetné těhotenství',
+        childCount: 'Počet dětí',
+        fatherTitleBefore: 'Titul před',
+        fatherFirstName: 'Jméno',
+        fatherLastName: 'Příjmení',
+        fatherTitleAfter: 'Titul za',
+        fatherPhone: 'Telefon',
+        fatherMobile: 'Mobil',
+        fatherEmail: 'Email',
+        fatherStreet: 'Ulice',
+        fatherCity: 'Město',
+        fatherPostalCode: 'PSČ',
+        fatherRegion: 'Kraj',
+        fatherCountry: 'Země',
+        product: 'Produkt',
+        productType: 'Typ produktu',
+        paymentType: 'Typ platby',
+        giftVoucher: 'Dárkový poukaz',
+        contactDate: 'Datum kontaktu',
+        existingContracts: 'Existující smlouvy',
+        recruiting: 'Nábor',
+        salesChannel: 'Prodejní kanál',
+        infoSource: 'Zdroj informací',
+        marketingAction: 'Marketingová akce',
+        marketingCode: 'Marketingový kód',
+        newsletterOptIn: 'Odběr newsletteru',
+        notes: 'Poznámky',
+      },
+      statuses: {
+        realized: 'Realizováno',
+        duplicate: 'Duplikát',
+        in_progress: 'Probíhá',
+        postponed: 'Odloženo',
+        no_interest: 'Bez zájmu',
+        cancelled: 'Zrušeno',
+      },
+      infoSources: {
+        internet: 'Internet',
+        friends: 'Známí',
+        doctor: 'Lékař',
+        positive_experience: 'Pozitivní zkušenost',
+        conference: 'Konference',
+        tv: 'TV',
+        radio: 'Rádio',
+        prenatal_course: 'Předporodní kurz',
+        hospital_doctor: 'Lékař v nemocnici',
+        other: 'Ostatní',
+      },
+    },
   },
   hu: {
     nav: {
@@ -2685,6 +2937,69 @@ export const translations: Record<Locale, Translations> = {
       laboratory: 'Laboratórium',
       billingCompany: 'Számlázó cég',
       note: 'Jegyzet',
+    },
+    potentialCase: {
+      title: 'Potenciális ügyfél',
+      tabs: {
+        status: 'Állapot',
+        collection: 'Gyűjtés',
+        father: 'Apa',
+        product: 'Termék',
+        other: 'Egyéb',
+      },
+      fields: {
+        caseStatus: 'Eset állapota',
+        expectedDate: 'Várható dátum',
+        hospital: 'Kórház',
+        obstetrician: 'Szülész',
+        multiplePregnancy: 'Ikerterhesség',
+        childCount: 'Gyermekek száma',
+        fatherTitleBefore: 'Cím elöl',
+        fatherFirstName: 'Keresztnév',
+        fatherLastName: 'Vezetéknév',
+        fatherTitleAfter: 'Cím hátul',
+        fatherPhone: 'Telefon',
+        fatherMobile: 'Mobil',
+        fatherEmail: 'Email',
+        fatherStreet: 'Utca',
+        fatherCity: 'Város',
+        fatherPostalCode: 'Irányítószám',
+        fatherRegion: 'Megye',
+        fatherCountry: 'Ország',
+        product: 'Termék',
+        productType: 'Termék típusa',
+        paymentType: 'Fizetés típusa',
+        giftVoucher: 'Ajándékutalvány',
+        contactDate: 'Kapcsolatfelvétel dátuma',
+        existingContracts: 'Meglévő szerződések',
+        recruiting: 'Toborzás',
+        salesChannel: 'Értékesítési csatorna',
+        infoSource: 'Információforrás',
+        marketingAction: 'Marketing akció',
+        marketingCode: 'Marketing kód',
+        newsletterOptIn: 'Hírlevél feliratkozás',
+        notes: 'Megjegyzések',
+      },
+      statuses: {
+        realized: 'Megvalósult',
+        duplicate: 'Duplikátum',
+        in_progress: 'Folyamatban',
+        postponed: 'Elhalasztva',
+        no_interest: 'Nincs érdeklődés',
+        cancelled: 'Lemondva',
+      },
+      infoSources: {
+        internet: 'Internet',
+        friends: 'Ismerősök',
+        doctor: 'Orvos',
+        positive_experience: 'Pozitív tapasztalat',
+        conference: 'Konferencia',
+        tv: 'TV',
+        radio: 'Rádió',
+        prenatal_course: 'Szülésre felkészítő tanfolyam',
+        hospital_doctor: 'Kórházi orvos',
+        other: 'Egyéb',
+      },
     },
   },
   ro: {
@@ -3221,6 +3536,69 @@ export const translations: Record<Locale, Translations> = {
       billingCompany: 'Companie de facturare',
       note: 'Notă',
     },
+    potentialCase: {
+      title: 'Client potențial',
+      tabs: {
+        status: 'Status',
+        collection: 'Colectare',
+        father: 'Tată',
+        product: 'Produs',
+        other: 'Altele',
+      },
+      fields: {
+        caseStatus: 'Starea cazului',
+        expectedDate: 'Data așteptată',
+        hospital: 'Spital',
+        obstetrician: 'Obstetrician',
+        multiplePregnancy: 'Sarcină multiplă',
+        childCount: 'Număr de copii',
+        fatherTitleBefore: 'Titlu înainte',
+        fatherFirstName: 'Prenume',
+        fatherLastName: 'Nume',
+        fatherTitleAfter: 'Titlu după',
+        fatherPhone: 'Telefon',
+        fatherMobile: 'Mobil',
+        fatherEmail: 'Email',
+        fatherStreet: 'Strada',
+        fatherCity: 'Oraș',
+        fatherPostalCode: 'Cod poștal',
+        fatherRegion: 'Regiune',
+        fatherCountry: 'Țară',
+        product: 'Produs',
+        productType: 'Tip produs',
+        paymentType: 'Tip plată',
+        giftVoucher: 'Voucher cadou',
+        contactDate: 'Data contactului',
+        existingContracts: 'Contracte existente',
+        recruiting: 'Recrutare',
+        salesChannel: 'Canal de vânzări',
+        infoSource: 'Sursa informațiilor',
+        marketingAction: 'Acțiune de marketing',
+        marketingCode: 'Cod marketing',
+        newsletterOptIn: 'Abonare newsletter',
+        notes: 'Note',
+      },
+      statuses: {
+        realized: 'Realizat',
+        duplicate: 'Duplicat',
+        in_progress: 'În curs',
+        postponed: 'Amânat',
+        no_interest: 'Fără interes',
+        cancelled: 'Anulat',
+      },
+      infoSources: {
+        internet: 'Internet',
+        friends: 'Prieteni',
+        doctor: 'Doctor',
+        positive_experience: 'Experiență pozitivă',
+        conference: 'Conferință',
+        tv: 'TV',
+        radio: 'Radio',
+        prenatal_course: 'Curs prenatal',
+        hospital_doctor: 'Doctor spital',
+        other: 'Altele',
+      },
+    },
   },
   it: {
     nav: {
@@ -3756,6 +4134,69 @@ export const translations: Record<Locale, Translations> = {
       billingCompany: 'Società di fatturazione',
       note: 'Nota',
     },
+    potentialCase: {
+      title: 'Cliente potenziale',
+      tabs: {
+        status: 'Stato',
+        collection: 'Raccolta',
+        father: 'Padre',
+        product: 'Prodotto',
+        other: 'Altro',
+      },
+      fields: {
+        caseStatus: 'Stato del caso',
+        expectedDate: 'Data prevista',
+        hospital: 'Ospedale',
+        obstetrician: 'Ostetrico',
+        multiplePregnancy: 'Gravidanza multipla',
+        childCount: 'Numero di bambini',
+        fatherTitleBefore: 'Titolo prima',
+        fatherFirstName: 'Nome',
+        fatherLastName: 'Cognome',
+        fatherTitleAfter: 'Titolo dopo',
+        fatherPhone: 'Telefono',
+        fatherMobile: 'Cellulare',
+        fatherEmail: 'Email',
+        fatherStreet: 'Via',
+        fatherCity: 'Città',
+        fatherPostalCode: 'CAP',
+        fatherRegion: 'Regione',
+        fatherCountry: 'Paese',
+        product: 'Prodotto',
+        productType: 'Tipo di prodotto',
+        paymentType: 'Tipo di pagamento',
+        giftVoucher: 'Buono regalo',
+        contactDate: 'Data di contatto',
+        existingContracts: 'Contratti esistenti',
+        recruiting: 'Reclutamento',
+        salesChannel: 'Canale di vendita',
+        infoSource: 'Fonte di informazioni',
+        marketingAction: 'Azione di marketing',
+        marketingCode: 'Codice marketing',
+        newsletterOptIn: 'Iscrizione newsletter',
+        notes: 'Note',
+      },
+      statuses: {
+        realized: 'Realizzato',
+        duplicate: 'Duplicato',
+        in_progress: 'In corso',
+        postponed: 'Rinviato',
+        no_interest: 'Nessun interesse',
+        cancelled: 'Annullato',
+      },
+      infoSources: {
+        internet: 'Internet',
+        friends: 'Amici',
+        doctor: 'Dottore',
+        positive_experience: 'Esperienza positiva',
+        conference: 'Conferenza',
+        tv: 'TV',
+        radio: 'Radio',
+        prenatal_course: 'Corso prenatale',
+        hospital_doctor: 'Medico ospedaliero',
+        other: 'Altro',
+      },
+    },
   },
   de: {
     nav: {
@@ -4290,6 +4731,69 @@ export const translations: Record<Locale, Translations> = {
       laboratory: 'Labor',
       billingCompany: 'Rechnungsfirma',
       note: 'Notiz',
+    },
+    potentialCase: {
+      title: 'Potenzieller Kunde',
+      tabs: {
+        status: 'Status',
+        collection: 'Entnahme',
+        father: 'Vater',
+        product: 'Produkt',
+        other: 'Sonstiges',
+      },
+      fields: {
+        caseStatus: 'Fallstatus',
+        expectedDate: 'Erwartetes Datum',
+        hospital: 'Krankenhaus',
+        obstetrician: 'Geburtshelfer',
+        multiplePregnancy: 'Mehrlingsschwangerschaft',
+        childCount: 'Anzahl der Kinder',
+        fatherTitleBefore: 'Titel vor',
+        fatherFirstName: 'Vorname',
+        fatherLastName: 'Nachname',
+        fatherTitleAfter: 'Titel nach',
+        fatherPhone: 'Telefon',
+        fatherMobile: 'Mobil',
+        fatherEmail: 'E-Mail',
+        fatherStreet: 'Straße',
+        fatherCity: 'Stadt',
+        fatherPostalCode: 'PLZ',
+        fatherRegion: 'Region',
+        fatherCountry: 'Land',
+        product: 'Produkt',
+        productType: 'Produkttyp',
+        paymentType: 'Zahlungsart',
+        giftVoucher: 'Geschenkgutschein',
+        contactDate: 'Kontaktdatum',
+        existingContracts: 'Bestehende Verträge',
+        recruiting: 'Rekrutierung',
+        salesChannel: 'Vertriebskanal',
+        infoSource: 'Informationsquelle',
+        marketingAction: 'Marketingaktion',
+        marketingCode: 'Marketingcode',
+        newsletterOptIn: 'Newsletter-Anmeldung',
+        notes: 'Notizen',
+      },
+      statuses: {
+        realized: 'Realisiert',
+        duplicate: 'Duplikat',
+        in_progress: 'In Bearbeitung',
+        postponed: 'Verschoben',
+        no_interest: 'Kein Interesse',
+        cancelled: 'Storniert',
+      },
+      infoSources: {
+        internet: 'Internet',
+        friends: 'Freunde',
+        doctor: 'Arzt',
+        positive_experience: 'Positive Erfahrung',
+        conference: 'Konferenz',
+        tv: 'TV',
+        radio: 'Radio',
+        prenatal_course: 'Geburtsvorbereitungskurs',
+        hospital_doctor: 'Krankenhausarzt',
+        other: 'Sonstiges',
+      },
     },
   },
 };
