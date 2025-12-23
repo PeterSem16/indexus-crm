@@ -1916,9 +1916,9 @@ export async function registerRoutes(
       
       const data = await storage.upsertCustomerPotentialCase(caseData);
       
-      // If case status is set (not empty), automatically update customer's clientStatus to "realized"
+      // If case status is set (not empty), automatically update customer's clientStatus to "realized" and status to "active"
       if (caseData.caseStatus && caseData.caseStatus.trim() !== "") {
-        await storage.updateCustomer(customerId, { clientStatus: "realized" });
+        await storage.updateCustomer(customerId, { clientStatus: "realized", status: "active" });
       }
       
       res.json(data);
