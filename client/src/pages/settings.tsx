@@ -5,9 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/auth-context";
-import { COUNTRIES, type BillingDetails, type ComplaintType, type CooperationType, type VipStatus, type HealthInsurance } from "@shared/schema";
+import { COUNTRIES, type BillingDetails, type ComplaintType, type CooperationType, type VipStatus, type HealthInsurance, type LeadScoringCriteria } from "@shared/schema";
 import { Separator } from "@/components/ui/separator";
-import { Droplets, Globe, Shield, Building2, Save, Loader2, Plus, Trash2, Settings2, Heart, FlaskConical, Pencil, Star } from "lucide-react";
+import { Droplets, Globe, Shield, Building2, Save, Loader2, Plus, Trash2, Settings2, Heart, FlaskConical, Pencil, Star, Target, RefreshCw } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -821,6 +821,431 @@ function ConfigListManager({
   );
 }
 
+const LEAD_SCORING_FIELDS = [
+  'hasPhone', 'hasEmail', 'hasAddress', 'hasCase', 'newsletterOptIn',
+  'caseStatus', 'hasExpectedDate', 'hasFatherInfo', 'hasProduct',
+  'clientStatus', 'daysFromCreation'
+] as const;
+
+const LEAD_SCORING_CONDITIONS = ['equals', 'not_empty', 'greater_than', 'less_than', 'contains'] as const;
+const LEAD_SCORING_CATEGORIES = ['profile', 'engagement', 'behavior', 'demographic'] as const;
+
+interface CriteriaFormData {
+  name: string;
+  description: string;
+  category: string;
+  field: string;
+  condition: string;
+  value: string;
+  points: number;
+  isActive: boolean;
+  countryCode: string | null;
+}
+
+function LeadScoringCriteriaManager({ countries }: { countries: readonly { code: string; name: string; flag?: string }[] }) {
+  const { t } = useI18n();
+  const { toast } = useToast();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingCriteria, setEditingCriteria] = useState<LeadScoringCriteria | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [isRecalculating, setIsRecalculating] = useState(false);
+
+  const defaultFormData: CriteriaFormData = {
+    name: '',
+    description: '',
+    category: 'profile',
+    field: 'hasPhone',
+    condition: 'not_empty',
+    value: '',
+    points: 10,
+    isActive: true,
+    countryCode: null,
+  };
+
+  const [formData, setFormData] = useState<CriteriaFormData>(defaultFormData);
+
+  const { data: criteria, isLoading } = useQuery<LeadScoringCriteria[]>({
+    queryKey: ['/api/lead-scoring-criteria'],
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: (data: CriteriaFormData) => {
+      if (editingCriteria) {
+        return apiRequest("PATCH", `/api/lead-scoring-criteria/${editingCriteria.id}`, data);
+      }
+      return apiRequest("POST", "/api/lead-scoring-criteria", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/lead-scoring-criteria'] });
+      toast({ title: t.success.saved });
+      handleCloseDialog();
+    },
+    onError: () => {
+      toast({ title: t.errors.saveFailed, variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/lead-scoring-criteria/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/lead-scoring-criteria'] });
+      toast({ title: t.success.deleted });
+      setDeleteId(null);
+    },
+    onError: () => {
+      toast({ title: t.errors.deleteFailed, variant: "destructive" });
+    },
+  });
+
+  const seedMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/lead-scoring-criteria/seed-defaults"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/lead-scoring-criteria'] });
+      toast({ title: t.success.saved });
+    },
+    onError: () => {
+      toast({ title: t.errors.saveFailed, variant: "destructive" });
+    },
+  });
+
+  const handleRecalculateAll = async () => {
+    setIsRecalculating(true);
+    try {
+      await apiRequest("POST", "/api/lead-scoring/recalculate-all");
+      toast({ title: t.success.updated });
+    } catch {
+      toast({ title: t.errors.generic, variant: "destructive" });
+    } finally {
+      setIsRecalculating(false);
+    }
+  };
+
+  const handleOpenAdd = () => {
+    setEditingCriteria(null);
+    setFormData(defaultFormData);
+    setDialogOpen(true);
+  };
+
+  const handleOpenEdit = (item: LeadScoringCriteria) => {
+    setEditingCriteria(item);
+    setFormData({
+      name: item.name,
+      description: item.description || '',
+      category: item.category,
+      field: item.field,
+      condition: item.condition,
+      value: item.value || '',
+      points: item.points,
+      isActive: item.isActive,
+      countryCode: item.countryCode,
+    });
+    setDialogOpen(true);
+  };
+
+  const handleCloseDialog = () => {
+    setDialogOpen(false);
+    setEditingCriteria(null);
+    setFormData(defaultFormData);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name || !formData.field) {
+      toast({ title: t.errors.required, variant: "destructive" });
+      return;
+    }
+    saveMutation.mutate(formData);
+  };
+
+  const getFieldLabel = (field: string) => {
+    const key = field as keyof typeof t.leadScoring.fieldOptions;
+    return t.leadScoring.fieldOptions[key] || field;
+  };
+
+  const getConditionLabel = (condition: string) => {
+    const key = condition as keyof typeof t.leadScoring.conditions;
+    return t.leadScoring.conditions[key] || condition;
+  };
+
+  const getCategoryLabel = (category: string) => {
+    const key = category as keyof typeof t.leadScoring.categories;
+    return t.leadScoring.categories[key] || category;
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap gap-2 items-center justify-between">
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={handleOpenAdd} data-testid="button-add-criteria">
+            <Plus className="h-4 w-4 mr-2" />
+            {t.leadScoring.addCriteria}
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => seedMutation.mutate()} 
+            disabled={seedMutation.isPending}
+            data-testid="button-seed-defaults"
+          >
+            {seedMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+            {t.leadScoring.seedDefaults}
+          </Button>
+        </div>
+        <Button
+          variant="secondary"
+          onClick={handleRecalculateAll}
+          disabled={isRecalculating}
+          data-testid="button-recalculate-all"
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${isRecalculating ? 'animate-spin' : ''}`} />
+          {isRecalculating ? t.leadScoring.recalculatingAll : t.leadScoring.recalculateAll}
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center p-6">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : !criteria || criteria.length === 0 ? (
+        <div className="text-center p-6 text-muted-foreground">
+          {t.leadScoring.noCriteria}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {criteria.map((item) => (
+            <div
+              key={item.id}
+              className="flex flex-wrap items-center gap-3 p-4 rounded-lg bg-muted/50 justify-between"
+              data-testid={`criteria-item-${item.id}`}
+            >
+              <div className="flex flex-wrap items-center gap-3 flex-1 min-w-0">
+                <Switch
+                  checked={item.isActive}
+                  onCheckedChange={(checked) => {
+                    apiRequest("PATCH", `/api/lead-scoring-criteria/${item.id}`, { isActive: checked })
+                      .then(() => {
+                        queryClient.invalidateQueries({ queryKey: ['/api/lead-scoring-criteria'] });
+                      })
+                      .catch(() => {
+                        toast({ title: t.errors.saveFailed, variant: "destructive" });
+                      });
+                  }}
+                  data-testid={`switch-criteria-${item.id}`}
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate">{item.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {getFieldLabel(item.field)} {getConditionLabel(item.condition)} {item.value ? `"${item.value}"` : ''}
+                  </p>
+                </div>
+                <Badge variant="outline">{getCategoryLabel(item.category)}</Badge>
+                <Badge variant={item.points > 0 ? "default" : "destructive"}>
+                  {item.points > 0 ? '+' : ''}{item.points} {t.leadScoring.fields.points}
+                </Badge>
+                {item.countryCode && (
+                  <Badge variant="secondary">{item.countryCode}</Badge>
+                )}
+              </div>
+              <div className="flex gap-1">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => handleOpenEdit(item)}
+                  data-testid={`button-edit-criteria-${item.id}`}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setDeleteId(item.id)}
+                  data-testid={`button-delete-criteria-${item.id}`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editingCriteria ? t.leadScoring.editCriteria : t.leadScoring.addCriteria}
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">{t.leadScoring.fields.name} *</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                data-testid="input-criteria-name"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="description">{t.leadScoring.description}</Label>
+              <Input
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                data-testid="input-criteria-description"
+              />
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>{t.leadScoring.fields.category}</Label>
+                <Select
+                  value={formData.category}
+                  onValueChange={(v) => setFormData({ ...formData, category: v })}
+                >
+                  <SelectTrigger data-testid="select-criteria-category">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LEAD_SCORING_CATEGORIES.map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {getCategoryLabel(cat)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>{t.leadScoring.fields.field}</Label>
+                <Select
+                  value={formData.field}
+                  onValueChange={(v) => setFormData({ ...formData, field: v })}
+                >
+                  <SelectTrigger data-testid="select-criteria-field">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LEAD_SCORING_FIELDS.map((f) => (
+                      <SelectItem key={f} value={f}>
+                        {getFieldLabel(f)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>{t.leadScoring.fields.condition}</Label>
+                <Select
+                  value={formData.condition}
+                  onValueChange={(v) => setFormData({ ...formData, condition: v })}
+                >
+                  <SelectTrigger data-testid="select-criteria-condition">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LEAD_SCORING_CONDITIONS.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {getConditionLabel(c)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>{t.leadScoring.fields.value}</Label>
+                <Input
+                  value={formData.value}
+                  onChange={(e) => setFormData({ ...formData, value: e.target.value })}
+                  placeholder={formData.condition === 'not_empty' ? '-' : ''}
+                  disabled={formData.condition === 'not_empty'}
+                  data-testid="input-criteria-value"
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>{t.leadScoring.fields.points}</Label>
+                <Input
+                  type="number"
+                  value={formData.points}
+                  onChange={(e) => setFormData({ ...formData, points: parseInt(e.target.value) || 0 })}
+                  data-testid="input-criteria-points"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>{t.leadScoring.fields.countryCode}</Label>
+                <Select
+                  value={formData.countryCode || "all"}
+                  onValueChange={(v) => setFormData({ ...formData, countryCode: v === "all" ? null : v })}
+                >
+                  <SelectTrigger data-testid="select-criteria-country">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t.common.allCountries}</SelectItem>
+                    {countries.map((c) => (
+                      <SelectItem key={c.code} value={c.code}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={formData.isActive}
+                onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
+                id="isActive"
+                data-testid="switch-criteria-active"
+              />
+              <Label htmlFor="isActive">{t.leadScoring.fields.isActive}</Label>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={handleCloseDialog}>
+                {t.common.cancel}
+              </Button>
+              <Button type="submit" disabled={saveMutation.isPending} data-testid="button-save-criteria">
+                {saveMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                {t.common.save}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t.leadScoring.deleteCriteria}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t.leadScoring.deleteConfirm}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t.common.cancel}</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => deleteId && deleteMutation.mutate(deleteId)}
+              data-testid="button-confirm-delete-criteria"
+            >
+              {t.common.delete}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const { t } = useI18n();
   const { user } = useAuth();
@@ -861,6 +1286,10 @@ export default function SettingsPage() {
           <TabsTrigger value="laboratories" data-testid="tab-laboratories">
             <FlaskConical className="h-4 w-4 mr-2" />
             {t.settings.tabs.laboratories}
+          </TabsTrigger>
+          <TabsTrigger value="leadscoring" data-testid="tab-leadscoring">
+            <Target className="h-4 w-4 mr-2" />
+            {t.leadScoring.criteria}
           </TabsTrigger>
           <TabsTrigger value="system" data-testid="tab-system">
             <Shield className="h-4 w-4 mr-2" />
@@ -1001,6 +1430,20 @@ export default function SettingsPage() {
                 requireCountry={true}
                 countries={userCountries}
               />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="leadscoring" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t.leadScoring.criteria}</CardTitle>
+              <CardDescription>
+                {t.leadScoring.description}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <LeadScoringCriteriaManager countries={userCountries} />
             </CardContent>
           </Card>
         </TabsContent>
