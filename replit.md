@@ -54,6 +54,10 @@ Database tables:
 - `customer_notes`: Notes on customer records
 - `activity_logs`: User action audit trail
 - `communication_messages`: Email/SMS messages sent to customers
+- `collaborators`: Medical staff collaborators with personal info, company details
+- `collaborator_addresses`: Collaborator addresses (permanent, correspondence, work, company)
+- `collaborator_other_data`: Pension and disability dates for collaborators
+- `collaborator_agreements`: Agreements with billing companies, reward types, file uploads
 
 ### External Communication Integration
 The system supports sending emails and SMS to customers:

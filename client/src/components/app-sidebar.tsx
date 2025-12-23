@@ -9,7 +9,8 @@ import {
   LogOut,
   Package,
   FileText,
-  Building2
+  Building2,
+  Handshake
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useI18n } from "@/i18n";
@@ -38,6 +39,7 @@ export function AppSidebar() {
     { title: t.nav.dashboard, url: "/", icon: LayoutDashboard, testId: "dashboard" },
     { title: t.nav.customers, url: "/customers", icon: Users, testId: "customers" },
     { title: t.nav.hospitals, url: "/hospitals", icon: Building2, testId: "hospitals" },
+    { title: t.nav.collaborators, url: "/collaborators", icon: Handshake, testId: "collaborators" },
     { title: t.nav.products, url: "/products", icon: Package, testId: "products" },
     { title: t.nav.invoices, url: "/invoices", icon: FileText, testId: "invoices" },
   ];
