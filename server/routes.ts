@@ -589,7 +589,7 @@ export async function registerRoutes(
         if (invoice.billingBankIban) doc.text(`IBAN: ${invoice.billingBankIban}`);
         if (invoice.billingBankSwift) doc.text(`SWIFT: ${invoice.billingBankSwift}`);
       } else {
-        doc.fontSize(18).font("Helvetica-Bold").text("Nexus BioLink", { align: "left" });
+        doc.fontSize(18).font("Helvetica-Bold").text("INDEXUS", { align: "left" });
         doc.fontSize(10).font("Helvetica").text("Cord Blood Banking Services");
       }
       doc.moveDown(2);
@@ -676,7 +676,7 @@ export async function registerRoutes(
 
       // Footer
       doc.fontSize(8).font("Helvetica").fillColor("gray");
-      doc.text("Thank you for choosing Nexus BioLink for your cord blood banking needs.", { align: "center" });
+      doc.text("Thank you for choosing INDEXUS for your cord blood banking needs.", { align: "center" });
 
       doc.end();
     } catch (error) {

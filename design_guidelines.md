@@ -1,4 +1,4 @@
-# Nexus BioLink CRM - Design Guidelines
+# INDEXUS CRM - Design Guidelines
 
 ## Design Approach
 **System Selected**: Combination of modern healthcare UI patterns (inspired by Epic Systems, Athenahealth) with clean SaaS dashboard aesthetics (Linear, Stripe Dashboard)

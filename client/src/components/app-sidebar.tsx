@@ -62,7 +62,7 @@ export function AppSidebar() {
             <Droplets className="h-6 w-6 text-primary-foreground" />
           </div>
           <div className="flex flex-col">
-            <span className="text-lg font-semibold tracking-tight">Nexus BioLink</span>
+            <span className="text-lg font-semibold tracking-tight">INDEXUS</span>
             <span className="text-xs text-muted-foreground">CRM System</span>
           </div>
         </Link>

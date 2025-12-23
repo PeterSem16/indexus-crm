@@ -1,8 +1,8 @@
-# Nexus BioLink CRM
+# INDEXUS CRM
 
 ## Overview
 
-Nexus BioLink is a CRM (Customer Relationship Management) system designed specifically for cord blood banking companies. It provides multi-country support for managing customers across different regions (Slovakia, Czech Republic, Hungary, Romania, Italy, Germany, USA) with role-based user access control.
+INDEXUS is a CRM (Customer Relationship Management) system designed specifically for cord blood banking companies. It provides multi-country support for managing customers across different regions (Slovakia, Czech Republic, Hungary, Romania, Italy, Germany, USA) with role-based user access control.
 
 The application features a dashboard with statistics, customer management, user management, and country-based filtering capabilities. It follows a medical-grade professional design aesthetic with a deep burgundy primary color palette.
 

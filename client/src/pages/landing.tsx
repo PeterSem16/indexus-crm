@@ -77,7 +77,7 @@ export default function LandingPage() {
                 <Heart className="h-6 w-6 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-foreground">Nexus BioLink</h1>
+                <h1 className="text-xl font-bold text-foreground">INDEXUS</h1>
                 <p className="text-xs text-muted-foreground">Cord Blood Banking CRM</p>
               </div>
             </div>
@@ -167,7 +167,7 @@ export default function LandingPage() {
 
           <footer className="mt-24 pt-8 border-t">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-              <p>Nexus BioLink CRM - Secure Medical Customer Management</p>
+              <p>INDEXUS CRM - Secure Medical Customer Management</p>
               <div className="flex items-center gap-4">
                 <span>Slovakia</span>
                 <span>Czech Republic</span>
