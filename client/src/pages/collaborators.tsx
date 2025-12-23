@@ -203,37 +203,86 @@ function DateFields({
   testIdPrefix: string;
   t: any;
 }) {
+  const getDaysInMonth = (year?: number | null, month?: number | null) => {
+    if (!year || !month) return 31;
+    return new Date(year, month, 0).getDate();
+  };
+  
+  const daysInMonth = getDaysInMonth(yearValue, monthValue);
+  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+  const months = Array.from({ length: 12 }, (_, i) => i + 1);
+  const years = Array.from({ length: 100 }, (_, i) => new Date().getFullYear() - i);
+
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
-      <div className="grid grid-cols-3 gap-2">
-        <Input
-          type="number"
-          placeholder={t.collaborators.fields.day}
-          value={dayValue ?? ""}
-          onChange={(e) => onDayChange(e.target.value ? parseInt(e.target.value) : null)}
-          min={1}
-          max={31}
-          data-testid={`input-${testIdPrefix}-day`}
-        />
-        <Input
-          type="number"
-          placeholder={t.collaborators.fields.month}
-          value={monthValue ?? ""}
-          onChange={(e) => onMonthChange(e.target.value ? parseInt(e.target.value) : null)}
-          min={1}
-          max={12}
-          data-testid={`input-${testIdPrefix}-month`}
-        />
-        <Input
-          type="number"
-          placeholder={t.collaborators.fields.year}
-          value={yearValue ?? ""}
-          onChange={(e) => onYearChange(e.target.value ? parseInt(e.target.value) : null)}
-          min={1900}
-          max={2100}
-          data-testid={`input-${testIdPrefix}-year`}
-        />
+      <div className="flex gap-2">
+        <Select
+          value={dayValue?.toString() || "_none"}
+          onValueChange={(val) => onDayChange(val === "_none" ? null : parseInt(val))}
+        >
+          <SelectTrigger className="w-[80px]" data-testid={`select-${testIdPrefix}-day`}>
+            <SelectValue placeholder={t.collaborators.fields.day} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="_none">-</SelectItem>
+            {days.map((day) => (
+              <SelectItem key={day} value={day.toString()}>
+                {day}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={monthValue?.toString() || "_none"}
+          onValueChange={(val) => {
+            const newMonth = val === "_none" ? null : parseInt(val);
+            onMonthChange(newMonth);
+            if (newMonth && dayValue) {
+              const maxDay = getDaysInMonth(yearValue, newMonth);
+              if (dayValue > maxDay) {
+                onDayChange(maxDay);
+              }
+            }
+          }}
+        >
+          <SelectTrigger className="w-[80px]" data-testid={`select-${testIdPrefix}-month`}>
+            <SelectValue placeholder={t.collaborators.fields.month} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="_none">-</SelectItem>
+            {months.map((month) => (
+              <SelectItem key={month} value={month.toString()}>
+                {month}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={yearValue?.toString() || "_none"}
+          onValueChange={(val) => {
+            const newYear = val === "_none" ? null : parseInt(val);
+            onYearChange(newYear);
+            if (newYear && monthValue && dayValue) {
+              const maxDay = getDaysInMonth(newYear, monthValue);
+              if (dayValue > maxDay) {
+                onDayChange(maxDay);
+              }
+            }
+          }}
+        >
+          <SelectTrigger className="w-[90px]" data-testid={`select-${testIdPrefix}-year`}>
+            <SelectValue placeholder={t.collaborators.fields.year} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="_none">-</SelectItem>
+            {years.map((year) => (
+              <SelectItem key={year} value={year.toString()}>
+                {year}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
     </div>
   );
