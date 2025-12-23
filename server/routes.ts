@@ -1896,6 +1896,28 @@ export async function registerRoutes(
     }
   });
 
+  // Customer Potential Cases
+  app.get("/api/customers/:id/potential-case", requireAuth, async (req, res) => {
+    try {
+      const data = await storage.getCustomerPotentialCase(req.params.id);
+      res.json(data || null);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch potential case" });
+    }
+  });
+
+  app.post("/api/customers/:id/potential-case", requireAuth, async (req, res) => {
+    try {
+      const data = await storage.upsertCustomerPotentialCase({
+        ...req.body,
+        customerId: req.params.id,
+      });
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to save potential case" });
+    }
+  });
+
   // Global search endpoint - searches across all modules and files
   app.get("/api/search", requireAuth, async (req, res) => {
     try {
