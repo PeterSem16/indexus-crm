@@ -756,3 +756,235 @@ export type InsertLaboratory = z.infer<typeof insertLaboratorySchema>;
 export type Laboratory = typeof laboratories.$inferSelect;
 export type InsertHospital = z.infer<typeof insertHospitalSchema>;
 export type Hospital = typeof hospitals.$inferSelect;
+
+// ==================== COLLABORATORS MODULE ====================
+
+// Collaborator types
+export const COLLABORATOR_TYPES = [
+  { value: "doctor", labelKey: "doctor" },
+  { value: "nurse", labelKey: "nurse" },
+  { value: "assistant_doctor", labelKey: "assistantDoctor" },
+  { value: "head_nurse", labelKey: "headNurse" },
+  { value: "call_center", labelKey: "callCenter" },
+  { value: "other", labelKey: "other" },
+] as const;
+
+export type CollaboratorType = typeof COLLABORATOR_TYPES[number]["value"];
+
+// Marital status
+export const MARITAL_STATUSES = [
+  { value: "single", labelKey: "single" },
+  { value: "married", labelKey: "married" },
+  { value: "divorced", labelKey: "divorced" },
+  { value: "widowed", labelKey: "widowed" },
+] as const;
+
+export type MaritalStatus = typeof MARITAL_STATUSES[number]["value"];
+
+// Reward types for agreements
+export const REWARD_TYPES = [
+  { value: "recruitment", labelKey: "recruitment" },
+  { value: "assistance", labelKey: "assistance" },
+  { value: "puk_collection", labelKey: "pukCollection" },
+  { value: "plk_collection", labelKey: "plkCollection" },
+  { value: "tpu_collection", labelKey: "tpuCollection" },
+  { value: "tpl_collection", labelKey: "tplCollection" },
+  { value: "informing", labelKey: "informing" },
+  { value: "emergency_grant", labelKey: "emergencyGrant" },
+  { value: "prophylaxis", labelKey: "prophylaxis" },
+  { value: "head_nurse", labelKey: "headNurse" },
+  { value: "lecture", labelKey: "lecture" },
+  { value: "management", labelKey: "management" },
+  { value: "disability_card", labelKey: "disabilityCard" },
+  { value: "old_age_pension", labelKey: "oldAgePension" },
+  { value: "widow_pension", labelKey: "widowPension" },
+  { value: "vip", labelKey: "vip" },
+  { value: "dpa_signed", labelKey: "dpaSigned" },
+  { value: "monthly_rewarding_signed", labelKey: "monthlyRewardingSigned" },
+  { value: "internal_employee", labelKey: "internalEmployee" },
+  { value: "contact_person_reward", labelKey: "contactPersonReward" },
+  { value: "responsible_person_reward", labelKey: "responsiblePersonReward" },
+] as const;
+
+export type RewardType = typeof REWARD_TYPES[number]["value"];
+
+// Address types for collaborator addresses
+export const ADDRESS_TYPES = [
+  { value: "permanent", labelKey: "permanent" },
+  { value: "correspondence", labelKey: "correspondence" },
+  { value: "work", labelKey: "work" },
+  { value: "company", labelKey: "company" },
+] as const;
+
+export type AddressType = typeof ADDRESS_TYPES[number]["value"];
+
+// Collaborators table - main collaborator data
+export const collaborators = pgTable("collaborators", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Basic info
+  countryCode: text("country_code").notNull(),
+  titleBefore: text("title_before"),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  maidenName: text("maiden_name"),
+  titleAfter: text("title_after"),
+  
+  // Birth info
+  birthNumber: text("birth_number"),
+  birthDay: integer("birth_day"),
+  birthMonth: integer("birth_month"),
+  birthYear: integer("birth_year"),
+  birthPlace: text("birth_place"),
+  
+  // Health and status
+  healthInsuranceId: varchar("health_insurance_id"),
+  maritalStatus: text("marital_status"),
+  collaboratorType: text("collaborator_type"),
+  
+  // Contact info
+  phone: text("phone"),
+  mobile: text("mobile"),
+  mobile2: text("mobile_2"),
+  otherContact: text("other_contact"),
+  email: text("email"),
+  
+  // Bank info
+  bankAccountIban: text("bank_account_iban"),
+  swiftCode: text("swift_code"),
+  
+  // Flags
+  clientContact: boolean("client_contact").notNull().default(false),
+  representativeId: varchar("representative_id"),
+  isActive: boolean("is_active").notNull().default(true),
+  svetZdravia: boolean("svet_zdravia").notNull().default(false),
+  
+  // Company info
+  companyName: text("company_name"),
+  ico: text("ico"),
+  dic: text("dic"),
+  icDph: text("ic_dph"),
+  companyIban: text("company_iban"),
+  companySwift: text("company_swift"),
+  
+  // Other
+  monthRewards: boolean("month_rewards").notNull().default(false),
+  note: text("note"),
+  hospitalId: varchar("hospital_id"),
+  
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+// Collaborator addresses table
+export const collaboratorAddresses = pgTable("collaborator_addresses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  collaboratorId: varchar("collaborator_id").notNull(),
+  addressType: text("address_type").notNull(), // permanent, correspondence, work, company
+  name: text("name"),
+  streetNumber: text("street_number"),
+  postalCode: text("postal_code"),
+  region: text("region"),
+  countryCode: text("country_code"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+// Collaborator other data (disability, pensions)
+export const collaboratorOtherData = pgTable("collaborator_other_data", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  collaboratorId: varchar("collaborator_id").notNull().unique(),
+  
+  // ZŤP (disability)
+  ztpDay: integer("ztp_day"),
+  ztpMonth: integer("ztp_month"),
+  ztpYear: integer("ztp_year"),
+  
+  // Old-age pension
+  oldAgePensionDay: integer("old_age_pension_day"),
+  oldAgePensionMonth: integer("old_age_pension_month"),
+  oldAgePensionYear: integer("old_age_pension_year"),
+  
+  // Disability pension
+  disabilityPensionDay: integer("disability_pension_day"),
+  disabilityPensionMonth: integer("disability_pension_month"),
+  disabilityPensionYear: integer("disability_pension_year"),
+  
+  // Widow pension
+  widowPensionDay: integer("widow_pension_day"),
+  widowPensionMonth: integer("widow_pension_month"),
+  widowPensionYear: integer("widow_pension_year"),
+  
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+// Collaborator agreements table
+export const collaboratorAgreements = pgTable("collaborator_agreements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  collaboratorId: varchar("collaborator_id").notNull(),
+  
+  // File info
+  fileName: text("file_name"),
+  filePath: text("file_path"),
+  fileSize: integer("file_size"),
+  
+  // Agreement details
+  billingCompanyId: varchar("billing_company_id"),
+  contractNumber: text("contract_number"),
+  validFrom: timestamp("valid_from"),
+  validTo: timestamp("valid_to"),
+  isValid: boolean("is_valid").notNull().default(true),
+  agreementSentAt: timestamp("agreement_sent_at"),
+  agreementReturnedAt: timestamp("agreement_returned_at"),
+  agreementForm: text("agreement_form"),
+  rewardTypes: text("reward_types").array().default(sql`ARRAY[]::text[]`),
+  
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+// Collaborator schemas
+export const insertCollaboratorSchema = createInsertSchema(collaborators).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  countryCode: z.string().min(1, "Country is required"),
+  birthDay: z.number().min(1).max(31).optional().nullable(),
+  birthMonth: z.number().min(1).max(12).optional().nullable(),
+  birthYear: z.number().min(1900).max(2100).optional().nullable(),
+  email: z.string().email().optional().nullable().or(z.literal("")),
+});
+
+export const insertCollaboratorAddressSchema = createInsertSchema(collaboratorAddresses).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  collaboratorId: z.string().min(1, "Collaborator ID is required"),
+  addressType: z.string().min(1, "Address type is required"),
+});
+
+export const insertCollaboratorOtherDataSchema = createInsertSchema(collaboratorOtherData).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  collaboratorId: z.string().min(1, "Collaborator ID is required"),
+});
+
+export const insertCollaboratorAgreementSchema = createInsertSchema(collaboratorAgreements).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  collaboratorId: z.string().min(1, "Collaborator ID is required"),
+  rewardTypes: z.array(z.string()).optional().default([]),
+});
+
+// Collaborator types
+export type InsertCollaborator = z.infer<typeof insertCollaboratorSchema>;
+export type Collaborator = typeof collaborators.$inferSelect;
+export type InsertCollaboratorAddress = z.infer<typeof insertCollaboratorAddressSchema>;
+export type CollaboratorAddress = typeof collaboratorAddresses.$inferSelect;
+export type InsertCollaboratorOtherData = z.infer<typeof insertCollaboratorOtherDataSchema>;
+export type CollaboratorOtherData = typeof collaboratorOtherData.$inferSelect;
+export type InsertCollaboratorAgreement = z.infer<typeof insertCollaboratorAgreementSchema>;
+export type CollaboratorAgreement = typeof collaboratorAgreements.$inferSelect;
