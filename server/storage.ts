@@ -3,6 +3,7 @@ import {
   customerNotes, activityLogs, communicationMessages,
   complaintTypes, cooperationTypes, vipStatuses, healthInsuranceCompanies,
   laboratories, hospitals,
+  collaborators, collaboratorAddresses, collaboratorOtherData, collaboratorAgreements,
   type User, type InsertUser, type UpdateUser, type SafeUser,
   type Customer, type InsertCustomer,
   type Product, type InsertProduct,
@@ -18,7 +19,11 @@ import {
   type VipStatus, type InsertVipStatus,
   type HealthInsurance, type InsertHealthInsurance,
   type Laboratory, type InsertLaboratory,
-  type Hospital, type InsertHospital
+  type Hospital, type InsertHospital,
+  type Collaborator, type InsertCollaborator,
+  type CollaboratorAddress, type InsertCollaboratorAddress,
+  type CollaboratorOtherData, type InsertCollaboratorOtherData,
+  type CollaboratorAgreement, type InsertCollaboratorAgreement
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, inArray, sql, desc, and } from "drizzle-orm";
@@ -145,6 +150,30 @@ export interface IStorage {
   createHospital(data: InsertHospital): Promise<Hospital>;
   updateHospital(id: string, data: Partial<InsertHospital>): Promise<Hospital | undefined>;
   deleteHospital(id: string): Promise<boolean>;
+
+  // Collaborators
+  getCollaborator(id: string): Promise<Collaborator | undefined>;
+  getAllCollaborators(): Promise<Collaborator[]>;
+  getCollaboratorsByCountry(countryCodes: string[]): Promise<Collaborator[]>;
+  createCollaborator(data: InsertCollaborator): Promise<Collaborator>;
+  updateCollaborator(id: string, data: Partial<InsertCollaborator>): Promise<Collaborator | undefined>;
+  deleteCollaborator(id: string): Promise<boolean>;
+
+  // Collaborator Addresses
+  getCollaboratorAddresses(collaboratorId: string): Promise<CollaboratorAddress[]>;
+  getCollaboratorAddressByType(collaboratorId: string, addressType: string): Promise<CollaboratorAddress | undefined>;
+  upsertCollaboratorAddress(data: InsertCollaboratorAddress): Promise<CollaboratorAddress>;
+  deleteCollaboratorAddress(id: string): Promise<boolean>;
+
+  // Collaborator Other Data
+  getCollaboratorOtherData(collaboratorId: string): Promise<CollaboratorOtherData | undefined>;
+  upsertCollaboratorOtherData(data: InsertCollaboratorOtherData): Promise<CollaboratorOtherData>;
+
+  // Collaborator Agreements
+  getCollaboratorAgreements(collaboratorId: string): Promise<CollaboratorAgreement[]>;
+  createCollaboratorAgreement(data: InsertCollaboratorAgreement): Promise<CollaboratorAgreement>;
+  updateCollaboratorAgreement(id: string, data: Partial<InsertCollaboratorAgreement>): Promise<CollaboratorAgreement | undefined>;
+  deleteCollaboratorAgreement(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -671,6 +700,124 @@ export class DatabaseStorage implements IStorage {
 
   async deleteHospital(id: string): Promise<boolean> {
     const result = await db.delete(hospitals).where(eq(hospitals.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Collaborators
+  async getCollaborator(id: string): Promise<Collaborator | undefined> {
+    const [collaborator] = await db.select().from(collaborators).where(eq(collaborators.id, id));
+    return collaborator || undefined;
+  }
+
+  async getAllCollaborators(): Promise<Collaborator[]> {
+    return db.select().from(collaborators).orderBy(collaborators.lastName, collaborators.firstName);
+  }
+
+  async getCollaboratorsByCountry(countryCodes: string[]): Promise<Collaborator[]> {
+    if (countryCodes.length === 0) {
+      return this.getAllCollaborators();
+    }
+    return db.select().from(collaborators)
+      .where(inArray(collaborators.countryCode, countryCodes))
+      .orderBy(collaborators.lastName, collaborators.firstName);
+  }
+
+  async createCollaborator(data: InsertCollaborator): Promise<Collaborator> {
+    const [created] = await db.insert(collaborators).values(data).returning();
+    return created;
+  }
+
+  async updateCollaborator(id: string, data: Partial<InsertCollaborator>): Promise<Collaborator | undefined> {
+    const [updated] = await db.update(collaborators)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(collaborators.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteCollaborator(id: string): Promise<boolean> {
+    await db.delete(collaboratorAddresses).where(eq(collaboratorAddresses.collaboratorId, id));
+    await db.delete(collaboratorOtherData).where(eq(collaboratorOtherData.collaboratorId, id));
+    await db.delete(collaboratorAgreements).where(eq(collaboratorAgreements.collaboratorId, id));
+    const result = await db.delete(collaborators).where(eq(collaborators.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Collaborator Addresses
+  async getCollaboratorAddresses(collaboratorId: string): Promise<CollaboratorAddress[]> {
+    return db.select().from(collaboratorAddresses)
+      .where(eq(collaboratorAddresses.collaboratorId, collaboratorId));
+  }
+
+  async getCollaboratorAddressByType(collaboratorId: string, addressType: string): Promise<CollaboratorAddress | undefined> {
+    const [address] = await db.select().from(collaboratorAddresses)
+      .where(and(
+        eq(collaboratorAddresses.collaboratorId, collaboratorId),
+        eq(collaboratorAddresses.addressType, addressType)
+      ));
+    return address || undefined;
+  }
+
+  async upsertCollaboratorAddress(data: InsertCollaboratorAddress): Promise<CollaboratorAddress> {
+    const existing = await this.getCollaboratorAddressByType(data.collaboratorId, data.addressType);
+    if (existing) {
+      const [updated] = await db.update(collaboratorAddresses)
+        .set(data)
+        .where(eq(collaboratorAddresses.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(collaboratorAddresses).values(data).returning();
+    return created;
+  }
+
+  async deleteCollaboratorAddress(id: string): Promise<boolean> {
+    const result = await db.delete(collaboratorAddresses).where(eq(collaboratorAddresses.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Collaborator Other Data
+  async getCollaboratorOtherData(collaboratorId: string): Promise<CollaboratorOtherData | undefined> {
+    const [data] = await db.select().from(collaboratorOtherData)
+      .where(eq(collaboratorOtherData.collaboratorId, collaboratorId));
+    return data || undefined;
+  }
+
+  async upsertCollaboratorOtherData(data: InsertCollaboratorOtherData): Promise<CollaboratorOtherData> {
+    const existing = await this.getCollaboratorOtherData(data.collaboratorId);
+    if (existing) {
+      const [updated] = await db.update(collaboratorOtherData)
+        .set(data)
+        .where(eq(collaboratorOtherData.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(collaboratorOtherData).values(data).returning();
+    return created;
+  }
+
+  // Collaborator Agreements
+  async getCollaboratorAgreements(collaboratorId: string): Promise<CollaboratorAgreement[]> {
+    return db.select().from(collaboratorAgreements)
+      .where(eq(collaboratorAgreements.collaboratorId, collaboratorId))
+      .orderBy(desc(collaboratorAgreements.createdAt));
+  }
+
+  async createCollaboratorAgreement(data: InsertCollaboratorAgreement): Promise<CollaboratorAgreement> {
+    const [created] = await db.insert(collaboratorAgreements).values(data).returning();
+    return created;
+  }
+
+  async updateCollaboratorAgreement(id: string, data: Partial<InsertCollaboratorAgreement>): Promise<CollaboratorAgreement | undefined> {
+    const [updated] = await db.update(collaboratorAgreements)
+      .set(data)
+      .where(eq(collaboratorAgreements.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteCollaboratorAgreement(id: string): Promise<boolean> {
+    const result = await db.delete(collaboratorAgreements).where(eq(collaboratorAgreements.id, id)).returning();
     return result.length > 0;
   }
 }
