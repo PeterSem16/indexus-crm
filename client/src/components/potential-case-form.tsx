@@ -237,12 +237,12 @@ export function PotentialCaseForm({ customer, open, onClose }: PotentialCaseForm
     queryKey: ["/api/products"],
   });
 
-  const filteredHospitals = customer.countryCode
-    ? hospitals.filter((h) => h.countryCode === customer.countryCode)
+  const filteredHospitals = customer.country
+    ? hospitals.filter((h) => h.countryCode === customer.country)
     : hospitals;
 
-  const filteredProducts = customer.countryCode
-    ? products.filter((p) => !p.countryCode || p.countryCode === customer.countryCode)
+  const filteredProducts = customer.country
+    ? products.filter((p) => !p.countries?.length || p.countries.includes(customer.country))
     : products;
 
   useEffect(() => {

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, Phone } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, Phone, Baby } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -35,6 +35,7 @@ import { PageHeader } from "@/components/page-header";
 import { DataTable } from "@/components/data-table";
 import { StatusBadge } from "@/components/status-badge";
 import { CustomerForm, type CustomerFormData } from "@/components/customer-form";
+import { PotentialCaseForm } from "@/components/potential-case-form";
 import { useCountryFilter } from "@/contexts/country-filter-context";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -973,6 +974,7 @@ export default function CustomersPage() {
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [viewingCustomer, setViewingCustomer] = useState<Customer | null>(null);
   const [deletingCustomer, setDeletingCustomer] = useState<Customer | null>(null);
+  const [potentialCaseCustomer, setPotentialCaseCustomer] = useState<Customer | null>(null);
 
   const { data: allCustomers = [], isLoading } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
@@ -1132,6 +1134,20 @@ export default function CustomersPage() {
       className: "text-right",
       cell: (customer: Customer) => (
         <div className="flex items-center justify-end gap-1">
+          {customer.clientStatus === "potential" && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={(e) => {
+                e.stopPropagation();
+                setPotentialCaseCustomer(customer);
+              }}
+              title={t.potentialCase?.title || "Potential Case"}
+              data-testid={`button-potential-case-${customer.id}`}
+            >
+              <Baby className="h-4 w-4 text-blue-500" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"
@@ -1357,6 +1373,14 @@ export default function CustomersPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {potentialCaseCustomer && (
+        <PotentialCaseForm
+          customer={potentialCaseCustomer}
+          open={!!potentialCaseCustomer}
+          onClose={() => setPotentialCaseCustomer(null)}
+        />
+      )}
     </div>
   );
 }
