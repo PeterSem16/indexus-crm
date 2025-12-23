@@ -171,6 +171,7 @@ export interface IStorage {
 
   // Collaborator Agreements
   getCollaboratorAgreements(collaboratorId: string): Promise<CollaboratorAgreement[]>;
+  getAllCollaboratorAgreements(): Promise<CollaboratorAgreement[]>;
   createCollaboratorAgreement(data: InsertCollaboratorAgreement): Promise<CollaboratorAgreement>;
   updateCollaboratorAgreement(id: string, data: Partial<InsertCollaboratorAgreement>): Promise<CollaboratorAgreement | undefined>;
   deleteCollaboratorAgreement(id: string): Promise<boolean>;
@@ -800,6 +801,11 @@ export class DatabaseStorage implements IStorage {
   async getCollaboratorAgreements(collaboratorId: string): Promise<CollaboratorAgreement[]> {
     return db.select().from(collaboratorAgreements)
       .where(eq(collaboratorAgreements.collaboratorId, collaboratorId))
+      .orderBy(desc(collaboratorAgreements.createdAt));
+  }
+
+  async getAllCollaboratorAgreements(): Promise<CollaboratorAgreement[]> {
+    return db.select().from(collaboratorAgreements)
       .orderBy(desc(collaboratorAgreements.createdAt));
   }
 

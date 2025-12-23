@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { GlobalSearch } from "@/components/global-search";
 import { CountryFilterProvider, useCountryFilter } from "@/contexts/country-filter-context";
 import { AuthProvider, useAuth } from "@/contexts/auth-context";
 import { I18nProvider } from "@/i18n";
@@ -94,7 +95,10 @@ function AuthenticatedApp() {
             <div className="flex flex-col flex-1 overflow-hidden">
               <header className="flex h-14 items-center justify-between gap-4 border-b px-4 shrink-0">
                 <SidebarTrigger data-testid="button-sidebar-toggle" />
-                <ThemeToggle />
+                <div className="flex items-center gap-2">
+                  <GlobalSearch />
+                  <ThemeToggle />
+                </div>
               </header>
               <main className="flex-1 overflow-auto p-6">
                 <div className="max-w-7xl mx-auto">

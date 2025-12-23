@@ -1896,5 +1896,113 @@ export async function registerRoutes(
     }
   });
 
+  // Global search endpoint - searches across all modules and files
+  app.get("/api/search", requireAuth, async (req, res) => {
+    try {
+      const query = String(req.query.q || "").toLowerCase().trim();
+      if (!query || query.length < 2) {
+        return res.json({ results: [] });
+      }
+
+      const results: { type: string; id: string; title: string; subtitle: string; url: string }[] = [];
+
+      // Search customers
+      const customers = await storage.getAllCustomers();
+      for (const c of customers) {
+        const searchText = `${c.firstName} ${c.lastName} ${c.email || ""} ${c.phone || ""} ${c.mobile || ""}`.toLowerCase();
+        if (searchText.includes(query)) {
+          results.push({
+            type: "customer",
+            id: c.id,
+            title: `${c.firstName} ${c.lastName}`,
+            subtitle: c.email || c.phone || "",
+            url: `/customers?id=${c.id}`,
+          });
+        }
+      }
+
+      // Search collaborators
+      const collaborators = await storage.getAllCollaborators();
+      for (const c of collaborators) {
+        const searchText = `${c.firstName} ${c.lastName} ${c.email || ""} ${c.phone || ""} ${c.mobile || ""}`.toLowerCase();
+        if (searchText.includes(query)) {
+          results.push({
+            type: "collaborator",
+            id: c.id,
+            title: `${c.firstName} ${c.lastName}`,
+            subtitle: c.email || c.phone || "",
+            url: `/collaborators?id=${c.id}`,
+          });
+        }
+      }
+
+      // Search users
+      const users = await storage.getAllUsers();
+      for (const u of users) {
+        const searchText = `${u.fullName} ${u.email || ""} ${u.username}`.toLowerCase();
+        if (searchText.includes(query)) {
+          results.push({
+            type: "user",
+            id: u.id,
+            title: u.fullName,
+            subtitle: u.email || u.username,
+            url: `/users?id=${u.id}`,
+          });
+        }
+      }
+
+      // Search products
+      const products = await storage.getAllProducts();
+      for (const p of products) {
+        const searchText = `${p.name} ${p.description || ""}`.toLowerCase();
+        if (searchText.includes(query)) {
+          results.push({
+            type: "product",
+            id: p.id,
+            title: p.name,
+            subtitle: p.category || "",
+            url: `/products?id=${p.id}`,
+          });
+        }
+      }
+
+      // Search invoices
+      const invoices = await storage.getAllInvoices();
+      for (const inv of invoices) {
+        const searchText = `${inv.invoiceNumber} ${inv.billingCompanyName || ""}`.toLowerCase();
+        if (searchText.includes(query)) {
+          const customer = customers.find(c => c.id === inv.customerId);
+          results.push({
+            type: "invoice",
+            id: inv.id,
+            title: inv.invoiceNumber,
+            subtitle: customer ? `${customer.firstName} ${customer.lastName}` : "",
+            url: `/invoices?id=${inv.id}`,
+          });
+        }
+      }
+
+      // Search agreement files (extracted text)
+      const agreements = await storage.getAllCollaboratorAgreements();
+      for (const a of agreements) {
+        if (a.extractedText && a.extractedText.toLowerCase().includes(query)) {
+          const collaborator = collaborators.find(c => c.id === a.collaboratorId);
+          results.push({
+            type: "agreement",
+            id: a.id,
+            title: a.fileName || "Agreement",
+            subtitle: collaborator ? `${collaborator.firstName} ${collaborator.lastName}` : "",
+            url: `/collaborators?id=${a.collaboratorId}&tab=agreements`,
+          });
+        }
+      }
+
+      res.json({ results: results.slice(0, 50) }); // Limit to 50 results
+    } catch (error) {
+      console.error("Global search failed:", error);
+      res.status(500).json({ error: "Search failed" });
+    }
+  });
+
   return httpServer;
 }

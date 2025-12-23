@@ -39,6 +39,7 @@ import type {
   Hospital,
   HealthInsurance,
   BillingDetails,
+  ActivityLog,
 } from "@shared/schema";
 import { 
   COUNTRIES, 
@@ -952,6 +953,111 @@ function AgreementsTab({
   );
 }
 
+function ActionsTab({
+  collaboratorId,
+  t,
+}: {
+  collaboratorId: string;
+  t: any;
+}) {
+  const { data: activityLogs = [], isLoading } = useQuery<ActivityLog[]>({
+    queryKey: ["/api/collaborators", collaboratorId, "activity-logs"],
+    queryFn: async () => {
+      const res = await fetch(`/api/collaborators/${collaboratorId}/activity-logs`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!collaboratorId,
+  });
+
+  const { data: users = [] } = useQuery<SafeUser[]>({
+    queryKey: ["/api/users"],
+  });
+
+  const getUserName = (userId: string) => {
+    const user = users.find(u => u.id === userId);
+    return user ? `${user.firstName} ${user.lastName}` : userId;
+  };
+
+  const getActionLabel = (action: string) => {
+    const actionLabels: Record<string, string> = {
+      create: t.collaborators.actions.created,
+      update: t.collaborators.actions.updated,
+      delete: t.collaborators.actions.deleted,
+      update_address: t.collaborators.actions.addressUpdated,
+      update_other_data: t.collaborators.actions.otherDataUpdated,
+      create_agreement: t.collaborators.actions.agreementCreated,
+      update_agreement: t.collaborators.actions.agreementUpdated,
+      delete_agreement: t.collaborators.actions.agreementDeleted,
+      upload_file: t.collaborators.actions.fileUploaded,
+    };
+    return actionLabels[action] || action;
+  };
+
+  const formatDateTime = (date: string | Date | null) => {
+    if (!date) return "-";
+    const d = new Date(date);
+    return d.toLocaleString();
+  };
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>{t.collaborators.tabs.actions}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t.collaborators.tabs.actions}</CardTitle>
+        <CardDescription>{t.collaborators.actionsDesc}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {activityLogs.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">{t.common.noData}</div>
+        ) : (
+          <div className="space-y-2">
+            {activityLogs.map((log) => (
+              <div key={log.id} className="flex items-start justify-between gap-4 p-3 rounded-md bg-muted/50 border">
+                <div className="flex-1">
+                  <div className="font-medium">{getActionLabel(log.action)}</div>
+                  <div className="text-sm text-muted-foreground">
+                    {t.collaborators.actions.by} {getUserName(log.userId)}
+                  </div>
+                  {log.details && (
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {JSON.parse(log.details).addressType && 
+                        `${t.collaborators.fields.addressType}: ${JSON.parse(log.details).addressType}`
+                      }
+                      {JSON.parse(log.details).fileName && 
+                        `${t.collaborators.fields.file}: ${JSON.parse(log.details).fileName}`
+                      }
+                    </div>
+                  )}
+                </div>
+                <div className="text-sm text-muted-foreground whitespace-nowrap">
+                  {formatDateTime(log.createdAt)}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function CollaboratorForm({
   collaborator,
   onClose,
@@ -1530,15 +1636,7 @@ function CollaboratorForm({
             </TabsContent>
 
             <TabsContent value="actions">
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t.collaborators.tabs.actions}</CardTitle>
-                  <CardDescription>{t.collaborators.actionsDesc}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center py-8 text-muted-foreground">{t.collaborators.comingSoon}</div>
-                </CardContent>
-              </Card>
+              <ActionsTab collaboratorId={collaborator.id} t={t} />
             </TabsContent>
           </>
         )}

@@ -413,6 +413,18 @@ export interface Translations {
     templatesDesc: string;
     rewardsDesc: string;
     actionsDesc: string;
+    actions: {
+      created: string;
+      updated: string;
+      deleted: string;
+      addressUpdated: string;
+      otherDataUpdated: string;
+      agreementCreated: string;
+      agreementUpdated: string;
+      agreementDeleted: string;
+      fileUploaded: string;
+      by: string;
+    };
     saving: string;
     createCollaborator: string;
     updateCollaborator: string;
@@ -519,6 +531,13 @@ export interface Translations {
     deleted: string;
     created: string;
     updated: string;
+  };
+  globalSearch: {
+    title: string;
+    placeholder: string;
+    minChars: string;
+    noResults: string;
+    agreement: string;
   };
 }
 
@@ -926,6 +945,18 @@ export const translations: Record<Locale, Translations> = {
       templatesDesc: 'Manage document templates',
       rewardsDesc: 'Manage reward programs',
       actionsDesc: 'Track collaborator actions',
+      actions: {
+        created: 'Collaborator created',
+        updated: 'Collaborator updated',
+        deleted: 'Collaborator deleted',
+        addressUpdated: 'Address updated',
+        otherDataUpdated: 'Other data updated',
+        agreementCreated: 'Agreement created',
+        agreementUpdated: 'Agreement updated',
+        agreementDeleted: 'Agreement deleted',
+        fileUploaded: 'File uploaded',
+        by: 'by',
+      },
       saving: 'Saving...',
       createCollaborator: 'Create Collaborator',
       updateCollaborator: 'Update Collaborator',
@@ -1032,6 +1063,13 @@ export const translations: Record<Locale, Translations> = {
       deleted: 'Successfully deleted',
       created: 'Successfully created',
       updated: 'Successfully updated',
+    },
+    globalSearch: {
+      title: 'Search',
+      placeholder: 'Search customers, collaborators, invoices...',
+      minChars: 'Type at least 2 characters to search',
+      noResults: 'No results found',
+      agreement: 'Agreement',
     },
   },
   sk: {
@@ -1437,6 +1475,18 @@ export const translations: Record<Locale, Translations> = {
       templatesDesc: 'Správa šablón dokumentov',
       rewardsDesc: 'Správa programov odmien',
       actionsDesc: 'Sledovanie úkonov spolupracovníkov',
+      actions: {
+        created: 'Spolupracovník vytvorený',
+        updated: 'Spolupracovník aktualizovaný',
+        deleted: 'Spolupracovník odstránený',
+        addressUpdated: 'Adresa aktualizovaná',
+        otherDataUpdated: 'Ostatné údaje aktualizované',
+        agreementCreated: 'Dohoda vytvorená',
+        agreementUpdated: 'Dohoda aktualizovaná',
+        agreementDeleted: 'Dohoda odstránená',
+        fileUploaded: 'Súbor nahraný',
+        by: 'od',
+      },
       saving: 'Ukladám...',
       createCollaborator: 'Vytvoriť spolupracovníka',
       updateCollaborator: 'Aktualizovať spolupracovníka',
@@ -1543,6 +1593,13 @@ export const translations: Record<Locale, Translations> = {
       deleted: 'Úspešne odstránené',
       created: 'Úspešne vytvorené',
       updated: 'Úspešne aktualizované',
+    },
+    globalSearch: {
+      title: 'Vyhľadávanie',
+      placeholder: 'Hľadať zákazníkov, spolupracovníkov, faktúry...',
+      minChars: 'Zadajte aspoň 2 znaky pre vyhľadávanie',
+      noResults: 'Žiadne výsledky',
+      agreement: 'Dohoda',
     },
   },
   cs: {
@@ -1948,6 +2005,18 @@ export const translations: Record<Locale, Translations> = {
       templatesDesc: 'Správa šablon dokumentů',
       rewardsDesc: 'Správa odměnových programů',
       actionsDesc: 'Sledování úkonů spolupracovníků',
+      actions: {
+        created: 'Spolupracovník vytvořen',
+        updated: 'Spolupracovník aktualizován',
+        deleted: 'Spolupracovník odstraněn',
+        addressUpdated: 'Adresa aktualizována',
+        otherDataUpdated: 'Ostatní údaje aktualizovány',
+        agreementCreated: 'Dohoda vytvořena',
+        agreementUpdated: 'Dohoda aktualizována',
+        agreementDeleted: 'Dohoda odstraněna',
+        fileUploaded: 'Soubor nahrán',
+        by: 'od',
+      },
       saving: 'Ukládám...',
       createCollaborator: 'Vytvořit spolupracovníka',
       updateCollaborator: 'Aktualizovat spolupracovníka',
@@ -2054,6 +2123,13 @@ export const translations: Record<Locale, Translations> = {
       deleted: 'Úspěšně odstraněno',
       created: 'Úspěšně vytvořeno',
       updated: 'Úspěšně aktualizováno',
+    },
+    globalSearch: {
+      title: 'Vyhledávání',
+      placeholder: 'Hledat zákazníky, spolupracovníky, faktury...',
+      minChars: 'Zadejte alespoň 2 znaky pro vyhledávání',
+      noResults: 'Žádné výsledky',
+      agreement: 'Dohoda',
     },
   },
   hu: {
@@ -2459,6 +2535,18 @@ export const translations: Record<Locale, Translations> = {
       templatesDesc: 'Dokumentumsablonok kezelése',
       rewardsDesc: 'Jutalmazási programok kezelése',
       actionsDesc: 'Munkatársak tevékenységeinek nyomon követése',
+      actions: {
+        created: 'Munkatárs létrehozva',
+        updated: 'Munkatárs frissítve',
+        deleted: 'Munkatárs törölve',
+        addressUpdated: 'Cím frissítve',
+        otherDataUpdated: 'Egyéb adatok frissítve',
+        agreementCreated: 'Megállapodás létrehozva',
+        agreementUpdated: 'Megállapodás frissítve',
+        agreementDeleted: 'Megállapodás törölve',
+        fileUploaded: 'Fájl feltöltve',
+        by: 'által',
+      },
       saving: 'Mentés...',
       createCollaborator: 'Munkatárs létrehozása',
       updateCollaborator: 'Munkatárs frissítése',
@@ -2565,6 +2653,13 @@ export const translations: Record<Locale, Translations> = {
       deleted: 'Sikeresen törölve',
       created: 'Sikeresen létrehozva',
       updated: 'Sikeresen frissítve',
+    },
+    globalSearch: {
+      title: 'Keresés',
+      placeholder: 'Ügyfelek, munkatársak, számlák keresése...',
+      minChars: 'Legalább 2 karaktert írjon be a kereséshez',
+      noResults: 'Nincs találat',
+      agreement: 'Megállapodás',
     },
   },
   ro: {
@@ -2970,6 +3065,18 @@ export const translations: Record<Locale, Translations> = {
       templatesDesc: 'Gestionarea șabloanelor de documente',
       rewardsDesc: 'Gestionarea programelor de recompense',
       actionsDesc: 'Urmărirea acțiunilor colaboratorilor',
+      actions: {
+        created: 'Colaborator creat',
+        updated: 'Colaborator actualizat',
+        deleted: 'Colaborator șters',
+        addressUpdated: 'Adresă actualizată',
+        otherDataUpdated: 'Alte date actualizate',
+        agreementCreated: 'Acord creat',
+        agreementUpdated: 'Acord actualizat',
+        agreementDeleted: 'Acord șters',
+        fileUploaded: 'Fișier încărcat',
+        by: 'de',
+      },
       saving: 'Se salvează...',
       createCollaborator: 'Creează colaborator',
       updateCollaborator: 'Actualizează colaborator',
@@ -3076,6 +3183,13 @@ export const translations: Record<Locale, Translations> = {
       deleted: 'Șters cu succes',
       created: 'Creat cu succes',
       updated: 'Actualizat cu succes',
+    },
+    globalSearch: {
+      title: 'Căutare',
+      placeholder: 'Căutați clienți, colaboratori, facturi...',
+      minChars: 'Introduceți cel puțin 2 caractere pentru a căuta',
+      noResults: 'Nu s-au găsit rezultate',
+      agreement: 'Acord',
     },
   },
   it: {
@@ -3481,6 +3595,18 @@ export const translations: Record<Locale, Translations> = {
       templatesDesc: 'Gestione modelli documenti',
       rewardsDesc: 'Gestione programmi di ricompensa',
       actionsDesc: 'Monitoraggio azioni collaboratori',
+      actions: {
+        created: 'Collaboratore creato',
+        updated: 'Collaboratore aggiornato',
+        deleted: 'Collaboratore eliminato',
+        addressUpdated: 'Indirizzo aggiornato',
+        otherDataUpdated: 'Altri dati aggiornati',
+        agreementCreated: 'Accordo creato',
+        agreementUpdated: 'Accordo aggiornato',
+        agreementDeleted: 'Accordo eliminato',
+        fileUploaded: 'File caricato',
+        by: 'da',
+      },
       saving: 'Salvataggio...',
       createCollaborator: 'Crea collaboratore',
       updateCollaborator: 'Aggiorna collaboratore',
@@ -3587,6 +3713,13 @@ export const translations: Record<Locale, Translations> = {
       deleted: 'Eliminato con successo',
       created: 'Creato con successo',
       updated: 'Aggiornato con successo',
+    },
+    globalSearch: {
+      title: 'Ricerca',
+      placeholder: 'Cerca clienti, collaboratori, fatture...',
+      minChars: 'Inserisci almeno 2 caratteri per cercare',
+      noResults: 'Nessun risultato trovato',
+      agreement: 'Accordo',
     },
   },
   de: {
@@ -3992,6 +4125,18 @@ export const translations: Record<Locale, Translations> = {
       templatesDesc: 'Dokumentvorlagen verwalten',
       rewardsDesc: 'Belohnungsprogramme verwalten',
       actionsDesc: 'Mitarbeiteraktionen verfolgen',
+      actions: {
+        created: 'Mitarbeiter erstellt',
+        updated: 'Mitarbeiter aktualisiert',
+        deleted: 'Mitarbeiter gelöscht',
+        addressUpdated: 'Adresse aktualisiert',
+        otherDataUpdated: 'Sonstige Daten aktualisiert',
+        agreementCreated: 'Vereinbarung erstellt',
+        agreementUpdated: 'Vereinbarung aktualisiert',
+        agreementDeleted: 'Vereinbarung gelöscht',
+        fileUploaded: 'Datei hochgeladen',
+        by: 'von',
+      },
       saving: 'Speichern...',
       createCollaborator: 'Mitarbeiter erstellen',
       updateCollaborator: 'Mitarbeiter aktualisieren',
@@ -4098,6 +4243,13 @@ export const translations: Record<Locale, Translations> = {
       deleted: 'Erfolgreich gelöscht',
       created: 'Erfolgreich erstellt',
       updated: 'Erfolgreich aktualisiert',
+    },
+    globalSearch: {
+      title: 'Suche',
+      placeholder: 'Kunden, Mitarbeiter, Rechnungen suchen...',
+      minChars: 'Geben Sie mindestens 2 Zeichen ein, um zu suchen',
+      noResults: 'Keine Ergebnisse gefunden',
+      agreement: 'Vereinbarung',
     },
   },
 };
