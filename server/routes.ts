@@ -1669,6 +1669,15 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Invalid data", details: parsed.error.issues });
       }
       const address = await storage.upsertCollaboratorAddress(parsed.data);
+      const collaborator = await storage.getCollaborator(req.params.id);
+      await logActivity(
+        req.session.user!.id, 
+        "update_address", 
+        "collaborator", 
+        req.params.id, 
+        collaborator ? `${collaborator.firstName} ${collaborator.lastName}` : "",
+        { addressType: req.params.type }
+      );
       res.json(address);
     } catch (error) {
       res.status(500).json({ error: "Failed to save address" });
@@ -1695,6 +1704,14 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Invalid data", details: parsed.error.issues });
       }
       const data = await storage.upsertCollaboratorOtherData(parsed.data);
+      const collaborator = await storage.getCollaborator(req.params.id);
+      await logActivity(
+        req.session.user!.id, 
+        "update_other_data", 
+        "collaborator", 
+        req.params.id, 
+        collaborator ? `${collaborator.firstName} ${collaborator.lastName}` : ""
+      );
       res.json(data);
     } catch (error) {
       res.status(500).json({ error: "Failed to save other data" });
@@ -1721,6 +1738,15 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Invalid data", details: parsed.error.issues });
       }
       const agreement = await storage.createCollaboratorAgreement(parsed.data);
+      const collaborator = await storage.getCollaborator(req.params.id);
+      await logActivity(
+        req.session.user!.id, 
+        "create_agreement", 
+        "collaborator", 
+        req.params.id, 
+        collaborator ? `${collaborator.firstName} ${collaborator.lastName}` : "",
+        { billingCompany: req.body.billingCompanyId, contractNumber: req.body.contractNumber }
+      );
       res.status(201).json(agreement);
     } catch (error) {
       res.status(500).json({ error: "Failed to create agreement" });
@@ -1731,6 +1757,15 @@ export async function registerRoutes(
     try {
       const agreement = await storage.updateCollaboratorAgreement(req.params.agreementId, req.body);
       if (!agreement) return res.status(404).json({ error: "Agreement not found" });
+      const collaborator = await storage.getCollaborator(req.params.id);
+      await logActivity(
+        req.session.user!.id, 
+        "update_agreement", 
+        "collaborator", 
+        req.params.id, 
+        collaborator ? `${collaborator.firstName} ${collaborator.lastName}` : "",
+        { agreementId: req.params.agreementId }
+      );
       res.json(agreement);
     } catch (error) {
       res.status(500).json({ error: "Failed to update agreement" });
@@ -1741,9 +1776,28 @@ export async function registerRoutes(
     try {
       const success = await storage.deleteCollaboratorAgreement(req.params.agreementId);
       if (!success) return res.status(404).json({ error: "Agreement not found" });
+      const collaborator = await storage.getCollaborator(req.params.id);
+      await logActivity(
+        req.session.user!.id, 
+        "delete_agreement", 
+        "collaborator", 
+        req.params.id, 
+        collaborator ? `${collaborator.firstName} ${collaborator.lastName}` : "",
+        { agreementId: req.params.agreementId }
+      );
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete agreement" });
+    }
+  });
+
+  // Get activity logs for a specific collaborator
+  app.get("/api/collaborators/:id/activity-logs", requireAuth, async (req, res) => {
+    try {
+      const logs = await storage.getActivityLogsByEntity("collaborator", req.params.id);
+      res.json(logs);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch activity logs" });
     }
   });
 
@@ -1779,6 +1833,16 @@ export async function registerRoutes(
         fs.unlinkSync(filePath);
         return res.status(404).json({ error: "Agreement not found" });
       }
+
+      const collaborator = await storage.getCollaborator(req.params.id);
+      await logActivity(
+        req.session.user!.id, 
+        "upload_file", 
+        "collaborator", 
+        req.params.id, 
+        collaborator ? `${collaborator.firstName} ${collaborator.lastName}` : "",
+        { fileName, agreementId: req.params.agreementId }
+      );
 
       res.json(agreement);
     } catch (error) {
