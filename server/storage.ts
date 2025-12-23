@@ -4,7 +4,7 @@ import {
   complaintTypes, cooperationTypes, vipStatuses, healthInsuranceCompanies,
   laboratories, hospitals,
   collaborators, collaboratorAddresses, collaboratorOtherData, collaboratorAgreements,
-  customerPotentialCases,
+  customerPotentialCases, leadScoringCriteria,
   type User, type InsertUser, type UpdateUser, type SafeUser,
   type Customer, type InsertCustomer,
   type Product, type InsertProduct,
@@ -25,7 +25,8 @@ import {
   type CollaboratorAddress, type InsertCollaboratorAddress,
   type CollaboratorOtherData, type InsertCollaboratorOtherData,
   type CollaboratorAgreement, type InsertCollaboratorAgreement,
-  type CustomerPotentialCase, type InsertCustomerPotentialCase
+  type CustomerPotentialCase, type InsertCustomerPotentialCase,
+  type LeadScoringCriteria, type InsertLeadScoringCriteria
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, inArray, sql, desc, and } from "drizzle-orm";
@@ -182,6 +183,14 @@ export interface IStorage {
   // Customer Potential Cases
   getCustomerPotentialCase(customerId: string): Promise<CustomerPotentialCase | undefined>;
   upsertCustomerPotentialCase(data: InsertCustomerPotentialCase): Promise<CustomerPotentialCase>;
+
+  // Lead Scoring
+  getAllLeadScoringCriteria(): Promise<LeadScoringCriteria[]>;
+  getLeadScoringCriteriaByCountry(countryCode: string | null): Promise<LeadScoringCriteria[]>;
+  createLeadScoringCriteria(data: InsertLeadScoringCriteria): Promise<LeadScoringCriteria>;
+  updateLeadScoringCriteria(id: string, data: Partial<InsertLeadScoringCriteria>): Promise<LeadScoringCriteria | undefined>;
+  deleteLeadScoringCriteria(id: string): Promise<boolean>;
+  updateCustomerLeadScore(customerId: string, score: number, status: string): Promise<Customer | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -856,6 +865,54 @@ export class DatabaseStorage implements IStorage {
     }
     const [created] = await db.insert(customerPotentialCases).values(data).returning();
     return created;
+  }
+
+  // Lead Scoring Criteria
+  async getAllLeadScoringCriteria(): Promise<LeadScoringCriteria[]> {
+    return db.select().from(leadScoringCriteria).orderBy(leadScoringCriteria.category);
+  }
+
+  async getLeadScoringCriteriaByCountry(countryCode: string | null): Promise<LeadScoringCriteria[]> {
+    if (countryCode === null) {
+      // Get global criteria only
+      return db.select().from(leadScoringCriteria)
+        .where(sql`${leadScoringCriteria.countryCode} IS NULL`)
+        .orderBy(leadScoringCriteria.category);
+    }
+    // Get criteria for specific country OR global ones
+    return db.select().from(leadScoringCriteria)
+      .where(sql`${leadScoringCriteria.countryCode} = ${countryCode} OR ${leadScoringCriteria.countryCode} IS NULL`)
+      .orderBy(leadScoringCriteria.category);
+  }
+
+  async createLeadScoringCriteria(data: InsertLeadScoringCriteria): Promise<LeadScoringCriteria> {
+    const [created] = await db.insert(leadScoringCriteria).values(data).returning();
+    return created;
+  }
+
+  async updateLeadScoringCriteria(id: string, data: Partial<InsertLeadScoringCriteria>): Promise<LeadScoringCriteria | undefined> {
+    const [updated] = await db.update(leadScoringCriteria)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(leadScoringCriteria.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteLeadScoringCriteria(id: string): Promise<boolean> {
+    const result = await db.delete(leadScoringCriteria).where(eq(leadScoringCriteria.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async updateCustomerLeadScore(customerId: string, score: number, status: string): Promise<Customer | undefined> {
+    const [updated] = await db.update(customers)
+      .set({ 
+        leadScore: score, 
+        leadStatus: status,
+        leadScoreUpdatedAt: new Date() 
+      })
+      .where(eq(customers.id, customerId))
+      .returning();
+    return updated || undefined;
   }
 }
 

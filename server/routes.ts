@@ -8,7 +8,8 @@ import {
   insertComplaintTypeSchema, insertCooperationTypeSchema, insertVipStatusSchema, insertHealthInsuranceSchema,
   insertLaboratorySchema, insertHospitalSchema,
   insertCollaboratorSchema, insertCollaboratorAddressSchema, insertCollaboratorOtherDataSchema, insertCollaboratorAgreementSchema,
-  type SafeUser, type Customer, type Product, type BillingDetails, type ActivityLog
+  insertLeadScoringCriteriaSchema,
+  type SafeUser, type Customer, type Product, type BillingDetails, type ActivityLog, type LeadScoringCriteria
 } from "@shared/schema";
 import { z } from "zod";
 import session from "express-session";
@@ -2107,6 +2108,388 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Global search failed:", error);
       res.status(500).json({ error: "Search failed" });
+    }
+  });
+
+  // ============= Lead Scoring Criteria Routes =============
+  
+  // Get all lead scoring criteria
+  app.get("/api/lead-scoring-criteria", requireAuth, async (req, res) => {
+    try {
+      const countryCode = req.query.countryCode as string | undefined;
+      let criteria: LeadScoringCriteria[];
+      
+      if (countryCode) {
+        criteria = await storage.getLeadScoringCriteriaByCountry(countryCode);
+      } else {
+        criteria = await storage.getAllLeadScoringCriteria();
+      }
+      
+      res.json(criteria);
+    } catch (error) {
+      console.error("Failed to fetch lead scoring criteria:", error);
+      res.status(500).json({ error: "Failed to fetch lead scoring criteria" });
+    }
+  });
+
+  // Create lead scoring criteria
+  app.post("/api/lead-scoring-criteria", requireAuth, async (req, res) => {
+    try {
+      const validatedData = insertLeadScoringCriteriaSchema.parse(req.body);
+      const criteria = await storage.createLeadScoringCriteria(validatedData);
+      
+      await logActivity(
+        req.session.user!.id,
+        "created",
+        "leadScoringCriteria",
+        criteria.id,
+        criteria.name,
+        { category: criteria.category, points: criteria.points },
+        req.ip
+      );
+      
+      res.status(201).json(criteria);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid data", details: error.errors });
+      }
+      console.error("Failed to create lead scoring criteria:", error);
+      res.status(500).json({ error: "Failed to create lead scoring criteria" });
+    }
+  });
+
+  // Update lead scoring criteria
+  app.patch("/api/lead-scoring-criteria/:id", requireAuth, async (req, res) => {
+    try {
+      const criteria = await storage.updateLeadScoringCriteria(req.params.id, req.body);
+      if (!criteria) {
+        return res.status(404).json({ error: "Criteria not found" });
+      }
+      
+      await logActivity(
+        req.session.user!.id,
+        "updated",
+        "leadScoringCriteria",
+        criteria.id,
+        criteria.name,
+        undefined,
+        req.ip
+      );
+      
+      res.json(criteria);
+    } catch (error) {
+      console.error("Failed to update lead scoring criteria:", error);
+      res.status(500).json({ error: "Failed to update lead scoring criteria" });
+    }
+  });
+
+  // Delete lead scoring criteria
+  app.delete("/api/lead-scoring-criteria/:id", requireAuth, async (req, res) => {
+    try {
+      const deleted = await storage.deleteLeadScoringCriteria(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Criteria not found" });
+      }
+      
+      await logActivity(
+        req.session.user!.id,
+        "deleted",
+        "leadScoringCriteria",
+        req.params.id,
+        undefined,
+        undefined,
+        req.ip
+      );
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete lead scoring criteria:", error);
+      res.status(500).json({ error: "Failed to delete lead scoring criteria" });
+    }
+  });
+
+  // Calculate lead score for a customer
+  app.post("/api/customers/:id/calculate-lead-score", requireAuth, async (req, res) => {
+    try {
+      const customer = await storage.getCustomer(req.params.id);
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+
+      // Get potential case for this customer
+      const potentialCase = await storage.getCustomerPotentialCase(req.params.id);
+      
+      // Get applicable criteria (global + country-specific)
+      const criteria = await storage.getLeadScoringCriteriaByCountry(customer.country);
+      const activeCriteria = criteria.filter(c => c.isActive);
+
+      let totalScore = 0;
+      const appliedCriteria: { name: string; points: number }[] = [];
+
+      for (const criterion of activeCriteria) {
+        let conditionMet = false;
+        let fieldValue: any = null;
+
+        // Evaluate the field value based on criterion.field
+        switch (criterion.field) {
+          case "hasPhone":
+            fieldValue = !!(customer.phone || customer.mobile || customer.mobile2);
+            conditionMet = criterion.condition === "equals" && fieldValue === (criterion.value === "true");
+            break;
+          case "hasEmail":
+            fieldValue = !!customer.email;
+            conditionMet = criterion.condition === "equals" && fieldValue === (criterion.value === "true");
+            break;
+          case "hasAddress":
+            fieldValue = !!(customer.address && customer.city);
+            conditionMet = criterion.condition === "equals" && fieldValue === (criterion.value === "true");
+            break;
+          case "hasCase":
+            fieldValue = !!potentialCase;
+            conditionMet = criterion.condition === "equals" && fieldValue === (criterion.value === "true");
+            break;
+          case "newsletterOptIn":
+            fieldValue = potentialCase?.newsletterOptIn || customer.newsletter;
+            conditionMet = criterion.condition === "equals" && fieldValue === (criterion.value === "true");
+            break;
+          case "caseStatus":
+            if (potentialCase) {
+              fieldValue = potentialCase.caseStatus;
+              conditionMet = criterion.condition === "equals" && fieldValue === criterion.value;
+            }
+            break;
+          case "hasExpectedDate":
+            fieldValue = !!(potentialCase?.expectedDateMonth && potentialCase?.expectedDateYear);
+            conditionMet = criterion.condition === "equals" && fieldValue === (criterion.value === "true");
+            break;
+          case "hasFatherInfo":
+            fieldValue = !!(potentialCase?.fatherFirstName && potentialCase?.fatherLastName);
+            conditionMet = criterion.condition === "equals" && fieldValue === (criterion.value === "true");
+            break;
+          case "hasProduct":
+            fieldValue = !!potentialCase?.productId;
+            conditionMet = criterion.condition === "equals" && fieldValue === (criterion.value === "true");
+            break;
+          case "clientStatus":
+            fieldValue = customer.clientStatus;
+            conditionMet = criterion.condition === "equals" && fieldValue === criterion.value;
+            break;
+          case "daysFromCreation":
+            if (customer.createdAt) {
+              const daysSinceCreation = Math.floor((Date.now() - new Date(customer.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+              fieldValue = daysSinceCreation;
+              if (criterion.condition === "less_than") {
+                conditionMet = daysSinceCreation < parseInt(criterion.value || "0");
+              } else if (criterion.condition === "greater_than") {
+                conditionMet = daysSinceCreation > parseInt(criterion.value || "0");
+              }
+            }
+            break;
+          default:
+            // Check if it's a direct customer field
+            if (criterion.field in customer) {
+              fieldValue = (customer as any)[criterion.field];
+              if (criterion.condition === "not_empty") {
+                conditionMet = !!fieldValue;
+              } else if (criterion.condition === "equals") {
+                conditionMet = fieldValue === criterion.value;
+              } else if (criterion.condition === "contains" && typeof fieldValue === "string") {
+                conditionMet = fieldValue.toLowerCase().includes((criterion.value || "").toLowerCase());
+              }
+            }
+        }
+
+        if (conditionMet) {
+          totalScore += criterion.points;
+          appliedCriteria.push({ name: criterion.name, points: criterion.points });
+        }
+      }
+
+      // Normalize score to 0-100 range
+      totalScore = Math.max(0, Math.min(100, totalScore));
+
+      // Determine lead status based on score
+      let leadStatus = "cold";
+      if (totalScore >= 75) {
+        leadStatus = "qualified";
+      } else if (totalScore >= 50) {
+        leadStatus = "hot";
+      } else if (totalScore >= 25) {
+        leadStatus = "warm";
+      }
+
+      // Update customer with new lead score
+      const updatedCustomer = await storage.updateCustomerLeadScore(customer.id, totalScore, leadStatus);
+
+      await logActivity(
+        req.session.user!.id,
+        "calculated_lead_score",
+        "customer",
+        customer.id,
+        `${customer.firstName} ${customer.lastName}`,
+        { score: totalScore, status: leadStatus, appliedCriteria },
+        req.ip
+      );
+
+      res.json({
+        score: totalScore,
+        status: leadStatus,
+        appliedCriteria,
+        customer: updatedCustomer
+      });
+    } catch (error) {
+      console.error("Failed to calculate lead score:", error);
+      res.status(500).json({ error: "Failed to calculate lead score" });
+    }
+  });
+
+  // Bulk recalculate lead scores for all customers
+  app.post("/api/lead-scoring/recalculate-all", requireAuth, async (req, res) => {
+    try {
+      const allCustomers = await storage.getAllCustomers();
+      const potentialCustomers = allCustomers.filter(c => c.clientStatus === "potential");
+      
+      let updated = 0;
+      const criteria = await storage.getAllLeadScoringCriteria();
+      const activeCriteria = criteria.filter(c => c.isActive);
+
+      for (const customer of potentialCustomers) {
+        const potentialCase = await storage.getCustomerPotentialCase(customer.id);
+        const applicableCriteria = activeCriteria.filter(
+          c => !c.countryCode || c.countryCode === customer.country
+        );
+
+        let totalScore = 0;
+
+        for (const criterion of applicableCriteria) {
+          let conditionMet = false;
+
+          switch (criterion.field) {
+            case "hasPhone":
+              conditionMet = !!(customer.phone || customer.mobile || customer.mobile2) === (criterion.value === "true");
+              break;
+            case "hasEmail":
+              conditionMet = !!customer.email === (criterion.value === "true");
+              break;
+            case "hasAddress":
+              conditionMet = !!(customer.address && customer.city) === (criterion.value === "true");
+              break;
+            case "hasCase":
+              conditionMet = !!potentialCase === (criterion.value === "true");
+              break;
+            case "newsletterOptIn":
+              conditionMet = (potentialCase?.newsletterOptIn || customer.newsletter) === (criterion.value === "true");
+              break;
+            case "caseStatus":
+              if (potentialCase && criterion.condition === "equals") {
+                conditionMet = potentialCase.caseStatus === criterion.value;
+              }
+              break;
+            case "hasExpectedDate":
+              conditionMet = !!(potentialCase?.expectedDateMonth && potentialCase?.expectedDateYear) === (criterion.value === "true");
+              break;
+            case "hasFatherInfo":
+              conditionMet = !!(potentialCase?.fatherFirstName && potentialCase?.fatherLastName) === (criterion.value === "true");
+              break;
+            case "hasProduct":
+              conditionMet = !!potentialCase?.productId === (criterion.value === "true");
+              break;
+            default:
+              if (criterion.field in customer && criterion.condition === "not_empty") {
+                conditionMet = !!(customer as any)[criterion.field];
+              }
+          }
+
+          if (conditionMet) {
+            totalScore += criterion.points;
+          }
+        }
+
+        totalScore = Math.max(0, Math.min(100, totalScore));
+        let leadStatus = "cold";
+        if (totalScore >= 75) leadStatus = "qualified";
+        else if (totalScore >= 50) leadStatus = "hot";
+        else if (totalScore >= 25) leadStatus = "warm";
+
+        await storage.updateCustomerLeadScore(customer.id, totalScore, leadStatus);
+        updated++;
+      }
+
+      await logActivity(
+        req.session.user!.id,
+        "bulk_recalculated_lead_scores",
+        "system",
+        undefined,
+        undefined,
+        { customersUpdated: updated },
+        req.ip
+      );
+
+      res.json({ success: true, customersUpdated: updated });
+    } catch (error) {
+      console.error("Failed to recalculate lead scores:", error);
+      res.status(500).json({ error: "Failed to recalculate lead scores" });
+    }
+  });
+
+  // Seed default lead scoring criteria
+  app.post("/api/lead-scoring-criteria/seed-defaults", requireAuth, async (req, res) => {
+    try {
+      const existingCriteria = await storage.getAllLeadScoringCriteria();
+      
+      if (existingCriteria.length > 0) {
+        return res.status(400).json({ error: "Criteria already exist. Delete existing criteria first." });
+      }
+
+      const defaultCriteria = [
+        // Profile completeness
+        { name: "Has phone number", category: "profile", field: "hasPhone", condition: "equals", value: "true", points: 10 },
+        { name: "Has email", category: "profile", field: "hasEmail", condition: "equals", value: "true", points: 10 },
+        { name: "Has address", category: "profile", field: "hasAddress", condition: "equals", value: "true", points: 10 },
+        
+        // Case information
+        { name: "Has potential case", category: "engagement", field: "hasCase", condition: "equals", value: "true", points: 15 },
+        { name: "Has expected date", category: "engagement", field: "hasExpectedDate", condition: "equals", value: "true", points: 15 },
+        { name: "Has father info", category: "engagement", field: "hasFatherInfo", condition: "equals", value: "true", points: 10 },
+        { name: "Has product selected", category: "engagement", field: "hasProduct", condition: "equals", value: "true", points: 20 },
+        
+        // Marketing
+        { name: "Newsletter opt-in", category: "engagement", field: "newsletterOptIn", condition: "equals", value: "true", points: 5 },
+        
+        // Case status
+        { name: "Case in progress", category: "behavior", field: "caseStatus", condition: "equals", value: "in_progress", points: 15 },
+        { name: "Case realized", category: "behavior", field: "caseStatus", condition: "equals", value: "realized", points: 25 },
+      ];
+
+      const created = [];
+      for (const c of defaultCriteria) {
+        const criterion = await storage.createLeadScoringCriteria({
+          name: c.name,
+          category: c.category,
+          field: c.field,
+          condition: c.condition,
+          value: c.value,
+          points: c.points,
+          isActive: true,
+          countryCode: null,
+        });
+        created.push(criterion);
+      }
+
+      await logActivity(
+        req.session.user!.id,
+        "seeded_default_lead_scoring_criteria",
+        "system",
+        undefined,
+        undefined,
+        { count: created.length },
+        req.ip
+      );
+
+      res.status(201).json({ success: true, criteria: created });
+    } catch (error) {
+      console.error("Failed to seed default criteria:", error);
+      res.status(500).json({ error: "Failed to seed default criteria" });
     }
   });
 
