@@ -19,8 +19,9 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette } from "lucide-react";
 import { COUNTRIES } from "@shared/schema";
+import { InvoiceDesigner, InvoiceDesignerConfig } from "@/components/invoice-designer";
 import type { ServiceConfiguration, InvoiceTemplate, InvoiceLayout } from "@shared/schema";
 
 const serviceFormSchema = z.object({
@@ -808,6 +809,7 @@ function InvoiceEditorTab() {
   const { selectedCountries } = useCountryFilter();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLayout, setEditingLayout] = useState<InvoiceLayout | null>(null);
+  const [designingLayout, setDesigningLayout] = useState<InvoiceLayout | null>(null);
 
   const { data: layouts = [], isLoading } = useQuery<InvoiceLayout[]>({
     queryKey: ["/api/configurator/invoice-layouts", selectedCountries.join(",")],
@@ -868,6 +870,29 @@ function InvoiceEditorTab() {
       toast({ title: t.konfigurator.layoutDeleted });
     },
   });
+
+  const saveDesignMutation = useMutation({
+    mutationFn: (data: { id: string; layoutConfig: string }) =>
+      apiRequest("PATCH", `/api/configurator/invoice-layouts/${data.id}`, { layoutConfig: data.layoutConfig }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/configurator/invoice-layouts"] });
+      setDesigningLayout(null);
+      toast({ title: t.konfigurator.layoutUpdated });
+    },
+  });
+
+  const handleDesign = (layout: InvoiceLayout) => {
+    setDesigningLayout(layout);
+  };
+
+  const handleSaveDesign = (config: InvoiceDesignerConfig) => {
+    if (designingLayout) {
+      saveDesignMutation.mutate({
+        id: designingLayout.id,
+        layoutConfig: JSON.stringify(config),
+      });
+    }
+  };
 
   const handleEdit = (layout: InvoiceLayout) => {
     setEditingLayout(layout);
@@ -936,6 +961,9 @@ function InvoiceEditorTab() {
       header: t.common.actions,
       cell: (layout: InvoiceLayout) => (
         <div className="flex items-center gap-2">
+          <Button size="icon" variant="ghost" onClick={() => handleDesign(layout)} data-testid={`button-design-layout-${layout.id}`} title={t.konfigurator.designInvoice}>
+            <Palette className="h-4 w-4" />
+          </Button>
           <Button size="icon" variant="ghost" onClick={() => handleEdit(layout)} data-testid={`button-edit-layout-${layout.id}`}>
             <Pencil className="h-4 w-4" />
           </Button>
@@ -951,6 +979,31 @@ function InvoiceEditorTab() {
     return (
       <div className="flex items-center justify-center py-8">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (designingLayout) {
+    const initialConfig: InvoiceDesignerConfig | undefined = designingLayout.layoutConfig 
+      ? (() => {
+          try {
+            return JSON.parse(designingLayout.layoutConfig);
+          } catch {
+            return undefined;
+          }
+        })()
+      : undefined;
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-4">
+          <h3 className="text-lg font-semibold">{t.konfigurator.designInvoice}: {designingLayout.name}</h3>
+        </div>
+        <InvoiceDesigner
+          initialConfig={initialConfig}
+          onSave={handleSaveDesign}
+          onCancel={() => setDesigningLayout(null)}
+        />
       </div>
     );
   }
