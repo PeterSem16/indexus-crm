@@ -37,18 +37,22 @@ export function AppSidebar() {
   const { canAccessModule } = usePermissions();
   const { t } = useI18n();
 
-  const allNavItems = [
+  const mainNavItems = [
     { title: t.nav.dashboard, url: "/", icon: LayoutDashboard, testId: "dashboard", moduleKey: "dashboard" },
     { title: t.nav.customers, url: "/customers", icon: Users, testId: "customers", moduleKey: "customers" },
     { title: t.nav.hospitals, url: "/hospitals", icon: Building2, testId: "hospitals", moduleKey: "hospitals" },
     { title: t.nav.collaborators, url: "/collaborators", icon: Handshake, testId: "collaborators", moduleKey: "collaborators" },
     { title: t.nav.invoices, url: "/invoices", icon: FileText, testId: "invoices", moduleKey: "invoices" },
+  ];
+  
+  const adminNavItems = [
     { title: t.nav.users, url: "/users", icon: UserCog, testId: "users", moduleKey: "users" },
     { title: t.nav.settings, url: "/settings", icon: Settings, testId: "settings", moduleKey: "settings" },
     { title: t.nav.konfigurator, url: "/configurator", icon: Cog, testId: "konfigurator", moduleKey: "configurator" },
   ];
 
-  const visibleNavItems = allNavItems.filter(item => canAccessModule(item.moduleKey));
+  const visibleMainItems = mainNavItems.filter(item => canAccessModule(item.moduleKey));
+  const visibleAdminItems = adminNavItems.filter(item => canAccessModule(item.moduleKey));
 
   const handleLogout = async () => {
     await logout();
@@ -84,7 +88,7 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {visibleNavItems.map((item) => (
+              {visibleMainItems.map((item) => (
                 <SidebarMenuItem key={item.testId}>
                   <SidebarMenuButton 
                     asChild 
@@ -100,6 +104,31 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {visibleAdminItems.length > 0 && (
+          <>
+            <SidebarSeparator className="my-2" />
+            <SidebarGroup>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {visibleAdminItems.map((item) => (
+                    <SidebarMenuItem key={item.testId}>
+                      <SidebarMenuButton 
+                        asChild 
+                        isActive={location === item.url}
+                      >
+                        <Link href={item.url} data-testid={`nav-${item.testId}`}>
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="p-4 space-y-3">
