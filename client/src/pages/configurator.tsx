@@ -19,7 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, Eye, EyeOff, Lock, Unlock } from "lucide-react";
+import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, Eye, EyeOff, Lock, Unlock, Check } from "lucide-react";
 import { COUNTRIES } from "@shared/schema";
 import { InvoiceDesigner, InvoiceDesignerConfig } from "@/components/invoice-designer";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -1922,6 +1922,19 @@ function PermissionsRolesTab() {
               <div>
                 <h3 className="text-lg font-medium">{t.konfigurator.moduleAccess}</h3>
                 <p className="text-sm text-muted-foreground">{selectedRole.name}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {(updateModulePermission.isPending || updateFieldPermission.isPending) ? (
+                  <Badge variant="outline" className="text-xs">
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    {t.common.saving}
+                  </Badge>
+                ) : (
+                  <Badge variant="secondary" className="text-xs">
+                    <Check className="h-3 w-3 mr-1" />
+                    {t.common.saved}
+                  </Badge>
+                )}
               </div>
             </div>
 

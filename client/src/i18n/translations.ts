@@ -55,6 +55,8 @@ export interface Translations {
     form: string;
     wizard: string;
     close: string;
+    saving: string;
+    saved: string;
   };
   dashboard: {
     title: string;
@@ -877,6 +879,8 @@ export const translations: Record<Locale, Translations> = {
       form: 'Form',
       wizard: 'Wizard',
       close: 'Close',
+      saving: 'Saving...',
+      saved: 'Saved',
     },
     dashboard: {
       title: 'Dashboard',
@@ -1697,6 +1701,8 @@ export const translations: Record<Locale, Translations> = {
       form: 'Formulár',
       wizard: 'Sprievodca',
       close: 'Zavrieť',
+      saving: 'Ukladám...',
+      saved: 'Uložené',
     },
     dashboard: {
       title: 'Prehľad',
@@ -2517,6 +2523,8 @@ export const translations: Record<Locale, Translations> = {
       form: 'Formulář',
       wizard: 'Průvodce',
       close: 'Zavřít',
+      saving: 'Ukládám...',
+      saved: 'Uloženo',
     },
     dashboard: {
       title: 'Přehled',
@@ -3300,6 +3308,8 @@ export const translations: Record<Locale, Translations> = {
       form: 'Űrlap',
       wizard: 'Varázsló',
       close: 'Bezárás',
+      saving: 'Mentés...',
+      saved: 'Mentve',
     },
     dashboard: {
       title: 'Irányítópult',
@@ -4083,6 +4093,8 @@ export const translations: Record<Locale, Translations> = {
       form: 'Formular',
       wizard: 'Asistent',
       close: 'Închide',
+      saving: 'Se salvează...',
+      saved: 'Salvat',
     },
     dashboard: {
       title: 'Panou de control',
@@ -4866,6 +4878,8 @@ export const translations: Record<Locale, Translations> = {
       form: 'Modulo',
       wizard: 'Procedura guidata',
       close: 'Chiudi',
+      saving: 'Salvataggio...',
+      saved: 'Salvato',
     },
     dashboard: {
       title: 'Dashboard',
@@ -5649,6 +5663,8 @@ export const translations: Record<Locale, Translations> = {
       form: 'Formular',
       wizard: 'Assistent',
       close: 'Schließen',
+      saving: 'Speichern...',
+      saved: 'Gespeichert',
     },
     dashboard: {
       title: 'Dashboard',

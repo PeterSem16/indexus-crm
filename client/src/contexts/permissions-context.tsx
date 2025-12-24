@@ -13,7 +13,7 @@ interface ModulePermission {
 interface FieldPermission {
   moduleKey: string;
   fieldKey: string;
-  access: FieldAccess;
+  permission: FieldAccess;
 }
 
 interface RoleWithPermissions {
@@ -94,7 +94,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
       return "editable";
     }
     
-    return fieldPerm.access as FieldAccess;
+    return fieldPerm.permission;
   };
   
   return (
