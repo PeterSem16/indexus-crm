@@ -23,6 +23,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { getCountryFlag } from "@/lib/countries";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useModuleFieldPermissions } from "@/components/ui/permission-field";
 
 const COLLABORATOR_TYPES = [
   { value: "doctor", labelKey: "doctor" },
@@ -173,6 +174,7 @@ function DateFields({
 export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: CollaboratorFormWizardProps) {
   const { t } = useI18n();
   const { toast } = useToast();
+  const { isHidden, isReadonly } = useModuleFieldPermissions("collaborators");
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
 
@@ -410,52 +412,70 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
             </div>
 
             <div className="grid gap-4 sm:grid-cols-4">
-              <div className="space-y-2">
-                <Label>{t.collaborators.fields.titleBefore}</Label>
-                <Input
-                  value={formData.titleBefore}
-                  onChange={(e) => setFormData({ ...formData, titleBefore: e.target.value })}
-                  data-testid="wizard-input-collaborator-title-before"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{t.collaborators.fields.firstName} *</Label>
-                <Input
-                  value={formData.firstName}
-                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                  data-testid="wizard-input-collaborator-firstname"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{t.collaborators.fields.lastName} *</Label>
-                <Input
-                  value={formData.lastName}
-                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                  data-testid="wizard-input-collaborator-lastname"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{t.collaborators.fields.titleAfter}</Label>
-                <Input
-                  value={formData.titleAfter}
-                  onChange={(e) => setFormData({ ...formData, titleAfter: e.target.value })}
-                  data-testid="wizard-input-collaborator-title-after"
-                />
-              </div>
+              {!isHidden("title_before") && (
+                <div className="space-y-2">
+                  <Label>{t.collaborators.fields.titleBefore}</Label>
+                  <Input
+                    value={formData.titleBefore}
+                    onChange={(e) => setFormData({ ...formData, titleBefore: e.target.value })}
+                    data-testid="wizard-input-collaborator-title-before"
+                    disabled={isReadonly("title_before")}
+                    className={isReadonly("title_before") ? "bg-muted" : ""}
+                  />
+                </div>
+              )}
+              {!isHidden("first_name") && (
+                <div className="space-y-2">
+                  <Label>{t.collaborators.fields.firstName} *</Label>
+                  <Input
+                    value={formData.firstName}
+                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                    data-testid="wizard-input-collaborator-firstname"
+                    disabled={isReadonly("first_name")}
+                    className={isReadonly("first_name") ? "bg-muted" : ""}
+                  />
+                </div>
+              )}
+              {!isHidden("last_name") && (
+                <div className="space-y-2">
+                  <Label>{t.collaborators.fields.lastName} *</Label>
+                  <Input
+                    value={formData.lastName}
+                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                    data-testid="wizard-input-collaborator-lastname"
+                    disabled={isReadonly("last_name")}
+                    className={isReadonly("last_name") ? "bg-muted" : ""}
+                  />
+                </div>
+              )}
+              {!isHidden("title_after") && (
+                <div className="space-y-2">
+                  <Label>{t.collaborators.fields.titleAfter}</Label>
+                  <Input
+                    value={formData.titleAfter}
+                    onChange={(e) => setFormData({ ...formData, titleAfter: e.target.value })}
+                    data-testid="wizard-input-collaborator-title-after"
+                    disabled={isReadonly("title_after")}
+                    className={isReadonly("title_after") ? "bg-muted" : ""}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <DateFields
-                label={t.collaborators.fields.birthDate}
-                dayValue={formData.birthDay}
-                monthValue={formData.birthMonth}
-                yearValue={formData.birthYear}
-                onDayChange={(val) => setFormData({ ...formData, birthDay: val })}
-                onMonthChange={(val) => setFormData({ ...formData, birthMonth: val })}
-                onYearChange={(val) => setFormData({ ...formData, birthYear: val })}
-                testIdPrefix="birth"
-                t={t}
-              />
+              {!isHidden("date_of_birth") && (
+                <DateFields
+                  label={t.collaborators.fields.birthDate}
+                  dayValue={formData.birthDay}
+                  monthValue={formData.birthMonth}
+                  yearValue={formData.birthYear}
+                  onDayChange={(val) => setFormData({ ...formData, birthDay: val })}
+                  onMonthChange={(val) => setFormData({ ...formData, birthMonth: val })}
+                  onYearChange={(val) => setFormData({ ...formData, birthYear: val })}
+                  testIdPrefix="birth"
+                  t={t}
+                />
+              )}
               <div className="space-y-2">
                 <Label>{t.collaborators.fields.birthPlace}</Label>
                 <Input
@@ -511,26 +531,34 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
         return (
           <div className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>{t.collaborators.fields.phone}</Label>
-                <Input
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="+421..."
-                  data-testid="wizard-input-collaborator-phone"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{t.collaborators.fields.mobile}</Label>
-                <Input
-                  type="tel"
-                  value={formData.mobile}
-                  onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
-                  placeholder="+421..."
-                  data-testid="wizard-input-collaborator-mobile"
-                />
-              </div>
+              {!isHidden("phone") && (
+                <div className="space-y-2">
+                  <Label>{t.collaborators.fields.phone}</Label>
+                  <Input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    placeholder="+421..."
+                    data-testid="wizard-input-collaborator-phone"
+                    disabled={isReadonly("phone")}
+                    className={isReadonly("phone") ? "bg-muted" : ""}
+                  />
+                </div>
+              )}
+              {!isHidden("mobile") && (
+                <div className="space-y-2">
+                  <Label>{t.collaborators.fields.mobile}</Label>
+                  <Input
+                    type="tel"
+                    value={formData.mobile}
+                    onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
+                    placeholder="+421..."
+                    data-testid="wizard-input-collaborator-mobile"
+                    disabled={isReadonly("mobile")}
+                    className={isReadonly("mobile") ? "bg-muted" : ""}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -544,15 +572,19 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
                   data-testid="wizard-input-collaborator-mobile2"
                 />
               </div>
-              <div className="space-y-2">
-                <Label>{t.collaborators.fields.email}</Label>
-                <Input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  data-testid="wizard-input-collaborator-email"
-                />
-              </div>
+              {!isHidden("email") && (
+                <div className="space-y-2">
+                  <Label>{t.collaborators.fields.email}</Label>
+                  <Input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    data-testid="wizard-input-collaborator-email"
+                    disabled={isReadonly("email")}
+                    className={isReadonly("email") ? "bg-muted" : ""}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -598,36 +630,47 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
         return (
           <div className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>{t.collaborators.fields.bankAccountIban}</Label>
-                <Input
-                  value={formData.bankAccountIban}
-                  onChange={(e) => setFormData({ ...formData, bankAccountIban: e.target.value })}
-                  placeholder="SK..."
-                  data-testid="wizard-input-collaborator-iban"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{t.collaborators.fields.swiftCode}</Label>
-                <Input
-                  value={formData.swiftCode}
-                  onChange={(e) => setFormData({ ...formData, swiftCode: e.target.value })}
-                  data-testid="wizard-input-collaborator-swift"
-                />
-              </div>
+              {!isHidden("bank_account") && (
+                <div className="space-y-2">
+                  <Label>{t.collaborators.fields.bankAccountIban}</Label>
+                  <Input
+                    value={formData.bankAccountIban}
+                    onChange={(e) => setFormData({ ...formData, bankAccountIban: e.target.value })}
+                    placeholder="SK..."
+                    data-testid="wizard-input-collaborator-iban"
+                    disabled={isReadonly("bank_account")}
+                    className={isReadonly("bank_account") ? "bg-muted" : ""}
+                  />
+                </div>
+              )}
+              {!isHidden("bank_account") && (
+                <div className="space-y-2">
+                  <Label>{t.collaborators.fields.swiftCode}</Label>
+                  <Input
+                    value={formData.swiftCode}
+                    onChange={(e) => setFormData({ ...formData, swiftCode: e.target.value })}
+                    data-testid="wizard-input-collaborator-swift"
+                    disabled={isReadonly("bank_account")}
+                    className={isReadonly("bank_account") ? "bg-muted" : ""}
+                  />
+                </div>
+              )}
             </div>
 
             <Separator className="my-4" />
 
             <div className="flex flex-wrap items-center gap-6">
-              <div className="flex items-center space-x-2">
-                <Switch
-                  checked={formData.isActive}
-                  onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
-                  data-testid="wizard-switch-collaborator-active"
-                />
-                <Label>{t.collaborators.fields.active}</Label>
-              </div>
+              {!isHidden("is_active") && (
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    checked={formData.isActive}
+                    onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
+                    data-testid="wizard-switch-collaborator-active"
+                    disabled={isReadonly("is_active")}
+                  />
+                  <Label>{t.collaborators.fields.active}</Label>
+                </div>
+              )}
               <div className="flex items-center space-x-2">
                 <Switch
                   checked={formData.clientContact}
@@ -661,60 +704,84 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">{"Company information is optional"}</p>
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>{t.collaborators.fields.companyName}</Label>
-                <Input
-                  value={formData.companyName}
-                  onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                  data-testid="wizard-input-collaborator-company-name"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{t.collaborators.fields.ico}</Label>
-                <Input
-                  value={formData.ico}
-                  onChange={(e) => setFormData({ ...formData, ico: e.target.value })}
-                  data-testid="wizard-input-collaborator-ico"
-                />
-              </div>
+              {!isHidden("company_name") && (
+                <div className="space-y-2">
+                  <Label>{t.collaborators.fields.companyName}</Label>
+                  <Input
+                    value={formData.companyName}
+                    onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+                    data-testid="wizard-input-collaborator-company-name"
+                    disabled={isReadonly("company_name")}
+                    className={isReadonly("company_name") ? "bg-muted" : ""}
+                  />
+                </div>
+              )}
+              {!isHidden("company_ico") && (
+                <div className="space-y-2">
+                  <Label>{t.collaborators.fields.ico}</Label>
+                  <Input
+                    value={formData.ico}
+                    onChange={(e) => setFormData({ ...formData, ico: e.target.value })}
+                    data-testid="wizard-input-collaborator-ico"
+                    disabled={isReadonly("company_ico")}
+                    className={isReadonly("company_ico") ? "bg-muted" : ""}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>{t.collaborators.fields.dic}</Label>
-                <Input
-                  value={formData.dic}
-                  onChange={(e) => setFormData({ ...formData, dic: e.target.value })}
-                  data-testid="wizard-input-collaborator-dic"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{t.collaborators.fields.icDph}</Label>
-                <Input
-                  value={formData.icDph}
-                  onChange={(e) => setFormData({ ...formData, icDph: e.target.value })}
-                  data-testid="wizard-input-collaborator-icdph"
-                />
-              </div>
+              {!isHidden("company_dic") && (
+                <div className="space-y-2">
+                  <Label>{t.collaborators.fields.dic}</Label>
+                  <Input
+                    value={formData.dic}
+                    onChange={(e) => setFormData({ ...formData, dic: e.target.value })}
+                    data-testid="wizard-input-collaborator-dic"
+                    disabled={isReadonly("company_dic")}
+                    className={isReadonly("company_dic") ? "bg-muted" : ""}
+                  />
+                </div>
+              )}
+              {!isHidden("company_ic_dph") && (
+                <div className="space-y-2">
+                  <Label>{t.collaborators.fields.icDph}</Label>
+                  <Input
+                    value={formData.icDph}
+                    onChange={(e) => setFormData({ ...formData, icDph: e.target.value })}
+                    data-testid="wizard-input-collaborator-icdph"
+                    disabled={isReadonly("company_ic_dph")}
+                    className={isReadonly("company_ic_dph") ? "bg-muted" : ""}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>{t.collaborators.fields.companyIban}</Label>
-                <Input
-                  value={formData.companyIban}
-                  onChange={(e) => setFormData({ ...formData, companyIban: e.target.value })}
-                  data-testid="wizard-input-collaborator-company-iban"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{t.collaborators.fields.companySwift}</Label>
-                <Input
-                  value={formData.companySwift}
-                  onChange={(e) => setFormData({ ...formData, companySwift: e.target.value })}
-                  data-testid="wizard-input-collaborator-company-swift"
-                />
-              </div>
+              {!isHidden("bank_account") && (
+                <div className="space-y-2">
+                  <Label>{t.collaborators.fields.companyIban}</Label>
+                  <Input
+                    value={formData.companyIban}
+                    onChange={(e) => setFormData({ ...formData, companyIban: e.target.value })}
+                    data-testid="wizard-input-collaborator-company-iban"
+                    disabled={isReadonly("bank_account")}
+                    className={isReadonly("bank_account") ? "bg-muted" : ""}
+                  />
+                </div>
+              )}
+              {!isHidden("bank_account") && (
+                <div className="space-y-2">
+                  <Label>{t.collaborators.fields.companySwift}</Label>
+                  <Input
+                    value={formData.companySwift}
+                    onChange={(e) => setFormData({ ...formData, companySwift: e.target.value })}
+                    data-testid="wizard-input-collaborator-company-swift"
+                    disabled={isReadonly("bank_account")}
+                    className={isReadonly("bank_account") ? "bg-muted" : ""}
+                  />
+                </div>
+              )}
             </div>
           </div>
         );

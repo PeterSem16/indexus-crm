@@ -25,6 +25,7 @@ import {
 import { COUNTRIES } from "@/lib/countries";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { User, Role } from "@shared/schema";
+import { useModuleFieldPermissions } from "@/components/ui/permission-field";
 
 const createUserFormSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
@@ -59,6 +60,7 @@ interface UserFormProps {
 
 export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFormProps) {
   const { t } = useI18n();
+  const { isHidden, isReadonly } = useModuleFieldPermissions("users");
   const isEditing = !!initialData;
   
   const { data: roles = [], isLoading: rolesLoading } = useQuery<Role[]>({
@@ -140,236 +142,267 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
         <div className="grid gap-4 sm:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="fullName"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t.users.fullName}</FormLabel>
-                <FormControl>
-                  <Input 
-                    placeholder={t.users.fullName} 
-                    {...field} 
-                    data-testid="input-fullname"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="username"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t.users.username}</FormLabel>
-                <FormControl>
-                  <Input 
-                    placeholder={t.users.username} 
-                    {...field} 
-                    data-testid="input-username"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t.common.email}</FormLabel>
-                <FormControl>
-                  <Input 
-                    type="email" 
-                    placeholder={t.common.email} 
-                    {...field} 
-                    data-testid="input-email"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="password"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{isEditing ? t.users.newPassword : t.users.password}</FormLabel>
-                <FormControl>
-                  <Input 
-                    type="password" 
-                    placeholder={isEditing ? t.users.leaveEmptyPassword : t.users.enterPassword} 
-                    {...field} 
-                    data-testid="input-password"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          {rolesLoading ? (
-            <FormItem>
-              <FormLabel>{t.users.role}</FormLabel>
-              <div className="h-9 flex items-center text-sm text-muted-foreground">
-                {t.common.loading}...
-              </div>
-            </FormItem>
-          ) : hasSystemRoles ? (
+          {!isHidden("full_name") && (
             <FormField
               control={form.control}
-              name="roleId"
+              name="fullName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t.users.role}</FormLabel>
-                  <Select 
-                    onValueChange={field.onChange} 
-                    value={field.value || ""}
-                    key={`role-select-${field.value}`}
-                  >
-                    <FormControl>
-                      <SelectTrigger data-testid="select-role">
-                        <SelectValue placeholder={t.users.selectRole} />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {activeRoles.map((role) => (
-                        <SelectItem key={role.id} value={role.id}>
-                          {role.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormLabel>{t.users.fullName}</FormLabel>
+                  <FormControl>
+                    <Input 
+                      placeholder={t.users.fullName} 
+                      {...field} 
+                      data-testid="input-fullname"
+                      disabled={isReadonly("full_name")}
+                      className={isReadonly("full_name") ? "bg-muted" : ""}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-          ) : (
+          )}
+
+          {!isHidden("username") && (
             <FormField
               control={form.control}
-              name="role"
+              name="username"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t.users.role}</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger data-testid="select-role">
-                        <SelectValue placeholder={t.users.selectRole} />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="admin">{t.users.roles.admin}</SelectItem>
-                      <SelectItem value="manager">{t.users.roles.manager}</SelectItem>
-                      <SelectItem value="user">{t.users.roles.user}</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <FormLabel>{t.users.username}</FormLabel>
+                  <FormControl>
+                    <Input 
+                      placeholder={t.users.username} 
+                      {...field} 
+                      data-testid="input-username"
+                      disabled={isReadonly("username")}
+                      className={isReadonly("username") ? "bg-muted" : ""}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
+          )}
+
+          {!isHidden("email") && (
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t.common.email}</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="email" 
+                      placeholder={t.common.email} 
+                      {...field} 
+                      data-testid="input-email"
+                      disabled={isReadonly("email")}
+                      className={isReadonly("email") ? "bg-muted" : ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
+          {!isHidden("password") && (
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{isEditing ? t.users.newPassword : t.users.password}</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="password" 
+                      placeholder={isEditing ? t.users.leaveEmptyPassword : t.users.enterPassword} 
+                      {...field} 
+                      data-testid="input-password"
+                      disabled={isReadonly("password")}
+                      className={isReadonly("password") ? "bg-muted" : ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
+          {!isHidden("role") && (
+            rolesLoading ? (
+              <FormItem>
+                <FormLabel>{t.users.role}</FormLabel>
+                <div className="h-9 flex items-center text-sm text-muted-foreground">
+                  {t.common.loading}...
+                </div>
+              </FormItem>
+            ) : hasSystemRoles ? (
+              <FormField
+                control={form.control}
+                name="roleId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t.users.role}</FormLabel>
+                    <Select 
+                      onValueChange={field.onChange} 
+                      value={field.value || ""}
+                      key={`role-select-${field.value}`}
+                      disabled={isReadonly("role")}
+                    >
+                      <FormControl>
+                        <SelectTrigger data-testid="select-role" className={isReadonly("role") ? "bg-muted" : ""}>
+                          <SelectValue placeholder={t.users.selectRole} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {activeRoles.map((role) => (
+                          <SelectItem key={role.id} value={role.id}>
+                            {role.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            ) : (
+              <FormField
+                control={form.control}
+                name="role"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t.users.role}</FormLabel>
+                    <Select 
+                      onValueChange={field.onChange} 
+                      defaultValue={field.value}
+                      disabled={isReadonly("role")}
+                    >
+                      <FormControl>
+                        <SelectTrigger data-testid="select-role" className={isReadonly("role") ? "bg-muted" : ""}>
+                          <SelectValue placeholder={t.users.selectRole} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="admin">{t.users.roles.admin}</SelectItem>
+                        <SelectItem value="manager">{t.users.roles.manager}</SelectItem>
+                        <SelectItem value="user">{t.users.roles.user}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )
           )}
         </div>
 
-        <FormField
-          control={form.control}
-          name="isActive"
-          render={({ field }) => (
-            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-              <FormControl>
-                <Checkbox
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
-                  data-testid="checkbox-active"
-                />
-              </FormControl>
-              <div className="space-y-1 leading-none">
-                <FormLabel>{t.users.activeAccount}</FormLabel>
-                <FormDescription>
-                  {t.users.activeAccountHint}
-                </FormDescription>
-              </div>
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="assignedCountries"
-          render={() => (
-            <FormItem>
-              <div className="flex items-center justify-between mb-4">
-                <FormLabel className="text-base">{t.users.assignedCountries}</FormLabel>
-                <div className="flex gap-2">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="sm"
-                    onClick={handleSelectAll}
-                    data-testid="button-select-all"
-                  >
-                    {t.users.selectAll}
-                  </Button>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="sm"
-                    onClick={handleClearAll}
-                    data-testid="button-clear-all"
-                  >
-                    {t.users.clearAll}
-                  </Button>
-                </div>
-              </div>
-              <FormDescription className="mb-4">
-                {t.users.selectCountriesHint}
-              </FormDescription>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {COUNTRIES.map((country) => (
-                  <FormField
-                    key={country.code}
-                    control={form.control}
-                    name="assignedCountries"
-                    render={({ field }) => {
-                      return (
-                        <FormItem
-                          key={country.code}
-                          className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-3 hover-elevate"
-                        >
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value?.includes(country.code)}
-                              onCheckedChange={(checked) => {
-                                return checked
-                                  ? field.onChange([...field.value, country.code])
-                                  : field.onChange(
-                                      field.value?.filter(
-                                        (value) => value !== country.code
-                                      )
-                                    );
-                              }}
-                              data-testid={`checkbox-country-${country.code}`}
-                            />
-                          </FormControl>
-                          <FormLabel className="flex items-center gap-2 font-normal cursor-pointer">
-                            <span className="text-lg">{country.flag}</span>
-                            <span>{country.name}</span>
-                          </FormLabel>
-                        </FormItem>
-                      );
-                    }}
+        {!isHidden("is_active") && (
+          <FormField
+            control={form.control}
+            name="isActive"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    data-testid="checkbox-active"
+                    disabled={isReadonly("is_active")}
                   />
-                ))}
-              </div>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+                </FormControl>
+                <div className="space-y-1 leading-none">
+                  <FormLabel>{t.users.activeAccount}</FormLabel>
+                  <FormDescription>
+                    {t.users.activeAccountHint}
+                  </FormDescription>
+                </div>
+              </FormItem>
+            )}
+          />
+        )}
+
+        {!isHidden("assigned_countries") && (
+          <FormField
+            control={form.control}
+            name="assignedCountries"
+            render={() => (
+              <FormItem>
+                <div className="flex items-center justify-between mb-4">
+                  <FormLabel className="text-base">{t.users.assignedCountries}</FormLabel>
+                  <div className="flex gap-2">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm"
+                      onClick={handleSelectAll}
+                      data-testid="button-select-all"
+                      disabled={isReadonly("assigned_countries")}
+                    >
+                      {t.users.selectAll}
+                    </Button>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm"
+                      onClick={handleClearAll}
+                      data-testid="button-clear-all"
+                      disabled={isReadonly("assigned_countries")}
+                    >
+                      {t.users.clearAll}
+                    </Button>
+                  </div>
+                </div>
+                <FormDescription className="mb-4">
+                  {t.users.selectCountriesHint}
+                </FormDescription>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {COUNTRIES.map((country) => (
+                    <FormField
+                      key={country.code}
+                      control={form.control}
+                      name="assignedCountries"
+                      render={({ field }) => {
+                        return (
+                          <FormItem
+                            key={country.code}
+                            className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-3 hover-elevate"
+                          >
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value?.includes(country.code)}
+                                onCheckedChange={(checked) => {
+                                  return checked
+                                    ? field.onChange([...field.value, country.code])
+                                    : field.onChange(
+                                        field.value?.filter(
+                                          (value) => value !== country.code
+                                        )
+                                      );
+                                }}
+                                data-testid={`checkbox-country-${country.code}`}
+                                disabled={isReadonly("assigned_countries")}
+                              />
+                            </FormControl>
+                            <FormLabel className="flex items-center gap-2 font-normal cursor-pointer">
+                              <span className="text-lg">{country.flag}</span>
+                              <span>{country.name}</span>
+                            </FormLabel>
+                          </FormItem>
+                        );
+                      }}
+                    />
+                  ))}
+                </div>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
 
         <div className="flex justify-end gap-3">
           <Button 

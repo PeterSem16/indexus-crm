@@ -23,6 +23,7 @@ import { Separator } from "@/components/ui/separator";
 import { getCountryFlag } from "@/lib/countries";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useModuleFieldPermissions } from "@/components/ui/permission-field";
 
 interface HospitalFormData {
   isActive: boolean;
@@ -58,6 +59,7 @@ const WIZARD_STEPS = [
 export function HospitalFormWizard({ initialData, onSuccess, onCancel }: HospitalFormWizardProps) {
   const { t } = useI18n();
   const { toast } = useToast();
+  const { isHidden, isReadonly } = useModuleFieldPermissions("hospitals");
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   
@@ -207,62 +209,76 @@ export function HospitalFormWizard({ initialData, onSuccess, onCancel }: Hospita
         return (
           <div className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>{t.hospitals.name} *</Label>
-                <Input
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder={t.hospitals.name}
-                  data-testid="wizard-input-hospital-name"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{t.hospitals.fullName}</Label>
-                <Input
-                  value={formData.fullName}
-                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                  placeholder={t.hospitals.fullName}
-                  data-testid="wizard-input-hospital-fullname"
-                />
-              </div>
+              {!isHidden("name") && (
+                <div className="space-y-2">
+                  <Label>{t.hospitals.name} *</Label>
+                  <Input
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder={t.hospitals.name}
+                    data-testid="wizard-input-hospital-name"
+                    disabled={isReadonly("name")}
+                    className={isReadonly("name") ? "bg-muted" : ""}
+                  />
+                </div>
+              )}
+              {!isHidden("full_name") && (
+                <div className="space-y-2">
+                  <Label>{t.hospitals.fullName}</Label>
+                  <Input
+                    value={formData.fullName}
+                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                    placeholder={t.hospitals.fullName}
+                    data-testid="wizard-input-hospital-fullname"
+                    disabled={isReadonly("full_name")}
+                    className={isReadonly("full_name") ? "bg-muted" : ""}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>{t.common.country} *</Label>
-                <Select
-                  value={formData.countryCode}
-                  onValueChange={(value) => setFormData({ ...formData, countryCode: value, laboratoryId: "" })}
-                >
-                  <SelectTrigger data-testid="wizard-select-hospital-country">
-                    <SelectValue placeholder={t.common.country} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {COUNTRIES.map((country) => (
-                      <SelectItem key={country.code} value={country.code}>
-                        {getCountryFlag(country.code)} {country.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>{t.hospitals.laboratory}</Label>
-                <Select
-                  value={formData.laboratoryId || "_none"}
-                  onValueChange={(value) => setFormData({ ...formData, laboratoryId: value === "_none" ? "" : value })}
-                >
-                  <SelectTrigger data-testid="wizard-select-hospital-laboratory">
-                    <SelectValue placeholder={t.hospitals.laboratory} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_none">{t.common.noData}</SelectItem>
-                    {filteredLaboratories.map((lab) => (
-                      <SelectItem key={lab.id} value={lab.id}>{lab.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {!isHidden("country_code") && (
+                <div className="space-y-2">
+                  <Label>{t.common.country} *</Label>
+                  <Select
+                    value={formData.countryCode}
+                    onValueChange={(value) => setFormData({ ...formData, countryCode: value, laboratoryId: "" })}
+                    disabled={isReadonly("country_code")}
+                  >
+                    <SelectTrigger data-testid="wizard-select-hospital-country" className={isReadonly("country_code") ? "bg-muted" : ""}>
+                      <SelectValue placeholder={t.common.country} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COUNTRIES.map((country) => (
+                        <SelectItem key={country.code} value={country.code}>
+                          {getCountryFlag(country.code)} {country.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {!isHidden("laboratory") && (
+                <div className="space-y-2">
+                  <Label>{t.hospitals.laboratory}</Label>
+                  <Select
+                    value={formData.laboratoryId || "_none"}
+                    onValueChange={(value) => setFormData({ ...formData, laboratoryId: value === "_none" ? "" : value })}
+                    disabled={isReadonly("laboratory")}
+                  >
+                    <SelectTrigger data-testid="wizard-select-hospital-laboratory" className={isReadonly("laboratory") ? "bg-muted" : ""}>
+                      <SelectValue placeholder={t.hospitals.laboratory} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">{t.common.noData}</SelectItem>
+                      {filteredLaboratories.map((lab) => (
+                        <SelectItem key={lab.id} value={lab.id}>{lab.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
           </div>
         );
@@ -271,45 +287,61 @@ export function HospitalFormWizard({ initialData, onSuccess, onCancel }: Hospita
         return (
           <div className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>{t.hospitals.streetNumber}</Label>
-                <Input
-                  value={formData.streetNumber}
-                  onChange={(e) => setFormData({ ...formData, streetNumber: e.target.value })}
-                  placeholder={t.hospitals.streetNumber}
-                  data-testid="wizard-input-hospital-street"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{t.hospitals.city}</Label>
-                <Input
-                  value={formData.city}
-                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                  placeholder={t.hospitals.city}
-                  data-testid="wizard-input-hospital-city"
-                />
-              </div>
+              {!isHidden("street_number") && (
+                <div className="space-y-2">
+                  <Label>{t.hospitals.streetNumber}</Label>
+                  <Input
+                    value={formData.streetNumber}
+                    onChange={(e) => setFormData({ ...formData, streetNumber: e.target.value })}
+                    placeholder={t.hospitals.streetNumber}
+                    data-testid="wizard-input-hospital-street"
+                    disabled={isReadonly("street_number")}
+                    className={isReadonly("street_number") ? "bg-muted" : ""}
+                  />
+                </div>
+              )}
+              {!isHidden("city") && (
+                <div className="space-y-2">
+                  <Label>{t.hospitals.city}</Label>
+                  <Input
+                    value={formData.city}
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    placeholder={t.hospitals.city}
+                    data-testid="wizard-input-hospital-city"
+                    disabled={isReadonly("city")}
+                    className={isReadonly("city") ? "bg-muted" : ""}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>{t.hospitals.postalCode}</Label>
-                <Input
-                  value={formData.postalCode}
-                  onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
-                  placeholder={t.hospitals.postalCode}
-                  data-testid="wizard-input-hospital-postalcode"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{t.hospitals.region}</Label>
-                <Input
-                  value={formData.region}
-                  onChange={(e) => setFormData({ ...formData, region: e.target.value })}
-                  placeholder={t.hospitals.region}
-                  data-testid="wizard-input-hospital-region"
-                />
-              </div>
+              {!isHidden("postal_code") && (
+                <div className="space-y-2">
+                  <Label>{t.hospitals.postalCode}</Label>
+                  <Input
+                    value={formData.postalCode}
+                    onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
+                    placeholder={t.hospitals.postalCode}
+                    data-testid="wizard-input-hospital-postalcode"
+                    disabled={isReadonly("postal_code")}
+                    className={isReadonly("postal_code") ? "bg-muted" : ""}
+                  />
+                </div>
+              )}
+              {!isHidden("region") && (
+                <div className="space-y-2">
+                  <Label>{t.hospitals.region}</Label>
+                  <Input
+                    value={formData.region}
+                    onChange={(e) => setFormData({ ...formData, region: e.target.value })}
+                    placeholder={t.hospitals.region}
+                    data-testid="wizard-input-hospital-region"
+                    disabled={isReadonly("region")}
+                    className={isReadonly("region") ? "bg-muted" : ""}
+                  />
+                </div>
+              )}
             </div>
           </div>
         );
@@ -317,51 +349,61 @@ export function HospitalFormWizard({ initialData, onSuccess, onCancel }: Hospita
       case 2:
         return (
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>{t.hospitals.contactPerson}</Label>
-              <Input
-                value={formData.contactPerson}
-                onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
-                placeholder={t.hospitals.contactPerson}
-                data-testid="wizard-input-hospital-contact"
-              />
-            </div>
+            {!isHidden("contact_person") && (
+              <div className="space-y-2">
+                <Label>{t.hospitals.contactPerson}</Label>
+                <Input
+                  value={formData.contactPerson}
+                  onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
+                  placeholder={t.hospitals.contactPerson}
+                  data-testid="wizard-input-hospital-contact"
+                  disabled={isReadonly("contact_person")}
+                  className={isReadonly("contact_person") ? "bg-muted" : ""}
+                />
+              </div>
+            )}
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>{t.hospitals.representative}</Label>
-                <Select
-                  value={formData.representativeId || "_none"}
-                  onValueChange={(value) => setFormData({ ...formData, representativeId: value === "_none" ? "" : value })}
-                >
-                  <SelectTrigger data-testid="wizard-select-hospital-representative">
-                    <SelectValue placeholder={t.hospitals.representative} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_none">{t.common.noData}</SelectItem>
-                    {users.map((user) => (
-                      <SelectItem key={user.id} value={user.id}>{user.fullName}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>{t.hospitals.responsiblePerson}</Label>
-                <Select
-                  value={formData.responsiblePersonId || "_none"}
-                  onValueChange={(value) => setFormData({ ...formData, responsiblePersonId: value === "_none" ? "" : value })}
-                >
-                  <SelectTrigger data-testid="wizard-select-hospital-responsible">
-                    <SelectValue placeholder={t.hospitals.responsiblePerson} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_none">{t.common.noData}</SelectItem>
-                    {users.map((user) => (
-                      <SelectItem key={user.id} value={user.id}>{user.fullName}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {!isHidden("representative") && (
+                <div className="space-y-2">
+                  <Label>{t.hospitals.representative}</Label>
+                  <Select
+                    value={formData.representativeId || "_none"}
+                    onValueChange={(value) => setFormData({ ...formData, representativeId: value === "_none" ? "" : value })}
+                    disabled={isReadonly("representative")}
+                  >
+                    <SelectTrigger data-testid="wizard-select-hospital-representative" className={isReadonly("representative") ? "bg-muted" : ""}>
+                      <SelectValue placeholder={t.hospitals.representative} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">{t.common.noData}</SelectItem>
+                      {users.map((user) => (
+                        <SelectItem key={user.id} value={user.id}>{user.fullName}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {!isHidden("responsible_person") && (
+                <div className="space-y-2">
+                  <Label>{t.hospitals.responsiblePerson}</Label>
+                  <Select
+                    value={formData.responsiblePersonId || "_none"}
+                    onValueChange={(value) => setFormData({ ...formData, responsiblePersonId: value === "_none" ? "" : value })}
+                    disabled={isReadonly("responsible_person")}
+                  >
+                    <SelectTrigger data-testid="wizard-select-hospital-responsible" className={isReadonly("responsible_person") ? "bg-muted" : ""}>
+                      <SelectValue placeholder={t.hospitals.responsiblePerson} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">{t.common.noData}</SelectItem>
+                      {users.map((user) => (
+                        <SelectItem key={user.id} value={user.id}>{user.fullName}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
           </div>
         );
@@ -369,33 +411,42 @@ export function HospitalFormWizard({ initialData, onSuccess, onCancel }: Hospita
       case 3:
         return (
           <div className="space-y-6">
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="isActive"
-                checked={formData.isActive}
-                onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
-                data-testid="wizard-switch-hospital-active"
-              />
-              <Label htmlFor="isActive">{t.common.active}</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="autoRecruiting"
-                checked={formData.autoRecruiting}
-                onCheckedChange={(checked) => setFormData({ ...formData, autoRecruiting: checked })}
-                data-testid="wizard-switch-hospital-autorecruiting"
-              />
-              <Label htmlFor="autoRecruiting">{t.hospitals.autoRecruiting}</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="svetZdravia"
-                checked={formData.svetZdravia}
-                onCheckedChange={(checked) => setFormData({ ...formData, svetZdravia: checked })}
-                data-testid="wizard-switch-hospital-svetzdravia"
-              />
-              <Label htmlFor="svetZdravia">{t.hospitals.svetZdravia}</Label>
-            </div>
+            {!isHidden("is_active") && (
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="isActive"
+                  checked={formData.isActive}
+                  onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
+                  data-testid="wizard-switch-hospital-active"
+                  disabled={isReadonly("is_active")}
+                />
+                <Label htmlFor="isActive">{t.common.active}</Label>
+              </div>
+            )}
+            {!isHidden("auto_recruiting") && (
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="autoRecruiting"
+                  checked={formData.autoRecruiting}
+                  onCheckedChange={(checked) => setFormData({ ...formData, autoRecruiting: checked })}
+                  data-testid="wizard-switch-hospital-autorecruiting"
+                  disabled={isReadonly("auto_recruiting")}
+                />
+                <Label htmlFor="autoRecruiting">{t.hospitals.autoRecruiting}</Label>
+              </div>
+            )}
+            {!isHidden("svet_zdravia") && (
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="svetZdravia"
+                  checked={formData.svetZdravia}
+                  onCheckedChange={(checked) => setFormData({ ...formData, svetZdravia: checked })}
+                  data-testid="wizard-switch-hospital-svetzdravia"
+                  disabled={isReadonly("svet_zdravia")}
+                />
+                <Label htmlFor="svetZdravia">{t.hospitals.svetZdravia}</Label>
+              </div>
+            )}
           </div>
         );
 

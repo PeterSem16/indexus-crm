@@ -12,10 +12,12 @@ import { getCountryFlag, getCountryName } from "@/lib/countries";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import type { Customer, User, Invoice } from "@shared/schema";
+import { useModuleFieldPermissions } from "@/components/ui/permission-field";
 
 export default function Dashboard() {
   const { selectedCountries } = useCountryFilter();
   const { t } = useI18n();
+  const { isHidden } = useModuleFieldPermissions("dashboard");
 
   const { data: customers = [], isLoading: customersLoading } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
@@ -112,99 +114,107 @@ export default function Dashboard() {
         description=""
       />
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatsCard
-          title={t.dashboard.totalCustomers}
-          value={filteredCustomers.length}
-          trend={12}
-          description=""
-          icon={<Users className="h-6 w-6" />}
-        />
-        <StatsCard
-          title={t.dashboard.activeCustomers}
-          value={activeCustomers}
-          trend={8}
-          description=""
-          icon={<UserCheck className="h-6 w-6" />}
-        />
-        <StatsCard
-          title={t.dashboard.pendingCustomers}
-          value={pendingCustomers}
-          trend={-5}
-          description=""
-          icon={<Activity className="h-6 w-6" />}
-        />
-        <StatsCard
-          title={t.dashboard.activeCountries}
-          value={selectedCountries.length}
-          icon={<Globe className="h-6 w-6" />}
-        />
-      </div>
+      {!isHidden("stats_overview") && (
+        <>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <StatsCard
+              title={t.dashboard.totalCustomers}
+              value={filteredCustomers.length}
+              trend={12}
+              description=""
+              icon={<Users className="h-6 w-6" />}
+            />
+            <StatsCard
+              title={t.dashboard.activeCustomers}
+              value={activeCustomers}
+              trend={8}
+              description=""
+              icon={<UserCheck className="h-6 w-6" />}
+            />
+            <StatsCard
+              title={t.dashboard.pendingCustomers}
+              value={pendingCustomers}
+              trend={-5}
+              description=""
+              icon={<Activity className="h-6 w-6" />}
+            />
+            <StatsCard
+              title={t.dashboard.activeCountries}
+              value={selectedCountries.length}
+              icon={<Globe className="h-6 w-6" />}
+            />
+          </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatsCard
-          title={t.dashboard.totalInvoices}
-          value={totalInvoices}
-          description={`${totalInvoiceAmount.toFixed(0)} EUR ${t.dashboard.totalAmount}`}
-          icon={<FileText className="h-6 w-6" />}
-        />
-        <StatsCard
-          title={t.dashboard.paidInvoices}
-          value={paidInvoices.length}
-          description={`${paidAmount.toFixed(0)} EUR ${t.dashboard.received}`}
-          icon={<CheckCircle2 className="h-6 w-6" />}
-        />
-        <StatsCard
-          title={t.dashboard.unpaidInvoices}
-          value={unpaidInvoices.length}
-          description={`${unpaidAmount.toFixed(0)} EUR ${t.dashboard.pendingAmount}`}
-          icon={<Clock className="h-6 w-6" />}
-        />
-        <StatsCard
-          title={t.dashboard.overdueInvoices}
-          value={overdueInvoices.length}
-          description={t.dashboard.pastDueDate}
-          icon={<AlertCircle className="h-6 w-6" />}
-        />
-      </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <StatsCard
+              title={t.dashboard.totalInvoices}
+              value={totalInvoices}
+              description={`${totalInvoiceAmount.toFixed(0)} EUR ${t.dashboard.totalAmount}`}
+              icon={<FileText className="h-6 w-6" />}
+            />
+            <StatsCard
+              title={t.dashboard.paidInvoices}
+              value={paidInvoices.length}
+              description={`${paidAmount.toFixed(0)} EUR ${t.dashboard.received}`}
+              icon={<CheckCircle2 className="h-6 w-6" />}
+            />
+            <StatsCard
+              title={t.dashboard.unpaidInvoices}
+              value={unpaidInvoices.length}
+              description={`${unpaidAmount.toFixed(0)} EUR ${t.dashboard.pendingAmount}`}
+              icon={<Clock className="h-6 w-6" />}
+            />
+            <StatsCard
+              title={t.dashboard.overdueInvoices}
+              value={overdueInvoices.length}
+              description={t.dashboard.pastDueDate}
+              icon={<AlertCircle className="h-6 w-6" />}
+            />
+          </div>
+        </>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
-            <CardTitle className="text-lg font-medium">{t.dashboard.recentCustomers}</CardTitle>
-            <Droplets className="h-5 w-5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <DataTable
-              columns={customerColumns}
-              data={recentCustomers}
-              isLoading={customersLoading}
-              emptyMessage={t.dashboard.noCustomersFound}
-              getRowKey={(c) => c.id}
-            />
-          </CardContent>
-        </Card>
+        {!isHidden("recent_customers") && (
+          <Card className="lg:col-span-2">
+            <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
+              <CardTitle className="text-lg font-medium">{t.dashboard.recentCustomers}</CardTitle>
+              <Droplets className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <DataTable
+                columns={customerColumns}
+                data={recentCustomers}
+                isLoading={customersLoading}
+                emptyMessage={t.dashboard.noCustomersFound}
+                getRowKey={(c) => c.id}
+              />
+            </CardContent>
+          </Card>
+        )}
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
-            <CardTitle className="text-lg font-medium">{t.dashboard.teamOverview}</CardTitle>
-            <Users className="h-5 w-5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between border-b pb-4">
-              <span className="text-sm text-muted-foreground">{t.dashboard.totalUsers}</span>
-              <span className="text-2xl font-bold">{users.length}</span>
-            </div>
-            <div className="flex items-center justify-between border-b pb-4">
-              <span className="text-sm text-muted-foreground">{t.dashboard.activeUsers}</span>
-              <span className="text-2xl font-bold text-green-600 dark:text-green-400">{activeUsers}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">{t.dashboard.inactiveUsers}</span>
-              <span className="text-2xl font-bold text-gray-400">{users.length - activeUsers}</span>
-            </div>
-          </CardContent>
-        </Card>
+        {!isHidden("activity_feed") && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
+              <CardTitle className="text-lg font-medium">{t.dashboard.teamOverview}</CardTitle>
+              <Users className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between border-b pb-4">
+                <span className="text-sm text-muted-foreground">{t.dashboard.totalUsers}</span>
+                <span className="text-2xl font-bold">{users.length}</span>
+              </div>
+              <div className="flex items-center justify-between border-b pb-4">
+                <span className="text-sm text-muted-foreground">{t.dashboard.activeUsers}</span>
+                <span className="text-2xl font-bold text-green-600 dark:text-green-400">{activeUsers}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">{t.dashboard.inactiveUsers}</span>
+                <span className="text-2xl font-bold text-gray-400">{users.length - activeUsers}</span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <Card>

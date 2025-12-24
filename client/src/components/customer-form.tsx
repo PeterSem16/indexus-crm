@@ -450,45 +450,66 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel }: Cus
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t.customers.phone}</FormLabel>
-                    <FormControl>
-                      <Input {...field} data-testid="input-phone" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="mobile"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t.customers.fields.mobile}</FormLabel>
-                    <FormControl>
-                      <Input {...field} data-testid="input-mobile" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="mobile2"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t.customers.fields.mobile2}</FormLabel>
-                    <FormControl>
-                      <Input {...field} data-testid="input-mobile2" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {!isHidden("phone") && (
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.customers.phone}</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          data-testid="input-phone"
+                          disabled={isReadonly("phone")}
+                          className={isReadonly("phone") ? "bg-muted" : ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+              {!isHidden("mobile") && (
+                <FormField
+                  control={form.control}
+                  name="mobile"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.customers.fields.mobile}</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          data-testid="input-mobile"
+                          disabled={isReadonly("mobile")}
+                          className={isReadonly("mobile") ? "bg-muted" : ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+              {!isHidden("mobile_2") && (
+                <FormField
+                  control={form.control}
+                  name="mobile2"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.customers.fields.mobile2}</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          data-testid="input-mobile2"
+                          disabled={isReadonly("mobile_2")}
+                          className={isReadonly("mobile_2") ? "bg-muted" : ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
               <FormField
                 control={form.control}
                 name="otherContact"
@@ -505,82 +526,116 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel }: Cus
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t.customers.email} *</FormLabel>
-                    <FormControl>
-                      <Input type="email" {...field} data-testid="input-customer-email" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="email2"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t.customers.fields.email2}</FormLabel>
-                    <FormControl>
-                      <Input type="email" {...field} data-testid="input-email2" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {!isHidden("email") && (
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.customers.email} *</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="email" 
+                          {...field} 
+                          data-testid="input-customer-email"
+                          disabled={isReadonly("email")}
+                          className={isReadonly("email") ? "bg-muted" : ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+              {!isHidden("email_2") && (
+                <FormField
+                  control={form.control}
+                  name="email2"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.customers.fields.email2}</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="email" 
+                          {...field} 
+                          data-testid="input-email2"
+                          disabled={isReadonly("email_2")}
+                          className={isReadonly("email_2") ? "bg-muted" : ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="nationalId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t.customers.fields.nationalId}</FormLabel>
-                    <FormControl>
-                      <Input placeholder="xxxxxx/xxxx" {...field} data-testid="input-national-id" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="idCardNumber"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t.customers.fields.idCardNumber}</FormLabel>
-                    <FormControl>
-                      <Input {...field} data-testid="input-id-card" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {!isHidden("national_id") && (
+                <FormField
+                  control={form.control}
+                  name="nationalId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.customers.fields.nationalId}</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="xxxxxx/xxxx" 
+                          {...field} 
+                          data-testid="input-national-id"
+                          disabled={isReadonly("national_id")}
+                          className={isReadonly("national_id") ? "bg-muted" : ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+              {!isHidden("id_card_number") && (
+                <FormField
+                  control={form.control}
+                  name="idCardNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.customers.fields.idCardNumber}</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          data-testid="input-id-card"
+                          disabled={isReadonly("id_card_number")}
+                          className={isReadonly("id_card_number") ? "bg-muted" : ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
             </div>
 
-            <FormField
-              control={form.control}
-              name="newsletter"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      data-testid="checkbox-newsletter"
-                    />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>{t.customers.fields.newsletter}</FormLabel>
-                    <FormDescription>{t.customers.fields.newsletterDescription}</FormDescription>
-                  </div>
-                </FormItem>
-              )}
-            />
+            {!isHidden("newsletter") && (
+              <FormField
+                control={form.control}
+                name="newsletter"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        data-testid="checkbox-newsletter"
+                        disabled={isReadonly("newsletter")}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>{t.customers.fields.newsletter}</FormLabel>
+                      <FormDescription>{t.customers.fields.newsletterDescription}</FormDescription>
+                    </div>
+                  </FormItem>
+                )}
+              />
+            )}
 
             {/* ID Fields (read-only, shown when editing) */}
             {initialData && (
@@ -631,30 +686,39 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel }: Cus
             )}
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="clientStatus"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t.customers.fields.clientStatus}</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger data-testid="select-client-status">
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {CLIENT_STATUSES.map((status) => (
-                          <SelectItem key={status.value} value={status.value}>
-                            {status.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {!isHidden("client_status") && (
+                <FormField
+                  control={form.control}
+                  name="clientStatus"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.customers.fields.clientStatus}</FormLabel>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        defaultValue={field.value}
+                        disabled={isReadonly("client_status")}
+                      >
+                        <FormControl>
+                          <SelectTrigger 
+                            data-testid="select-client-status"
+                            className={isReadonly("client_status") ? "bg-muted" : ""}
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {CLIENT_STATUSES.map((status) => (
+                            <SelectItem key={status.value} value={status.value}>
+                              {status.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
               <FormField
                 control={form.control}
                 name="status"
@@ -705,161 +769,31 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel }: Cus
 
           {/* Tab Marketing */}
           <TabsContent value="marketing" className="space-y-4 mt-4">
-            <FormField
-              control={form.control}
-              name="complaintTypeId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t.customers.fields.complaintType}</FormLabel>
-                  <Select onValueChange={(val) => field.onChange(val === "__none__" ? null : val)} defaultValue={field.value || "__none__"}>
-                    <FormControl>
-                      <SelectTrigger data-testid="select-complaint-type">
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="__none__">{t.customers.none}</SelectItem>
-                      {complaintTypes.filter(ct => ct.isActive).map((type) => (
-                        <SelectItem key={type.id} value={type.id}>
-                          {type.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="cooperationTypeId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t.customers.fields.cooperationType}</FormLabel>
-                  <Select onValueChange={(val) => field.onChange(val === "__none__" ? null : val)} defaultValue={field.value || "__none__"}>
-                    <FormControl>
-                      <SelectTrigger data-testid="select-cooperation-type">
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="__none__">{t.customers.none}</SelectItem>
-                      {cooperationTypes.filter(ct => ct.isActive).map((type) => (
-                        <SelectItem key={type.id} value={type.id}>
-                          {type.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="vipStatusId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t.customers.fields.vipStatus}</FormLabel>
-                  <Select onValueChange={(val) => field.onChange(val === "__none__" ? null : val)} defaultValue={field.value || "__none__"}>
-                    <FormControl>
-                      <SelectTrigger data-testid="select-vip-status">
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="__none__">{t.customers.none}</SelectItem>
-                      {vipStatuses.filter(s => s.isActive).map((status) => (
-                        <SelectItem key={status.id} value={status.id}>
-                          {status.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </TabsContent>
-
-          {/* Tab Adresy - Addresses */}
-          <TabsContent value="adresy" className="space-y-4 mt-4">
-            <h3 className="text-lg font-medium">{t.customers.fields.permanentAddress}</h3>
-            
-            <div className="grid gap-4 sm:grid-cols-2">
+            {!isHidden("complaint_type") && (
               <FormField
                 control={form.control}
-                name="address"
+                name="complaintTypeId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t.customers.fields.street}</FormLabel>
-                    <FormControl>
-                      <Input {...field} data-testid="input-address" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="city"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t.customers.city}</FormLabel>
-                    <FormControl>
-                      <Input {...field} data-testid="input-city" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-3">
-              <FormField
-                control={form.control}
-                name="postalCode"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t.customers.postalCode}</FormLabel>
-                    <FormControl>
-                      <Input {...field} data-testid="input-postal-code" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="region"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t.customers.fields.region}</FormLabel>
-                    <FormControl>
-                      <Input {...field} data-testid="input-region" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="country"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t.customers.country} *</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormLabel>{t.customers.fields.complaintType}</FormLabel>
+                    <Select 
+                      onValueChange={(val) => field.onChange(val === "__none__" ? null : val)} 
+                      defaultValue={field.value || "__none__"}
+                      disabled={isReadonly("complaint_type")}
+                    >
                       <FormControl>
-                        <SelectTrigger data-testid="select-country">
+                        <SelectTrigger 
+                          data-testid="select-complaint-type"
+                          className={isReadonly("complaint_type") ? "bg-muted" : ""}
+                        >
                           <SelectValue />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {WORLD_COUNTRIES.map((country) => (
-                          <SelectItem key={country.code} value={country.code}>
-                            {country.name}
+                        <SelectItem value="__none__">{t.customers.none}</SelectItem>
+                        {complaintTypes.filter(ct => ct.isActive).map((type) => (
+                          <SelectItem key={type.id} value={type.id}>
+                            {type.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -868,6 +802,200 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel }: Cus
                   </FormItem>
                 )}
               />
+            )}
+
+            {!isHidden("cooperation_type") && (
+              <FormField
+                control={form.control}
+                name="cooperationTypeId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t.customers.fields.cooperationType}</FormLabel>
+                    <Select 
+                      onValueChange={(val) => field.onChange(val === "__none__" ? null : val)} 
+                      defaultValue={field.value || "__none__"}
+                      disabled={isReadonly("cooperation_type")}
+                    >
+                      <FormControl>
+                        <SelectTrigger 
+                          data-testid="select-cooperation-type"
+                          className={isReadonly("cooperation_type") ? "bg-muted" : ""}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="__none__">{t.customers.none}</SelectItem>
+                        {cooperationTypes.filter(ct => ct.isActive).map((type) => (
+                          <SelectItem key={type.id} value={type.id}>
+                            {type.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
+            {!isHidden("vip_status") && (
+              <FormField
+                control={form.control}
+                name="vipStatusId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t.customers.fields.vipStatus}</FormLabel>
+                    <Select 
+                      onValueChange={(val) => field.onChange(val === "__none__" ? null : val)} 
+                      defaultValue={field.value || "__none__"}
+                      disabled={isReadonly("vip_status")}
+                    >
+                      <FormControl>
+                        <SelectTrigger 
+                          data-testid="select-vip-status"
+                          className={isReadonly("vip_status") ? "bg-muted" : ""}
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="__none__">{t.customers.none}</SelectItem>
+                        {vipStatuses.filter(s => s.isActive).map((status) => (
+                          <SelectItem key={status.id} value={status.id}>
+                            {status.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+          </TabsContent>
+
+          {/* Tab Adresy - Addresses */}
+          <TabsContent value="adresy" className="space-y-4 mt-4">
+            <h3 className="text-lg font-medium">{t.customers.fields.permanentAddress}</h3>
+            
+            <div className="grid gap-4 sm:grid-cols-2">
+              {!isHidden("address") && (
+                <FormField
+                  control={form.control}
+                  name="address"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.customers.fields.street}</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          data-testid="input-address"
+                          disabled={isReadonly("address")}
+                          className={isReadonly("address") ? "bg-muted" : ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+              {!isHidden("city") && (
+                <FormField
+                  control={form.control}
+                  name="city"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.customers.city}</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          data-testid="input-city"
+                          disabled={isReadonly("city")}
+                          className={isReadonly("city") ? "bg-muted" : ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              {!isHidden("postal_code") && (
+                <FormField
+                  control={form.control}
+                  name="postalCode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.customers.postalCode}</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          data-testid="input-postal-code"
+                          disabled={isReadonly("postal_code")}
+                          className={isReadonly("postal_code") ? "bg-muted" : ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+              {!isHidden("region") && (
+                <FormField
+                  control={form.control}
+                  name="region"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.customers.fields.region}</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          data-testid="input-region"
+                          disabled={isReadonly("region")}
+                          className={isReadonly("region") ? "bg-muted" : ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+              {!isHidden("country") && (
+                <FormField
+                  control={form.control}
+                  name="country"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.customers.country} *</FormLabel>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        defaultValue={field.value}
+                        disabled={isReadonly("country")}
+                      >
+                        <FormControl>
+                          <SelectTrigger 
+                            data-testid="select-country"
+                            className={isReadonly("country") ? "bg-muted" : ""}
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {WORLD_COUNTRIES.map((country) => (
+                            <SelectItem key={country.code} value={country.code}>
+                              {country.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
             </div>
 
             <FormField
@@ -997,115 +1125,159 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel }: Cus
             <h3 className="text-lg font-medium">{t.customers.fields.bankDetails}</h3>
             
             <div className="grid gap-4 sm:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="bankAccount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t.customers.fields.bankAccount}</FormLabel>
-                    <FormControl>
-                      <Input {...field} data-testid="input-bank-account" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="bankCode"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t.customers.fields.bankCode}</FormLabel>
-                    <FormControl>
-                      <Input {...field} data-testid="input-bank-code" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {!isHidden("bank_account") && (
+                <FormField
+                  control={form.control}
+                  name="bankAccount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.customers.fields.bankAccount}</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          data-testid="input-bank-account"
+                          disabled={isReadonly("bank_account")}
+                          className={isReadonly("bank_account") ? "bg-muted" : ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+              {!isHidden("bank_account") && (
+                <FormField
+                  control={form.control}
+                  name="bankCode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.customers.fields.bankCode}</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          data-testid="input-bank-code"
+                          disabled={isReadonly("bank_account")}
+                          className={isReadonly("bank_account") ? "bg-muted" : ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="bankName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t.customers.fields.bankName}</FormLabel>
-                    <FormControl>
-                      <Input {...field} data-testid="input-bank-name" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="bankSwift"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t.customers.fields.swift}</FormLabel>
-                    <FormControl>
-                      <Input {...field} data-testid="input-bank-swift" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {!isHidden("bank_account") && (
+                <FormField
+                  control={form.control}
+                  name="bankName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.customers.fields.bankName}</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          data-testid="input-bank-name"
+                          disabled={isReadonly("bank_account")}
+                          className={isReadonly("bank_account") ? "bg-muted" : ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+              {!isHidden("bank_account") && (
+                <FormField
+                  control={form.control}
+                  name="bankSwift"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.customers.fields.swift}</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          data-testid="input-bank-swift"
+                          disabled={isReadonly("bank_account")}
+                          className={isReadonly("bank_account") ? "bg-muted" : ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
             </div>
 
-            <h3 className="text-lg font-medium mt-6">{t.customers.fields.healthInsurance}</h3>
-            
-            <FormField
-              control={form.control}
-              name="healthInsuranceId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t.customers.fields.healthInsurance}</FormLabel>
-                  <Select onValueChange={(val) => field.onChange(val === "__none__" ? null : val)} defaultValue={field.value || "__none__"}>
-                    <FormControl>
-                      <SelectTrigger data-testid="select-health-insurance">
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="__none__">{t.customers.none}</SelectItem>
-                      {filteredHealthInsurance.filter(hi => hi.isActive).map((insurance) => (
-                        <SelectItem key={insurance.id} value={insurance.id}>
-                          {insurance.name} ({insurance.code})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormDescription>
-                    {filteredHealthInsurance.length === 0 && selectedCountry && 
-                      t.customers.fields.noInsuranceConfigured}
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {!isHidden("health_insurance") && (
+              <>
+                <h3 className="text-lg font-medium mt-6">{t.customers.fields.healthInsurance}</h3>
+                
+                <FormField
+                  control={form.control}
+                  name="healthInsuranceId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.customers.fields.healthInsurance}</FormLabel>
+                      <Select 
+                        onValueChange={(val) => field.onChange(val === "__none__" ? null : val)} 
+                        defaultValue={field.value || "__none__"}
+                        disabled={isReadonly("health_insurance")}
+                      >
+                        <FormControl>
+                          <SelectTrigger 
+                            data-testid="select-health-insurance"
+                            className={isReadonly("health_insurance") ? "bg-muted" : ""}
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="__none__">{t.customers.none}</SelectItem>
+                          {filteredHealthInsurance.filter(hi => hi.isActive).map((insurance) => (
+                            <SelectItem key={insurance.id} value={insurance.id}>
+                              {insurance.name} ({insurance.code})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        {filteredHealthInsurance.length === 0 && selectedCountry && 
+                          t.customers.fields.noInsuranceConfigured}
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
 
-            <h3 className="text-lg font-medium mt-6">{t.customers.fields.notesSection}</h3>
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t.customers.notes}</FormLabel>
-                  <FormControl>
-                    <Textarea 
-                      placeholder={t.customers.fields.notesPlaceholder}
-                      className="resize-none"
-                      rows={3}
-                      {...field} 
-                      data-testid="textarea-notes"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {!isHidden("notes") && (
+              <>
+                <h3 className="text-lg font-medium mt-6">{t.customers.fields.notesSection}</h3>
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.customers.notes}</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder={t.customers.fields.notesPlaceholder}
+                          className={`resize-none ${isReadonly("notes") ? "bg-muted" : ""}`}
+                          rows={3}
+                          {...field} 
+                          data-testid="textarea-notes"
+                          disabled={isReadonly("notes")}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
           </TabsContent>
 
           {/* Tab Case - Potential Client Case data (only for acquired customers) */}
