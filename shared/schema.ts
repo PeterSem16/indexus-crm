@@ -1248,6 +1248,25 @@ export const insertInvoiceLayoutSchema = createInsertSchema(invoiceLayouts).omit
 export type InsertInvoiceLayout = z.infer<typeof insertInvoiceLayoutSchema>;
 export type InvoiceLayout = typeof invoiceLayouts.$inferSelect;
 
+// Departments table - organizational structure
+export const departments = pgTable("departments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  parentId: varchar("parent_id"), // FK to self for hierarchy
+  sortOrder: integer("sort_order").notNull().default(0),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertDepartmentSchema = createInsertSchema(departments).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertDepartment = z.infer<typeof insertDepartmentSchema>;
+export type Department = typeof departments.$inferSelect;
+
 // Roles table - custom roles for RBAC
 export const roles = pgTable("roles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1277,6 +1296,8 @@ export const roleModulePermissions = pgTable("role_module_permissions", {
   roleId: varchar("role_id").notNull(),
   moduleKey: text("module_key").notNull(), // dashboard, customers, hospitals, etc.
   access: text("access").notNull().default("visible"), // visible, hidden
+  canAdd: boolean("can_add").notNull().default(true), // can add new records
+  canEdit: boolean("can_edit").notNull().default(true), // can edit existing records
 });
 
 export const insertRoleModulePermissionSchema = createInsertSchema(roleModulePermissions).omit({
