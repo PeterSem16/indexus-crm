@@ -6,7 +6,7 @@ import {
   collaborators, collaboratorAddresses, collaboratorOtherData, collaboratorAgreements,
   customerPotentialCases, leadScoringCriteria,
   serviceConfigurations, invoiceTemplates, invoiceLayouts,
-  roles, roleModulePermissions, roleFieldPermissions, userRoles,
+  roles, roleModulePermissions, roleFieldPermissions, userRoles, departments,
   type User, type InsertUser, type UpdateUser, type SafeUser,
   type Customer, type InsertCustomer,
   type Product, type InsertProduct,
@@ -35,7 +35,8 @@ import {
   type Role, type InsertRole,
   type RoleModulePermission, type InsertRoleModulePermission,
   type RoleFieldPermission, type InsertRoleFieldPermission,
-  type UserRole, type InsertUserRole
+  type UserRole, type InsertUserRole,
+  type Department, type InsertDepartment
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, inArray, sql, desc, and } from "drizzle-orm";
@@ -242,6 +243,13 @@ export interface IStorage {
   getUserRoles(userId: string): Promise<UserRole[]>;
   assignRoleToUser(data: InsertUserRole): Promise<UserRole>;
   removeRoleFromUser(userId: string, roleId: string): Promise<boolean>;
+
+  // Departments
+  getAllDepartments(): Promise<Department[]>;
+  getDepartment(id: string): Promise<Department | undefined>;
+  createDepartment(data: InsertDepartment): Promise<Department>;
+  updateDepartment(id: string, data: Partial<InsertDepartment>): Promise<Department | undefined>;
+  deleteDepartment(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1120,6 +1128,8 @@ export class DatabaseStorage implements IStorage {
         roleId: newRole.id,
         moduleKey: p.moduleKey,
         access: p.access,
+        canAdd: p.canAdd,
+        canEdit: p.canEdit,
       }));
       await this.setRoleModulePermissions(newRole.id, newModulePerms);
     }
@@ -1176,6 +1186,31 @@ export class DatabaseStorage implements IStorage {
     const result = await db.delete(userRoles)
       .where(and(eq(userRoles.userId, userId), eq(userRoles.roleId, roleId)))
       .returning();
+    return result.length > 0;
+  }
+
+  // Departments
+  async getAllDepartments(): Promise<Department[]> {
+    return db.select().from(departments).orderBy(departments.sortOrder);
+  }
+
+  async getDepartment(id: string): Promise<Department | undefined> {
+    const [department] = await db.select().from(departments).where(eq(departments.id, id));
+    return department || undefined;
+  }
+
+  async createDepartment(data: InsertDepartment): Promise<Department> {
+    const [created] = await db.insert(departments).values(data).returning();
+    return created;
+  }
+
+  async updateDepartment(id: string, data: Partial<InsertDepartment>): Promise<Department | undefined> {
+    const [updated] = await db.update(departments).set(data).where(eq(departments.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteDepartment(id: string): Promise<boolean> {
+    const result = await db.delete(departments).where(eq(departments.id, id)).returning();
     return result.length > 0;
   }
 }

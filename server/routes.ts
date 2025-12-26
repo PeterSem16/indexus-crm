@@ -2810,6 +2810,8 @@ export async function registerRoutes(
           roleId: role.id,
           moduleKey: p.moduleKey,
           access: p.access,
+          canAdd: p.canAdd ?? true,
+          canEdit: p.canEdit ?? true,
         }));
         await storage.setRoleModulePermissions(role.id, validModulePerms);
       }
@@ -2857,6 +2859,8 @@ export async function registerRoutes(
           roleId: id,
           moduleKey: p.moduleKey,
           access: p.access,
+          canAdd: p.canAdd ?? true,
+          canEdit: p.canEdit ?? true,
         }));
         await storage.setRoleModulePermissions(id, validModulePerms);
       }
@@ -2952,9 +2956,9 @@ export async function registerRoutes(
   app.put("/api/roles/:roleId/modules/:moduleKey", requireAuth, async (req, res) => {
     try {
       const { roleId, moduleKey } = req.params;
-      const { access } = req.body;
+      const { access, canAdd, canEdit } = req.body;
       
-      if (!access || !["visible", "hidden"].includes(access)) {
+      if (access && !["visible", "hidden"].includes(access)) {
         return res.status(400).json({ error: "Invalid access value" });
       }
       
@@ -2969,11 +2973,17 @@ export async function registerRoutes(
       // Update or add the specific module permission
       const existingPerm = currentPerms.find(p => p.moduleKey === moduleKey);
       if (existingPerm) {
-        // Update existing
+        // Update existing - merge with current values
         const updatedPerms = currentPerms.map(p => 
           p.moduleKey === moduleKey 
-            ? { roleId, moduleKey, access } 
-            : { roleId: p.roleId, moduleKey: p.moduleKey, access: p.access }
+            ? { 
+                roleId, 
+                moduleKey, 
+                access: access ?? p.access, 
+                canAdd: canAdd ?? p.canAdd, 
+                canEdit: canEdit ?? p.canEdit 
+              } 
+            : { roleId: p.roleId, moduleKey: p.moduleKey, access: p.access, canAdd: p.canAdd, canEdit: p.canEdit }
         );
         await storage.setRoleModulePermissions(roleId, updatedPerms);
       } else {
@@ -2981,8 +2991,10 @@ export async function registerRoutes(
         const newPerms = [...currentPerms.map(p => ({ 
           roleId: p.roleId, 
           moduleKey: p.moduleKey, 
-          access: p.access 
-        })), { roleId, moduleKey, access }];
+          access: p.access,
+          canAdd: p.canAdd,
+          canEdit: p.canEdit
+        })), { roleId, moduleKey, access: access ?? "visible", canAdd: canAdd ?? true, canEdit: canEdit ?? true }];
         await storage.setRoleModulePermissions(roleId, newPerms);
       }
       
@@ -3139,6 +3151,83 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Failed to seed roles:", error);
       res.status(500).json({ error: "Failed to seed roles" });
+    }
+  });
+
+  // ===== Departments API =====
+  app.get("/api/departments", requireAuth, async (req, res) => {
+    try {
+      const allDepartments = await storage.getAllDepartments();
+      res.json(allDepartments);
+    } catch (error) {
+      console.error("Failed to get departments:", error);
+      res.status(500).json({ error: "Failed to get departments" });
+    }
+  });
+
+  app.post("/api/departments", requireAuth, async (req, res) => {
+    try {
+      const department = await storage.createDepartment(req.body);
+      await logActivity(
+        req.session.user!.id,
+        "created_department",
+        "department",
+        department.id,
+        department.name,
+        undefined,
+        req.ip
+      );
+      res.status(201).json(department);
+    } catch (error) {
+      console.error("Failed to create department:", error);
+      res.status(500).json({ error: "Failed to create department" });
+    }
+  });
+
+  app.patch("/api/departments/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const department = await storage.updateDepartment(id, req.body);
+      if (!department) {
+        return res.status(404).json({ error: "Department not found" });
+      }
+      await logActivity(
+        req.session.user!.id,
+        "updated_department",
+        "department",
+        department.id,
+        department.name,
+        undefined,
+        req.ip
+      );
+      res.json(department);
+    } catch (error) {
+      console.error("Failed to update department:", error);
+      res.status(500).json({ error: "Failed to update department" });
+    }
+  });
+
+  app.delete("/api/departments/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const department = await storage.getDepartment(id);
+      if (!department) {
+        return res.status(404).json({ error: "Department not found" });
+      }
+      const deleted = await storage.deleteDepartment(id);
+      await logActivity(
+        req.session.user!.id,
+        "deleted_department",
+        "department",
+        id,
+        department.name,
+        undefined,
+        req.ip
+      );
+      res.json({ success: deleted });
+    } catch (error) {
+      console.error("Failed to delete department:", error);
+      res.status(500).json({ error: "Failed to delete department" });
     }
   });
 
