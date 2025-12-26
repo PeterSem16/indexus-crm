@@ -1,4 +1,4 @@
-import type { Express, Request, Response, NextFunction } from "express";
+import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { 
@@ -48,6 +48,35 @@ const uploadAgreement = multer({
       cb(null, true);
     } else {
       cb(new Error("Invalid file type. Only PDF, JPEG, PNG, DOC, DOCX are allowed."));
+    }
+  },
+});
+
+// Configure multer for invoice image uploads
+const invoiceImageStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(process.cwd(), "uploads", "invoice-images");
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    const ext = path.extname(file.originalname);
+    cb(null, `invoice-image-${uniqueSuffix}${ext}`);
+  },
+});
+
+const uploadInvoiceImage = multer({
+  storage: invoiceImageStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml"];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Invalid file type. Only JPEG, PNG, GIF, WEBP, SVG are allowed."));
     }
   },
 });
@@ -119,6 +148,13 @@ export async function registerRoutes(
       },
     })
   );
+
+  // Serve uploaded files statically
+  const uploadsDir = path.join(process.cwd(), "uploads");
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+  app.use("/uploads", express.static(uploadsDir));
 
   // Auth middleware
   const requireAuth = (req: Request, res: Response, next: NextFunction) => {
@@ -1852,6 +1888,34 @@ export async function registerRoutes(
     } catch (error) {
       console.error("File upload failed:", error);
       res.status(500).json({ error: "Failed to upload file" });
+    }
+  });
+
+  // Invoice image upload endpoint
+  app.post("/api/upload/invoice-image", requireAuth, uploadInvoiceImage.single("image"), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No image uploaded" });
+      }
+
+      const imageUrl = `/uploads/invoice-images/${req.file.filename}`;
+      
+      await logActivity(
+        req.session.user!.id,
+        "upload_invoice_image",
+        "invoice",
+        undefined,
+        req.file.originalname
+      );
+
+      res.json({ 
+        imageUrl,
+        fileName: req.file.originalname,
+        fileSize: req.file.size,
+      });
+    } catch (error) {
+      console.error("Invoice image upload failed:", error);
+      res.status(500).json({ error: "Failed to upload image" });
     }
   });
 

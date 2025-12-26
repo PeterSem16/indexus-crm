@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Rnd } from "react-rnd";
 import { useI18n } from "@/i18n";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useToast } from "@/hooks/use-toast";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -48,6 +50,9 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
+  Upload,
+  Loader2,
+  X,
 } from "lucide-react";
 
 export interface DesignerElement {
@@ -141,6 +146,8 @@ interface InvoiceDesignerProps {
 
 export function InvoiceDesigner({ initialConfig, onSave, onCancel }: InvoiceDesignerProps) {
   const { t } = useI18n();
+  const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [elements, setElements] = useState<DesignerElement[]>(initialConfig?.elements || []);
   const [selectedElement, setSelectedElement] = useState<string | null>(null);
   const [paperSize, setPaperSize] = useState<"A4" | "Letter">(initialConfig?.paperSize || "A4");
@@ -148,6 +155,7 @@ export function InvoiceDesigner({ initialConfig, onSave, onCancel }: InvoiceDesi
   const [margins, setMargins] = useState(initialConfig?.margins || { top: 40, bottom: 40, left: 40, right: 40 });
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [editingText, setEditingText] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   const canvasDimensions = PAPER_SIZES[paperSize][orientation];
   const scaledWidth = canvasDimensions.width * CANVAS_SCALE;
@@ -246,6 +254,40 @@ export function InvoiceDesigner({ initialConfig, onSave, onCancel }: InvoiceDesi
       )
     );
   }, []);
+
+  const handleImageUpload = useCallback(async (elementId: string, file: File) => {
+    setIsUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+
+      const response = await fetch("/api/upload/invoice-image", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error("Upload failed");
+      }
+
+      const data = await response.json();
+      updateElementProps(elementId, { imageUrl: data.imageUrl });
+      toast({
+        title: t.common.saved || "Success",
+        description: t.konfigurator.imageUploaded || "Image uploaded successfully",
+      });
+    } catch (error) {
+      console.error("Image upload error:", error);
+      toast({
+        title: t.common.error || "Error",
+        description: t.konfigurator.imageUploadFailed || "Failed to upload image",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingImage(false);
+    }
+  }, [t, toast, updateElementProps]);
 
   const deleteElement = useCallback((id: string) => {
     setElements((prev) => prev.filter((el) => el.id !== id));
@@ -409,8 +451,9 @@ export function InvoiceDesigner({ initialConfig, onSave, onCancel }: InvoiceDesi
   };
 
   return (
-    <div className="flex h-[calc(100vh-200px)] gap-4">
-      <div className="w-64 flex flex-col gap-4">
+    <div className="fixed inset-0 z-50 bg-background flex gap-4 p-4">
+      <ScrollArea className="w-64 flex-shrink-0">
+        <div className="flex flex-col gap-4 pr-4">
         <Card>
           <CardHeader className="py-3">
             <CardTitle className="text-sm flex items-center gap-2">
@@ -552,10 +595,17 @@ export function InvoiceDesigner({ initialConfig, onSave, onCancel }: InvoiceDesi
             </ScrollArea>
           </CardContent>
         </Card>
-      </div>
+        </div>
+      </ScrollArea>
 
-      <div className="flex-1 flex flex-col">
-        <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+      <div className="flex-1 flex flex-col min-h-0">
+        <div className="flex items-center justify-between gap-4 mb-4 flex-wrap border-b pb-4">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={onCancel} data-testid="button-close-designer">
+              <X className="h-5 w-5" />
+            </Button>
+            <h2 className="text-lg font-semibold">{t.konfigurator.invoiceEditor}</h2>
+          </div>
           <div className="flex items-center gap-2">
             <Select value={paperSize} onValueChange={(v) => setPaperSize(v as "A4" | "Letter")}>
               <SelectTrigger className="w-24" data-testid="select-paper-size">
@@ -798,18 +848,80 @@ export function InvoiceDesigner({ initialConfig, onSave, onCancel }: InvoiceDesi
                 )}
 
                 {selectedEl.type === "image" && (
-                  <div className="space-y-2">
-                    <label className="text-xs font-medium">{t.konfigurator.imageUrl || "Image URL"}</label>
-                    <Input
-                      value={selectedEl.props.imageUrl || ""}
-                      onChange={(e) => updateElementProps(selectedEl.id, { imageUrl: e.target.value })}
-                      placeholder="https://..."
-                      className="h-8"
-                      data-testid="input-image-url"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      {t.konfigurator.imageUrlHint || "Enter the URL of your logo or image"}
-                    </p>
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-medium">{t.konfigurator.uploadImage || "Upload Image"}</Label>
+                      <div className="flex gap-2">
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file && selectedEl) {
+                              handleImageUpload(selectedEl.id, file);
+                            }
+                            e.target.value = "";
+                          }}
+                          data-testid="input-image-file"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={isUploadingImage}
+                          data-testid="button-upload-image"
+                        >
+                          {isUploadingImage ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <Upload className="h-4 w-4 mr-2" />
+                          )}
+                          {isUploadingImage ? (t.common.loading || "Uploading...") : (t.konfigurator.selectFile || "Select File")}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {t.konfigurator.supportedFormats || "JPEG, PNG, GIF, WebP, SVG (max 5MB)"}
+                      </p>
+                    </div>
+                    
+                    <Separator />
+                    
+                    <div className="space-y-2">
+                      <Label className="text-xs font-medium">{t.konfigurator.imageUrl || "Or paste URL"}</Label>
+                      <Input
+                        value={selectedEl.props.imageUrl || ""}
+                        onChange={(e) => updateElementProps(selectedEl.id, { imageUrl: e.target.value })}
+                        placeholder="https://..."
+                        className="h-8"
+                        data-testid="input-image-url"
+                      />
+                    </div>
+                    
+                    {selectedEl.props.imageUrl && (
+                      <div className="space-y-2">
+                        <Label className="text-xs font-medium">{t.konfigurator.preview || "Preview"}</Label>
+                        <div className="border rounded-md p-2 bg-muted/50">
+                          <img
+                            src={selectedEl.props.imageUrl}
+                            alt="Preview"
+                            className="max-h-24 mx-auto object-contain"
+                          />
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full text-destructive"
+                          onClick={() => updateElementProps(selectedEl.id, { imageUrl: "" })}
+                          data-testid="button-remove-image"
+                        >
+                          <X className="h-4 w-4 mr-2" />
+                          {t.konfigurator.removeImage || "Remove Image"}
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
 
