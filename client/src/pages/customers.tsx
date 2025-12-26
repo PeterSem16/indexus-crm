@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
+import { AdvancedFilters, type CustomerFilters } from "@/components/advanced-filters";
 import { DataTable } from "@/components/data-table";
 import { StatusBadge } from "@/components/status-badge";
 import { CustomerForm, type CustomerFormData } from "@/components/customer-form";
@@ -1403,6 +1404,29 @@ export default function CustomersPage() {
                   </SelectContent>
                 </Select>
               </div>
+              <AdvancedFilters
+                module="customers"
+                filters={{
+                  country: countryFilter !== "_all" ? countryFilter : undefined,
+                  status: clientStatusFilter !== "_all" ? clientStatusFilter : undefined,
+                  serviceType: serviceTypeFilter !== "_all" ? serviceTypeFilter : undefined,
+                }}
+                onFiltersChange={(newFilters: CustomerFilters) => {
+                  setCountryFilter(newFilters.country || "_all");
+                  setClientStatusFilter(newFilters.status || "_all");
+                  setServiceTypeFilter(newFilters.serviceType === "cordBlood" ? "cord_blood" : 
+                                       newFilters.serviceType === "cordTissue" ? "cord_tissue" : 
+                                       newFilters.serviceType || "_all");
+                }}
+                onClear={() => {
+                  setCountryFilter("_all");
+                  setServiceTypeFilter("_all");
+                  setStatusFilter("_all");
+                  setClientStatusFilter("_all");
+                  setPhoneFilter("");
+                  setSearch("");
+                }}
+              />
               <div className="ml-auto text-sm text-muted-foreground">
                 {filteredCustomers.length} / {allCustomers.length}
               </div>
