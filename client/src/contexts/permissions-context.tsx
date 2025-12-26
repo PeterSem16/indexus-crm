@@ -8,6 +8,8 @@ type FieldAccess = "editable" | "readonly" | "hidden";
 interface ModulePermission {
   moduleKey: string;
   access: ModuleAccess;
+  canAdd?: boolean;
+  canEdit?: boolean;
 }
 
 interface FieldPermission {
@@ -26,6 +28,8 @@ interface RoleWithPermissions {
 
 interface PermissionsContextType {
   canAccessModule: (moduleKey: string) => boolean;
+  canAdd: (moduleKey: string) => boolean;
+  canEdit: (moduleKey: string) => boolean;
   getFieldAccess: (moduleKey: string, fieldKey: string) => FieldAccess;
   isLoading: boolean;
   roleData: RoleWithPermissions | null;
@@ -44,52 +48,90 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   const canAccessModule = (moduleKey: string): boolean => {
     if (!user) return false;
     
-    // Users without roleId: admins see everything, others see nothing
     if (!user.roleId) {
       return user.role === "admin";
     }
     
-    // Still loading role data: show all for admin, nothing for others
     if (!roleData) {
       return user.role === "admin";
     }
     
-    // Check if role has legacyRole "admin" - full access
     if (roleData.legacyRole === "admin") {
       return true;
     }
     
-    // Find specific module permission
     const modulePerm = roleData.modulePermissions.find(p => p.moduleKey === moduleKey);
     
-    // If no permission set for this module, default to VISIBLE
     if (!modulePerm) {
       return true;
     }
     
-    // Check explicit permission
     return modulePerm.access === "visible";
+  };
+  
+  const canAdd = (moduleKey: string): boolean => {
+    if (!user) return false;
+    
+    if (!user.roleId) {
+      return user.role === "admin";
+    }
+    
+    if (!roleData) {
+      return user.role === "admin";
+    }
+    
+    if (roleData.legacyRole === "admin") {
+      return true;
+    }
+    
+    const modulePerm = roleData.modulePermissions.find(p => p.moduleKey === moduleKey);
+    
+    if (!modulePerm) {
+      return true;
+    }
+    
+    return modulePerm.canAdd !== false;
+  };
+  
+  const canEdit = (moduleKey: string): boolean => {
+    if (!user) return false;
+    
+    if (!user.roleId) {
+      return user.role === "admin";
+    }
+    
+    if (!roleData) {
+      return user.role === "admin";
+    }
+    
+    if (roleData.legacyRole === "admin") {
+      return true;
+    }
+    
+    const modulePerm = roleData.modulePermissions.find(p => p.moduleKey === moduleKey);
+    
+    if (!modulePerm) {
+      return true;
+    }
+    
+    return modulePerm.canEdit !== false;
   };
   
   const getFieldAccess = (moduleKey: string, fieldKey: string): FieldAccess => {
     if (!user) return "hidden";
     
-    // Users without roleId: admins get full access, others get readonly
     if (!user.roleId || !roleData) {
       return user.role === "admin" ? "editable" : "editable";
     }
     
-    // Check if role has legacyRole "admin" - full access
     if (roleData.legacyRole === "admin") {
       return "editable";
     }
     
-    // Find specific field permission for this module and field
     const fieldPerm = roleData.fieldPermissions.find(
       p => p.moduleKey === moduleKey && p.fieldKey === fieldKey
     );
     
-    // If no permission set for this field, default to EDITABLE
     if (!fieldPerm) {
       return "editable";
     }
@@ -98,7 +140,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   };
   
   return (
-    <PermissionsContext.Provider value={{ canAccessModule, getFieldAccess, isLoading, roleData: roleData ?? null }}>
+    <PermissionsContext.Provider value={{ canAccessModule, canAdd, canEdit, getFieldAccess, isLoading, roleData: roleData ?? null }}>
       {children}
     </PermissionsContext.Provider>
   );

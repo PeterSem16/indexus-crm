@@ -26,8 +26,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/auth-context";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import type { ServiceConfiguration, InvoiceTemplate, InvoiceLayout, Product, Role, RoleModulePermission, RoleFieldPermission } from "@shared/schema";
+import type { ServiceConfiguration, InvoiceTemplate, InvoiceLayout, Product, Role, RoleModulePermission, RoleFieldPermission, Department } from "@shared/schema";
 import { CRM_MODULES, DEPARTMENTS, type ModuleDefinition, type FieldPermission, type ModuleAccess } from "@shared/permissions-config";
+import { Building2 } from "lucide-react";
 
 const serviceFormSchema = z.object({
   serviceCode: z.string().min(1, "Service code is required"),
@@ -1641,6 +1642,14 @@ interface RoleWithPermissions extends Role {
   fieldPermissions: RoleFieldPermission[];
 }
 
+const departmentFormSchema = z.object({
+  name: z.string().min(1, "Department name is required"),
+  description: z.string().optional(),
+  parentId: z.string().optional().nullable(),
+});
+
+type DepartmentFormData = z.infer<typeof departmentFormSchema>;
+
 function PermissionsRolesTab() {
   const { t } = useI18n();
   const { toast } = useToast();
@@ -1652,9 +1661,19 @@ function PermissionsRolesTab() {
   const [copyRoleName, setCopyRoleName] = useState("");
   const [expandedModules, setExpandedModules] = useState<string[]>([]);
   const [deleteRole, setDeleteRole] = useState<Role | null>(null);
+  
+  const [isDeptFormOpen, setIsDeptFormOpen] = useState(false);
+  const [isEditingDept, setIsEditingDept] = useState(false);
+  const [editingDept, setEditingDept] = useState<Department | null>(null);
+  const [deleteDept, setDeleteDept] = useState<Department | null>(null);
+  const [showDepartments, setShowDepartments] = useState(false);
 
   const { data: roles = [], isLoading } = useQuery<Role[]>({
     queryKey: ["/api/roles"],
+  });
+
+  const { data: dbDepartments = [] } = useQuery<Department[]>({
+    queryKey: ["/api/departments"],
   });
 
   const { data: roleDetails } = useQuery<RoleWithPermissions>({
@@ -1678,6 +1697,81 @@ function PermissionsRolesTab() {
       isActive: true,
     },
   });
+
+  const deptForm = useForm<DepartmentFormData>({
+    resolver: zodResolver(departmentFormSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      parentId: null,
+    },
+  });
+
+  const createDeptMutation = useMutation({
+    mutationFn: (data: DepartmentFormData) => apiRequest("POST", "/api/departments", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
+      setIsDeptFormOpen(false);
+      deptForm.reset();
+      toast({ title: t.konfigurator.departmentCreated });
+    },
+    onError: () => {
+      toast({ title: t.errors.saveFailed, variant: "destructive" });
+    },
+  });
+
+  const updateDeptMutation = useMutation({
+    mutationFn: (data: DepartmentFormData & { id: string }) =>
+      apiRequest("PATCH", `/api/departments/${data.id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
+      setIsDeptFormOpen(false);
+      setIsEditingDept(false);
+      setEditingDept(null);
+      deptForm.reset();
+      toast({ title: t.konfigurator.departmentUpdated });
+    },
+    onError: () => {
+      toast({ title: t.errors.saveFailed, variant: "destructive" });
+    },
+  });
+
+  const deleteDeptMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/departments/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
+      setDeleteDept(null);
+      toast({ title: t.konfigurator.departmentDeleted });
+    },
+    onError: () => {
+      toast({ title: t.errors.deleteFailed, variant: "destructive" });
+    },
+  });
+
+  const handleDeptSubmit = (data: DepartmentFormData) => {
+    if (isEditingDept && editingDept) {
+      updateDeptMutation.mutate({ ...data, id: editingDept.id });
+    } else {
+      createDeptMutation.mutate(data);
+    }
+  };
+
+  const handleEditDeptClick = (dept: Department) => {
+    setEditingDept(dept);
+    deptForm.reset({
+      name: dept.name,
+      description: dept.description || "",
+      parentId: dept.parentId || null,
+    });
+    setIsEditingDept(true);
+    setIsDeptFormOpen(true);
+  };
+
+  const getParentDeptName = (parentId: string | null | undefined) => {
+    if (!parentId) return null;
+    const parent = dbDepartments.find(d => d.id === parentId);
+    return parent?.name || parentId;
+  };
 
   const createMutation = useMutation({
     mutationFn: (data: RoleFormData) => apiRequest("POST", "/api/roles", data),
@@ -1747,8 +1841,8 @@ function PermissionsRolesTab() {
   });
 
   const updateModulePermission = useMutation({
-    mutationFn: ({ roleId, moduleKey, access }: { roleId: string; moduleKey: string; access: ModuleAccess }) =>
-      apiRequest("PUT", `/api/roles/${roleId}/modules/${moduleKey}`, { access }),
+    mutationFn: ({ roleId, moduleKey, access, canAdd, canEdit }: { roleId: string; moduleKey: string; access?: ModuleAccess; canAdd?: boolean; canEdit?: boolean }) =>
+      apiRequest("PUT", `/api/roles/${roleId}/modules/${moduleKey}`, { access, canAdd, canEdit }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/roles", selectedRole?.id] });
     },
@@ -1808,6 +1902,16 @@ function PermissionsRolesTab() {
     return (permission?.access as ModuleAccess) || moduleDef?.defaultAccess || "visible";
   };
 
+  const getModuleCanAdd = (moduleKey: string): boolean => {
+    const permission = roleDetails?.modulePermissions.find(p => p.moduleKey === moduleKey);
+    return permission?.canAdd !== false;
+  };
+
+  const getModuleCanEdit = (moduleKey: string): boolean => {
+    const permission = roleDetails?.modulePermissions.find(p => p.moduleKey === moduleKey);
+    return permission?.canEdit !== false;
+  };
+
   const getFieldPermission = (moduleKey: string, fieldKey: string): FieldPermission => {
     const moduleDef = CRM_MODULES.find(m => m.key === moduleKey);
     const fieldDef = moduleDef?.fields.find(f => f.key === fieldKey);
@@ -1836,6 +1940,77 @@ function PermissionsRolesTab() {
   return (
     <div className="flex gap-6">
       <div className="w-1/3 space-y-4">
+        <div className="border rounded-md">
+          <div
+            className="p-3 flex items-center justify-between gap-2 cursor-pointer hover-elevate"
+            onClick={() => setShowDepartments(!showDepartments)}
+            data-testid="toggle-departments-section"
+          >
+            <div className="flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
+              <h3 className="text-md font-medium">{t.konfigurator.departmentsManagement}</h3>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="text-xs">{dbDepartments.length}</Badge>
+              {showDepartments ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </div>
+          </div>
+
+          {showDepartments && (
+            <div className="border-t p-3 space-y-3">
+              <div className="flex justify-end">
+                <Button size="sm" onClick={() => { setIsEditingDept(false); deptForm.reset(); setIsDeptFormOpen(true); }} data-testid="button-add-department">
+                  <Plus className="h-4 w-4 mr-1" />
+                  {t.konfigurator.addDepartment}
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {dbDepartments.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-2">{t.konfigurator.noDepartments}</p>
+                ) : (
+                  dbDepartments.map((dept) => (
+                    <div
+                      key={dept.id}
+                      className="p-2 rounded-md border flex items-center justify-between gap-2"
+                      data-testid={`department-item-${dept.id}`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <span className="font-medium text-sm truncate">{dept.name}</span>
+                        {dept.parentId && (
+                          <p className="text-xs text-muted-foreground">
+                            {getParentDeptName(dept.parentId)}
+                          </p>
+                        )}
+                        {dept.description && (
+                          <p className="text-xs text-muted-foreground truncate">{dept.description}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleEditDeptClick(dept)}
+                          data-testid={`button-edit-dept-${dept.id}`}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setDeleteDept(dept)}
+                          data-testid={`button-delete-dept-${dept.id}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-lg font-medium">{t.konfigurator.roles}</h3>
           <div className="flex gap-2">
@@ -1966,17 +2141,51 @@ function PermissionsRolesTab() {
                           )}
                         </Badge>
                       </div>
-                      <Switch
-                        checked={isVisible}
-                        onCheckedChange={(checked) => {
-                          updateModulePermission.mutate({
-                            roleId: selectedRole.id,
-                            moduleKey: module.key,
-                            access: checked ? "visible" : "hidden",
-                          });
-                        }}
-                        data-testid={`switch-module-${module.key}`}
-                      />
+                      <div className="flex items-center gap-4">
+                        {isVisible && (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <Label className="text-xs text-muted-foreground">{t.konfigurator.canAdd}</Label>
+                              <Switch
+                                checked={getModuleCanAdd(module.key)}
+                                onCheckedChange={(checked) => {
+                                  updateModulePermission.mutate({
+                                    roleId: selectedRole.id,
+                                    moduleKey: module.key,
+                                    canAdd: checked,
+                                  });
+                                }}
+                                data-testid={`switch-can-add-${module.key}`}
+                              />
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Label className="text-xs text-muted-foreground">{t.konfigurator.canEdit}</Label>
+                              <Switch
+                                checked={getModuleCanEdit(module.key)}
+                                onCheckedChange={(checked) => {
+                                  updateModulePermission.mutate({
+                                    roleId: selectedRole.id,
+                                    moduleKey: module.key,
+                                    canEdit: checked,
+                                  });
+                                }}
+                                data-testid={`switch-can-edit-${module.key}`}
+                              />
+                            </div>
+                          </>
+                        )}
+                        <Switch
+                          checked={isVisible}
+                          onCheckedChange={(checked) => {
+                            updateModulePermission.mutate({
+                              roleId: selectedRole.id,
+                              moduleKey: module.key,
+                              access: checked ? "visible" : "hidden",
+                            });
+                          }}
+                          data-testid={`switch-module-${module.key}`}
+                        />
+                      </div>
                     </div>
 
                     {isExpanded && isVisible && (
@@ -2173,6 +2382,101 @@ function PermissionsRolesTab() {
                 {t.common.delete}
               </AlertDialogAction>
             )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={isDeptFormOpen} onOpenChange={setIsDeptFormOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{isEditingDept ? t.konfigurator.editDepartment : t.konfigurator.addDepartment}</DialogTitle>
+            <DialogDescription>{t.konfigurator.departmentsDescription}</DialogDescription>
+          </DialogHeader>
+          <Form {...deptForm}>
+            <form onSubmit={deptForm.handleSubmit(handleDeptSubmit)} className="space-y-4">
+              <FormField
+                control={deptForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t.konfigurator.departmentName}</FormLabel>
+                    <FormControl>
+                      <Input {...field} data-testid="input-dept-name" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={deptForm.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t.konfigurator.departmentDescription}</FormLabel>
+                    <FormControl>
+                      <Textarea {...field} value={field.value || ""} data-testid="textarea-dept-description" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={deptForm.control}
+                name="parentId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t.konfigurator.parentDepartment}</FormLabel>
+                    <Select value={field.value || ""} onValueChange={(val) => field.onChange(val || null)}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-parent-dept">
+                          <SelectValue placeholder={t.konfigurator.noParent} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="">{t.konfigurator.noParent}</SelectItem>
+                        {dbDepartments.filter(d => d.id !== editingDept?.id).map((dept) => (
+                          <SelectItem key={dept.id} value={dept.id}>
+                            {dept.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsDeptFormOpen(false)}>
+                  {t.common.cancel}
+                </Button>
+                <Button type="submit" disabled={createDeptMutation.isPending || updateDeptMutation.isPending} data-testid="button-save-dept">
+                  {(createDeptMutation.isPending || updateDeptMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {t.common.save}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!deleteDept} onOpenChange={(open) => !open && setDeleteDept(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t.konfigurator.deleteDepartment}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this department?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t.common.cancel}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteDept && deleteDeptMutation.mutate(deleteDept.id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete-dept"
+            >
+              {deleteDeptMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {t.common.delete}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

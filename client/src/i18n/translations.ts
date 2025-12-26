@@ -631,6 +631,22 @@ export interface Translations {
     cannotDeleteSystemRole: string;
     expandModule: string;
     collapseModule: string;
+    canAdd: string;
+    canEdit: string;
+    moduleActions: string;
+    departmentsManagement: string;
+    departmentsDescription: string;
+    addDepartment: string;
+    editDepartment: string;
+    deleteDepartment: string;
+    departmentName: string;
+    departmentDescription: string;
+    parentDepartment: string;
+    noDepartments: string;
+    departmentCreated: string;
+    departmentUpdated: string;
+    departmentDeleted: string;
+    noParent: string;
     departments: {
       management: string;
       sales: string;
@@ -1455,6 +1471,22 @@ export const translations: Record<Locale, Translations> = {
       cannotDeleteSystemRole: 'System roles cannot be deleted',
       expandModule: 'Expand module',
       collapseModule: 'Collapse module',
+      canAdd: 'Can Add',
+      canEdit: 'Can Edit',
+      moduleActions: 'Module Actions',
+      departmentsManagement: 'Departments Management',
+      departmentsDescription: 'Manage departments and organizational structure',
+      addDepartment: 'Add Department',
+      editDepartment: 'Edit Department',
+      deleteDepartment: 'Delete Department',
+      departmentName: 'Department Name',
+      departmentDescription: 'Description',
+      parentDepartment: 'Parent Department',
+      noDepartments: 'No departments defined yet',
+      departmentCreated: 'Department created successfully',
+      departmentUpdated: 'Department updated successfully',
+      departmentDeleted: 'Department deleted successfully',
+      noParent: 'No parent (top-level)',
       departments: {
         management: 'Management',
         sales: 'Sales',
