@@ -36,7 +36,8 @@ import {
   type RoleModulePermission, type InsertRoleModulePermission,
   type RoleFieldPermission, type InsertRoleFieldPermission,
   type UserRole, type InsertUserRole,
-  type Department, type InsertDepartment
+  type Department, type InsertDepartment,
+  savedSearches, type SavedSearch, type InsertSavedSearch
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, inArray, sql, desc, and } from "drizzle-orm";
@@ -250,6 +251,12 @@ export interface IStorage {
   createDepartment(data: InsertDepartment): Promise<Department>;
   updateDepartment(id: string, data: Partial<InsertDepartment>): Promise<Department | undefined>;
   deleteDepartment(id: string): Promise<boolean>;
+
+  // Saved Searches
+  getSavedSearchesByUser(userId: string, module?: string): Promise<SavedSearch[]>;
+  createSavedSearch(data: InsertSavedSearch): Promise<SavedSearch>;
+  deleteSavedSearch(id: string): Promise<boolean>;
+  deleteSavedSearchForUser(id: string, userId: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1211,6 +1218,35 @@ export class DatabaseStorage implements IStorage {
 
   async deleteDepartment(id: string): Promise<boolean> {
     const result = await db.delete(departments).where(eq(departments.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Saved Searches
+  async getSavedSearchesByUser(userId: string, module?: string): Promise<SavedSearch[]> {
+    if (module) {
+      return db.select().from(savedSearches)
+        .where(and(eq(savedSearches.userId, userId), eq(savedSearches.module, module)))
+        .orderBy(desc(savedSearches.createdAt));
+    }
+    return db.select().from(savedSearches)
+      .where(eq(savedSearches.userId, userId))
+      .orderBy(desc(savedSearches.createdAt));
+  }
+
+  async createSavedSearch(data: InsertSavedSearch): Promise<SavedSearch> {
+    const [created] = await db.insert(savedSearches).values(data).returning();
+    return created;
+  }
+
+  async deleteSavedSearch(id: string): Promise<boolean> {
+    const result = await db.delete(savedSearches).where(eq(savedSearches.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async deleteSavedSearchForUser(id: string, userId: string): Promise<boolean> {
+    const result = await db.delete(savedSearches)
+      .where(and(eq(savedSearches.id, id), eq(savedSearches.userId, userId)))
+      .returning();
     return result.length > 0;
   }
 }

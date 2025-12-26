@@ -57,6 +57,16 @@ export interface Translations {
     close: string;
     saving: string;
     saved: string;
+    clear: string;
+  };
+  advancedFilters: {
+    title: string;
+    saveSearch: string;
+    savedSearches: string;
+    searchName: string;
+    searchNamePlaceholder: string;
+    hasProducts: string;
+    hasInvoices: string;
   };
   dashboard: {
     title: string;
@@ -907,6 +917,16 @@ export const translations: Record<Locale, Translations> = {
       close: 'Close',
       saving: 'Saving...',
       saved: 'Saved',
+      clear: 'Clear',
+    },
+    advancedFilters: {
+      title: 'Advanced Filters',
+      saveSearch: 'Save Search',
+      savedSearches: 'Saved Searches',
+      searchName: 'Search Name',
+      searchNamePlaceholder: 'My custom search...',
+      hasProducts: 'Has Products',
+      hasInvoices: 'Has Invoices',
     },
     dashboard: {
       title: 'Dashboard',
@@ -1755,6 +1775,16 @@ export const translations: Record<Locale, Translations> = {
       close: 'Zavrieť',
       saving: 'Ukladám...',
       saved: 'Uložené',
+      clear: 'Vymazať',
+    },
+    advancedFilters: {
+      title: 'Pokročilé filtre',
+      saveSearch: 'Uložiť vyhľadávanie',
+      savedSearches: 'Uložené vyhľadávania',
+      searchName: 'Názov vyhľadávania',
+      searchNamePlaceholder: 'Moje vlastné vyhľadávanie...',
+      hasProducts: 'Má produkty',
+      hasInvoices: 'Má faktúry',
     },
     dashboard: {
       title: 'Prehľad',
@@ -2603,6 +2633,16 @@ export const translations: Record<Locale, Translations> = {
       close: 'Zavřít',
       saving: 'Ukládám...',
       saved: 'Uloženo',
+      clear: 'Vymazat',
+    },
+    advancedFilters: {
+      title: 'Pokročilé filtry',
+      saveSearch: 'Uložit vyhledávání',
+      savedSearches: 'Uložená vyhledávání',
+      searchName: 'Název vyhledávání',
+      searchNamePlaceholder: 'Mé vlastní vyhledávání...',
+      hasProducts: 'Má produkty',
+      hasInvoices: 'Má faktury',
     },
     dashboard: {
       title: 'Přehled',
@@ -3414,6 +3454,16 @@ export const translations: Record<Locale, Translations> = {
       close: 'Bezárás',
       saving: 'Mentés...',
       saved: 'Mentve',
+      clear: 'Törlés',
+    },
+    advancedFilters: {
+      title: 'Speciális szűrők',
+      saveSearch: 'Keresés mentése',
+      savedSearches: 'Mentett keresések',
+      searchName: 'Keresés neve',
+      searchNamePlaceholder: 'Egyéni keresésem...',
+      hasProducts: 'Van termék',
+      hasInvoices: 'Van számla',
     },
     dashboard: {
       title: 'Irányítópult',
@@ -4225,6 +4275,16 @@ export const translations: Record<Locale, Translations> = {
       close: 'Închide',
       saving: 'Se salvează...',
       saved: 'Salvat',
+      clear: 'Șterge',
+    },
+    advancedFilters: {
+      title: 'Filtre avansate',
+      saveSearch: 'Salvare căutare',
+      savedSearches: 'Căutări salvate',
+      searchName: 'Nume căutare',
+      searchNamePlaceholder: 'Căutarea mea personalizată...',
+      hasProducts: 'Are produse',
+      hasInvoices: 'Are facturi',
     },
     dashboard: {
       title: 'Panou de control',
@@ -5036,6 +5096,16 @@ export const translations: Record<Locale, Translations> = {
       close: 'Chiudi',
       saving: 'Salvataggio...',
       saved: 'Salvato',
+      clear: 'Cancella',
+    },
+    advancedFilters: {
+      title: 'Filtri avanzati',
+      saveSearch: 'Salva ricerca',
+      savedSearches: 'Ricerche salvate',
+      searchName: 'Nome ricerca',
+      searchNamePlaceholder: 'La mia ricerca personalizzata...',
+      hasProducts: 'Ha prodotti',
+      hasInvoices: 'Ha fatture',
     },
     dashboard: {
       title: 'Dashboard',
@@ -5847,6 +5917,16 @@ export const translations: Record<Locale, Translations> = {
       close: 'Schließen',
       saving: 'Speichern...',
       saved: 'Gespeichert',
+      clear: 'Löschen',
+    },
+    advancedFilters: {
+      title: 'Erweiterte Filter',
+      saveSearch: 'Suche speichern',
+      savedSearches: 'Gespeicherte Suchen',
+      searchName: 'Suchname',
+      searchNamePlaceholder: 'Meine benutzerdefinierte Suche...',
+      hasProducts: 'Hat Produkte',
+      hasInvoices: 'Hat Rechnungen',
     },
     dashboard: {
       title: 'Dashboard',

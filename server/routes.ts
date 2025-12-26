@@ -11,6 +11,7 @@ import {
   insertLeadScoringCriteriaSchema,
   insertServiceConfigurationSchema, insertInvoiceTemplateSchema, insertInvoiceLayoutSchema,
   insertRoleSchema, insertRoleModulePermissionSchema, insertRoleFieldPermissionSchema,
+  insertSavedSearchSchema,
   type SafeUser, type Customer, type Product, type BillingDetails, type ActivityLog, type LeadScoringCriteria,
   type ServiceConfiguration, type InvoiceTemplate, type InvoiceLayout, type Role
 } from "@shared/schema";
@@ -2008,13 +2009,13 @@ export async function registerRoutes(
       // Search customers
       const customers = await storage.getAllCustomers();
       for (const c of customers) {
-        const searchText = `${c.firstName} ${c.lastName} ${c.email || ""} ${c.phone || ""} ${c.mobile || ""}`.toLowerCase();
+        const searchText = `${c.firstName} ${c.lastName} ${c.email || ""} ${c.phone || ""} ${c.mobile || ""} ${c.internalId || ""}`.toLowerCase();
         if (searchText.includes(query)) {
           results.push({
             type: "customer",
             id: c.id,
             title: `${c.firstName} ${c.lastName}`,
-            subtitle: c.email || c.phone || "",
+            subtitle: c.internalId ? `${c.internalId} - ${c.email || c.phone || ""}` : (c.email || c.phone || ""),
             url: `/customers?id=${c.id}`,
           });
         }
@@ -2023,13 +2024,13 @@ export async function registerRoutes(
       // Search collaborators
       const collaborators = await storage.getAllCollaborators();
       for (const c of collaborators) {
-        const searchText = `${c.firstName} ${c.lastName} ${c.email || ""} ${c.phone || ""} ${c.mobile || ""}`.toLowerCase();
+        const searchText = `${c.firstName} ${c.lastName} ${c.email || ""} ${c.phone || ""} ${c.mobile || ""} ${c.legacyId || ""}`.toLowerCase();
         if (searchText.includes(query)) {
           results.push({
             type: "collaborator",
             id: c.id,
             title: `${c.firstName} ${c.lastName}`,
-            subtitle: c.email || c.phone || "",
+            subtitle: c.legacyId ? `${c.legacyId} - ${c.email || c.phone || ""}` : (c.email || c.phone || ""),
             url: `/collaborators?id=${c.id}`,
           });
         }
@@ -2099,7 +2100,7 @@ export async function registerRoutes(
       // Search hospitals
       const hospitals = await storage.getAllHospitals();
       for (const h of hospitals) {
-        const searchText = `${h.name} ${h.fullName || ""} ${h.city || ""} ${h.streetNumber || ""}`.toLowerCase();
+        const searchText = `${h.name} ${h.fullName || ""} ${h.city || ""} ${h.streetNumber || ""} ${h.legacyId || ""}`.toLowerCase();
         if (searchText.includes(query)) {
           results.push({
             type: "hospital",
@@ -2175,6 +2176,56 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Global search failed:", error);
       res.status(500).json({ error: "Search failed" });
+    }
+  });
+
+  // ============= Saved Searches Routes =============
+  
+  app.get("/api/saved-searches", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user!.id;
+      const module = req.query.module as string | undefined;
+      const searches = await storage.getSavedSearchesByUser(userId, module);
+      res.json(searches);
+    } catch (error) {
+      console.error("Failed to fetch saved searches:", error);
+      res.status(500).json({ error: "Failed to fetch saved searches" });
+    }
+  });
+
+  app.post("/api/saved-searches", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user!.id;
+      const validatedData = insertSavedSearchSchema.parse({
+        ...req.body,
+        userId,
+      });
+      
+      const search = await storage.createSavedSearch(validatedData);
+      res.status(201).json(search);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid data", details: error.errors });
+      }
+      console.error("Failed to create saved search:", error);
+      res.status(500).json({ error: "Failed to create saved search" });
+    }
+  });
+
+  app.delete("/api/saved-searches/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.session.user!.id;
+      
+      // Verify ownership before deleting
+      const deleted = await storage.deleteSavedSearchForUser(id, userId);
+      if (!deleted) {
+        return res.status(404).json({ error: "Saved search not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete saved search:", error);
+      res.status(500).json({ error: "Failed to delete saved search" });
     }
   });
 

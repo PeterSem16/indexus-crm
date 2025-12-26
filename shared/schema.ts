@@ -385,6 +385,21 @@ export const communicationMessages = pgTable("communication_messages", {
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
+// Saved searches - user saved filter presets
+export const savedSearches = pgTable("saved_searches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  name: text("name").notNull(),
+  module: text("module").notNull(), // customers, collaborators, hospitals, etc.
+  filters: text("filters").notNull(), // JSON string of filter criteria
+  isDefault: boolean("is_default").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertSavedSearchSchema = createInsertSchema(savedSearches).omit({ id: true, createdAt: true });
+export type InsertSavedSearch = z.infer<typeof insertSavedSearchSchema>;
+export type SavedSearch = typeof savedSearches.$inferSelect;
+
 // Activity logs - tracks all user actions in the system
 export const activityLogs = pgTable("activity_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
