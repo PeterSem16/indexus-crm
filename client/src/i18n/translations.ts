@@ -18,6 +18,7 @@ export interface Translations {
     invoices: string;
     hospitals: string;
     collaborators: string;
+    campaigns: string;
     users: string;
     settings: string;
     konfigurator: string;
@@ -528,6 +529,46 @@ export interface Translations {
     noFile: string;
     uploadAgreement: string;
   };
+  campaigns: {
+    title: string;
+    description: string;
+    addCampaign: string;
+    editCampaign: string;
+    deleteCampaign: string;
+    addCampaignDesc: string;
+    editCampaignDesc: string;
+    deleteConfirm: string;
+    searchPlaceholder: string;
+    noCampaigns: string;
+    campaignName: string;
+    type: string;
+    status: string;
+    targetCountries: string;
+    startDate: string;
+    endDate: string;
+    dates: string;
+    criteria: string;
+    selectType: string;
+    selectStatus: string;
+    created: string;
+    updated: string;
+    deleted: string;
+    types: {
+      marketing: string;
+      sales: string;
+      follow_up: string;
+      retention: string;
+      upsell: string;
+      other: string;
+    };
+    statuses: {
+      draft: string;
+      active: string;
+      paused: string;
+      completed: string;
+      cancelled: string;
+    };
+  };
   settings: {
     title: string;
     description: string;
@@ -947,6 +988,7 @@ export const translations: Record<Locale, Translations> = {
       invoices: 'Invoices',
       hospitals: 'Hospitals',
       collaborators: 'Collaborators',
+      campaigns: 'Campaigns',
       users: 'Users',
       settings: 'Settings',
       konfigurator: 'Configurator',
@@ -1457,6 +1499,46 @@ export const translations: Record<Locale, Translations> = {
       noFile: 'No file attached',
       uploadAgreement: 'Upload Agreement',
     },
+    campaigns: {
+      title: 'Campaigns',
+      description: 'Manage marketing and sales campaigns',
+      addCampaign: 'Add Campaign',
+      editCampaign: 'Edit Campaign',
+      deleteCampaign: 'Delete Campaign',
+      addCampaignDesc: 'Create a new marketing or sales campaign',
+      editCampaignDesc: 'Update campaign details',
+      deleteConfirm: 'Are you sure you want to delete this campaign? This action cannot be undone.',
+      searchPlaceholder: 'Search campaigns...',
+      noCampaigns: 'No campaigns found',
+      campaignName: 'Campaign Name',
+      type: 'Type',
+      status: 'Status',
+      targetCountries: 'Target Countries',
+      startDate: 'Start Date',
+      endDate: 'End Date',
+      dates: 'Dates',
+      criteria: 'Criteria',
+      selectType: 'Select type',
+      selectStatus: 'Select status',
+      created: 'Campaign created',
+      updated: 'Campaign updated',
+      deleted: 'Campaign deleted',
+      types: {
+        marketing: 'Marketing',
+        sales: 'Sales',
+        follow_up: 'Follow-up',
+        retention: 'Retention',
+        upsell: 'Upsell',
+        other: 'Other',
+      },
+      statuses: {
+        draft: 'Draft',
+        active: 'Active',
+        paused: 'Paused',
+        completed: 'Completed',
+        cancelled: 'Cancelled',
+      },
+    },
     settings: {
       title: 'Settings',
       description: 'System configuration and billing details',
@@ -1874,6 +1956,7 @@ export const translations: Record<Locale, Translations> = {
       invoices: 'Faktúry',
       hospitals: 'Nemocnice',
       collaborators: 'Spolupracovníci',
+      campaigns: 'Kampane',
       users: 'Používatelia',
       settings: 'Nastavenia',
       konfigurator: 'Konfigurátor',
@@ -2384,6 +2467,46 @@ export const translations: Record<Locale, Translations> = {
       noFile: 'Žiadny súbor',
       uploadAgreement: 'Nahrať dohodu',
     },
+    campaigns: {
+      title: 'Kampane',
+      description: 'Správa marketingových a predajných kampaní',
+      addCampaign: 'Pridať kampaň',
+      editCampaign: 'Upraviť kampaň',
+      deleteCampaign: 'Odstrániť kampaň',
+      addCampaignDesc: 'Vytvoriť novú marketingovú alebo predajnú kampaň',
+      editCampaignDesc: 'Aktualizovať detaily kampane',
+      deleteConfirm: 'Naozaj chcete odstrániť túto kampaň? Túto akciu nie je možné vrátiť späť.',
+      searchPlaceholder: 'Hľadať kampane...',
+      noCampaigns: 'Žiadne kampane nenájdené',
+      campaignName: 'Názov kampane',
+      type: 'Typ',
+      status: 'Stav',
+      targetCountries: 'Cieľové krajiny',
+      startDate: 'Dátum začiatku',
+      endDate: 'Dátum ukončenia',
+      dates: 'Dátumy',
+      criteria: 'Kritériá',
+      selectType: 'Vyberte typ',
+      selectStatus: 'Vyberte stav',
+      created: 'Kampaň vytvorená',
+      updated: 'Kampaň aktualizovaná',
+      deleted: 'Kampaň odstránená',
+      types: {
+        marketing: 'Marketing',
+        sales: 'Predaj',
+        follow_up: 'Sledovanie',
+        retention: 'Udržanie',
+        upsell: 'Upsell',
+        other: 'Iné',
+      },
+      statuses: {
+        draft: 'Koncept',
+        active: 'Aktívna',
+        paused: 'Pozastavená',
+        completed: 'Dokončená',
+        cancelled: 'Zrušená',
+      },
+    },
     settings: {
       title: 'Nastavenia',
       description: 'Konfigurácia systému a fakturačné údaje',
@@ -2801,6 +2924,7 @@ export const translations: Record<Locale, Translations> = {
       invoices: 'Faktury',
       hospitals: 'Nemocnice',
       collaborators: 'Spolupracovníci',
+      campaigns: 'Kampaně',
       users: 'Uživatelé',
       settings: 'Nastavení',
       konfigurator: 'Konfigurátor',
@@ -3311,6 +3435,46 @@ export const translations: Record<Locale, Translations> = {
       noFile: 'Žádný soubor',
       uploadAgreement: 'Nahrát dohodu',
     },
+    campaigns: {
+      title: 'Kampaně',
+      description: 'Správa marketingových a prodejních kampaní',
+      addCampaign: 'Přidat kampaň',
+      editCampaign: 'Upravit kampaň',
+      deleteCampaign: 'Odstranit kampaň',
+      addCampaignDesc: 'Vytvořit novou marketingovou nebo prodejní kampaň',
+      editCampaignDesc: 'Aktualizovat detaily kampaně',
+      deleteConfirm: 'Opravdu chcete odstranit tuto kampaň? Tuto akci nelze vrátit zpět.',
+      searchPlaceholder: 'Hledat kampaně...',
+      noCampaigns: 'Žádné kampaně nenalezeny',
+      campaignName: 'Název kampaně',
+      type: 'Typ',
+      status: 'Stav',
+      targetCountries: 'Cílové země',
+      startDate: 'Datum zahájení',
+      endDate: 'Datum ukončení',
+      dates: 'Data',
+      criteria: 'Kritéria',
+      selectType: 'Vyberte typ',
+      selectStatus: 'Vyberte stav',
+      created: 'Kampaň vytvořena',
+      updated: 'Kampaň aktualizována',
+      deleted: 'Kampaň odstraněna',
+      types: {
+        marketing: 'Marketing',
+        sales: 'Prodej',
+        follow_up: 'Sledování',
+        retention: 'Udržení',
+        upsell: 'Upsell',
+        other: 'Jiné',
+      },
+      statuses: {
+        draft: 'Koncept',
+        active: 'Aktivní',
+        paused: 'Pozastavena',
+        completed: 'Dokončena',
+        cancelled: 'Zrušena',
+      },
+    },
     settings: {
       title: 'Nastavení',
       description: 'Konfigurace systému a fakturační údaje',
@@ -3691,6 +3855,7 @@ export const translations: Record<Locale, Translations> = {
       invoices: 'Számlák',
       hospitals: 'Kórházak',
       collaborators: 'Munkatársak',
+      campaigns: 'Kampányok',
       users: 'Felhasználók',
       settings: 'Beállítások',
       konfigurator: 'Konfigurátor',
@@ -4201,6 +4366,46 @@ export const translations: Record<Locale, Translations> = {
       noFile: 'Nincs fájl csatolva',
       uploadAgreement: 'Megállapodás feltöltése',
     },
+    campaigns: {
+      title: 'Kampányok',
+      description: 'Marketing és értékesítési kampányok kezelése',
+      addCampaign: 'Kampány hozzáadása',
+      editCampaign: 'Kampány szerkesztése',
+      deleteCampaign: 'Kampány törlése',
+      addCampaignDesc: 'Új marketing vagy értékesítési kampány létrehozása',
+      editCampaignDesc: 'Kampány részleteinek frissítése',
+      deleteConfirm: 'Biztosan törölni szeretné ezt a kampányt? Ez a művelet nem vonható vissza.',
+      searchPlaceholder: 'Kampányok keresése...',
+      noCampaigns: 'Nem található kampány',
+      campaignName: 'Kampány neve',
+      type: 'Típus',
+      status: 'Állapot',
+      targetCountries: 'Célországok',
+      startDate: 'Kezdő dátum',
+      endDate: 'Befejező dátum',
+      dates: 'Dátumok',
+      criteria: 'Kritériumok',
+      selectType: 'Válasszon típust',
+      selectStatus: 'Válasszon állapotot',
+      created: 'Kampány létrehozva',
+      updated: 'Kampány frissítve',
+      deleted: 'Kampány törölve',
+      types: {
+        marketing: 'Marketing',
+        sales: 'Értékesítés',
+        follow_up: 'Követés',
+        retention: 'Megtartás',
+        upsell: 'Upsell',
+        other: 'Egyéb',
+      },
+      statuses: {
+        draft: 'Vázlat',
+        active: 'Aktív',
+        paused: 'Szüneteltetve',
+        completed: 'Befejezve',
+        cancelled: 'Törölve',
+      },
+    },
     settings: {
       title: 'Beállítások',
       description: 'Rendszerkonfiguráció és számlázási adatok',
@@ -4581,6 +4786,7 @@ export const translations: Record<Locale, Translations> = {
       invoices: 'Facturi',
       hospitals: 'Spitale',
       collaborators: 'Colaboratori',
+      campaigns: 'Campanii',
       users: 'Utilizatori',
       settings: 'Setări',
       konfigurator: 'Configurator',
@@ -5091,6 +5297,46 @@ export const translations: Record<Locale, Translations> = {
       noFile: 'Niciun fișier atașat',
       uploadAgreement: 'Încarcă acord',
     },
+    campaigns: {
+      title: 'Campanii',
+      description: 'Gestionați campaniile de marketing și vânzări',
+      addCampaign: 'Adaugă campanie',
+      editCampaign: 'Editează campanie',
+      deleteCampaign: 'Șterge campanie',
+      addCampaignDesc: 'Creați o nouă campanie de marketing sau vânzări',
+      editCampaignDesc: 'Actualizați detaliile campaniei',
+      deleteConfirm: 'Sigur doriți să ștergeți această campanie? Această acțiune nu poate fi anulată.',
+      searchPlaceholder: 'Căutare campanii...',
+      noCampaigns: 'Nu au fost găsite campanii',
+      campaignName: 'Numele campaniei',
+      type: 'Tip',
+      status: 'Status',
+      targetCountries: 'Țări țintă',
+      startDate: 'Data de început',
+      endDate: 'Data de sfârșit',
+      dates: 'Date',
+      criteria: 'Criterii',
+      selectType: 'Selectați tipul',
+      selectStatus: 'Selectați statusul',
+      created: 'Campanie creată',
+      updated: 'Campanie actualizată',
+      deleted: 'Campanie ștearsă',
+      types: {
+        marketing: 'Marketing',
+        sales: 'Vânzări',
+        follow_up: 'Urmărire',
+        retention: 'Retenție',
+        upsell: 'Upsell',
+        other: 'Altele',
+      },
+      statuses: {
+        draft: 'Ciornă',
+        active: 'Activă',
+        paused: 'Suspendată',
+        completed: 'Finalizată',
+        cancelled: 'Anulată',
+      },
+    },
     settings: {
       title: 'Setări',
       description: 'Configurare sistem și detalii facturare',
@@ -5471,6 +5717,7 @@ export const translations: Record<Locale, Translations> = {
       invoices: 'Fatture',
       hospitals: 'Ospedali',
       collaborators: 'Collaboratori',
+      campaigns: 'Campagne',
       users: 'Utenti',
       settings: 'Impostazioni',
       konfigurator: 'Configuratore',
@@ -5981,6 +6228,46 @@ export const translations: Record<Locale, Translations> = {
       noFile: 'Nessun file allegato',
       uploadAgreement: 'Carica accordo',
     },
+    campaigns: {
+      title: 'Campagne',
+      description: 'Gestisci campagne di marketing e vendita',
+      addCampaign: 'Aggiungi campagna',
+      editCampaign: 'Modifica campagna',
+      deleteCampaign: 'Elimina campagna',
+      addCampaignDesc: 'Crea una nuova campagna di marketing o vendita',
+      editCampaignDesc: 'Aggiorna i dettagli della campagna',
+      deleteConfirm: 'Sei sicuro di voler eliminare questa campagna? Questa azione non può essere annullata.',
+      searchPlaceholder: 'Cerca campagne...',
+      noCampaigns: 'Nessuna campagna trovata',
+      campaignName: 'Nome campagna',
+      type: 'Tipo',
+      status: 'Stato',
+      targetCountries: 'Paesi target',
+      startDate: 'Data di inizio',
+      endDate: 'Data di fine',
+      dates: 'Date',
+      criteria: 'Criteri',
+      selectType: 'Seleziona tipo',
+      selectStatus: 'Seleziona stato',
+      created: 'Campagna creata',
+      updated: 'Campagna aggiornata',
+      deleted: 'Campagna eliminata',
+      types: {
+        marketing: 'Marketing',
+        sales: 'Vendite',
+        follow_up: 'Follow-up',
+        retention: 'Fidelizzazione',
+        upsell: 'Upsell',
+        other: 'Altro',
+      },
+      statuses: {
+        draft: 'Bozza',
+        active: 'Attiva',
+        paused: 'In pausa',
+        completed: 'Completata',
+        cancelled: 'Annullata',
+      },
+    },
     settings: {
       title: 'Impostazioni',
       description: 'Configurazione sistema e dettagli fatturazione',
@@ -6361,6 +6648,7 @@ export const translations: Record<Locale, Translations> = {
       invoices: 'Rechnungen',
       hospitals: 'Krankenhäuser',
       collaborators: 'Mitarbeiter',
+      campaigns: 'Kampagnen',
       users: 'Benutzer',
       settings: 'Einstellungen',
       konfigurator: 'Konfigurator',
@@ -6870,6 +7158,46 @@ export const translations: Record<Locale, Translations> = {
       updateCollaborator: 'Mitarbeiter aktualisieren',
       noFile: 'Keine Datei angehängt',
       uploadAgreement: 'Vereinbarung hochladen',
+    },
+    campaigns: {
+      title: 'Kampagnen',
+      description: 'Marketing- und Vertriebskampagnen verwalten',
+      addCampaign: 'Kampagne hinzufügen',
+      editCampaign: 'Kampagne bearbeiten',
+      deleteCampaign: 'Kampagne löschen',
+      addCampaignDesc: 'Neue Marketing- oder Vertriebskampagne erstellen',
+      editCampaignDesc: 'Kampagnendetails aktualisieren',
+      deleteConfirm: 'Sind Sie sicher, dass Sie diese Kampagne löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.',
+      searchPlaceholder: 'Kampagnen suchen...',
+      noCampaigns: 'Keine Kampagnen gefunden',
+      campaignName: 'Kampagnenname',
+      type: 'Typ',
+      status: 'Status',
+      targetCountries: 'Zielländer',
+      startDate: 'Startdatum',
+      endDate: 'Enddatum',
+      dates: 'Daten',
+      criteria: 'Kriterien',
+      selectType: 'Typ auswählen',
+      selectStatus: 'Status auswählen',
+      created: 'Kampagne erstellt',
+      updated: 'Kampagne aktualisiert',
+      deleted: 'Kampagne gelöscht',
+      types: {
+        marketing: 'Marketing',
+        sales: 'Vertrieb',
+        follow_up: 'Nachverfolgung',
+        retention: 'Kundenbindung',
+        upsell: 'Upselling',
+        other: 'Sonstiges',
+      },
+      statuses: {
+        draft: 'Entwurf',
+        active: 'Aktiv',
+        paused: 'Pausiert',
+        completed: 'Abgeschlossen',
+        cancelled: 'Abgebrochen',
+      },
     },
     settings: {
       title: 'Einstellungen',

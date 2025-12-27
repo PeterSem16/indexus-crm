@@ -10,7 +10,8 @@ import {
   FileText,
   Building2,
   Handshake,
-  Cog
+  Cog,
+  Megaphone
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/contexts/permissions-context";
@@ -43,6 +44,7 @@ export function AppSidebar() {
     { title: t.nav.hospitals, url: "/hospitals", icon: Building2, testId: "hospitals", moduleKey: "hospitals" },
     { title: t.nav.collaborators, url: "/collaborators", icon: Handshake, testId: "collaborators", moduleKey: "collaborators" },
     { title: t.nav.invoices, url: "/invoices", icon: FileText, testId: "invoices", moduleKey: "invoices" },
+    { title: t.nav.campaigns, url: "/campaigns", icon: Megaphone, testId: "campaigns", moduleKey: "campaigns" },
   ];
   
   const adminNavItems = [
