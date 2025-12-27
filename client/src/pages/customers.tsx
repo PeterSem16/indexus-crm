@@ -1631,9 +1631,9 @@ export default function CustomersPage() {
       <Sheet open={!!viewingCustomer} onOpenChange={() => setViewingCustomer(null)}>
         <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>Customer Details</SheetTitle>
+            <SheetTitle>{t.customers.detailsTitle}</SheetTitle>
             <SheetDescription>
-              View customer information, products, and invoices
+              {t.customers.detailsDescription}
             </SheetDescription>
           </SheetHeader>
           {viewingCustomer && (

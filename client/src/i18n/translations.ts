@@ -113,6 +113,8 @@ export interface Translations {
   customers: {
     title: string;
     description: string;
+    detailsTitle: string;
+    detailsDescription: string;
     addCustomer: string;
     editCustomer: string;
     deleteCustomer: string;
@@ -1040,6 +1042,8 @@ export const translations: Record<Locale, Translations> = {
     customers: {
       title: 'Customers',
       description: 'Manage cord blood banking customers',
+      detailsTitle: 'Customer Details',
+      detailsDescription: 'View customer information, products, and invoices',
       addCustomer: 'Add Customer',
       editCustomer: 'Edit Customer',
       deleteCustomer: 'Delete Customer',
@@ -1965,6 +1969,8 @@ export const translations: Record<Locale, Translations> = {
     customers: {
       title: 'Zákazníci',
       description: 'Správa zákazníkov banky pupočníkovej krvi',
+      detailsTitle: 'Detaily zákazníka',
+      detailsDescription: 'Zobraziť informácie o zákazníkovi, produkty a faktúry',
       searchPlaceholder: 'Hľadať zákazníkov...',
       noCustomers: 'Žiadni zákazníci nenájdení pre vybrané krajiny',
       addCustomer: 'Pridať zákazníka',
@@ -2890,6 +2896,8 @@ export const translations: Record<Locale, Translations> = {
     customers: {
       title: 'Zákazníci',
       description: 'Správa zákazníků banky pupečníkové krve',
+      detailsTitle: 'Detaily zákazníka',
+      detailsDescription: 'Zobrazit informace o zákazníkovi, produkty a faktury',
       searchPlaceholder: 'Hledat zákazníky...',
       noCustomers: 'Žádní zákazníci nenalezeni pro vybrané země',
       addCustomer: 'Přidat zákazníka',
@@ -3778,6 +3786,8 @@ export const translations: Record<Locale, Translations> = {
     customers: {
       title: 'Ügyfelek',
       description: 'Köldökzsinórvér-banki ügyfelek kezelése',
+      detailsTitle: 'Ügyfél részletei',
+      detailsDescription: 'Ügyfél információk, termékek és számlák megtekintése',
       searchPlaceholder: 'Ügyfelek keresése...',
       noCustomers: 'Nem találhatók ügyfelek a kiválasztott országokhoz',
       addCustomer: 'Ügyfél hozzáadása',
@@ -4666,6 +4676,8 @@ export const translations: Record<Locale, Translations> = {
     customers: {
       title: 'Clienți',
       description: 'Gestionarea clienților băncii de sânge din cordon',
+      detailsTitle: 'Detalii client',
+      detailsDescription: 'Vizualizare informații client, produse și facturi',
       searchPlaceholder: 'Căutare clienți...',
       noCustomers: 'Nu s-au găsit clienți pentru țările selectate',
       addCustomer: 'Adaugă client',
@@ -5554,6 +5566,8 @@ export const translations: Record<Locale, Translations> = {
     customers: {
       title: 'Clienti',
       description: 'Gestione dei clienti della banca del sangue cordonale',
+      detailsTitle: 'Dettagli cliente',
+      detailsDescription: 'Visualizza informazioni cliente, prodotti e fatture',
       searchPlaceholder: 'Cerca clienti...',
       noCustomers: 'Nessun cliente trovato per i paesi selezionati',
       addCustomer: 'Aggiungi cliente',
@@ -6442,6 +6456,8 @@ export const translations: Record<Locale, Translations> = {
     customers: {
       title: 'Kunden',
       description: 'Verwaltung von Nabelschnurblut-Banking-Kunden',
+      detailsTitle: 'Kundendetails',
+      detailsDescription: 'Kundeninformationen, Produkte und Rechnungen anzeigen',
       searchPlaceholder: 'Kunden suchen...',
       noCustomers: 'Keine Kunden für ausgewählte Länder gefunden',
       addCustomer: 'Kunde hinzufügen',
