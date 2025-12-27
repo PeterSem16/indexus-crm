@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/dialog";
 import { CriteriaBuilder, type CriteriaGroup, criteriaToDescription } from "@/components/criteria-builder";
 import { ScheduleEditor, type ScheduleConfig, getDefaultScheduleConfig } from "@/components/schedule-editor";
+import { CampaignContactsFilter, type CampaignContactFilters, applyContactFilters } from "@/components/campaign-contacts-filter";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
 
 type EnrichedContact = CampaignContact & { customer?: Customer };
@@ -226,7 +227,7 @@ export default function CampaignDetailPage() {
   const { t } = useI18n();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("overview");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [contactFilters, setContactFilters] = useState<CampaignContactFilters>({});
   const [selectedContact, setSelectedContact] = useState<EnrichedContact | null>(null);
 
   const { data: campaign, isLoading: loadingCampaign } = useQuery<Campaign>({
@@ -325,9 +326,7 @@ export default function CampaignDetailPage() {
     );
   }
 
-  const filteredContacts = statusFilter === "all" 
-    ? contacts 
-    : contacts.filter(c => c.status === statusFilter);
+  const filteredContacts = applyContactFilters(contacts as any, contactFilters);
 
   const progressPercentage = stats 
     ? ((stats.completedContacts + stats.notInterestedContacts) / Math.max(stats.totalContacts, 1)) * 100
@@ -582,28 +581,16 @@ export default function CampaignDetailPage() {
 
         <TabsContent value="contacts" className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
+            <CampaignContactsFilter
+              filters={contactFilters}
+              onFiltersChange={setContactFilters}
+              onClear={() => setContactFilters({})}
+              countryCodes={campaign.countryCodes || []}
+            />
             <div className="flex items-center gap-2">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[180px]" data-testid="select-status-filter">
-                  <Filter className="w-4 h-4 mr-2" />
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="contacted">Contacted</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="no_answer">No Answer</SelectItem>
-                  <SelectItem value="callback_scheduled">Callback</SelectItem>
-                  <SelectItem value="not_interested">Not Interested</SelectItem>
-                  <SelectItem value="failed">Failed</SelectItem>
-                </SelectContent>
-              </Select>
               <span className="text-sm text-muted-foreground">
-                {filteredContacts.length} contacts
+                {filteredContacts.length} / {contacts.length} kontaktov
               </span>
-            </div>
-            <div className="flex gap-2">
               <Button
                 variant="outline"
                 onClick={() => generateContactsMutation.mutate()}
@@ -611,7 +598,7 @@ export default function CampaignDetailPage() {
                 data-testid="button-generate-contacts"
               >
                 <RefreshCw className={`w-4 h-4 mr-2 ${generateContactsMutation.isPending ? "animate-spin" : ""}`} />
-                {t.campaigns?.detail?.generateContacts || "Generate Contacts"}
+                {t.campaigns?.detail?.generateContacts || "Generovať kontakty"}
               </Button>
               <Button variant="outline" data-testid="button-export-contacts">
                 <Download className="w-4 h-4 mr-2" />

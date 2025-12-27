@@ -1370,6 +1370,7 @@ export const campaigns = pgTable("campaigns", {
   status: text("status").notNull().default("draft"), // draft, active, paused, completed, cancelled
   countryCodes: text("country_codes").array().notNull().default(sql`ARRAY[]::text[]`),
   criteria: text("criteria"), // JSON string with filter criteria
+  settings: text("settings"), // JSON string with schedule/settings
   startDate: timestamp("start_date"),
   endDate: timestamp("end_date"),
   targetContactCount: integer("target_contact_count").default(0),
@@ -1389,6 +1390,7 @@ export const insertCampaignSchema = createInsertSchema(campaigns).omit({
   status: z.enum(["draft", "active", "paused", "completed", "cancelled"]).optional().default("draft"),
   countryCodes: z.array(z.string()).optional().default([]),
   criteria: z.string().optional().nullable(),
+  settings: z.string().optional().nullable(),
   startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
   targetContactCount: z.number().optional().default(0),
