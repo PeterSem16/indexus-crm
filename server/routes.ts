@@ -3742,31 +3742,61 @@ export async function registerRoutes(
 }
 
 // Helper function to apply customer criteria
-function applyCustomerCriteria(customers: Customer[], criteria: any): Customer[] {
-  if (!criteria || !criteria.filters || !Array.isArray(criteria.filters)) {
+interface CriteriaCondition {
+  id: string;
+  field: string;
+  operator: string;
+  value: string | string[];
+}
+
+interface CriteriaGroup {
+  id: string;
+  logic: "AND" | "OR";
+  conditions: CriteriaCondition[];
+}
+
+function evaluateCondition(customer: Customer, condition: CriteriaCondition): boolean {
+  const value = customer[condition.field as keyof Customer];
+  const condValue = condition.value;
+  
+  switch (condition.operator) {
+    case "equals":
+      return String(value || "") === String(condValue);
+    case "notEquals":
+      return String(value || "") !== String(condValue);
+    case "contains":
+      return String(value || "").toLowerCase().includes(String(condValue).toLowerCase());
+    case "startsWith":
+      return String(value || "").toLowerCase().startsWith(String(condValue).toLowerCase());
+    case "endsWith":
+      return String(value || "").toLowerCase().endsWith(String(condValue).toLowerCase());
+    case "in":
+      const inValues = Array.isArray(condValue) ? condValue : String(condValue).split(",").map(s => s.trim());
+      return inValues.includes(String(value || ""));
+    case "notIn":
+      const notInValues = Array.isArray(condValue) ? condValue : String(condValue).split(",").map(s => s.trim());
+      return !notInValues.includes(String(value || ""));
+    default:
+      return true;
+  }
+}
+
+function evaluateGroup(customer: Customer, group: CriteriaGroup): boolean {
+  if (group.conditions.length === 0) return true;
+  
+  if (group.logic === "AND") {
+    return group.conditions.every(cond => evaluateCondition(customer, cond));
+  } else {
+    return group.conditions.some(cond => evaluateCondition(customer, cond));
+  }
+}
+
+function applyCustomerCriteria(customers: Customer[], criteria: CriteriaGroup[]): Customer[] {
+  if (!Array.isArray(criteria) || criteria.length === 0) {
     return customers;
   }
   
   return customers.filter(customer => {
-    return criteria.filters.every((filter: any) => {
-      const value = customer[filter.field as keyof Customer];
-      
-      switch (filter.operator) {
-        case "equals":
-          return value === filter.value;
-        case "not_equals":
-          return value !== filter.value;
-        case "contains":
-          return String(value || "").toLowerCase().includes(String(filter.value).toLowerCase());
-        case "starts_with":
-          return String(value || "").toLowerCase().startsWith(String(filter.value).toLowerCase());
-        case "is_empty":
-          return !value;
-        case "is_not_empty":
-          return !!value;
-        default:
-          return true;
-      }
-    });
+    return criteria.every(group => evaluateGroup(customer, group));
   });
 }
