@@ -1,5 +1,5 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, boolean, timestamp, decimal, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, boolean, timestamp, decimal, integer, numeric } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -1372,6 +1372,8 @@ export const campaigns = pgTable("campaigns", {
   criteria: text("criteria"), // JSON string with filter criteria
   startDate: timestamp("start_date"),
   endDate: timestamp("end_date"),
+  targetContactCount: integer("target_contact_count").default(0),
+  conversionGoal: numeric("conversion_goal", { precision: 5, scale: 2 }).default("0"),
   createdBy: varchar("created_by"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
@@ -1389,6 +1391,8 @@ export const insertCampaignSchema = createInsertSchema(campaigns).omit({
   criteria: z.string().optional().nullable(),
   startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
+  targetContactCount: z.number().optional().default(0),
+  conversionGoal: z.string().optional().default("0"),
   createdBy: z.string().optional().nullable(),
 });
 
@@ -1403,6 +1407,9 @@ export const campaignContacts = pgTable("campaign_contacts", {
   status: text("status").notNull().default("pending"), // pending, contacted, completed, failed, no_answer, callback_scheduled, not_interested
   assignedTo: varchar("assigned_to"), // user id
   notes: text("notes"),
+  attemptCount: integer("attempt_count").notNull().default(0),
+  lastAttemptAt: timestamp("last_attempt_at"),
+  priorityScore: integer("priority_score").notNull().default(50), // 0-100, higher = more priority
   callbackDate: timestamp("callback_date"),
   contactedAt: timestamp("contacted_at"),
   completedAt: timestamp("completed_at"),
@@ -1418,6 +1425,9 @@ export const insertCampaignContactSchema = createInsertSchema(campaignContacts).
   status: z.enum(["pending", "contacted", "completed", "failed", "no_answer", "callback_scheduled", "not_interested"]).optional().default("pending"),
   assignedTo: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
+  attemptCount: z.number().optional().default(0),
+  lastAttemptAt: z.string().optional().nullable(),
+  priorityScore: z.number().optional().default(50),
   callbackDate: z.string().optional().nullable(),
   contactedAt: z.string().optional().nullable(),
   completedAt: z.string().optional().nullable(),
@@ -1445,3 +1455,117 @@ export const insertCampaignContactHistorySchema = createInsertSchema(campaignCon
 
 export type InsertCampaignContactHistory = z.infer<typeof insertCampaignContactHistorySchema>;
 export type CampaignContactHistory = typeof campaignContactHistory.$inferSelect;
+
+// Campaign schedules - working hours and scheduling rules
+export const campaignSchedules = pgTable("campaign_schedules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id").notNull().unique(),
+  workingDays: text("working_days").array().notNull().default(sql`ARRAY['monday','tuesday','wednesday','thursday','friday']::text[]`),
+  workingHoursStart: text("working_hours_start").notNull().default("09:00"),
+  workingHoursEnd: text("working_hours_end").notNull().default("17:00"),
+  maxAttemptsPerContact: integer("max_attempts_per_contact").notNull().default(3),
+  minHoursBetweenAttempts: integer("min_hours_between_attempts").notNull().default(24),
+  autoAssignContacts: boolean("auto_assign_contacts").notNull().default(true),
+  prioritizeCallbacks: boolean("prioritize_callbacks").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertCampaignScheduleSchema = createInsertSchema(campaignSchedules).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  workingDays: z.array(z.string()).optional().default(["monday", "tuesday", "wednesday", "thursday", "friday"]),
+  workingHoursStart: z.string().optional().default("09:00"),
+  workingHoursEnd: z.string().optional().default("17:00"),
+  maxAttemptsPerContact: z.number().optional().default(3),
+  minHoursBetweenAttempts: z.number().optional().default(24),
+  autoAssignContacts: z.boolean().optional().default(true),
+  prioritizeCallbacks: z.boolean().optional().default(true),
+});
+
+export type InsertCampaignSchedule = z.infer<typeof insertCampaignScheduleSchema>;
+export type CampaignSchedule = typeof campaignSchedules.$inferSelect;
+
+// Campaign operator settings - operator assignments with workload weights
+export const campaignOperatorSettings = pgTable("campaign_operator_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  workloadWeight: integer("workload_weight").notNull().default(100), // 100 = normal, 50 = half load
+  maxContactsPerDay: integer("max_contacts_per_day").default(50),
+  assignedCountries: text("assigned_countries").array().default(sql`ARRAY[]::text[]`),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertCampaignOperatorSettingSchema = createInsertSchema(campaignOperatorSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  isActive: z.boolean().optional().default(true),
+  workloadWeight: z.number().optional().default(100),
+  maxContactsPerDay: z.number().optional().nullable().default(50),
+  assignedCountries: z.array(z.string()).optional().default([]),
+});
+
+export type InsertCampaignOperatorSetting = z.infer<typeof insertCampaignOperatorSettingSchema>;
+export type CampaignOperatorSetting = typeof campaignOperatorSettings.$inferSelect;
+
+// Campaign contact sessions - individual call/contact attempt logs
+export const campaignContactSessions = pgTable("campaign_contact_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignContactId: varchar("campaign_contact_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  startedAt: timestamp("started_at").notNull().default(sql`now()`),
+  endedAt: timestamp("ended_at"),
+  durationSeconds: integer("duration_seconds"),
+  outcome: text("outcome").notNull().default("pending"), // pending, answered, no_answer, busy, voicemail, failed
+  notes: text("notes"),
+  callbackScheduled: boolean("callback_scheduled").default(false),
+  callbackDate: timestamp("callback_date"),
+});
+
+export const insertCampaignContactSessionSchema = createInsertSchema(campaignContactSessions).omit({
+  id: true,
+}).extend({
+  startedAt: z.string().optional(),
+  endedAt: z.string().optional().nullable(),
+  durationSeconds: z.number().optional().nullable(),
+  outcome: z.enum(["pending", "answered", "no_answer", "busy", "voicemail", "failed"]).optional().default("pending"),
+  notes: z.string().optional().nullable(),
+  callbackScheduled: z.boolean().optional().default(false),
+  callbackDate: z.string().optional().nullable(),
+});
+
+export type InsertCampaignContactSession = z.infer<typeof insertCampaignContactSessionSchema>;
+export type CampaignContactSession = typeof campaignContactSessions.$inferSelect;
+
+// Campaign metrics snapshots - aggregated metrics for reporting
+export const campaignMetricsSnapshots = pgTable("campaign_metrics_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id").notNull(),
+  snapshotDate: timestamp("snapshot_date").notNull(),
+  snapshotHour: integer("snapshot_hour"), // null for daily snapshots, 0-23 for hourly
+  totalContacts: integer("total_contacts").notNull().default(0),
+  pendingContacts: integer("pending_contacts").notNull().default(0),
+  contactedContacts: integer("contacted_contacts").notNull().default(0),
+  completedContacts: integer("completed_contacts").notNull().default(0),
+  failedContacts: integer("failed_contacts").notNull().default(0),
+  totalCalls: integer("total_calls").notNull().default(0),
+  successfulCalls: integer("successful_calls").notNull().default(0),
+  avgCallDurationSeconds: integer("avg_call_duration_seconds").default(0),
+  conversionRate: numeric("conversion_rate", { precision: 5, scale: 2 }).default("0"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertCampaignMetricsSnapshotSchema = createInsertSchema(campaignMetricsSnapshots).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertCampaignMetricsSnapshot = z.infer<typeof insertCampaignMetricsSnapshotSchema>;
+export type CampaignMetricsSnapshot = typeof campaignMetricsSnapshots.$inferSelect;
