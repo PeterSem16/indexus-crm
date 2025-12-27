@@ -1004,11 +1004,9 @@ export function CustomerFormWizard({ initialData, onSubmit, isLoading, onCancel 
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {CLIENT_STATUSES.map((status) => (
-                          <SelectItem key={status.value} value={status.value}>
-                            {status.label}
-                          </SelectItem>
-                        ))}
+                        <SelectItem value="potential">{t.customers.clientStatuses?.potential || "Potential"}</SelectItem>
+                        <SelectItem value="acquired">{t.customers.clientStatuses?.acquired || "Acquired"}</SelectItem>
+                        <SelectItem value="terminated">{t.customers.clientStatuses?.terminated || "Terminated"}</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />

@@ -68,6 +68,22 @@ export interface Translations {
     hasProducts: string;
     hasInvoices: string;
   };
+  activity: {
+    created: string;
+    updated: string;
+    deleted: string;
+    viewed: string;
+    login: string;
+    logout: string;
+    assignedProduct: string;
+    generatedInvoice: string;
+    sentEmail: string;
+    sentSms: string;
+    noActivity: string;
+    changedField: string;
+    from: string;
+    to: string;
+  };
   dashboard: {
     title: string;
     description: string;
@@ -928,6 +944,22 @@ export const translations: Record<Locale, Translations> = {
       hasProducts: 'Has Products',
       hasInvoices: 'Has Invoices',
     },
+    activity: {
+      created: 'Created',
+      updated: 'Updated',
+      deleted: 'Deleted',
+      viewed: 'Viewed',
+      login: 'Login',
+      logout: 'Logout',
+      assignedProduct: 'Assigned product',
+      generatedInvoice: 'Generated invoice',
+      sentEmail: 'Sent email',
+      sentSms: 'Sent SMS',
+      noActivity: 'No activity recorded yet.',
+      changedField: 'Changed field',
+      from: 'from',
+      to: 'to',
+    },
     dashboard: {
       title: 'Dashboard',
       description: 'Overview of your cord blood banking business',
@@ -1785,6 +1817,22 @@ export const translations: Record<Locale, Translations> = {
       searchNamePlaceholder: 'Moje vlastné vyhľadávanie...',
       hasProducts: 'Má produkty',
       hasInvoices: 'Má faktúry',
+    },
+    activity: {
+      created: 'Vytvorené',
+      updated: 'Upravené',
+      deleted: 'Vymazané',
+      viewed: 'Zobrazené',
+      login: 'Prihlásenie',
+      logout: 'Odhlásenie',
+      assignedProduct: 'Priradený produkt',
+      generatedInvoice: 'Vygenerovaná faktúra',
+      sentEmail: 'Odoslaný email',
+      sentSms: 'Odoslaná SMS',
+      noActivity: 'Žiadna aktivita nebola zaznamenaná.',
+      changedField: 'Zmenené pole',
+      from: 'z',
+      to: 'na',
     },
     dashboard: {
       title: 'Prehľad',
@@ -2644,6 +2692,22 @@ export const translations: Record<Locale, Translations> = {
       hasProducts: 'Má produkty',
       hasInvoices: 'Má faktury',
     },
+    activity: {
+      created: 'Vytvořeno',
+      updated: 'Aktualizováno',
+      deleted: 'Smazáno',
+      viewed: 'Zobrazeno',
+      login: 'Přihlášení',
+      logout: 'Odhlášení',
+      assignedProduct: 'Přiřazen produkt',
+      generatedInvoice: 'Vygenerována faktura',
+      sentEmail: 'Odeslán email',
+      sentSms: 'Odeslána SMS',
+      noActivity: 'Zatím nebyla zaznamenána žádná aktivita.',
+      changedField: 'Změněné pole',
+      from: 'z',
+      to: 'na',
+    },
     dashboard: {
       title: 'Přehled',
       description: 'Přehled vašeho podnikání v bance pupečníkové krve',
@@ -3464,6 +3528,22 @@ export const translations: Record<Locale, Translations> = {
       searchNamePlaceholder: 'Egyéni keresésem...',
       hasProducts: 'Van termék',
       hasInvoices: 'Van számla',
+    },
+    activity: {
+      created: 'Létrehozva',
+      updated: 'Frissítve',
+      deleted: 'Törölve',
+      viewed: 'Megtekintve',
+      login: 'Bejelentkezés',
+      logout: 'Kijelentkezés',
+      assignedProduct: 'Termék hozzárendelve',
+      generatedInvoice: 'Számla generálva',
+      sentEmail: 'Email elküldve',
+      sentSms: 'SMS elküldve',
+      noActivity: 'Még nincs rögzített tevékenység.',
+      changedField: 'Változott mező',
+      from: 'ról',
+      to: 'ra',
     },
     dashboard: {
       title: 'Irányítópult',
@@ -4286,6 +4366,22 @@ export const translations: Record<Locale, Translations> = {
       hasProducts: 'Are produse',
       hasInvoices: 'Are facturi',
     },
+    activity: {
+      created: 'Creat',
+      updated: 'Actualizat',
+      deleted: 'Șters',
+      viewed: 'Vizualizat',
+      login: 'Autentificare',
+      logout: 'Deconectare',
+      assignedProduct: 'Produs atribuit',
+      generatedInvoice: 'Factură generată',
+      sentEmail: 'Email trimis',
+      sentSms: 'SMS trimis',
+      noActivity: 'Nicio activitate înregistrată încă.',
+      changedField: 'Câmp modificat',
+      from: 'de la',
+      to: 'la',
+    },
     dashboard: {
       title: 'Panou de control',
       description: 'Prezentare generală a afacerii dvs. de banking cu sânge din cordon',
@@ -5107,6 +5203,22 @@ export const translations: Record<Locale, Translations> = {
       hasProducts: 'Ha prodotti',
       hasInvoices: 'Ha fatture',
     },
+    activity: {
+      created: 'Creato',
+      updated: 'Aggiornato',
+      deleted: 'Eliminato',
+      viewed: 'Visualizzato',
+      login: 'Accesso',
+      logout: 'Disconnessione',
+      assignedProduct: 'Prodotto assegnato',
+      generatedInvoice: 'Fattura generata',
+      sentEmail: 'Email inviata',
+      sentSms: 'SMS inviato',
+      noActivity: 'Nessuna attività registrata ancora.',
+      changedField: 'Campo modificato',
+      from: 'da',
+      to: 'a',
+    },
     dashboard: {
       title: 'Dashboard',
       description: 'Panoramica della tua attività di banking del sangue cordonale',
@@ -5927,6 +6039,22 @@ export const translations: Record<Locale, Translations> = {
       searchNamePlaceholder: 'Meine benutzerdefinierte Suche...',
       hasProducts: 'Hat Produkte',
       hasInvoices: 'Hat Rechnungen',
+    },
+    activity: {
+      created: 'Erstellt',
+      updated: 'Aktualisiert',
+      deleted: 'Gelöscht',
+      viewed: 'Angesehen',
+      login: 'Anmeldung',
+      logout: 'Abmeldung',
+      assignedProduct: 'Produkt zugewiesen',
+      generatedInvoice: 'Rechnung generiert',
+      sentEmail: 'Email gesendet',
+      sentSms: 'SMS gesendet',
+      noActivity: 'Noch keine Aktivität aufgezeichnet.',
+      changedField: 'Geändertes Feld',
+      from: 'von',
+      to: 'zu',
     },
     dashboard: {
       title: 'Dashboard',

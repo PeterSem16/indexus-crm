@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, Phone, Baby, Copy, ListChecks, FileEdit } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, Phone, Baby, Copy, ListChecks, FileEdit, UserCircle, Clock, PlusCircle, RefreshCw, XCircle, LogIn, LogOut, AlertCircle, CheckCircle2, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -109,6 +109,119 @@ function CustomerDetailsContent({
       return res.json();
     },
   });
+
+  const { data: allUsers = [] } = useQuery<Array<{ id: string; username: string; firstName?: string; lastName?: string }>>({
+    queryKey: ["/api/users"],
+    queryFn: async () => {
+      const res = await fetch("/api/users", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const getUserName = (userId: string) => {
+    const user = allUsers.find(u => u.id === userId);
+    if (user) {
+      if (user.firstName && user.lastName) {
+        return `${user.firstName} ${user.lastName}`;
+      }
+      return user.username;
+    }
+    return userId;
+  };
+
+  const getActionIcon = (action: string) => {
+    switch (action) {
+      case "create":
+        return <PlusCircle className="h-4 w-4 text-green-600" />;
+      case "update":
+        return <RefreshCw className="h-4 w-4 text-blue-600" />;
+      case "delete":
+        return <XCircle className="h-4 w-4 text-red-600" />;
+      case "login":
+        return <LogIn className="h-4 w-4 text-emerald-600" />;
+      case "logout":
+        return <LogOut className="h-4 w-4 text-gray-600" />;
+      case "view":
+        return <Eye className="h-4 w-4 text-purple-600" />;
+      case "assign_product":
+        return <Package className="h-4 w-4 text-indigo-600" />;
+      case "generate_invoice":
+        return <FileText className="h-4 w-4 text-amber-600" />;
+      case "send_email":
+        return <Mail className="h-4 w-4 text-sky-600" />;
+      case "send_sms":
+        return <MessageSquare className="h-4 w-4 text-teal-600" />;
+      default:
+        return <AlertCircle className="h-4 w-4 text-gray-500" />;
+    }
+  };
+
+  const getActionLabel = (action: string) => {
+    const labels: Record<string, string> = {
+      create: t.activity?.created || "Created",
+      update: t.activity?.updated || "Updated",
+      delete: t.activity?.deleted || "Deleted",
+      view: t.activity?.viewed || "Viewed",
+      login: t.activity?.login || "Login",
+      logout: t.activity?.logout || "Logout",
+      assign_product: t.activity?.assignedProduct || "Assigned product",
+      generate_invoice: t.activity?.generatedInvoice || "Generated invoice",
+      send_email: t.activity?.sentEmail || "Sent email",
+      send_sms: t.activity?.sentSms || "Sent SMS",
+    };
+    return labels[action] || action.replace(/_/g, " ");
+  };
+
+  const parseDetails = (details: string | null) => {
+    if (!details) return null;
+    try {
+      const parsed = JSON.parse(details);
+      return parsed;
+    } catch {
+      return null;
+    }
+  };
+
+  const renderFieldChanges = (details: Record<string, unknown> | null) => {
+    if (!details) return null;
+    
+    if (details.changes && Array.isArray(details.changes)) {
+      return (
+        <div className="mt-2 space-y-1">
+          {details.changes.map((change: { field?: string; from?: unknown; to?: unknown } | string, idx: number) => {
+            if (typeof change === 'string') {
+              return (
+                <div key={idx} className="flex items-center gap-2 text-xs">
+                  <CheckCircle2 className="h-3 w-3 text-muted-foreground" />
+                  <span>{change}</span>
+                </div>
+              );
+            }
+            if (change.field) {
+              return (
+                <div key={idx} className="flex items-center gap-2 text-xs bg-muted/30 p-1.5 rounded">
+                  <span className="font-medium min-w-[100px]">{change.field}:</span>
+                  <span className="text-muted-foreground line-through">{String(change.from || '-')}</span>
+                  <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-foreground font-medium">{String(change.to || '-')}</span>
+                </div>
+              );
+            }
+            return null;
+          })}
+        </div>
+      );
+    }
+    
+    if (details.message) {
+      return (
+        <p className="mt-1 text-xs text-muted-foreground">{String(details.message)}</p>
+      );
+    }
+    
+    return null;
+  };
 
   const { data: customerProducts = [], isLoading: productsLoading } = useQuery<CustomerProductWithProduct[]>({
     queryKey: ["/api/customers", customer.id, "products"],
@@ -782,28 +895,47 @@ function CustomerDetailsContent({
         <TabsContent value="history" className="space-y-4 mt-4">
           <div className="space-y-3">
             {activityLoading ? (
-              <p className="text-sm text-muted-foreground">Loading activity...</p>
+              <p className="text-sm text-muted-foreground">{t.common?.loading || "Loading activity..."}</p>
             ) : activityLogs.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No activity recorded yet.</p>
+              <p className="text-sm text-muted-foreground">{t.activity?.noActivity || "No activity recorded yet."}</p>
             ) : (
-              activityLogs.map((log) => (
-                <div key={log.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
-                  <div className="flex-shrink-0 w-2 h-2 mt-2 rounded-full bg-primary" />
-                  <div className="flex-1 space-y-1">
-                    <p className="text-sm font-medium capitalize">
-                      {log.action.replace("_", " ")}
-                    </p>
-                    {log.details && (
-                      <p className="text-xs text-muted-foreground">
-                        {JSON.parse(log.details).changes?.join(", ") || log.details}
-                      </p>
-                    )}
-                    <p className="text-xs text-muted-foreground">
-                      {format(new Date(log.createdAt), "MMM dd, yyyy HH:mm")}
-                    </p>
+              activityLogs.map((log) => {
+                const details = parseDetails(log.details);
+                return (
+                  <div key={log.id} className="border rounded-lg p-4 bg-card" data-testid={`activity-log-${log.id}`}>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 mt-0.5 p-2 rounded-full bg-muted">
+                        {getActionIcon(log.action)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm">
+                              {getActionLabel(log.action)}
+                            </span>
+                            <Badge variant="outline" className="text-xs">
+                              {log.entityType || "customer"}
+                            </Badge>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <UserCircle className="h-3.5 w-3.5" />
+                            <span>{getUserName(log.userId)}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-3.5 w-3.5" />
+                            <span>{format(new Date(log.createdAt), "dd.MM.yyyy HH:mm:ss")}</span>
+                          </div>
+                        </div>
+                        
+                        {renderFieldChanges(details)}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </TabsContent>
