@@ -183,35 +183,24 @@ function CustomerDetailsContent({
     }
   };
 
-  const renderFieldChanges = (details: Record<string, unknown> | null) => {
+  const renderFieldChanges = (details: Record<string, unknown> | null, action: string) => {
     if (!details) return null;
     
-    if (details.changes && Array.isArray(details.changes)) {
-      return (
-        <div className="mt-2 space-y-1">
-          {details.changes.map((change: { field?: string; from?: unknown; to?: unknown } | string, idx: number) => {
-            if (typeof change === 'string') {
-              return (
-                <div key={idx} className="flex items-center gap-2 text-xs">
-                  <CheckCircle2 className="h-3 w-3 text-muted-foreground" />
-                  <span>{change}</span>
-                </div>
-              );
-            }
-            if (change.field) {
-              return (
-                <div key={idx} className="flex items-center gap-2 text-xs bg-muted/30 p-1.5 rounded">
-                  <span className="font-medium min-w-[100px]">{change.field}:</span>
-                  <span className="text-muted-foreground line-through">{String(change.from || '-')}</span>
-                  <ArrowRight className="h-3 w-3 text-muted-foreground" />
-                  <span className="text-foreground font-medium">{String(change.to || '-')}</span>
-                </div>
-              );
-            }
-            return null;
-          })}
-        </div>
-      );
+    if (action === "update" && details.changes && Array.isArray(details.changes)) {
+      const changedFields = details.changes
+        .filter((change): change is { field: string; from?: unknown; to?: unknown } => 
+          typeof change === 'object' && change !== null && 'field' in change
+        )
+        .map(c => c.field);
+      
+      if (changedFields.length > 0) {
+        return (
+          <p className="mt-1 text-xs text-muted-foreground">
+            {t.activity?.changedField || "Changed fields"}: {changedFields.join(", ")}
+          </p>
+        );
+      }
+      return null;
     }
     
     if (details.message) {
@@ -930,7 +919,7 @@ function CustomerDetailsContent({
                           </div>
                         </div>
                         
-                        {renderFieldChanges(details)}
+                        {renderFieldChanges(details, log.action)}
                       </div>
                     </div>
                   </div>
