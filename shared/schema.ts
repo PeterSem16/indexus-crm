@@ -1366,8 +1366,8 @@ export const campaigns = pgTable("campaigns", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   description: text("description"),
-  type: text("type").notNull().default("phone"), // phone, email, sms, mixed
-  status: text("status").notNull().default("draft"), // draft, active, paused, completed
+  type: text("type").notNull().default("marketing"), // marketing, sales, follow_up, retention, upsell, other
+  status: text("status").notNull().default("draft"), // draft, active, paused, completed, cancelled
   countryCodes: text("country_codes").array().notNull().default(sql`ARRAY[]::text[]`),
   criteria: text("criteria"), // JSON string with filter criteria
   startDate: timestamp("start_date"),
@@ -1383,8 +1383,8 @@ export const insertCampaignSchema = createInsertSchema(campaigns).omit({
   updatedAt: true,
 }).extend({
   description: z.string().optional().nullable(),
-  type: z.enum(["phone", "email", "sms", "mixed"]).optional().default("phone"),
-  status: z.enum(["draft", "active", "paused", "completed"]).optional().default("draft"),
+  type: z.enum(["marketing", "sales", "follow_up", "retention", "upsell", "other"]).optional().default("marketing"),
+  status: z.enum(["draft", "active", "paused", "completed", "cancelled"]).optional().default("draft"),
   countryCodes: z.array(z.string()).optional().default([]),
   criteria: z.string().optional().nullable(),
   startDate: z.string().optional().nullable(),
