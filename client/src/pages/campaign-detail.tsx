@@ -869,25 +869,89 @@ export default function CampaignDetailPage() {
         </TabsContent>
 
         <TabsContent value="reporting" className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <StatsCard
-              title={t.campaigns?.detail?.contactRate || "Contact Rate"}
+              title="Miera kontaktovania"
               value={`${((stats?.contactedContacts || 0) / Math.max(stats?.totalContacts || 1, 1) * 100).toFixed(1)}%`}
+              description="Kontaktovaní / Celkovo"
               icon={Phone}
             />
             <StatsCard
-              title={t.campaigns?.detail?.completionRate || "Completion Rate"}
+              title="Miera dokončenia"
               value={`${((stats?.completedContacts || 0) / Math.max(stats?.totalContacts || 1, 1) * 100).toFixed(1)}%`}
+              description="Dokončení / Celkovo"
               icon={CheckCircle}
             />
             <StatsCard
-              title={t.campaigns?.detail?.avgAttempts || "Avg Attempts"}
+              title="Konverzný pomer"
+              value={`${(((stats?.completedContacts || 0) / Math.max((stats?.contactedContacts || 0) + (stats?.completedContacts || 0), 1)) * 100).toFixed(1)}%`}
+              description="Dokončení / Kontaktovaní"
+              icon={Users}
+            />
+            <StatsCard
+              title="Priemer pokusov"
               value={contacts.length > 0 
                 ? (contacts.reduce((sum, c) => sum + (c.attemptCount || 0), 0) / contacts.length).toFixed(1)
                 : "0"
               }
+              description="Na kontakt"
               icon={RefreshCw}
             />
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-lg bg-green-100 dark:bg-green-900/30">
+                    <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Úspešné</p>
+                    <p className="text-2xl font-bold">{stats?.completedContacts || 0}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-lg bg-yellow-100 dark:bg-yellow-900/30">
+                    <Clock className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Čakajúce</p>
+                    <p className="text-2xl font-bold">{stats?.pendingContacts || 0}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-lg bg-red-100 dark:bg-red-900/30">
+                    <Phone className="h-6 w-6 text-red-600 dark:text-red-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Bez odpovede</p>
+                    <p className="text-2xl font-bold">{stats?.noAnswerContacts || 0}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-lg bg-gray-100 dark:bg-gray-800">
+                    <Users className="h-6 w-6 text-gray-600 dark:text-gray-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Nezáujem</p>
+                    <p className="text-2xl font-bold">{stats?.notInterestedContacts || 0}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
