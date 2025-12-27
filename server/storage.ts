@@ -38,10 +38,11 @@ import {
   type UserRole, type InsertUserRole,
   type Department, type InsertDepartment,
   savedSearches, type SavedSearch, type InsertSavedSearch,
-  campaigns, campaignContacts, campaignContactHistory,
+  campaigns, campaignContacts, campaignContactHistory, campaignTemplates,
   campaignSchedules, campaignOperatorSettings, campaignContactSessions, campaignMetricsSnapshots,
   type Campaign, type InsertCampaign,
   type CampaignContact, type InsertCampaignContact,
+  type CampaignTemplate, type InsertCampaignTemplate,
   type CampaignContactHistory, type InsertCampaignContactHistory,
   type CampaignSchedule, type InsertCampaignSchedule,
   type CampaignOperatorSetting, type InsertCampaignOperatorSetting,
@@ -286,6 +287,13 @@ export interface IStorage {
   // Campaign Contact History
   getCampaignContactHistory(campaignContactId: string): Promise<CampaignContactHistory[]>;
   createCampaignContactHistory(data: InsertCampaignContactHistory): Promise<CampaignContactHistory>;
+
+  // Campaign Templates
+  getAllCampaignTemplates(): Promise<CampaignTemplate[]>;
+  getCampaignTemplate(id: string): Promise<CampaignTemplate | undefined>;
+  createCampaignTemplate(data: InsertCampaignTemplate): Promise<CampaignTemplate>;
+  updateCampaignTemplate(id: string, data: Partial<InsertCampaignTemplate>): Promise<CampaignTemplate | undefined>;
+  deleteCampaignTemplate(id: string): Promise<boolean>;
 
   // Campaign Schedules
   getCampaignSchedule(campaignId: string): Promise<CampaignSchedule | undefined>;
@@ -1418,6 +1426,34 @@ export class DatabaseStorage implements IStorage {
   async createCampaignContactHistory(data: InsertCampaignContactHistory): Promise<CampaignContactHistory> {
     const [created] = await db.insert(campaignContactHistory).values(data).returning();
     return created;
+  }
+
+  // Campaign Templates
+  async getAllCampaignTemplates(): Promise<CampaignTemplate[]> {
+    return db.select().from(campaignTemplates).orderBy(desc(campaignTemplates.createdAt));
+  }
+
+  async getCampaignTemplate(id: string): Promise<CampaignTemplate | undefined> {
+    const [template] = await db.select().from(campaignTemplates).where(eq(campaignTemplates.id, id));
+    return template || undefined;
+  }
+
+  async createCampaignTemplate(data: InsertCampaignTemplate): Promise<CampaignTemplate> {
+    const [created] = await db.insert(campaignTemplates).values(data).returning();
+    return created;
+  }
+
+  async updateCampaignTemplate(id: string, data: Partial<InsertCampaignTemplate>): Promise<CampaignTemplate | undefined> {
+    const [updated] = await db.update(campaignTemplates)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(campaignTemplates.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteCampaignTemplate(id: string): Promise<boolean> {
+    const result = await db.delete(campaignTemplates).where(eq(campaignTemplates.id, id));
+    return !!result;
   }
 
   // Campaign Schedules

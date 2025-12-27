@@ -6,7 +6,8 @@ import { useAuth } from "@/contexts/auth-context";
 import { 
   ArrowLeft, Users, Settings, BarChart3, FileText, 
   Play, Pause, CheckCircle, Clock, Phone, User, Calendar,
-  RefreshCw, Download, Filter, MoreHorizontal, Trash2, CheckCheck
+  RefreshCw, Download, Filter, MoreHorizontal, Trash2, CheckCheck,
+  Copy, Save
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -313,6 +314,33 @@ export default function CampaignDetailPage() {
     },
   });
 
+  const cloneCampaignMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", `/api/campaigns/${campaignId}/clone`, {});
+    },
+    onSuccess: (newCampaign: any) => {
+      toast({ title: "Kampaň naklonovaná" });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
+      window.location.href = `/campaigns/${newCampaign.id}`;
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa naklonovať kampaň.", variant: "destructive" });
+    },
+  });
+
+  const saveAsTemplateMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", `/api/campaigns/${campaignId}/save-as-template`, {});
+    },
+    onSuccess: () => {
+      toast({ title: "Šablóna uložená" });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaign-templates"] });
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa uložiť šablónu.", variant: "destructive" });
+    },
+  });
+
   const bulkUpdateContactsMutation = useMutation({
     mutationFn: async ({ contactIds, data }: { contactIds: string[]; data: any }) => {
       return apiRequest("POST", `/api/campaigns/${campaignId}/contacts/bulk-update`, { contactIds, ...data });
@@ -530,6 +558,31 @@ export default function CampaignDetailPage() {
               Obnoviť
             </Button>
           )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" data-testid="button-campaign-more">
+                <MoreHorizontal className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem 
+                onClick={() => cloneCampaignMutation.mutate()}
+                disabled={cloneCampaignMutation.isPending}
+                data-testid="button-clone-campaign"
+              >
+                <Copy className="w-4 h-4 mr-2" />
+                Klonovať kampaň
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => saveAsTemplateMutation.mutate()}
+                disabled={saveAsTemplateMutation.isPending}
+                data-testid="button-save-as-template"
+              >
+                <Save className="w-4 h-4 mr-2" />
+                Uložiť ako šablónu
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

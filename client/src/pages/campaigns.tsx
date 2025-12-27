@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Plus, Pencil, Trash2, Search, Megaphone, PlayCircle, CheckCircle, Clock, XCircle, ExternalLink } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Megaphone, PlayCircle, CheckCircle, Clock, XCircle, ExternalLink, FileText } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/auth-context";
 import { useCountryFilter } from "@/contexts/country-filter-context";
@@ -49,7 +49,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { type Campaign, COUNTRIES } from "@shared/schema";
+import { type Campaign, type CampaignTemplate, COUNTRIES } from "@shared/schema";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
@@ -72,40 +72,59 @@ const CAMPAIGN_STATUSES = ["draft", "active", "paused", "completed", "cancelled"
 
 function CampaignForm({
   initialData,
+  templateData,
   onSubmit,
   isLoading,
   onCancel,
   t,
 }: {
   initialData?: Campaign;
+  templateData?: CampaignTemplate | null;
   onSubmit: (data: CampaignFormData) => void;
   isLoading: boolean;
   onCancel: () => void;
   t: any;
 }) {
+  const getDefaultValues = () => {
+    if (initialData) {
+      return {
+        name: initialData.name,
+        description: initialData.description || "",
+        type: initialData.type as any,
+        status: initialData.status as any,
+        countryCodes: initialData.countryCodes || [],
+        startDate: initialData.startDate ? format(new Date(initialData.startDate), "yyyy-MM-dd") : "",
+        endDate: initialData.endDate ? format(new Date(initialData.endDate), "yyyy-MM-dd") : "",
+        criteria: initialData.criteria || "",
+      };
+    }
+    if (templateData) {
+      return {
+        name: "",
+        description: templateData.description || "",
+        type: templateData.type as any,
+        status: "draft" as const,
+        countryCodes: templateData.countryCodes || [],
+        startDate: "",
+        endDate: "",
+        criteria: templateData.criteria || "",
+      };
+    }
+    return {
+      name: "",
+      description: "",
+      type: "marketing" as const,
+      status: "draft" as const,
+      countryCodes: [],
+      startDate: "",
+      endDate: "",
+      criteria: "",
+    };
+  };
+
   const form = useForm<CampaignFormData>({
     resolver: zodResolver(campaignFormSchema),
-    defaultValues: initialData
-      ? {
-          name: initialData.name,
-          description: initialData.description || "",
-          type: initialData.type as any,
-          status: initialData.status as any,
-          countryCodes: initialData.countryCodes || [],
-          startDate: initialData.startDate ? format(new Date(initialData.startDate), "yyyy-MM-dd") : "",
-          endDate: initialData.endDate ? format(new Date(initialData.endDate), "yyyy-MM-dd") : "",
-          criteria: initialData.criteria || "",
-        }
-      : {
-          name: "",
-          description: "",
-          type: "marketing",
-          status: "draft",
-          countryCodes: [],
-          startDate: "",
-          endDate: "",
-          criteria: "",
-        },
+    defaultValues: getDefaultValues(),
   });
 
   return (
@@ -278,9 +297,14 @@ export default function CampaignsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
   const [deletingCampaign, setDeletingCampaign] = useState<Campaign | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<CampaignTemplate | null>(null);
 
   const { data: campaigns = [], isLoading } = useQuery<Campaign[]>({
     queryKey: ["/api/campaigns"],
+  });
+
+  const { data: templates = [] } = useQuery<CampaignTemplate[]>({
+    queryKey: ["/api/campaign-templates"],
   });
 
   const createMutation = useMutation({
@@ -486,7 +510,10 @@ export default function CampaignsPage() {
 
       <Dialog open={isDialogOpen} onOpenChange={(open) => {
         setIsDialogOpen(open);
-        if (!open) setEditingCampaign(null);
+        if (!open) {
+          setEditingCampaign(null);
+          setSelectedTemplate(null);
+        }
       }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -501,13 +528,45 @@ export default function CampaignsPage() {
                 : (t.campaigns?.addCampaignDesc || "Create a new marketing or sales campaign")}
             </DialogDescription>
           </DialogHeader>
+          
+          {!editingCampaign && templates.length > 0 && (
+            <div className="space-y-2 pb-4 border-b">
+              <Label className="text-sm font-medium">Použiť šablónu</Label>
+              <Select 
+                value={selectedTemplate?.id || ""} 
+                onValueChange={(value) => {
+                  const template = templates.find(t => t.id === value);
+                  setSelectedTemplate(template || null);
+                }}
+              >
+                <SelectTrigger data-testid="select-template">
+                  <SelectValue placeholder="Vybrať šablónu (voliteľné)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Bez šablóny</SelectItem>
+                  {templates.map((template) => (
+                    <SelectItem key={template.id} value={template.id}>
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4" />
+                        {template.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          
           <CampaignForm
+            key={selectedTemplate?.id || "new"}
             initialData={editingCampaign || undefined}
+            templateData={selectedTemplate}
             onSubmit={handleSubmit}
             isLoading={createMutation.isPending || updateMutation.isPending}
             onCancel={() => {
               setIsDialogOpen(false);
               setEditingCampaign(null);
+              setSelectedTemplate(null);
             }}
             t={t}
           />

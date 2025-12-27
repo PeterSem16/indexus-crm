@@ -1458,6 +1458,40 @@ export const insertCampaignContactHistorySchema = createInsertSchema(campaignCon
 export type InsertCampaignContactHistory = z.infer<typeof insertCampaignContactHistorySchema>;
 export type CampaignContactHistory = typeof campaignContactHistory.$inferSelect;
 
+// Campaign templates - reusable campaign configurations
+export const campaignTemplates = pgTable("campaign_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  type: text("type").notNull().default("marketing"),
+  countryCodes: text("country_codes").array().notNull().default(sql`ARRAY[]::text[]`),
+  criteria: text("criteria"),
+  settings: text("settings"),
+  script: text("script"),
+  isDefault: boolean("is_default").notNull().default(false),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertCampaignTemplateSchema = createInsertSchema(campaignTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  description: z.string().optional().nullable(),
+  type: z.enum(["marketing", "sales", "follow_up", "retention", "upsell", "other"]).optional().default("marketing"),
+  countryCodes: z.array(z.string()).optional().default([]),
+  criteria: z.string().optional().nullable(),
+  settings: z.string().optional().nullable(),
+  script: z.string().optional().nullable(),
+  isDefault: z.boolean().optional().default(false),
+  createdBy: z.string().optional().nullable(),
+});
+
+export type InsertCampaignTemplate = z.infer<typeof insertCampaignTemplateSchema>;
+export type CampaignTemplate = typeof campaignTemplates.$inferSelect;
+
 // Campaign schedules - working hours and scheduling rules
 export const campaignSchedules = pgTable("campaign_schedules", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

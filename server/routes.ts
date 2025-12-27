@@ -3642,6 +3642,149 @@ export async function registerRoutes(
     }
   });
 
+  // Campaign Templates endpoints
+  app.get("/api/campaign-templates", requireAuth, async (req, res) => {
+    try {
+      const templates = await storage.getAllCampaignTemplates();
+      res.json(templates);
+    } catch (error) {
+      console.error("Failed to fetch campaign templates:", error);
+      res.status(500).json({ error: "Failed to fetch campaign templates" });
+    }
+  });
+
+  app.get("/api/campaign-templates/:id", requireAuth, async (req, res) => {
+    try {
+      const template = await storage.getCampaignTemplate(req.params.id);
+      if (!template) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+      res.json(template);
+    } catch (error) {
+      console.error("Failed to fetch campaign template:", error);
+      res.status(500).json({ error: "Failed to fetch campaign template" });
+    }
+  });
+
+  app.post("/api/campaign-templates", requireAuth, async (req, res) => {
+    try {
+      const template = await storage.createCampaignTemplate({
+        ...req.body,
+        createdBy: req.session.user!.id,
+      });
+      res.status(201).json(template);
+    } catch (error) {
+      console.error("Failed to create campaign template:", error);
+      res.status(500).json({ error: "Failed to create campaign template" });
+    }
+  });
+
+  app.patch("/api/campaign-templates/:id", requireAuth, async (req, res) => {
+    try {
+      const template = await storage.updateCampaignTemplate(req.params.id, req.body);
+      if (!template) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+      res.json(template);
+    } catch (error) {
+      console.error("Failed to update campaign template:", error);
+      res.status(500).json({ error: "Failed to update campaign template" });
+    }
+  });
+
+  app.delete("/api/campaign-templates/:id", requireAuth, async (req, res) => {
+    try {
+      const deleted = await storage.deleteCampaignTemplate(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error("Failed to delete campaign template:", error);
+      res.status(500).json({ error: "Failed to delete campaign template" });
+    }
+  });
+
+  // Clone campaign endpoint
+  app.post("/api/campaigns/:id/clone", requireAuth, async (req, res) => {
+    try {
+      const sourceCampaign = await storage.getCampaign(req.params.id);
+      if (!sourceCampaign) {
+        return res.status(404).json({ error: "Campaign not found" });
+      }
+
+      const { name } = req.body;
+      const clonedCampaign = await storage.createCampaign({
+        name: name || `${sourceCampaign.name} (kópia)`,
+        description: sourceCampaign.description,
+        type: sourceCampaign.type as any,
+        status: "draft",
+        countryCodes: sourceCampaign.countryCodes || [],
+        criteria: sourceCampaign.criteria,
+        settings: sourceCampaign.settings,
+        createdBy: req.session.user!.id,
+      });
+
+      res.status(201).json(clonedCampaign);
+    } catch (error) {
+      console.error("Failed to clone campaign:", error);
+      res.status(500).json({ error: "Failed to clone campaign" });
+    }
+  });
+
+  // Save campaign as template
+  app.post("/api/campaigns/:id/save-as-template", requireAuth, async (req, res) => {
+    try {
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) {
+        return res.status(404).json({ error: "Campaign not found" });
+      }
+
+      const { name, description } = req.body;
+      const template = await storage.createCampaignTemplate({
+        name: name || `${campaign.name} - Šablóna`,
+        description: description || campaign.description,
+        type: campaign.type as any,
+        countryCodes: campaign.countryCodes || [],
+        criteria: campaign.criteria,
+        settings: campaign.settings,
+        createdBy: req.session.user!.id,
+      });
+
+      res.status(201).json(template);
+    } catch (error) {
+      console.error("Failed to save campaign as template:", error);
+      res.status(500).json({ error: "Failed to save campaign as template" });
+    }
+  });
+
+  // Create campaign from template
+  app.post("/api/campaign-templates/:id/create-campaign", requireAuth, async (req, res) => {
+    try {
+      const template = await storage.getCampaignTemplate(req.params.id);
+      if (!template) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+
+      const { name } = req.body;
+      const campaign = await storage.createCampaign({
+        name: name || `${template.name} - Kampaň`,
+        description: template.description,
+        type: template.type as any,
+        status: "draft",
+        countryCodes: template.countryCodes || [],
+        criteria: template.criteria,
+        settings: template.settings,
+        createdBy: req.session.user!.id,
+      });
+
+      res.status(201).json(campaign);
+    } catch (error) {
+      console.error("Failed to create campaign from template:", error);
+      res.status(500).json({ error: "Failed to create campaign from template" });
+    }
+  });
+
   // Campaign Schedule endpoints
   app.get("/api/campaigns/:id/schedule", requireAuth, async (req, res) => {
     try {
