@@ -1360,3 +1360,88 @@ export const insertUserRoleSchema = createInsertSchema(userRoles).omit({
 
 export type InsertUserRole = z.infer<typeof insertUserRoleSchema>;
 export type UserRole = typeof userRoles.$inferSelect;
+
+// Campaigns - marketing/sales campaigns with dynamic criteria
+export const campaigns = pgTable("campaigns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  type: text("type").notNull().default("phone"), // phone, email, sms, mixed
+  status: text("status").notNull().default("draft"), // draft, active, paused, completed
+  countryCodes: text("country_codes").array().notNull().default(sql`ARRAY[]::text[]`),
+  criteria: text("criteria"), // JSON string with filter criteria
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  createdBy: varchar("created_by"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertCampaignSchema = createInsertSchema(campaigns).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  description: z.string().optional().nullable(),
+  type: z.enum(["phone", "email", "sms", "mixed"]).optional().default("phone"),
+  status: z.enum(["draft", "active", "paused", "completed"]).optional().default("draft"),
+  countryCodes: z.array(z.string()).optional().default([]),
+  criteria: z.string().optional().nullable(),
+  startDate: z.string().optional().nullable(),
+  endDate: z.string().optional().nullable(),
+  createdBy: z.string().optional().nullable(),
+});
+
+export type InsertCampaign = z.infer<typeof insertCampaignSchema>;
+export type Campaign = typeof campaigns.$inferSelect;
+
+// Campaign contacts - customers targeted in a campaign
+export const campaignContacts = pgTable("campaign_contacts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id").notNull(),
+  customerId: varchar("customer_id").notNull(),
+  status: text("status").notNull().default("pending"), // pending, contacted, completed, failed, no_answer, callback_scheduled, not_interested
+  assignedTo: varchar("assigned_to"), // user id
+  notes: text("notes"),
+  callbackDate: timestamp("callback_date"),
+  contactedAt: timestamp("contacted_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertCampaignContactSchema = createInsertSchema(campaignContacts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  status: z.enum(["pending", "contacted", "completed", "failed", "no_answer", "callback_scheduled", "not_interested"]).optional().default("pending"),
+  assignedTo: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+  callbackDate: z.string().optional().nullable(),
+  contactedAt: z.string().optional().nullable(),
+  completedAt: z.string().optional().nullable(),
+});
+
+export type InsertCampaignContact = z.infer<typeof insertCampaignContactSchema>;
+export type CampaignContact = typeof campaignContacts.$inferSelect;
+
+// Campaign contact history - log of all interactions
+export const campaignContactHistory = pgTable("campaign_contact_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignContactId: varchar("campaign_contact_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  action: text("action").notNull(), // status_change, note_added, callback_set
+  previousStatus: text("previous_status"),
+  newStatus: text("new_status"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertCampaignContactHistorySchema = createInsertSchema(campaignContactHistory).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertCampaignContactHistory = z.infer<typeof insertCampaignContactHistorySchema>;
+export type CampaignContactHistory = typeof campaignContactHistory.$inferSelect;
