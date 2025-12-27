@@ -526,24 +526,24 @@ function CustomerDetailsContent({
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <p className="text-sm font-medium text-muted-foreground">Country</p>
+            <p className="text-sm font-medium text-muted-foreground">{t.customers.details?.country || "Country"}</p>
             <p className="flex items-center gap-2 mt-1">
               <span>{getCountryFlag(customer.country)}</span>
               {getCountryName(customer.country)}
             </p>
           </div>
           <div>
-            <p className="text-sm font-medium text-muted-foreground">Status</p>
+            <p className="text-sm font-medium text-muted-foreground">{t.customers.details?.status || "Status"}</p>
             <div className="mt-1">
               <StatusBadge status={customer.status as any} />
             </div>
           </div>
           <div>
-            <p className="text-sm font-medium text-muted-foreground">Phone</p>
+            <p className="text-sm font-medium text-muted-foreground">{t.customers.details?.phone || "Phone"}</p>
             <p className="mt-1">{customer.phone || "-"}</p>
           </div>
           <div>
-            <p className="text-sm font-medium text-muted-foreground">Service Type</p>
+            <p className="text-sm font-medium text-muted-foreground">{t.customers.details?.serviceType || "Service Type"}</p>
             <p className="mt-1 capitalize">{customer.serviceType?.replace("_", " ") || "-"}</p>
           </div>
         </div>
@@ -582,14 +582,14 @@ function CustomerDetailsContent({
             <div className="flex items-center justify-between">
               <h4 className="font-semibold flex items-center gap-2">
                 <Package className="h-4 w-4" />
-                Assigned Products
+                {t.customers.details?.assignedProducts || "Assigned Products"}
               </h4>
             </div>
 
             {productsLoading ? (
-              <p className="text-sm text-muted-foreground">Loading products...</p>
+              <p className="text-sm text-muted-foreground">{t.customers.details?.loadingProducts || "Loading products..."}</p>
             ) : customerProducts.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No products assigned yet.</p>
+              <p className="text-sm text-muted-foreground">{t.customers.details?.noProducts || "No products assigned yet."}</p>
             ) : (
               <div className="space-y-2">
                 {customerProducts.map((cp) => (
@@ -620,10 +620,10 @@ function CustomerDetailsContent({
             {availableProducts.length > 0 && (
               <div className="flex items-end gap-2">
                 <div className="flex-1">
-                  <Label className="text-xs">Add Product</Label>
+                  <Label className="text-xs">{t.customers.details?.addProduct || "Add Product"}</Label>
                   <Select value={selectedProductId} onValueChange={setSelectedProductId}>
                     <SelectTrigger data-testid="select-add-product">
-                      <SelectValue placeholder="Select product" />
+                      <SelectValue placeholder={t.customers.details?.selectProduct || "Select product"} />
                     </SelectTrigger>
                     <SelectContent>
                       {availableProducts.map((p) => (
@@ -635,7 +635,7 @@ function CustomerDetailsContent({
                   </Select>
                 </div>
                 <div className="w-20">
-                  <Label className="text-xs">Qty</Label>
+                  <Label className="text-xs">{t.customers.details?.quantity || "Qty"}</Label>
                   <Input
                     type="number"
                     min={1}
@@ -651,7 +651,7 @@ function CustomerDetailsContent({
                     if (selectedProductId && qty > 0) {
                       addProductMutation.mutate({ productId: selectedProductId, quantity: qty });
                     } else {
-                      toast({ title: "Please select a product and enter a valid quantity", variant: "destructive" });
+                      toast({ title: t.customers.details?.productValidation || "Please select a product and enter a valid quantity", variant: "destructive" });
                     }
                   }}
                   disabled={!selectedProductId || !quantity || parseInt(quantity) < 1 || addProductMutation.isPending}
@@ -669,7 +669,7 @@ function CustomerDetailsContent({
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <h4 className="font-semibold flex items-center gap-2">
                 <FileText className="h-4 w-4" />
-                Invoices
+                {t.customers.details?.invoices || "Invoices"}
               </h4>
               <Button
                 size="sm"
@@ -677,14 +677,14 @@ function CustomerDetailsContent({
                 data-testid="button-create-invoice"
               >
                 <Calculator className="h-4 w-4 mr-2" />
-                Create Invoice
+                {t.customers.details?.createInvoice || "Create Invoice"}
               </Button>
             </div>
 
             {invoicesLoading ? (
-              <p className="text-sm text-muted-foreground">Loading invoices...</p>
+              <p className="text-sm text-muted-foreground">{t.customers.details?.loadingInvoices || "Loading invoices..."}</p>
             ) : customerInvoices.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No invoices generated yet.</p>
+              <p className="text-sm text-muted-foreground">{t.customers.details?.noInvoices || "No invoices generated yet."}</p>
             ) : (
               <div className="space-y-2">
                 {customerInvoices.map((inv) => (
@@ -723,28 +723,28 @@ function CustomerDetailsContent({
           <div className="space-y-4">
             <h4 className="font-semibold flex items-center gap-2">
               <Mail className="h-4 w-4" />
-              Send Email
+              {t.customers.details?.sendEmail || "Send Email"}
             </h4>
             <div className="space-y-3">
               <div>
-                <Label className="text-xs">To</Label>
+                <Label className="text-xs">{t.customers.details?.to || "To"}</Label>
                 <Input value={customer.email} disabled className="bg-muted" data-testid="input-email-to" />
               </div>
               <div>
-                <Label className="text-xs">Subject</Label>
+                <Label className="text-xs">{t.customers.details?.subject || "Subject"}</Label>
                 <Input
                   value={emailSubject}
                   onChange={(e) => setEmailSubject(e.target.value)}
-                  placeholder="Email subject..."
+                  placeholder={t.customers.details?.emailSubjectPlaceholder || "Email subject..."}
                   data-testid="input-email-subject"
                 />
               </div>
               <div>
-                <Label className="text-xs">Message</Label>
+                <Label className="text-xs">{t.customers.details?.message || "Message"}</Label>
                 <Textarea
                   value={emailContent}
                   onChange={(e) => setEmailContent(e.target.value)}
-                  placeholder="Write your email message..."
+                  placeholder={t.customers.details?.writeEmailPlaceholder || "Write your email message..."}
                   className="min-h-[100px]"
                   data-testid="input-email-content"
                 />
@@ -756,7 +756,7 @@ function CustomerDetailsContent({
                   data-testid="button-send-email"
                 >
                   <Send className="h-4 w-4 mr-2" />
-                  {sendEmailMutation.isPending ? "Sending..." : "Send Email"}
+                  {sendEmailMutation.isPending ? (t.customers.details?.sending || "Sending...") : (t.customers.details?.sendEmail || "Send Email")}
                 </Button>
               </div>
             </div>
@@ -767,25 +767,25 @@ function CustomerDetailsContent({
           <div className="space-y-4">
             <h4 className="font-semibold flex items-center gap-2">
               <Phone className="h-4 w-4" />
-              Send SMS
+              {t.customers.details?.sendSms || "Send SMS"}
             </h4>
             {customer.phone ? (
               <div className="space-y-3">
                 <div>
-                  <Label className="text-xs">To</Label>
+                  <Label className="text-xs">{t.customers.details?.to || "To"}</Label>
                   <Input value={customer.phone} disabled className="bg-muted" data-testid="input-sms-to" />
                 </div>
                 <div>
-                  <Label className="text-xs">Message</Label>
+                  <Label className="text-xs">{t.customers.details?.message || "Message"}</Label>
                   <Textarea
                     value={smsContent}
                     onChange={(e) => setSmsContent(e.target.value)}
-                    placeholder="Write your SMS message..."
+                    placeholder={t.customers.details?.writeSmsPlaceholder || "Write your SMS message..."}
                     className="min-h-[80px]"
                     maxLength={160}
                     data-testid="input-sms-content"
                   />
-                  <p className="text-xs text-muted-foreground mt-1">{smsContent.length}/160 characters</p>
+                  <p className="text-xs text-muted-foreground mt-1">{smsContent.length}/160 {t.customers.details?.characters || "characters"}</p>
                 </div>
                 <div className="flex justify-end">
                   <Button
@@ -794,23 +794,23 @@ function CustomerDetailsContent({
                     data-testid="button-send-sms"
                   >
                     <Send className="h-4 w-4 mr-2" />
-                    {sendSmsMutation.isPending ? "Sending..." : "Send SMS"}
+                    {sendSmsMutation.isPending ? (t.customers.details?.sending || "Sending...") : (t.customers.details?.sendSms || "Send SMS")}
                   </Button>
                 </div>
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">No phone number on file for this customer.</p>
+              <p className="text-sm text-muted-foreground">{t.customers.details?.noPhone || "No phone number on file for this customer."}</p>
             )}
           </div>
 
           <Separator />
 
           <div className="space-y-4">
-            <h4 className="font-semibold">Message History</h4>
+            <h4 className="font-semibold">{t.customers.details?.messageHistory || "Message History"}</h4>
             {messagesLoading ? (
-              <p className="text-sm text-muted-foreground">Loading messages...</p>
+              <p className="text-sm text-muted-foreground">{t.customers.details?.loadingMessages || "Loading messages..."}</p>
             ) : communicationMessages.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No messages sent yet.</p>
+              <p className="text-sm text-muted-foreground">{t.customers.details?.noMessages || "No messages sent yet."}</p>
             ) : (
               <div className="space-y-3">
                 {communicationMessages.map((msg) => (
@@ -842,7 +842,7 @@ function CustomerDetailsContent({
           <div className="space-y-4">
             <div className="flex gap-2">
               <Textarea
-                placeholder="Add a note about this customer..."
+                placeholder={t.customers.details?.addNotePlaceholder || "Add a note about this customer..."}
                 value={newNoteContent}
                 onChange={(e) => setNewNoteContent(e.target.value)}
                 className="min-h-[80px]"
@@ -856,7 +856,7 @@ function CustomerDetailsContent({
                 data-testid="button-add-note"
               >
                 <Send className="h-4 w-4 mr-2" />
-                {createNoteMutation.isPending ? "Adding..." : "Add Note"}
+                {createNoteMutation.isPending ? (t.customers.details?.adding || "Adding...") : (t.customers.details?.addNote || "Add Note")}
               </Button>
             </div>
           </div>
@@ -865,9 +865,9 @@ function CustomerDetailsContent({
 
           <div className="space-y-3">
             {notesLoading ? (
-              <p className="text-sm text-muted-foreground">Loading notes...</p>
+              <p className="text-sm text-muted-foreground">{t.customers.details?.loadingNotes || "Loading notes..."}</p>
             ) : customerNotes.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No notes yet.</p>
+              <p className="text-sm text-muted-foreground">{t.customers.details?.noNotes || "No notes yet."}</p>
             ) : (
               customerNotes.map((note) => (
                 <div key={note.id} className="p-3 rounded-lg bg-muted/50 space-y-1">
@@ -940,29 +940,29 @@ function CustomerDetailsContent({
           data-testid="button-edit-from-view"
         >
           <Pencil className="h-4 w-4 mr-2" />
-          Edit Customer
+          {t.customers.details?.editCustomer || "Edit Customer"}
         </Button>
       </div>
 
       <Dialog open={isManualInvoiceOpen} onOpenChange={setIsManualInvoiceOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Create Invoice</DialogTitle>
+            <DialogTitle>{t.customers.details?.createInvoice || "Create Invoice"}</DialogTitle>
             <DialogDescription>
-              Select products and specify amounts for {customer.firstName} {customer.lastName}
+              {t.customers.details?.selectProductsFor || "Select products and specify amounts for"} {customer.firstName} {customer.lastName}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-6">
             {billingCompanies.length > 0 && (
               <div className="space-y-2">
-                <Label>Billing Company</Label>
+                <Label>{t.customers.details?.billingCompany || "Billing Company"}</Label>
                 <Select
                   value={selectedBillingCompanyId || billingDetails?.id || ""}
                   onValueChange={setSelectedBillingCompanyId}
                 >
                   <SelectTrigger data-testid="select-billing-company">
-                    <SelectValue placeholder="Select billing company" />
+                    <SelectValue placeholder={t.customers.details?.selectBillingCompany || "Select billing company"} />
                   </SelectTrigger>
                   <SelectContent>
                     {billingCompanies.map((bc) => (
@@ -979,7 +979,7 @@ function CustomerDetailsContent({
                       {billingDetails.address}, {billingDetails.city}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      VAT: {billingDetails.vatRate}% | Currency: {billingDetails.currency}
+                      {t.customers.details?.vatLabel || "VAT"}: {billingDetails.vatRate}% | {t.customers.details?.currencyLabel || "Currency"}: {billingDetails.currency}
                     </p>
                   </div>
                 )}
@@ -1019,14 +1019,14 @@ function CustomerDetailsContent({
 
               <div className="flex items-end gap-2 flex-wrap">
                 <div className="flex-1 min-w-[200px]">
-                  <Label className="text-xs">Product</Label>
+                  <Label className="text-xs">{t.customers.details?.product || "Product"}</Label>
                   <Select value={newLineProductId} onValueChange={(val) => {
                     setNewLineProductId(val);
                     const prod = activeProducts.find(p => p.id === val);
                     if (prod) setNewLinePrice(prod.price);
                   }}>
                     <SelectTrigger data-testid="select-invoice-product">
-                      <SelectValue placeholder="Select product" />
+                      <SelectValue placeholder={t.customers.details?.selectProduct || "Select product"} />
                     </SelectTrigger>
                     <SelectContent>
                       {activeProducts.map((p) => (
@@ -1038,7 +1038,7 @@ function CustomerDetailsContent({
                   </Select>
                 </div>
                 <div className="w-20">
-                  <Label className="text-xs">Qty</Label>
+                  <Label className="text-xs">{t.customers.details?.quantity || "Qty"}</Label>
                   <Input
                     type="number"
                     min={1}
@@ -1048,7 +1048,7 @@ function CustomerDetailsContent({
                   />
                 </div>
                 <div className="w-28">
-                  <Label className="text-xs">Unit Price</Label>
+                  <Label className="text-xs">{t.customers.details?.unitPrice || "Unit Price"}</Label>
                   <Input
                     type="number"
                     step="0.01"
@@ -1077,36 +1077,33 @@ function CustomerDetailsContent({
                   <span>{subtotal.toFixed(2)} {invoiceLines[0]?.currency}</span>
                 </div>
                 <div className="flex justify-between text-sm text-muted-foreground">
-                  <span>VAT ({vatRate}%)</span>
+                  <span>{t.customers.details?.vatLabel || "VAT"} ({vatRate}%)</span>
                   <span>{vatAmount.toFixed(2)} {invoiceLines[0]?.currency}</span>
                 </div>
                 <div className="flex justify-between font-semibold text-lg">
-                  <span>Total</span>
+                  <span>{t.customers.details?.total || "Total"}</span>
                   <span>{totalAmount.toFixed(2)} {invoiceLines[0]?.currency}</span>
                 </div>
               </div>
             )}
 
             <div className="space-y-2">
-              <Label>Payment Term</Label>
+              <Label>{t.customers.details?.paymentTerm || "Payment Term"}</Label>
               <Select
                 value={(selectedPaymentTerm || billingDetails?.defaultPaymentTerm || 14).toString()}
                 onValueChange={(val) => setSelectedPaymentTerm(parseInt(val))}
               >
                 <SelectTrigger data-testid="select-payment-term">
-                  <SelectValue placeholder="Select payment term" />
+                  <SelectValue placeholder={t.customers.details?.selectPaymentTerm || "Select payment term"} />
                 </SelectTrigger>
                 <SelectContent>
                   {availablePaymentTerms.map((days) => (
                     <SelectItem key={days} value={days.toString()}>
-                      {days} days
+                      {days} {t.common?.days || "days"}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">
-                Due date will be calculated from invoice date
-              </p>
             </div>
 
             <div className="flex gap-2 justify-end pt-4">
@@ -1118,14 +1115,14 @@ function CustomerDetailsContent({
                 }}
                 data-testid="button-cancel-invoice"
               >
-                Cancel
+                {t.common?.cancel || "Cancel"}
               </Button>
               <Button
                 onClick={handleCreateManualInvoice}
                 disabled={invoiceLines.length === 0 || manualInvoiceMutation.isPending}
                 data-testid="button-submit-invoice"
               >
-                {manualInvoiceMutation.isPending ? "Creating..." : "Create Invoice"}
+                {manualInvoiceMutation.isPending ? (t.customers.details?.generating || "Generating...") : (t.customers.details?.generate || "Generate Invoice")}
               </Button>
             </div>
           </div>
