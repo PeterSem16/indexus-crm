@@ -37,7 +37,11 @@ import {
   type RoleFieldPermission, type InsertRoleFieldPermission,
   type UserRole, type InsertUserRole,
   type Department, type InsertDepartment,
-  savedSearches, type SavedSearch, type InsertSavedSearch
+  savedSearches, type SavedSearch, type InsertSavedSearch,
+  campaigns, campaignContacts, campaignContactHistory,
+  type Campaign, type InsertCampaign,
+  type CampaignContact, type InsertCampaignContact,
+  type CampaignContactHistory, type InsertCampaignContactHistory
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, inArray, sql, desc, and } from "drizzle-orm";
@@ -257,6 +261,26 @@ export interface IStorage {
   createSavedSearch(data: InsertSavedSearch): Promise<SavedSearch>;
   deleteSavedSearch(id: string): Promise<boolean>;
   deleteSavedSearchForUser(id: string, userId: string): Promise<boolean>;
+
+  // Campaigns
+  getAllCampaigns(): Promise<Campaign[]>;
+  getCampaign(id: string): Promise<Campaign | undefined>;
+  createCampaign(data: InsertCampaign): Promise<Campaign>;
+  updateCampaign(id: string, data: Partial<InsertCampaign>): Promise<Campaign | undefined>;
+  deleteCampaign(id: string): Promise<boolean>;
+
+  // Campaign Contacts
+  getCampaignContacts(campaignId: string): Promise<CampaignContact[]>;
+  getCampaignContact(id: string): Promise<CampaignContact | undefined>;
+  createCampaignContact(data: InsertCampaignContact): Promise<CampaignContact>;
+  createCampaignContacts(data: InsertCampaignContact[]): Promise<CampaignContact[]>;
+  updateCampaignContact(id: string, data: Partial<InsertCampaignContact>): Promise<CampaignContact | undefined>;
+  deleteCampaignContact(id: string): Promise<boolean>;
+  deleteCampaignContactsByCampaign(campaignId: string): Promise<boolean>;
+
+  // Campaign Contact History
+  getCampaignContactHistory(campaignContactId: string): Promise<CampaignContactHistory[]>;
+  createCampaignContactHistory(data: InsertCampaignContactHistory): Promise<CampaignContactHistory>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1248,6 +1272,114 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(savedSearches.id, id), eq(savedSearches.userId, userId)))
       .returning();
     return result.length > 0;
+  }
+
+  // Campaigns
+  async getAllCampaigns(): Promise<Campaign[]> {
+    return db.select().from(campaigns).orderBy(desc(campaigns.createdAt));
+  }
+
+  async getCampaign(id: string): Promise<Campaign | undefined> {
+    const [campaign] = await db.select().from(campaigns).where(eq(campaigns.id, id));
+    return campaign || undefined;
+  }
+
+  async createCampaign(data: InsertCampaign): Promise<Campaign> {
+    const [created] = await db.insert(campaigns).values({
+      ...data,
+      startDate: data.startDate ? new Date(data.startDate) : null,
+      endDate: data.endDate ? new Date(data.endDate) : null,
+    }).returning();
+    return created;
+  }
+
+  async updateCampaign(id: string, data: Partial<InsertCampaign>): Promise<Campaign | undefined> {
+    const updateData: any = { ...data, updatedAt: new Date() };
+    if (data.startDate) updateData.startDate = new Date(data.startDate);
+    if (data.endDate) updateData.endDate = new Date(data.endDate);
+    
+    const [updated] = await db.update(campaigns).set(updateData).where(eq(campaigns.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteCampaign(id: string): Promise<boolean> {
+    await db.delete(campaignContactHistory)
+      .where(inArray(campaignContactHistory.campaignContactId, 
+        db.select({ id: campaignContacts.id }).from(campaignContacts).where(eq(campaignContacts.campaignId, id))
+      ));
+    await db.delete(campaignContacts).where(eq(campaignContacts.campaignId, id));
+    const result = await db.delete(campaigns).where(eq(campaigns.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Campaign Contacts
+  async getCampaignContacts(campaignId: string): Promise<CampaignContact[]> {
+    return db.select().from(campaignContacts)
+      .where(eq(campaignContacts.campaignId, campaignId))
+      .orderBy(desc(campaignContacts.createdAt));
+  }
+
+  async getCampaignContact(id: string): Promise<CampaignContact | undefined> {
+    const [contact] = await db.select().from(campaignContacts).where(eq(campaignContacts.id, id));
+    return contact || undefined;
+  }
+
+  async createCampaignContact(data: InsertCampaignContact): Promise<CampaignContact> {
+    const [created] = await db.insert(campaignContacts).values({
+      ...data,
+      callbackDate: data.callbackDate ? new Date(data.callbackDate) : null,
+      contactedAt: data.contactedAt ? new Date(data.contactedAt) : null,
+      completedAt: data.completedAt ? new Date(data.completedAt) : null,
+    }).returning();
+    return created;
+  }
+
+  async createCampaignContacts(data: InsertCampaignContact[]): Promise<CampaignContact[]> {
+    if (data.length === 0) return [];
+    const values = data.map(d => ({
+      ...d,
+      callbackDate: d.callbackDate ? new Date(d.callbackDate) : null,
+      contactedAt: d.contactedAt ? new Date(d.contactedAt) : null,
+      completedAt: d.completedAt ? new Date(d.completedAt) : null,
+    }));
+    return db.insert(campaignContacts).values(values).returning();
+  }
+
+  async updateCampaignContact(id: string, data: Partial<InsertCampaignContact>): Promise<CampaignContact | undefined> {
+    const updateData: any = { ...data, updatedAt: new Date() };
+    if (data.callbackDate) updateData.callbackDate = new Date(data.callbackDate);
+    if (data.contactedAt) updateData.contactedAt = new Date(data.contactedAt);
+    if (data.completedAt) updateData.completedAt = new Date(data.completedAt);
+    
+    const [updated] = await db.update(campaignContacts).set(updateData).where(eq(campaignContacts.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteCampaignContact(id: string): Promise<boolean> {
+    await db.delete(campaignContactHistory).where(eq(campaignContactHistory.campaignContactId, id));
+    const result = await db.delete(campaignContacts).where(eq(campaignContacts.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async deleteCampaignContactsByCampaign(campaignId: string): Promise<boolean> {
+    await db.delete(campaignContactHistory)
+      .where(inArray(campaignContactHistory.campaignContactId, 
+        db.select({ id: campaignContacts.id }).from(campaignContacts).where(eq(campaignContacts.campaignId, campaignId))
+      ));
+    await db.delete(campaignContacts).where(eq(campaignContacts.campaignId, campaignId));
+    return true;
+  }
+
+  // Campaign Contact History
+  async getCampaignContactHistory(campaignContactId: string): Promise<CampaignContactHistory[]> {
+    return db.select().from(campaignContactHistory)
+      .where(eq(campaignContactHistory.campaignContactId, campaignContactId))
+      .orderBy(desc(campaignContactHistory.createdAt));
+  }
+
+  async createCampaignContactHistory(data: InsertCampaignContactHistory): Promise<CampaignContactHistory> {
+    const [created] = await db.insert(campaignContactHistory).values(data).returning();
+    return created;
   }
 }
 
