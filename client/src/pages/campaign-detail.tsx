@@ -86,6 +86,7 @@ function StatsCard({
 }
 
 function CriteriaCard({ campaign }: { campaign: Campaign }) {
+  const { t } = useI18n();
   const { toast } = useToast();
   const [criteria, setCriteria] = useState<CriteriaGroup[]>(() => {
     try {
@@ -103,12 +104,12 @@ function CriteriaCard({ campaign }: { campaign: Campaign }) {
       });
     },
     onSuccess: () => {
-      toast({ title: "Criteria saved successfully" });
+      toast({ title: t.common?.saved || "Criteria saved successfully" });
       setHasChanges(false);
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
     },
     onError: () => {
-      toast({ title: "Failed to save criteria", variant: "destructive" });
+      toast({ title: t.common?.error || "Failed to save criteria", variant: "destructive" });
     },
   });
 
@@ -122,9 +123,9 @@ function CriteriaCard({ campaign }: { campaign: Campaign }) {
       <CardHeader>
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div>
-            <CardTitle>Target Criteria</CardTitle>
+            <CardTitle>{t.campaigns?.detail?.targetCriteria || "Target Criteria"}</CardTitle>
             <CardDescription>
-              Define which customers should be included in this campaign
+              {t.campaigns?.detail?.targetCriteriaDesc || "Define which customers should be included in this campaign"}
             </CardDescription>
           </div>
           {hasChanges && (
@@ -133,7 +134,7 @@ function CriteriaCard({ campaign }: { campaign: Campaign }) {
               disabled={saveCriteriaMutation.isPending}
               data-testid="button-save-criteria"
             >
-              {saveCriteriaMutation.isPending ? "Saving..." : "Save Criteria"}
+              {saveCriteriaMutation.isPending ? (t.common?.saving || "Saving...") : (t.common?.save || "Save")}
             </Button>
           )}
         </div>
@@ -144,17 +145,13 @@ function CriteriaCard({ campaign }: { campaign: Campaign }) {
           onChange={handleCriteriaChange}
           readonly={campaign.status !== "draft"}
         />
-        {campaign.status !== "draft" && (
-          <p className="text-sm text-muted-foreground mt-4 italic">
-            Criteria can only be edited when the campaign is in draft status.
-          </p>
-        )}
       </CardContent>
     </Card>
   );
 }
 
 function SchedulingCard({ campaign }: { campaign: Campaign }) {
+  const { t } = useI18n();
   const { toast } = useToast();
   const [schedule, setSchedule] = useState<ScheduleConfig>(() => {
     try {
@@ -172,12 +169,12 @@ function SchedulingCard({ campaign }: { campaign: Campaign }) {
       });
     },
     onSuccess: () => {
-      toast({ title: "Schedule saved successfully" });
+      toast({ title: t.common?.saved || "Schedule saved successfully" });
       setHasChanges(false);
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
     },
     onError: () => {
-      toast({ title: "Failed to save schedule", variant: "destructive" });
+      toast({ title: t.common?.error || "Failed to save schedule", variant: "destructive" });
     },
   });
 
@@ -191,9 +188,9 @@ function SchedulingCard({ campaign }: { campaign: Campaign }) {
       <CardHeader>
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div>
-            <CardTitle>Scheduling</CardTitle>
+            <CardTitle>{t.campaigns?.detail?.scheduling || "Scheduling"}</CardTitle>
             <CardDescription>
-              Configure working hours and contact frequency limits
+              {t.campaigns?.detail?.schedulingDesc || "Configure working hours and contact frequency limits"}
             </CardDescription>
           </div>
           {hasChanges && (
@@ -202,7 +199,7 @@ function SchedulingCard({ campaign }: { campaign: Campaign }) {
               disabled={saveScheduleMutation.isPending}
               data-testid="button-save-schedule"
             >
-              {saveScheduleMutation.isPending ? "Saving..." : "Save Schedule"}
+              {saveScheduleMutation.isPending ? (t.common?.saving || "Saving...") : (t.common?.save || "Save")}
             </Button>
           )}
         </div>
@@ -339,11 +336,11 @@ export default function CampaignDetailPage() {
   const contactColumns = [
     {
       key: "customer",
-      header: "Contact",
+      header: t.campaigns?.detail?.contacts || "Contact",
       cell: (contact: EnrichedContact) => (
         <div>
           <div className="font-medium">
-            {contact.customer ? `${contact.customer.firstName} ${contact.customer.lastName}` : "Unknown"}
+            {contact.customer ? `${contact.customer.firstName} ${contact.customer.lastName}` : (t.common?.unknown || "Unknown")}
           </div>
           <div className="text-sm text-muted-foreground">
             {contact.customer?.phone || contact.customer?.email || "-"}
@@ -362,14 +359,14 @@ export default function CampaignDetailPage() {
     },
     {
       key: "attemptCount",
-      header: "Attempts",
+      header: t.campaigns?.detail?.avgAttempts?.split(" ")[0] || "Attempts",
       cell: (contact: EnrichedContact) => (
         <span>{contact.attemptCount || 0}</span>
       ),
     },
     {
       key: "lastAttemptAt",
-      header: "Last Attempt",
+      header: t.common?.lastAttempt || "Last Attempt",
       cell: (contact: EnrichedContact) => (
         <span>
           {contact.lastAttemptAt ? format(new Date(contact.lastAttemptAt), "PP p") : "-"}
@@ -378,7 +375,7 @@ export default function CampaignDetailPage() {
     },
     {
       key: "assignedTo",
-      header: "Operator",
+      header: t.common?.operator || "Operator",
       cell: (contact: EnrichedContact) => (
         <span>{contact.assignedTo || "-"}</span>
       ),
@@ -397,11 +394,11 @@ export default function CampaignDetailPage() {
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-2xl font-bold">{campaign.name}</h1>
             <Badge className={STATUS_COLORS[campaign.status]}>
-              {campaign.status}
+              {t.campaigns?.statuses?.[campaign.status as keyof typeof t.campaigns.statuses] || campaign.status}
             </Badge>
           </div>
           <p className="text-muted-foreground">
-            {campaign.description || "No description"}
+            {campaign.description || (t.common?.noDescription || "No description")}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -411,7 +408,7 @@ export default function CampaignDetailPage() {
               data-testid="button-activate-campaign"
             >
               <Play className="w-4 h-4 mr-2" />
-              Activate
+              {t.common?.activate || "Activate"}
             </Button>
           )}
           {campaign.status === "active" && (
@@ -421,7 +418,7 @@ export default function CampaignDetailPage() {
               data-testid="button-pause-campaign"
             >
               <Pause className="w-4 h-4 mr-2" />
-              Pause
+              {t.common?.pause || "Pause"}
             </Button>
           )}
           {campaign.status === "paused" && (
@@ -430,7 +427,7 @@ export default function CampaignDetailPage() {
               data-testid="button-resume-campaign"
             >
               <Play className="w-4 h-4 mr-2" />
-              Resume
+              {t.common?.resume || "Resume"}
             </Button>
           )}
         </div>
@@ -440,43 +437,43 @@ export default function CampaignDetailPage() {
         <TabsList>
           <TabsTrigger value="overview" data-testid="tab-overview">
             <FileText className="w-4 h-4 mr-2" />
-            Overview
+            {t.campaigns?.detail?.overview || "Overview"}
           </TabsTrigger>
           <TabsTrigger value="contacts" data-testid="tab-contacts">
             <Users className="w-4 h-4 mr-2" />
-            Contacts
+            {t.campaigns?.detail?.contacts || "Contacts"}
           </TabsTrigger>
           <TabsTrigger value="settings" data-testid="tab-settings">
             <Settings className="w-4 h-4 mr-2" />
-            Settings
+            {t.campaigns?.detail?.settings || "Settings"}
           </TabsTrigger>
           <TabsTrigger value="reporting" data-testid="tab-reporting">
             <BarChart3 className="w-4 h-4 mr-2" />
-            Reporting
+            {t.campaigns?.detail?.reporting || "Reporting"}
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <StatsCard
-              title="Total Contacts"
+              title={t.campaigns?.detail?.totalContacts || "Total Contacts"}
               value={stats?.totalContacts || 0}
               icon={Users}
             />
             <StatsCard
-              title="Pending"
+              title={t.campaigns?.detail?.pendingContacts || "Pending"}
               value={stats?.pendingContacts || 0}
               description={`${((stats?.pendingContacts || 0) / Math.max(stats?.totalContacts || 1, 1) * 100).toFixed(1)}%`}
               icon={Clock}
             />
             <StatsCard
-              title="Completed"
+              title={t.campaigns?.detail?.completedContacts || "Completed"}
               value={stats?.completedContacts || 0}
               description={`${((stats?.completedContacts || 0) / Math.max(stats?.totalContacts || 1, 1) * 100).toFixed(1)}%`}
               icon={CheckCircle}
             />
             <StatsCard
-              title="Callbacks"
+              title={t.campaigns?.detail?.callbackScheduled || "Callbacks"}
               value={stats?.callbackContacts || 0}
               icon={Phone}
             />
@@ -484,7 +481,7 @@ export default function CampaignDetailPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Campaign Progress</CardTitle>
+              <CardTitle>{t.campaigns?.detail?.progress || "Campaign Progress"}</CardTitle>
               <CardDescription>
                 {stats?.completedContacts || 0} of {stats?.totalContacts || 0} contacts processed
               </CardDescription>
@@ -614,11 +611,11 @@ export default function CampaignDetailPage() {
                 data-testid="button-generate-contacts"
               >
                 <RefreshCw className={`w-4 h-4 mr-2 ${generateContactsMutation.isPending ? "animate-spin" : ""}`} />
-                Generate Contacts
+                {t.campaigns?.detail?.generateContacts || "Generate Contacts"}
               </Button>
               <Button variant="outline" data-testid="button-export-contacts">
                 <Download className="w-4 h-4 mr-2" />
-                Export
+                {t.campaigns?.detail?.exportContacts || "Export"}
               </Button>
             </div>
           </div>
@@ -642,9 +639,9 @@ export default function CampaignDetailPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Operator Assignment</CardTitle>
+              <CardTitle>{t.campaigns?.detail?.operatorAssignment || "Operator Assignment"}</CardTitle>
               <CardDescription>
-                Manage operators assigned to this campaign
+                {t.campaigns?.detail?.operatorAssignmentDesc || "Manage operators assigned to this campaign"}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -660,24 +657,21 @@ export default function CampaignDetailPage() {
         <TabsContent value="reporting" className="space-y-6">
           <div className="grid gap-4 md:grid-cols-3">
             <StatsCard
-              title="Contact Rate"
+              title={t.campaigns?.detail?.contactRate || "Contact Rate"}
               value={`${((stats?.contactedContacts || 0) / Math.max(stats?.totalContacts || 1, 1) * 100).toFixed(1)}%`}
-              description="Contacts reached"
               icon={Phone}
             />
             <StatsCard
-              title="Completion Rate"
+              title={t.campaigns?.detail?.completionRate || "Completion Rate"}
               value={`${((stats?.completedContacts || 0) / Math.max(stats?.totalContacts || 1, 1) * 100).toFixed(1)}%`}
-              description="Successfully completed"
               icon={CheckCircle}
             />
             <StatsCard
-              title="Avg Attempts"
+              title={t.campaigns?.detail?.avgAttempts || "Avg Attempts"}
               value={contacts.length > 0 
                 ? (contacts.reduce((sum, c) => sum + (c.attemptCount || 0), 0) / contacts.length).toFixed(1)
                 : "0"
               }
-              description="Per contact"
               icon={RefreshCw}
             />
           </div>
@@ -685,10 +679,7 @@ export default function CampaignDetailPage() {
           <div className="grid gap-4 md:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle>Contact Status Distribution</CardTitle>
-                <CardDescription>
-                  Breakdown of contacts by their current status
-                </CardDescription>
+                <CardTitle>{t.campaigns?.detail?.statusDistribution || "Contact Status Distribution"}</CardTitle>
               </CardHeader>
               <CardContent>
                 {stats && stats.totalContacts > 0 ? (
@@ -728,7 +719,7 @@ export default function CampaignDetailPage() {
                   </ResponsiveContainer>
                 ) : (
                   <div className="h-[250px] flex items-center justify-center text-muted-foreground">
-                    No data available
+                    {t.campaigns?.detail?.noDataAvailable || "No data available"}
                   </div>
                 )}
               </CardContent>
@@ -736,10 +727,7 @@ export default function CampaignDetailPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Attempt Distribution</CardTitle>
-                <CardDescription>
-                  Number of contacts by attempt count
-                </CardDescription>
+                <CardTitle>{t.campaigns?.detail?.attemptDistribution || "Attempt Distribution"}</CardTitle>
               </CardHeader>
               <CardContent>
                 {contacts.length > 0 ? (
@@ -768,7 +756,7 @@ export default function CampaignDetailPage() {
                   </ResponsiveContainer>
                 ) : (
                   <div className="h-[250px] flex items-center justify-center text-muted-foreground">
-                    No data available
+                    {t.campaigns?.detail?.noDataAvailable || "No data available"}
                   </div>
                 )}
               </CardContent>
@@ -778,34 +766,31 @@ export default function CampaignDetailPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
               <div>
-                <CardTitle>Campaign Summary</CardTitle>
-                <CardDescription>
-                  Key performance indicators for this campaign
-                </CardDescription>
+                <CardTitle>{t.campaigns?.detail?.campaignSummary || "Campaign Summary"}</CardTitle>
               </div>
               <Button variant="outline" data-testid="button-export-report">
                 <Download className="w-4 h-4 mr-2" />
-                Export Report
+                {t.campaigns?.detail?.exportReport || "Export Report"}
               </Button>
             </CardHeader>
             <CardContent>
               <div className="grid gap-4 md:grid-cols-4">
                 <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">Total Contacts</p>
+                  <p className="text-sm text-muted-foreground">{t.campaigns?.detail?.totalContacts || "Total Contacts"}</p>
                   <p className="text-2xl font-bold">{stats?.totalContacts || 0}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">Success Rate</p>
+                  <p className="text-sm text-muted-foreground">{t.campaigns?.detail?.successRate || "Success Rate"}</p>
                   <p className="text-2xl font-bold">
                     {((stats?.completedContacts || 0) / Math.max(stats?.totalContacts || 1, 1) * 100).toFixed(1)}%
                   </p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">Pending</p>
+                  <p className="text-sm text-muted-foreground">{t.campaigns?.detail?.pendingContacts || "Pending"}</p>
                   <p className="text-2xl font-bold">{stats?.pendingContacts || 0}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">Callback Scheduled</p>
+                  <p className="text-sm text-muted-foreground">{t.campaigns?.detail?.callbackScheduled || "Callback Scheduled"}</p>
                   <p className="text-2xl font-bold">{stats?.callbackContacts || 0}</p>
                 </div>
               </div>
