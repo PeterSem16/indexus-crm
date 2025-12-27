@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
 import { useI18n } from "@/i18n";
@@ -7,7 +7,7 @@ import {
   ArrowLeft, Users, Settings, BarChart3, FileText, 
   Play, Pause, CheckCircle, Clock, Phone, User, Calendar,
   RefreshCw, Download, Filter, MoreHorizontal, Trash2, CheckCheck,
-  Copy, Save
+  Copy, Save, ScrollText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -46,6 +46,8 @@ import { CriteriaBuilder, type CriteriaGroup, criteriaToDescription } from "@/co
 import { ScheduleEditor, type ScheduleConfig, getDefaultScheduleConfig } from "@/components/schedule-editor";
 import { CampaignContactsFilter, type CampaignContactFilters, applyContactFilters } from "@/components/campaign-contacts-filter";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 type EnrichedContact = CampaignContact & { customer?: Customer };
 
@@ -239,6 +241,8 @@ export default function CampaignDetailPage() {
   const [selectedContact, setSelectedContact] = useState<EnrichedContact | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
   const [selectedContacts, setSelectedContacts] = useState<Set<string>>(new Set());
+  const [scriptContent, setScriptContent] = useState<string>("");
+  const [scriptModified, setScriptModified] = useState(false);
 
   const { data: campaign, isLoading: loadingCampaign } = useQuery<Campaign>({
     queryKey: ["/api/campaigns", campaignId],
@@ -355,6 +359,27 @@ export default function CampaignDetailPage() {
       toast({ title: "Chyba", description: "Nepodarilo sa aktualizovať kontakty.", variant: "destructive" });
     },
   });
+
+  const saveScriptMutation = useMutation({
+    mutationFn: async (script: string) => {
+      return apiRequest("PATCH", `/api/campaigns/${campaignId}`, { script });
+    },
+    onSuccess: () => {
+      toast({ title: "Skript uložený" });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId] });
+      setScriptModified(false);
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa uložiť skript.", variant: "destructive" });
+    },
+  });
+
+  useEffect(() => {
+    if (campaign?.script !== undefined) {
+      setScriptContent(campaign.script || "");
+      setScriptModified(false);
+    }
+  }, [campaign?.script]);
 
   const handleBulkStatusUpdate = (newStatus: string) => {
     if (selectedContacts.size === 0) return;
@@ -603,6 +628,10 @@ export default function CampaignDetailPage() {
           <TabsTrigger value="reporting" data-testid="tab-reporting">
             <BarChart3 className="w-4 h-4 mr-2" />
             {t.campaigns?.detail?.reporting || "Reporting"}
+          </TabsTrigger>
+          <TabsTrigger value="script" data-testid="tab-script">
+            <ScrollText className="w-4 h-4 mr-2" />
+            Skript pre operátorov
           </TabsTrigger>
         </TabsList>
 
@@ -979,6 +1008,87 @@ export default function CampaignDetailPage() {
                   <p className="text-2xl font-bold">{stats?.callbackContacts || 0}</p>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="script" className="space-y-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-4">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <ScrollText className="w-5 h-5" />
+                  Skript pre operátorov
+                </CardTitle>
+                <CardDescription>
+                  Inštrukcie pre call centrum a operátorov pri kontaktovaní klientov
+                </CardDescription>
+              </div>
+              <Button
+                onClick={() => saveScriptMutation.mutate(scriptContent)}
+                disabled={!scriptModified || saveScriptMutation.isPending}
+                data-testid="button-save-script"
+              >
+                <Save className="w-4 h-4 mr-2" />
+                {saveScriptMutation.isPending ? "Ukladám..." : "Uložiť skript"}
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="script-editor">Obsah skriptu</Label>
+                <Textarea
+                  id="script-editor"
+                  placeholder="Napíšte skript pre operátorov...
+
+Príklad:
+1. Pozdrav: 'Dobrý deň, volám z [Názov spoločnosti]...'
+2. Overenie identity: 'Môžem hovoriť s pánom/pani [Meno]?'
+3. Účel hovoru: 'Volám vám ohľadom...'
+4. Otázky pre klienta:
+   - Otázka 1
+   - Otázka 2
+5. Záver hovoru: 'Ďakujem za váš čas...'"
+                  value={scriptContent}
+                  onChange={(e) => {
+                    setScriptContent(e.target.value);
+                    setScriptModified(true);
+                  }}
+                  className="min-h-[400px] font-mono text-sm"
+                  data-testid="textarea-script"
+                />
+              </div>
+              
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                {scriptModified && (
+                  <Badge variant="outline" className="bg-yellow-50 dark:bg-yellow-900/20">
+                    Neuložené zmeny
+                  </Badge>
+                )}
+                {!scriptModified && scriptContent && (
+                  <Badge variant="outline" className="bg-green-50 dark:bg-green-900/20">
+                    Uložené
+                  </Badge>
+                )}
+                {!scriptContent && (
+                  <span>Zatiaľ žiadny skript - pridajte inštrukcie pre operátorov</span>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle>Tipy pre písanie skriptu</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="list-disc list-inside space-y-2 text-sm text-muted-foreground">
+                <li>Začnite s jasným pozdravom a predstavením</li>
+                <li>Overujte identitu klienta pred zdieľaním citlivých informácií</li>
+                <li>Majte pripravené odpovede na časté námietky</li>
+                <li>Používajte jednoduchý a zrozumiteľný jazyk</li>
+                <li>Ukončite hovor pozitívne a zhrnúť ďalšie kroky</li>
+                <li>Zaznamenajte výsledok hovoru a prípadné poznámky</li>
+              </ul>
             </CardContent>
           </Card>
         </TabsContent>

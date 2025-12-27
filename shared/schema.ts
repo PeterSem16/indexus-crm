@@ -1371,6 +1371,7 @@ export const campaigns = pgTable("campaigns", {
   countryCodes: text("country_codes").array().notNull().default(sql`ARRAY[]::text[]`),
   criteria: text("criteria"), // JSON string with filter criteria
   settings: text("settings"), // JSON string with schedule/settings
+  script: text("script"), // Operator script - instructions for call center agents
   startDate: timestamp("start_date"),
   endDate: timestamp("end_date"),
   targetContactCount: integer("target_contact_count").default(0),
@@ -1391,6 +1392,7 @@ export const insertCampaignSchema = createInsertSchema(campaigns).omit({
   countryCodes: z.array(z.string()).optional().default([]),
   criteria: z.string().optional().nullable(),
   settings: z.string().optional().nullable(),
+  script: z.string().optional().nullable(),
   startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
   targetContactCount: z.number().optional().default(0),

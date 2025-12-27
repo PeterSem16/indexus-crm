@@ -63,6 +63,7 @@ const campaignFormSchema = z.object({
   startDate: z.string().optional(),
   endDate: z.string().optional(),
   criteria: z.string().optional(),
+  script: z.string().optional(),
 });
 
 type CampaignFormData = z.infer<typeof campaignFormSchema>;
@@ -96,6 +97,7 @@ function CampaignForm({
         startDate: initialData.startDate ? format(new Date(initialData.startDate), "yyyy-MM-dd") : "",
         endDate: initialData.endDate ? format(new Date(initialData.endDate), "yyyy-MM-dd") : "",
         criteria: initialData.criteria || "",
+        script: initialData.script || "",
       };
     }
     if (templateData) {
@@ -108,6 +110,7 @@ function CampaignForm({
         startDate: "",
         endDate: "",
         criteria: templateData.criteria || "",
+        script: templateData.script || "",
       };
     }
     return {
@@ -119,6 +122,7 @@ function CampaignForm({
       startDate: "",
       endDate: "",
       criteria: "",
+      script: "",
     };
   };
 
