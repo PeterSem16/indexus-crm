@@ -13,6 +13,7 @@ import {
   insertRoleSchema, insertRoleModulePermissionSchema, insertRoleFieldPermissionSchema,
   insertSavedSearchSchema,
   insertCampaignSchema, insertCampaignContactSchema, insertCampaignContactHistorySchema,
+  insertSipSettingsSchema, insertCallLogSchema,
   type SafeUser, type Customer, type Product, type BillingDetails, type ActivityLog, type LeadScoringCriteria,
   type ServiceConfiguration, type InvoiceTemplate, type InvoiceLayout, type Role,
   type Campaign, type CampaignContact
@@ -3922,6 +3923,131 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Failed to fetch campaign metrics:", error);
       res.status(500).json({ error: "Failed to fetch campaign metrics" });
+    }
+  });
+
+  // ===== SIP Settings Routes =====
+  
+  // Get SIP settings (global server configuration)
+  app.get("/api/sip-settings", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.getSipSettings();
+      res.json(settings || null);
+    } catch (error) {
+      console.error("Failed to fetch SIP settings:", error);
+      res.status(500).json({ error: "Failed to fetch SIP settings" });
+    }
+  });
+
+  // Update SIP settings (admin only)
+  app.post("/api/sip-settings", requireAuth, async (req, res) => {
+    try {
+      // Check if user is admin
+      if (req.session.user?.role !== "admin") {
+        return res.status(403).json({ error: "Only admins can modify SIP settings" });
+      }
+      
+      const validated = insertSipSettingsSchema.parse(req.body);
+      const settings = await storage.upsertSipSettings(validated);
+      
+      await logActivity(
+        req.session.user.id,
+        "sip_settings_updated",
+        "sip_settings",
+        settings.id,
+        "SIP Settings",
+        { serverAddress: settings.serverAddress },
+        req.ip
+      );
+      
+      res.json(settings);
+    } catch (error: any) {
+      console.error("Failed to update SIP settings:", error);
+      res.status(400).json({ error: error.message || "Failed to update SIP settings" });
+    }
+  });
+
+  // ===== Call Logs Routes =====
+  
+  // Get all call logs (with optional filters)
+  app.get("/api/call-logs", requireAuth, async (req, res) => {
+    try {
+      const { userId, customerId, campaignId, limit } = req.query;
+      
+      let logs;
+      if (userId) {
+        logs = await storage.getCallLogsByUser(userId as string, limit ? parseInt(limit as string) : undefined);
+      } else if (customerId) {
+        logs = await storage.getCallLogsByCustomer(customerId as string);
+      } else if (campaignId) {
+        logs = await storage.getCallLogsByCampaign(campaignId as string);
+      } else {
+        logs = await storage.getAllCallLogs(limit ? parseInt(limit as string) : undefined);
+      }
+      
+      res.json(logs);
+    } catch (error) {
+      console.error("Failed to fetch call logs:", error);
+      res.status(500).json({ error: "Failed to fetch call logs" });
+    }
+  });
+
+  // Get call log by ID
+  app.get("/api/call-logs/:id", requireAuth, async (req, res) => {
+    try {
+      const log = await storage.getCallLog(req.params.id);
+      if (!log) {
+        return res.status(404).json({ error: "Call log not found" });
+      }
+      res.json(log);
+    } catch (error) {
+      console.error("Failed to fetch call log:", error);
+      res.status(500).json({ error: "Failed to fetch call log" });
+    }
+  });
+
+  // Create a new call log (when call starts)
+  app.post("/api/call-logs", requireAuth, async (req, res) => {
+    try {
+      const validated = insertCallLogSchema.parse({
+        ...req.body,
+        userId: req.session.user?.id
+      });
+      const log = await storage.createCallLog(validated);
+      res.status(201).json(log);
+    } catch (error: any) {
+      console.error("Failed to create call log:", error);
+      res.status(400).json({ error: error.message || "Failed to create call log" });
+    }
+  });
+
+  // Update a call log (when call ends or status changes)
+  app.patch("/api/call-logs/:id", requireAuth, async (req, res) => {
+    try {
+      const log = await storage.updateCallLog(req.params.id, req.body);
+      if (!log) {
+        return res.status(404).json({ error: "Call log not found" });
+      }
+      res.json(log);
+    } catch (error: any) {
+      console.error("Failed to update call log:", error);
+      res.status(400).json({ error: error.message || "Failed to update call log" });
+    }
+  });
+
+  // Get call logs for current user
+  app.get("/api/my-call-logs", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
+      const logs = await storage.getCallLogsByUser(userId, limit);
+      res.json(logs);
+    } catch (error) {
+      console.error("Failed to fetch user call logs:", error);
+      res.status(500).json({ error: "Failed to fetch call logs" });
     }
   });
 

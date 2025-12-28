@@ -7,7 +7,7 @@ import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/auth-context";
 import { COUNTRIES, type BillingDetails, type ComplaintType, type CooperationType, type VipStatus, type HealthInsurance, type LeadScoringCriteria } from "@shared/schema";
 import { Separator } from "@/components/ui/separator";
-import { Droplets, Globe, Shield, Building2, Save, Loader2, Plus, Trash2, Settings2, Heart, FlaskConical, Pencil, Star, Target, RefreshCw } from "lucide-react";
+import { Droplets, Globe, Shield, Building2, Save, Loader2, Plus, Trash2, Settings2, Heart, FlaskConical, Pencil, Star, Target, RefreshCw, Phone } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -1246,6 +1246,278 @@ function LeadScoringCriteriaManager({ countries }: { countries: readonly { code:
   );
 }
 
+interface SipSettingsFormData {
+  serverAddress: string;
+  serverPort: number;
+  wsPath: string;
+  realm: string;
+  transport: string;
+  isEnabled: boolean;
+}
+
+const defaultSipSettings: SipSettingsFormData = {
+  serverAddress: "",
+  serverPort: 5060,
+  wsPath: "/ws",
+  realm: "",
+  transport: "wss",
+  isEnabled: false,
+};
+
+function SipSettingsTab() {
+  const { toast } = useToast();
+  const { user } = useAuth();
+  
+  const [formData, setFormData] = useState<SipSettingsFormData>(defaultSipSettings);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const { data: sipSettings, isLoading: loadingSettings } = useQuery({
+    queryKey: ["/api/sip-settings"],
+  });
+
+  useEffect(() => {
+    if (sipSettings) {
+      setFormData({
+        serverAddress: sipSettings.serverAddress || "",
+        serverPort: sipSettings.serverPort || 5060,
+        wsPath: sipSettings.wsPath || "/ws",
+        realm: sipSettings.realm || "",
+        transport: sipSettings.transport || "wss",
+        isEnabled: sipSettings.isEnabled || false,
+      });
+    }
+  }, [sipSettings]);
+
+  const handleSave = async () => {
+    if (!formData.serverAddress.trim()) {
+      toast({ title: "Adresa servera je povinná", variant: "destructive" });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await apiRequest("POST", "/api/sip-settings", formData);
+      queryClient.invalidateQueries({ queryKey: ["/api/sip-settings"] });
+      toast({ title: "SIP nastavenia boli uložené" });
+    } catch (error: any) {
+      toast({ 
+        title: "Chyba pri ukladaní", 
+        description: error.message || "Nepodarilo sa uložiť nastavenia",
+        variant: "destructive" 
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (loadingSettings) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const isAdmin = user?.role === "admin";
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader className="flex flex-row items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+            <Phone className="h-6 w-6 text-primary" />
+          </div>
+          <div>
+            <CardTitle>Nastavenia SIP servera</CardTitle>
+            <CardDescription>
+              Konfigurácia pripojenia k Asterisk PBX serveru pre VoIP hovory
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-center gap-4">
+            <Switch
+              id="sip-enabled"
+              checked={formData.isEnabled}
+              onCheckedChange={(checked) => setFormData({ ...formData, isEnabled: checked })}
+              disabled={!isAdmin}
+              data-testid="switch-sip-enabled"
+            />
+            <Label htmlFor="sip-enabled">
+              Povoliť SIP telefóniu
+            </Label>
+          </div>
+
+          <Separator />
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="server-address">Adresa servera</Label>
+              <Input
+                id="server-address"
+                placeholder="pbx.example.com"
+                value={formData.serverAddress}
+                onChange={(e) => setFormData({ ...formData, serverAddress: e.target.value })}
+                disabled={!isAdmin}
+                data-testid="input-sip-server-address"
+              />
+              <p className="text-xs text-muted-foreground">
+                Doménové meno alebo IP adresa Asterisk servera
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="server-port">Port</Label>
+              <Input
+                id="server-port"
+                type="number"
+                placeholder="5060"
+                value={formData.serverPort}
+                onChange={(e) => setFormData({ ...formData, serverPort: parseInt(e.target.value) || 5060 })}
+                disabled={!isAdmin}
+                data-testid="input-sip-server-port"
+              />
+              <p className="text-xs text-muted-foreground">
+                Predvolený port je 5060 pre SIP
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="ws-path">WebSocket cesta</Label>
+              <Input
+                id="ws-path"
+                placeholder="/ws"
+                value={formData.wsPath}
+                onChange={(e) => setFormData({ ...formData, wsPath: e.target.value })}
+                disabled={!isAdmin}
+                data-testid="input-sip-ws-path"
+              />
+              <p className="text-xs text-muted-foreground">
+                Cesta k WebSocket endpointu (napr. /ws)
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="realm">Realm</Label>
+              <Input
+                id="realm"
+                placeholder="asterisk"
+                value={formData.realm}
+                onChange={(e) => setFormData({ ...formData, realm: e.target.value })}
+                disabled={!isAdmin}
+                data-testid="input-sip-realm"
+              />
+              <p className="text-xs text-muted-foreground">
+                SIP realm pre autentifikáciu (zvyčajne názov servera)
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="transport">Protokol</Label>
+              <Select
+                value={formData.transport}
+                onValueChange={(value) => setFormData({ ...formData, transport: value })}
+                disabled={!isAdmin}
+              >
+                <SelectTrigger id="transport" data-testid="select-sip-transport">
+                  <SelectValue placeholder="Vyberte protokol" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="wss">WSS (WebSocket Secure)</SelectItem>
+                  <SelectItem value="ws">WS (WebSocket)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Odporúčame WSS pre bezpečné pripojenie
+              </p>
+            </div>
+          </div>
+
+          {isAdmin && (
+            <div className="flex justify-end pt-4">
+              <Button 
+                onClick={handleSave} 
+                disabled={isSaving}
+                data-testid="button-save-sip-settings"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Ukladám...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Uložiť nastavenia
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+
+          {!isAdmin && (
+            <div className="rounded-lg bg-muted/50 p-4">
+              <p className="text-sm text-muted-foreground">
+                Len administrátori môžu meniť nastavenia SIP servera. 
+                Kontaktujte administrátora pre zmeny konfigurácie.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Ako to funguje</CardTitle>
+          <CardDescription>
+            Informácie o integrácii SIP telefónie
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-3">
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+              <Badge>1</Badge>
+              <div>
+                <p className="font-medium text-sm">Globálne nastavenia</p>
+                <p className="text-sm text-muted-foreground">
+                  Administrátor nakonfiguruje adresu Asterisk servera a pripojenie
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+              <Badge>2</Badge>
+              <div>
+                <p className="font-medium text-sm">Používateľské účty</p>
+                <p className="text-sm text-muted-foreground">
+                  Každému používateľovi sa priradí SIP linka (extension a heslo) v správe používateľov
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+              <Badge>3</Badge>
+              <div>
+                <p className="font-medium text-sm">Volanie</p>
+                <p className="text-sm text-muted-foreground">
+                  Používatelia môžu telefonovať priamo z CRM pomocou vstavaného SIP telefónu
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+              <Badge>4</Badge>
+              <div>
+                <p className="font-medium text-sm">Záznamy hovorov</p>
+                <p className="text-sm text-muted-foreground">
+                  Všetky hovory sa automaticky zaznamenávajú a prepájajú so zákazníkmi a kampaňami
+                </p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const { t } = useI18n();
   const { user } = useAuth();
@@ -1294,6 +1566,10 @@ export default function SettingsPage() {
           <TabsTrigger value="system" data-testid="tab-system">
             <Shield className="h-4 w-4 mr-2" />
             {t.settings.tabs.system}
+          </TabsTrigger>
+          <TabsTrigger value="sip" data-testid="tab-sip">
+            <Phone className="h-4 w-4 mr-2" />
+            SIP telefónia
           </TabsTrigger>
         </TabsList>
 
@@ -1537,6 +1813,10 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="sip" className="mt-6">
+          <SipSettingsTab />
         </TabsContent>
       </Tabs>
     </div>
