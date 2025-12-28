@@ -133,6 +133,10 @@ export const users = pgTable("users", {
   roleId: varchar("role_id"), // FK to roles table - new role system
   isActive: boolean("is_active").notNull().default(true),
   assignedCountries: text("assigned_countries").array().notNull().default(sql`ARRAY[]::text[]`),
+  sipEnabled: boolean("sip_enabled").notNull().default(false),
+  sipExtension: text("sip_extension").default(""),
+  sipPassword: text("sip_password").default(""),
+  sipDisplayName: text("sip_display_name").default(""),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
@@ -1683,3 +1687,61 @@ export const scriptSessionSchema = z.object({
 });
 
 export type ScriptSession = z.infer<typeof scriptSessionSchema>;
+
+// SIP Settings - global SIP server configuration (singleton)
+export const sipSettings = pgTable("sip_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  server: text("server").notNull().default(""),
+  port: integer("port").notNull().default(5060),
+  wsPort: integer("ws_port").notNull().default(8089),
+  wsPath: text("ws_path").notNull().default("/ws"),
+  transport: text("transport").notNull().default("wss"), // ws, wss, tcp, udp
+  realm: text("realm").default(""),
+  stunServer: text("stun_server").default(""),
+  turnServer: text("turn_server").default(""),
+  turnUsername: text("turn_username").default(""),
+  turnPassword: text("turn_password").default(""),
+  isEnabled: boolean("is_enabled").notNull().default(false),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+  updatedBy: varchar("updated_by"),
+});
+
+export const insertSipSettingsSchema = createInsertSchema(sipSettings).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type InsertSipSettings = z.infer<typeof insertSipSettingsSchema>;
+export type SipSettings = typeof sipSettings.$inferSelect;
+
+// Call Logs - tracks all SIP calls made by users
+export const callLogs = pgTable("call_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  customerId: varchar("customer_id"),
+  campaignId: varchar("campaign_id"),
+  campaignContactId: varchar("campaign_contact_id"),
+  phoneNumber: text("phone_number").notNull(),
+  direction: text("direction").notNull().default("outbound"), // inbound, outbound
+  status: text("status").notNull().default("initiated"), // initiated, ringing, answered, completed, failed, no_answer, busy, cancelled
+  startedAt: timestamp("started_at").notNull().default(sql`now()`),
+  answeredAt: timestamp("answered_at"),
+  endedAt: timestamp("ended_at"),
+  durationSeconds: integer("duration_seconds").default(0),
+  sipCallId: text("sip_call_id"),
+  notes: text("notes"),
+  metadata: text("metadata"), // JSON string for additional data
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertCallLogSchema = createInsertSchema(callLogs).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  startedAt: z.string().optional(),
+  answeredAt: z.string().optional().nullable(),
+  endedAt: z.string().optional().nullable(),
+});
+
+export type InsertCallLog = z.infer<typeof insertCallLogSchema>;
+export type CallLog = typeof callLogs.$inferSelect;

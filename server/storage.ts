@@ -47,7 +47,10 @@ import {
   type CampaignSchedule, type InsertCampaignSchedule,
   type CampaignOperatorSetting, type InsertCampaignOperatorSetting,
   type CampaignContactSession, type InsertCampaignContactSession,
-  type CampaignMetricsSnapshot, type InsertCampaignMetricsSnapshot
+  type CampaignMetricsSnapshot, type InsertCampaignMetricsSnapshot,
+  sipSettings, callLogs,
+  type SipSettings, type InsertSipSettings,
+  type CallLog, type InsertCallLog
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, inArray, sql, desc, and } from "drizzle-orm";
@@ -327,6 +330,19 @@ export interface IStorage {
     callbackContacts: number;
     notInterestedContacts: number;
   }>;
+
+  // SIP Settings
+  getSipSettings(): Promise<SipSettings | undefined>;
+  upsertSipSettings(data: InsertSipSettings): Promise<SipSettings>;
+
+  // Call Logs
+  getCallLog(id: string): Promise<CallLog | undefined>;
+  getCallLogsByUser(userId: string, limit?: number): Promise<CallLog[]>;
+  getCallLogsByCustomer(customerId: string): Promise<CallLog[]>;
+  getCallLogsByCampaign(campaignId: string): Promise<CallLog[]>;
+  getAllCallLogs(limit?: number): Promise<CallLog[]>;
+  createCallLog(data: InsertCallLog): Promise<CallLog>;
+  updateCallLog(id: string, data: Partial<InsertCallLog>): Promise<CallLog | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1569,6 +1585,78 @@ export class DatabaseStorage implements IStorage {
       callbackContacts: contacts.filter(c => c.status === 'callback_scheduled').length,
       notInterestedContacts: contacts.filter(c => c.status === 'not_interested').length,
     };
+  }
+
+  // SIP Settings
+  async getSipSettings(): Promise<SipSettings | undefined> {
+    const [settings] = await db.select().from(sipSettings).limit(1);
+    return settings || undefined;
+  }
+
+  async upsertSipSettings(data: InsertSipSettings): Promise<SipSettings> {
+    const existing = await this.getSipSettings();
+    if (existing) {
+      const [updated] = await db.update(sipSettings)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(sipSettings.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(sipSettings).values(data).returning();
+      return created;
+    }
+  }
+
+  // Call Logs
+  async getCallLog(id: string): Promise<CallLog | undefined> {
+    const [log] = await db.select().from(callLogs).where(eq(callLogs.id, id));
+    return log || undefined;
+  }
+
+  async getCallLogsByUser(userId: string, limit: number = 100): Promise<CallLog[]> {
+    return db.select().from(callLogs)
+      .where(eq(callLogs.userId, userId))
+      .orderBy(desc(callLogs.startedAt))
+      .limit(limit);
+  }
+
+  async getCallLogsByCustomer(customerId: string): Promise<CallLog[]> {
+    return db.select().from(callLogs)
+      .where(eq(callLogs.customerId, customerId))
+      .orderBy(desc(callLogs.startedAt));
+  }
+
+  async getCallLogsByCampaign(campaignId: string): Promise<CallLog[]> {
+    return db.select().from(callLogs)
+      .where(eq(callLogs.campaignId, campaignId))
+      .orderBy(desc(callLogs.startedAt));
+  }
+
+  async getAllCallLogs(limit: number = 1000): Promise<CallLog[]> {
+    return db.select().from(callLogs)
+      .orderBy(desc(callLogs.startedAt))
+      .limit(limit);
+  }
+
+  async createCallLog(data: InsertCallLog): Promise<CallLog> {
+    const values: any = { ...data };
+    if (data.startedAt) values.startedAt = new Date(data.startedAt);
+    if (data.answeredAt) values.answeredAt = new Date(data.answeredAt);
+    if (data.endedAt) values.endedAt = new Date(data.endedAt);
+    const [created] = await db.insert(callLogs).values(values).returning();
+    return created;
+  }
+
+  async updateCallLog(id: string, data: Partial<InsertCallLog>): Promise<CallLog | undefined> {
+    const values: any = { ...data };
+    if (data.startedAt) values.startedAt = new Date(data.startedAt);
+    if (data.answeredAt) values.answeredAt = new Date(data.answeredAt);
+    if (data.endedAt) values.endedAt = new Date(data.endedAt);
+    const [updated] = await db.update(callLogs)
+      .set(values)
+      .where(eq(callLogs.id, id))
+      .returning();
+    return updated || undefined;
   }
 }
 
