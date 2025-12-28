@@ -6,6 +6,9 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
+import { Phone } from "lucide-react";
 import {
   Form,
   FormControl,
@@ -36,6 +39,10 @@ const createUserFormSchema = z.object({
   roleId: z.string().optional(),
   isActive: z.boolean(),
   assignedCountries: z.array(z.string()).min(1, "At least one country must be assigned"),
+  sipEnabled: z.boolean().optional(),
+  sipExtension: z.string().optional(),
+  sipPassword: z.string().optional(),
+  sipDisplayName: z.string().optional(),
 });
 
 const updateUserFormSchema = z.object({
@@ -47,6 +54,10 @@ const updateUserFormSchema = z.object({
   roleId: z.string().optional(),
   isActive: z.boolean(),
   assignedCountries: z.array(z.string()).min(1, "At least one country must be assigned"),
+  sipEnabled: z.boolean().optional(),
+  sipExtension: z.string().optional(),
+  sipPassword: z.string().optional(),
+  sipDisplayName: z.string().optional(),
 });
 
 export type UserFormData = z.infer<typeof createUserFormSchema>;
@@ -93,6 +104,10 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
       roleId: (initialData as any)?.roleId || "",
       isActive: initialData?.isActive ?? true,
       assignedCountries: initialData?.assignedCountries || [],
+      sipEnabled: (initialData as any)?.sipEnabled ?? false,
+      sipExtension: (initialData as any)?.sipExtension || "",
+      sipPassword: (initialData as any)?.sipPassword || "",
+      sipDisplayName: (initialData as any)?.sipDisplayName || "",
     },
   });
   
@@ -403,6 +418,108 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
             )}
           />
         )}
+
+        <Separator className="my-6" />
+
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Phone className="h-5 w-5 text-muted-foreground" />
+            <h3 className="text-lg font-medium">SIP telefónia</h3>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Nastavenie SIP linky pre vstavaný telefón
+          </p>
+
+          <FormField
+            control={form.control}
+            name="sipEnabled"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <FormLabel className="text-base">Povoliť SIP telefón</FormLabel>
+                  <FormDescription>
+                    Aktivovať možnosť telefonovania pre tohto používateľa
+                  </FormDescription>
+                </div>
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    data-testid="switch-sip-enabled"
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+
+          {form.watch("sipEnabled") && (
+            <div className="grid gap-4 sm:grid-cols-2 pl-4 border-l-2 border-primary/20">
+              <FormField
+                control={form.control}
+                name="sipExtension"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Linka (Extension)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="1001" 
+                        {...field}
+                        data-testid="input-sip-extension"
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Číslo linky pridelené v Asterisk PBX
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="sipPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Heslo</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="password"
+                        placeholder="••••••••" 
+                        {...field}
+                        data-testid="input-sip-password"
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Heslo pre autentifikáciu SIP linky
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="sipDisplayName"
+                render={({ field }) => (
+                  <FormItem className="sm:col-span-2">
+                    <FormLabel>Zobrazované meno (voliteľné)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="Meno zobrazené pri hovore" 
+                        {...field}
+                        data-testid="input-sip-display-name"
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Meno ktoré sa zobrazí volanému
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          )}
+        </div>
 
         <div className="flex justify-end gap-3">
           <Button 
