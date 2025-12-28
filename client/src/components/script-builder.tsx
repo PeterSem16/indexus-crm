@@ -478,14 +478,14 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
                 <div className="space-y-2">
                   <Label htmlFor="step-next">Nasledujúci krok</Label>
                   <Select
-                    value={selectedStep.nextStepId || ""}
-                    onValueChange={(v) => updateStep(selectedStep.id, { nextStepId: v || undefined })}
+                    value={selectedStep.nextStepId || "_auto_"}
+                    onValueChange={(v) => updateStep(selectedStep.id, { nextStepId: v === "_auto_" ? undefined : v })}
                   >
                     <SelectTrigger id="step-next" data-testid="select-next-step">
                       <SelectValue placeholder="Automaticky ďalší" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Automaticky ďalší</SelectItem>
+                      <SelectItem value="_auto_">Automaticky ďalší</SelectItem>
                       {currentScript.steps
                         .filter(s => s.id !== selectedStep.id)
                         .map(s => (
