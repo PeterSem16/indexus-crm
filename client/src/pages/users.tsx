@@ -30,6 +30,7 @@ import { DataTable } from "@/components/data-table";
 import { StatusBadge } from "@/components/status-badge";
 import { CountryBadges } from "@/components/country-filter";
 import { UserForm, type UserFormData } from "@/components/user-form";
+import { UserFormWizard } from "@/components/user-form-wizard";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { User } from "@shared/schema";
@@ -45,18 +46,6 @@ export default function UsersPage() {
 
   const { data: users = [], isLoading } = useQuery<User[]>({
     queryKey: ["/api/users"],
-  });
-
-  const createMutation = useMutation({
-    mutationFn: (data: UserFormData) => apiRequest("POST", "/api/users", data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      setIsFormOpen(false);
-      toast({ title: t.success.created });
-    },
-    onError: () => {
-      toast({ title: t.errors.saveFailed, variant: "destructive" });
-    },
   });
 
   const updateMutation = useMutation({
@@ -252,23 +241,22 @@ export default function UsersPage() {
       />
 
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t.users.addNewUser}</DialogTitle>
             <DialogDescription>
               {t.users.description}
             </DialogDescription>
           </DialogHeader>
-          <UserForm
-            onSubmit={(data) => createMutation.mutate(data)}
-            isLoading={createMutation.isPending}
+          <UserFormWizard
+            onSuccess={() => setIsFormOpen(false)}
             onCancel={() => setIsFormOpen(false)}
           />
         </DialogContent>
       </Dialog>
 
       <Dialog open={!!editingUser} onOpenChange={() => setEditingUser(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t.users.editUser}</DialogTitle>
             <DialogDescription>
