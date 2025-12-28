@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { UserAgent, Registerer, RegistererState, Inviter, Session, SessionState } from "sip.js";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -17,7 +19,8 @@ import {
   Play,
   X,
   Settings,
-  Loader2
+  Loader2,
+  AlertCircle
 } from "lucide-react";
 import {
   Dialog,
@@ -28,9 +31,15 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import type { SipSettings, CallLog, User } from "@shared/schema";
 
 export interface SipConfig {
   server: string;
+  port?: number;
+  wsPath?: string;
+  realm?: string;
+  transport?: string;
   username: string;
   password: string;
   displayName?: string;
@@ -39,9 +48,13 @@ export interface SipConfig {
 interface SipPhoneProps {
   config?: SipConfig;
   initialNumber?: string;
-  onCallStart?: (number: string) => void;
-  onCallEnd?: (duration: number, status: string) => void;
+  onCallStart?: (number: string, callLogId?: number) => void;
+  onCallEnd?: (duration: number, status: string, callLogId?: number) => void;
   compact?: boolean;
+  userId?: number;
+  customerId?: number;
+  campaignId?: number;
+  customerName?: string;
 }
 
 type CallState = "idle" | "connecting" | "ringing" | "active" | "on_hold" | "ended";
@@ -51,7 +64,11 @@ export function SipPhone({
   initialNumber = "", 
   onCallStart, 
   onCallEnd,
-  compact = false 
+  compact = false,
+  userId,
+  customerId,
+  campaignId,
+  customerName
 }: SipPhoneProps) {
   const { toast } = useToast();
   const [callState, setCallState] = useState<CallState>("idle");
@@ -62,6 +79,7 @@ export function SipPhone({
   const [callDuration, setCallDuration] = useState(0);
   const [isRegistered, setIsRegistered] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const [currentCallLogId, setCurrentCallLogId] = useState<number | null>(null);
   const [sipConfig, setSipConfig] = useState<SipConfig>(config || {
     server: "",
     username: "",
@@ -75,6 +93,70 @@ export function SipPhone({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const callTimerRef = useRef<NodeJS.Timeout | null>(null);
   const callStartTimeRef = useRef<number>(0);
+
+  const { data: globalSipSettings, isLoading: sipSettingsLoading } = useQuery<SipSettings | null>({
+    queryKey: ["/api/sip-settings"],
+    retry: false,
+  });
+
+  const { data: authData, isLoading: userLoading } = useQuery<{ user: User | null }>({
+    queryKey: ["/api/auth/me"],
+  });
+  
+  const currentUser = authData?.user;
+
+  const createCallLogMutation = useMutation({
+    mutationFn: async (data: {
+      phoneNumber: string;
+      direction: string;
+      status: string;
+      userId?: number;
+      customerId?: number;
+      campaignId?: number;
+      customerName?: string;
+    }) => {
+      const res = await apiRequest("POST", "/api/call-logs", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/call-logs"] });
+    }
+  });
+
+  const updateCallLogMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: { status?: string; endedAt?: string; duration?: number; notes?: string } }) => {
+      const res = await apiRequest("PATCH", `/api/call-logs/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/call-logs"] });
+    }
+  });
+
+  const isSipConfigured = Boolean(
+    globalSipSettings?.serverAddress && 
+    currentUser && 
+    (currentUser as any).sipEnabled && 
+    (currentUser as any).sipExtension
+  );
+  
+  const isLoading = sipSettingsLoading || userLoading;
+
+  useEffect(() => {
+    if (globalSipSettings?.serverAddress && currentUser && (currentUser as any).sipEnabled && (currentUser as any).sipExtension) {
+      const userSipConfig: SipConfig = {
+        server: globalSipSettings.serverAddress,
+        port: globalSipSettings.serverPort || undefined,
+        wsPath: globalSipSettings.wsPath || undefined,
+        realm: globalSipSettings.realm || undefined,
+        transport: globalSipSettings.transport || undefined,
+        username: (currentUser as any).sipExtension || "",
+        password: (currentUser as any).sipPassword || "",
+        displayName: (currentUser as any).sipDisplayName || currentUser.fullName,
+      };
+      setSipConfig(userSipConfig);
+    }
+  }, [globalSipSettings, currentUser]);
 
   useEffect(() => {
     setPhoneNumber(initialNumber);
@@ -127,13 +209,19 @@ export function SipPhone({
     }
 
     try {
-      const uri = UserAgent.makeURI(`sip:${sipConfig.username}@${sipConfig.server}`);
+      const serverHost = sipConfig.server;
+      const serverPort = sipConfig.port || 443;
+      const wsPath = sipConfig.wsPath || "/ws";
+      const realm = sipConfig.realm || sipConfig.server;
+      
+      const uri = UserAgent.makeURI(`sip:${sipConfig.username}@${realm}`);
       if (!uri) {
         throw new Error("Invalid SIP URI");
       }
 
+      const wsProtocol = sipConfig.transport === "ws" ? "ws" : "wss";
       const transportOptions = {
-        server: `wss://${sipConfig.server}/ws`
+        server: `${wsProtocol}://${serverHost}:${serverPort}${wsPath}`
       };
 
       const userAgentOptions = {
@@ -188,6 +276,15 @@ export function SipPhone({
   }, [cleanup, toast]);
 
   const makeCall = useCallback(async () => {
+    if (!isSipConfigured) {
+      toast({
+        title: "SIP nie je nakonfigurovaný",
+        description: "Kontaktujte administrátora pre nastavenie SIP telefónu",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     if (!phoneNumber || !userAgentRef.current || !isRegistered) {
       if (!isRegistered) {
         toast({
@@ -202,7 +299,19 @@ export function SipPhone({
     try {
       setCallState("connecting");
       
-      const targetUri = UserAgent.makeURI(`sip:${phoneNumber}@${sipConfig.server}`);
+      const callLogData = await createCallLogMutation.mutateAsync({
+        phoneNumber,
+        direction: "outbound",
+        status: "initiated",
+        userId: userId || currentUser?.id,
+        customerId,
+        campaignId,
+        customerName,
+      });
+      setCurrentCallLogId(callLogData.id);
+      
+      const realm = sipConfig.realm || sipConfig.server;
+      const targetUri = UserAgent.makeURI(`sip:${phoneNumber}@${realm}`);
       if (!targetUri) {
         throw new Error("Invalid target URI");
       }
@@ -217,12 +326,17 @@ export function SipPhone({
       });
 
       sessionRef.current = inviter;
+      const callLogId = callLogData.id;
 
       inviter.stateChange.addListener((state) => {
         console.log("Call state:", state);
         switch (state) {
           case SessionState.Establishing:
             setCallState("ringing");
+            updateCallLogMutation.mutate({
+              id: callLogId,
+              data: { status: "ringing" }
+            });
             break;
           case SessionState.Established:
             setCallState("active");
@@ -230,7 +344,11 @@ export function SipPhone({
             callTimerRef.current = setInterval(() => {
               setCallDuration(Math.floor((Date.now() - callStartTimeRef.current) / 1000));
             }, 1000);
-            onCallStart?.(phoneNumber);
+            updateCallLogMutation.mutate({
+              id: callLogId,
+              data: { status: "answered" }
+            });
+            onCallStart?.(phoneNumber, callLogId);
             setupAudio(inviter);
             break;
           case SessionState.Terminated:
@@ -241,7 +359,16 @@ export function SipPhone({
             if (callTimerRef.current) {
               clearInterval(callTimerRef.current);
             }
-            onCallEnd?.(duration, "completed");
+            updateCallLogMutation.mutate({
+              id: callLogId,
+              data: { 
+                status: duration > 0 ? "completed" : "failed",
+                endedAt: new Date().toISOString(),
+                duration
+              }
+            });
+            onCallEnd?.(duration, duration > 0 ? "completed" : "failed", callLogId);
+            setCurrentCallLogId(null);
             setTimeout(() => {
               setCallState("idle");
               setCallDuration(0);
@@ -253,6 +380,16 @@ export function SipPhone({
       await inviter.invite();
     } catch (error) {
       console.error("Call error:", error);
+      if (currentCallLogId) {
+        updateCallLogMutation.mutate({
+          id: currentCallLogId,
+          data: { 
+            status: "failed",
+            endedAt: new Date().toISOString()
+          }
+        });
+        setCurrentCallLogId(null);
+      }
       toast({
         title: "Chyba hovoru",
         description: "Nepodarilo sa uskutočniť hovor",
@@ -260,7 +397,7 @@ export function SipPhone({
       });
       setCallState("idle");
     }
-  }, [phoneNumber, sipConfig.server, isRegistered, onCallStart, onCallEnd, toast]);
+  }, [phoneNumber, sipConfig.server, sipConfig.realm, isRegistered, onCallStart, onCallEnd, toast, createCallLogMutation, updateCallLogMutation, userId, currentUser, customerId, campaignId, customerName, currentCallLogId, isSipConfigured]);
 
   const setupAudio = (session: Session) => {
     const sessionDescriptionHandler = session.sessionDescriptionHandler;
@@ -287,6 +424,16 @@ export function SipPhone({
           sessionRef.current.bye();
         } else {
           (sessionRef.current as Inviter).cancel?.();
+          if (currentCallLogId) {
+            updateCallLogMutation.mutate({
+              id: currentCallLogId,
+              data: { 
+                status: "cancelled",
+                endedAt: new Date().toISOString()
+              }
+            });
+            setCurrentCallLogId(null);
+          }
         }
       } catch (error) {
         console.error("Error ending call:", error);
@@ -297,7 +444,7 @@ export function SipPhone({
     if (callTimerRef.current) {
       clearInterval(callTimerRef.current);
     }
-  }, []);
+  }, [currentCallLogId, updateCallLogMutation]);
 
   const toggleMute = useCallback(() => {
     if (!sessionRef.current) return;
@@ -506,13 +653,28 @@ export function SipPhone({
       <CardContent className="space-y-4">
         <audio ref={audioRef} autoPlay />
         
+        {isLoading && (
+          <div className="flex items-center justify-center py-4">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        )}
+        
+        {!isLoading && !isSipConfigured && (
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              SIP telefón nie je nakonfigurovaný. Kontaktujte administrátora pre nastavenie SIP servera a vašej linky.
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <div className="space-y-2">
           <Input
             value={phoneNumber}
             onChange={(e) => setPhoneNumber(e.target.value)}
             placeholder="Telefónne číslo"
             className="text-center text-lg font-mono"
-            disabled={callState !== "idle"}
+            disabled={callState !== "idle" || !isSipConfigured}
             data-testid="input-phone-number"
           />
         </div>
@@ -523,7 +685,7 @@ export function SipPhone({
           </div>
         )}
 
-        {callState === "idle" && (
+        {callState === "idle" && isSipConfigured && (
           <div className="grid grid-cols-3 gap-2">
             {dialPadButtons.map((digit) => (
               <Button
@@ -546,14 +708,14 @@ export function SipPhone({
                 size="icon"
                 variant="ghost"
                 onClick={() => setPhoneNumber(phoneNumber.slice(0, -1))}
-                disabled={!phoneNumber}
+                disabled={!phoneNumber || !isSipConfigured}
               >
                 <X className="h-4 w-4" />
               </Button>
               <Button
                 className="h-14 w-14 rounded-full bg-green-600 hover:bg-green-700"
                 onClick={makeCall}
-                disabled={!phoneNumber || !isRegistered}
+                disabled={!phoneNumber || !isRegistered || !isSipConfigured}
                 data-testid="button-make-call"
               >
                 <Phone className="h-6 w-6" />
@@ -677,7 +839,18 @@ export function SipPhone({
   );
 }
 
-export function SipPhoneFloating({ onCallStart, onCallEnd }: Pick<SipPhoneProps, "onCallStart" | "onCallEnd">) {
+interface SipPhoneFloatingProps extends Pick<SipPhoneProps, "onCallStart" | "onCallEnd" | "customerId" | "campaignId" | "customerName"> {
+  initialNumber?: string;
+}
+
+export function SipPhoneFloating({ 
+  onCallStart, 
+  onCallEnd, 
+  customerId, 
+  campaignId, 
+  customerName,
+  initialNumber 
+}: SipPhoneFloatingProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -692,7 +865,14 @@ export function SipPhoneFloating({ onCallStart, onCallEnd }: Pick<SipPhoneProps,
       
       {isOpen && (
         <div className="fixed bottom-20 right-4 z-50 shadow-xl">
-          <SipPhone onCallStart={onCallStart} onCallEnd={onCallEnd} />
+          <SipPhone 
+            onCallStart={onCallStart} 
+            onCallEnd={onCallEnd}
+            customerId={customerId}
+            campaignId={campaignId}
+            customerName={customerName}
+            initialNumber={initialNumber}
+          />
         </div>
       )}
     </>
