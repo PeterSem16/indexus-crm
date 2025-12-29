@@ -51,9 +51,9 @@ interface SipPhoneProps {
   onCallStart?: (number: string, callLogId?: number) => void;
   onCallEnd?: (duration: number, status: string, callLogId?: number) => void;
   compact?: boolean;
-  userId?: number;
-  customerId?: number;
-  campaignId?: number;
+  userId?: string;
+  customerId?: string;
+  campaignId?: string;
   customerName?: string;
 }
 
@@ -110,9 +110,9 @@ export function SipPhone({
       phoneNumber: string;
       direction: string;
       status: string;
-      userId?: number;
-      customerId?: number;
-      campaignId?: number;
+      userId?: string;
+      customerId?: string;
+      campaignId?: string;
       customerName?: string;
     }) => {
       const res = await apiRequest("POST", "/api/call-logs", data);
@@ -134,7 +134,7 @@ export function SipPhone({
   });
 
   const isSipConfigured = Boolean(
-    globalSipSettings?.serverAddress && 
+    globalSipSettings?.server && 
     currentUser && 
     (currentUser as any).sipEnabled && 
     (currentUser as any).sipExtension
@@ -143,10 +143,10 @@ export function SipPhone({
   const isLoading = sipSettingsLoading || userLoading;
 
   useEffect(() => {
-    if (globalSipSettings?.serverAddress && currentUser && (currentUser as any).sipEnabled && (currentUser as any).sipExtension) {
+    if (globalSipSettings?.server && currentUser && (currentUser as any).sipEnabled && (currentUser as any).sipExtension) {
       const userSipConfig: SipConfig = {
-        server: globalSipSettings.serverAddress,
-        port: globalSipSettings.serverPort || undefined,
+        server: globalSipSettings.server,
+        port: globalSipSettings.port || undefined,
         wsPath: globalSipSettings.wsPath || undefined,
         realm: globalSipSettings.realm || undefined,
         transport: globalSipSettings.transport || undefined,
@@ -875,6 +875,37 @@ export function SipPhoneFloating({
           />
         </div>
       )}
+    </>
+  );
+}
+
+interface SipPhoneHeaderButtonProps {
+  user: { sipEnabled?: boolean } | null;
+}
+
+export function SipPhoneHeaderButton({ user }: SipPhoneHeaderButtonProps) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  if (!user?.sipEnabled) {
+    return null;
+  }
+
+  return (
+    <>
+      <Button
+        size="icon"
+        variant="ghost"
+        onClick={() => setIsOpen(!isOpen)}
+        data-testid="button-header-sip-phone"
+      >
+        <Phone className="h-4 w-4" />
+      </Button>
+      
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent className="max-w-md p-0">
+          <SipPhone compact />
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

@@ -13,6 +13,7 @@ import { I18nProvider } from "@/i18n";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { TourProvider, TourTrigger } from "@/components/tour-provider";
+import { SipPhoneHeaderButton } from "@/components/sip-phone";
 import Dashboard from "@/pages/dashboard";
 import UsersPage from "@/pages/users";
 import CustomersPage from "@/pages/customers";
@@ -104,6 +105,7 @@ function AuthenticatedApp() {
                 <SidebarTrigger data-testid="button-sidebar-toggle" />
                 <div className="flex items-center gap-2">
                   <GlobalSearch />
+                  <SipPhoneHeaderButton user={user} />
                   <TourTrigger />
                   <ThemeToggle />
                 </div>
