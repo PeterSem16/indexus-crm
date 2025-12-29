@@ -910,9 +910,14 @@ export function CallCustomerButton({
     return (
       <>
         <Button
+          type="button"
           size="icon"
           variant="ghost"
-          onClick={() => setIsOpen(true)}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsOpen(true);
+          }}
           data-testid="button-call-customer-icon"
           title={`Zavolať na ${phoneNumber}`}
         >
@@ -937,9 +942,14 @@ export function CallCustomerButton({
     return (
       <>
         <Button
+          type="button"
           size="sm"
           variant="outline"
-          onClick={() => setIsOpen(true)}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsOpen(true);
+          }}
           data-testid="button-call-customer-small"
           className="gap-1"
         >
@@ -964,7 +974,12 @@ export function CallCustomerButton({
   return (
     <>
       <Button
-        onClick={() => setIsOpen(true)}
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsOpen(true);
+        }}
         data-testid="button-call-customer"
         className="gap-2"
       >
