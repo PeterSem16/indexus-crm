@@ -2240,8 +2240,14 @@ function NumberRangesTab() {
                               type="number" 
                               min={1}
                               max={20}
-                              {...field} 
-                              onChange={(e) => field.onChange(parseInt(e.target.value) || 6)}
+                              value={field.value ?? ""}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                field.onChange(val === "" ? 1 : parseInt(val));
+                              }}
+                              onBlur={field.onBlur}
+                              name={field.name}
+                              ref={field.ref}
                               data-testid="input-digits-to-generate" 
                             />
                           </FormControl>
@@ -2259,8 +2265,14 @@ function NumberRangesTab() {
                             <FormControl>
                               <Input 
                                 type="number" 
-                                {...field} 
-                                onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                                value={field.value ?? ""}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  field.onChange(val === "" ? 1 : parseInt(val));
+                                }}
+                                onBlur={field.onBlur}
+                                name={field.name}
+                                ref={field.ref}
                                 data-testid="input-start-number" 
                               />
                             </FormControl>
@@ -2277,8 +2289,14 @@ function NumberRangesTab() {
                             <FormControl>
                               <Input 
                                 type="number" 
-                                {...field} 
-                                onChange={(e) => field.onChange(parseInt(e.target.value) || 999999)}
+                                value={field.value ?? ""}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  field.onChange(val === "" ? 1 : parseInt(val));
+                                }}
+                                onBlur={field.onBlur}
+                                name={field.name}
+                                ref={field.ref}
                                 data-testid="input-end-number" 
                               />
                             </FormControl>
@@ -2304,8 +2322,14 @@ function NumberRangesTab() {
                             <FormControl>
                               <Input 
                                 type="number" 
-                                {...field} 
-                                onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                                value={field.value ?? ""}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  field.onChange(val === "" ? 0 : parseInt(val));
+                                }}
+                                onBlur={field.onBlur}
+                                name={field.name}
+                                ref={field.ref}
                                 data-testid="input-last-number-used" 
                               />
                             </FormControl>
