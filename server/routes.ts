@@ -855,8 +855,7 @@ export async function registerRoutes(
 
   app.patch("/api/billing-details/:id", requireAuth, async (req, res) => {
     try {
-      const userId = req.user?.id;
-      console.log("Updating billing details, userId:", userId, "body keys:", Object.keys(req.body));
+      const userId = req.session.user?.id;
       const details = await storage.updateBillingDetails(req.params.id, req.body, userId);
       res.json(details);
     } catch (error) {
