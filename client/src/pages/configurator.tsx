@@ -3844,6 +3844,7 @@ function BillingCompaniesTab() {
   const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [countryFilter, setCountryFilter] = useState<string>("all");
+  const [numberRangeFilter, setNumberRangeFilter] = useState<string>("all");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<BillingDetails | null>(null);
   const [deletingCompany, setDeletingCompany] = useState<BillingDetails | null>(null);
@@ -3866,12 +3867,23 @@ function BillingCompaniesTab() {
     queryKey: ["/api/collaborators"],
   });
 
+  const { data: allNumberRanges = [] } = useQuery<NumberRange[]>({
+    queryKey: ["/api/configurator/number-ranges"],
+  });
+
   const filteredCompanies = billingCompanies.filter(company => {
     // Check countryCodes array, fallback to countryCode
     const companyCountries = company.countryCodes?.length ? company.countryCodes : [company.countryCode];
     
     if (userCountryCodes && !companyCountries.some(c => userCountryCodes.includes(c))) return false;
     if (countryFilter !== "all" && !companyCountries.includes(countryFilter)) return false;
+    
+    // Filter by number range - check if billing company has the selected number range assigned
+    if (numberRangeFilter !== "all") {
+      const hasNumberRange = allNumberRanges.some(nr => nr.billingDetailsId === company.id && nr.id === numberRangeFilter);
+      if (!hasNumberRange) return false;
+    }
+    
     if (search) {
       const searchLower = search.toLowerCase();
       return (
@@ -4013,6 +4025,17 @@ function BillingCompaniesTab() {
               <SelectItem value="all">{t.common.all || "All"} {t.customers.country}</SelectItem>
               {availableCountries.map((country) => (
                 <SelectItem key={country.code} value={country.code}>{country.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={numberRangeFilter} onValueChange={setNumberRangeFilter}>
+            <SelectTrigger className="w-[200px]" data-testid="select-billing-number-range-filter">
+              <SelectValue placeholder={t.konfigurator.numberRanges || "Number Ranges"} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t.common.all || "All"} {t.konfigurator.numberRanges || "Number Ranges"}</SelectItem>
+              {allNumberRanges.map((range) => (
+                <SelectItem key={range.id} value={range.id}>{range.name} ({range.year})</SelectItem>
               ))}
             </SelectContent>
           </Select>
