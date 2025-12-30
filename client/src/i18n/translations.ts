@@ -907,6 +907,7 @@ export interface Translations {
     deleteBillingCompany: string;
     deleteBillingCompanyConfirm: string;
     postalAddress: string;
+    countriesForBilling: string;
     postalName: string;
     postalCountry: string;
     area: string;
@@ -2079,6 +2080,7 @@ export const translations: Record<Locale, Translations> = {
       deleteBillingCompany: 'Delete Billing Company',
       deleteBillingCompanyConfirm: 'Are you sure you want to delete this billing company?',
       postalAddress: 'Postal Address',
+      countriesForBilling: 'Countries for Billing',
       postalName: 'Recipient Name',
       postalCountry: 'Country',
       area: 'Area',
@@ -3249,6 +3251,7 @@ export const translations: Record<Locale, Translations> = {
       deleteBillingCompany: 'Odstrániť fakturačnú spoločnosť',
       deleteBillingCompanyConfirm: 'Ste si istí, že chcete odstrániť túto fakturačnú spoločnosť?',
       postalAddress: 'Poštová adresa',
+      countriesForBilling: 'Krajiny pre fakturáciu',
       postalName: 'Meno príjemcu',
       postalCountry: 'Krajina',
       area: 'Oblasť',
@@ -4419,6 +4422,7 @@ export const translations: Record<Locale, Translations> = {
       deleteBillingCompany: 'Smazat fakturační společnost',
       deleteBillingCompanyConfirm: 'Opravdu chcete smazat tuto fakturační společnost?',
       postalAddress: 'Poštovní adresa',
+      countriesForBilling: 'Země pro fakturaci',
       postalName: 'Jméno příjemce',
       postalCountry: 'Země',
       area: 'Oblast',
@@ -5552,6 +5556,7 @@ export const translations: Record<Locale, Translations> = {
       deleteBillingCompany: 'Számlázó cég törlése',
       deleteBillingCompanyConfirm: 'Biztosan törölni szeretné ezt a számlázó céget?',
       postalAddress: 'Postai cím',
+      countriesForBilling: 'Számlázási országok',
       postalName: 'Címzett neve',
       postalCountry: 'Ország',
       area: 'Terület',
@@ -6685,6 +6690,7 @@ export const translations: Record<Locale, Translations> = {
       deleteBillingCompany: 'Șterge compania de facturare',
       deleteBillingCompanyConfirm: 'Sigur doriți să ștergeți această companie de facturare?',
       postalAddress: 'Adresă poștală',
+      countriesForBilling: 'Țări pentru facturare',
       postalName: 'Numele destinatarului',
       postalCountry: 'Țara',
       area: 'Zonă',
@@ -7818,6 +7824,7 @@ export const translations: Record<Locale, Translations> = {
       deleteBillingCompany: 'Elimina società di fatturazione',
       deleteBillingCompanyConfirm: 'Sei sicuro di voler eliminare questa società di fatturazione?',
       postalAddress: 'Indirizzo postale',
+      countriesForBilling: 'Paesi per la fatturazione',
       postalName: 'Nome destinatario',
       postalCountry: 'Paese',
       area: 'Area',
@@ -8951,6 +8958,7 @@ export const translations: Record<Locale, Translations> = {
       deleteBillingCompany: 'Rechnungsfirma löschen',
       deleteBillingCompanyConfirm: 'Sind Sie sicher, dass Sie diese Rechnungsfirma löschen möchten?',
       postalAddress: 'Postanschrift',
+      countriesForBilling: 'Länder für die Rechnungsstellung',
       postalName: 'Empfängername',
       postalCountry: 'Land',
       area: 'Gebiet',

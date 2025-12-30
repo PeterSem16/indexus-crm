@@ -4279,7 +4279,7 @@ function BillingCompanyDialog({
           <TabsContent value="postal" className="space-y-4 mt-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>{t.customers.country} *</Label>
+                <Label>{t.konfigurator.countriesForBilling} *</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="outline" className="w-full justify-between" data-testid="select-billing-countries">
