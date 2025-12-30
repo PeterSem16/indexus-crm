@@ -711,6 +711,8 @@ export interface Translations {
     numberRangeDeleted: string;
     numberRangeFormDescription: string;
     noNumberRanges: string;
+    billingCompany: string;
+    selectBillingCompany: string;
     invoiceTemplates: string;
     templatesDescription: string;
     invoiceEditor: string;
@@ -1739,6 +1741,8 @@ export const translations: Record<Locale, Translations> = {
       numberRangeCreated: 'Number range created successfully',
       numberRangeUpdated: 'Number range updated successfully',
       numberRangeDeleted: 'Number range deleted successfully',
+      billingCompany: 'Billing Company',
+      selectBillingCompany: 'Select billing company',
       numberRangeFormDescription: 'Configure numbering sequence for invoices or proforma invoices',
       noNumberRanges: 'No number ranges configured',
       invoiceTemplates: 'Invoice Templates',
@@ -2767,6 +2771,8 @@ export const translations: Record<Locale, Translations> = {
       numberRangeCreated: 'Číselná rada bola úspešne vytvorená',
       numberRangeUpdated: 'Číselná rada bola úspešne aktualizovaná',
       numberRangeDeleted: 'Číselná rada bola úspešne vymazaná',
+      billingCompany: 'Fakturačná spoločnosť',
+      selectBillingCompany: 'Vyberte fakturačnú spoločnosť',
       numberRangeFormDescription: 'Konfigurácia číselnej rady pre faktúry alebo zálohové faktúry',
       noNumberRanges: 'Žiadne číselné rady nie sú nakonfigurované',
       invoiceTemplates: 'Šablóny faktúr',
@@ -3795,6 +3801,8 @@ export const translations: Record<Locale, Translations> = {
       numberRangeCreated: 'Číselná řada byla úspěšně vytvořena',
       numberRangeUpdated: 'Číselná řada byla úspěšně aktualizována',
       numberRangeDeleted: 'Číselná řada byla úspěšně smazána',
+      billingCompany: 'Fakturační společnost',
+      selectBillingCompany: 'Vyberte fakturační společnost',
       numberRangeFormDescription: 'Konfigurace číselné řady pro faktury nebo zálohové faktury',
       noNumberRanges: 'Žádné číselné řady nejsou nakonfigurovány',
       invoiceTemplates: 'Šablony faktur',
@@ -4786,6 +4794,8 @@ export const translations: Record<Locale, Translations> = {
       numberRangeCreated: 'Számtartomány sikeresen létrehozva',
       numberRangeUpdated: 'Számtartomány sikeresen frissítve',
       numberRangeDeleted: 'Számtartomány sikeresen törölve',
+      billingCompany: 'Számlázó cég',
+      selectBillingCompany: 'Válasszon számlázó céget',
       numberRangeFormDescription: 'Számozási sorozat konfigurálása számlákhoz vagy előlegszámlákhoz',
       noNumberRanges: 'Nincsenek konfigurált számtartományok',
       invoiceTemplates: 'Számlasablonok',
@@ -5777,6 +5787,8 @@ export const translations: Record<Locale, Translations> = {
       numberRangeCreated: 'Interval numeric creat cu succes',
       numberRangeUpdated: 'Interval numeric actualizat cu succes',
       numberRangeDeleted: 'Interval numeric șters cu succes',
+      billingCompany: 'Companie de facturare',
+      selectBillingCompany: 'Selectați compania de facturare',
       numberRangeFormDescription: 'Configurați secvența de numerotare pentru facturi sau facturi proforma',
       noNumberRanges: 'Nu există intervale numerice configurate',
       invoiceTemplates: 'Șabloane de factură',
@@ -6768,6 +6780,8 @@ export const translations: Record<Locale, Translations> = {
       numberRangeCreated: 'Intervallo numerico creato con successo',
       numberRangeUpdated: 'Intervallo numerico aggiornato con successo',
       numberRangeDeleted: 'Intervallo numerico eliminato con successo',
+      billingCompany: 'Società di fatturazione',
+      selectBillingCompany: 'Seleziona società di fatturazione',
       numberRangeFormDescription: 'Configura la sequenza di numerazione per fatture o fatture proforma',
       noNumberRanges: 'Nessun intervallo numerico configurato',
       invoiceTemplates: 'Modelli di fattura',
@@ -7759,6 +7773,8 @@ export const translations: Record<Locale, Translations> = {
       numberRangeCreated: 'Nummernkreis erfolgreich erstellt',
       numberRangeUpdated: 'Nummernkreis erfolgreich aktualisiert',
       numberRangeDeleted: 'Nummernkreis erfolgreich gelöscht',
+      billingCompany: 'Rechnungsunternehmen',
+      selectBillingCompany: 'Rechnungsunternehmen auswählen',
       numberRangeFormDescription: 'Nummernkreis für Rechnungen oder Proformarechnungen konfigurieren',
       noNumberRanges: 'Keine Nummernkreise konfiguriert',
       invoiceTemplates: 'Rechnungsvorlagen',

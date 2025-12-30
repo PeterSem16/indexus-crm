@@ -1252,6 +1252,7 @@ export const numberRanges = pgTable("number_ranges", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   countryCode: text("country_code").notNull(),
+  billingDetailsId: varchar("billing_details_id"), // Reference to billing company
   year: integer("year").notNull(),
   useServiceCode: boolean("use_service_code").notNull().default(false),
   type: text("type").notNull().default("invoice"), // invoice, proforma

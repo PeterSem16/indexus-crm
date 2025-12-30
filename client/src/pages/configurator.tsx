@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
 import { useCountryFilter } from "@/contexts/country-filter-context";
@@ -102,6 +102,7 @@ const layoutFormSchema = z.object({
 const numberRangeFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
   countryCode: z.string().min(1, "Country is required"),
+  billingDetailsId: z.string().optional(),
   year: z.number().min(1990).max(2100),
   useServiceCode: z.boolean().default(false),
   type: z.enum(["invoice", "proforma"]).default("invoice"),
@@ -1798,6 +1799,7 @@ function NumberRangesTab() {
     defaultValues: {
       name: "",
       countryCode: "",
+      billingDetailsId: "",
       year: currentYear,
       useServiceCode: false,
       type: "invoice",
@@ -1812,6 +1814,28 @@ function NumberRangesTab() {
       isActive: true,
     },
   });
+
+  const selectedCountryCode = form.watch("countryCode");
+  const digitsToGenerate = form.watch("digitsToGenerate");
+
+  const { data: billingCompanies = [] } = useQuery<BillingDetails[]>({
+    queryKey: ["/api/billing-details", selectedCountryCode],
+    queryFn: async () => {
+      if (!selectedCountryCode) return [];
+      const res = await fetch(`/api/billing-details?countryCode=${selectedCountryCode}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!selectedCountryCode,
+  });
+
+  useEffect(() => {
+    if (digitsToGenerate && digitsToGenerate >= 1 && digitsToGenerate <= 20) {
+      const maxNumber = Math.pow(10, digitsToGenerate) - 1;
+      form.setValue("startNumber", 1);
+      form.setValue("endNumber", maxNumber);
+    }
+  }, [digitsToGenerate, form]);
 
   const createMutation = useMutation({
     mutationFn: (data: z.infer<typeof numberRangeFormSchema>) =>
@@ -1850,6 +1874,7 @@ function NumberRangesTab() {
     form.reset({
       name: range.name,
       countryCode: range.countryCode,
+      billingDetailsId: range.billingDetailsId || "",
       year: range.year,
       useServiceCode: range.useServiceCode,
       type: range.type as "invoice" | "proforma",
@@ -2021,6 +2046,32 @@ function NumberRangesTab() {
                     )}
                   />
                 </div>
+
+                <FormField
+                  control={form.control}
+                  name="billingDetailsId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.konfigurator.billingCompany}</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value || ""}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-billing-company">
+                            <SelectValue placeholder={t.konfigurator.selectBillingCompany} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="">{t.common.none}</SelectItem>
+                          {billingCompanies.map((company) => (
+                            <SelectItem key={company.id} value={company.id}>
+                              {company.companyName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
