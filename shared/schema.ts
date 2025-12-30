@@ -1247,6 +1247,36 @@ export const insertServiceInstanceSchema = createInsertSchema(serviceInstances).
 export type InsertServiceInstance = z.infer<typeof insertServiceInstanceSchema>;
 export type ServiceInstance = typeof serviceInstances.$inferSelect;
 
+// Number ranges - for invoice/proforma numbering configuration
+export const numberRanges = pgTable("number_ranges", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  countryCode: text("country_code").notNull(),
+  year: integer("year").notNull(),
+  useServiceCode: boolean("use_service_code").notNull().default(false),
+  type: text("type").notNull().default("invoice"), // invoice, proforma
+  prefix: text("prefix"),
+  suffix: text("suffix"),
+  digitsToGenerate: integer("digits_to_generate").notNull().default(6),
+  startNumber: integer("start_number").notNull().default(1),
+  endNumber: integer("end_number").notNull().default(999999),
+  lastNumberUsed: integer("last_number_used").default(0),
+  accountingCode: text("accounting_code"),
+  description: text("description"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertNumberRangeSchema = createInsertSchema(numberRanges).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertNumberRange = z.infer<typeof insertNumberRangeSchema>;
+export type NumberRange = typeof numberRanges.$inferSelect;
+
 // Invoice templates for Konfigurator
 export const invoiceTemplates = pgTable("invoice_templates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
