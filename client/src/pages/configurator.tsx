@@ -194,6 +194,105 @@ interface WizardInstance {
   discounts: { name: string; discountType: string; value: string }[];
 }
 
+function DateFields({
+  label,
+  dayValue,
+  monthValue,
+  yearValue,
+  onDayChange,
+  onMonthChange,
+  onYearChange,
+  testIdPrefix,
+  yearRange = 20,
+  futureYears = 10,
+}: {
+  label: string;
+  dayValue: number;
+  monthValue: number;
+  yearValue: number;
+  onDayChange: (val: number) => void;
+  onMonthChange: (val: number) => void;
+  onYearChange: (val: number) => void;
+  testIdPrefix: string;
+  yearRange?: number;
+  futureYears?: number;
+}) {
+  const days = Array.from({ length: 31 }, (_, i) => i + 1);
+  const months = Array.from({ length: 12 }, (_, i) => i + 1);
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: yearRange + futureYears }, (_, i) => currentYear + futureYears - i);
+
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <div className="flex gap-2">
+        <Select
+          value={dayValue?.toString() || ""}
+          onValueChange={(v) => onDayChange(parseInt(v))}
+        >
+          <SelectTrigger className="w-[80px]" data-testid={`select-${testIdPrefix}-day`}>
+            <SelectValue placeholder="Deň" />
+          </SelectTrigger>
+          <SelectContent>
+            {days.map((d) => (
+              <SelectItem key={d} value={d.toString()}>
+                {d.toString().padStart(2, "0")}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={monthValue?.toString() || ""}
+          onValueChange={(v) => onMonthChange(parseInt(v))}
+        >
+          <SelectTrigger className="w-[100px]" data-testid={`select-${testIdPrefix}-month`}>
+            <SelectValue placeholder="Mesiac" />
+          </SelectTrigger>
+          <SelectContent>
+            {months.map((m) => (
+              <SelectItem key={m} value={m.toString()}>
+                {m.toString().padStart(2, "0")}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={yearValue?.toString() || ""}
+          onValueChange={(v) => onYearChange(parseInt(v))}
+        >
+          <SelectTrigger className="w-[100px]" data-testid={`select-${testIdPrefix}-year`}>
+            <SelectValue placeholder="Rok" />
+          </SelectTrigger>
+          <SelectContent>
+            {years.map((y) => (
+              <SelectItem key={y} value={y.toString()}>
+                {y}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+}
+
+function parseDateToComponents(dateStr: string | null | undefined): { day: number; month: number; year: number } {
+  if (!dateStr) return { day: 0, month: 0, year: 0 };
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return { day: 0, month: 0, year: 0 };
+  return {
+    day: date.getDate(),
+    month: date.getMonth() + 1,
+    year: date.getFullYear(),
+  };
+}
+
+function componentsToISOString(day: number, month: number, year: number): string | null {
+  if (!day || !month || !year) return null;
+  const date = new Date(year, month - 1, day);
+  return date.toISOString();
+}
+
 function ProductWizard({ 
   open, 
   onOpenChange,
@@ -948,24 +1047,24 @@ function ProductDetailDialog({
 
   const [newInstanceData, setNewInstanceData] = useState<any>({ 
     countryCode: "", name: "", isActive: true, billingDetailsId: "",
-    fromDate: "", toDate: "", description: ""
+    fromDay: 0, fromMonth: 0, fromYear: 0, toDay: 0, toMonth: 0, toYear: 0, description: ""
   });
   const [newPriceData, setNewPriceData] = useState<any>({ 
     name: "", price: "", currency: "EUR", accountingCode: "", analyticalAccount: "",
-    fromDate: "", toDate: "", isActive: true, description: "", amendment: ""
+    fromDay: 0, fromMonth: 0, fromYear: 0, toDay: 0, toMonth: 0, toYear: 0, isActive: true, description: "", amendment: ""
   });
   const [newPaymentData, setNewPaymentData] = useState<any>({ 
     name: "", type: "", invoiceItemText: "", analyticalAccount: "", accountingCode: "",
-    paymentTypeFee: "", fromDate: "", toDate: "", isActive: true, description: "", amendment: ""
+    paymentTypeFee: "", fromDay: 0, fromMonth: 0, fromYear: 0, toDay: 0, toMonth: 0, toYear: 0, isActive: true, description: "", amendment: ""
   });
   const [newDiscountData, setNewDiscountData] = useState<any>({ 
     name: "", type: "", invoiceItemText: "", analyticalAccount: "", accountingCode: "",
     isFixed: false, fixedValue: "", isPercentage: true, percentageValue: "",
-    fromDate: "", toDate: "", isActive: true, description: ""
+    fromDay: 0, fromMonth: 0, fromYear: 0, toDay: 0, toMonth: 0, toYear: 0, isActive: true, description: ""
   });
   const [newServiceData, setNewServiceData] = useState<any>({ 
     name: "", invoiceIdentifier: "", invoiceable: false, collectable: false, storable: false,
-    fromDate: "", toDate: "", isActive: true, blockAutomation: false, certificateTemplate: "", description: ""
+    fromDay: 0, fromMonth: 0, fromYear: 0, toDay: 0, toMonth: 0, toYear: 0, isActive: true, blockAutomation: false, certificateTemplate: "", description: ""
   });
   const [editingInstanceId, setEditingInstanceId] = useState<string | null>(null);
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
@@ -1094,18 +1193,30 @@ function ProductDetailDialog({
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
-                    <Label>Od (From)</Label>
-                    <Input type="date" value={newInstanceData.fromDate} onChange={(e) => setNewInstanceData({...newInstanceData, fromDate: e.target.value})} />
-                  </div>
-                  <div>
-                    <Label>Do (To)</Label>
-                    <Input type="date" value={newInstanceData.toDate} onChange={(e) => setNewInstanceData({...newInstanceData, toDate: e.target.value})} />
-                  </div>
                   <div className="flex items-center gap-2 pt-6">
                     <Switch checked={newInstanceData.isActive} onCheckedChange={(v) => setNewInstanceData({...newInstanceData, isActive: v})} />
                     <Label>{t.common.active}</Label>
                   </div>
+                  <DateFields
+                    label="Platné od"
+                    dayValue={newInstanceData.fromDay}
+                    monthValue={newInstanceData.fromMonth}
+                    yearValue={newInstanceData.fromYear}
+                    onDayChange={(v) => setNewInstanceData({...newInstanceData, fromDay: v})}
+                    onMonthChange={(v) => setNewInstanceData({...newInstanceData, fromMonth: v})}
+                    onYearChange={(v) => setNewInstanceData({...newInstanceData, fromYear: v})}
+                    testIdPrefix="new-instance-from"
+                  />
+                  <DateFields
+                    label="Platné do"
+                    dayValue={newInstanceData.toDay}
+                    monthValue={newInstanceData.toMonth}
+                    yearValue={newInstanceData.toYear}
+                    onDayChange={(v) => setNewInstanceData({...newInstanceData, toDay: v})}
+                    onMonthChange={(v) => setNewInstanceData({...newInstanceData, toMonth: v})}
+                    onYearChange={(v) => setNewInstanceData({...newInstanceData, toYear: v})}
+                    testIdPrefix="new-instance-to"
+                  />
                   <div className="col-span-3">
                     <Label>Popis</Label>
                     <Textarea value={newInstanceData.description} onChange={(e) => setNewInstanceData({...newInstanceData, description: e.target.value})} />
@@ -1115,8 +1226,8 @@ function ProductDetailDialog({
                   <Button variant="outline" size="sm" onClick={() => setIsAddingInstance(false)}>{t.common.cancel}</Button>
                   <Button size="sm" onClick={() => createInstanceMutation.mutate({
                     ...newInstanceData,
-                    fromDate: newInstanceData.fromDate ? new Date(newInstanceData.fromDate).toISOString() : null,
-                    toDate: newInstanceData.toDate ? new Date(newInstanceData.toDate).toISOString() : null,
+                    fromDate: componentsToISOString(newInstanceData.fromDay, newInstanceData.fromMonth, newInstanceData.fromYear),
+                    toDate: componentsToISOString(newInstanceData.toDay, newInstanceData.toMonth, newInstanceData.toYear),
                   })}>{t.common.save}</Button>
                 </div>
               </Card>
@@ -1135,10 +1246,16 @@ function ProductDetailDialog({
                       <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { 
                         e.stopPropagation(); 
                         setEditingInstanceId(instance.id);
+                        const fromParts = parseDateToComponents(instance.fromDate);
+                        const toParts = parseDateToComponents(instance.toDate);
                         setEditingInstanceData({
                           ...instance,
-                          fromDate: instance.fromDate ? new Date(instance.fromDate).toISOString().split('T')[0] : "",
-                          toDate: instance.toDate ? new Date(instance.toDate).toISOString().split('T')[0] : "",
+                          fromDay: fromParts.day,
+                          fromMonth: fromParts.month,
+                          fromYear: fromParts.year,
+                          toDay: toParts.day,
+                          toMonth: toParts.month,
+                          toYear: toParts.year,
                         });
                       }}>
                         <Pencil className="h-3 w-3" />
@@ -1189,18 +1306,30 @@ function ProductDetailDialog({
                       </SelectContent>
                     </Select>
                   </div>
-                  <div>
-                    <Label>Od (From)</Label>
-                    <Input type="date" value={editingInstanceData.fromDate || ""} onChange={(e) => setEditingInstanceData({...editingInstanceData, fromDate: e.target.value})} />
-                  </div>
-                  <div>
-                    <Label>Do (To)</Label>
-                    <Input type="date" value={editingInstanceData.toDate || ""} onChange={(e) => setEditingInstanceData({...editingInstanceData, toDate: e.target.value})} />
-                  </div>
                   <div className="flex items-center gap-2 pt-6">
                     <Switch checked={editingInstanceData.isActive} onCheckedChange={(v) => setEditingInstanceData({...editingInstanceData, isActive: v})} />
                     <Label>{t.common.active}</Label>
                   </div>
+                  <DateFields
+                    label="Platné od"
+                    dayValue={editingInstanceData.fromDay || 0}
+                    monthValue={editingInstanceData.fromMonth || 0}
+                    yearValue={editingInstanceData.fromYear || 0}
+                    onDayChange={(v) => setEditingInstanceData({...editingInstanceData, fromDay: v})}
+                    onMonthChange={(v) => setEditingInstanceData({...editingInstanceData, fromMonth: v})}
+                    onYearChange={(v) => setEditingInstanceData({...editingInstanceData, fromYear: v})}
+                    testIdPrefix="edit-instance-from"
+                  />
+                  <DateFields
+                    label="Platné do"
+                    dayValue={editingInstanceData.toDay || 0}
+                    monthValue={editingInstanceData.toMonth || 0}
+                    yearValue={editingInstanceData.toYear || 0}
+                    onDayChange={(v) => setEditingInstanceData({...editingInstanceData, toDay: v})}
+                    onMonthChange={(v) => setEditingInstanceData({...editingInstanceData, toMonth: v})}
+                    onYearChange={(v) => setEditingInstanceData({...editingInstanceData, toYear: v})}
+                    testIdPrefix="edit-instance-to"
+                  />
                   <div className="col-span-3">
                     <Label>Popis</Label>
                     <Textarea value={editingInstanceData.description || ""} onChange={(e) => setEditingInstanceData({...editingInstanceData, description: e.target.value})} />
@@ -1212,8 +1341,8 @@ function ProductDetailDialog({
                     id: editingInstanceId, 
                     data: {
                       ...editingInstanceData,
-                      fromDate: editingInstanceData.fromDate ? new Date(editingInstanceData.fromDate).toISOString() : null,
-                      toDate: editingInstanceData.toDate ? new Date(editingInstanceData.toDate).toISOString() : null,
+                      fromDate: componentsToISOString(editingInstanceData.fromDay, editingInstanceData.fromMonth, editingInstanceData.fromYear),
+                      toDate: componentsToISOString(editingInstanceData.toDay, editingInstanceData.toMonth, editingInstanceData.toYear),
                     }
                   })}>{t.common.save}</Button>
                 </div>
@@ -1281,14 +1410,26 @@ function ProductDetailDialog({
                             <Separator />
                             <p className="text-sm font-medium text-muted-foreground">Platnosť</p>
                             <div className="grid grid-cols-2 gap-3">
-                              <div>
-                                <Label>Platné od</Label>
-                                <Input type="date" value={newPriceData.fromDate} onChange={(e) => setNewPriceData({...newPriceData, fromDate: e.target.value})} />
-                              </div>
-                              <div>
-                                <Label>Platné do</Label>
-                                <Input type="date" value={newPriceData.toDate} onChange={(e) => setNewPriceData({...newPriceData, toDate: e.target.value})} />
-                              </div>
+                              <DateFields
+                                label="Platné od"
+                                dayValue={newPriceData.fromDay}
+                                monthValue={newPriceData.fromMonth}
+                                yearValue={newPriceData.fromYear}
+                                onDayChange={(v) => setNewPriceData({...newPriceData, fromDay: v})}
+                                onMonthChange={(v) => setNewPriceData({...newPriceData, fromMonth: v})}
+                                onYearChange={(v) => setNewPriceData({...newPriceData, fromYear: v})}
+                                testIdPrefix="new-price-from"
+                              />
+                              <DateFields
+                                label="Platné do"
+                                dayValue={newPriceData.toDay}
+                                monthValue={newPriceData.toMonth}
+                                yearValue={newPriceData.toYear}
+                                onDayChange={(v) => setNewPriceData({...newPriceData, toDay: v})}
+                                onMonthChange={(v) => setNewPriceData({...newPriceData, toMonth: v})}
+                                onYearChange={(v) => setNewPriceData({...newPriceData, toYear: v})}
+                                testIdPrefix="new-price-to"
+                              />
                             </div>
                             
                             <div>
@@ -1302,8 +1443,8 @@ function ProductDetailDialog({
                               ...newPriceData, 
                               instanceId: selectedInstanceId!, 
                               instanceType: "market_instance",
-                              fromDate: newPriceData.fromDate ? new Date(newPriceData.fromDate).toISOString() : null,
-                              toDate: newPriceData.toDate ? new Date(newPriceData.toDate).toISOString() : null,
+                              fromDate: componentsToISOString(newPriceData.fromDay, newPriceData.fromMonth, newPriceData.fromYear),
+                              toDate: componentsToISOString(newPriceData.toDay, newPriceData.toMonth, newPriceData.toYear),
                             })}>{t.common.save}</Button>
                           </div>
                         </Card>
@@ -1324,11 +1465,17 @@ function ProductDetailDialog({
                           </div>
                           <div className="flex gap-1">
                             <Button variant="ghost" size="icon" onClick={() => { 
-                              setEditingPriceId(price.id); 
+                              setEditingPriceId(price.id);
+                              const fromParts = parseDateToComponents(price.fromDate);
+                              const toParts = parseDateToComponents(price.toDate);
                               setEditingPriceData({
                                 ...price,
-                                fromDate: price.fromDate ? new Date(price.fromDate).toISOString().split('T')[0] : "",
-                                toDate: price.toDate ? new Date(price.toDate).toISOString().split('T')[0] : "",
+                                fromDay: fromParts.day,
+                                fromMonth: fromParts.month,
+                                fromYear: fromParts.year,
+                                toDay: toParts.day,
+                                toMonth: toParts.month,
+                                toYear: toParts.year,
                               }); 
                             }}><Pencil className="h-4 w-4" /></Button>
                             <Button variant="ghost" size="icon" onClick={() => deletePriceMutation.mutate(price.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
@@ -1378,14 +1525,26 @@ function ProductDetailDialog({
                             <Separator />
                             <p className="text-sm font-medium text-muted-foreground">Platnosť</p>
                             <div className="grid grid-cols-2 gap-3">
-                              <div>
-                                <Label>Platné od</Label>
-                                <Input type="date" value={editingPriceData.fromDate || ""} onChange={(e) => setEditingPriceData({...editingPriceData, fromDate: e.target.value})} />
-                              </div>
-                              <div>
-                                <Label>Platné do</Label>
-                                <Input type="date" value={editingPriceData.toDate || ""} onChange={(e) => setEditingPriceData({...editingPriceData, toDate: e.target.value})} />
-                              </div>
+                              <DateFields
+                                label="Platné od"
+                                dayValue={editingPriceData.fromDay || 0}
+                                monthValue={editingPriceData.fromMonth || 0}
+                                yearValue={editingPriceData.fromYear || 0}
+                                onDayChange={(v) => setEditingPriceData({...editingPriceData, fromDay: v})}
+                                onMonthChange={(v) => setEditingPriceData({...editingPriceData, fromMonth: v})}
+                                onYearChange={(v) => setEditingPriceData({...editingPriceData, fromYear: v})}
+                                testIdPrefix="edit-price-from"
+                              />
+                              <DateFields
+                                label="Platné do"
+                                dayValue={editingPriceData.toDay || 0}
+                                monthValue={editingPriceData.toMonth || 0}
+                                yearValue={editingPriceData.toYear || 0}
+                                onDayChange={(v) => setEditingPriceData({...editingPriceData, toDay: v})}
+                                onMonthChange={(v) => setEditingPriceData({...editingPriceData, toMonth: v})}
+                                onYearChange={(v) => setEditingPriceData({...editingPriceData, toYear: v})}
+                                testIdPrefix="edit-price-to"
+                              />
                             </div>
                             
                             <div>
@@ -1399,8 +1558,8 @@ function ProductDetailDialog({
                               id: editingPriceId, 
                               data: {
                                 ...editingPriceData,
-                                fromDate: editingPriceData.fromDate ? new Date(editingPriceData.fromDate).toISOString() : null,
-                                toDate: editingPriceData.toDate ? new Date(editingPriceData.toDate).toISOString() : null,
+                                fromDate: componentsToISOString(editingPriceData.fromDay, editingPriceData.fromMonth, editingPriceData.fromYear),
+                                toDate: componentsToISOString(editingPriceData.toDay, editingPriceData.toMonth, editingPriceData.toYear),
                               }
                             })}>{t.common.save}</Button>
                           </div>
@@ -1454,14 +1613,26 @@ function ProductDetailDialog({
                             <Separator />
                             <p className="text-sm font-medium text-muted-foreground">Platnosť</p>
                             <div className="grid grid-cols-2 gap-3">
-                              <div>
-                                <Label>Platné od</Label>
-                                <Input type="date" value={newPaymentData.fromDate} onChange={(e) => setNewPaymentData({...newPaymentData, fromDate: e.target.value})} />
-                              </div>
-                              <div>
-                                <Label>Platné do</Label>
-                                <Input type="date" value={newPaymentData.toDate} onChange={(e) => setNewPaymentData({...newPaymentData, toDate: e.target.value})} />
-                              </div>
+                              <DateFields
+                                label="Platné od"
+                                dayValue={newPaymentData.fromDay}
+                                monthValue={newPaymentData.fromMonth}
+                                yearValue={newPaymentData.fromYear}
+                                onDayChange={(v) => setNewPaymentData({...newPaymentData, fromDay: v})}
+                                onMonthChange={(v) => setNewPaymentData({...newPaymentData, fromMonth: v})}
+                                onYearChange={(v) => setNewPaymentData({...newPaymentData, fromYear: v})}
+                                testIdPrefix="new-payment-from"
+                              />
+                              <DateFields
+                                label="Platné do"
+                                dayValue={newPaymentData.toDay}
+                                monthValue={newPaymentData.toMonth}
+                                yearValue={newPaymentData.toYear}
+                                onDayChange={(v) => setNewPaymentData({...newPaymentData, toDay: v})}
+                                onMonthChange={(v) => setNewPaymentData({...newPaymentData, toMonth: v})}
+                                onYearChange={(v) => setNewPaymentData({...newPaymentData, toYear: v})}
+                                testIdPrefix="new-payment-to"
+                              />
                             </div>
                             
                             <div>
@@ -1475,8 +1646,8 @@ function ProductDetailDialog({
                               ...newPaymentData, 
                               instanceId: selectedInstanceId!, 
                               instanceType: "market_instance",
-                              fromDate: newPaymentData.fromDate ? new Date(newPaymentData.fromDate).toISOString() : null,
-                              toDate: newPaymentData.toDate ? new Date(newPaymentData.toDate).toISOString() : null,
+                              fromDate: componentsToISOString(newPaymentData.fromDay, newPaymentData.fromMonth, newPaymentData.fromYear),
+                              toDate: componentsToISOString(newPaymentData.toDay, newPaymentData.toMonth, newPaymentData.toYear),
                             })}>{t.common.save}</Button>
                           </div>
                         </Card>
@@ -1496,11 +1667,17 @@ function ProductDetailDialog({
                           </div>
                           <div className="flex gap-1">
                             <Button variant="ghost" size="icon" onClick={() => { 
+                              const fromParts = parseDateToComponents(payment.fromDate);
+                              const toParts = parseDateToComponents(payment.toDate);
                               setEditingPaymentId(payment.id); 
                               setEditingPaymentData({
                                 ...payment,
-                                fromDate: payment.fromDate ? new Date(payment.fromDate).toISOString().split('T')[0] : "",
-                                toDate: payment.toDate ? new Date(payment.toDate).toISOString().split('T')[0] : "",
+                                fromDay: fromParts.day,
+                                fromMonth: fromParts.month,
+                                fromYear: fromParts.year,
+                                toDay: toParts.day,
+                                toMonth: toParts.month,
+                                toYear: toParts.year,
                               }); 
                             }}><Pencil className="h-4 w-4" /></Button>
                             <Button variant="ghost" size="icon" onClick={() => deletePaymentMutation.mutate(payment.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
@@ -1549,14 +1726,26 @@ function ProductDetailDialog({
                             <Separator />
                             <p className="text-sm font-medium text-muted-foreground">Platnosť</p>
                             <div className="grid grid-cols-2 gap-3">
-                              <div>
-                                <Label>Platné od</Label>
-                                <Input type="date" value={editingPaymentData.fromDate || ""} onChange={(e) => setEditingPaymentData({...editingPaymentData, fromDate: e.target.value})} />
-                              </div>
-                              <div>
-                                <Label>Platné do</Label>
-                                <Input type="date" value={editingPaymentData.toDate || ""} onChange={(e) => setEditingPaymentData({...editingPaymentData, toDate: e.target.value})} />
-                              </div>
+                              <DateFields
+                                label="Platné od"
+                                dayValue={editingPaymentData.fromDay}
+                                monthValue={editingPaymentData.fromMonth}
+                                yearValue={editingPaymentData.fromYear}
+                                onDayChange={(v) => setEditingPaymentData({...editingPaymentData, fromDay: v})}
+                                onMonthChange={(v) => setEditingPaymentData({...editingPaymentData, fromMonth: v})}
+                                onYearChange={(v) => setEditingPaymentData({...editingPaymentData, fromYear: v})}
+                                testIdPrefix="edit-payment-from"
+                              />
+                              <DateFields
+                                label="Platné do"
+                                dayValue={editingPaymentData.toDay}
+                                monthValue={editingPaymentData.toMonth}
+                                yearValue={editingPaymentData.toYear}
+                                onDayChange={(v) => setEditingPaymentData({...editingPaymentData, toDay: v})}
+                                onMonthChange={(v) => setEditingPaymentData({...editingPaymentData, toMonth: v})}
+                                onYearChange={(v) => setEditingPaymentData({...editingPaymentData, toYear: v})}
+                                testIdPrefix="edit-payment-to"
+                              />
                             </div>
                             
                             <div>
@@ -1570,8 +1759,8 @@ function ProductDetailDialog({
                               id: editingPaymentId, 
                               data: {
                                 ...editingPaymentData,
-                                fromDate: editingPaymentData.fromDate ? new Date(editingPaymentData.fromDate).toISOString() : null,
-                                toDate: editingPaymentData.toDate ? new Date(editingPaymentData.toDate).toISOString() : null,
+                                fromDate: componentsToISOString(editingPaymentData.fromDay, editingPaymentData.fromMonth, editingPaymentData.fromYear),
+                                toDate: componentsToISOString(editingPaymentData.toDay, editingPaymentData.toMonth, editingPaymentData.toYear),
                               }
                             })}>{t.common.save}</Button>
                           </div>
@@ -1638,14 +1827,26 @@ function ProductDetailDialog({
                             <Separator />
                             <p className="text-sm font-medium text-muted-foreground">Platnosť</p>
                             <div className="grid grid-cols-2 gap-3">
-                              <div>
-                                <Label>Platné od</Label>
-                                <Input type="date" value={newDiscountData.fromDate} onChange={(e) => setNewDiscountData({...newDiscountData, fromDate: e.target.value})} />
-                              </div>
-                              <div>
-                                <Label>Platné do</Label>
-                                <Input type="date" value={newDiscountData.toDate} onChange={(e) => setNewDiscountData({...newDiscountData, toDate: e.target.value})} />
-                              </div>
+                              <DateFields
+                                label="Platné od"
+                                dayValue={newDiscountData.fromDay}
+                                monthValue={newDiscountData.fromMonth}
+                                yearValue={newDiscountData.fromYear}
+                                onDayChange={(v) => setNewDiscountData({...newDiscountData, fromDay: v})}
+                                onMonthChange={(v) => setNewDiscountData({...newDiscountData, fromMonth: v})}
+                                onYearChange={(v) => setNewDiscountData({...newDiscountData, fromYear: v})}
+                                testIdPrefix="new-discount-from"
+                              />
+                              <DateFields
+                                label="Platné do"
+                                dayValue={newDiscountData.toDay}
+                                monthValue={newDiscountData.toMonth}
+                                yearValue={newDiscountData.toYear}
+                                onDayChange={(v) => setNewDiscountData({...newDiscountData, toDay: v})}
+                                onMonthChange={(v) => setNewDiscountData({...newDiscountData, toMonth: v})}
+                                onYearChange={(v) => setNewDiscountData({...newDiscountData, toYear: v})}
+                                testIdPrefix="new-discount-to"
+                              />
                             </div>
                           </div>
                           <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
@@ -1654,8 +1855,8 @@ function ProductDetailDialog({
                               ...newDiscountData, 
                               instanceId: selectedInstanceId!, 
                               instanceType: "market_instance",
-                              fromDate: newDiscountData.fromDate ? new Date(newDiscountData.fromDate).toISOString() : null,
-                              toDate: newDiscountData.toDate ? new Date(newDiscountData.toDate).toISOString() : null,
+                              fromDate: componentsToISOString(newDiscountData.fromDay, newDiscountData.fromMonth, newDiscountData.fromYear),
+                              toDate: componentsToISOString(newDiscountData.toDay, newDiscountData.toMonth, newDiscountData.toYear),
                             })}>{t.common.save}</Button>
                           </div>
                         </Card>
@@ -1676,11 +1877,17 @@ function ProductDetailDialog({
                           </div>
                           <div className="flex gap-1">
                             <Button variant="ghost" size="icon" onClick={() => { 
+                              const fromParts = parseDateToComponents(discount.fromDate);
+                              const toParts = parseDateToComponents(discount.toDate);
                               setEditingDiscountId(discount.id); 
                               setEditingDiscountData({
                                 ...discount,
-                                fromDate: discount.fromDate ? new Date(discount.fromDate).toISOString().split('T')[0] : "",
-                                toDate: discount.toDate ? new Date(discount.toDate).toISOString().split('T')[0] : "",
+                                fromDay: fromParts.day,
+                                fromMonth: fromParts.month,
+                                fromYear: fromParts.year,
+                                toDay: toParts.day,
+                                toMonth: toParts.month,
+                                toYear: toParts.year,
                               }); 
                             }}><Pencil className="h-4 w-4" /></Button>
                             <Button variant="ghost" size="icon" onClick={() => deleteDiscountMutation.mutate(discount.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
@@ -1742,14 +1949,26 @@ function ProductDetailDialog({
                             <Separator />
                             <p className="text-sm font-medium text-muted-foreground">Platnosť</p>
                             <div className="grid grid-cols-2 gap-3">
-                              <div>
-                                <Label>Platné od</Label>
-                                <Input type="date" value={editingDiscountData.fromDate || ""} onChange={(e) => setEditingDiscountData({...editingDiscountData, fromDate: e.target.value})} />
-                              </div>
-                              <div>
-                                <Label>Platné do</Label>
-                                <Input type="date" value={editingDiscountData.toDate || ""} onChange={(e) => setEditingDiscountData({...editingDiscountData, toDate: e.target.value})} />
-                              </div>
+                              <DateFields
+                                label="Platné od"
+                                dayValue={editingDiscountData.fromDay}
+                                monthValue={editingDiscountData.fromMonth}
+                                yearValue={editingDiscountData.fromYear}
+                                onDayChange={(v) => setEditingDiscountData({...editingDiscountData, fromDay: v})}
+                                onMonthChange={(v) => setEditingDiscountData({...editingDiscountData, fromMonth: v})}
+                                onYearChange={(v) => setEditingDiscountData({...editingDiscountData, fromYear: v})}
+                                testIdPrefix="edit-discount-from"
+                              />
+                              <DateFields
+                                label="Platné do"
+                                dayValue={editingDiscountData.toDay}
+                                monthValue={editingDiscountData.toMonth}
+                                yearValue={editingDiscountData.toYear}
+                                onDayChange={(v) => setEditingDiscountData({...editingDiscountData, toDay: v})}
+                                onMonthChange={(v) => setEditingDiscountData({...editingDiscountData, toMonth: v})}
+                                onYearChange={(v) => setEditingDiscountData({...editingDiscountData, toYear: v})}
+                                testIdPrefix="edit-discount-to"
+                              />
                             </div>
                           </div>
                           <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
@@ -1758,8 +1977,8 @@ function ProductDetailDialog({
                               id: editingDiscountId, 
                               data: {
                                 ...editingDiscountData,
-                                fromDate: editingDiscountData.fromDate ? new Date(editingDiscountData.fromDate).toISOString() : null,
-                                toDate: editingDiscountData.toDate ? new Date(editingDiscountData.toDate).toISOString() : null,
+                                fromDate: componentsToISOString(editingDiscountData.fromDay, editingDiscountData.fromMonth, editingDiscountData.fromYear),
+                                toDate: componentsToISOString(editingDiscountData.toDay, editingDiscountData.toMonth, editingDiscountData.toYear),
                               }
                             })}>{t.common.save}</Button>
                           </div>
@@ -1826,14 +2045,26 @@ function ProductDetailDialog({
                       <Separator />
                       <p className="text-sm font-medium text-muted-foreground">Platnosť</p>
                       <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label>Platné od</Label>
-                          <Input type="date" value={newServiceData.fromDate} onChange={(e) => setNewServiceData({...newServiceData, fromDate: e.target.value})} />
-                        </div>
-                        <div>
-                          <Label>Platné do</Label>
-                          <Input type="date" value={newServiceData.toDate} onChange={(e) => setNewServiceData({...newServiceData, toDate: e.target.value})} />
-                        </div>
+                        <DateFields
+                          label="Platné od"
+                          dayValue={newServiceData.fromDay}
+                          monthValue={newServiceData.fromMonth}
+                          yearValue={newServiceData.fromYear}
+                          onDayChange={(v) => setNewServiceData({...newServiceData, fromDay: v})}
+                          onMonthChange={(v) => setNewServiceData({...newServiceData, fromMonth: v})}
+                          onYearChange={(v) => setNewServiceData({...newServiceData, fromYear: v})}
+                          testIdPrefix="new-service-from"
+                        />
+                        <DateFields
+                          label="Platné do"
+                          dayValue={newServiceData.toDay}
+                          monthValue={newServiceData.toMonth}
+                          yearValue={newServiceData.toYear}
+                          onDayChange={(v) => setNewServiceData({...newServiceData, toDay: v})}
+                          onMonthChange={(v) => setNewServiceData({...newServiceData, toMonth: v})}
+                          onYearChange={(v) => setNewServiceData({...newServiceData, toYear: v})}
+                          testIdPrefix="new-service-to"
+                        />
                       </div>
                       
                       <div>
@@ -1845,8 +2076,8 @@ function ProductDetailDialog({
                       <Button variant="outline" size="sm" onClick={() => setIsAddingService(false)}>{t.common.cancel}</Button>
                       <Button size="sm" onClick={() => createServiceMutation.mutate({
                         ...newServiceData,
-                        fromDate: newServiceData.fromDate ? new Date(newServiceData.fromDate).toISOString() : null,
-                        toDate: newServiceData.toDate ? new Date(newServiceData.toDate).toISOString() : null,
+                        fromDate: componentsToISOString(newServiceData.fromDay, newServiceData.fromMonth, newServiceData.fromYear),
+                        toDate: componentsToISOString(newServiceData.toDay, newServiceData.toMonth, newServiceData.toYear),
                       })}>{t.common.save}</Button>
                     </div>
                   </Card>
@@ -1864,11 +2095,17 @@ function ProductDetailDialog({
                         <div className="flex gap-1">
                           <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { 
                             e.stopPropagation();
+                            const fromParts = parseDateToComponents(service.fromDate);
+                            const toParts = parseDateToComponents(service.toDate);
                             setEditingServiceId(service.id);
                             setEditingServiceData({
                               ...service,
-                              fromDate: service.fromDate ? new Date(service.fromDate).toISOString().split('T')[0] : "",
-                              toDate: service.toDate ? new Date(service.toDate).toISOString().split('T')[0] : "",
+                              fromDay: fromParts.day,
+                              fromMonth: fromParts.month,
+                              fromYear: fromParts.year,
+                              toDay: toParts.day,
+                              toMonth: toParts.month,
+                              toYear: toParts.year,
                             });
                           }}>
                             <Pencil className="h-3 w-3" />
@@ -1936,14 +2173,26 @@ function ProductDetailDialog({
                       <Separator />
                       <p className="text-sm font-medium text-muted-foreground">Platnosť</p>
                       <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label>Platné od</Label>
-                          <Input type="date" value={editingServiceData.fromDate || ""} onChange={(e) => setEditingServiceData({...editingServiceData, fromDate: e.target.value})} />
-                        </div>
-                        <div>
-                          <Label>Platné do</Label>
-                          <Input type="date" value={editingServiceData.toDate || ""} onChange={(e) => setEditingServiceData({...editingServiceData, toDate: e.target.value})} />
-                        </div>
+                        <DateFields
+                          label="Platné od"
+                          dayValue={editingServiceData.fromDay}
+                          monthValue={editingServiceData.fromMonth}
+                          yearValue={editingServiceData.fromYear}
+                          onDayChange={(v) => setEditingServiceData({...editingServiceData, fromDay: v})}
+                          onMonthChange={(v) => setEditingServiceData({...editingServiceData, fromMonth: v})}
+                          onYearChange={(v) => setEditingServiceData({...editingServiceData, fromYear: v})}
+                          testIdPrefix="edit-service-from"
+                        />
+                        <DateFields
+                          label="Platné do"
+                          dayValue={editingServiceData.toDay}
+                          monthValue={editingServiceData.toMonth}
+                          yearValue={editingServiceData.toYear}
+                          onDayChange={(v) => setEditingServiceData({...editingServiceData, toDay: v})}
+                          onMonthChange={(v) => setEditingServiceData({...editingServiceData, toMonth: v})}
+                          onYearChange={(v) => setEditingServiceData({...editingServiceData, toYear: v})}
+                          testIdPrefix="edit-service-to"
+                        />
                       </div>
                       
                       <div>
@@ -1957,8 +2206,8 @@ function ProductDetailDialog({
                         id: editingServiceId, 
                         data: {
                           ...editingServiceData,
-                          fromDate: editingServiceData.fromDate ? new Date(editingServiceData.fromDate).toISOString() : null,
-                          toDate: editingServiceData.toDate ? new Date(editingServiceData.toDate).toISOString() : null,
+                          fromDate: componentsToISOString(editingServiceData.fromDay, editingServiceData.fromMonth, editingServiceData.fromYear),
+                          toDate: componentsToISOString(editingServiceData.toDay, editingServiceData.toMonth, editingServiceData.toYear),
                         }
                       })}>{t.common.save}</Button>
                     </div>
