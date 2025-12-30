@@ -19,14 +19,14 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, Eye, EyeOff, Lock, Unlock, Check } from "lucide-react";
+import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, Eye, EyeOff, Lock, Unlock, Check, Hash } from "lucide-react";
 import { COUNTRIES } from "@shared/schema";
 import { InvoiceDesigner, InvoiceDesignerConfig } from "@/components/invoice-designer";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/auth-context";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import type { ServiceConfiguration, ServiceInstance, InvoiceTemplate, InvoiceLayout, Product, Role, RoleModulePermission, RoleFieldPermission, Department, BillingDetails } from "@shared/schema";
+import type { ServiceConfiguration, ServiceInstance, InvoiceTemplate, InvoiceLayout, Product, Role, RoleModulePermission, RoleFieldPermission, Department, BillingDetails, NumberRange } from "@shared/schema";
 import { CRM_MODULES, DEPARTMENTS, type ModuleDefinition, type FieldPermission, type ModuleAccess } from "@shared/permissions-config";
 import { Building2, User, Mail, Phone } from "lucide-react";
 import { DepartmentTree } from "@/components/department-tree";
@@ -97,6 +97,23 @@ const layoutFormSchema = z.object({
   marginRight: z.number().default(15),
   fontSize: z.number().default(10),
   fontFamily: z.string().default("Arial"),
+});
+
+const numberRangeFormSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  countryCode: z.string().min(1, "Country is required"),
+  year: z.number().min(1990).max(2100),
+  useServiceCode: z.boolean().default(false),
+  type: z.enum(["invoice", "proforma"]).default("invoice"),
+  prefix: z.string().optional(),
+  suffix: z.string().optional(),
+  digitsToGenerate: z.number().min(1).max(20).default(6),
+  startNumber: z.number().min(1).default(1),
+  endNumber: z.number().min(1).default(999999),
+  lastNumberUsed: z.number().default(0),
+  accountingCode: z.string().optional(),
+  description: z.string().optional(),
+  isActive: z.boolean().default(true),
 });
 
 const productFormSchema = z.object({
@@ -1756,6 +1773,502 @@ function InvoiceTemplatesTab() {
   );
 }
 
+function NumberRangesTab() {
+  const { t } = useI18n();
+  const { toast } = useToast();
+  const { selectedCountries } = useCountryFilter();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingRange, setEditingRange] = useState<NumberRange | null>(null);
+
+  const currentYear = new Date().getFullYear();
+  const yearOptions = Array.from({ length: 61 }, (_, i) => currentYear - 30 + i);
+
+  const { data: ranges = [], isLoading } = useQuery<NumberRange[]>({
+    queryKey: ["/api/configurator/number-ranges", selectedCountries.join(",")],
+    queryFn: async () => {
+      const params = selectedCountries.length > 0 ? `?countries=${selectedCountries.join(",")}` : "";
+      const res = await fetch(`/api/configurator/number-ranges${params}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch number ranges");
+      return res.json();
+    },
+  });
+
+  const form = useForm<z.infer<typeof numberRangeFormSchema>>({
+    resolver: zodResolver(numberRangeFormSchema),
+    defaultValues: {
+      name: "",
+      countryCode: "",
+      year: currentYear,
+      useServiceCode: false,
+      type: "invoice",
+      prefix: "",
+      suffix: "",
+      digitsToGenerate: 6,
+      startNumber: 1,
+      endNumber: 999999,
+      lastNumberUsed: 0,
+      accountingCode: "",
+      description: "",
+      isActive: true,
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (data: z.infer<typeof numberRangeFormSchema>) =>
+      apiRequest("POST", "/api/configurator/number-ranges", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/configurator/number-ranges"] });
+      setIsDialogOpen(false);
+      form.reset();
+      toast({ title: t.konfigurator.numberRangeCreated });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (data: z.infer<typeof numberRangeFormSchema> & { id: string }) =>
+      apiRequest("PATCH", `/api/configurator/number-ranges/${data.id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/configurator/number-ranges"] });
+      setIsDialogOpen(false);
+      setEditingRange(null);
+      form.reset();
+      toast({ title: t.konfigurator.numberRangeUpdated });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) =>
+      apiRequest("DELETE", `/api/configurator/number-ranges/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/configurator/number-ranges"] });
+      toast({ title: t.konfigurator.numberRangeDeleted });
+    },
+  });
+
+  const handleEdit = (range: NumberRange) => {
+    setEditingRange(range);
+    form.reset({
+      name: range.name,
+      countryCode: range.countryCode,
+      year: range.year,
+      useServiceCode: range.useServiceCode,
+      type: range.type as "invoice" | "proforma",
+      prefix: range.prefix || "",
+      suffix: range.suffix || "",
+      digitsToGenerate: range.digitsToGenerate,
+      startNumber: range.startNumber,
+      endNumber: range.endNumber,
+      lastNumberUsed: range.lastNumberUsed || 0,
+      accountingCode: range.accountingCode || "",
+      description: range.description || "",
+      isActive: range.isActive,
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleSubmit = (data: z.infer<typeof numberRangeFormSchema>) => {
+    if (editingRange) {
+      updateMutation.mutate({ ...data, id: editingRange.id });
+    } else {
+      createMutation.mutate(data);
+    }
+  };
+
+  const columns = [
+    { 
+      key: "name",
+      header: t.konfigurator.numberRangeName,
+      render: (range: NumberRange) => range.name,
+    },
+    { 
+      key: "countryCode",
+      header: t.common.country,
+      render: (range: NumberRange) => {
+        const country = COUNTRIES.find(c => c.code === range.countryCode);
+        return country ? country.name : range.countryCode;
+      },
+    },
+    { 
+      key: "year",
+      header: t.konfigurator.numberRangeYear,
+      render: (range: NumberRange) => range.year,
+    },
+    { 
+      key: "type",
+      header: t.konfigurator.numberRangeType,
+      render: (range: NumberRange) => (
+        <Badge variant={range.type === "invoice" ? "default" : "secondary"}>
+          {range.type === "invoice" ? t.konfigurator.invoice : t.konfigurator.proformaInvoice}
+        </Badge>
+      ),
+    },
+    { 
+      key: "format",
+      header: t.konfigurator.prefix + " / " + t.konfigurator.suffix,
+      render: (range: NumberRange) => `${range.prefix || "-"} / ${range.suffix || "-"}`,
+    },
+    { 
+      key: "lastNumberUsed",
+      header: t.konfigurator.lastNumberUsed,
+      render: (range: NumberRange) => range.lastNumberUsed || 0,
+    },
+    { 
+      key: "isActive",
+      header: t.common.status,
+      render: (range: NumberRange) => (
+        <Badge variant={range.isActive ? "default" : "secondary"}>
+          {range.isActive ? t.common.active : t.common.inactive}
+        </Badge>
+      ),
+    },
+    {
+      key: "actions",
+      header: t.common.actions,
+      render: (range: NumberRange) => (
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => handleEdit(range)}
+            data-testid={`button-edit-range-${range.id}`}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => deleteMutation.mutate(range.id)}
+            data-testid={`button-delete-range-${range.id}`}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) {
+            setEditingRange(null);
+            form.reset();
+          }
+        }}>
+          <DialogTrigger asChild>
+            <Button data-testid="button-add-number-range">
+              <Plus className="mr-2 h-4 w-4" />
+              {t.konfigurator.addNumberRange}
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                {editingRange ? t.konfigurator.editNumberRange : t.konfigurator.addNumberRange}
+              </DialogTitle>
+              <DialogDescription>
+                {t.konfigurator.numberRangeFormDescription}
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t.konfigurator.numberRangeName}</FormLabel>
+                        <FormControl>
+                          <Input {...field} data-testid="input-range-name" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="countryCode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t.common.country}</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-range-country">
+                              <SelectValue placeholder={t.common.selectCountry} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {COUNTRIES.map((country) => (
+                              <SelectItem key={country.code} value={country.code}>
+                                {country.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="year"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t.konfigurator.numberRangeYear}</FormLabel>
+                        <Select onValueChange={(val) => field.onChange(parseInt(val))} value={field.value?.toString()}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-range-year">
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {yearOptions.map((year) => (
+                              <SelectItem key={year} value={year.toString()}>
+                                {year}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="type"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t.konfigurator.numberRangeType}</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-range-type">
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="invoice">{t.konfigurator.invoice}</SelectItem>
+                            <SelectItem value="proforma">{t.konfigurator.proformaInvoice}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="useServiceCode"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center gap-3 space-y-0">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          data-testid="checkbox-use-service-code"
+                        />
+                      </FormControl>
+                      <FormLabel className="font-normal">{t.konfigurator.useServiceCode}</FormLabel>
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="prefix"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t.konfigurator.prefix}</FormLabel>
+                        <FormControl>
+                          <Input {...field} data-testid="input-range-prefix" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="suffix"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t.konfigurator.suffix}</FormLabel>
+                        <FormControl>
+                          <Input {...field} data-testid="input-range-suffix" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="digitsToGenerate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t.konfigurator.digitsToGenerate}</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            {...field} 
+                            onChange={(e) => field.onChange(parseInt(e.target.value) || 6)}
+                            data-testid="input-digits-to-generate" 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="startNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t.konfigurator.startNumber}</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            {...field} 
+                            onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                            data-testid="input-start-number" 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="endNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t.konfigurator.endNumber}</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            {...field} 
+                            onChange={(e) => field.onChange(parseInt(e.target.value) || 999999)}
+                            data-testid="input-end-number" 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="lastNumberUsed"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t.konfigurator.lastNumberUsed}</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            {...field} 
+                            onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                            data-testid="input-last-number-used" 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="accountingCode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t.konfigurator.accountingCode}</FormLabel>
+                        <FormControl>
+                          <Input {...field} data-testid="input-accounting-code" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.common.description}</FormLabel>
+                      <FormControl>
+                        <Textarea {...field} data-testid="input-range-description" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="isActive"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                      <div className="space-y-0.5">
+                        <FormLabel>{t.common.active}</FormLabel>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          data-testid="switch-range-active"
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                    {t.common.cancel}
+                  </Button>
+                  <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-save-range">
+                    {(createMutation.isPending || updateMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {t.common.save}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+      </div>
+      {ranges.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          {t.konfigurator.noNumberRanges}
+        </div>
+      ) : (
+        <DataTable 
+          columns={columns} 
+          data={ranges} 
+          getRowKey={(range) => range.id}
+        />
+      )}
+    </div>
+  );
+}
+
 function InvoiceEditorTab() {
   const { t } = useI18n();
   const { toast } = useToast();
@@ -3167,7 +3680,7 @@ export default function ConfiguratorPage() {
       />
       
       <Tabs defaultValue="services" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5 max-w-3xl">
+        <TabsList className="grid w-full grid-cols-6 max-w-4xl">
           <TabsTrigger value="services" className="flex items-center gap-2" data-testid="tab-services">
             <Settings className="h-4 w-4" />
             {t.konfigurator.services}
@@ -3175,6 +3688,10 @@ export default function ConfiguratorPage() {
           <TabsTrigger value="products" className="flex items-center gap-2" data-testid="tab-products">
             <Package className="h-4 w-4" />
             {t.products.title}
+          </TabsTrigger>
+          <TabsTrigger value="number-ranges" className="flex items-center gap-2" data-testid="tab-number-ranges">
+            <Hash className="h-4 w-4" />
+            {t.konfigurator.numberRanges}
           </TabsTrigger>
           <TabsTrigger value="templates" className="flex items-center gap-2" data-testid="tab-templates">
             <FileText className="h-4 w-4" />
@@ -3210,6 +3727,18 @@ export default function ConfiguratorPage() {
             </CardHeader>
             <CardContent>
               <ProductsTab />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="number-ranges">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t.konfigurator.numberRanges}</CardTitle>
+              <CardDescription>{t.konfigurator.numberRangesDescription}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <NumberRangesTab />
             </CardContent>
           </Card>
         </TabsContent>
