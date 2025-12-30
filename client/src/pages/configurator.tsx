@@ -1782,6 +1782,7 @@ function NumberRangesTab() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingRange, setEditingRange] = useState<NumberRange | null>(null);
   const [wizardStep, setWizardStep] = useState(1);
+  const [search, setSearch] = useState("");
   const totalSteps = 4;
 
   const currentYear = new Date().getFullYear();
@@ -1932,6 +1933,21 @@ function NumberRangesTab() {
     }
   };
 
+  const filteredRanges = ranges.filter(range => {
+    if (!search) return true;
+    const searchLower = search.toLowerCase();
+    const countryName = COUNTRIES.find(c => c.code === range.countryCode)?.name || "";
+    return (
+      range.name.toLowerCase().includes(searchLower) ||
+      range.countryCode.toLowerCase().includes(searchLower) ||
+      countryName.toLowerCase().includes(searchLower) ||
+      (range.prefix || "").toLowerCase().includes(searchLower) ||
+      (range.suffix || "").toLowerCase().includes(searchLower) ||
+      String(range.year).includes(searchLower) ||
+      range.type.toLowerCase().includes(searchLower)
+    );
+  });
+
   const columns = [
     { 
       key: "name",
@@ -2015,7 +2031,17 @@ function NumberRangesTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex flex-wrap justify-between items-center gap-4">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder={t.common.search}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+            data-testid="input-search-number-ranges"
+          />
+        </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           if (!open) handleDialogClose();
           else setIsDialogOpen(open);
@@ -2422,14 +2448,14 @@ function NumberRangesTab() {
           </DialogContent>
         </Dialog>
       </div>
-      {ranges.length === 0 ? (
+      {filteredRanges.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
-          {t.konfigurator.noNumberRanges}
+          {search ? (t.common.noData || "No results found") : t.konfigurator.noNumberRanges}
         </div>
       ) : (
         <DataTable 
           columns={columns} 
-          data={ranges} 
+          data={filteredRanges} 
           getRowKey={(range) => range.id}
         />
       )}
