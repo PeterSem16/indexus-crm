@@ -299,6 +299,8 @@ export const products = pgTable("products", {
 export const marketProductInstances = pgTable("market_product_instances", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   productId: varchar("product_id").notNull(),
+  countryCode: text("country_code").notNull().default("SK"),
+  billingDetailsId: varchar("billing_details_id"),
   name: text("name").notNull(),
   fromDate: timestamp("from_date"),
   toDate: timestamp("to_date"),
@@ -313,6 +315,7 @@ export const instancePrices = pgTable("instance_prices", {
   instanceId: varchar("instance_id").notNull(),
   instanceType: text("instance_type").notNull().default("market"), // market or service
   name: text("name").notNull(),
+  accountingCode: text("accounting_code"),
   analyticalAccount: text("analytical_account"),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   currency: text("currency").notNull().default("EUR"),
@@ -372,6 +375,9 @@ export const marketProductServices = pgTable("market_product_services", {
   fromDate: timestamp("from_date"),
   toDate: timestamp("to_date"),
   invoiceIdentifier: text("invoice_identifier"),
+  invoiceable: boolean("invoiceable").notNull().default(false),
+  collectable: boolean("collectable").notNull().default(false),
+  storable: boolean("storable").notNull().default(false),
   isActive: boolean("is_active").notNull().default(true),
   blockAutomation: boolean("block_automation").notNull().default(false),
   certificateTemplate: text("certificate_template"),
