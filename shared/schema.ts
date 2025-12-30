@@ -331,7 +331,8 @@ export const INVOICE_BARCODE_LETTERS = [
 // Billing details (billing companies) - multiple per country allowed
 export const billingDetails = pgTable("billing_details", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  countryCode: text("country_code").notNull(),
+  countryCode: text("country_code").notNull(), // Primary country (for backward compatibility)
+  countryCodes: text("country_codes").array().notNull().default(sql`ARRAY[]::text[]`), // Multiple countries
   
   // Basic info
   code: text("code"), // Billing company code

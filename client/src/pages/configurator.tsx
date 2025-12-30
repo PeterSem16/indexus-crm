@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
@@ -4098,6 +4099,7 @@ function BillingCompanyDialog({
     if (billingCompany) {
       setFormData({
         countryCode: billingCompany.countryCode || "",
+        countryCodes: billingCompany.countryCodes?.length ? billingCompany.countryCodes : (billingCompany.countryCode ? [billingCompany.countryCode] : []),
         code: billingCompany.code || "",
         entityCode: billingCompany.entityCode || "",
         invoiceBarcodeLetter: billingCompany.invoiceBarcodeLetter || "",
@@ -4143,6 +4145,7 @@ function BillingCompanyDialog({
     } else {
       setFormData({
         countryCode: "",
+        countryCodes: [],
         code: "",
         entityCode: "",
         invoiceBarcodeLetter: "",
@@ -4191,10 +4194,15 @@ function BillingCompanyDialog({
   }, [billingCompany, open]);
 
   const handleSubmit = () => {
-    if (!formData.companyName || !formData.countryCode) {
+    if (!formData.companyName || !formData.countryCodes?.length) {
       return;
     }
-    onSave(formData);
+    // Set primary countryCode from first selected country for backward compatibility
+    const dataToSave = {
+      ...formData,
+      countryCode: formData.countryCodes[0] || formData.countryCode,
+    };
+    onSave(dataToSave);
   };
 
   const updateField = (field: string, value: any) => {
@@ -4261,16 +4269,41 @@ function BillingCompanyDialog({
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>{t.customers.country} *</Label>
-                <Select value={formData.countryCode || ""} onValueChange={(v) => updateField("countryCode", v)}>
-                  <SelectTrigger data-testid="select-billing-country">
-                    <SelectValue placeholder={t.common.select} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {COUNTRIES.map((country) => (
-                      <SelectItem key={country.code} value={country.code}>{country.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-between" data-testid="select-billing-countries">
+                      {formData.countryCodes?.length > 0 
+                        ? COUNTRIES.filter(c => formData.countryCodes?.includes(c.code)).map(c => c.name).join(", ")
+                        : t.common.select
+                      }
+                      <ChevronDown className="h-4 w-4 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[300px] p-2" align="start">
+                    <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                      {COUNTRIES.map((country) => (
+                        <div key={country.code} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`country-${country.code}`}
+                            checked={formData.countryCodes?.includes(country.code) || false}
+                            onCheckedChange={(checked) => {
+                              const current = formData.countryCodes || [];
+                              if (checked) {
+                                updateField("countryCodes", [...current, country.code]);
+                              } else {
+                                updateField("countryCodes", current.filter((c: string) => c !== country.code));
+                              }
+                            }}
+                            data-testid={`checkbox-country-${country.code}`}
+                          />
+                          <label htmlFor={`country-${country.code}`} className="text-sm cursor-pointer flex-1">
+                            {country.flag} {country.name}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="space-y-2">
                 <Label>{t.common.code || "Code"}</Label>
@@ -4583,7 +4616,7 @@ function BillingCompanyDialog({
                   )}
                   <Button 
                     onClick={handleSubmit} 
-                    disabled={isPending || !formData.companyName || !formData.countryCode} 
+                    disabled={isPending || !formData.companyName || !formData.countryCodes?.length} 
                     data-testid="button-save-billing-company"
                   >
                     {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

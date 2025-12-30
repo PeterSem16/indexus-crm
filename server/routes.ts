@@ -176,7 +176,10 @@ export async function registerRoutes(
       res.status(404).json({ error: "Billing company not found" });
       return false;
     }
-    if (!userCountries.includes(billingCompany.countryCode)) {
+    // Check if user has access to any of the billing company's countries
+    const billingCountries = billingCompany.countryCodes?.length ? billingCompany.countryCodes : [billingCompany.countryCode];
+    const hasAccess = billingCountries.some(country => userCountries.includes(country));
+    if (!hasAccess) {
       res.status(403).json({ error: "Access denied" });
       return false;
     }
@@ -832,9 +835,12 @@ export async function registerRoutes(
         return res.json(details);
       }
       
-      // Filter all billing details by user's assigned countries
+      // Filter all billing details by user's assigned countries (check countryCodes array)
       const allDetails = await storage.getAllBillingDetails();
-      const filteredDetails = allDetails.filter(d => userCountries.includes(d.countryCode));
+      const filteredDetails = allDetails.filter(d => {
+        const billingCountries = d.countryCodes?.length ? d.countryCodes : [d.countryCode];
+        return billingCountries.some(country => userCountries.includes(country));
+      });
       res.json(filteredDetails);
     } catch (error) {
       console.error("Error fetching billing details:", error);
@@ -853,8 +859,10 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Billing company not found" });
       }
       
-      // Check if user has access to this billing company's country
-      if (!userCountries.includes(details.countryCode)) {
+      // Check if user has access to any of this billing company's countries
+      const billingCountries = details.countryCodes?.length ? details.countryCodes : [details.countryCode];
+      const hasAccess = billingCountries.some(country => userCountries.includes(country));
+      if (!hasAccess) {
         return res.status(403).json({ error: "Access denied" });
       }
       res.json(details);
@@ -869,9 +877,11 @@ export async function registerRoutes(
       const userCountries = req.session.user?.assignedCountries || [];
       const validatedData = insertBillingDetailsSchema.parse(req.body);
       
-      // Only allow creating billing companies for assigned countries
-      if (!userCountries.includes(validatedData.countryCode)) {
-        return res.status(403).json({ error: "Access denied - you cannot create billing companies for this country" });
+      // Check if user has access to all countries in countryCodes
+      const billingCountries = validatedData.countryCodes?.length ? validatedData.countryCodes : [validatedData.countryCode];
+      const hasAccess = billingCountries.every(country => userCountries.includes(country));
+      if (!hasAccess) {
+        return res.status(403).json({ error: "Access denied - you cannot create billing companies for these countries" });
       }
       
       const details = await storage.createBillingDetails(validatedData);
@@ -890,12 +900,14 @@ export async function registerRoutes(
       const userCountries = req.session.user?.assignedCountries || [];
       const userId = req.session.user?.id;
       
-      // Check if user has access to this billing company's country
+      // Check if user has access to this billing company's countries
       const existing = await storage.getBillingDetailsById(req.params.id);
       if (!existing) {
         return res.status(404).json({ error: "Billing company not found" });
       }
-      if (!userCountries.includes(existing.countryCode)) {
+      const existingCountries = existing.countryCodes?.length ? existing.countryCodes : [existing.countryCode];
+      const hasExistingAccess = existingCountries.some(country => userCountries.includes(country));
+      if (!hasExistingAccess) {
         return res.status(403).json({ error: "Access denied" });
       }
       
@@ -911,12 +923,14 @@ export async function registerRoutes(
     try {
       const userCountries = req.session.user?.assignedCountries || [];
       
-      // Check if user has access to this billing company's country
+      // Check if user has access to this billing company's countries
       const existing = await storage.getBillingDetailsById(req.params.id);
       if (!existing) {
         return res.status(404).json({ error: "Billing company not found" });
       }
-      if (!userCountries.includes(existing.countryCode)) {
+      const existingCountries = existing.countryCodes?.length ? existing.countryCodes : [existing.countryCode];
+      const hasAccess = existingCountries.some(country => userCountries.includes(country));
+      if (!hasAccess) {
         return res.status(403).json({ error: "Access denied" });
       }
       
