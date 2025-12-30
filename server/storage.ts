@@ -5,7 +5,7 @@ import {
   laboratories, hospitals,
   collaborators, collaboratorAddresses, collaboratorOtherData, collaboratorAgreements,
   customerPotentialCases, leadScoringCriteria,
-  serviceConfigurations, serviceInstances, invoiceTemplates, invoiceLayouts,
+  serviceConfigurations, serviceInstances, numberRanges, invoiceTemplates, invoiceLayouts,
   roles, roleModulePermissions, roleFieldPermissions, userRoles, departments,
   type User, type InsertUser, type UpdateUser, type SafeUser,
   type Customer, type InsertCustomer,
@@ -31,6 +31,7 @@ import {
   type LeadScoringCriteria, type InsertLeadScoringCriteria,
   type ServiceConfiguration, type InsertServiceConfiguration,
   type ServiceInstance, type InsertServiceInstance,
+  type NumberRange, type InsertNumberRange,
   type InvoiceTemplate, type InsertInvoiceTemplate,
   type InvoiceLayout, type InsertInvoiceLayout,
   type Role, type InsertRole,
@@ -230,6 +231,13 @@ export interface IStorage {
   createServiceInstance(data: InsertServiceInstance): Promise<ServiceInstance>;
   updateServiceInstance(id: string, data: Partial<InsertServiceInstance>): Promise<ServiceInstance | undefined>;
   deleteServiceInstance(id: string): Promise<boolean>;
+
+  // Number Ranges
+  getAllNumberRanges(): Promise<NumberRange[]>;
+  getNumberRangesByCountry(countryCodes: string[]): Promise<NumberRange[]>;
+  createNumberRange(data: InsertNumberRange): Promise<NumberRange>;
+  updateNumberRange(id: string, data: Partial<InsertNumberRange>): Promise<NumberRange | undefined>;
+  deleteNumberRange(id: string): Promise<boolean>;
 
   // Invoice Templates
   getAllInvoiceTemplates(): Promise<InvoiceTemplate[]>;
@@ -1139,6 +1147,38 @@ export class DatabaseStorage implements IStorage {
 
   async deleteServiceInstance(id: string): Promise<boolean> {
     const result = await db.delete(serviceInstances).where(eq(serviceInstances.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Number Ranges
+  async getAllNumberRanges(): Promise<NumberRange[]> {
+    return db.select().from(numberRanges).orderBy(numberRanges.name);
+  }
+
+  async getNumberRangesByCountry(countryCodes: string[]): Promise<NumberRange[]> {
+    if (countryCodes.length === 0) {
+      return this.getAllNumberRanges();
+    }
+    return db.select().from(numberRanges)
+      .where(inArray(numberRanges.countryCode, countryCodes))
+      .orderBy(numberRanges.name);
+  }
+
+  async createNumberRange(data: InsertNumberRange): Promise<NumberRange> {
+    const [created] = await db.insert(numberRanges).values(data).returning();
+    return created;
+  }
+
+  async updateNumberRange(id: string, data: Partial<InsertNumberRange>): Promise<NumberRange | undefined> {
+    const [updated] = await db.update(numberRanges)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(numberRanges.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteNumberRange(id: string): Promise<boolean> {
+    const result = await db.delete(numberRanges).where(eq(numberRanges.id, id)).returning();
     return result.length > 0;
   }
 
