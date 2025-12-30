@@ -3836,6 +3836,1031 @@ function PermissionsRolesTab() {
   );
 }
 
+// Billing Companies Tab with multi-tab dialog
+function BillingCompaniesTab() {
+  const { toast } = useToast();
+  const { t } = useI18n();
+  const { user } = useAuth();
+  const [search, setSearch] = useState("");
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingCompany, setEditingCompany] = useState<BillingDetails | null>(null);
+  const [deletingCompany, setDeletingCompany] = useState<BillingDetails | null>(null);
+  const [dialogTab, setDialogTab] = useState("postal");
+
+  const userCountryCodes = user?.assignedCountries && user.assignedCountries.length > 0 ? user.assignedCountries : null;
+
+  const { data: billingCompanies = [], isLoading } = useQuery<BillingDetails[]>({
+    queryKey: ["/api/billing-details"],
+  });
+
+  const { data: allLaboratories = [] } = useQuery<any[]>({
+    queryKey: ["/api/laboratories"],
+  });
+
+  const { data: allCollaborators = [] } = useQuery<any[]>({
+    queryKey: ["/api/collaborators"],
+  });
+
+  const filteredCompanies = billingCompanies.filter(company => {
+    if (userCountryCodes && !userCountryCodes.includes(company.countryCode)) return false;
+    if (search) {
+      const searchLower = search.toLowerCase();
+      return (
+        company.companyName.toLowerCase().includes(searchLower) ||
+        company.countryCode.toLowerCase().includes(searchLower) ||
+        (company.code || "").toLowerCase().includes(searchLower)
+      );
+    }
+    return true;
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", "/api/billing-details", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/billing-details"] });
+      setIsFormOpen(false);
+      toast({ title: t.common.success, description: t.konfigurator.billingCompanyCreated || "Billing company created" });
+    },
+    onError: () => {
+      toast({ title: t.common.error, description: t.konfigurator.billingCompanyCreateError || "Failed to create billing company", variant: "destructive" });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => apiRequest("PATCH", `/api/billing-details/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/billing-details"] });
+      setIsFormOpen(false);
+      setEditingCompany(null);
+      toast({ title: t.common.success, description: t.konfigurator.billingCompanyUpdated || "Billing company updated" });
+    },
+    onError: () => {
+      toast({ title: t.common.error, description: t.konfigurator.billingCompanyUpdateError || "Failed to update billing company", variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/billing-details/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/billing-details"] });
+      setDeletingCompany(null);
+      toast({ title: t.common.success, description: t.konfigurator.billingCompanyDeleted || "Billing company deleted" });
+    },
+    onError: () => {
+      toast({ title: t.common.error, description: t.konfigurator.billingCompanyDeleteError || "Failed to delete billing company", variant: "destructive" });
+    },
+  });
+
+  const handleAddNew = () => {
+    setEditingCompany(null);
+    setDialogTab("postal");
+    setIsFormOpen(true);
+  };
+
+  const handleEdit = (company: BillingDetails) => {
+    setEditingCompany(company);
+    setDialogTab("postal");
+    setIsFormOpen(true);
+  };
+
+  const columns = [
+    {
+      key: "code",
+      header: t.common.code || "Code",
+      render: (company: BillingDetails) => company.code || "-",
+    },
+    {
+      key: "companyName",
+      header: t.settings.companyName,
+      render: (company: BillingDetails) => company.companyName,
+    },
+    {
+      key: "countryCode",
+      header: t.customers.country,
+      render: (company: BillingDetails) => {
+        const country = COUNTRIES.find(c => c.code === company.countryCode);
+        return <Badge variant="outline">{country?.name || company.countryCode}</Badge>;
+      },
+    },
+    {
+      key: "isDefault",
+      header: t.common.default || "Default",
+      render: (company: BillingDetails) => (
+        company.isDefault ? <Badge variant="secondary">{t.common.default || "Default"}</Badge> : null
+      ),
+    },
+    {
+      key: "isActive",
+      header: t.common.status,
+      render: (company: BillingDetails) => (
+        <Badge variant={company.isActive ? "default" : "secondary"}>
+          {company.isActive ? t.common.active : t.common.inactive}
+        </Badge>
+      ),
+    },
+    {
+      key: "actions",
+      header: "",
+      render: (company: BillingDetails) => (
+        <div className="flex gap-1">
+          <Button variant="ghost" size="icon" onClick={() => handleEdit(company)} data-testid={`button-edit-billing-${company.id}`}>
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={() => setDeletingCompany(company)} data-testid={`button-delete-billing-${company.id}`}>
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center gap-4">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder={t.common.search}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+            data-testid="input-search-billing-companies"
+          />
+        </div>
+        <Button onClick={handleAddNew} data-testid="button-add-billing-company">
+          <Plus className="mr-2 h-4 w-4" />
+          {t.konfigurator.addBillingCompany || "Add Billing Company"}
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <DataTable columns={columns} data={filteredCompanies} keyField="id" />
+      )}
+
+      <BillingCompanyDialog
+        open={isFormOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setIsFormOpen(false);
+            setEditingCompany(null);
+          }
+        }}
+        billingCompany={editingCompany}
+        activeTab={dialogTab}
+        onTabChange={setDialogTab}
+        laboratories={allLaboratories}
+        collaborators={allCollaborators}
+        onSave={(data) => {
+          if (editingCompany) {
+            updateMutation.mutate({ id: editingCompany.id, data });
+          } else {
+            createMutation.mutate(data);
+          }
+        }}
+        isPending={createMutation.isPending || updateMutation.isPending}
+      />
+
+      <AlertDialog open={!!deletingCompany} onOpenChange={(open) => !open && setDeletingCompany(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t.konfigurator.deleteBillingCompany || "Delete Billing Company"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t.konfigurator.deleteBillingCompanyConfirm || "Are you sure you want to delete this billing company? This action cannot be undone."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t.common.cancel}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deletingCompany && deleteMutation.mutate(deletingCompany.id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete-billing"
+            >
+              {deleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {t.common.delete}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+// Billing Company Multi-Tab Dialog Component
+function BillingCompanyDialog({
+  open,
+  onOpenChange,
+  billingCompany,
+  activeTab,
+  onTabChange,
+  laboratories,
+  collaborators,
+  onSave,
+  isPending,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  billingCompany: BillingDetails | null;
+  activeTab: string;
+  onTabChange: (tab: string) => void;
+  laboratories: any[];
+  collaborators: any[];
+  onSave: (data: any) => void;
+  isPending: boolean;
+}) {
+  const { t } = useI18n();
+  const [formData, setFormData] = useState<any>({});
+  const [selectedLabs, setSelectedLabs] = useState<string[]>([]);
+  const [selectedCollaborators, setSelectedCollaborators] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (billingCompany) {
+      setFormData({
+        countryCode: billingCompany.countryCode || "",
+        code: billingCompany.code || "",
+        entityCode: billingCompany.entityCode || "",
+        invoiceBarcodeLetter: billingCompany.invoiceBarcodeLetter || "",
+        companyName: billingCompany.companyName || "",
+        address: billingCompany.address || "",
+        city: billingCompany.city || "",
+        postalCode: billingCompany.postalCode || "",
+        taxId: billingCompany.taxId || "",
+        postalName: billingCompany.postalName || "",
+        postalStreet: billingCompany.postalStreet || "",
+        postalCity: billingCompany.postalCity || "",
+        postalPostalCode: billingCompany.postalPostalCode || "",
+        postalArea: billingCompany.postalArea || "",
+        postalCountry: billingCompany.postalCountry || "",
+        fullName: billingCompany.fullName || "",
+        phone: billingCompany.phone || "",
+        email: billingCompany.email || "",
+        ico: billingCompany.ico || "",
+        dic: billingCompany.dic || "",
+        vatNumber: billingCompany.vatNumber || "",
+        vatRate: billingCompany.vatRate || "20",
+        currency: billingCompany.currency || "EUR",
+        webFromEmail: billingCompany.webFromEmail || "",
+        coverLetterToEmail: billingCompany.coverLetterToEmail || "",
+        defaultLanguage: billingCompany.defaultLanguage || "",
+        sentCollectionKitToClient: billingCompany.sentCollectionKitToClient || false,
+        allowManualPaymentInsert: billingCompany.allowManualPaymentInsert || false,
+        uidIsMandatory: billingCompany.uidIsMandatory || false,
+        allowEmptyChildNameInCollection: billingCompany.allowEmptyChildNameInCollection || false,
+        isDefault: billingCompany.isDefault || false,
+        isActive: billingCompany.isActive ?? true,
+        defaultPaymentTerm: billingCompany.defaultPaymentTerm || 14,
+        paymentTerms: billingCompany.paymentTerms || [7, 14, 30],
+        bankName: billingCompany.bankName || "",
+        bankIban: billingCompany.bankIban || "",
+        bankSwift: billingCompany.bankSwift || "",
+      });
+    } else {
+      setFormData({
+        countryCode: "",
+        code: "",
+        entityCode: "",
+        invoiceBarcodeLetter: "",
+        companyName: "",
+        address: "",
+        city: "",
+        postalCode: "",
+        taxId: "",
+        postalName: "",
+        postalStreet: "",
+        postalCity: "",
+        postalPostalCode: "",
+        postalArea: "",
+        postalCountry: "",
+        fullName: "",
+        phone: "",
+        email: "",
+        ico: "",
+        dic: "",
+        vatNumber: "",
+        vatRate: "20",
+        currency: "EUR",
+        webFromEmail: "",
+        coverLetterToEmail: "",
+        defaultLanguage: "",
+        sentCollectionKitToClient: false,
+        allowManualPaymentInsert: false,
+        uidIsMandatory: false,
+        allowEmptyChildNameInCollection: false,
+        isDefault: false,
+        isActive: true,
+        defaultPaymentTerm: 14,
+        paymentTerms: [7, 14, 30],
+        bankName: "",
+        bankIban: "",
+        bankSwift: "",
+      });
+      setSelectedLabs([]);
+      setSelectedCollaborators([]);
+    }
+  }, [billingCompany, open]);
+
+  const handleSubmit = () => {
+    if (!formData.companyName || !formData.countryCode) {
+      return;
+    }
+    onSave(formData);
+  };
+
+  const updateField = (field: string, value: any) => {
+    setFormData((prev: any) => ({ ...prev, [field]: value }));
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>
+            {billingCompany ? (t.konfigurator.editBillingCompany || "Edit Billing Company") : (t.konfigurator.addBillingCompany || "Add Billing Company")}
+          </DialogTitle>
+        </DialogHeader>
+
+        <Tabs value={activeTab} onValueChange={onTabChange} className="mt-4">
+          <TabsList className="grid w-full grid-cols-6">
+            <TabsTrigger value="postal" data-testid="tab-billing-postal">{t.konfigurator.postalAddress || "Postal Address"}</TabsTrigger>
+            <TabsTrigger value="details" data-testid="tab-billing-details">{t.common.detail || "Details"}</TabsTrigger>
+            <TabsTrigger value="history" data-testid="tab-billing-history" disabled={!billingCompany}>{t.konfigurator.historicalData || "History"}</TabsTrigger>
+            <TabsTrigger value="accounts" data-testid="tab-billing-accounts" disabled={!billingCompany}>{t.konfigurator.accounts || "Accounts"}</TabsTrigger>
+            <TabsTrigger value="laboratories" data-testid="tab-billing-labs" disabled={!billingCompany}>{t.settings.laboratories}</TabsTrigger>
+            <TabsTrigger value="collaborators" data-testid="tab-billing-collabs" disabled={!billingCompany}>{t.collaborators?.title || "Collaborators"}</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="postal" className="space-y-4 mt-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t.customers.country} *</Label>
+                <Select value={formData.countryCode || ""} onValueChange={(v) => updateField("countryCode", v)}>
+                  <SelectTrigger data-testid="select-billing-country">
+                    <SelectValue placeholder={t.common.select} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {COUNTRIES.map((country) => (
+                      <SelectItem key={country.code} value={country.code}>{country.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>{t.common.code || "Code"}</Label>
+                <Input value={formData.code || ""} onChange={(e) => updateField("code", e.target.value)} data-testid="input-billing-code" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>{t.settings.companyName} *</Label>
+              <Input value={formData.companyName || ""} onChange={(e) => updateField("companyName", e.target.value)} data-testid="input-billing-company-name" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t.konfigurator.postalName || "Postal Name"}</Label>
+                <Input value={formData.postalName || ""} onChange={(e) => updateField("postalName", e.target.value)} data-testid="input-billing-postal-name" />
+              </div>
+              <div className="space-y-2">
+                <Label>{t.settings.address}</Label>
+                <Input value={formData.postalStreet || ""} onChange={(e) => updateField("postalStreet", e.target.value)} data-testid="input-billing-postal-street" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>{t.settings.city}</Label>
+                <Input value={formData.postalCity || ""} onChange={(e) => updateField("postalCity", e.target.value)} data-testid="input-billing-postal-city" />
+              </div>
+              <div className="space-y-2">
+                <Label>{t.settings.postalCode}</Label>
+                <Input value={formData.postalPostalCode || ""} onChange={(e) => updateField("postalPostalCode", e.target.value)} data-testid="input-billing-postal-code" />
+              </div>
+              <div className="space-y-2">
+                <Label>{t.konfigurator.area || "Area"}</Label>
+                <Input value={formData.postalArea || ""} onChange={(e) => updateField("postalArea", e.target.value)} data-testid="input-billing-postal-area" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t.konfigurator.postalCountry || "Postal Country"}</Label>
+                <Select value={formData.postalCountry || ""} onValueChange={(v) => updateField("postalCountry", v)}>
+                  <SelectTrigger data-testid="select-billing-postal-country">
+                    <SelectValue placeholder={t.common.select} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {COUNTRIES.map((country) => (
+                      <SelectItem key={country.code} value={country.code}>{country.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>{t.konfigurator.invoiceBarcodeLetter || "Invoice Barcode Letter"}</Label>
+                <Select value={formData.invoiceBarcodeLetter || ""} onValueChange={(v) => updateField("invoiceBarcodeLetter", v)}>
+                  <SelectTrigger data-testid="select-billing-barcode-letter">
+                    <SelectValue placeholder={t.common.select} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {"ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((letter) => (
+                      <SelectItem key={letter} value={letter}>{letter}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-6 pt-4">
+              <div className="flex items-center space-x-2">
+                <Switch checked={formData.isActive} onCheckedChange={(v) => updateField("isActive", v)} data-testid="switch-billing-active" />
+                <Label>{t.common.active}</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Switch checked={formData.isDefault} onCheckedChange={(v) => updateField("isDefault", v)} data-testid="switch-billing-default" />
+                <Label>{t.common.default || "Default"}</Label>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="details" className="space-y-4 mt-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t.konfigurator.fullName || "Full Name"}</Label>
+                <Input value={formData.fullName || ""} onChange={(e) => updateField("fullName", e.target.value)} data-testid="input-billing-fullname" />
+              </div>
+              <div className="space-y-2">
+                <Label>{t.konfigurator.entityCode || "Entity Code"}</Label>
+                <Input value={formData.entityCode || ""} onChange={(e) => updateField("entityCode", e.target.value)} data-testid="input-billing-entity-code" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t.common.phone || "Phone"}</Label>
+                <Input value={formData.phone || ""} onChange={(e) => updateField("phone", e.target.value)} data-testid="input-billing-phone" />
+              </div>
+              <div className="space-y-2">
+                <Label>{t.common.email || "Email"}</Label>
+                <Input type="email" value={formData.email || ""} onChange={(e) => updateField("email", e.target.value)} data-testid="input-billing-email" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>{t.konfigurator.ico || "IČO"}</Label>
+                <Input value={formData.ico || ""} onChange={(e) => updateField("ico", e.target.value)} data-testid="input-billing-ico" />
+              </div>
+              <div className="space-y-2">
+                <Label>{t.konfigurator.dic || "DIČ"}</Label>
+                <Input value={formData.dic || ""} onChange={(e) => updateField("dic", e.target.value)} data-testid="input-billing-dic" />
+              </div>
+              <div className="space-y-2">
+                <Label>{t.konfigurator.vatNumber || "VAT Number"}</Label>
+                <Input value={formData.vatNumber || ""} onChange={(e) => updateField("vatNumber", e.target.value)} data-testid="input-billing-vat-number" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t.settings.vatRate}</Label>
+                <Input type="number" value={formData.vatRate || ""} onChange={(e) => updateField("vatRate", e.target.value)} data-testid="input-billing-vat-rate" />
+              </div>
+              <div className="space-y-2">
+                <Label>{t.settings.currency}</Label>
+                <Select value={formData.currency || "EUR"} onValueChange={(v) => updateField("currency", v)}>
+                  <SelectTrigger data-testid="select-billing-currency">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CURRENCIES.map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t.konfigurator.webFromEmail || "Web From Email"}</Label>
+                <Input type="email" value={formData.webFromEmail || ""} onChange={(e) => updateField("webFromEmail", e.target.value)} data-testid="input-billing-web-email" />
+              </div>
+              <div className="space-y-2">
+                <Label>{t.konfigurator.coverLetterToEmail || "Cover Letter To Email"}</Label>
+                <Input type="email" value={formData.coverLetterToEmail || ""} onChange={(e) => updateField("coverLetterToEmail", e.target.value)} data-testid="input-billing-cover-email" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>{t.konfigurator.defaultLanguage || "Default Language"}</Label>
+              <Select value={formData.defaultLanguage || ""} onValueChange={(v) => updateField("defaultLanguage", v)}>
+                <SelectTrigger data-testid="select-billing-language">
+                  <SelectValue placeholder={t.common.select} />
+                </SelectTrigger>
+                <SelectContent>
+                  {COUNTRIES.map((country) => (
+                    <SelectItem key={country.code} value={country.code}>{country.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="border rounded-lg p-4 space-y-3 mt-4">
+              <h4 className="font-medium">{t.konfigurator.businessRules || "Business Rules"}</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex items-center space-x-2">
+                  <Switch checked={formData.sentCollectionKitToClient} onCheckedChange={(v) => updateField("sentCollectionKitToClient", v)} data-testid="switch-billing-collection-kit" />
+                  <Label className="text-sm">{t.konfigurator.sentCollectionKitToClient || "Send collection kit to client"}</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch checked={formData.allowManualPaymentInsert} onCheckedChange={(v) => updateField("allowManualPaymentInsert", v)} data-testid="switch-billing-manual-payment" />
+                  <Label className="text-sm">{t.konfigurator.allowManualPaymentInsert || "Allow manual payment insert"}</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch checked={formData.uidIsMandatory} onCheckedChange={(v) => updateField("uidIsMandatory", v)} data-testid="switch-billing-uid-mandatory" />
+                  <Label className="text-sm">{t.konfigurator.uidIsMandatory || "UID is mandatory"}</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch checked={formData.allowEmptyChildNameInCollection} onCheckedChange={(v) => updateField("allowEmptyChildNameInCollection", v)} data-testid="switch-billing-empty-child" />
+                  <Label className="text-sm">{t.konfigurator.allowEmptyChildNameInCollection || "Allow empty child name in collection"}</Label>
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="history" className="mt-4">
+            {billingCompany && <BillingCompanyHistoryTab billingDetailsId={billingCompany.id} />}
+          </TabsContent>
+
+          <TabsContent value="accounts" className="mt-4">
+            {billingCompany && <BillingCompanyAccountsTab billingDetailsId={billingCompany.id} />}
+          </TabsContent>
+
+          <TabsContent value="laboratories" className="mt-4">
+            {billingCompany && (
+              <BillingCompanyLabsTab 
+                billingDetailsId={billingCompany.id} 
+                laboratories={laboratories.filter(l => l.countryCode === billingCompany.countryCode)}
+              />
+            )}
+          </TabsContent>
+
+          <TabsContent value="collaborators" className="mt-4">
+            {billingCompany && (
+              <BillingCompanyCollaboratorsTab 
+                billingDetailsId={billingCompany.id} 
+                collaborators={collaborators.filter(c => c.countries?.includes(billingCompany.countryCode))}
+              />
+            )}
+          </TabsContent>
+        </Tabs>
+
+        <DialogFooter className="mt-6">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            {t.common.cancel}
+          </Button>
+          <Button onClick={handleSubmit} disabled={isPending || !formData.companyName || !formData.countryCode} data-testid="button-save-billing-company">
+            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {t.common.save}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// History Tab - Shows audit log
+function BillingCompanyHistoryTab({ billingDetailsId }: { billingDetailsId: string }) {
+  const { t } = useI18n();
+  const { data: auditLogs = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/billing-details", billingDetailsId, "audit-log"],
+    queryFn: async () => {
+      const res = await fetch(`/api/billing-details/${billingDetailsId}/audit-log`, { credentials: "include" });
+      return res.json();
+    },
+  });
+
+  const { data: users = [] } = useQuery<any[]>({
+    queryKey: ["/api/users"],
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (auditLogs.length === 0) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        {t.konfigurator.noHistoricalData || "No historical data available"}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2 max-h-[400px] overflow-y-auto">
+      {auditLogs.map((log) => {
+        const user = users.find((u: any) => u.id === log.userId);
+        return (
+          <div key={log.id} className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="font-medium">{user?.fullName || user?.username || t.common.unknown}</span>
+                <span className="text-muted-foreground">
+                  {new Date(log.createdAt).toLocaleString()}
+                </span>
+              </div>
+              <div className="text-sm mt-1">
+                <span className="font-medium">{log.fieldName}</span>:{" "}
+                <span className="text-muted-foreground line-through">{log.oldValue || "(empty)"}</span>
+                {" → "}
+                <span>{log.newValue || "(empty)"}</span>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Accounts Tab - Multiple bank accounts
+function BillingCompanyAccountsTab({ billingDetailsId }: { billingDetailsId: string }) {
+  const { t } = useI18n();
+  const { toast } = useToast();
+  const [isAddingAccount, setIsAddingAccount] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<any>(null);
+
+  const { data: accounts = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/billing-details", billingDetailsId, "accounts"],
+    queryFn: async () => {
+      const res = await fetch(`/api/billing-details/${billingDetailsId}/accounts`, { credentials: "include" });
+      return res.json();
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", `/api/billing-details/${billingDetailsId}/accounts`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/billing-details", billingDetailsId, "accounts"] });
+      setIsAddingAccount(false);
+      toast({ title: t.common.success, description: "Account created" });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => apiRequest("PATCH", `/api/billing-company-accounts/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/billing-details", billingDetailsId, "accounts"] });
+      setEditingAccount(null);
+      toast({ title: t.common.success, description: "Account updated" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/billing-company-accounts/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/billing-details", billingDetailsId, "accounts"] });
+      toast({ title: t.common.success, description: "Account deleted" });
+    },
+  });
+
+  const setDefaultMutation = useMutation({
+    mutationFn: (accountId: string) => apiRequest("POST", `/api/billing-details/${billingDetailsId}/accounts/${accountId}/default`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/billing-details", billingDetailsId, "accounts"] });
+      toast({ title: t.common.success, description: "Default account set" });
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h4 className="font-medium">{t.konfigurator.bankAccounts || "Bank Accounts"}</h4>
+        <Button size="sm" onClick={() => setIsAddingAccount(true)} data-testid="button-add-account">
+          <Plus className="mr-2 h-4 w-4" />
+          {t.common.add || "Add"}
+        </Button>
+      </div>
+
+      {accounts.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          {t.konfigurator.noAccounts || "No bank accounts configured"}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {accounts.map((account: any) => (
+            <div key={account.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{account.name || account.bankName || "Account"}</span>
+                  {account.isDefault && <Badge variant="secondary">{t.common.default || "Default"}</Badge>}
+                  <Badge variant="outline">{account.currency}</Badge>
+                </div>
+                <div className="text-sm text-muted-foreground mt-1">
+                  {account.iban && <span>IBAN: {account.iban}</span>}
+                </div>
+              </div>
+              <div className="flex gap-1">
+                {!account.isDefault && (
+                  <Button variant="ghost" size="sm" onClick={() => setDefaultMutation.mutate(account.id)}>
+                    <Check className="h-4 w-4" />
+                  </Button>
+                )}
+                <Button variant="ghost" size="icon" onClick={() => setEditingAccount(account)}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(account.id)}>
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <BillingAccountFormDialog
+        open={isAddingAccount || !!editingAccount}
+        onOpenChange={(open) => {
+          if (!open) {
+            setIsAddingAccount(false);
+            setEditingAccount(null);
+          }
+        }}
+        account={editingAccount}
+        onSave={(data) => {
+          if (editingAccount) {
+            updateMutation.mutate({ id: editingAccount.id, data });
+          } else {
+            createMutation.mutate(data);
+          }
+        }}
+        isPending={createMutation.isPending || updateMutation.isPending}
+      />
+    </div>
+  );
+}
+
+// Bank Account Form Dialog
+function BillingAccountFormDialog({
+  open,
+  onOpenChange,
+  account,
+  onSave,
+  isPending,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  account: any;
+  onSave: (data: any) => void;
+  isPending: boolean;
+}) {
+  const { t } = useI18n();
+  const [formData, setFormData] = useState<any>({});
+
+  useEffect(() => {
+    if (account) {
+      setFormData({ ...account });
+    } else {
+      setFormData({
+        currency: "EUR",
+        name: "",
+        bankName: "",
+        accountNumber: "",
+        accountBankCode: "",
+        iban: "",
+        swift: "",
+        isActive: true,
+        isDefault: false,
+      });
+    }
+  }, [account, open]);
+
+  const handleSubmit = () => {
+    onSave(formData);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{account ? "Edit Account" : "Add Account"}</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>{t.common.name || "Name"}</Label>
+              <Input value={formData.name || ""} onChange={(e) => setFormData((p: any) => ({ ...p, name: e.target.value }))} data-testid="input-account-name" />
+            </div>
+            <div className="space-y-2">
+              <Label>{t.settings.currency}</Label>
+              <Select value={formData.currency || "EUR"} onValueChange={(v) => setFormData((p: any) => ({ ...p, currency: v }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CURRENCIES.map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>{t.settings.bankName}</Label>
+            <Input value={formData.bankName || ""} onChange={(e) => setFormData((p: any) => ({ ...p, bankName: e.target.value }))} data-testid="input-account-bank" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>{t.konfigurator.accountNumber || "Account Number"}</Label>
+              <Input value={formData.accountNumber || ""} onChange={(e) => setFormData((p: any) => ({ ...p, accountNumber: e.target.value }))} data-testid="input-account-number" />
+            </div>
+            <div className="space-y-2">
+              <Label>{t.konfigurator.bankCode || "Bank Code"}</Label>
+              <Input value={formData.accountBankCode || ""} onChange={(e) => setFormData((p: any) => ({ ...p, accountBankCode: e.target.value }))} data-testid="input-account-bank-code" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>{t.settings.iban}</Label>
+              <Input value={formData.iban || ""} onChange={(e) => setFormData((p: any) => ({ ...p, iban: e.target.value }))} data-testid="input-account-iban" />
+            </div>
+            <div className="space-y-2">
+              <Label>{t.settings.swift}</Label>
+              <Input value={formData.swift || ""} onChange={(e) => setFormData((p: any) => ({ ...p, swift: e.target.value }))} data-testid="input-account-swift" />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-6">
+            <div className="flex items-center space-x-2">
+              <Switch checked={formData.isActive} onCheckedChange={(v) => setFormData((p: any) => ({ ...p, isActive: v }))} />
+              <Label>{t.common.active}</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Switch checked={formData.isDefault} onCheckedChange={(v) => setFormData((p: any) => ({ ...p, isDefault: v }))} />
+              <Label>{t.common.default || "Default"}</Label>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            {t.common.cancel}
+          </Button>
+          <Button onClick={handleSubmit} disabled={isPending} data-testid="button-save-account">
+            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {t.common.save}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Laboratories Tab
+function BillingCompanyLabsTab({ billingDetailsId, laboratories }: { billingDetailsId: string; laboratories: any[] }) {
+  const { t } = useI18n();
+  const { toast } = useToast();
+
+  const { data: assignedLabs = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/billing-details", billingDetailsId, "laboratories"],
+    queryFn: async () => {
+      const res = await fetch(`/api/billing-details/${billingDetailsId}/laboratories`, { credentials: "include" });
+      return res.json();
+    },
+  });
+
+  const assignedLabIds = assignedLabs.map((l: any) => l.laboratoryId);
+
+  const saveMutation = useMutation({
+    mutationFn: (laboratoryIds: string[]) => apiRequest("PUT", `/api/billing-details/${billingDetailsId}/laboratories`, { laboratoryIds }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/billing-details", billingDetailsId, "laboratories"] });
+      toast({ title: t.common.success, description: "Laboratories updated" });
+    },
+  });
+
+  const toggleLab = (labId: string) => {
+    const newIds = assignedLabIds.includes(labId)
+      ? assignedLabIds.filter((id: string) => id !== labId)
+      : [...assignedLabIds, labId];
+    saveMutation.mutate(newIds);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {laboratories.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          {t.konfigurator.noLaboratoriesAvailable || "No laboratories available for this country"}
+        </div>
+      ) : (
+        laboratories.map((lab: any) => (
+          <div key={lab.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+            <div>
+              <span className="font-medium">{lab.name}</span>
+              {lab.code && <span className="text-muted-foreground ml-2">({lab.code})</span>}
+            </div>
+            <Switch
+              checked={assignedLabIds.includes(lab.id)}
+              onCheckedChange={() => toggleLab(lab.id)}
+              disabled={saveMutation.isPending}
+            />
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+// Collaborators Tab
+function BillingCompanyCollaboratorsTab({ billingDetailsId, collaborators }: { billingDetailsId: string; collaborators: any[] }) {
+  const { t } = useI18n();
+  const { toast } = useToast();
+
+  const { data: assignedCollabs = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/billing-details", billingDetailsId, "collaborators"],
+    queryFn: async () => {
+      const res = await fetch(`/api/billing-details/${billingDetailsId}/collaborators`, { credentials: "include" });
+      return res.json();
+    },
+  });
+
+  const assignedCollabIds = assignedCollabs.map((c: any) => c.collaboratorId);
+
+  const saveMutation = useMutation({
+    mutationFn: (collaboratorIds: string[]) => apiRequest("PUT", `/api/billing-details/${billingDetailsId}/collaborators`, { collaboratorIds }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/billing-details", billingDetailsId, "collaborators"] });
+      toast({ title: t.common.success, description: "Collaborators updated" });
+    },
+  });
+
+  const toggleCollab = (collabId: string) => {
+    const newIds = assignedCollabIds.includes(collabId)
+      ? assignedCollabIds.filter((id: string) => id !== collabId)
+      : [...assignedCollabIds, collabId];
+    saveMutation.mutate(newIds);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {collaborators.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          {t.konfigurator.noCollaboratorsAvailable || "No collaborators available for this country"}
+        </div>
+      ) : (
+        collaborators.map((collab: any) => (
+          <div key={collab.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+            <div>
+              <span className="font-medium">{collab.lastName} {collab.firstName}</span>
+              {collab.email && <span className="text-muted-foreground ml-2">({collab.email})</span>}
+            </div>
+            <Switch
+              checked={assignedCollabIds.includes(collab.id)}
+              onCheckedChange={() => toggleCollab(collab.id)}
+              disabled={saveMutation.isPending}
+            />
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
 export default function ConfiguratorPage() {
   const { t } = useI18n();
 
@@ -3847,7 +4872,7 @@ export default function ConfiguratorPage() {
       />
       
       <Tabs defaultValue="services" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-6 max-w-4xl">
+        <TabsList className="grid w-full grid-cols-7 max-w-5xl">
           <TabsTrigger value="services" className="flex items-center gap-2" data-testid="tab-services">
             <Settings className="h-4 w-4" />
             {t.konfigurator.services}
@@ -3855,6 +4880,10 @@ export default function ConfiguratorPage() {
           <TabsTrigger value="products" className="flex items-center gap-2" data-testid="tab-products">
             <Package className="h-4 w-4" />
             {t.products.title}
+          </TabsTrigger>
+          <TabsTrigger value="billing" className="flex items-center gap-2" data-testid="tab-billing-companies">
+            <Building2 className="h-4 w-4" />
+            {t.konfigurator.billingCompanies || "Billing Companies"}
           </TabsTrigger>
           <TabsTrigger value="number-ranges" className="flex items-center gap-2" data-testid="tab-number-ranges">
             <Hash className="h-4 w-4" />
@@ -3894,6 +4923,18 @@ export default function ConfiguratorPage() {
             </CardHeader>
             <CardContent>
               <ProductsTab />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="billing">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t.konfigurator.billingCompanies || "Billing Companies"}</CardTitle>
+              <CardDescription>{t.konfigurator.billingCompaniesDescription || "Manage billing companies and their settings"}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <BillingCompaniesTab />
             </CardContent>
           </Card>
         </TabsContent>
