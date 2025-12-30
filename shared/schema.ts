@@ -12,6 +12,7 @@ export const COUNTRIES = [
   { code: "IT", name: "Italy", flag: "🇮🇹" },
   { code: "DE", name: "Germany", flag: "🇩🇪" },
   { code: "US", name: "USA", flag: "🇺🇸" },
+  { code: "CH", name: "Switzerland", flag: "🇨🇭" },
 ] as const;
 
 // Global country list for address selection
