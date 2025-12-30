@@ -861,11 +861,88 @@ function ProductDetailDialog({
     },
   });
 
-  const [newInstanceData, setNewInstanceData] = useState({ countryCode: "", name: "", isActive: true, billingDetailsId: "" });
-  const [newPriceData, setNewPriceData] = useState({ priceType: "base", amount: "", currency: "EUR" });
-  const [newPaymentData, setNewPaymentData] = useState({ name: "", installments: 1, intervalMonths: 1, interestRate: "0" });
-  const [newDiscountData, setNewDiscountData] = useState({ name: "", discountType: "percentage", value: "" });
-  const [newServiceData, setNewServiceData] = useState({ name: "", serviceCode: "", isActive: true });
+  const updateInstanceMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => 
+      apiRequest("PATCH", `/api/product-instances/${id}`, data),
+    onSuccess: () => {
+      refetchInstances();
+      setEditingInstanceId(null);
+      toast({ title: t.success.updated });
+    },
+  });
+
+  const updatePriceMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => 
+      apiRequest("PATCH", `/api/instance-prices/${id}`, data),
+    onSuccess: () => {
+      refetchPrices();
+      setEditingPriceId(null);
+      toast({ title: t.success.updated });
+    },
+  });
+
+  const updatePaymentMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => 
+      apiRequest("PATCH", `/api/instance-payment-options/${id}`, data),
+    onSuccess: () => {
+      refetchPayments();
+      setEditingPaymentId(null);
+      toast({ title: t.success.updated });
+    },
+  });
+
+  const updateDiscountMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => 
+      apiRequest("PATCH", `/api/instance-discounts/${id}`, data),
+    onSuccess: () => {
+      refetchDiscounts();
+      setEditingDiscountId(null);
+      toast({ title: t.success.updated });
+    },
+  });
+
+  const updateServiceMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => 
+      apiRequest("PATCH", `/api/product-services/${id}`, data),
+    onSuccess: () => {
+      refetchServices();
+      setEditingServiceId(null);
+      toast({ title: t.success.updated });
+    },
+  });
+
+  const [editingInstanceData, setEditingInstanceData] = useState<any>(null);
+  const [editingPriceData, setEditingPriceData] = useState<any>(null);
+  const [editingPaymentData, setEditingPaymentData] = useState<any>(null);
+  const [editingDiscountData, setEditingDiscountData] = useState<any>(null);
+  const [editingServiceData, setEditingServiceData] = useState<any>(null);
+
+  const [newInstanceData, setNewInstanceData] = useState<any>({ 
+    countryCode: "", name: "", isActive: true, billingDetailsId: "",
+    fromDate: "", toDate: "", description: ""
+  });
+  const [newPriceData, setNewPriceData] = useState<any>({ 
+    name: "", price: "", currency: "EUR", accountingCode: "", analyticalAccount: "",
+    fromDate: "", toDate: "", isActive: true, description: "", amendment: ""
+  });
+  const [newPaymentData, setNewPaymentData] = useState<any>({ 
+    name: "", type: "", invoiceItemText: "", analyticalAccount: "", accountingCode: "",
+    paymentTypeFee: "", fromDate: "", toDate: "", isActive: true, description: "", amendment: ""
+  });
+  const [newDiscountData, setNewDiscountData] = useState<any>({ 
+    name: "", type: "", invoiceItemText: "", analyticalAccount: "", accountingCode: "",
+    isFixed: false, fixedValue: "", isPercentage: true, percentageValue: "",
+    fromDate: "", toDate: "", isActive: true, description: ""
+  });
+  const [newServiceData, setNewServiceData] = useState<any>({ 
+    name: "", invoiceIdentifier: "", invoiceable: false, collectable: false, storable: false,
+    fromDate: "", toDate: "", isActive: true, blockAutomation: false, certificateTemplate: "", description: ""
+  });
+  const [editingInstanceId, setEditingInstanceId] = useState<string | null>(null);
+  const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
+  const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
+  const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
+  const [editingDiscountId, setEditingDiscountId] = useState<string | null>(null);
 
   if (!product) return null;
 
@@ -925,7 +1002,7 @@ function ProductDetailDialog({
 
             {isAddingInstance && (
               <Card className="p-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div>
                     <Label>{t.common.country}</Label>
                     <Select value={newInstanceData.countryCode} onValueChange={(v) => setNewInstanceData({...newInstanceData, countryCode: v})}>
@@ -940,7 +1017,7 @@ function ProductDetailDialog({
                     <Input value={newInstanceData.name} onChange={(e) => setNewInstanceData({...newInstanceData, name: e.target.value})} />
                   </div>
                   <div>
-                    <Label>{t.konfigurator.billingCompany || "Billing Company"}</Label>
+                    <Label>{t.konfigurator.billingCompany || "Fakturačná spoločnosť"}</Label>
                     <Select value={newInstanceData.billingDetailsId} onValueChange={(v) => setNewInstanceData({...newInstanceData, billingDetailsId: v})}>
                       <SelectTrigger><SelectValue placeholder={t.common.select} /></SelectTrigger>
                       <SelectContent>
@@ -950,14 +1027,30 @@ function ProductDetailDialog({
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div>
+                    <Label>Od (From)</Label>
+                    <Input type="date" value={newInstanceData.fromDate} onChange={(e) => setNewInstanceData({...newInstanceData, fromDate: e.target.value})} />
+                  </div>
+                  <div>
+                    <Label>Do (To)</Label>
+                    <Input type="date" value={newInstanceData.toDate} onChange={(e) => setNewInstanceData({...newInstanceData, toDate: e.target.value})} />
+                  </div>
+                  <div className="flex items-center gap-2 pt-6">
                     <Switch checked={newInstanceData.isActive} onCheckedChange={(v) => setNewInstanceData({...newInstanceData, isActive: v})} />
                     <Label>{t.common.active}</Label>
+                  </div>
+                  <div className="col-span-3">
+                    <Label>Popis</Label>
+                    <Textarea value={newInstanceData.description} onChange={(e) => setNewInstanceData({...newInstanceData, description: e.target.value})} />
                   </div>
                 </div>
                 <div className="flex justify-end gap-2 mt-4">
                   <Button variant="outline" size="sm" onClick={() => setIsAddingInstance(false)}>{t.common.cancel}</Button>
-                  <Button size="sm" onClick={() => createInstanceMutation.mutate(newInstanceData)}>{t.common.save}</Button>
+                  <Button size="sm" onClick={() => createInstanceMutation.mutate({
+                    ...newInstanceData,
+                    fromDate: newInstanceData.fromDate ? new Date(newInstanceData.fromDate).toISOString() : null,
+                    toDate: newInstanceData.toDate ? new Date(newInstanceData.toDate).toISOString() : null,
+                  })}>{t.common.save}</Button>
                 </div>
               </Card>
             )}
@@ -969,19 +1062,96 @@ function ProductDetailDialog({
                   className={`p-3 cursor-pointer hover-elevate ${selectedInstanceId === instance.id ? 'ring-2 ring-primary' : ''}`}
                   onClick={() => setSelectedInstanceId(instance.id)}
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-1">
                     <Badge variant="secondary">{instance.countryCode}</Badge>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); deleteInstanceMutation.mutate(instance.id); }}>
-                      <Trash2 className="h-3 w-3 text-destructive" />
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { 
+                        e.stopPropagation(); 
+                        setEditingInstanceId(instance.id);
+                        setEditingInstanceData({
+                          ...instance,
+                          fromDate: instance.fromDate ? new Date(instance.fromDate).toISOString().split('T')[0] : "",
+                          toDate: instance.toDate ? new Date(instance.toDate).toISOString().split('T')[0] : "",
+                        });
+                      }}>
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); deleteInstanceMutation.mutate(instance.id); }}>
+                        <Trash2 className="h-3 w-3 text-destructive" />
+                      </Button>
+                    </div>
                   </div>
                   <p className="text-sm font-medium mt-1 truncate">{instance.name}</p>
+                  {(instance.fromDate || instance.toDate) && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {instance.fromDate ? new Date(instance.fromDate).toLocaleDateString() : "..."} - {instance.toDate ? new Date(instance.toDate).toLocaleDateString() : "..."}
+                    </p>
+                  )}
                   <Badge variant={instance.isActive ? "default" : "secondary"} className="mt-1">
                     {instance.isActive ? t.common.active : t.common.inactive}
                   </Badge>
                 </Card>
               ))}
             </div>
+
+            {editingInstanceId && editingInstanceData && (
+              <Card className="p-4 mt-4 border-primary">
+                <h4 className="font-medium mb-4">Upraviť Market Instance</h4>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label>{t.common.country}</Label>
+                    <Select value={editingInstanceData.countryCode} onValueChange={(v) => setEditingInstanceData({...editingInstanceData, countryCode: v})}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>{t.common.name}</Label>
+                    <Input value={editingInstanceData.name} onChange={(e) => setEditingInstanceData({...editingInstanceData, name: e.target.value})} />
+                  </div>
+                  <div>
+                    <Label>Fakturačná spoločnosť</Label>
+                    <Select value={editingInstanceData.billingDetailsId || ""} onValueChange={(v) => setEditingInstanceData({...editingInstanceData, billingDetailsId: v})}>
+                      <SelectTrigger><SelectValue placeholder={t.common.select} /></SelectTrigger>
+                      <SelectContent>
+                        {billingCompanies.filter(b => b.countryCode === editingInstanceData.countryCode).map(b => (
+                          <SelectItem key={b.id} value={b.id}>{b.companyName}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Od (From)</Label>
+                    <Input type="date" value={editingInstanceData.fromDate || ""} onChange={(e) => setEditingInstanceData({...editingInstanceData, fromDate: e.target.value})} />
+                  </div>
+                  <div>
+                    <Label>Do (To)</Label>
+                    <Input type="date" value={editingInstanceData.toDate || ""} onChange={(e) => setEditingInstanceData({...editingInstanceData, toDate: e.target.value})} />
+                  </div>
+                  <div className="flex items-center gap-2 pt-6">
+                    <Switch checked={editingInstanceData.isActive} onCheckedChange={(v) => setEditingInstanceData({...editingInstanceData, isActive: v})} />
+                    <Label>{t.common.active}</Label>
+                  </div>
+                  <div className="col-span-3">
+                    <Label>Popis</Label>
+                    <Textarea value={editingInstanceData.description || ""} onChange={(e) => setEditingInstanceData({...editingInstanceData, description: e.target.value})} />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 mt-4">
+                  <Button variant="outline" size="sm" onClick={() => { setEditingInstanceId(null); setEditingInstanceData(null); }}>{t.common.cancel}</Button>
+                  <Button size="sm" onClick={() => updateInstanceMutation.mutate({ 
+                    id: editingInstanceId, 
+                    data: {
+                      ...editingInstanceData,
+                      fromDate: editingInstanceData.fromDate ? new Date(editingInstanceData.fromDate).toISOString() : null,
+                      toDate: editingInstanceData.toDate ? new Date(editingInstanceData.toDate).toISOString() : null,
+                    }
+                  })}>{t.common.save}</Button>
+                </div>
+              </Card>
+            )}
 
             {selectedInstance && (
               <Card className="mt-4">
@@ -1002,37 +1172,143 @@ function ProductDetailDialog({
                         <Button size="sm" onClick={() => setIsAddingPrice(true)}><Plus className="h-4 w-4 mr-1" />{t.common.add}</Button>
                       </div>
                       {isAddingPrice && (
-                        <div className="grid grid-cols-3 gap-2 p-3 border rounded-md">
-                          <Select value={newPriceData.priceType} onValueChange={(v) => setNewPriceData({...newPriceData, priceType: v})}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="base">Base</SelectItem>
-                              <SelectItem value="fee">Fee</SelectItem>
-                              <SelectItem value="surcharge">Surcharge</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <Input placeholder="Amount" value={newPriceData.amount} onChange={(e) => setNewPriceData({...newPriceData, amount: e.target.value})} />
-                          <Select value={newPriceData.currency} onValueChange={(v) => setNewPriceData({...newPriceData, currency: v})}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              {["EUR", "USD", "CZK", "HUF", "RON", "CHF"].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                          <div className="col-span-3 flex justify-end gap-2">
+                        <div className="grid grid-cols-4 gap-2 p-3 border rounded-md">
+                          <div>
+                            <Label>Názov</Label>
+                            <Input value={newPriceData.name} onChange={(e) => setNewPriceData({...newPriceData, name: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label>Cena</Label>
+                            <Input type="number" step="0.01" value={newPriceData.price} onChange={(e) => setNewPriceData({...newPriceData, price: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label>Mena</Label>
+                            <Select value={newPriceData.currency} onValueChange={(v) => setNewPriceData({...newPriceData, currency: v})}>
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {["EUR", "USD", "CZK", "HUF", "RON", "CHF"].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label>Účtovný kód</Label>
+                            <Input value={newPriceData.accountingCode} onChange={(e) => setNewPriceData({...newPriceData, accountingCode: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label>Analytický účet</Label>
+                            <Input value={newPriceData.analyticalAccount} onChange={(e) => setNewPriceData({...newPriceData, analyticalAccount: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label>Od</Label>
+                            <Input type="date" value={newPriceData.fromDate} onChange={(e) => setNewPriceData({...newPriceData, fromDate: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label>Do</Label>
+                            <Input type="date" value={newPriceData.toDate} onChange={(e) => setNewPriceData({...newPriceData, toDate: e.target.value})} />
+                          </div>
+                          <div className="flex items-center gap-2 pt-6">
+                            <Switch checked={newPriceData.isActive} onCheckedChange={(v) => setNewPriceData({...newPriceData, isActive: v})} />
+                            <Label>Aktívne</Label>
+                          </div>
+                          <div className="col-span-4">
+                            <Label>Popis</Label>
+                            <Textarea value={newPriceData.description} onChange={(e) => setNewPriceData({...newPriceData, description: e.target.value})} className="min-h-[60px]" />
+                          </div>
+                          <div className="col-span-4 flex justify-end gap-2">
                             <Button size="sm" variant="outline" onClick={() => setIsAddingPrice(false)}>{t.common.cancel}</Button>
-                            <Button size="sm" onClick={() => createPriceMutation.mutate({ ...newPriceData, instanceId: selectedInstanceId!, instanceType: "market_instance", isActive: true })}>{t.common.save}</Button>
+                            <Button size="sm" onClick={() => createPriceMutation.mutate({ 
+                              ...newPriceData, 
+                              instanceId: selectedInstanceId!, 
+                              instanceType: "market_instance",
+                              fromDate: newPriceData.fromDate ? new Date(newPriceData.fromDate).toISOString() : null,
+                              toDate: newPriceData.toDate ? new Date(newPriceData.toDate).toISOString() : null,
+                            })}>{t.common.save}</Button>
                           </div>
                         </div>
                       )}
                       {instancePrices.map(price => (
                         <div key={price.id} className="flex items-center justify-between p-2 border rounded-md">
-                          <div>
-                            <Badge variant="outline">{price.priceType}</Badge>
-                            <span className="ml-2 font-medium">{price.amount} {price.currency}</span>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium">{price.name}</span>
+                            <Badge variant="outline">{price.price} {price.currency}</Badge>
+                            {price.accountingCode && <span className="text-xs text-muted-foreground">Účt: {price.accountingCode}</span>}
+                            {price.analyticalAccount && <span className="text-xs text-muted-foreground">Anal: {price.analyticalAccount}</span>}
+                            {(price.fromDate || price.toDate) && (
+                              <span className="text-xs text-muted-foreground">
+                                {price.fromDate ? new Date(price.fromDate).toLocaleDateString() : "..."} - {price.toDate ? new Date(price.toDate).toLocaleDateString() : "..."}
+                              </span>
+                            )}
+                            <Badge variant={price.isActive ? "default" : "secondary"}>{price.isActive ? "Aktívne" : "Neaktívne"}</Badge>
                           </div>
-                          <Button variant="ghost" size="icon" onClick={() => deletePriceMutation.mutate(price.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" onClick={() => { 
+                              setEditingPriceId(price.id); 
+                              setEditingPriceData({
+                                ...price,
+                                fromDate: price.fromDate ? new Date(price.fromDate).toISOString().split('T')[0] : "",
+                                toDate: price.toDate ? new Date(price.toDate).toISOString().split('T')[0] : "",
+                              }); 
+                            }}><Pencil className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => deletePriceMutation.mutate(price.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                          </div>
                         </div>
                       ))}
+                      {editingPriceId && editingPriceData && (
+                        <div className="grid grid-cols-4 gap-2 p-3 border-2 border-primary rounded-md">
+                          <div>
+                            <Label>Názov</Label>
+                            <Input value={editingPriceData.name} onChange={(e) => setEditingPriceData({...editingPriceData, name: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label>Cena</Label>
+                            <Input type="number" step="0.01" value={editingPriceData.price} onChange={(e) => setEditingPriceData({...editingPriceData, price: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label>Mena</Label>
+                            <Select value={editingPriceData.currency} onValueChange={(v) => setEditingPriceData({...editingPriceData, currency: v})}>
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {["EUR", "USD", "CZK", "HUF", "RON", "CHF"].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label>Účtovný kód</Label>
+                            <Input value={editingPriceData.accountingCode || ""} onChange={(e) => setEditingPriceData({...editingPriceData, accountingCode: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label>Analytický účet</Label>
+                            <Input value={editingPriceData.analyticalAccount || ""} onChange={(e) => setEditingPriceData({...editingPriceData, analyticalAccount: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label>Od</Label>
+                            <Input type="date" value={editingPriceData.fromDate || ""} onChange={(e) => setEditingPriceData({...editingPriceData, fromDate: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label>Do</Label>
+                            <Input type="date" value={editingPriceData.toDate || ""} onChange={(e) => setEditingPriceData({...editingPriceData, toDate: e.target.value})} />
+                          </div>
+                          <div className="flex items-center gap-2 pt-6">
+                            <Switch checked={editingPriceData.isActive} onCheckedChange={(v) => setEditingPriceData({...editingPriceData, isActive: v})} />
+                            <Label>Aktívne</Label>
+                          </div>
+                          <div className="col-span-4">
+                            <Label>Popis</Label>
+                            <Textarea value={editingPriceData.description || ""} onChange={(e) => setEditingPriceData({...editingPriceData, description: e.target.value})} className="min-h-[60px]" />
+                          </div>
+                          <div className="col-span-4 flex justify-end gap-2">
+                            <Button size="sm" variant="outline" onClick={() => { setEditingPriceId(null); setEditingPriceData(null); }}>{t.common.cancel}</Button>
+                            <Button size="sm" onClick={() => updatePriceMutation.mutate({ 
+                              id: editingPriceId, 
+                              data: {
+                                ...editingPriceData,
+                                fromDate: editingPriceData.fromDate ? new Date(editingPriceData.fromDate).toISOString() : null,
+                                toDate: editingPriceData.toDate ? new Date(editingPriceData.toDate).toISOString() : null,
+                              }
+                            })}>{t.common.save}</Button>
+                          </div>
+                        </div>
+                      )}
                     </TabsContent>
 
                     <TabsContent value="payments" className="space-y-3 mt-3">
@@ -1040,26 +1316,140 @@ function ProductDetailDialog({
                         <Button size="sm" onClick={() => setIsAddingPayment(true)}><Plus className="h-4 w-4 mr-1" />{t.common.add}</Button>
                       </div>
                       {isAddingPayment && (
-                        <div className="grid grid-cols-2 gap-2 p-3 border rounded-md">
-                          <Input placeholder="Name" value={newPaymentData.name} onChange={(e) => setNewPaymentData({...newPaymentData, name: e.target.value})} />
-                          <Input placeholder="Installments" type="number" value={newPaymentData.installments} onChange={(e) => setNewPaymentData({...newPaymentData, installments: parseInt(e.target.value) || 1})} />
-                          <Input placeholder="Interval (months)" type="number" value={newPaymentData.intervalMonths} onChange={(e) => setNewPaymentData({...newPaymentData, intervalMonths: parseInt(e.target.value) || 1})} />
-                          <Input placeholder="Interest Rate" value={newPaymentData.interestRate} onChange={(e) => setNewPaymentData({...newPaymentData, interestRate: e.target.value})} />
-                          <div className="col-span-2 flex justify-end gap-2">
+                        <div className="grid grid-cols-4 gap-2 p-3 border rounded-md">
+                          <div>
+                            <Label>Názov</Label>
+                            <Input value={newPaymentData.name} onChange={(e) => setNewPaymentData({...newPaymentData, name: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label>Typ</Label>
+                            <Input value={newPaymentData.type} onChange={(e) => setNewPaymentData({...newPaymentData, type: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label>Text na faktúre</Label>
+                            <Input value={newPaymentData.invoiceItemText} onChange={(e) => setNewPaymentData({...newPaymentData, invoiceItemText: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label>Analytický účet</Label>
+                            <Input value={newPaymentData.analyticalAccount} onChange={(e) => setNewPaymentData({...newPaymentData, analyticalAccount: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label>Účtovný kód</Label>
+                            <Input value={newPaymentData.accountingCode} onChange={(e) => setNewPaymentData({...newPaymentData, accountingCode: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label>Poplatok</Label>
+                            <Input type="number" step="0.01" value={newPaymentData.paymentTypeFee} onChange={(e) => setNewPaymentData({...newPaymentData, paymentTypeFee: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label>Od</Label>
+                            <Input type="date" value={newPaymentData.fromDate} onChange={(e) => setNewPaymentData({...newPaymentData, fromDate: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label>Do</Label>
+                            <Input type="date" value={newPaymentData.toDate} onChange={(e) => setNewPaymentData({...newPaymentData, toDate: e.target.value})} />
+                          </div>
+                          <div className="flex items-center gap-2 pt-6">
+                            <Switch checked={newPaymentData.isActive} onCheckedChange={(v) => setNewPaymentData({...newPaymentData, isActive: v})} />
+                            <Label>Aktívne</Label>
+                          </div>
+                          <div className="col-span-3">
+                            <Label>Popis</Label>
+                            <Textarea value={newPaymentData.description} onChange={(e) => setNewPaymentData({...newPaymentData, description: e.target.value})} className="min-h-[60px]" />
+                          </div>
+                          <div className="col-span-4 flex justify-end gap-2">
                             <Button size="sm" variant="outline" onClick={() => setIsAddingPayment(false)}>{t.common.cancel}</Button>
-                            <Button size="sm" onClick={() => createPaymentMutation.mutate({ ...newPaymentData, instanceId: selectedInstanceId!, instanceType: "market_instance", isActive: true })}>{t.common.save}</Button>
+                            <Button size="sm" onClick={() => createPaymentMutation.mutate({ 
+                              ...newPaymentData, 
+                              instanceId: selectedInstanceId!, 
+                              instanceType: "market_instance",
+                              fromDate: newPaymentData.fromDate ? new Date(newPaymentData.fromDate).toISOString() : null,
+                              toDate: newPaymentData.toDate ? new Date(newPaymentData.toDate).toISOString() : null,
+                            })}>{t.common.save}</Button>
                           </div>
                         </div>
                       )}
                       {instancePayments.map(payment => (
                         <div key={payment.id} className="flex items-center justify-between p-2 border rounded-md">
-                          <div>
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-medium">{payment.name}</span>
-                            <span className="ml-2 text-muted-foreground">{payment.installments}x / {payment.intervalMonths}mo</span>
+                            {payment.type && <Badge variant="outline">{payment.type}</Badge>}
+                            {payment.paymentTypeFee && <span className="text-sm">Poplatok: {payment.paymentTypeFee}</span>}
+                            {(payment.fromDate || payment.toDate) && (
+                              <span className="text-xs text-muted-foreground">
+                                {payment.fromDate ? new Date(payment.fromDate).toLocaleDateString() : "..."} - {payment.toDate ? new Date(payment.toDate).toLocaleDateString() : "..."}
+                              </span>
+                            )}
+                            <Badge variant={payment.isActive ? "default" : "secondary"}>{payment.isActive ? "Aktívne" : "Neaktívne"}</Badge>
                           </div>
-                          <Button variant="ghost" size="icon" onClick={() => deletePaymentMutation.mutate(payment.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" onClick={() => { 
+                              setEditingPaymentId(payment.id); 
+                              setEditingPaymentData({
+                                ...payment,
+                                fromDate: payment.fromDate ? new Date(payment.fromDate).toISOString().split('T')[0] : "",
+                                toDate: payment.toDate ? new Date(payment.toDate).toISOString().split('T')[0] : "",
+                              }); 
+                            }}><Pencil className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => deletePaymentMutation.mutate(payment.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                          </div>
                         </div>
                       ))}
+                      {editingPaymentId && editingPaymentData && (
+                        <div className="grid grid-cols-4 gap-2 p-3 border-2 border-primary rounded-md">
+                          <div>
+                            <Label>Názov</Label>
+                            <Input value={editingPaymentData.name} onChange={(e) => setEditingPaymentData({...editingPaymentData, name: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label>Typ</Label>
+                            <Input value={editingPaymentData.type || ""} onChange={(e) => setEditingPaymentData({...editingPaymentData, type: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label>Text na faktúre</Label>
+                            <Input value={editingPaymentData.invoiceItemText || ""} onChange={(e) => setEditingPaymentData({...editingPaymentData, invoiceItemText: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label>Analytický účet</Label>
+                            <Input value={editingPaymentData.analyticalAccount || ""} onChange={(e) => setEditingPaymentData({...editingPaymentData, analyticalAccount: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label>Účtovný kód</Label>
+                            <Input value={editingPaymentData.accountingCode || ""} onChange={(e) => setEditingPaymentData({...editingPaymentData, accountingCode: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label>Poplatok</Label>
+                            <Input type="number" step="0.01" value={editingPaymentData.paymentTypeFee || ""} onChange={(e) => setEditingPaymentData({...editingPaymentData, paymentTypeFee: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label>Od</Label>
+                            <Input type="date" value={editingPaymentData.fromDate || ""} onChange={(e) => setEditingPaymentData({...editingPaymentData, fromDate: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label>Do</Label>
+                            <Input type="date" value={editingPaymentData.toDate || ""} onChange={(e) => setEditingPaymentData({...editingPaymentData, toDate: e.target.value})} />
+                          </div>
+                          <div className="flex items-center gap-2 pt-6">
+                            <Switch checked={editingPaymentData.isActive} onCheckedChange={(v) => setEditingPaymentData({...editingPaymentData, isActive: v})} />
+                            <Label>Aktívne</Label>
+                          </div>
+                          <div className="col-span-3">
+                            <Label>Popis</Label>
+                            <Textarea value={editingPaymentData.description || ""} onChange={(e) => setEditingPaymentData({...editingPaymentData, description: e.target.value})} className="min-h-[60px]" />
+                          </div>
+                          <div className="col-span-4 flex justify-end gap-2">
+                            <Button size="sm" variant="outline" onClick={() => { setEditingPaymentId(null); setEditingPaymentData(null); }}>{t.common.cancel}</Button>
+                            <Button size="sm" onClick={() => updatePaymentMutation.mutate({ 
+                              id: editingPaymentId, 
+                              data: {
+                                ...editingPaymentData,
+                                fromDate: editingPaymentData.fromDate ? new Date(editingPaymentData.fromDate).toISOString() : null,
+                                toDate: editingPaymentData.toDate ? new Date(editingPaymentData.toDate).toISOString() : null,
+                              }
+                            })}>{t.common.save}</Button>
+                          </div>
+                        </div>
+                      )}
                     </TabsContent>
 
                     <TabsContent value="discounts" className="space-y-3 mt-3">
@@ -1067,31 +1457,149 @@ function ProductDetailDialog({
                         <Button size="sm" onClick={() => setIsAddingDiscount(true)}><Plus className="h-4 w-4 mr-1" />{t.common.add}</Button>
                       </div>
                       {isAddingDiscount && (
-                        <div className="grid grid-cols-3 gap-2 p-3 border rounded-md">
-                          <Input placeholder="Name" value={newDiscountData.name} onChange={(e) => setNewDiscountData({...newDiscountData, name: e.target.value})} />
-                          <Select value={newDiscountData.discountType} onValueChange={(v) => setNewDiscountData({...newDiscountData, discountType: v})}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="percentage">Percentage</SelectItem>
-                              <SelectItem value="fixed">Fixed Amount</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <Input placeholder="Value" value={newDiscountData.value} onChange={(e) => setNewDiscountData({...newDiscountData, value: e.target.value})} />
-                          <div className="col-span-3 flex justify-end gap-2">
+                        <div className="grid grid-cols-4 gap-2 p-3 border rounded-md">
+                          <div>
+                            <Label>Názov</Label>
+                            <Input value={newDiscountData.name} onChange={(e) => setNewDiscountData({...newDiscountData, name: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label>Typ</Label>
+                            <Input value={newDiscountData.type} onChange={(e) => setNewDiscountData({...newDiscountData, type: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label>Text na faktúre</Label>
+                            <Input value={newDiscountData.invoiceItemText} onChange={(e) => setNewDiscountData({...newDiscountData, invoiceItemText: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label>Analytický účet</Label>
+                            <Input value={newDiscountData.analyticalAccount} onChange={(e) => setNewDiscountData({...newDiscountData, analyticalAccount: e.target.value})} />
+                          </div>
+                          <div className="flex items-center gap-2 pt-6">
+                            <Switch checked={newDiscountData.isPercentage} onCheckedChange={(v) => setNewDiscountData({...newDiscountData, isPercentage: v, isFixed: !v})} />
+                            <Label>Percentuálna</Label>
+                          </div>
+                          <div>
+                            <Label>{newDiscountData.isPercentage ? "Percento (%)" : "Fixná hodnota"}</Label>
+                            <Input 
+                              type="number" 
+                              step="0.01" 
+                              value={newDiscountData.isPercentage ? newDiscountData.percentageValue : newDiscountData.fixedValue} 
+                              onChange={(e) => setNewDiscountData({
+                                ...newDiscountData, 
+                                [newDiscountData.isPercentage ? "percentageValue" : "fixedValue"]: e.target.value
+                              })} 
+                            />
+                          </div>
+                          <div>
+                            <Label>Od</Label>
+                            <Input type="date" value={newDiscountData.fromDate} onChange={(e) => setNewDiscountData({...newDiscountData, fromDate: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label>Do</Label>
+                            <Input type="date" value={newDiscountData.toDate} onChange={(e) => setNewDiscountData({...newDiscountData, toDate: e.target.value})} />
+                          </div>
+                          <div className="flex items-center gap-2 pt-6">
+                            <Switch checked={newDiscountData.isActive} onCheckedChange={(v) => setNewDiscountData({...newDiscountData, isActive: v})} />
+                            <Label>Aktívne</Label>
+                          </div>
+                          <div className="col-span-4 flex justify-end gap-2">
                             <Button size="sm" variant="outline" onClick={() => setIsAddingDiscount(false)}>{t.common.cancel}</Button>
-                            <Button size="sm" onClick={() => createDiscountMutation.mutate({ ...newDiscountData, instanceId: selectedInstanceId!, instanceType: "market_instance", isActive: true })}>{t.common.save}</Button>
+                            <Button size="sm" onClick={() => createDiscountMutation.mutate({ 
+                              ...newDiscountData, 
+                              instanceId: selectedInstanceId!, 
+                              instanceType: "market_instance",
+                              fromDate: newDiscountData.fromDate ? new Date(newDiscountData.fromDate).toISOString() : null,
+                              toDate: newDiscountData.toDate ? new Date(newDiscountData.toDate).toISOString() : null,
+                            })}>{t.common.save}</Button>
                           </div>
                         </div>
                       )}
                       {instanceDiscounts.map(discount => (
                         <div key={discount.id} className="flex items-center justify-between p-2 border rounded-md">
-                          <div>
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-medium">{discount.name}</span>
-                            <Badge variant="outline" className="ml-2">{discount.discountType === 'percentage' ? `${discount.value}%` : discount.value}</Badge>
+                            {discount.type && <Badge variant="outline">{discount.type}</Badge>}
+                            {discount.isPercentage && <span className="text-sm">{discount.percentageValue}%</span>}
+                            {discount.isFixed && <span className="text-sm">{discount.fixedValue}</span>}
+                            {(discount.fromDate || discount.toDate) && (
+                              <span className="text-xs text-muted-foreground">
+                                {discount.fromDate ? new Date(discount.fromDate).toLocaleDateString() : "..."} - {discount.toDate ? new Date(discount.toDate).toLocaleDateString() : "..."}
+                              </span>
+                            )}
+                            <Badge variant={discount.isActive ? "default" : "secondary"}>{discount.isActive ? "Aktívne" : "Neaktívne"}</Badge>
                           </div>
-                          <Button variant="ghost" size="icon" onClick={() => deleteDiscountMutation.mutate(discount.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" onClick={() => { 
+                              setEditingDiscountId(discount.id); 
+                              setEditingDiscountData({
+                                ...discount,
+                                fromDate: discount.fromDate ? new Date(discount.fromDate).toISOString().split('T')[0] : "",
+                                toDate: discount.toDate ? new Date(discount.toDate).toISOString().split('T')[0] : "",
+                              }); 
+                            }}><Pencil className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => deleteDiscountMutation.mutate(discount.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                          </div>
                         </div>
                       ))}
+                      {editingDiscountId && editingDiscountData && (
+                        <div className="grid grid-cols-4 gap-2 p-3 border-2 border-primary rounded-md">
+                          <div>
+                            <Label>Názov</Label>
+                            <Input value={editingDiscountData.name} onChange={(e) => setEditingDiscountData({...editingDiscountData, name: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label>Typ</Label>
+                            <Input value={editingDiscountData.type || ""} onChange={(e) => setEditingDiscountData({...editingDiscountData, type: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label>Text na faktúre</Label>
+                            <Input value={editingDiscountData.invoiceItemText || ""} onChange={(e) => setEditingDiscountData({...editingDiscountData, invoiceItemText: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label>Analytický účet</Label>
+                            <Input value={editingDiscountData.analyticalAccount || ""} onChange={(e) => setEditingDiscountData({...editingDiscountData, analyticalAccount: e.target.value})} />
+                          </div>
+                          <div className="flex items-center gap-2 pt-6">
+                            <Switch checked={editingDiscountData.isPercentage} onCheckedChange={(v) => setEditingDiscountData({...editingDiscountData, isPercentage: v, isFixed: !v})} />
+                            <Label>Percentuálna</Label>
+                          </div>
+                          <div>
+                            <Label>{editingDiscountData.isPercentage ? "Percento (%)" : "Fixná hodnota"}</Label>
+                            <Input 
+                              type="number" 
+                              step="0.01" 
+                              value={editingDiscountData.isPercentage ? (editingDiscountData.percentageValue || "") : (editingDiscountData.fixedValue || "")} 
+                              onChange={(e) => setEditingDiscountData({
+                                ...editingDiscountData, 
+                                [editingDiscountData.isPercentage ? "percentageValue" : "fixedValue"]: e.target.value
+                              })} 
+                            />
+                          </div>
+                          <div>
+                            <Label>Od</Label>
+                            <Input type="date" value={editingDiscountData.fromDate || ""} onChange={(e) => setEditingDiscountData({...editingDiscountData, fromDate: e.target.value})} />
+                          </div>
+                          <div>
+                            <Label>Do</Label>
+                            <Input type="date" value={editingDiscountData.toDate || ""} onChange={(e) => setEditingDiscountData({...editingDiscountData, toDate: e.target.value})} />
+                          </div>
+                          <div className="flex items-center gap-2 pt-6">
+                            <Switch checked={editingDiscountData.isActive} onCheckedChange={(v) => setEditingDiscountData({...editingDiscountData, isActive: v})} />
+                            <Label>Aktívne</Label>
+                          </div>
+                          <div className="col-span-4 flex justify-end gap-2">
+                            <Button size="sm" variant="outline" onClick={() => { setEditingDiscountId(null); setEditingDiscountData(null); }}>{t.common.cancel}</Button>
+                            <Button size="sm" onClick={() => updateDiscountMutation.mutate({ 
+                              id: editingDiscountId, 
+                              data: {
+                                ...editingDiscountData,
+                                fromDate: editingDiscountData.fromDate ? new Date(editingDiscountData.fromDate).toISOString() : null,
+                                toDate: editingDiscountData.toDate ? new Date(editingDiscountData.toDate).toISOString() : null,
+                              }
+                            })}>{t.common.save}</Button>
+                          </div>
+                        </div>
+                      )}
                     </TabsContent>
                   </Tabs>
                 </CardContent>
@@ -1115,47 +1623,153 @@ function ProductDetailDialog({
 
                 {isAddingService && (
                   <Card className="p-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-4 gap-4">
                       <div>
                         <Label>{t.common.name}</Label>
                         <Input value={newServiceData.name} onChange={(e) => setNewServiceData({...newServiceData, name: e.target.value})} />
                       </div>
                       <div>
-                        <Label>{t.konfigurator.serviceCode || "Service Code"}</Label>
-                        <Input value={newServiceData.serviceCode} onChange={(e) => setNewServiceData({...newServiceData, serviceCode: e.target.value})} />
+                        <Label>Identifikátor faktúry</Label>
+                        <Input value={newServiceData.invoiceIdentifier} onChange={(e) => setNewServiceData({...newServiceData, invoiceIdentifier: e.target.value})} />
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div>
+                        <Label>Od</Label>
+                        <Input type="date" value={newServiceData.fromDate} onChange={(e) => setNewServiceData({...newServiceData, fromDate: e.target.value})} />
+                      </div>
+                      <div>
+                        <Label>Do</Label>
+                        <Input type="date" value={newServiceData.toDate} onChange={(e) => setNewServiceData({...newServiceData, toDate: e.target.value})} />
+                      </div>
+                      <div className="flex items-center gap-2 pt-6">
+                        <Switch checked={newServiceData.invoiceable} onCheckedChange={(v) => setNewServiceData({...newServiceData, invoiceable: v})} />
+                        <Label>Fakturovateľné</Label>
+                      </div>
+                      <div className="flex items-center gap-2 pt-6">
+                        <Switch checked={newServiceData.collectable} onCheckedChange={(v) => setNewServiceData({...newServiceData, collectable: v})} />
+                        <Label>Zberné</Label>
+                      </div>
+                      <div className="flex items-center gap-2 pt-6">
+                        <Switch checked={newServiceData.storable} onCheckedChange={(v) => setNewServiceData({...newServiceData, storable: v})} />
+                        <Label>Skladovateľné</Label>
+                      </div>
+                      <div className="flex items-center gap-2 pt-6">
                         <Switch checked={newServiceData.isActive} onCheckedChange={(v) => setNewServiceData({...newServiceData, isActive: v})} />
                         <Label>{t.common.active}</Label>
+                      </div>
+                      <div className="col-span-4">
+                        <Label>Popis</Label>
+                        <Textarea value={newServiceData.description} onChange={(e) => setNewServiceData({...newServiceData, description: e.target.value})} className="min-h-[60px]" />
                       </div>
                     </div>
                     <div className="flex justify-end gap-2 mt-4">
                       <Button variant="outline" size="sm" onClick={() => setIsAddingService(false)}>{t.common.cancel}</Button>
-                      <Button size="sm" onClick={() => createServiceMutation.mutate(newServiceData)}>{t.common.save}</Button>
+                      <Button size="sm" onClick={() => createServiceMutation.mutate({
+                        ...newServiceData,
+                        fromDate: newServiceData.fromDate ? new Date(newServiceData.fromDate).toISOString() : null,
+                        toDate: newServiceData.toDate ? new Date(newServiceData.toDate).toISOString() : null,
+                      })}>{t.common.save}</Button>
                     </div>
                   </Card>
                 )}
 
                 <div className="grid grid-cols-3 gap-2">
-                  {services.map(service => (
+                  {(services as any[]).map(service => (
                     <Card 
                       key={service.id} 
                       className={`p-3 cursor-pointer hover-elevate ${selectedServiceId === service.id ? 'ring-2 ring-primary' : ''}`}
                       onClick={() => setSelectedServiceId(service.id)}
                     >
-                      <div className="flex items-center justify-between">
-                        <Badge variant="outline">{service.serviceCode}</Badge>
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); deleteServiceMutation.mutate(service.id); }}>
-                          <Trash2 className="h-3 w-3 text-destructive" />
-                        </Button>
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-xs text-muted-foreground">{service.invoiceIdentifier}</span>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { 
+                            e.stopPropagation();
+                            setEditingServiceId(service.id);
+                            setEditingServiceData({
+                              ...service,
+                              fromDate: service.fromDate ? new Date(service.fromDate).toISOString().split('T')[0] : "",
+                              toDate: service.toDate ? new Date(service.toDate).toISOString().split('T')[0] : "",
+                            });
+                          }}>
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); deleteServiceMutation.mutate(service.id); }}>
+                            <Trash2 className="h-3 w-3 text-destructive" />
+                          </Button>
+                        </div>
                       </div>
                       <p className="text-sm font-medium mt-1 truncate">{service.name}</p>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {service.invoiceable && <Badge variant="outline" className="text-xs">Faktúr.</Badge>}
+                        {service.collectable && <Badge variant="outline" className="text-xs">Zber.</Badge>}
+                        {service.storable && <Badge variant="outline" className="text-xs">Sklad.</Badge>}
+                      </div>
+                      {(service.fromDate || service.toDate) && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {service.fromDate ? new Date(service.fromDate).toLocaleDateString() : "..."} - {service.toDate ? new Date(service.toDate).toLocaleDateString() : "..."}
+                        </p>
+                      )}
                       <Badge variant={service.isActive ? "default" : "secondary"} className="mt-1">
                         {service.isActive ? t.common.active : t.common.inactive}
                       </Badge>
                     </Card>
                   ))}
                 </div>
+
+                {editingServiceId && editingServiceData && (
+                  <Card className="p-4 mt-4 border-primary">
+                    <h4 className="font-medium mb-4">Upraviť službu</h4>
+                    <div className="grid grid-cols-4 gap-4">
+                      <div>
+                        <Label>{t.common.name}</Label>
+                        <Input value={editingServiceData.name} onChange={(e) => setEditingServiceData({...editingServiceData, name: e.target.value})} />
+                      </div>
+                      <div>
+                        <Label>Identifikátor faktúry</Label>
+                        <Input value={editingServiceData.invoiceIdentifier || ""} onChange={(e) => setEditingServiceData({...editingServiceData, invoiceIdentifier: e.target.value})} />
+                      </div>
+                      <div>
+                        <Label>Od</Label>
+                        <Input type="date" value={editingServiceData.fromDate || ""} onChange={(e) => setEditingServiceData({...editingServiceData, fromDate: e.target.value})} />
+                      </div>
+                      <div>
+                        <Label>Do</Label>
+                        <Input type="date" value={editingServiceData.toDate || ""} onChange={(e) => setEditingServiceData({...editingServiceData, toDate: e.target.value})} />
+                      </div>
+                      <div className="flex items-center gap-2 pt-6">
+                        <Switch checked={editingServiceData.invoiceable} onCheckedChange={(v) => setEditingServiceData({...editingServiceData, invoiceable: v})} />
+                        <Label>Fakturovateľné</Label>
+                      </div>
+                      <div className="flex items-center gap-2 pt-6">
+                        <Switch checked={editingServiceData.collectable} onCheckedChange={(v) => setEditingServiceData({...editingServiceData, collectable: v})} />
+                        <Label>Zberné</Label>
+                      </div>
+                      <div className="flex items-center gap-2 pt-6">
+                        <Switch checked={editingServiceData.storable} onCheckedChange={(v) => setEditingServiceData({...editingServiceData, storable: v})} />
+                        <Label>Skladovateľné</Label>
+                      </div>
+                      <div className="flex items-center gap-2 pt-6">
+                        <Switch checked={editingServiceData.isActive} onCheckedChange={(v) => setEditingServiceData({...editingServiceData, isActive: v})} />
+                        <Label>{t.common.active}</Label>
+                      </div>
+                      <div className="col-span-4">
+                        <Label>Popis</Label>
+                        <Textarea value={editingServiceData.description || ""} onChange={(e) => setEditingServiceData({...editingServiceData, description: e.target.value})} className="min-h-[60px]" />
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2 mt-4">
+                      <Button variant="outline" size="sm" onClick={() => { setEditingServiceId(null); setEditingServiceData(null); }}>{t.common.cancel}</Button>
+                      <Button size="sm" onClick={() => updateServiceMutation.mutate({ 
+                        id: editingServiceId, 
+                        data: {
+                          ...editingServiceData,
+                          fromDate: editingServiceData.fromDate ? new Date(editingServiceData.fromDate).toISOString() : null,
+                          toDate: editingServiceData.toDate ? new Date(editingServiceData.toDate).toISOString() : null,
+                        }
+                      })}>{t.common.save}</Button>
+                    </div>
+                  </Card>
+                )}
               </>
             )}
           </TabsContent>
