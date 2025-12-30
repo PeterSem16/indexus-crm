@@ -183,6 +183,512 @@ interface MarketProductService {
   createdAt: Date;
 }
 
+interface WizardInstance {
+  countryCode: string;
+  name: string;
+  isActive: boolean;
+  billingDetailsId: string;
+  prices: { priceType: string; amount: string; currency: string }[];
+  paymentOptions: { name: string; installments: number; intervalMonths: number; interestRate: string }[];
+  discounts: { name: string; discountType: string; value: string }[];
+}
+
+function ProductWizard({ 
+  open, 
+  onOpenChange,
+  onSuccess
+}: { 
+  open: boolean; 
+  onOpenChange: (open: boolean) => void;
+  onSuccess?: () => void;
+}) {
+  const { t } = useI18n();
+  const { toast } = useToast();
+  const [step, setStep] = useState(1);
+  const [productData, setProductData] = useState({
+    name: "",
+    description: "",
+    countries: [] as string[],
+    isActive: true,
+  });
+  const [instances, setInstances] = useState<WizardInstance[]>([]);
+  const [currentInstanceIndex, setCurrentInstanceIndex] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { data: billingCompanies = [] } = useQuery<BillingDetails[]>({
+    queryKey: ["/api/billing-details"],
+    queryFn: async () => {
+      const res = await fetch("/api/billing-details", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: open,
+  });
+
+  const resetWizard = () => {
+    setStep(1);
+    setProductData({ name: "", description: "", countries: [], isActive: true });
+    setInstances([]);
+    setCurrentInstanceIndex(0);
+  };
+
+  const handleClose = () => {
+    resetWizard();
+    onOpenChange(false);
+  };
+
+  const goToStep2 = () => {
+    if (!productData.name.trim()) {
+      toast({ title: "Názov produktu je povinný", variant: "destructive" });
+      return;
+    }
+    if (productData.countries.length === 0) {
+      toast({ title: "Vyberte aspoň jednu krajinu", variant: "destructive" });
+      return;
+    }
+    const newInstances = productData.countries.map(countryCode => ({
+      countryCode,
+      name: `${productData.name} - ${countryCode}`,
+      isActive: true,
+      billingDetailsId: "",
+      prices: [],
+      paymentOptions: [],
+      discounts: [],
+    }));
+    setInstances(newInstances);
+    setCurrentInstanceIndex(0);
+    setStep(2);
+  };
+
+  const addPriceToInstance = (idx: number) => {
+    const updated = [...instances];
+    updated[idx].prices.push({ priceType: "base", amount: "", currency: "EUR" });
+    setInstances(updated);
+  };
+
+  const updatePrice = (instIdx: number, priceIdx: number, field: string, value: string) => {
+    const updated = [...instances];
+    (updated[instIdx].prices[priceIdx] as any)[field] = value;
+    setInstances(updated);
+  };
+
+  const removePrice = (instIdx: number, priceIdx: number) => {
+    const updated = [...instances];
+    updated[instIdx].prices.splice(priceIdx, 1);
+    setInstances(updated);
+  };
+
+  const addPaymentToInstance = (idx: number) => {
+    const updated = [...instances];
+    updated[idx].paymentOptions.push({ name: "", installments: 1, intervalMonths: 1, interestRate: "0" });
+    setInstances(updated);
+  };
+
+  const updatePayment = (instIdx: number, payIdx: number, field: string, value: any) => {
+    const updated = [...instances];
+    (updated[instIdx].paymentOptions[payIdx] as any)[field] = value;
+    setInstances(updated);
+  };
+
+  const removePayment = (instIdx: number, payIdx: number) => {
+    const updated = [...instances];
+    updated[instIdx].paymentOptions.splice(payIdx, 1);
+    setInstances(updated);
+  };
+
+  const addDiscountToInstance = (idx: number) => {
+    const updated = [...instances];
+    updated[idx].discounts.push({ name: "", discountType: "percentage", value: "" });
+    setInstances(updated);
+  };
+
+  const updateDiscount = (instIdx: number, discIdx: number, field: string, value: string) => {
+    const updated = [...instances];
+    (updated[instIdx].discounts[discIdx] as any)[field] = value;
+    setInstances(updated);
+  };
+
+  const removeDiscount = (instIdx: number, discIdx: number) => {
+    const updated = [...instances];
+    updated[instIdx].discounts.splice(discIdx, 1);
+    setInstances(updated);
+  };
+
+  const updateInstanceField = (idx: number, field: string, value: any) => {
+    const updated = [...instances];
+    (updated[idx] as any)[field] = value;
+    setInstances(updated);
+  };
+
+  const handleSubmit = async () => {
+    if (instances.length === 0) {
+      toast({ title: "Nie sú definované žiadne market instances", variant: "destructive" });
+      return;
+    }
+    
+    setIsSubmitting(true);
+    try {
+      const productRes = await apiRequest("POST", "/api/products", productData);
+      if (!productRes.ok) {
+        throw new Error("Nepodarilo sa vytvoriť produkt");
+      }
+      const product = await productRes.json();
+      
+      for (const instance of instances) {
+        const instanceRes = await apiRequest("POST", `/api/products/${product.id}/instances`, {
+          countryCode: instance.countryCode,
+          name: instance.name,
+          isActive: instance.isActive,
+          billingDetailsId: instance.billingDetailsId || null,
+        });
+        if (!instanceRes.ok) {
+          throw new Error(`Nepodarilo sa vytvoriť instance pre ${instance.countryCode}`);
+        }
+        const createdInstance = await instanceRes.json();
+        
+        for (const price of instance.prices) {
+          if (price.amount) {
+            const priceRes = await apiRequest("POST", "/api/instance-prices", {
+              instanceId: createdInstance.id,
+              instanceType: "market_instance",
+              priceType: price.priceType,
+              amount: price.amount,
+              currency: price.currency,
+              isActive: true,
+            });
+            if (!priceRes.ok) {
+              console.error("Failed to create price");
+            }
+          }
+        }
+        
+        for (const payment of instance.paymentOptions) {
+          if (payment.name) {
+            const payRes = await apiRequest("POST", "/api/instance-payment-options", {
+              instanceId: createdInstance.id,
+              instanceType: "market_instance",
+              name: payment.name,
+              installments: payment.installments,
+              intervalMonths: payment.intervalMonths,
+              interestRate: payment.interestRate,
+              isActive: true,
+            });
+            if (!payRes.ok) {
+              console.error("Failed to create payment option");
+            }
+          }
+        }
+        
+        for (const discount of instance.discounts) {
+          if (discount.name && discount.value) {
+            const discRes = await apiRequest("POST", "/api/instance-discounts", {
+              instanceId: createdInstance.id,
+              instanceType: "market_instance",
+              name: discount.name,
+              discountType: discount.discountType,
+              value: discount.value,
+              isActive: true,
+            });
+            if (!discRes.ok) {
+              console.error("Failed to create discount");
+            }
+          }
+        }
+      }
+      
+      toast({ title: "Produkt bol úspešne vytvorený" });
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      handleClose();
+      onSuccess?.();
+    } catch (error: any) {
+      toast({ title: error.message || "Chyba pri vytváraní produktu", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const currentInstance = instances[currentInstanceIndex];
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>
+            {step === 1 && "Nový produkt - Základné informácie"}
+            {step === 2 && `Nový produkt - Market Instances (${currentInstanceIndex + 1}/${instances.length})`}
+            {step === 3 && "Nový produkt - Zhrnutie"}
+          </DialogTitle>
+          <DialogDescription>
+            Krok {step} z 3
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex gap-2 mb-4">
+          {[1, 2, 3].map((s) => (
+            <div
+              key={s}
+              className={`flex-1 h-2 rounded-full ${s <= step ? 'bg-primary' : 'bg-muted'}`}
+            />
+          ))}
+        </div>
+
+        {step === 1 && (
+          <div className="space-y-4">
+            <div>
+              <Label>{t.products.productName}</Label>
+              <Input
+                value={productData.name}
+                onChange={(e) => setProductData({ ...productData, name: e.target.value })}
+                placeholder="Názov produktu"
+                data-testid="wizard-input-product-name"
+              />
+            </div>
+            <div>
+              <Label>{t.products.description}</Label>
+              <Textarea
+                value={productData.description}
+                onChange={(e) => setProductData({ ...productData, description: e.target.value })}
+                placeholder="Popis produktu"
+                data-testid="wizard-input-product-description"
+              />
+            </div>
+            <div>
+              <Label>{t.products.availableInCountries}</Label>
+              <div className="grid grid-cols-4 gap-2 mt-2 rounded-lg border p-3">
+                {COUNTRIES.map((country) => (
+                  <div key={country.code} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`wizard-country-${country.code}`}
+                      checked={productData.countries.includes(country.code)}
+                      onCheckedChange={(checked) => {
+                        const newCountries = checked
+                          ? [...productData.countries, country.code]
+                          : productData.countries.filter((c) => c !== country.code);
+                        setProductData({ ...productData, countries: newCountries });
+                      }}
+                    />
+                    <Label htmlFor={`wizard-country-${country.code}`} className="text-sm cursor-pointer">{country.name}</Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border p-4">
+              <div>
+                <Label className="text-base">{t.products.productActive}</Label>
+                <p className="text-sm text-muted-foreground">{t.products.productActiveHint}</p>
+              </div>
+              <Switch
+                checked={productData.isActive}
+                onCheckedChange={(checked) => setProductData({ ...productData, isActive: checked })}
+              />
+            </div>
+          </div>
+        )}
+
+        {step === 2 && currentInstance && (
+          <div className="space-y-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Badge variant="secondary">{currentInstance.countryCode}</Badge>
+                  {COUNTRIES.find(c => c.code === currentInstance.countryCode)?.name}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>{t.common.name}</Label>
+                    <Input
+                      value={currentInstance.name}
+                      onChange={(e) => updateInstanceField(currentInstanceIndex, "name", e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label>{t.konfigurator.billingCompany}</Label>
+                    <Select
+                      value={currentInstance.billingDetailsId}
+                      onValueChange={(v) => updateInstanceField(currentInstanceIndex, "billingDetailsId", v)}
+                    >
+                      <SelectTrigger><SelectValue placeholder={t.common.select} /></SelectTrigger>
+                      <SelectContent>
+                        {billingCompanies.filter(b => b.countryCode === currentInstance.countryCode).map(b => (
+                          <SelectItem key={b.id} value={b.id}>{b.companyName}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-medium">Ceny</h4>
+                    <Button size="sm" variant="outline" onClick={() => addPriceToInstance(currentInstanceIndex)}>
+                      <Plus className="h-4 w-4 mr-1" /> Pridať cenu
+                    </Button>
+                  </div>
+                  {currentInstance.prices.map((price, pIdx) => (
+                    <div key={pIdx} className="grid grid-cols-4 gap-2 mb-2">
+                      <Select value={price.priceType} onValueChange={(v) => updatePrice(currentInstanceIndex, pIdx, "priceType", v)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="base">Base</SelectItem>
+                          <SelectItem value="fee">Fee</SelectItem>
+                          <SelectItem value="surcharge">Surcharge</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        placeholder="Suma"
+                        value={price.amount}
+                        onChange={(e) => updatePrice(currentInstanceIndex, pIdx, "amount", e.target.value)}
+                      />
+                      <Select value={price.currency} onValueChange={(v) => updatePrice(currentInstanceIndex, pIdx, "currency", v)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {["EUR", "USD", "CZK", "HUF", "RON", "CHF"].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <Button size="icon" variant="ghost" onClick={() => removePrice(currentInstanceIndex, pIdx)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="border-t pt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-medium">Platobné možnosti</h4>
+                    <Button size="sm" variant="outline" onClick={() => addPaymentToInstance(currentInstanceIndex)}>
+                      <Plus className="h-4 w-4 mr-1" /> Pridať platbu
+                    </Button>
+                  </div>
+                  {currentInstance.paymentOptions.map((pay, payIdx) => (
+                    <div key={payIdx} className="grid grid-cols-5 gap-2 mb-2">
+                      <Input placeholder="Názov" value={pay.name} onChange={(e) => updatePayment(currentInstanceIndex, payIdx, "name", e.target.value)} />
+                      <Input type="number" placeholder="Splátky" value={pay.installments} onChange={(e) => updatePayment(currentInstanceIndex, payIdx, "installments", parseInt(e.target.value) || 1)} />
+                      <Input type="number" placeholder="Interval (mes.)" value={pay.intervalMonths} onChange={(e) => updatePayment(currentInstanceIndex, payIdx, "intervalMonths", parseInt(e.target.value) || 1)} />
+                      <Input placeholder="Úrok %" value={pay.interestRate} onChange={(e) => updatePayment(currentInstanceIndex, payIdx, "interestRate", e.target.value)} />
+                      <Button size="icon" variant="ghost" onClick={() => removePayment(currentInstanceIndex, payIdx)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="border-t pt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-medium">Zľavy</h4>
+                    <Button size="sm" variant="outline" onClick={() => addDiscountToInstance(currentInstanceIndex)}>
+                      <Plus className="h-4 w-4 mr-1" /> Pridať zľavu
+                    </Button>
+                  </div>
+                  {currentInstance.discounts.map((disc, dIdx) => (
+                    <div key={dIdx} className="grid grid-cols-4 gap-2 mb-2">
+                      <Input placeholder="Názov" value={disc.name} onChange={(e) => updateDiscount(currentInstanceIndex, dIdx, "name", e.target.value)} />
+                      <Select value={disc.discountType} onValueChange={(v) => updateDiscount(currentInstanceIndex, dIdx, "discountType", v)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="percentage">Percentuálna</SelectItem>
+                          <SelectItem value="fixed">Fixná suma</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input placeholder="Hodnota" value={disc.value} onChange={(e) => updateDiscount(currentInstanceIndex, dIdx, "value", e.target.value)} />
+                      <Button size="icon" variant="ghost" onClick={() => removeDiscount(currentInstanceIndex, dIdx)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {instances.length > 1 && (
+              <div className="flex items-center justify-center gap-2">
+                {instances.map((_, idx) => (
+                  <Button
+                    key={idx}
+                    size="sm"
+                    variant={idx === currentInstanceIndex ? "default" : "outline"}
+                    onClick={() => setCurrentInstanceIndex(idx)}
+                  >
+                    {instances[idx].countryCode}
+                  </Button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {step === 3 && (
+          <div className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>{productData.name}</CardTitle>
+                <CardDescription>{productData.description || "Bez popisu"}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-wrap gap-1">
+                  {productData.countries.map(code => (
+                    <Badge key={code} variant="secondary">{code}</Badge>
+                  ))}
+                </div>
+                <Badge variant={productData.isActive ? "default" : "secondary"}>
+                  {productData.isActive ? t.common.active : t.common.inactive}
+                </Badge>
+              </CardContent>
+            </Card>
+
+            <h4 className="font-medium">Market Instances ({instances.length})</h4>
+            {instances.map((inst, idx) => (
+              <Card key={idx} className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Badge variant="secondary">{inst.countryCode}</Badge>
+                  <span className="font-medium">{inst.name}</span>
+                </div>
+                <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Ceny:</span> {inst.prices.length}
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Platby:</span> {inst.paymentOptions.length}
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Zľavy:</span> {inst.discounts.length}
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        <DialogFooter className="gap-2 mt-4">
+          <Button variant="outline" onClick={handleClose}>{t.common.cancel}</Button>
+          {step > 1 && (
+            <Button variant="outline" onClick={() => setStep(step - 1)}>
+              <ChevronLeft className="h-4 w-4 mr-1" /> Späť
+            </Button>
+          )}
+          {step === 1 && (
+            <Button onClick={goToStep2}>
+              Ďalej <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          )}
+          {step === 2 && (
+            <Button onClick={() => setStep(3)}>
+              Ďalej <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          )}
+          {step === 3 && (
+            <Button onClick={handleSubmit} disabled={isSubmitting}>
+              {isSubmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
+              Vytvoriť produkt
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ProductDetailDialog({ 
   product, 
   open, 
@@ -373,9 +879,9 @@ function ProductDetailDialog({
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="detail">{t.konfigurator.productDetail || "Detail produktu"}</TabsTrigger>
-            <TabsTrigger value="instances">{t.konfigurator.marketInstances || "Market Instances"}</TabsTrigger>
-            <TabsTrigger value="services">{t.konfigurator.services || "Services"}</TabsTrigger>
+            <TabsTrigger value="detail">{t.common.detail}</TabsTrigger>
+            <TabsTrigger value="instances">Market Instances</TabsTrigger>
+            <TabsTrigger value="services">{t.konfigurator.services}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="detail" className="space-y-4 mt-4">
@@ -411,7 +917,7 @@ function ProductDetailDialog({
 
           <TabsContent value="instances" className="space-y-4 mt-4">
             <div className="flex items-center justify-between">
-              <h4 className="font-medium">{t.konfigurator.marketInstances || "Market Instances"}</h4>
+              <h4 className="font-medium">Market Instances</h4>
               <Button size="sm" onClick={() => setIsAddingInstance(true)} data-testid="button-add-instance">
                 <Plus className="h-4 w-4 mr-1" /> {t.common.add}
               </Button>
@@ -423,7 +929,7 @@ function ProductDetailDialog({
                   <div>
                     <Label>{t.common.country}</Label>
                     <Select value={newInstanceData.countryCode} onValueChange={(v) => setNewInstanceData({...newInstanceData, countryCode: v})}>
-                      <SelectTrigger><SelectValue placeholder={t.common.selectCountry} /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder={t.common.select} /></SelectTrigger>
                       <SelectContent>
                         {COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}
                       </SelectContent>
@@ -486,9 +992,9 @@ function ProductDetailDialog({
                 <CardContent>
                   <Tabs value={instanceSubTab} onValueChange={(v) => setInstanceSubTab(v as any)}>
                     <TabsList>
-                      <TabsTrigger value="prices">{t.konfigurator.prices || "Prices"}</TabsTrigger>
-                      <TabsTrigger value="payments">{t.konfigurator.paymentOptions || "Payment Options"}</TabsTrigger>
-                      <TabsTrigger value="discounts">{t.konfigurator.discounts || "Discounts"}</TabsTrigger>
+                      <TabsTrigger value="prices">Ceny</TabsTrigger>
+                      <TabsTrigger value="payments">Platobné možnosti</TabsTrigger>
+                      <TabsTrigger value="discounts">Zľavy</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="prices" className="space-y-3 mt-3">
@@ -596,12 +1102,12 @@ function ProductDetailDialog({
           <TabsContent value="services" className="space-y-4 mt-4">
             {!selectedInstanceId ? (
               <div className="text-center py-8 text-muted-foreground">
-                {t.konfigurator.selectInstanceFirst || "Please select a Market Instance first to manage services"}
+                Najprv vyberte Market Instance pre správu služieb
               </div>
             ) : (
               <>
                 <div className="flex items-center justify-between">
-                  <h4 className="font-medium">{t.konfigurator.servicesForInstance || "Services for"}: {selectedInstance?.name}</h4>
+                  <h4 className="font-medium">Služby pre: {selectedInstance?.name}</h4>
                   <Button size="sm" onClick={() => setIsAddingService(true)} data-testid="button-add-service">
                     <Plus className="h-4 w-4 mr-1" /> {t.common.add}
                   </Button>
@@ -680,6 +1186,7 @@ function ProductsTab() {
   const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
@@ -896,7 +1403,7 @@ function ProductsTab() {
             data-testid="input-search-products"
           />
         </div>
-        <Button onClick={() => { form.reset(); setIsFormOpen(true); }} data-testid="button-add-product">
+        <Button onClick={() => setIsWizardOpen(true)} data-testid="button-add-product">
           <Plus className="h-4 w-4 mr-2" />
           {t.products.addProduct}
         </Button>
@@ -942,7 +1449,12 @@ function ProductsTab() {
       <ProductDetailDialog 
         product={viewingProduct} 
         open={!!viewingProduct} 
-        onOpenChange={() => setViewingProduct(null)} 
+        onOpenChange={(open) => { if (!open) setViewingProduct(null); }} 
+      />
+
+      <ProductWizard
+        open={isWizardOpen}
+        onOpenChange={setIsWizardOpen}
       />
     </div>
   );
