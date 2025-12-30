@@ -438,6 +438,19 @@ export const billingCompanyCollaborators = pgTable("billing_company_collaborator
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
+// Billing company couriers - multiple per billing company
+export const billingCompanyCouriers = pgTable("billing_company_couriers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  billingDetailsId: varchar("billing_details_id").notNull(),
+  name: text("name").notNull(),
+  phone: text("phone"),
+  email: text("email"),
+  isActive: boolean("is_active").notNull().default(true),
+  description: text("description"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
 // Invoice items - individual line items in an invoice
 export const invoiceItems = pgTable("invoice_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -859,6 +872,19 @@ export const insertBillingCompanyCollaboratorSchema = createInsertSchema(billing
   createdAt: true,
 });
 
+// Billing company couriers schemas
+export const insertBillingCompanyCourierSchema = createInsertSchema(billingCompanyCouriers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  name: z.string().min(1, "Name is required"),
+  phone: z.string().optional().nullable(),
+  email: z.string().email().optional().nullable().or(z.literal("")),
+  isActive: z.boolean().optional().default(true),
+  description: z.string().optional().nullable(),
+});
+
 // Invoice item schemas
 export const insertInvoiceItemSchema = createInsertSchema(invoiceItems).omit({
   id: true,
@@ -965,6 +991,8 @@ export type InsertBillingCompanyLaboratory = z.infer<typeof insertBillingCompany
 export type BillingCompanyLaboratory = typeof billingCompanyLaboratories.$inferSelect;
 export type InsertBillingCompanyCollaborator = z.infer<typeof insertBillingCompanyCollaboratorSchema>;
 export type BillingCompanyCollaborator = typeof billingCompanyCollaborators.$inferSelect;
+export type InsertBillingCompanyCourier = z.infer<typeof insertBillingCompanyCourierSchema>;
+export type BillingCompanyCourier = typeof billingCompanyCouriers.$inferSelect;
 export type InsertInvoiceItem = z.infer<typeof insertInvoiceItemSchema>;
 export type InvoiceItem = typeof invoiceItems.$inferSelect;
 export type InsertCustomerNote = z.infer<typeof insertCustomerNoteSchema>;

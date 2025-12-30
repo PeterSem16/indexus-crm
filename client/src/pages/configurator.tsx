@@ -4201,7 +4201,7 @@ function BillingCompanyDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {billingCompany ? (t.konfigurator.editBillingCompany || "Edit Billing Company") : (t.konfigurator.addBillingCompany || "Add Billing Company")}
@@ -4216,6 +4216,7 @@ function BillingCompanyDialog({
             { key: "details", label: t.common.detail || "Details" },
             ...(billingCompany ? [
               { key: "accounts", label: t.konfigurator.accounts || "Accounts" },
+              { key: "couriers", label: t.konfigurator.couriers || "Couriers" },
               { key: "laboratories", label: t.settings.laboratories },
               { key: "collaborators", label: t.collaborators?.title || "Collaborators" },
               { key: "history", label: t.konfigurator.historicalData || "History" },
@@ -4248,6 +4249,7 @@ function BillingCompanyDialog({
             <TabsTrigger value="residency">Residency</TabsTrigger>
             <TabsTrigger value="details">Details</TabsTrigger>
             <TabsTrigger value="accounts">Accounts</TabsTrigger>
+            <TabsTrigger value="couriers">Couriers</TabsTrigger>
             <TabsTrigger value="laboratories">Labs</TabsTrigger>
             <TabsTrigger value="collaborators">Collaborators</TabsTrigger>
             <TabsTrigger value="history">History</TabsTrigger>
@@ -4499,6 +4501,10 @@ function BillingCompanyDialog({
             {billingCompany && <BillingCompanyAccountsTab billingDetailsId={billingCompany.id} />}
           </TabsContent>
 
+          <TabsContent value="couriers" className="mt-4">
+            {billingCompany && <BillingCompanyCouriersTab billingDetailsId={billingCompany.id} />}
+          </TabsContent>
+
           <TabsContent value="laboratories" className="mt-4">
             {billingCompany && (
               <BillingCompanyLabsTab 
@@ -4531,7 +4537,7 @@ function BillingCompanyDialog({
         <DialogFooter className="mt-6 flex justify-between">
           {(() => {
             const allSteps = billingCompany 
-              ? ["postal", "residency", "details", "accounts", "laboratories", "collaborators", "history"]
+              ? ["postal", "residency", "details", "accounts", "couriers", "laboratories", "collaborators", "history"]
               : ["postal", "residency", "details"];
             const currentIndex = allSteps.indexOf(activeTab);
             const isFirstStep = currentIndex === 0;
@@ -5008,6 +5014,267 @@ function BillingCompanyCollaboratorsTab({ billingDetailsId, collaborators }: { b
         ))
       )}
     </div>
+  );
+}
+
+// Couriers Tab - Multiple couriers per billing company
+function BillingCompanyCouriersTab({ billingDetailsId }: { billingDetailsId: string }) {
+  const { t } = useI18n();
+  const { toast } = useToast();
+  const [isAddingCourier, setIsAddingCourier] = useState(false);
+  const [editingCourier, setEditingCourier] = useState<any>(null);
+  const [deletingCourier, setDeletingCourier] = useState<any>(null);
+
+  const { data: couriers = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/billing-details", billingDetailsId, "couriers"],
+    queryFn: async () => {
+      const res = await fetch(`/api/billing-details/${billingDetailsId}/couriers`, { credentials: "include" });
+      return res.json();
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", `/api/billing-details/${billingDetailsId}/couriers`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/billing-details", billingDetailsId, "couriers"] });
+      setIsAddingCourier(false);
+      toast({ title: t.common.success, description: "Courier created" });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => 
+      apiRequest("PATCH", `/api/billing-details/${billingDetailsId}/couriers/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/billing-details", billingDetailsId, "couriers"] });
+      setEditingCourier(null);
+      toast({ title: t.common.success, description: "Courier updated" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/billing-details/${billingDetailsId}/couriers/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/billing-details", billingDetailsId, "couriers"] });
+      setDeletingCourier(null);
+      toast({ title: t.common.success, description: "Courier deleted" });
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button onClick={() => setIsAddingCourier(true)} data-testid="button-add-courier">
+          <Plus className="mr-2 h-4 w-4" />
+          {t.konfigurator.addCourier || "Add Courier"}
+        </Button>
+      </div>
+
+      {couriers.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          {t.konfigurator.noCouriersAvailable || "No couriers available"}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {couriers.map((courier: any) => (
+            <div key={courier.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{courier.name}</span>
+                  {!courier.isActive && (
+                    <Badge variant="secondary">{t.common.inactive}</Badge>
+                  )}
+                </div>
+                <div className="text-sm text-muted-foreground flex flex-wrap gap-3 mt-1">
+                  {courier.phone && <span>{courier.phone}</span>}
+                  {courier.email && <span>{courier.email}</span>}
+                </div>
+                {courier.description && (
+                  <div className="text-sm text-muted-foreground mt-1">{courier.description}</div>
+                )}
+              </div>
+              <div className="flex gap-1">
+                <Button variant="ghost" size="icon" onClick={() => setEditingCourier(courier)} data-testid={`button-edit-courier-${courier.id}`}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={() => setDeletingCourier(courier)} data-testid={`button-delete-courier-${courier.id}`}>
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add/Edit Courier Dialog */}
+      <CourierFormDialog
+        open={isAddingCourier || !!editingCourier}
+        onOpenChange={(open) => {
+          if (!open) {
+            setIsAddingCourier(false);
+            setEditingCourier(null);
+          }
+        }}
+        courier={editingCourier}
+        onSave={(data) => {
+          if (editingCourier) {
+            updateMutation.mutate({ id: editingCourier.id, data });
+          } else {
+            createMutation.mutate(data);
+          }
+        }}
+        isPending={createMutation.isPending || updateMutation.isPending}
+      />
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deletingCourier} onOpenChange={(open) => !open && setDeletingCourier(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t.konfigurator.deleteCourier || "Delete Courier"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t.konfigurator.deleteCourierConfirm || "Are you sure you want to delete this courier?"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t.common.cancel}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deletingCourier && deleteMutation.mutate(deletingCourier.id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {t.common.delete}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+// Courier Form Dialog
+function CourierFormDialog({
+  open,
+  onOpenChange,
+  courier,
+  onSave,
+  isPending,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  courier: any;
+  onSave: (data: any) => void;
+  isPending: boolean;
+}) {
+  const { t } = useI18n();
+  const [formData, setFormData] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    isActive: true,
+    description: "",
+  });
+
+  useEffect(() => {
+    if (courier) {
+      setFormData({
+        name: courier.name || "",
+        phone: courier.phone || "",
+        email: courier.email || "",
+        isActive: courier.isActive ?? true,
+        description: courier.description || "",
+      });
+    } else {
+      setFormData({
+        name: "",
+        phone: "",
+        email: "",
+        isActive: true,
+        description: "",
+      });
+    }
+  }, [courier, open]);
+
+  const handleSubmit = () => {
+    if (!formData.name) return;
+    onSave(formData);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>
+            {courier ? (t.konfigurator.editCourier || "Edit Courier") : (t.konfigurator.addCourier || "Add Courier")}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>{t.konfigurator.courierName || "Name"} *</Label>
+            <Input 
+              value={formData.name} 
+              onChange={(e) => setFormData(p => ({ ...p, name: e.target.value }))} 
+              data-testid="input-courier-name"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>{t.konfigurator.courierPhone || "Phone"}</Label>
+            <Input 
+              value={formData.phone} 
+              onChange={(e) => setFormData(p => ({ ...p, phone: e.target.value }))} 
+              data-testid="input-courier-phone"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>{t.konfigurator.courierEmail || "Email"}</Label>
+            <Input 
+              type="email"
+              value={formData.email} 
+              onChange={(e) => setFormData(p => ({ ...p, email: e.target.value }))} 
+              data-testid="input-courier-email"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>{t.konfigurator.courierDescription || "Description"}</Label>
+            <Textarea 
+              value={formData.description} 
+              onChange={(e) => setFormData(p => ({ ...p, description: e.target.value }))} 
+              data-testid="input-courier-description"
+            />
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Switch 
+              checked={formData.isActive} 
+              onCheckedChange={(v) => setFormData(p => ({ ...p, isActive: v }))} 
+              data-testid="switch-courier-active"
+            />
+            <Label>{t.common.active}</Label>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            {t.common.cancel}
+          </Button>
+          <Button onClick={handleSubmit} disabled={isPending || !formData.name} data-testid="button-save-courier">
+            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {t.common.save}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

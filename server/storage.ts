@@ -7,7 +7,7 @@ import {
   customerPotentialCases, leadScoringCriteria,
   serviceConfigurations, serviceInstances, numberRanges, invoiceTemplates, invoiceLayouts,
   roles, roleModulePermissions, roleFieldPermissions, userRoles, departments,
-  billingCompanyAccounts, billingCompanyAuditLog, billingCompanyLaboratories, billingCompanyCollaborators,
+  billingCompanyAccounts, billingCompanyAuditLog, billingCompanyLaboratories, billingCompanyCollaborators, billingCompanyCouriers,
   type User, type InsertUser, type UpdateUser, type SafeUser,
   type Customer, type InsertCustomer,
   type Product, type InsertProduct,
@@ -18,6 +18,7 @@ import {
   type BillingCompanyAuditLog, type InsertBillingCompanyAuditLog,
   type BillingCompanyLaboratory, type InsertBillingCompanyLaboratory,
   type BillingCompanyCollaborator, type InsertBillingCompanyCollaborator,
+  type BillingCompanyCourier, type InsertBillingCompanyCourier,
   type InvoiceItem, type InsertInvoiceItem,
   type CustomerNote, type InsertCustomerNote,
   type ActivityLog, type InsertActivityLog,
@@ -138,6 +139,12 @@ export interface IStorage {
   // Billing Company Collaborators
   getBillingCompanyCollaborators(billingDetailsId: string): Promise<BillingCompanyCollaborator[]>;
   setBillingCompanyCollaborators(billingDetailsId: string, collaboratorIds: string[]): Promise<void>;
+
+  // Billing Company Couriers
+  getBillingCompanyCouriers(billingDetailsId: string): Promise<BillingCompanyCourier[]>;
+  createBillingCompanyCourier(data: InsertBillingCompanyCourier): Promise<BillingCompanyCourier>;
+  updateBillingCompanyCourier(id: string, data: Partial<InsertBillingCompanyCourier>): Promise<BillingCompanyCourier | undefined>;
+  deleteBillingCompanyCourier(id: string): Promise<boolean>;
 
   // Invoice Items
   getInvoiceItems(invoiceId: string): Promise<InvoiceItem[]>;
@@ -671,6 +678,7 @@ export class DatabaseStorage implements IStorage {
     await db.delete(billingCompanyAccounts).where(eq(billingCompanyAccounts.billingDetailsId, id));
     await db.delete(billingCompanyLaboratories).where(eq(billingCompanyLaboratories.billingDetailsId, id));
     await db.delete(billingCompanyCollaborators).where(eq(billingCompanyCollaborators.billingDetailsId, id));
+    await db.delete(billingCompanyCouriers).where(eq(billingCompanyCouriers.billingDetailsId, id));
     await db.delete(billingCompanyAuditLog).where(eq(billingCompanyAuditLog.billingDetailsId, id));
     
     const result = await db.delete(billingDetails).where(eq(billingDetails.id, id)).returning();
@@ -780,6 +788,32 @@ export class DatabaseStorage implements IStorage {
         collaboratorIds.map(collaboratorId => ({ billingDetailsId, collaboratorId }))
       );
     }
+  }
+
+  // Billing Company Couriers
+  async getBillingCompanyCouriers(billingDetailsId: string): Promise<BillingCompanyCourier[]> {
+    return db.select().from(billingCompanyCouriers)
+      .where(eq(billingCompanyCouriers.billingDetailsId, billingDetailsId))
+      .orderBy(billingCompanyCouriers.createdAt);
+  }
+
+  async createBillingCompanyCourier(data: InsertBillingCompanyCourier): Promise<BillingCompanyCourier> {
+    const [created] = await db.insert(billingCompanyCouriers).values(data).returning();
+    return created;
+  }
+
+  async updateBillingCompanyCourier(id: string, data: Partial<InsertBillingCompanyCourier>): Promise<BillingCompanyCourier | undefined> {
+    const [updated] = await db
+      .update(billingCompanyCouriers)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(billingCompanyCouriers.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteBillingCompanyCourier(id: string): Promise<boolean> {
+    const result = await db.delete(billingCompanyCouriers).where(eq(billingCompanyCouriers.id, id)).returning();
+    return result.length > 0;
   }
 
   // Invoice Items

@@ -992,6 +992,56 @@ export async function registerRoutes(
     }
   });
 
+  // Billing company couriers
+  app.get("/api/billing-details/:id/couriers", requireAuth, async (req, res) => {
+    try {
+      const couriers = await storage.getBillingCompanyCouriers(req.params.id);
+      res.json(couriers);
+    } catch (error) {
+      console.error("Error fetching couriers:", error);
+      res.status(500).json({ error: "Failed to fetch couriers" });
+    }
+  });
+
+  app.post("/api/billing-details/:id/couriers", requireAuth, async (req, res) => {
+    try {
+      const courier = await storage.createBillingCompanyCourier({
+        ...req.body,
+        billingDetailsId: req.params.id,
+      });
+      res.json(courier);
+    } catch (error) {
+      console.error("Error creating courier:", error);
+      res.status(500).json({ error: "Failed to create courier" });
+    }
+  });
+
+  app.patch("/api/billing-details/:billingId/couriers/:courierId", requireAuth, async (req, res) => {
+    try {
+      const courier = await storage.updateBillingCompanyCourier(req.params.courierId, req.body);
+      if (!courier) {
+        return res.status(404).json({ error: "Courier not found" });
+      }
+      res.json(courier);
+    } catch (error) {
+      console.error("Error updating courier:", error);
+      res.status(500).json({ error: "Failed to update courier" });
+    }
+  });
+
+  app.delete("/api/billing-details/:billingId/couriers/:courierId", requireAuth, async (req, res) => {
+    try {
+      const deleted = await storage.deleteBillingCompanyCourier(req.params.courierId);
+      if (!deleted) {
+        return res.status(404).json({ error: "Courier not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting courier:", error);
+      res.status(500).json({ error: "Failed to delete courier" });
+    }
+  });
+
   // Legacy endpoint for backwards compatibility
   app.put("/api/billing-details/:countryCode", requireAuth, async (req, res) => {
     try {
