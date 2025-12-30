@@ -26,7 +26,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/auth-context";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import type { ServiceConfiguration, InvoiceTemplate, InvoiceLayout, Product, Role, RoleModulePermission, RoleFieldPermission, Department } from "@shared/schema";
+import type { ServiceConfiguration, ServiceInstance, InvoiceTemplate, InvoiceLayout, Product, Role, RoleModulePermission, RoleFieldPermission, Department, BillingDetails } from "@shared/schema";
 import { CRM_MODULES, DEPARTMENTS, type ModuleDefinition, type FieldPermission, type ModuleAccess } from "@shared/permissions-config";
 import { Building2, User, Mail, Phone } from "lucide-react";
 import { DepartmentTree } from "@/components/department-tree";
@@ -37,11 +37,33 @@ const serviceFormSchema = z.object({
   description: z.string().optional(),
   countryCode: z.string().min(1, "Country is required"),
   isActive: z.boolean().default(true),
+  invoiceable: z.boolean().default(false),
+  storable: z.boolean().default(false),
   basePrice: z.string().optional(),
   currency: z.string().default("EUR"),
   vatRate: z.string().optional(),
   processingDays: z.number().optional(),
   storageYears: z.number().optional(),
+});
+
+const serviceInstanceFormSchema = z.object({
+  serviceId: z.string(),
+  name: z.string().min(1, "Name is required"),
+  fromDate: z.string().optional(),
+  toDate: z.string().optional(),
+  invoiceIdentifier: z.string().optional(),
+  isActive: z.boolean().default(true),
+  certificateTemplate: z.string().optional(),
+  description: z.string().optional(),
+  billingDetailsId: z.string().optional(),
+  allowProformaInvoices: z.boolean().default(false),
+  invoicingPeriodYears: z.number().min(1).max(100).optional(),
+  constantSymbol: z.string().optional(),
+  startInvoicingField: z.string().default("REALIZED"),
+  endInvoicingField: z.string().optional(),
+  accountingIdOffset: z.number().optional(),
+  ledgerAccountProforma: z.string().optional(),
+  ledgerAccountInvoice: z.string().optional(),
 });
 
 const templateFormSchema = z.object({
@@ -432,6 +454,10 @@ function ServiceConfigurationTab() {
   const { selectedCountries } = useCountryFilter();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingService, setEditingService] = useState<ServiceConfiguration | null>(null);
+  const [selectedService, setSelectedService] = useState<ServiceConfiguration | null>(null);
+  const [isInstanceDialogOpen, setIsInstanceDialogOpen] = useState(false);
+  const [editingInstance, setEditingInstance] = useState<ServiceInstance | null>(null);
+  const [instanceTab, setInstanceTab] = useState<"detail" | "invoicing">("detail");
 
   const { data: services = [], isLoading } = useQuery<ServiceConfiguration[]>({
     queryKey: ["/api/configurator/services", selectedCountries.join(",")],
@@ -451,6 +477,8 @@ function ServiceConfigurationTab() {
       description: "",
       countryCode: "",
       isActive: true,
+      invoiceable: false,
+      storable: false,
       basePrice: "",
       currency: "EUR",
       vatRate: "",
@@ -491,6 +519,146 @@ function ServiceConfigurationTab() {
     },
   });
 
+  // Service instances queries and mutations
+  const { data: serviceInstances = [] } = useQuery<ServiceInstance[]>({
+    queryKey: ["/api/configurator/services", selectedService?.id, "instances"],
+    queryFn: async () => {
+      if (!selectedService) return [];
+      const res = await fetch(`/api/configurator/services/${selectedService.id}/instances`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch service instances");
+      return res.json();
+    },
+    enabled: !!selectedService,
+  });
+
+  const { data: billingDetailsList = [] } = useQuery<BillingDetails[]>({
+    queryKey: ["/api/billing-details"],
+    queryFn: async () => {
+      const res = await fetch("/api/billing-details", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch billing details");
+      return res.json();
+    },
+  });
+
+  const instanceForm = useForm<z.infer<typeof serviceInstanceFormSchema>>({
+    resolver: zodResolver(serviceInstanceFormSchema),
+    defaultValues: {
+      serviceId: "",
+      name: "",
+      fromDate: "",
+      toDate: "",
+      invoiceIdentifier: "",
+      isActive: true,
+      certificateTemplate: "",
+      description: "",
+      billingDetailsId: "",
+      allowProformaInvoices: false,
+      invoicingPeriodYears: 1,
+      constantSymbol: "",
+      startInvoicingField: "REALIZED",
+      endInvoicingField: "",
+      accountingIdOffset: undefined,
+      ledgerAccountProforma: "",
+      ledgerAccountInvoice: "",
+    },
+  });
+
+  const createInstanceMutation = useMutation({
+    mutationFn: (data: z.infer<typeof serviceInstanceFormSchema>) =>
+      apiRequest("POST", "/api/configurator/service-instances", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/configurator/services", selectedService?.id, "instances"] });
+      setIsInstanceDialogOpen(false);
+      instanceForm.reset();
+      toast({ title: t.konfigurator.instanceCreated || "Service instance created" });
+    },
+  });
+
+  const updateInstanceMutation = useMutation({
+    mutationFn: (data: z.infer<typeof serviceInstanceFormSchema> & { id: string }) =>
+      apiRequest("PATCH", `/api/configurator/service-instances/${data.id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/configurator/services", selectedService?.id, "instances"] });
+      setIsInstanceDialogOpen(false);
+      setEditingInstance(null);
+      instanceForm.reset();
+      toast({ title: t.konfigurator.instanceUpdated || "Service instance updated" });
+    },
+  });
+
+  const deleteInstanceMutation = useMutation({
+    mutationFn: (id: string) =>
+      apiRequest("DELETE", `/api/configurator/service-instances/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/configurator/services", selectedService?.id, "instances"] });
+      toast({ title: t.konfigurator.instanceDeleted || "Service instance deleted" });
+    },
+  });
+
+  const handleEditInstance = (instance: ServiceInstance) => {
+    setEditingInstance(instance);
+    instanceForm.reset({
+      serviceId: instance.serviceId,
+      name: instance.name,
+      fromDate: instance.fromDate || "",
+      toDate: instance.toDate || "",
+      invoiceIdentifier: instance.invoiceIdentifier || "",
+      isActive: instance.isActive,
+      certificateTemplate: instance.certificateTemplate || "",
+      description: instance.description || "",
+      billingDetailsId: instance.billingDetailsId || "",
+      allowProformaInvoices: instance.allowProformaInvoices,
+      invoicingPeriodYears: instance.invoicingPeriodYears || 1,
+      constantSymbol: instance.constantSymbol || "",
+      startInvoicingField: instance.startInvoicingField || "REALIZED",
+      endInvoicingField: instance.endInvoicingField || "",
+      accountingIdOffset: instance.accountingIdOffset || undefined,
+      ledgerAccountProforma: instance.ledgerAccountProforma || "",
+      ledgerAccountInvoice: instance.ledgerAccountInvoice || "",
+    });
+    setInstanceTab("detail");
+    setIsInstanceDialogOpen(true);
+  };
+
+  const handleInstanceSubmit = (data: z.infer<typeof serviceInstanceFormSchema>) => {
+    if (editingInstance) {
+      updateInstanceMutation.mutate({ ...data, id: editingInstance.id });
+    } else {
+      createInstanceMutation.mutate(data);
+    }
+  };
+
+  const openNewInstanceDialog = () => {
+    if (!selectedService) return;
+    setEditingInstance(null);
+    instanceForm.reset({
+      serviceId: selectedService.id,
+      name: "",
+      fromDate: "",
+      toDate: "",
+      invoiceIdentifier: "",
+      isActive: true,
+      certificateTemplate: "",
+      description: "",
+      billingDetailsId: "",
+      allowProformaInvoices: false,
+      invoicingPeriodYears: 1,
+      constantSymbol: "",
+      startInvoicingField: "REALIZED",
+      endInvoicingField: "",
+      accountingIdOffset: undefined,
+      ledgerAccountProforma: "",
+      ledgerAccountInvoice: "",
+    });
+    setInstanceTab("detail");
+    setIsInstanceDialogOpen(true);
+  };
+
+  // Filter billing details by selected service's country
+  const filteredBillingDetails = selectedService 
+    ? billingDetailsList.filter(bd => bd.countryCode === selectedService.countryCode)
+    : billingDetailsList;
+
   const handleEdit = (service: ServiceConfiguration) => {
     setEditingService(service);
     form.reset({
@@ -499,6 +667,8 @@ function ServiceConfigurationTab() {
       description: service.description || "",
       countryCode: service.countryCode,
       isActive: service.isActive,
+      invoiceable: service.invoiceable || false,
+      storable: service.storable || false,
       basePrice: service.basePrice || "",
       currency: service.currency,
       vatRate: service.vatRate || "",
@@ -636,28 +806,56 @@ function ServiceConfigurationTab() {
                     </FormItem>
                   )}
                 />
-                <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="countryCode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.common.country}</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-service-country">
+                            <SelectValue placeholder={t.common.select} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {COUNTRIES.map((country) => (
+                            <SelectItem key={country.code} value={country.code}>
+                              {country.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="grid grid-cols-3 gap-4">
                   <FormField
                     control={form.control}
-                    name="countryCode"
+                    name="invoiceable"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t.common.country}</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-service-country">
-                              <SelectValue placeholder={t.common.select} />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {COUNTRIES.map((country) => (
-                              <SelectItem key={country.code} value={country.code}>
-                                {country.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                        <div className="space-y-0.5">
+                          <FormLabel>{t.konfigurator.invoiceable || "Invoiceable"}</FormLabel>
+                        </div>
+                        <FormControl>
+                          <Checkbox checked={field.value} onCheckedChange={field.onChange} data-testid="checkbox-service-invoiceable" />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="storable"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                        <div className="space-y-0.5">
+                          <FormLabel>{t.konfigurator.storable || "Storable"}</FormLabel>
+                        </div>
+                        <FormControl>
+                          <Checkbox checked={field.value} onCheckedChange={field.onChange} data-testid="checkbox-service-storable" />
+                        </FormControl>
                       </FormItem>
                     )}
                   />
@@ -770,11 +968,384 @@ function ServiceConfigurationTab() {
           </DialogContent>
         </Dialog>
       </div>
-      <DataTable 
-        columns={columns} 
-        data={services} 
-        getRowKey={(service) => service.id}
-      />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div>
+          <h4 className="text-sm font-medium mb-2">{t.konfigurator.services}</h4>
+          <div className="border rounded-md divide-y">
+            {services.map((service) => (
+              <div 
+                key={service.id}
+                className={`p-3 cursor-pointer hover-elevate flex items-center justify-between gap-2 ${selectedService?.id === service.id ? "bg-accent" : ""}`}
+                onClick={() => setSelectedService(selectedService?.id === service.id ? null : service)}
+                data-testid={`row-service-${service.id}`}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-medium">{service.serviceName}</span>
+                    <Badge variant="secondary" className="text-xs">{service.serviceCode}</Badge>
+                    <Badge variant="outline" className="text-xs">{service.countryCode}</Badge>
+                  </div>
+                  <div className="text-sm text-muted-foreground flex items-center gap-2 mt-1 flex-wrap">
+                    {service.basePrice && <span>{service.basePrice} {service.currency}</span>}
+                    {service.invoiceable && <Badge variant="outline" className="text-xs">{t.konfigurator.invoiceable || "Invoiceable"}</Badge>}
+                    {service.storable && <Badge variant="outline" className="text-xs">{t.konfigurator.storable || "Storable"}</Badge>}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Badge variant={service.isActive ? "default" : "secondary"} className="text-xs">
+                    {service.isActive ? t.common.active : t.common.inactive}
+                  </Badge>
+                  <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); handleEdit(service); }} data-testid={`button-edit-service-${service.id}`}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(service.id); }} data-testid={`button-delete-service-${service.id}`}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+            {services.length === 0 && (
+              <div className="p-4 text-center text-muted-foreground">
+                {t.konfigurator.noServices || "No services configured"}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {selectedService && (
+          <div className="border rounded-md">
+            <div className="p-3 border-b flex items-center justify-between gap-2">
+              <div>
+                <h4 className="font-medium">{t.konfigurator.serviceInstances || "Service Instances"}</h4>
+                <p className="text-sm text-muted-foreground">{selectedService.serviceName}</p>
+              </div>
+              <Button size="sm" onClick={openNewInstanceDialog} data-testid="button-add-instance">
+                <Plus className="mr-2 h-4 w-4" />
+                {t.konfigurator.addInstance || "Add Instance"}
+              </Button>
+            </div>
+            <div className="divide-y max-h-[400px] overflow-y-auto">
+              {serviceInstances.map((instance) => (
+                <div key={instance.id} className="p-3 flex items-center justify-between gap-2 hover-elevate">
+                  <div>
+                    <div className="font-medium">{instance.name}</div>
+                    <div className="text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
+                      {instance.fromDate && <span>{t.konfigurator.from || "From"}: {instance.fromDate}</span>}
+                      {instance.toDate && <span>{t.konfigurator.to || "To"}: {instance.toDate}</span>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Badge variant={instance.isActive ? "default" : "secondary"} className="text-xs">
+                      {instance.isActive ? t.common.active : t.common.inactive}
+                    </Badge>
+                    <Button size="icon" variant="ghost" onClick={() => handleEditInstance(instance)} data-testid={`button-edit-instance-${instance.id}`}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button size="icon" variant="ghost" onClick={() => deleteInstanceMutation.mutate(instance.id)} data-testid={`button-delete-instance-${instance.id}`}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              {serviceInstances.length === 0 && (
+                <div className="p-4 text-center text-muted-foreground">
+                  {t.konfigurator.noInstances || "No instances for this service"}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Service Instance Dialog */}
+      <Dialog open={isInstanceDialogOpen} onOpenChange={(open) => {
+        setIsInstanceDialogOpen(open);
+        if (!open) {
+          setEditingInstance(null);
+          instanceForm.reset();
+        }
+      }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingInstance ? (t.konfigurator.editInstance || "Edit Instance") : (t.konfigurator.addInstance || "Add Instance")}</DialogTitle>
+            <DialogDescription>{selectedService?.serviceName}</DialogDescription>
+          </DialogHeader>
+          <Form {...instanceForm}>
+            <form onSubmit={instanceForm.handleSubmit(handleInstanceSubmit)} className="space-y-4">
+              <Tabs value={instanceTab} onValueChange={(v) => setInstanceTab(v as "detail" | "invoicing")}>
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="detail" data-testid="tab-instance-detail">{t.common.detail || "Detail"}</TabsTrigger>
+                  <TabsTrigger value="invoicing" data-testid="tab-instance-invoicing">{t.konfigurator.invoicing || "Invoicing"}</TabsTrigger>
+                </TabsList>
+                <TabsContent value="detail" className="space-y-4 mt-4">
+                  <FormField
+                    control={instanceForm.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t.common.name || "Name"}</FormLabel>
+                        <FormControl>
+                          <Input {...field} data-testid="input-instance-name" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={instanceForm.control}
+                      name="fromDate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t.konfigurator.from || "From"}</FormLabel>
+                          <FormControl>
+                            <Input type="date" {...field} data-testid="input-instance-from" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={instanceForm.control}
+                      name="toDate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t.konfigurator.to || "To"}</FormLabel>
+                          <FormControl>
+                            <Input type="date" {...field} data-testid="input-instance-to" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                    control={instanceForm.control}
+                    name="invoiceIdentifier"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t.konfigurator.invoiceIdentifier || "Invoice Identifier"}</FormLabel>
+                        <FormControl>
+                          <Input {...field} data-testid="input-instance-invoice-id" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={instanceForm.control}
+                      name="isActive"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                          <FormLabel>{t.common.active}</FormLabel>
+                          <FormControl>
+                            <Switch checked={field.value} onCheckedChange={field.onChange} data-testid="switch-instance-active" />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={instanceForm.control}
+                      name="certificateTemplate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t.konfigurator.certificateTemplate || "Certificate Template"}</FormLabel>
+                          <FormControl>
+                            <Input {...field} data-testid="input-instance-cert" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                    control={instanceForm.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t.konfigurator.description}</FormLabel>
+                        <FormControl>
+                          <Textarea {...field} data-testid="input-instance-description" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </TabsContent>
+                <TabsContent value="invoicing" className="space-y-4 mt-4">
+                  <FormField
+                    control={instanceForm.control}
+                    name="billingDetailsId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t.konfigurator.exportInvoicingTo || "Export Invoicing To"}</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || ""}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-instance-billing">
+                              <SelectValue placeholder={t.common.select} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {filteredBillingDetails.map((bd) => (
+                              <SelectItem key={bd.id} value={bd.id}>
+                                {bd.companyName} ({bd.countryCode})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={instanceForm.control}
+                      name="allowProformaInvoices"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                          <FormLabel>{t.konfigurator.allowProformaInvoices || "Allow Proforma Invoices"}</FormLabel>
+                          <FormControl>
+                            <Checkbox checked={field.value} onCheckedChange={field.onChange} data-testid="checkbox-instance-proforma" />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={instanceForm.control}
+                      name="invoicingPeriodYears"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t.konfigurator.invoicingPeriod || "Invoicing Period (years)"}</FormLabel>
+                          <Select onValueChange={(v) => field.onChange(parseInt(v))} value={field.value?.toString() || "1"}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-instance-period">
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {Array.from({ length: 100 }, (_, i) => i + 1).map((n) => (
+                                <SelectItem key={n} value={n.toString()}>{n}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                    control={instanceForm.control}
+                    name="constantSymbol"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t.konfigurator.constantSymbol || "Constant Symbol"}</FormLabel>
+                        <FormControl>
+                          <Input {...field} data-testid="input-instance-constant-symbol" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={instanceForm.control}
+                      name="startInvoicingField"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t.konfigurator.startInvoicingField || "Start Invoicing Field"}</FormLabel>
+                          <FormControl>
+                            <Input {...field} data-testid="input-instance-start-field" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={instanceForm.control}
+                      name="endInvoicingField"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t.konfigurator.endInvoicingField || "End Invoicing Field"}</FormLabel>
+                          <FormControl>
+                            <Input {...field} data-testid="input-instance-end-field" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                    control={instanceForm.control}
+                    name="accountingIdOffset"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t.konfigurator.accountingIdOffset || "Accounting ID Offset"}</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            {...field} 
+                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)} 
+                            data-testid="input-instance-offset" 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={instanceForm.control}
+                      name="ledgerAccountProforma"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t.konfigurator.ledgerAccountProforma || "Ledger Account - PROFORMA"}</FormLabel>
+                          <FormControl>
+                            <Input 
+                              {...field} 
+                              pattern="[0-9]*"
+                              onChange={(e) => field.onChange(e.target.value.replace(/\D/g, ''))}
+                              data-testid="input-instance-ledger-proforma" 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={instanceForm.control}
+                      name="ledgerAccountInvoice"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t.konfigurator.ledgerAccountInvoice || "Ledger Account - INVOICE"}</FormLabel>
+                          <FormControl>
+                            <Input 
+                              {...field} 
+                              pattern="[0-9]*"
+                              onChange={(e) => field.onChange(e.target.value.replace(/\D/g, ''))}
+                              data-testid="input-instance-ledger-invoice" 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </TabsContent>
+              </Tabs>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsInstanceDialogOpen(false)}>
+                  {t.common.cancel}
+                </Button>
+                <Button type="submit" disabled={createInstanceMutation.isPending || updateInstanceMutation.isPending} data-testid="button-save-instance">
+                  {(createInstanceMutation.isPending || updateInstanceMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {t.common.save}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
