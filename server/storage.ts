@@ -7,12 +7,17 @@ import {
   customerPotentialCases, leadScoringCriteria,
   serviceConfigurations, serviceInstances, numberRanges, invoiceTemplates, invoiceLayouts,
   roles, roleModulePermissions, roleFieldPermissions, userRoles, departments,
+  billingCompanyAccounts, billingCompanyAuditLog, billingCompanyLaboratories, billingCompanyCollaborators,
   type User, type InsertUser, type UpdateUser, type SafeUser,
   type Customer, type InsertCustomer,
   type Product, type InsertProduct,
   type CustomerProduct, type InsertCustomerProduct,
   type Invoice, type InsertInvoice,
   type BillingDetails, type InsertBillingDetails,
+  type BillingCompanyAccount, type InsertBillingCompanyAccount,
+  type BillingCompanyAuditLog, type InsertBillingCompanyAuditLog,
+  type BillingCompanyLaboratory, type InsertBillingCompanyLaboratory,
+  type BillingCompanyCollaborator, type InsertBillingCompanyCollaborator,
   type InvoiceItem, type InsertInvoiceItem,
   type CustomerNote, type InsertCustomerNote,
   type ActivityLog, type InsertActivityLog,
@@ -111,9 +116,28 @@ export interface IStorage {
   getBillingDetailsById(id: string): Promise<BillingDetails | undefined>;
   getAllBillingDetails(): Promise<BillingDetails[]>;
   createBillingDetails(data: InsertBillingDetails): Promise<BillingDetails>;
-  updateBillingDetails(id: string, data: Partial<InsertBillingDetails>): Promise<BillingDetails>;
+  updateBillingDetails(id: string, data: Partial<InsertBillingDetails>, userId?: string): Promise<BillingDetails>;
   deleteBillingDetails(id: string): Promise<boolean>;
   upsertBillingDetails(data: InsertBillingDetails): Promise<BillingDetails>;
+
+  // Billing Company Accounts
+  getBillingCompanyAccounts(billingDetailsId: string): Promise<BillingCompanyAccount[]>;
+  createBillingCompanyAccount(data: InsertBillingCompanyAccount): Promise<BillingCompanyAccount>;
+  updateBillingCompanyAccount(id: string, data: Partial<InsertBillingCompanyAccount>): Promise<BillingCompanyAccount | undefined>;
+  deleteBillingCompanyAccount(id: string): Promise<boolean>;
+  setDefaultBillingCompanyAccount(billingDetailsId: string, accountId: string): Promise<void>;
+
+  // Billing Company Audit Log
+  getBillingCompanyAuditLog(billingDetailsId: string): Promise<BillingCompanyAuditLog[]>;
+  createBillingCompanyAuditLog(data: InsertBillingCompanyAuditLog): Promise<BillingCompanyAuditLog>;
+
+  // Billing Company Laboratories
+  getBillingCompanyLaboratories(billingDetailsId: string): Promise<BillingCompanyLaboratory[]>;
+  setBillingCompanyLaboratories(billingDetailsId: string, laboratoryIds: string[]): Promise<void>;
+
+  // Billing Company Collaborators
+  getBillingCompanyCollaborators(billingDetailsId: string): Promise<BillingCompanyCollaborator[]>;
+  setBillingCompanyCollaborators(billingDetailsId: string, collaboratorIds: string[]): Promise<void>;
 
   // Invoice Items
   getInvoiceItems(invoiceId: string): Promise<InvoiceItem[]>;
@@ -603,25 +627,52 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async updateBillingDetails(id: string, data: Partial<InsertBillingDetails>): Promise<BillingDetails> {
+  async updateBillingDetails(id: string, data: Partial<InsertBillingDetails>, userId?: string): Promise<BillingDetails> {
+    // Get existing data for audit logging
+    const existing = await this.getBillingDetailsById(id);
+    
     // If setting as default, unset other defaults for this country
-    if (data.isDefault) {
-      const existing = await this.getBillingDetailsById(id);
-      if (existing) {
-        await db.update(billingDetails)
-          .set({ isDefault: false })
-          .where(and(eq(billingDetails.countryCode, existing.countryCode), sql`id != ${id}`));
-      }
+    if (data.isDefault && existing) {
+      await db.update(billingDetails)
+        .set({ isDefault: false })
+        .where(and(eq(billingDetails.countryCode, existing.countryCode), sql`id != ${id}`));
     }
+    
     const [updated] = await db
       .update(billingDetails)
       .set({ ...data, updatedAt: new Date() })
       .where(eq(billingDetails.id, id))
       .returning();
+    
+    // Create audit log entries for changed fields
+    if (userId && existing) {
+      const fieldsToTrack = Object.keys(data) as (keyof typeof data)[];
+      for (const field of fieldsToTrack) {
+        const oldVal = String(existing[field as keyof typeof existing] ?? "");
+        const newVal = String(data[field] ?? "");
+        if (oldVal !== newVal) {
+          await this.createBillingCompanyAuditLog({
+            billingDetailsId: id,
+            userId,
+            fieldName: field,
+            oldValue: oldVal,
+            newValue: newVal,
+            changeType: "update",
+          });
+        }
+      }
+    }
+    
     return updated;
   }
 
   async deleteBillingDetails(id: string): Promise<boolean> {
+    // Delete related records first
+    await db.delete(billingCompanyAccounts).where(eq(billingCompanyAccounts.billingDetailsId, id));
+    await db.delete(billingCompanyLaboratories).where(eq(billingCompanyLaboratories.billingDetailsId, id));
+    await db.delete(billingCompanyCollaborators).where(eq(billingCompanyCollaborators.billingDetailsId, id));
+    await db.delete(billingCompanyAuditLog).where(eq(billingCompanyAuditLog.billingDetailsId, id));
+    
     const result = await db.delete(billingDetails).where(eq(billingDetails.id, id)).returning();
     return result.length > 0;
   }
@@ -629,6 +680,106 @@ export class DatabaseStorage implements IStorage {
   async upsertBillingDetails(data: InsertBillingDetails): Promise<BillingDetails> {
     // Legacy method - creates new billing company
     return this.createBillingDetails(data);
+  }
+
+  // Billing Company Accounts
+  async getBillingCompanyAccounts(billingDetailsId: string): Promise<BillingCompanyAccount[]> {
+    return db.select().from(billingCompanyAccounts)
+      .where(eq(billingCompanyAccounts.billingDetailsId, billingDetailsId))
+      .orderBy(desc(billingCompanyAccounts.isDefault), billingCompanyAccounts.createdAt);
+  }
+
+  async createBillingCompanyAccount(data: InsertBillingCompanyAccount): Promise<BillingCompanyAccount> {
+    // If this is marked as default, unset other defaults for this billing company
+    if (data.isDefault) {
+      await db.update(billingCompanyAccounts)
+        .set({ isDefault: false })
+        .where(eq(billingCompanyAccounts.billingDetailsId, data.billingDetailsId));
+    }
+    const [created] = await db.insert(billingCompanyAccounts).values(data).returning();
+    return created;
+  }
+
+  async updateBillingCompanyAccount(id: string, data: Partial<InsertBillingCompanyAccount>): Promise<BillingCompanyAccount | undefined> {
+    // If setting as default, unset other defaults
+    if (data.isDefault) {
+      const [existing] = await db.select().from(billingCompanyAccounts).where(eq(billingCompanyAccounts.id, id));
+      if (existing) {
+        await db.update(billingCompanyAccounts)
+          .set({ isDefault: false })
+          .where(and(eq(billingCompanyAccounts.billingDetailsId, existing.billingDetailsId), sql`id != ${id}`));
+      }
+    }
+    const [updated] = await db
+      .update(billingCompanyAccounts)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(billingCompanyAccounts.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteBillingCompanyAccount(id: string): Promise<boolean> {
+    const result = await db.delete(billingCompanyAccounts).where(eq(billingCompanyAccounts.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async setDefaultBillingCompanyAccount(billingDetailsId: string, accountId: string): Promise<void> {
+    // Unset all defaults for this billing company
+    await db.update(billingCompanyAccounts)
+      .set({ isDefault: false })
+      .where(eq(billingCompanyAccounts.billingDetailsId, billingDetailsId));
+    // Set the specified account as default
+    await db.update(billingCompanyAccounts)
+      .set({ isDefault: true })
+      .where(eq(billingCompanyAccounts.id, accountId));
+  }
+
+  // Billing Company Audit Log
+  async getBillingCompanyAuditLog(billingDetailsId: string): Promise<BillingCompanyAuditLog[]> {
+    return db.select().from(billingCompanyAuditLog)
+      .where(eq(billingCompanyAuditLog.billingDetailsId, billingDetailsId))
+      .orderBy(desc(billingCompanyAuditLog.createdAt));
+  }
+
+  async createBillingCompanyAuditLog(data: InsertBillingCompanyAuditLog): Promise<BillingCompanyAuditLog> {
+    const [created] = await db.insert(billingCompanyAuditLog).values(data).returning();
+    return created;
+  }
+
+  // Billing Company Laboratories
+  async getBillingCompanyLaboratories(billingDetailsId: string): Promise<BillingCompanyLaboratory[]> {
+    return db.select().from(billingCompanyLaboratories)
+      .where(eq(billingCompanyLaboratories.billingDetailsId, billingDetailsId));
+  }
+
+  async setBillingCompanyLaboratories(billingDetailsId: string, laboratoryIds: string[]): Promise<void> {
+    // Delete existing associations
+    await db.delete(billingCompanyLaboratories)
+      .where(eq(billingCompanyLaboratories.billingDetailsId, billingDetailsId));
+    // Insert new associations
+    if (laboratoryIds.length > 0) {
+      await db.insert(billingCompanyLaboratories).values(
+        laboratoryIds.map(laboratoryId => ({ billingDetailsId, laboratoryId }))
+      );
+    }
+  }
+
+  // Billing Company Collaborators
+  async getBillingCompanyCollaborators(billingDetailsId: string): Promise<BillingCompanyCollaborator[]> {
+    return db.select().from(billingCompanyCollaborators)
+      .where(eq(billingCompanyCollaborators.billingDetailsId, billingDetailsId));
+  }
+
+  async setBillingCompanyCollaborators(billingDetailsId: string, collaboratorIds: string[]): Promise<void> {
+    // Delete existing associations
+    await db.delete(billingCompanyCollaborators)
+      .where(eq(billingCompanyCollaborators.billingDetailsId, billingDetailsId));
+    // Insert new associations
+    if (collaboratorIds.length > 0) {
+      await db.insert(billingCompanyCollaborators).values(
+        collaboratorIds.map(collaboratorId => ({ billingDetailsId, collaboratorId }))
+      );
+    }
   }
 
   // Invoice Items
