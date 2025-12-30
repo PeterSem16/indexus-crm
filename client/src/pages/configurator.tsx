@@ -3858,7 +3858,7 @@ function BillingCompaniesTab() {
   });
 
   const { data: allLaboratories = [] } = useQuery<any[]>({
-    queryKey: ["/api/laboratories"],
+    queryKey: ["/api/config/laboratories"],
   });
 
   const { data: allCollaborators = [] } = useQuery<any[]>({
