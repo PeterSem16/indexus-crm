@@ -1134,6 +1134,75 @@ function CollectionConfigDialog({
                   <span>Celkom:</span>
                   <span className="font-mono">{grossAmount.toFixed(2)} €</span>
                 </div>
+
+                {/* Payment breakdown */}
+                {selectedPaymentOptionId && (() => {
+                  const paymentOpt = paymentOptions.find((p: any) => p.id === selectedPaymentOptionId);
+                  if (!paymentOpt) return null;
+                  
+                  const fee = parseFloat(paymentOpt.paymentTypeFee || 0);
+                  const totalWithFee = grossAmount + fee;
+                  
+                  if (paymentOpt.isMultiPayment && paymentOpt.installmentCount > 1) {
+                    const installmentAmount = totalWithFee / paymentOpt.installmentCount;
+                    const frequencyLabel = paymentOpt.frequency === 'monthly' ? 'mesačne' : 
+                                          paymentOpt.frequency === 'quarterly' ? 'štvrťročne' : 
+                                          paymentOpt.frequency === 'yearly' ? 'ročne' : paymentOpt.frequency;
+                    return (
+                      <>
+                        <Separator className="my-2" />
+                        <div className="bg-blue-50 dark:bg-blue-900/20 rounded p-2 space-y-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <CreditCard className="h-4 w-4 text-blue-600" />
+                            <span className="font-medium text-blue-700 dark:text-blue-400">Rozpis splátok</span>
+                          </div>
+                          {fee > 0 && (
+                            <div className="flex justify-between text-xs">
+                              <span>Poplatok za splátky:</span>
+                              <span className="font-mono">+{fee.toFixed(2)} €</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between text-xs">
+                            <span>Celkom so splátkami:</span>
+                            <span className="font-mono">{totalWithFee.toFixed(2)} €</span>
+                          </div>
+                          <Separator className="my-1" />
+                          <div className="flex justify-between font-medium">
+                            <span>{paymentOpt.installmentCount}x {frequencyLabel}:</span>
+                            <span className="font-mono">{installmentAmount.toFixed(2)} €</span>
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {Array.from({ length: Math.min(paymentOpt.installmentCount, 6) }, (_, i) => (
+                              <div key={i} className="flex justify-between">
+                                <span>Splátka {i + 1}:</span>
+                                <span>{installmentAmount.toFixed(2)} €</span>
+                              </div>
+                            ))}
+                            {paymentOpt.installmentCount > 6 && (
+                              <div className="text-center text-muted-foreground">... a ďalších {paymentOpt.installmentCount - 6} splátok</div>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    );
+                  } else {
+                    return (
+                      <>
+                        <Separator className="my-2" />
+                        <div className="bg-green-50 dark:bg-green-900/20 rounded p-2">
+                          <div className="flex items-center gap-2 mb-1">
+                            <CreditCard className="h-4 w-4 text-green-600" />
+                            <span className="font-medium text-green-700 dark:text-green-400">Jednorázová platba</span>
+                          </div>
+                          <div className="flex justify-between font-medium">
+                            <span>K úhrade:</span>
+                            <span className="font-mono">{grossAmount.toFixed(2)} €</span>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  }
+                })()}
               </div>
             </CardContent>
           </Card>
