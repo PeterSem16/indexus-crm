@@ -1064,7 +1064,10 @@ function ProductDetailDialog({
   });
   const [newServiceData, setNewServiceData] = useState<any>({ 
     name: "", invoiceIdentifier: "", invoiceable: false, collectable: false, storable: false,
-    fromDay: 0, fromMonth: 0, fromYear: 0, toDay: 0, toMonth: 0, toYear: 0, isActive: true, blockAutomation: false, certificateTemplate: "", description: ""
+    fromDay: 0, fromMonth: 0, fromYear: 0, toDay: 0, toMonth: 0, toYear: 0, isActive: true, blockAutomation: false, certificateTemplate: "", description: "",
+    allowProformaInvoices: false, invoicingPeriodYears: null, firstInvoiceAliquote: false,
+    constantSymbol: "", startInvoicing: "", endInvoicing: "", accountingIdOffset: null,
+    ledgerAccountProforma: "", ledgerAccountInvoice: ""
   });
   const [editingInstanceId, setEditingInstanceId] = useState<string | null>(null);
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
@@ -2041,6 +2044,58 @@ function ProductDetailDialog({
                           <Label>Skladovateľné</Label>
                         </div>
                       </div>
+
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="flex items-center gap-2">
+                          <Checkbox checked={newServiceData.allowProformaInvoices} onCheckedChange={(v) => setNewServiceData({...newServiceData, allowProformaInvoices: !!v})} />
+                          <Label>Povoliť proforma faktúry</Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Checkbox checked={newServiceData.firstInvoiceAliquote} onCheckedChange={(v) => setNewServiceData({...newServiceData, firstInvoiceAliquote: !!v})} />
+                          <Label>1. faktúra je alikvotná</Label>
+                        </div>
+                        <div>
+                          <Label>Fakturačné obdobie (v rokoch)</Label>
+                          <Select value={newServiceData.invoicingPeriodYears?.toString() || ""} onValueChange={(v) => setNewServiceData({...newServiceData, invoicingPeriodYears: v ? parseInt(v) : null})}>
+                            <SelectTrigger><SelectValue placeholder="Vyberte obdobie" /></SelectTrigger>
+                            <SelectContent>
+                              {Array.from({length: 50}, (_, i) => i + 1).map(year => (
+                                <SelectItem key={year} value={year.toString()}>{year} {year === 1 ? "rok" : year < 5 ? "roky" : "rokov"}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <Label>Konštantný symbol</Label>
+                          <Input value={newServiceData.constantSymbol} onChange={(e) => setNewServiceData({...newServiceData, constantSymbol: e.target.value})} />
+                        </div>
+                        <div>
+                          <Label>Začiatok fakturácie</Label>
+                          <Input value={newServiceData.startInvoicing} onChange={(e) => setNewServiceData({...newServiceData, startInvoicing: e.target.value})} />
+                        </div>
+                        <div>
+                          <Label>Koniec fakturácie</Label>
+                          <Input value={newServiceData.endInvoicing} onChange={(e) => setNewServiceData({...newServiceData, endInvoicing: e.target.value})} />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <Label>Accounting ID Offset</Label>
+                          <Input type="number" value={newServiceData.accountingIdOffset || ""} onChange={(e) => setNewServiceData({...newServiceData, accountingIdOffset: e.target.value ? parseInt(e.target.value) : null})} />
+                        </div>
+                        <div>
+                          <Label>Účet hlavnej knihy - PROFORMA</Label>
+                          <Input value={newServiceData.ledgerAccountProforma} onChange={(e) => setNewServiceData({...newServiceData, ledgerAccountProforma: e.target.value})} />
+                        </div>
+                        <div>
+                          <Label>Účet hlavnej knihy - FAKTÚRA</Label>
+                          <Input value={newServiceData.ledgerAccountInvoice} onChange={(e) => setNewServiceData({...newServiceData, ledgerAccountInvoice: e.target.value})} />
+                        </div>
+                      </div>
                       
                       <Separator />
                       <p className="text-sm font-medium text-muted-foreground">Platnosť</p>
@@ -2167,6 +2222,58 @@ function ProductDetailDialog({
                         <div className="flex items-center gap-2">
                           <Checkbox checked={editingServiceData.storable} onCheckedChange={(v) => setEditingServiceData({...editingServiceData, storable: !!v})} />
                           <Label>Skladovateľné</Label>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="flex items-center gap-2">
+                          <Checkbox checked={editingServiceData.allowProformaInvoices} onCheckedChange={(v) => setEditingServiceData({...editingServiceData, allowProformaInvoices: !!v})} />
+                          <Label>Povoliť proforma faktúry</Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Checkbox checked={editingServiceData.firstInvoiceAliquote} onCheckedChange={(v) => setEditingServiceData({...editingServiceData, firstInvoiceAliquote: !!v})} />
+                          <Label>1. faktúra je alikvotná</Label>
+                        </div>
+                        <div>
+                          <Label>Fakturačné obdobie (v rokoch)</Label>
+                          <Select value={editingServiceData.invoicingPeriodYears?.toString() || ""} onValueChange={(v) => setEditingServiceData({...editingServiceData, invoicingPeriodYears: v ? parseInt(v) : null})}>
+                            <SelectTrigger><SelectValue placeholder="Vyberte obdobie" /></SelectTrigger>
+                            <SelectContent>
+                              {Array.from({length: 50}, (_, i) => i + 1).map(year => (
+                                <SelectItem key={year} value={year.toString()}>{year} {year === 1 ? "rok" : year < 5 ? "roky" : "rokov"}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <Label>Konštantný symbol</Label>
+                          <Input value={editingServiceData.constantSymbol || ""} onChange={(e) => setEditingServiceData({...editingServiceData, constantSymbol: e.target.value})} />
+                        </div>
+                        <div>
+                          <Label>Začiatok fakturácie</Label>
+                          <Input value={editingServiceData.startInvoicing || ""} onChange={(e) => setEditingServiceData({...editingServiceData, startInvoicing: e.target.value})} />
+                        </div>
+                        <div>
+                          <Label>Koniec fakturácie</Label>
+                          <Input value={editingServiceData.endInvoicing || ""} onChange={(e) => setEditingServiceData({...editingServiceData, endInvoicing: e.target.value})} />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <Label>Accounting ID Offset</Label>
+                          <Input type="number" value={editingServiceData.accountingIdOffset || ""} onChange={(e) => setEditingServiceData({...editingServiceData, accountingIdOffset: e.target.value ? parseInt(e.target.value) : null})} />
+                        </div>
+                        <div>
+                          <Label>Účet hlavnej knihy - PROFORMA</Label>
+                          <Input value={editingServiceData.ledgerAccountProforma || ""} onChange={(e) => setEditingServiceData({...editingServiceData, ledgerAccountProforma: e.target.value})} />
+                        </div>
+                        <div>
+                          <Label>Účet hlavnej knihy - FAKTÚRA</Label>
+                          <Input value={editingServiceData.ledgerAccountInvoice || ""} onChange={(e) => setEditingServiceData({...editingServiceData, ledgerAccountInvoice: e.target.value})} />
                         </div>
                       </div>
                       
