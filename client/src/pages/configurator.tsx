@@ -21,7 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Unlock, Check, Hash, Info } from "lucide-react";
+import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Unlock, Check, Hash, Info, X } from "lucide-react";
 import { COUNTRIES } from "@shared/schema";
 import { InvoiceDesigner, InvoiceDesignerConfig } from "@/components/invoice-designer";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -303,6 +303,16 @@ function isoStringToComponents(dateStr: string | null | undefined): { day: numbe
     month: date.getMonth() + 1,
     year: date.getFullYear(),
   };
+}
+
+function formatDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return "";
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return "";
+  const day = date.getDate().toString().padStart(2, '0');
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}.${month}.${year}`;
 }
 
 // Helper function to generate installments based on calculation mode
