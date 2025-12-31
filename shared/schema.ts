@@ -343,6 +343,25 @@ export const instancePaymentOptions = pgTable("instance_payment_options", {
   toDate: timestamp("to_date"),
   isActive: boolean("is_active").notNull().default(true),
   description: text("description"),
+  // Multi-payment installment fields
+  isMultiPayment: boolean("is_multi_payment").notNull().default(false),
+  frequency: text("frequency"), // monthly, quarterly, semi_annually, annually
+  installmentCount: integer("installment_count"),
+  calculationMode: text("calculation_mode"), // fixed, percentage
+  basePriceId: varchar("base_price_id"), // FK to instance_prices for calculation
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+// Payment Installments - individual installments for multi-payment options
+export const paymentInstallments = pgTable("payment_installments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  paymentOptionId: varchar("payment_option_id").notNull(),
+  installmentNumber: integer("installment_number").notNull(),
+  label: text("label").notNull(), // "First installment", "Second installment", etc.
+  calculationType: text("calculation_type").notNull().default("fixed"), // fixed, percentage
+  amount: decimal("amount", { precision: 10, scale: 2 }),
+  percentage: decimal("percentage", { precision: 5, scale: 2 }),
+  dueOffsetMonths: integer("due_offset_months").notNull().default(0),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
@@ -937,10 +956,32 @@ export const insertInstancePaymentOptionSchema = createInsertSchema(instancePaym
   toDate: z.string().optional().nullable(),
   isActive: z.boolean().optional().default(true),
   description: z.string().optional().nullable(),
+  isMultiPayment: z.boolean().optional().default(false),
+  frequency: z.string().optional().nullable(),
+  installmentCount: z.number().int().optional().nullable(),
+  calculationMode: z.string().optional().nullable(),
+  basePriceId: z.string().optional().nullable(),
 });
 
 export type InsertInstancePaymentOption = z.infer<typeof insertInstancePaymentOptionSchema>;
 export type InstancePaymentOption = typeof instancePaymentOptions.$inferSelect;
+
+// Payment Installments schemas
+export const insertPaymentInstallmentSchema = createInsertSchema(paymentInstallments).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  paymentOptionId: z.string(),
+  installmentNumber: z.number().int(),
+  label: z.string().min(1),
+  calculationType: z.string().optional().default("fixed"),
+  amount: z.string().optional().nullable(),
+  percentage: z.string().optional().nullable(),
+  dueOffsetMonths: z.number().int().optional().default(0),
+});
+
+export type InsertPaymentInstallment = z.infer<typeof insertPaymentInstallmentSchema>;
+export type PaymentInstallment = typeof paymentInstallments.$inferSelect;
 
 // Instance Discounts schemas
 export const insertInstanceDiscountSchema = createInsertSchema(instanceDiscounts).omit({

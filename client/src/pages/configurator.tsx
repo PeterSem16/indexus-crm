@@ -294,6 +294,56 @@ function componentsToISOString(day: number, month: number, year: number): string
   return date.toISOString();
 }
 
+// Helper function to generate installments based on calculation mode
+function generateInstallments(
+  count: number, 
+  basePrice: number, 
+  calculationMode: "fixed" | "percentage",
+  frequency: string
+): any[] {
+  const installmentLabels = [
+    "Prvá splátka", "Druhá splátka", "Tretia splátka", "Štvrtá splátka",
+    "Piata splátka", "Šiesta splátka", "Siedma splátka", "Ôsma splátka",
+    "Deviata splátka", "Desiata splátka", "Jedenásta splátka", "Dvanásta splátka"
+  ];
+  
+  const frequencyMonths: Record<string, number> = {
+    monthly: 1,
+    quarterly: 3,
+    semi_annually: 6,
+    annually: 12
+  };
+  
+  const offsetMonths = frequencyMonths[frequency] || 1;
+  
+  if (calculationMode === "fixed") {
+    const amountPerInstallment = Math.floor((basePrice / count) * 100) / 100;
+    const remainder = basePrice - (amountPerInstallment * (count - 1));
+    
+    return Array.from({ length: count }, (_, i) => ({
+      installmentNumber: i + 1,
+      label: installmentLabels[i] || `${i + 1}. splátka`,
+      calculationType: "fixed",
+      amount: i === count - 1 ? remainder.toFixed(2) : amountPerInstallment.toFixed(2),
+      percentage: null,
+      dueOffsetMonths: i * offsetMonths
+    }));
+  } else {
+    // Percentage mode - equal percentages by default
+    const percentPerInstallment = Math.floor((100 / count) * 100) / 100;
+    const remainderPercent = 100 - (percentPerInstallment * (count - 1));
+    
+    return Array.from({ length: count }, (_, i) => ({
+      installmentNumber: i + 1,
+      label: installmentLabels[i] || `${i + 1}. splátka`,
+      calculationType: "percentage",
+      amount: ((basePrice * (i === count - 1 ? remainderPercent : percentPerInstallment)) / 100).toFixed(2),
+      percentage: i === count - 1 ? remainderPercent.toFixed(2) : percentPerInstallment.toFixed(2),
+      dueOffsetMonths: i * offsetMonths
+    }));
+  }
+}
+
 function ProductWizard({ 
   open, 
   onOpenChange,
@@ -938,10 +988,26 @@ function ProductDetailDialog({
   });
 
   const createPaymentMutation = useMutation({
-    mutationFn: (data: Partial<InstancePaymentOption>) => apiRequest("POST", "/api/instance-payment-options", data),
+    mutationFn: async (data: Partial<InstancePaymentOption> & { installments?: any[] }) => {
+      const { installments, ...paymentData } = data;
+      const result = await apiRequest("POST", "/api/instance-payment-options", paymentData);
+      // If there are installments and this is a multi-payment option, save them
+      if (installments && installments.length > 0 && result.id) {
+        const installmentsWithOption = installments.map(inst => ({
+          ...inst,
+          paymentOptionId: result.id
+        }));
+        await apiRequest("POST", "/api/payment-installments/bulk", { 
+          paymentOptionId: result.id, 
+          installments: installmentsWithOption 
+        });
+      }
+      return result;
+    },
     onSuccess: () => {
       refetchPayments();
       setIsAddingPayment(false);
+      setNewPaymentInstallments([]);
       toast({ title: t.success.created });
     },
   });
@@ -1056,8 +1122,11 @@ function ProductDetailDialog({
   });
   const [newPaymentData, setNewPaymentData] = useState<any>({ 
     name: "", type: "", invoiceItemText: "", analyticalAccount: "", accountingCode: "",
-    paymentTypeFee: "", fromDay: 0, fromMonth: 0, fromYear: 0, toDay: 0, toMonth: 0, toYear: 0, isActive: true, description: "", amendment: ""
+    paymentTypeFee: "", fromDay: 0, fromMonth: 0, fromYear: 0, toDay: 0, toMonth: 0, toYear: 0, isActive: true, description: "", amendment: "",
+    isMultiPayment: false, frequency: "monthly", installmentCount: 1, calculationMode: "fixed", basePriceId: ""
   });
+  const [newPaymentInstallments, setNewPaymentInstallments] = useState<any[]>([]);
+  const [editingPaymentInstallments, setEditingPaymentInstallments] = useState<any[]>([]);
   const [newDiscountData, setNewDiscountData] = useState<any>({ 
     name: "", type: "", invoiceItemText: "", analyticalAccount: "", accountingCode: "",
     isFixed: false, fixedValue: "", isPercentage: true, percentageValue: "",
@@ -1651,16 +1720,206 @@ function ProductDetailDialog({
                               <Label>Popis</Label>
                               <Textarea value={newPaymentData.description} onChange={(e) => setNewPaymentData({...newPaymentData, description: e.target.value})} className="min-h-[60px]" />
                             </div>
+                            
+                            <Separator />
+                            <div className="flex items-center gap-2">
+                              <Checkbox 
+                                id="isMultiPayment" 
+                                checked={newPaymentData.isMultiPayment} 
+                                onCheckedChange={(v) => setNewPaymentData({...newPaymentData, isMultiPayment: !!v})} 
+                              />
+                              <Label htmlFor="isMultiPayment" className="font-medium">Viacnásobná platba (splátky)</Label>
+                            </div>
+                            
+                            {newPaymentData.isMultiPayment && (
+                              <div className="space-y-4 p-4 bg-muted/50 rounded-md">
+                                <div className="grid grid-cols-4 gap-3">
+                                  <div>
+                                    <Label>Frekvencia</Label>
+                                    <Select value={newPaymentData.frequency} onValueChange={(v) => setNewPaymentData({...newPaymentData, frequency: v})}>
+                                      <SelectTrigger><SelectValue /></SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="monthly">Mesačne</SelectItem>
+                                        <SelectItem value="quarterly">Štvrťročne</SelectItem>
+                                        <SelectItem value="semi_annually">Polročne</SelectItem>
+                                        <SelectItem value="annually">Ročne</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div>
+                                    <Label>Počet splátok</Label>
+                                    <Input 
+                                      type="number" 
+                                      min="1" 
+                                      max="12" 
+                                      value={newPaymentData.installmentCount} 
+                                      onChange={(e) => setNewPaymentData({...newPaymentData, installmentCount: parseInt(e.target.value) || 1})} 
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label>Typ výpočtu</Label>
+                                    <Select value={newPaymentData.calculationMode} onValueChange={(v) => setNewPaymentData({...newPaymentData, calculationMode: v})}>
+                                      <SelectTrigger><SelectValue /></SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="fixed">Fixná suma</SelectItem>
+                                        <SelectItem value="percentage">Percentuálna</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div>
+                                    <Label>Základná cena</Label>
+                                    <Select value={newPaymentData.basePriceId} onValueChange={(v) => setNewPaymentData({...newPaymentData, basePriceId: v})}>
+                                      <SelectTrigger><SelectValue placeholder="Vyberte cenu" /></SelectTrigger>
+                                      <SelectContent>
+                                        {instancePrices.map((price: any) => (
+                                          <SelectItem key={price.id} value={price.id}>{price.name} - {price.price} {price.currency}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                </div>
+                                
+                                <div className="flex justify-end">
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    disabled={!newPaymentData.basePriceId}
+                                    onClick={() => {
+                                      const selectedPrice = instancePrices.find((p: any) => p.id === newPaymentData.basePriceId);
+                                      if (selectedPrice) {
+                                        const installments = generateInstallments(
+                                          newPaymentData.installmentCount,
+                                          parseFloat(selectedPrice.price),
+                                          newPaymentData.calculationMode as "fixed" | "percentage",
+                                          newPaymentData.frequency
+                                        );
+                                        setNewPaymentInstallments(installments);
+                                      }
+                                    }}
+                                  >
+                                    Generovať splátky
+                                  </Button>
+                                </div>
+                                
+                                {newPaymentInstallments.length > 0 && (
+                                  <div className="border rounded-md overflow-hidden">
+                                    <table className="w-full text-sm">
+                                      <thead className="bg-muted">
+                                        <tr>
+                                          <th className="p-2 text-left">#</th>
+                                          <th className="p-2 text-left">Názov</th>
+                                          <th className="p-2 text-left">Typ</th>
+                                          {newPaymentData.calculationMode === "percentage" && <th className="p-2 text-right">%</th>}
+                                          <th className="p-2 text-right">Suma</th>
+                                          <th className="p-2 text-right">Splatnosť (mesiace)</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {newPaymentInstallments.map((inst, idx) => (
+                                          <tr key={idx} className="border-t">
+                                            <td className="p-2">{inst.installmentNumber}</td>
+                                            <td className="p-2">
+                                              <Input 
+                                                value={inst.label} 
+                                                onChange={(e) => {
+                                                  const updated = [...newPaymentInstallments];
+                                                  updated[idx].label = e.target.value;
+                                                  setNewPaymentInstallments(updated);
+                                                }}
+                                                className="h-8"
+                                              />
+                                            </td>
+                                            <td className="p-2">
+                                              <Select 
+                                                value={inst.calculationType} 
+                                                onValueChange={(v) => {
+                                                  const updated = [...newPaymentInstallments];
+                                                  updated[idx].calculationType = v;
+                                                  setNewPaymentInstallments(updated);
+                                                }}
+                                              >
+                                                <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                                                <SelectContent>
+                                                  <SelectItem value="fixed">Fixná</SelectItem>
+                                                  <SelectItem value="percentage">%</SelectItem>
+                                                </SelectContent>
+                                              </Select>
+                                            </td>
+                                            {newPaymentData.calculationMode === "percentage" && (
+                                              <td className="p-2 text-right">
+                                                <Input 
+                                                  type="number" 
+                                                  step="0.01"
+                                                  value={inst.percentage || ""} 
+                                                  onChange={(e) => {
+                                                    const updated = [...newPaymentInstallments];
+                                                    updated[idx].percentage = e.target.value;
+                                                    const selectedPrice = instancePrices.find((p: any) => p.id === newPaymentData.basePriceId);
+                                                    if (selectedPrice) {
+                                                      updated[idx].amount = ((parseFloat(selectedPrice.price) * parseFloat(e.target.value || "0")) / 100).toFixed(2);
+                                                    }
+                                                    setNewPaymentInstallments(updated);
+                                                  }}
+                                                  className="h-8 w-20 text-right"
+                                                />
+                                              </td>
+                                            )}
+                                            <td className="p-2 text-right">
+                                              <Input 
+                                                type="number" 
+                                                step="0.01"
+                                                value={inst.amount} 
+                                                onChange={(e) => {
+                                                  const updated = [...newPaymentInstallments];
+                                                  updated[idx].amount = e.target.value;
+                                                  setNewPaymentInstallments(updated);
+                                                }}
+                                                className="h-8 w-24 text-right"
+                                              />
+                                            </td>
+                                            <td className="p-2 text-right">
+                                              <Input 
+                                                type="number" 
+                                                value={inst.dueOffsetMonths} 
+                                                onChange={(e) => {
+                                                  const updated = [...newPaymentInstallments];
+                                                  updated[idx].dueOffsetMonths = parseInt(e.target.value) || 0;
+                                                  setNewPaymentInstallments(updated);
+                                                }}
+                                                className="h-8 w-20 text-right"
+                                              />
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                      <tfoot className="bg-muted">
+                                        <tr>
+                                          <td colSpan={newPaymentData.calculationMode === "percentage" ? 4 : 3} className="p-2 text-right font-medium">Celkom:</td>
+                                          <td className="p-2 text-right font-medium">
+                                            {newPaymentInstallments.reduce((sum, inst) => sum + parseFloat(inst.amount || "0"), 0).toFixed(2)}
+                                          </td>
+                                          <td></td>
+                                        </tr>
+                                      </tfoot>
+                                    </table>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                           <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
-                            <Button size="sm" variant="outline" onClick={() => setIsAddingPayment(false)}>{t.common.cancel}</Button>
-                            <Button size="sm" onClick={() => createPaymentMutation.mutate({ 
-                              ...newPaymentData, 
-                              instanceId: selectedInstanceId!, 
-                              instanceType: "market_instance",
-                              fromDate: componentsToISOString(newPaymentData.fromDay, newPaymentData.fromMonth, newPaymentData.fromYear),
-                              toDate: componentsToISOString(newPaymentData.toDay, newPaymentData.toMonth, newPaymentData.toYear),
-                            })}>{t.common.save}</Button>
+                            <Button size="sm" variant="outline" onClick={() => { setIsAddingPayment(false); setNewPaymentInstallments([]); }}>{t.common.cancel}</Button>
+                            <Button size="sm" onClick={() => {
+                              const { fromDay, fromMonth, fromYear, toDay, toMonth, toYear, ...paymentData } = newPaymentData;
+                              createPaymentMutation.mutate({ 
+                                ...paymentData, 
+                                instanceId: selectedInstanceId!, 
+                                instanceType: "market_instance",
+                                fromDate: componentsToISOString(fromDay, fromMonth, fromYear),
+                                toDate: componentsToISOString(toDay, toMonth, toYear),
+                                installments: newPaymentData.isMultiPayment ? newPaymentInstallments : undefined,
+                              });
+                            }}>{t.common.save}</Button>
                           </div>
                         </Card>
                       )}
@@ -1669,6 +1928,15 @@ function ProductDetailDialog({
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-medium">{payment.name}</span>
                             {payment.type && <Badge variant="outline">{payment.type}</Badge>}
+                            {payment.isMultiPayment && (
+                              <Badge variant="secondary">
+                                Splátky: {payment.installmentCount}x {
+                                  payment.frequency === "monthly" ? "mesačne" :
+                                  payment.frequency === "quarterly" ? "štvrťročne" :
+                                  payment.frequency === "semi_annually" ? "polročne" : "ročne"
+                                }
+                              </Badge>
+                            )}
                             {payment.paymentTypeFee && <span className="text-sm">Poplatok: {payment.paymentTypeFee}</span>}
                             {(payment.fromDate || payment.toDate) && (
                               <span className="text-xs text-muted-foreground">

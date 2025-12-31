@@ -661,6 +661,67 @@ export async function registerRoutes(
     }
   });
 
+  // Payment Installments API
+  app.get("/api/payment-installments/:paymentOptionId", requireAuth, async (req, res) => {
+    try {
+      const installments = await storage.getPaymentInstallments(req.params.paymentOptionId);
+      res.json(installments);
+    } catch (error) {
+      console.error("Error fetching payment installments:", error);
+      res.status(500).json({ error: "Failed to fetch payment installments" });
+    }
+  });
+
+  app.post("/api/payment-installments", requireAuth, async (req, res) => {
+    try {
+      const installment = await storage.createPaymentInstallment(req.body);
+      res.status(201).json(installment);
+    } catch (error) {
+      console.error("Error creating payment installment:", error);
+      res.status(500).json({ error: "Failed to create payment installment" });
+    }
+  });
+
+  app.post("/api/payment-installments/bulk", requireAuth, async (req, res) => {
+    try {
+      const { paymentOptionId, installments } = req.body;
+      // First delete existing installments
+      await storage.deletePaymentInstallmentsByOption(paymentOptionId);
+      // Then create new ones
+      const created = await storage.bulkCreatePaymentInstallments(installments);
+      res.status(201).json(created);
+    } catch (error) {
+      console.error("Error bulk creating payment installments:", error);
+      res.status(500).json({ error: "Failed to create payment installments" });
+    }
+  });
+
+  app.patch("/api/payment-installments/:id", requireAuth, async (req, res) => {
+    try {
+      const installment = await storage.updatePaymentInstallment(req.params.id, req.body);
+      if (!installment) {
+        return res.status(404).json({ error: "Payment installment not found" });
+      }
+      res.json(installment);
+    } catch (error) {
+      console.error("Error updating payment installment:", error);
+      res.status(500).json({ error: "Failed to update payment installment" });
+    }
+  });
+
+  app.delete("/api/payment-installments/:id", requireAuth, async (req, res) => {
+    try {
+      const deleted = await storage.deletePaymentInstallment(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Payment installment not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting payment installment:", error);
+      res.status(500).json({ error: "Failed to delete payment installment" });
+    }
+  });
+
   // Instance Discounts API
   app.get("/api/instance-discounts/:instanceId/:instanceType", requireAuth, async (req, res) => {
     try {

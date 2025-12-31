@@ -8,7 +8,7 @@ import {
   serviceConfigurations, serviceInstances, numberRanges, invoiceTemplates, invoiceLayouts,
   roles, roleModulePermissions, roleFieldPermissions, userRoles, departments,
   billingCompanyAccounts, billingCompanyAuditLog, billingCompanyLaboratories, billingCompanyCollaborators, billingCompanyCouriers,
-  marketProductInstances, instancePrices, instancePaymentOptions, instanceDiscounts, marketProductServices,
+  marketProductInstances, instancePrices, instancePaymentOptions, instanceDiscounts, marketProductServices, paymentInstallments,
   type User, type InsertUser, type UpdateUser, type SafeUser,
   type Customer, type InsertCustomer,
   type Product, type InsertProduct,
@@ -115,6 +115,14 @@ export interface IStorage {
   createInstancePaymentOption(data: any): Promise<any>;
   updateInstancePaymentOption(id: string, data: any): Promise<any | undefined>;
   deleteInstancePaymentOption(id: string): Promise<boolean>;
+
+  // Payment Installments
+  getPaymentInstallments(paymentOptionId: string): Promise<any[]>;
+  createPaymentInstallment(data: any): Promise<any>;
+  updatePaymentInstallment(id: string, data: any): Promise<any | undefined>;
+  deletePaymentInstallment(id: string): Promise<boolean>;
+  deletePaymentInstallmentsByOption(paymentOptionId: string): Promise<boolean>;
+  bulkCreatePaymentInstallments(data: any[]): Promise<any[]>;
 
   // Instance Discounts
   getInstanceDiscounts(instanceId: string, instanceType: string): Promise<any[]>;
@@ -619,8 +627,43 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteInstancePaymentOption(id: string): Promise<boolean> {
+    // Also delete related installments
+    await db.delete(paymentInstallments).where(eq(paymentInstallments.paymentOptionId, id));
     const result = await db.delete(instancePaymentOptions).where(eq(instancePaymentOptions.id, id)).returning();
     return result.length > 0;
+  }
+
+  // Payment Installments
+  async getPaymentInstallments(paymentOptionId: string): Promise<any[]> {
+    return await db.select().from(paymentInstallments)
+      .where(eq(paymentInstallments.paymentOptionId, paymentOptionId))
+      .orderBy(paymentInstallments.installmentNumber);
+  }
+
+  async createPaymentInstallment(data: any): Promise<any> {
+    const [installment] = await db.insert(paymentInstallments).values(data).returning();
+    return installment;
+  }
+
+  async updatePaymentInstallment(id: string, data: any): Promise<any | undefined> {
+    const [installment] = await db.update(paymentInstallments).set(data).where(eq(paymentInstallments.id, id)).returning();
+    return installment;
+  }
+
+  async deletePaymentInstallment(id: string): Promise<boolean> {
+    const result = await db.delete(paymentInstallments).where(eq(paymentInstallments.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async deletePaymentInstallmentsByOption(paymentOptionId: string): Promise<boolean> {
+    await db.delete(paymentInstallments).where(eq(paymentInstallments.paymentOptionId, paymentOptionId));
+    return true;
+  }
+
+  async bulkCreatePaymentInstallments(data: any[]): Promise<any[]> {
+    if (data.length === 0) return [];
+    const result = await db.insert(paymentInstallments).values(data).returning();
+    return result;
   }
 
   // Instance Discounts
