@@ -395,6 +395,8 @@ export const instanceVatRates = pgTable("instance_vat_rates", {
   category: text("category"),
   accountingCode: text("accounting_code"),
   vatRate: decimal("vat_rate", { precision: 5, scale: 2 }),
+  fromDate: timestamp("from_date"),
+  toDate: timestamp("to_date"),
   description: text("description"),
   createAsNewVat: boolean("create_as_new_vat").notNull().default(false),
   isActive: boolean("is_active").notNull().default(true),

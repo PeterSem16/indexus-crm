@@ -294,6 +294,17 @@ function componentsToISOString(day: number, month: number, year: number): string
   return date.toISOString();
 }
 
+function isoStringToComponents(dateStr: string | null | undefined): { day: number; month: number; year: number } {
+  if (!dateStr) return { day: 0, month: 0, year: 0 };
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return { day: 0, month: 0, year: 0 };
+  return {
+    day: date.getDate(),
+    month: date.getMonth() + 1,
+    year: date.getFullYear(),
+  };
+}
+
 // Helper function to generate installments based on calculation mode
 function generateInstallments(
   count: number, 
@@ -864,6 +875,7 @@ function ProductDetailDialog({
   const [isAddingPayment, setIsAddingPayment] = useState(false);
   const [isAddingDiscount, setIsAddingDiscount] = useState(false);
   const [isAddingVat, setIsAddingVat] = useState(false);
+  const [isAddingServiceVat, setIsAddingServiceVat] = useState(false);
   
   const [productData, setProductData] = useState<any>({
     name: "", description: "", countries: [] as string[], isActive: true
@@ -957,6 +969,19 @@ function ProductDetailDialog({
       return res.json();
     },
     enabled: !!selectedInstanceId,
+  });
+
+  const selectedService = (services as any[]).find(s => s.id === selectedServiceId);
+
+  const { data: serviceVatRates = [], refetch: refetchServiceVatRates } = useQuery<any[]>({
+    queryKey: ["/api/instance-vat-rates", selectedServiceId, "service"],
+    queryFn: async () => {
+      if (!selectedServiceId) return [];
+      const res = await fetch(`/api/instance-vat-rates/${selectedServiceId}/service`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!selectedServiceId,
   });
 
   const { data: billingCompanies = [] } = useQuery<BillingDetails[]>({
@@ -1054,8 +1079,18 @@ function ProductDetailDialog({
     onSuccess: () => {
       refetchVatRates();
       setIsAddingVat(false);
-      setNewVatRateData({ category: "", accountingCode: "", vatRate: "", createAsNewVat: false });
+      setNewVatRateData({ category: "", accountingCode: "", vatRate: "", createAsNewVat: false, fromDay: 0, fromMonth: 0, fromYear: 0, toDay: 0, toMonth: 0, toYear: 0 });
       toast({ title: t.success.created });
+    },
+  });
+
+  const updateVatRateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => apiRequest("PATCH", `/api/instance-vat-rates/${id}`, data),
+    onSuccess: () => {
+      refetchVatRates();
+      setEditingVatId(null);
+      setEditingVatData(null);
+      toast({ title: t.success.updated });
     },
   });
 
@@ -1063,6 +1098,34 @@ function ProductDetailDialog({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/instance-vat-rates/${id}`),
     onSuccess: () => {
       refetchVatRates();
+      toast({ title: t.success.deleted });
+    },
+  });
+
+  const createServiceVatMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", "/api/instance-vat-rates", data),
+    onSuccess: () => {
+      refetchServiceVatRates();
+      setIsAddingServiceVat(false);
+      setNewServiceVatData({ category: "", accountingCode: "", vatRate: "", createAsNewVat: false, fromDay: 0, fromMonth: 0, fromYear: 0, toDay: 0, toMonth: 0, toYear: 0 });
+      toast({ title: t.success.created });
+    },
+  });
+
+  const updateServiceVatMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => apiRequest("PATCH", `/api/instance-vat-rates/${id}`, data),
+    onSuccess: () => {
+      refetchServiceVatRates();
+      setEditingServiceVatId(null);
+      setEditingServiceVatData(null);
+      toast({ title: t.success.updated });
+    },
+  });
+
+  const deleteServiceVatMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/instance-vat-rates/${id}`),
+    onSuccess: () => {
+      refetchServiceVatRates();
       toast({ title: t.success.deleted });
     },
   });
@@ -1163,8 +1226,17 @@ function ProductDetailDialog({
     fromDay: 0, fromMonth: 0, fromYear: 0, toDay: 0, toMonth: 0, toYear: 0, isActive: true, description: ""
   });
   const [newVatRateData, setNewVatRateData] = useState<any>({ 
-    category: "", accountingCode: "", vatRate: "", createAsNewVat: false
+    category: "", accountingCode: "", vatRate: "", createAsNewVat: false,
+    fromDay: 0, fromMonth: 0, fromYear: 0, toDay: 0, toMonth: 0, toYear: 0
   });
+  const [editingVatId, setEditingVatId] = useState<string | null>(null);
+  const [editingVatData, setEditingVatData] = useState<any>(null);
+  const [newServiceVatData, setNewServiceVatData] = useState<any>({ 
+    category: "", accountingCode: "", vatRate: "", createAsNewVat: false,
+    fromDay: 0, fromMonth: 0, fromYear: 0, toDay: 0, toMonth: 0, toYear: 0
+  });
+  const [editingServiceVatId, setEditingServiceVatId] = useState<string | null>(null);
+  const [editingServiceVatData, setEditingServiceVatData] = useState<any>(null);
   const [newServiceData, setNewServiceData] = useState<any>({ 
     name: "", invoiceIdentifier: "", invoiceable: false, collectable: false, storable: false,
     fromDay: 0, fromMonth: 0, fromYear: 0, toDay: 0, toMonth: 0, toYear: 0, isActive: true, blockAutomation: false, certificateTemplate: "", description: "",
@@ -2560,6 +2632,28 @@ function ProductDetailDialog({
                                 />
                               </div>
                             </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <DateFields
+                                label="Platné od"
+                                dayValue={newVatRateData.fromDay}
+                                monthValue={newVatRateData.fromMonth}
+                                yearValue={newVatRateData.fromYear}
+                                onDayChange={(v) => setNewVatRateData({...newVatRateData, fromDay: v})}
+                                onMonthChange={(v) => setNewVatRateData({...newVatRateData, fromMonth: v})}
+                                onYearChange={(v) => setNewVatRateData({...newVatRateData, fromYear: v})}
+                                testIdPrefix="new-vat-from"
+                              />
+                              <DateFields
+                                label="Platné do"
+                                dayValue={newVatRateData.toDay}
+                                monthValue={newVatRateData.toMonth}
+                                yearValue={newVatRateData.toYear}
+                                onDayChange={(v) => setNewVatRateData({...newVatRateData, toDay: v})}
+                                onMonthChange={(v) => setNewVatRateData({...newVatRateData, toMonth: v})}
+                                onYearChange={(v) => setNewVatRateData({...newVatRateData, toYear: v})}
+                                testIdPrefix="new-vat-to"
+                              />
+                            </div>
                             <div className="flex items-center gap-2">
                               <Switch 
                                 checked={newVatRateData.createAsNewVat} 
@@ -2581,6 +2675,8 @@ function ProductDetailDialog({
                                   category: newVatRateData.category,
                                   accountingCode: newVatRateData.accountingCode || null,
                                   vatRate: newVatRateData.vatRate === "" ? null : newVatRateData.vatRate,
+                                  fromDate: componentsToISOString(newVatRateData.fromDay, newVatRateData.fromMonth, newVatRateData.fromYear),
+                                  toDate: componentsToISOString(newVatRateData.toDay, newVatRateData.toMonth, newVatRateData.toYear),
                                   createAsNewVat: newVatRateData.createAsNewVat,
                                 };
                                 createVatRateMutation.mutate(payload);
@@ -2590,15 +2686,112 @@ function ProductDetailDialog({
                         </Card>
                       )}
                       {instanceVatRates.map((vat: any) => (
-                        <div key={vat.id} className="flex items-center justify-between p-2 border rounded-md">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-medium">{vat.category}</span>
-                            {vat.vatRate && <Badge variant="outline">{vat.vatRate}%</Badge>}
-                            {vat.accountingCode && <span className="text-sm text-muted-foreground">{vat.accountingCode}</span>}
-                            {vat.createAsNewVat && <Badge variant="secondary">Nové VAT</Badge>}
+                        editingVatId === vat.id ? (
+                          <Card key={vat.id} className="p-4">
+                            <div className="space-y-4">
+                              <div className="grid grid-cols-3 gap-3">
+                                <div>
+                                  <Label>Kategória</Label>
+                                  <Input 
+                                    value={editingVatData.category} 
+                                    onChange={(e) => setEditingVatData({...editingVatData, category: e.target.value})} 
+                                    data-testid="input-edit-vat-category"
+                                  />
+                                </div>
+                                <div>
+                                  <Label>Účtovný kód</Label>
+                                  <Input 
+                                    value={editingVatData.accountingCode || ""} 
+                                    onChange={(e) => setEditingVatData({...editingVatData, accountingCode: e.target.value})}
+                                    data-testid="input-edit-vat-accounting-code"
+                                  />
+                                </div>
+                                <div>
+                                  <Label>VAT sadzba (%)</Label>
+                                  <Input 
+                                    type="number" 
+                                    step="0.01" 
+                                    value={editingVatData.vatRate || ""} 
+                                    onChange={(e) => setEditingVatData({...editingVatData, vatRate: e.target.value})}
+                                    data-testid="input-edit-vat-rate"
+                                  />
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-3">
+                                <DateFields
+                                  label="Platné od"
+                                  dayValue={editingVatData.fromDay}
+                                  monthValue={editingVatData.fromMonth}
+                                  yearValue={editingVatData.fromYear}
+                                  onDayChange={(v) => setEditingVatData({...editingVatData, fromDay: v})}
+                                  onMonthChange={(v) => setEditingVatData({...editingVatData, fromMonth: v})}
+                                  onYearChange={(v) => setEditingVatData({...editingVatData, fromYear: v})}
+                                  testIdPrefix="edit-vat-from"
+                                />
+                                <DateFields
+                                  label="Platné do"
+                                  dayValue={editingVatData.toDay}
+                                  monthValue={editingVatData.toMonth}
+                                  yearValue={editingVatData.toYear}
+                                  onDayChange={(v) => setEditingVatData({...editingVatData, toDay: v})}
+                                  onMonthChange={(v) => setEditingVatData({...editingVatData, toMonth: v})}
+                                  onYearChange={(v) => setEditingVatData({...editingVatData, toYear: v})}
+                                  testIdPrefix="edit-vat-to"
+                                />
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Switch 
+                                  checked={editingVatData.createAsNewVat} 
+                                  onCheckedChange={(v) => setEditingVatData({...editingVatData, createAsNewVat: v})}
+                                  data-testid="switch-edit-vat-create-as-new"
+                                />
+                                <Label>Vytvoriť ako nové VAT</Label>
+                              </div>
+                            </div>
+                            <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
+                              <Button size="sm" variant="outline" onClick={() => { setEditingVatId(null); setEditingVatData(null); }}>{t.common.cancel}</Button>
+                              <Button 
+                                size="sm" 
+                                onClick={() => {
+                                  const { id, instanceId, instanceType, createdAt, fromDay, fromMonth, fromYear, toDay, toMonth, toYear, ...updateData } = editingVatData;
+                                  updateVatRateMutation.mutate({ 
+                                    id: editingVatId, 
+                                    data: {
+                                      ...updateData,
+                                      vatRate: updateData.vatRate === "" ? null : updateData.vatRate,
+                                      accountingCode: updateData.accountingCode || null,
+                                      fromDate: componentsToISOString(fromDay, fromMonth, fromYear),
+                                      toDate: componentsToISOString(toDay, toMonth, toYear),
+                                    }
+                                  });
+                                }}
+                              >{t.common.save}</Button>
+                            </div>
+                          </Card>
+                        ) : (
+                          <div key={vat.id} className="flex items-center justify-between p-2 border rounded-md">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-medium">{vat.category}</span>
+                              {vat.vatRate && <Badge variant="outline">{vat.vatRate}%</Badge>}
+                              {vat.accountingCode && <span className="text-sm text-muted-foreground">{vat.accountingCode}</span>}
+                              {(vat.fromDate || vat.toDate) && (
+                                <span className="text-sm text-muted-foreground">
+                                  {vat.fromDate ? formatDate(vat.fromDate) : "—"} – {vat.toDate ? formatDate(vat.toDate) : "—"}
+                                </span>
+                              )}
+                              {vat.createAsNewVat && <Badge variant="secondary">Nové VAT</Badge>}
+                            </div>
+                            <div className="flex gap-1">
+                              <Button variant="ghost" size="icon" onClick={() => {
+                                const fromParts = isoStringToComponents(vat.fromDate);
+                                const toParts = isoStringToComponents(vat.toDate);
+                                setEditingVatId(vat.id);
+                                setEditingVatData({ ...vat, fromDay: fromParts.day, fromMonth: fromParts.month, fromYear: fromParts.year, toDay: toParts.day, toMonth: toParts.month, toYear: toParts.year });
+                              }}><Pencil className="h-4 w-4" /></Button>
+                              <Button variant="ghost" size="icon" onClick={() => deleteVatRateMutation.mutate(vat.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                            </div>
                           </div>
-                          <Button variant="ghost" size="icon" onClick={() => deleteVatRateMutation.mutate(vat.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                        </div>
+                        )
                       ))}
                     </TabsContent>
                   </Tabs>
@@ -2969,6 +3162,220 @@ function ProductDetailDialog({
                         });
                       }}>{t.common.save}</Button>
                     </div>
+                  </Card>
+                )}
+
+                {selectedService && (
+                  <Card className="mt-4">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base flex items-center justify-between gap-2">
+                        <span>VAT sadzby pre: {selectedService.name}</span>
+                        <Button size="sm" variant="ghost" onClick={() => setSelectedServiceId(null)}>
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex justify-end mb-3">
+                        <Button size="sm" onClick={() => setIsAddingServiceVat(true)}><Plus className="h-4 w-4 mr-1" />Pridať VAT</Button>
+                      </div>
+                      {isAddingServiceVat && (
+                        <Card className="p-4 mb-3">
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-3 gap-3">
+                              <div>
+                                <Label>Kategória</Label>
+                                <Input 
+                                  value={newServiceVatData.category} 
+                                  onChange={(e) => setNewServiceVatData({...newServiceVatData, category: e.target.value})} 
+                                  placeholder="Napr. standard, reduced"
+                                  data-testid="input-service-vat-category"
+                                />
+                              </div>
+                              <div>
+                                <Label>Účtovný kód</Label>
+                                <Input 
+                                  value={newServiceVatData.accountingCode} 
+                                  onChange={(e) => setNewServiceVatData({...newServiceVatData, accountingCode: e.target.value})}
+                                  data-testid="input-service-vat-accounting-code"
+                                />
+                              </div>
+                              <div>
+                                <Label>VAT sadzba (%)</Label>
+                                <Input 
+                                  type="number" 
+                                  step="0.01" 
+                                  value={newServiceVatData.vatRate} 
+                                  onChange={(e) => setNewServiceVatData({...newServiceVatData, vatRate: e.target.value})}
+                                  data-testid="input-service-vat-rate"
+                                />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <DateFields
+                                label="Platné od"
+                                dayValue={newServiceVatData.fromDay}
+                                monthValue={newServiceVatData.fromMonth}
+                                yearValue={newServiceVatData.fromYear}
+                                onDayChange={(v) => setNewServiceVatData({...newServiceVatData, fromDay: v})}
+                                onMonthChange={(v) => setNewServiceVatData({...newServiceVatData, fromMonth: v})}
+                                onYearChange={(v) => setNewServiceVatData({...newServiceVatData, fromYear: v})}
+                                testIdPrefix="new-service-vat-from"
+                              />
+                              <DateFields
+                                label="Platné do"
+                                dayValue={newServiceVatData.toDay}
+                                monthValue={newServiceVatData.toMonth}
+                                yearValue={newServiceVatData.toYear}
+                                onDayChange={(v) => setNewServiceVatData({...newServiceVatData, toDay: v})}
+                                onMonthChange={(v) => setNewServiceVatData({...newServiceVatData, toMonth: v})}
+                                onYearChange={(v) => setNewServiceVatData({...newServiceVatData, toYear: v})}
+                                testIdPrefix="new-service-vat-to"
+                              />
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Switch 
+                                checked={newServiceVatData.createAsNewVat} 
+                                onCheckedChange={(v) => setNewServiceVatData({...newServiceVatData, createAsNewVat: v})}
+                                data-testid="switch-service-vat-create-as-new"
+                              />
+                              <Label>Vytvoriť ako nové VAT</Label>
+                            </div>
+                          </div>
+                          <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
+                            <Button size="sm" variant="outline" onClick={() => setIsAddingServiceVat(false)}>{t.common.cancel}</Button>
+                            <Button 
+                              size="sm" 
+                              disabled={!newServiceVatData.category || createServiceVatMutation.isPending}
+                              onClick={() => {
+                                const payload: any = {
+                                  instanceId: selectedServiceId!,
+                                  instanceType: "service",
+                                  category: newServiceVatData.category,
+                                  accountingCode: newServiceVatData.accountingCode || null,
+                                  vatRate: newServiceVatData.vatRate === "" ? null : newServiceVatData.vatRate,
+                                  fromDate: componentsToISOString(newServiceVatData.fromDay, newServiceVatData.fromMonth, newServiceVatData.fromYear),
+                                  toDate: componentsToISOString(newServiceVatData.toDay, newServiceVatData.toMonth, newServiceVatData.toYear),
+                                  createAsNewVat: newServiceVatData.createAsNewVat,
+                                };
+                                createServiceVatMutation.mutate(payload);
+                              }}
+                            >{t.common.save}</Button>
+                          </div>
+                        </Card>
+                      )}
+                      {serviceVatRates.map((vat: any) => (
+                        editingServiceVatId === vat.id ? (
+                          <Card key={vat.id} className="p-4 mb-2">
+                            <div className="space-y-4">
+                              <div className="grid grid-cols-3 gap-3">
+                                <div>
+                                  <Label>Kategória</Label>
+                                  <Input 
+                                    value={editingServiceVatData.category} 
+                                    onChange={(e) => setEditingServiceVatData({...editingServiceVatData, category: e.target.value})} 
+                                    data-testid="input-edit-service-vat-category"
+                                  />
+                                </div>
+                                <div>
+                                  <Label>Účtovný kód</Label>
+                                  <Input 
+                                    value={editingServiceVatData.accountingCode || ""} 
+                                    onChange={(e) => setEditingServiceVatData({...editingServiceVatData, accountingCode: e.target.value})}
+                                    data-testid="input-edit-service-vat-accounting-code"
+                                  />
+                                </div>
+                                <div>
+                                  <Label>VAT sadzba (%)</Label>
+                                  <Input 
+                                    type="number" 
+                                    step="0.01" 
+                                    value={editingServiceVatData.vatRate || ""} 
+                                    onChange={(e) => setEditingServiceVatData({...editingServiceVatData, vatRate: e.target.value})}
+                                    data-testid="input-edit-service-vat-rate"
+                                  />
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-3">
+                                <DateFields
+                                  label="Platné od"
+                                  dayValue={editingServiceVatData.fromDay}
+                                  monthValue={editingServiceVatData.fromMonth}
+                                  yearValue={editingServiceVatData.fromYear}
+                                  onDayChange={(v) => setEditingServiceVatData({...editingServiceVatData, fromDay: v})}
+                                  onMonthChange={(v) => setEditingServiceVatData({...editingServiceVatData, fromMonth: v})}
+                                  onYearChange={(v) => setEditingServiceVatData({...editingServiceVatData, fromYear: v})}
+                                  testIdPrefix="edit-service-vat-from"
+                                />
+                                <DateFields
+                                  label="Platné do"
+                                  dayValue={editingServiceVatData.toDay}
+                                  monthValue={editingServiceVatData.toMonth}
+                                  yearValue={editingServiceVatData.toYear}
+                                  onDayChange={(v) => setEditingServiceVatData({...editingServiceVatData, toDay: v})}
+                                  onMonthChange={(v) => setEditingServiceVatData({...editingServiceVatData, toMonth: v})}
+                                  onYearChange={(v) => setEditingServiceVatData({...editingServiceVatData, toYear: v})}
+                                  testIdPrefix="edit-service-vat-to"
+                                />
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Switch 
+                                  checked={editingServiceVatData.createAsNewVat} 
+                                  onCheckedChange={(v) => setEditingServiceVatData({...editingServiceVatData, createAsNewVat: v})}
+                                  data-testid="switch-edit-service-vat-create-as-new"
+                                />
+                                <Label>Vytvoriť ako nové VAT</Label>
+                              </div>
+                            </div>
+                            <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
+                              <Button size="sm" variant="outline" onClick={() => { setEditingServiceVatId(null); setEditingServiceVatData(null); }}>{t.common.cancel}</Button>
+                              <Button 
+                                size="sm" 
+                                onClick={() => {
+                                  const { id, instanceId, instanceType, createdAt, fromDay, fromMonth, fromYear, toDay, toMonth, toYear, ...updateData } = editingServiceVatData;
+                                  updateServiceVatMutation.mutate({ 
+                                    id: editingServiceVatId, 
+                                    data: {
+                                      ...updateData,
+                                      vatRate: updateData.vatRate === "" ? null : updateData.vatRate,
+                                      accountingCode: updateData.accountingCode || null,
+                                      fromDate: componentsToISOString(fromDay, fromMonth, fromYear),
+                                      toDate: componentsToISOString(toDay, toMonth, toYear),
+                                    }
+                                  });
+                                }}
+                              >{t.common.save}</Button>
+                            </div>
+                          </Card>
+                        ) : (
+                          <div key={vat.id} className="flex items-center justify-between p-2 border rounded-md mb-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-medium">{vat.category}</span>
+                              {vat.vatRate && <Badge variant="outline">{vat.vatRate}%</Badge>}
+                              {vat.accountingCode && <span className="text-sm text-muted-foreground">{vat.accountingCode}</span>}
+                              {(vat.fromDate || vat.toDate) && (
+                                <span className="text-sm text-muted-foreground">
+                                  {vat.fromDate ? formatDate(vat.fromDate) : "—"} – {vat.toDate ? formatDate(vat.toDate) : "—"}
+                                </span>
+                              )}
+                              {vat.createAsNewVat && <Badge variant="secondary">Nové VAT</Badge>}
+                            </div>
+                            <div className="flex gap-1">
+                              <Button variant="ghost" size="icon" onClick={() => {
+                                const fromParts = isoStringToComponents(vat.fromDate);
+                                const toParts = isoStringToComponents(vat.toDate);
+                                setEditingServiceVatId(vat.id);
+                                setEditingServiceVatData({ ...vat, fromDay: fromParts.day, fromMonth: fromParts.month, fromYear: fromParts.year, toDay: toParts.day, toMonth: toParts.month, toYear: toParts.year });
+                              }}><Pencil className="h-4 w-4" /></Button>
+                              <Button variant="ghost" size="icon" onClick={() => deleteServiceVatMutation.mutate(vat.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                            </div>
+                          </div>
+                        )
+                      ))}
+                      {serviceVatRates.length === 0 && !isAddingServiceVat && (
+                        <p className="text-sm text-muted-foreground text-center py-4">Žiadne VAT sadzby</p>
+                      )}
+                    </CardContent>
                   </Card>
                 )}
 

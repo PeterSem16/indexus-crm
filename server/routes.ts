@@ -798,7 +798,7 @@ export async function registerRoutes(
   app.post("/api/instance-vat-rates", requireAuth, async (req, res) => {
     try {
       // Preprocess data - convert empty strings to null for optional fields
-      const rawData = { ...req.body };
+      const rawData = parseDateFields(req.body);
       if (rawData.vatRate === "") rawData.vatRate = null;
       if (rawData.accountingCode === "") rawData.accountingCode = null;
       if (rawData.billingDetailsId === "") rawData.billingDetailsId = null;
@@ -822,7 +822,7 @@ export async function registerRoutes(
   app.patch("/api/instance-vat-rates/:id", requireAuth, async (req, res) => {
     try {
       // Preprocess data - convert empty strings to null for optional fields
-      const rawData = { ...req.body };
+      const rawData = parseDateFields(req.body);
       if (rawData.vatRate === "") rawData.vatRate = null;
       if (rawData.accountingCode === "") rawData.accountingCode = null;
       if (rawData.billingDetailsId === "") rawData.billingDetailsId = null;
