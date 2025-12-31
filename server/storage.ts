@@ -58,8 +58,12 @@ import {
   type CampaignContactSession, type InsertCampaignContactSession,
   type CampaignMetricsSnapshot, type InsertCampaignMetricsSnapshot,
   sipSettings, callLogs,
+  productSets, productSetCollections, productSetStorage,
   type SipSettings, type InsertSipSettings,
-  type CallLog, type InsertCallLog
+  type CallLog, type InsertCallLog,
+  type ProductSet, type InsertProductSet,
+  type ProductSetCollection, type InsertProductSetCollection,
+  type ProductSetStorage, type InsertProductSetStorage
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, inArray, sql, desc, and } from "drizzle-orm";
@@ -431,6 +435,25 @@ export interface IStorage {
   getAllCallLogs(limit?: number): Promise<CallLog[]>;
   createCallLog(data: InsertCallLog): Promise<CallLog>;
   updateCallLog(id: string, data: Partial<InsertCallLog>): Promise<CallLog | undefined>;
+
+  // Product Sets (Zostavy)
+  getProductSets(productId: string): Promise<ProductSet[]>;
+  getProductSet(id: string): Promise<ProductSet | undefined>;
+  createProductSet(data: InsertProductSet): Promise<ProductSet>;
+  updateProductSet(id: string, data: Partial<InsertProductSet>): Promise<ProductSet | undefined>;
+  deleteProductSet(id: string): Promise<boolean>;
+  
+  // Product Set Collections
+  getProductSetCollections(setId: string): Promise<ProductSetCollection[]>;
+  createProductSetCollection(data: InsertProductSetCollection): Promise<ProductSetCollection>;
+  updateProductSetCollection(id: string, data: Partial<InsertProductSetCollection>): Promise<ProductSetCollection | undefined>;
+  deleteProductSetCollection(id: string): Promise<boolean>;
+  
+  // Product Set Storage
+  getProductSetStorage(setId: string): Promise<ProductSetStorage[]>;
+  createProductSetStorage(data: InsertProductSetStorage): Promise<ProductSetStorage>;
+  updateProductSetStorage(id: string, data: Partial<InsertProductSetStorage>): Promise<ProductSetStorage | undefined>;
+  deleteProductSetStorage(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2137,6 +2160,95 @@ export class DatabaseStorage implements IStorage {
       .where(eq(callLogs.id, id))
       .returning();
     return updated || undefined;
+  }
+
+  // Product Sets (Zostavy)
+  async getProductSets(productId: string): Promise<ProductSet[]> {
+    return db.select().from(productSets)
+      .where(eq(productSets.productId, productId))
+      .orderBy(desc(productSets.createdAt));
+  }
+
+  async getProductSet(id: string): Promise<ProductSet | undefined> {
+    const [set] = await db.select().from(productSets).where(eq(productSets.id, id));
+    return set || undefined;
+  }
+
+  async createProductSet(data: InsertProductSet): Promise<ProductSet> {
+    const values: any = { ...data };
+    if (data.fromDate) values.fromDate = new Date(data.fromDate as any);
+    if (data.toDate) values.toDate = new Date(data.toDate as any);
+    const [created] = await db.insert(productSets).values(values).returning();
+    return created;
+  }
+
+  async updateProductSet(id: string, data: Partial<InsertProductSet>): Promise<ProductSet | undefined> {
+    const values: any = { ...data, updatedAt: new Date() };
+    if (data.fromDate) values.fromDate = new Date(data.fromDate as any);
+    if (data.toDate) values.toDate = new Date(data.toDate as any);
+    const [updated] = await db.update(productSets)
+      .set(values)
+      .where(eq(productSets.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteProductSet(id: string): Promise<boolean> {
+    // Delete related collections and storage first
+    await db.delete(productSetCollections).where(eq(productSetCollections.productSetId, id));
+    await db.delete(productSetStorage).where(eq(productSetStorage.productSetId, id));
+    const result = await db.delete(productSets).where(eq(productSets.id, id));
+    return true;
+  }
+
+  // Product Set Collections
+  async getProductSetCollections(setId: string): Promise<ProductSetCollection[]> {
+    return db.select().from(productSetCollections)
+      .where(eq(productSetCollections.productSetId, setId))
+      .orderBy(productSetCollections.sortOrder);
+  }
+
+  async createProductSetCollection(data: InsertProductSetCollection): Promise<ProductSetCollection> {
+    const [created] = await db.insert(productSetCollections).values(data).returning();
+    return created;
+  }
+
+  async updateProductSetCollection(id: string, data: Partial<InsertProductSetCollection>): Promise<ProductSetCollection | undefined> {
+    const [updated] = await db.update(productSetCollections)
+      .set(data)
+      .where(eq(productSetCollections.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteProductSetCollection(id: string): Promise<boolean> {
+    await db.delete(productSetCollections).where(eq(productSetCollections.id, id));
+    return true;
+  }
+
+  // Product Set Storage
+  async getProductSetStorage(setId: string): Promise<ProductSetStorage[]> {
+    return db.select().from(productSetStorage)
+      .where(eq(productSetStorage.productSetId, setId))
+      .orderBy(productSetStorage.sortOrder);
+  }
+
+  async createProductSetStorage(data: InsertProductSetStorage): Promise<ProductSetStorage> {
+    const [created] = await db.insert(productSetStorage).values(data).returning();
+    return created;
+  }
+
+  async updateProductSetStorage(id: string, data: Partial<InsertProductSetStorage>): Promise<ProductSetStorage | undefined> {
+    const [updated] = await db.update(productSetStorage)
+      .set(data)
+      .where(eq(productSetStorage.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteProductSetStorage(id: string): Promise<boolean> {
+    await db.delete(productSetStorage).where(eq(productSetStorage.id, id));
+    return true;
   }
 }
 

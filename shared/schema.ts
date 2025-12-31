@@ -2316,3 +2316,94 @@ export const insertCallLogSchema = createInsertSchema(callLogs).omit({
 
 export type InsertCallLog = z.infer<typeof insertCallLogSchema>;
 export type CallLog = typeof callLogs.$inferSelect;
+
+// ========== ZOSTAVY (Product Sets) ==========
+
+// Product Sets - billing set configurations
+export const productSets = pgTable("product_sets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  productId: varchar("product_id").notNull(),
+  name: text("name").notNull(),
+  fromDate: timestamp("from_date"),
+  toDate: timestamp("to_date"),
+  currency: text("currency").notNull().default("EUR"),
+  notes: text("notes"),
+  isActive: boolean("is_active").notNull().default(true),
+  // Calculated totals (updated on save)
+  totalNetAmount: decimal("total_net_amount", { precision: 12, scale: 2 }),
+  totalDiscountAmount: decimal("total_discount_amount", { precision: 12, scale: 2 }),
+  totalVatAmount: decimal("total_vat_amount", { precision: 12, scale: 2 }),
+  totalGrossAmount: decimal("total_gross_amount", { precision: 12, scale: 2 }),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertProductSetSchema = createInsertSchema(productSets).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true,
+  totalNetAmount: true,
+  totalDiscountAmount: true,
+  totalVatAmount: true,
+  totalGrossAmount: true,
+});
+export type InsertProductSet = z.infer<typeof insertProductSetSchema>;
+export type ProductSet = typeof productSets.$inferSelect;
+
+// Product Set Collections - links product set to Odbery (market instances)
+export const productSetCollections = pgTable("product_set_collections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  productSetId: varchar("product_set_id").notNull(),
+  instanceId: varchar("instance_id").notNull(), // FK to market_product_instances
+  priceId: varchar("price_id"), // selected price from instance_prices
+  paymentOptionId: varchar("payment_option_id"), // selected payment from instance_payment_options
+  discountId: varchar("discount_id"), // selected discount from instance_discounts
+  vatRateId: varchar("vat_rate_id"), // selected VAT from instance_vat_rates
+  quantity: integer("quantity").notNull().default(1),
+  priceOverride: decimal("price_override", { precision: 12, scale: 2 }), // optional custom price
+  sortOrder: integer("sort_order").notNull().default(0),
+  // Calculated line totals
+  lineNetAmount: decimal("line_net_amount", { precision: 12, scale: 2 }),
+  lineDiscountAmount: decimal("line_discount_amount", { precision: 12, scale: 2 }),
+  lineVatAmount: decimal("line_vat_amount", { precision: 12, scale: 2 }),
+  lineGrossAmount: decimal("line_gross_amount", { precision: 12, scale: 2 }),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertProductSetCollectionSchema = createInsertSchema(productSetCollections).omit({ 
+  id: true, 
+  createdAt: true,
+  lineNetAmount: true,
+  lineDiscountAmount: true,
+  lineVatAmount: true,
+  lineGrossAmount: true,
+});
+export type InsertProductSetCollection = z.infer<typeof insertProductSetCollectionSchema>;
+export type ProductSetCollection = typeof productSetCollections.$inferSelect;
+
+// Product Set Storage - links product set to Skladovanie (services)
+export const productSetStorage = pgTable("product_set_storage", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  productSetId: varchar("product_set_id").notNull(),
+  serviceId: varchar("service_id").notNull(), // FK to market_product_services
+  priceId: varchar("price_id"), // selected price from instance_prices (for service)
+  vatRateId: varchar("vat_rate_id"), // selected VAT from instance_vat_rates (for service)
+  quantity: integer("quantity").notNull().default(1),
+  priceOverride: decimal("price_override", { precision: 12, scale: 2 }),
+  sortOrder: integer("sort_order").notNull().default(0),
+  // Calculated line totals
+  lineNetAmount: decimal("line_net_amount", { precision: 12, scale: 2 }),
+  lineVatAmount: decimal("line_vat_amount", { precision: 12, scale: 2 }),
+  lineGrossAmount: decimal("line_gross_amount", { precision: 12, scale: 2 }),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertProductSetStorageSchema = createInsertSchema(productSetStorage).omit({ 
+  id: true, 
+  createdAt: true,
+  lineNetAmount: true,
+  lineVatAmount: true,
+  lineGrossAmount: true,
+});
+export type InsertProductSetStorage = z.infer<typeof insertProductSetStorageSchema>;
+export type ProductSetStorage = typeof productSetStorage.$inferSelect;

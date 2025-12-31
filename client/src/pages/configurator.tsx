@@ -861,6 +861,501 @@ function ProductWizard({
   );
 }
 
+// Zostavy Tab Component for Product Sets
+function ZostavyTab({ productId, instances, services, t }: { productId: string; instances: any[]; services: any[]; t: any }) {
+  const { toast } = useToast();
+  const [selectedSetId, setSelectedSetId] = useState<string | null>(null);
+  const [isAddingSet, setIsAddingSet] = useState(false);
+  const [addingCollectionInstanceId, setAddingCollectionInstanceId] = useState<string | null>(null);
+  const [addingStorageServiceId, setAddingStorageServiceId] = useState<string | null>(null);
+  const [newItemPrice, setNewItemPrice] = useState<string>("");
+  const [newSetData, setNewSetData] = useState({
+    name: "",
+    fromDay: 0, fromMonth: 0, fromYear: 0,
+    toDay: 0, toMonth: 0, toYear: 0,
+    currency: "EUR",
+    notes: "",
+    isActive: true
+  });
+
+  // Fetch product sets
+  const { data: productSets = [], refetch: refetchSets } = useQuery<any[]>({
+    queryKey: ["/api/products", productId, "sets"],
+    queryFn: async () => {
+      const res = await fetch(`/api/products/${productId}/sets`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch sets");
+      return res.json();
+    },
+  });
+
+  // Fetch selected set with details
+  const { data: selectedSet } = useQuery<any>({
+    queryKey: ["/api/product-sets", selectedSetId],
+    queryFn: async () => {
+      if (!selectedSetId) return null;
+      const res = await fetch(`/api/product-sets/${selectedSetId}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch set");
+      return res.json();
+    },
+    enabled: !!selectedSetId,
+  });
+
+  const createSetMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const fromDate = componentsToISOString(data.fromDay, data.fromMonth, data.fromYear);
+      const toDate = componentsToISOString(data.toDay, data.toMonth, data.toYear);
+      return apiRequest("POST", `/api/products/${productId}/sets`, {
+        name: data.name,
+        fromDate,
+        toDate,
+        currency: data.currency,
+        notes: data.notes,
+        isActive: data.isActive,
+      });
+    },
+    onSuccess: () => {
+      toast({ title: t.success.created });
+      refetchSets();
+      setIsAddingSet(false);
+      setNewSetData({ name: "", fromDay: 0, fromMonth: 0, fromYear: 0, toDay: 0, toMonth: 0, toYear: 0, currency: "EUR", notes: "", isActive: true });
+    },
+    onError: () => toast({ title: t.errors.saveFailed, variant: "destructive" }),
+  });
+
+  const deleteSetMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/product-sets/${id}`),
+    onSuccess: () => {
+      toast({ title: t.success.deleted });
+      refetchSets();
+      setSelectedSetId(null);
+    },
+  });
+
+  const addCollectionMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest("POST", `/api/product-sets/${selectedSetId}/collections`, data);
+    },
+    onSuccess: () => {
+      toast({ title: "Odber pridaný do zostavy" });
+      queryClient.invalidateQueries({ queryKey: ["/api/product-sets", selectedSetId] });
+    },
+  });
+
+  const addStorageMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest("POST", `/api/product-sets/${selectedSetId}/storage`, data);
+    },
+    onSuccess: () => {
+      toast({ title: "Skladovanie pridané do zostavy" });
+      queryClient.invalidateQueries({ queryKey: ["/api/product-sets", selectedSetId] });
+    },
+  });
+
+  const removeCollectionMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/product-set-collections/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/product-sets", selectedSetId] });
+    },
+  });
+
+  const removeStorageMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/product-set-storage/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/product-sets", selectedSetId] });
+    },
+  });
+
+  // Calculate totals dynamically
+  const calculateTotals = () => {
+    if (!selectedSet) return { net: 0, discount: 0, vat: 0, gross: 0 };
+    
+    let net = 0;
+    let discount = 0;
+    let vat = 0;
+
+    // Calculate from collections
+    (selectedSet.collections || []).forEach((col: any) => {
+      const lineNet = parseFloat(col.lineNetAmount || col.priceOverride || 0);
+      const lineDiscount = parseFloat(col.lineDiscountAmount || 0);
+      const lineVat = parseFloat(col.lineVatAmount || 0);
+      net += lineNet;
+      discount += lineDiscount;
+      vat += lineVat;
+    });
+
+    // Calculate from storage
+    (selectedSet.storage || []).forEach((stor: any) => {
+      const lineNet = parseFloat(stor.lineNetAmount || stor.priceOverride || 0);
+      const lineVat = parseFloat(stor.lineVatAmount || 0);
+      net += lineNet;
+      vat += lineVat;
+    });
+
+    const gross = net - discount + vat;
+    return { net, discount, vat, gross };
+  };
+
+  const totals = calculateTotals();
+
+  return (
+    <div className="grid grid-cols-3 gap-4 h-[500px]">
+      {/* Left Panel - Sets List */}
+      <div className="border rounded-lg p-4 overflow-y-auto">
+        <div className="flex items-center justify-between mb-4">
+          <h4 className="font-medium">Zostavy</h4>
+          <Button size="sm" onClick={() => setIsAddingSet(true)} data-testid="button-add-set">
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {isAddingSet && (
+          <Card className="p-3 mb-4">
+            <div className="space-y-3">
+              <div>
+                <Label>Názov zostavy</Label>
+                <Input 
+                  value={newSetData.name}
+                  onChange={(e) => setNewSetData({ ...newSetData, name: e.target.value })}
+                  placeholder="Napr. Základná zostava"
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <Label className="text-xs">Od - Deň</Label>
+                  <Input type="number" min={1} max={31} value={newSetData.fromDay || ""} onChange={(e) => setNewSetData({ ...newSetData, fromDay: parseInt(e.target.value) || 0 })} />
+                </div>
+                <div>
+                  <Label className="text-xs">Mesiac</Label>
+                  <Input type="number" min={1} max={12} value={newSetData.fromMonth || ""} onChange={(e) => setNewSetData({ ...newSetData, fromMonth: parseInt(e.target.value) || 0 })} />
+                </div>
+                <div>
+                  <Label className="text-xs">Rok</Label>
+                  <Input type="number" min={2020} max={2100} value={newSetData.fromYear || ""} onChange={(e) => setNewSetData({ ...newSetData, fromYear: parseInt(e.target.value) || 0 })} />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <Label className="text-xs">Do - Deň</Label>
+                  <Input type="number" min={1} max={31} value={newSetData.toDay || ""} onChange={(e) => setNewSetData({ ...newSetData, toDay: parseInt(e.target.value) || 0 })} />
+                </div>
+                <div>
+                  <Label className="text-xs">Mesiac</Label>
+                  <Input type="number" min={1} max={12} value={newSetData.toMonth || ""} onChange={(e) => setNewSetData({ ...newSetData, toMonth: parseInt(e.target.value) || 0 })} />
+                </div>
+                <div>
+                  <Label className="text-xs">Rok</Label>
+                  <Input type="number" min={2020} max={2100} value={newSetData.toYear || ""} onChange={(e) => setNewSetData({ ...newSetData, toYear: parseInt(e.target.value) || 0 })} />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={() => createSetMutation.mutate(newSetData)}>
+                  <Check className="h-4 w-4" />
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setIsAddingSet(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {productSets.length === 0 && !isAddingSet && (
+          <div className="text-center py-8 text-muted-foreground text-sm">
+            <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <p>Žiadne zostavy</p>
+            <p className="text-xs">Vytvorte prvú zostavu pre fakturáciu</p>
+          </div>
+        )}
+
+        {productSets.map((set: any) => (
+          <div
+            key={set.id}
+            className={`p-3 rounded-lg border mb-2 cursor-pointer hover-elevate ${selectedSetId === set.id ? 'border-primary bg-accent' : ''}`}
+            onClick={() => setSelectedSetId(set.id)}
+          >
+            <div className="flex items-center justify-between">
+              <span className="font-medium text-sm">{set.name}</span>
+              <Badge variant={set.isActive ? "default" : "secondary"} className="text-xs">
+                {set.isActive ? "Aktívna" : "Neaktívna"}
+              </Badge>
+            </div>
+            {(set.fromDate || set.toDate) && (
+              <div className="text-xs text-muted-foreground mt-1">
+                {formatDate(set.fromDate)} – {formatDate(set.toDate)}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Middle Panel - Set Builder */}
+      <div className="border rounded-lg p-4 overflow-y-auto">
+        {!selectedSetId ? (
+          <div className="text-center py-16 text-muted-foreground">
+            <Settings className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p>Vyberte zostavu na úpravu</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="font-medium">{selectedSet?.name}</h4>
+              <Button size="sm" variant="destructive" onClick={() => deleteSetMutation.mutate(selectedSetId)}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Odbery Section */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-sm font-medium">Odbery v zostave</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button size="sm" variant="outline">
+                      <Plus className="h-4 w-4 mr-1" /> Pridať odber
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-72">
+                    <div className="space-y-3">
+                      <Label className="text-sm font-medium">Vyberte odber a zadajte cenu</Label>
+                      {instances.map((inst: any) => (
+                        <div key={inst.id} className="space-y-2 border-b pb-2">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary">{inst.countryCode}</Badge>
+                            <span className="text-sm font-medium">{inst.name}</span>
+                          </div>
+                          {addingCollectionInstanceId === inst.id ? (
+                            <div className="flex gap-2">
+                              <Input 
+                                type="number" 
+                                step="0.01"
+                                placeholder="Cena €" 
+                                value={newItemPrice}
+                                onChange={(e) => setNewItemPrice(e.target.value)}
+                                className="flex-1"
+                              />
+                              <Button size="sm" onClick={() => {
+                                const price = parseFloat(newItemPrice) || 0;
+                                addCollectionMutation.mutate({ 
+                                  instanceId: inst.id, 
+                                  quantity: 1,
+                                  priceOverride: price > 0 ? price.toString() : null
+                                });
+                                setAddingCollectionInstanceId(null);
+                                setNewItemPrice("");
+                              }}>
+                                <Check className="h-4 w-4" />
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={() => {
+                                setAddingCollectionInstanceId(null);
+                                setNewItemPrice("");
+                              }}>
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="w-full justify-start text-sm"
+                              onClick={() => {
+                                setAddingCollectionInstanceId(inst.id);
+                                setNewItemPrice("");
+                              }}
+                            >
+                              <Plus className="h-3 w-3 mr-1" /> Pridať s cenou
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                      {instances.length === 0 && (
+                        <p className="text-sm text-muted-foreground">Žiadne odbery</p>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+              
+              {(selectedSet?.collections || []).map((col: any) => {
+                const inst = instances.find((i: any) => i.id === col.instanceId);
+                return (
+                  <div key={col.id} className="flex items-center justify-between p-2 border rounded mb-1">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary">{inst?.countryCode}</Badge>
+                      <span className="text-sm">{inst?.name || "Odber"}</span>
+                    </div>
+                    <Button size="icon" variant="ghost" onClick={() => removeCollectionMutation.mutate(col.id)}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                );
+              })}
+              {(selectedSet?.collections || []).length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-2">Žiadne odbery v zostave</p>
+              )}
+            </div>
+
+            <Separator />
+
+            {/* Skladovanie Section */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-sm font-medium">Skladovanie v zostave</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button size="sm" variant="outline">
+                      <Plus className="h-4 w-4 mr-1" /> Pridať skladovanie
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-72">
+                    <div className="space-y-3">
+                      <Label className="text-sm font-medium">Vyberte skladovanie a zadajte cenu</Label>
+                      {services.map((svc: any) => (
+                        <div key={svc.id} className="space-y-2 border-b pb-2">
+                          <span className="text-sm font-medium">{svc.name}</span>
+                          {addingStorageServiceId === svc.id ? (
+                            <div className="flex gap-2">
+                              <Input 
+                                type="number" 
+                                step="0.01"
+                                placeholder="Cena €" 
+                                value={newItemPrice}
+                                onChange={(e) => setNewItemPrice(e.target.value)}
+                                className="flex-1"
+                              />
+                              <Button size="sm" onClick={() => {
+                                const price = parseFloat(newItemPrice) || 0;
+                                addStorageMutation.mutate({ 
+                                  serviceId: svc.id, 
+                                  quantity: 1,
+                                  priceOverride: price > 0 ? price.toString() : null
+                                });
+                                setAddingStorageServiceId(null);
+                                setNewItemPrice("");
+                              }}>
+                                <Check className="h-4 w-4" />
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={() => {
+                                setAddingStorageServiceId(null);
+                                setNewItemPrice("");
+                              }}>
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="w-full justify-start text-sm"
+                              onClick={() => {
+                                setAddingStorageServiceId(svc.id);
+                                setNewItemPrice("");
+                              }}
+                            >
+                              <Plus className="h-3 w-3 mr-1" /> Pridať s cenou
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                      {services.length === 0 && (
+                        <p className="text-sm text-muted-foreground">Žiadne skladovanie</p>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+              
+              {(selectedSet?.storage || []).map((stor: any) => {
+                const svc = services.find((s: any) => s.id === stor.serviceId);
+                const storPrice = parseFloat(stor.priceOverride || 0);
+                return (
+                  <div key={stor.id} className="flex items-center justify-between p-2 border rounded mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">{svc?.name || "Skladovanie"}</span>
+                      {storPrice > 0 && <Badge variant="outline">{storPrice.toFixed(2)} €</Badge>}
+                    </div>
+                    <Button size="icon" variant="ghost" onClick={() => removeStorageMutation.mutate(stor.id)}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                );
+              })}
+              {(selectedSet?.storage || []).length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-2">Žiadne skladovanie v zostave</p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Right Panel - Invoice Preview & Totals */}
+      <div className="border rounded-lg p-4 overflow-y-auto">
+        <h4 className="font-medium mb-4">Náhľad faktúry</h4>
+        
+        {!selectedSetId ? (
+          <div className="text-center py-16 text-muted-foreground">
+            <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p className="text-sm">Vyberte zostavu pre náhľad</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Line Items */}
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Položky</Label>
+              
+              {(selectedSet?.collections || []).map((col: any, idx: number) => {
+                const inst = instances.find((i: any) => i.id === col.instanceId);
+                return (
+                  <div key={col.id} className="flex justify-between text-sm py-1 border-b">
+                    <span>{idx + 1}. {inst?.name || "Odber"}</span>
+                    <span className="font-mono">{parseFloat(col.priceOverride || 0).toFixed(2)} €</span>
+                  </div>
+                );
+              })}
+              
+              {(selectedSet?.storage || []).map((stor: any, idx: number) => {
+                const svc = services.find((s: any) => s.id === stor.serviceId);
+                return (
+                  <div key={stor.id} className="flex justify-between text-sm py-1 border-b">
+                    <span>{(selectedSet?.collections?.length || 0) + idx + 1}. {svc?.name || "Skladovanie"}</span>
+                    <span className="font-mono">{parseFloat(stor.priceOverride || 0).toFixed(2)} €</span>
+                  </div>
+                );
+              })}
+
+              {(selectedSet?.collections || []).length === 0 && (selectedSet?.storage || []).length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-4">Pridajte položky do zostavy</p>
+              )}
+            </div>
+
+            <Separator />
+
+            {/* Totals */}
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Suma bez DPH:</span>
+                <span className="font-mono">{totals.net.toFixed(2)} €</span>
+              </div>
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>Zľava:</span>
+                <span className="font-mono">-{totals.discount.toFixed(2)} €</span>
+              </div>
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>DPH:</span>
+                <span className="font-mono">+{totals.vat.toFixed(2)} €</span>
+              </div>
+              <Separator />
+              <div className="flex justify-between font-medium">
+                <span>Celkom:</span>
+                <span className="font-mono text-lg">{totals.gross.toFixed(2)} €</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ProductDetailDialog({ 
   product, 
   open, 
@@ -1277,7 +1772,7 @@ function ProductDetailDialog({
             <TabsTrigger value="detail">{t.common.detail}</TabsTrigger>
             <TabsTrigger value="instances">Odbery (collections)</TabsTrigger>
             <TabsTrigger value="services">Skladovanie</TabsTrigger>
-            <TabsTrigger value="setts">Setts (Setty)</TabsTrigger>
+            <TabsTrigger value="setts">Zostavy</TabsTrigger>
           </TabsList>
 
           <TabsContent value="detail" className="space-y-4 mt-4">
@@ -3447,29 +3942,7 @@ function ProductDetailDialog({
           </TabsContent>
 
           <TabsContent value="setts" className="space-y-4 mt-4">
-            {!selectedInstanceId ? (
-              <div className="text-center py-8 text-muted-foreground">
-                Najprv vyberte Odber pre správu settov
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center justify-between">
-                  <h4 className="font-medium">Setts (Setty) pre: {selectedInstance?.name}</h4>
-                  <Button size="sm" data-testid="button-add-sett">
-                    <Plus className="h-4 w-4 mr-1" /> {t.common.add}
-                  </Button>
-                </div>
-                
-                <Card className="p-6">
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p className="text-lg font-medium mb-2">Správa Settov</p>
-                    <p className="text-sm">Tu budete môcť spravovať sety produktov pre tento odber.</p>
-                    <p className="text-sm mt-2">Funkcia je v príprave...</p>
-                  </div>
-                </Card>
-              </>
-            )}
+            <ZostavyTab productId={product.id} instances={instances} services={services} t={t} />
           </TabsContent>
         </Tabs>
 

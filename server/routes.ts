@@ -4970,6 +4970,169 @@ export async function registerRoutes(
     }
   });
 
+  // ========== PRODUCT SETS (ZOSTAVY) ==========
+
+  // Get all product sets for a product
+  app.get("/api/products/:productId/sets", requireAuth, async (req, res) => {
+    try {
+      const sets = await storage.getProductSets(req.params.productId);
+      res.json(sets);
+    } catch (error) {
+      console.error("Failed to fetch product sets:", error);
+      res.status(500).json({ error: "Failed to fetch product sets" });
+    }
+  });
+
+  // Get single product set with collections and storage
+  app.get("/api/product-sets/:id", requireAuth, async (req, res) => {
+    try {
+      const set = await storage.getProductSet(req.params.id);
+      if (!set) {
+        return res.status(404).json({ error: "Product set not found" });
+      }
+      const collections = await storage.getProductSetCollections(req.params.id);
+      const storageItems = await storage.getProductSetStorage(req.params.id);
+      res.json({ ...set, collections, storage: storageItems });
+    } catch (error) {
+      console.error("Failed to fetch product set:", error);
+      res.status(500).json({ error: "Failed to fetch product set" });
+    }
+  });
+
+  // Create product set
+  app.post("/api/products/:productId/sets", requireAuth, async (req, res) => {
+    try {
+      const data = parseDateFields({ ...req.body, productId: req.params.productId });
+      const set = await storage.createProductSet(data);
+      res.status(201).json(set);
+    } catch (error: any) {
+      console.error("Failed to create product set:", error);
+      res.status(400).json({ error: error.message || "Failed to create product set" });
+    }
+  });
+
+  // Update product set
+  app.patch("/api/product-sets/:id", requireAuth, async (req, res) => {
+    try {
+      const data = parseDateFields(req.body);
+      const set = await storage.updateProductSet(req.params.id, data);
+      if (!set) {
+        return res.status(404).json({ error: "Product set not found" });
+      }
+      res.json(set);
+    } catch (error: any) {
+      console.error("Failed to update product set:", error);
+      res.status(400).json({ error: error.message || "Failed to update product set" });
+    }
+  });
+
+  // Delete product set
+  app.delete("/api/product-sets/:id", requireAuth, async (req, res) => {
+    try {
+      await storage.deleteProductSet(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Failed to delete product set:", error);
+      res.status(500).json({ error: "Failed to delete product set" });
+    }
+  });
+
+  // Get collections for a product set
+  app.get("/api/product-sets/:setId/collections", requireAuth, async (req, res) => {
+    try {
+      const collections = await storage.getProductSetCollections(req.params.setId);
+      res.json(collections);
+    } catch (error) {
+      console.error("Failed to fetch set collections:", error);
+      res.status(500).json({ error: "Failed to fetch set collections" });
+    }
+  });
+
+  // Add collection to product set
+  app.post("/api/product-sets/:setId/collections", requireAuth, async (req, res) => {
+    try {
+      const data = { ...req.body, productSetId: req.params.setId };
+      const collection = await storage.createProductSetCollection(data);
+      res.status(201).json(collection);
+    } catch (error: any) {
+      console.error("Failed to add collection to set:", error);
+      res.status(400).json({ error: error.message || "Failed to add collection" });
+    }
+  });
+
+  // Update set collection
+  app.patch("/api/product-set-collections/:id", requireAuth, async (req, res) => {
+    try {
+      const collection = await storage.updateProductSetCollection(req.params.id, req.body);
+      if (!collection) {
+        return res.status(404).json({ error: "Set collection not found" });
+      }
+      res.json(collection);
+    } catch (error: any) {
+      console.error("Failed to update set collection:", error);
+      res.status(400).json({ error: error.message || "Failed to update set collection" });
+    }
+  });
+
+  // Delete set collection
+  app.delete("/api/product-set-collections/:id", requireAuth, async (req, res) => {
+    try {
+      await storage.deleteProductSetCollection(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Failed to delete set collection:", error);
+      res.status(500).json({ error: "Failed to delete set collection" });
+    }
+  });
+
+  // Get storage items for a product set
+  app.get("/api/product-sets/:setId/storage", requireAuth, async (req, res) => {
+    try {
+      const storageItems = await storage.getProductSetStorage(req.params.setId);
+      res.json(storageItems);
+    } catch (error) {
+      console.error("Failed to fetch set storage:", error);
+      res.status(500).json({ error: "Failed to fetch set storage" });
+    }
+  });
+
+  // Add storage to product set
+  app.post("/api/product-sets/:setId/storage", requireAuth, async (req, res) => {
+    try {
+      const data = { ...req.body, productSetId: req.params.setId };
+      const storageItem = await storage.createProductSetStorage(data);
+      res.status(201).json(storageItem);
+    } catch (error: any) {
+      console.error("Failed to add storage to set:", error);
+      res.status(400).json({ error: error.message || "Failed to add storage" });
+    }
+  });
+
+  // Update set storage
+  app.patch("/api/product-set-storage/:id", requireAuth, async (req, res) => {
+    try {
+      const storageItem = await storage.updateProductSetStorage(req.params.id, req.body);
+      if (!storageItem) {
+        return res.status(404).json({ error: "Set storage not found" });
+      }
+      res.json(storageItem);
+    } catch (error: any) {
+      console.error("Failed to update set storage:", error);
+      res.status(400).json({ error: error.message || "Failed to update set storage" });
+    }
+  });
+
+  // Delete set storage
+  app.delete("/api/product-set-storage/:id", requireAuth, async (req, res) => {
+    try {
+      await storage.deleteProductSetStorage(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Failed to delete set storage:", error);
+      res.status(500).json({ error: "Failed to delete set storage" });
+    }
+  });
+
   return httpServer;
 }
 
