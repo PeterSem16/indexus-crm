@@ -587,7 +587,7 @@ function ProductWizard({
         <DialogHeader>
           <DialogTitle>
             {step === 1 && "Nový produkt - Základné informácie"}
-            {step === 2 && `Nový produkt - Market Instances (${currentInstanceIndex + 1}/${instances.length})`}
+            {step === 2 && `Nový produkt - Odbery (${currentInstanceIndex + 1}/${instances.length})`}
             {step === 3 && "Nový produkt - Zhrnutie"}
           </DialogTitle>
           <DialogDescription>
@@ -809,7 +809,7 @@ function ProductWizard({
               </CardContent>
             </Card>
 
-            <h4 className="font-medium">Market Instances ({instances.length})</h4>
+            <h4 className="font-medium">Odbery ({instances.length})</h4>
             {instances.map((inst, idx) => (
               <Card key={idx} className="p-4">
                 <div className="flex items-center gap-2 mb-2">
@@ -1273,10 +1273,11 @@ function ProductDetailDialog({
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="detail">{t.common.detail}</TabsTrigger>
-            <TabsTrigger value="instances">Market Instances</TabsTrigger>
-            <TabsTrigger value="services">{t.konfigurator.services}</TabsTrigger>
+            <TabsTrigger value="instances">Odbery (collections)</TabsTrigger>
+            <TabsTrigger value="services">Skladovanie</TabsTrigger>
+            <TabsTrigger value="setts">Setts (Setty)</TabsTrigger>
           </TabsList>
 
           <TabsContent value="detail" className="space-y-4 mt-4">
@@ -1350,7 +1351,7 @@ function ProductDetailDialog({
 
           <TabsContent value="instances" className="space-y-4 mt-4">
             <div className="flex items-center justify-between">
-              <h4 className="font-medium">Market Instances</h4>
+              <h4 className="font-medium">Odbery (collections)</h4>
               <Button size="sm" onClick={() => setIsAddingInstance(true)} data-testid="button-add-instance">
                 <Plus className="h-4 w-4 mr-1" /> {t.common.add}
               </Button>
@@ -1470,7 +1471,7 @@ function ProductDetailDialog({
 
             {editingInstanceId && editingInstanceData && (
               <Card className="p-4 mt-4 border-primary">
-                <h4 className="font-medium mb-4">Upraviť Market Instance</h4>
+                <h4 className="font-medium mb-4">Upraviť Odber</h4>
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <Label>{t.common.country}</Label>
@@ -2813,12 +2814,12 @@ function ProductDetailDialog({
           <TabsContent value="services" className="space-y-4 mt-4">
             {!selectedInstanceId ? (
               <div className="text-center py-8 text-muted-foreground">
-                Najprv vyberte Market Instance pre správu služieb
+                Najprv vyberte Odber pre správu skladovania
               </div>
             ) : (
               <>
                 <div className="flex items-center justify-between">
-                  <h4 className="font-medium">Služby pre: {selectedInstance?.name}</h4>
+                  <h4 className="font-medium">Skladovanie pre: {selectedInstance?.name}</h4>
                   <Button size="sm" onClick={() => setIsAddingService(true)} data-testid="button-add-service">
                     <Plus className="h-4 w-4 mr-1" /> {t.common.add}
                   </Button>
@@ -3441,6 +3442,32 @@ function ProductDetailDialog({
                     </DialogContent>
                   </Dialog>
                 )}
+              </>
+            )}
+          </TabsContent>
+
+          <TabsContent value="setts" className="space-y-4 mt-4">
+            {!selectedInstanceId ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Najprv vyberte Odber pre správu settov
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium">Setts (Setty) pre: {selectedInstance?.name}</h4>
+                  <Button size="sm" data-testid="button-add-sett">
+                    <Plus className="h-4 w-4 mr-1" /> {t.common.add}
+                  </Button>
+                </div>
+                
+                <Card className="p-6">
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p className="text-lg font-medium mb-2">Správa Settov</p>
+                    <p className="text-sm">Tu budete môcť spravovať sety produktov pre tento odber.</p>
+                    <p className="text-sm mt-2">Funkcia je v príprave...</p>
+                  </div>
+                </Card>
               </>
             )}
           </TabsContent>
