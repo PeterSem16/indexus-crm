@@ -1271,7 +1271,7 @@ function ProductDetailDialog({
                       </Button>
                     </div>
                   </div>
-                  <p className="text-sm font-medium mt-1 truncate">{instance.name}</p>
+                  <p className="text-sm font-medium mt-1 break-words">{instance.name}</p>
                   {(instance.fromDate || instance.toDate) && (
                     <p className="text-xs text-muted-foreground mt-1">
                       {instance.fromDate ? new Date(instance.fromDate).toLocaleDateString() : "..."} - {instance.toDate ? new Date(instance.toDate).toLocaleDateString() : "..."}
