@@ -2338,14 +2338,17 @@ function ProductDetailDialog({
                     </div>
                     <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
                       <Button variant="outline" size="sm" onClick={() => { setEditingServiceId(null); setEditingServiceData(null); }}>{t.common.cancel}</Button>
-                      <Button size="sm" onClick={() => updateServiceMutation.mutate({ 
-                        id: editingServiceId, 
-                        data: {
-                          ...editingServiceData,
-                          fromDate: componentsToISOString(editingServiceData.fromDay, editingServiceData.fromMonth, editingServiceData.fromYear),
-                          toDate: componentsToISOString(editingServiceData.toDay, editingServiceData.toMonth, editingServiceData.toYear),
-                        }
-                      })}>{t.common.save}</Button>
+                      <Button size="sm" onClick={() => {
+                        const { id, instanceId, createdAt, fromDay, fromMonth, fromYear, toDay, toMonth, toYear, ...serviceData } = editingServiceData;
+                        updateServiceMutation.mutate({ 
+                          id: editingServiceId, 
+                          data: {
+                            ...serviceData,
+                            fromDate: componentsToISOString(fromDay, fromMonth, fromYear),
+                            toDate: componentsToISOString(toDay, toMonth, toYear),
+                          }
+                        });
+                      }}>{t.common.save}</Button>
                     </div>
                   </Card>
                 )}
