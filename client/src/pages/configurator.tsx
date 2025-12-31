@@ -1343,14 +1343,17 @@ function ProductDetailDialog({
                 </div>
                 <div className="flex justify-end gap-2 mt-4">
                   <Button variant="outline" size="sm" onClick={() => { setEditingInstanceId(null); setEditingInstanceData(null); }}>{t.common.cancel}</Button>
-                  <Button size="sm" onClick={() => updateInstanceMutation.mutate({ 
-                    id: editingInstanceId, 
-                    data: {
-                      ...editingInstanceData,
-                      fromDate: componentsToISOString(editingInstanceData.fromDay, editingInstanceData.fromMonth, editingInstanceData.fromYear),
-                      toDate: componentsToISOString(editingInstanceData.toDay, editingInstanceData.toMonth, editingInstanceData.toYear),
-                    }
-                  })}>{t.common.save}</Button>
+                  <Button size="sm" onClick={() => {
+                    const { id, productId, createdAt, fromDay, fromMonth, fromYear, toDay, toMonth, toYear, ...updateData } = editingInstanceData;
+                    updateInstanceMutation.mutate({ 
+                      id: editingInstanceId, 
+                      data: {
+                        ...updateData,
+                        fromDate: componentsToISOString(fromDay, fromMonth, fromYear),
+                        toDate: componentsToISOString(toDay, toMonth, toYear),
+                      }
+                    });
+                  }}>{t.common.save}</Button>
                 </div>
               </Card>
             )}
