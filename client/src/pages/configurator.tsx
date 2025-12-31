@@ -861,12 +861,285 @@ function ProductWizard({
   );
 }
 
+// Collection Configuration Dialog for selecting prices, discounts, VAT, payment options
+function CollectionConfigDialog({ 
+  open, 
+  onOpenChange, 
+  instanceId, 
+  instanceName,
+  instanceCountry,
+  onSave 
+}: { 
+  open: boolean; 
+  onOpenChange: (open: boolean) => void; 
+  instanceId: string; 
+  instanceName: string;
+  instanceCountry: string;
+  onSave: (config: any) => void;
+}) {
+  const [selectedPriceId, setSelectedPriceId] = useState<string | null>(null);
+  const [selectedDiscountId, setSelectedDiscountId] = useState<string | null>(null);
+  const [selectedVatRateId, setSelectedVatRateId] = useState<string | null>(null);
+  const [selectedPaymentOptionId, setSelectedPaymentOptionId] = useState<string | null>(null);
+  const [quantity, setQuantity] = useState(1);
+
+  // Fetch all sub-form data for the instance
+  const { data: prices = [] } = useQuery<any[]>({
+    queryKey: ["/api/product-instances", instanceId, "prices"],
+    queryFn: async () => {
+      const res = await fetch(`/api/product-instances/${instanceId}/prices`, { credentials: "include" });
+      return res.ok ? res.json() : [];
+    },
+    enabled: open && !!instanceId,
+  });
+
+  const { data: discounts = [] } = useQuery<any[]>({
+    queryKey: ["/api/product-instances", instanceId, "discounts"],
+    queryFn: async () => {
+      const res = await fetch(`/api/product-instances/${instanceId}/discounts`, { credentials: "include" });
+      return res.ok ? res.json() : [];
+    },
+    enabled: open && !!instanceId,
+  });
+
+  const { data: vatRates = [] } = useQuery<any[]>({
+    queryKey: ["/api/instance-vat-rates", instanceId, "market_instance"],
+    queryFn: async () => {
+      const res = await fetch(`/api/instance-vat-rates?instanceId=${instanceId}&instanceType=market_instance`, { credentials: "include" });
+      return res.ok ? res.json() : [];
+    },
+    enabled: open && !!instanceId,
+  });
+
+  const { data: paymentOptions = [] } = useQuery<any[]>({
+    queryKey: ["/api/product-instances", instanceId, "payment-options"],
+    queryFn: async () => {
+      const res = await fetch(`/api/product-instances/${instanceId}/payment-options`, { credentials: "include" });
+      return res.ok ? res.json() : [];
+    },
+    enabled: open && !!instanceId,
+  });
+
+  // Calculate preview
+  const selectedPrice = prices.find((p: any) => p.id === selectedPriceId);
+  const selectedDiscount = discounts.find((d: any) => d.id === selectedDiscountId);
+  const selectedVat = vatRates.find((v: any) => v.id === selectedVatRateId);
+  
+  const basePrice = parseFloat(selectedPrice?.price || 0);
+  let discountAmount = 0;
+  if (selectedDiscount) {
+    if (selectedDiscount.isPercentage) {
+      discountAmount = basePrice * (parseFloat(selectedDiscount.percentageValue || 0) / 100);
+    } else if (selectedDiscount.isFixed) {
+      discountAmount = parseFloat(selectedDiscount.fixedValue || 0);
+    }
+  }
+  const netAmount = (basePrice - discountAmount) * quantity;
+  const vatRate = parseFloat(selectedVat?.rate || 0);
+  const vatAmount = netAmount * (vatRate / 100);
+  const grossAmount = netAmount + vatAmount;
+
+  const handleSave = () => {
+    onSave({
+      instanceId,
+      priceId: selectedPriceId,
+      discountId: selectedDiscountId,
+      vatRateId: selectedVatRateId,
+      paymentOptionId: selectedPaymentOptionId,
+      quantity,
+      lineNetAmount: netAmount.toFixed(2),
+      lineDiscountAmount: discountAmount.toFixed(2),
+      lineVatAmount: vatAmount.toFixed(2),
+      lineGrossAmount: grossAmount.toFixed(2),
+    });
+    onOpenChange(false);
+    // Reset
+    setSelectedPriceId(null);
+    setSelectedDiscountId(null);
+    setSelectedVatRateId(null);
+    setSelectedPaymentOptionId(null);
+    setQuantity(1);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Badge variant="secondary">{instanceCountry}</Badge>
+            Konfigurácia odberu: {instanceName}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* Prices Section */}
+          <div>
+            <Label className="text-sm font-medium flex items-center gap-2 mb-2">
+              <DollarSign className="h-4 w-4" /> Cenník
+            </Label>
+            <div className="border rounded-lg p-2 max-h-32 overflow-y-auto space-y-1">
+              {prices.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-2">Žiadne ceny</p>
+              ) : prices.map((price: any) => (
+                <div 
+                  key={price.id} 
+                  className={`p-2 rounded cursor-pointer hover-elevate flex justify-between items-center ${selectedPriceId === price.id ? 'bg-primary/10 border border-primary' : 'border'}`}
+                  onClick={() => setSelectedPriceId(price.id)}
+                >
+                  <div>
+                    <span className="text-sm font-medium">{price.name}</span>
+                    {price.fromDate && <span className="text-xs text-muted-foreground ml-2">od {formatDate(price.fromDate)}</span>}
+                  </div>
+                  <Badge variant="outline">{parseFloat(price.price || 0).toFixed(2)} €</Badge>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Discounts Section */}
+          <div>
+            <Label className="text-sm font-medium flex items-center gap-2 mb-2">
+              <Percent className="h-4 w-4" /> Zľavy
+            </Label>
+            <div className="border rounded-lg p-2 max-h-32 overflow-y-auto space-y-1">
+              <div 
+                className={`p-2 rounded cursor-pointer hover-elevate flex justify-between items-center ${selectedDiscountId === null ? 'bg-primary/10 border border-primary' : 'border'}`}
+                onClick={() => setSelectedDiscountId(null)}
+              >
+                <span className="text-sm">Bez zľavy</span>
+              </div>
+              {discounts.map((discount: any) => (
+                <div 
+                  key={discount.id} 
+                  className={`p-2 rounded cursor-pointer hover-elevate flex justify-between items-center ${selectedDiscountId === discount.id ? 'bg-primary/10 border border-primary' : 'border'}`}
+                  onClick={() => setSelectedDiscountId(discount.id)}
+                >
+                  <div>
+                    <span className="text-sm font-medium">{discount.name}</span>
+                    {discount.fromDate && <span className="text-xs text-muted-foreground ml-2">od {formatDate(discount.fromDate)}</span>}
+                  </div>
+                  <Badge variant="outline">
+                    {discount.isPercentage ? `${discount.percentageValue}%` : `${parseFloat(discount.fixedValue || 0).toFixed(2)} €`}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* VAT Rates Section */}
+          <div>
+            <Label className="text-sm font-medium flex items-center gap-2 mb-2">
+              <Calculator className="h-4 w-4" /> DPH sadzby
+            </Label>
+            <div className="border rounded-lg p-2 max-h-32 overflow-y-auto space-y-1">
+              {vatRates.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-2">Žiadne DPH sadzby</p>
+              ) : vatRates.map((vat: any) => (
+                <div 
+                  key={vat.id} 
+                  className={`p-2 rounded cursor-pointer hover-elevate flex justify-between items-center ${selectedVatRateId === vat.id ? 'bg-primary/10 border border-primary' : 'border'}`}
+                  onClick={() => setSelectedVatRateId(vat.id)}
+                >
+                  <div>
+                    <span className="text-sm font-medium">{vat.name}</span>
+                    {vat.fromDate && <span className="text-xs text-muted-foreground ml-2">od {formatDate(vat.fromDate)}</span>}
+                  </div>
+                  <Badge variant="outline">{parseFloat(vat.rate || 0).toFixed(0)}%</Badge>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Payment Options Section */}
+          <div>
+            <Label className="text-sm font-medium flex items-center gap-2 mb-2">
+              <CreditCard className="h-4 w-4" /> Platobné možnosti
+            </Label>
+            <div className="border rounded-lg p-2 max-h-32 overflow-y-auto space-y-1">
+              <div 
+                className={`p-2 rounded cursor-pointer hover-elevate flex justify-between items-center ${selectedPaymentOptionId === null ? 'bg-primary/10 border border-primary' : 'border'}`}
+                onClick={() => setSelectedPaymentOptionId(null)}
+              >
+                <span className="text-sm">Bez platobnej možnosti</span>
+              </div>
+              {paymentOptions.map((opt: any) => (
+                <div 
+                  key={opt.id} 
+                  className={`p-2 rounded cursor-pointer hover-elevate flex justify-between items-center ${selectedPaymentOptionId === opt.id ? 'bg-primary/10 border border-primary' : 'border'}`}
+                  onClick={() => setSelectedPaymentOptionId(opt.id)}
+                >
+                  <div>
+                    <span className="text-sm font-medium">{opt.name}</span>
+                    {opt.isMultiPayment && <Badge variant="secondary" className="ml-2 text-xs">Splátky</Badge>}
+                  </div>
+                  {opt.paymentTypeFee && <Badge variant="outline">{parseFloat(opt.paymentTypeFee || 0).toFixed(2)} €</Badge>}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Quantity */}
+          <div className="flex items-center gap-4">
+            <Label className="text-sm font-medium">Množstvo:</Label>
+            <Input 
+              type="number" 
+              min="1" 
+              value={quantity} 
+              onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+              className="w-20"
+            />
+          </div>
+
+          {/* Preview calculation */}
+          <Card className="bg-accent/50">
+            <CardContent className="p-4">
+              <h4 className="text-sm font-medium mb-2">Náhľad výpočtu</h4>
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span>Základná cena:</span>
+                  <span className="font-mono">{basePrice.toFixed(2)} €</span>
+                </div>
+                {discountAmount > 0 && (
+                  <div className="flex justify-between text-green-600">
+                    <span>Zľava:</span>
+                    <span className="font-mono">-{discountAmount.toFixed(2)} €</span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span>Netto ({quantity}x):</span>
+                  <span className="font-mono">{netAmount.toFixed(2)} €</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>DPH ({vatRate}%):</span>
+                  <span className="font-mono">{vatAmount.toFixed(2)} €</span>
+                </div>
+                <Separator className="my-1" />
+                <div className="flex justify-between font-bold">
+                  <span>Celkom:</span>
+                  <span className="font-mono">{grossAmount.toFixed(2)} €</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Zrušiť</Button>
+          <Button onClick={handleSave} disabled={!selectedPriceId}>
+            <Check className="h-4 w-4 mr-2" /> Pridať do zostavy
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // Zostavy Tab Component for Product Sets
 function ZostavyTab({ productId, instances, t }: { productId: string; instances: any[]; t: any }) {
   const { toast } = useToast();
   const [selectedSetId, setSelectedSetId] = useState<string | null>(null);
   const [isAddingSet, setIsAddingSet] = useState(false);
-  const [addingCollectionInstanceId, setAddingCollectionInstanceId] = useState<string | null>(null);
+  const [configuringInstanceId, setConfiguringInstanceId] = useState<string | null>(null);
   const [addingStorageServiceId, setAddingStorageServiceId] = useState<string | null>(null);
   const [newItemPrice, setNewItemPrice] = useState<string>("");
   const [newSetData, setNewSetData] = useState({
@@ -1133,77 +1406,66 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-72">
-                    <div className="space-y-3">
-                      <Label className="text-sm font-medium">Vyberte odber a zadajte cenu</Label>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Vyberte odber na konfiguráciu</Label>
                       {instances.map((inst: any) => (
-                        <div key={inst.id} className="space-y-2 border-b pb-2">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="secondary">{inst.countryCode}</Badge>
-                            <span className="text-sm font-medium">{inst.name}</span>
-                          </div>
-                          {addingCollectionInstanceId === inst.id ? (
-                            <div className="flex gap-2">
-                              <Input 
-                                type="number" 
-                                step="0.01"
-                                placeholder="Cena €" 
-                                value={newItemPrice}
-                                onChange={(e) => setNewItemPrice(e.target.value)}
-                                className="flex-1"
-                              />
-                              <Button size="sm" onClick={() => {
-                                const price = parseFloat(newItemPrice) || 0;
-                                addCollectionMutation.mutate({ 
-                                  instanceId: inst.id, 
-                                  quantity: 1,
-                                  priceOverride: price > 0 ? price.toString() : null
-                                });
-                                setAddingCollectionInstanceId(null);
-                                setNewItemPrice("");
-                              }}>
-                                <Check className="h-4 w-4" />
-                              </Button>
-                              <Button size="sm" variant="ghost" onClick={() => {
-                                setAddingCollectionInstanceId(null);
-                                setNewItemPrice("");
-                              }}>
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="w-full justify-start text-sm"
-                              onClick={() => {
-                                setAddingCollectionInstanceId(inst.id);
-                                setNewItemPrice("");
-                              }}
-                            >
-                              <Plus className="h-3 w-3 mr-1" /> Pridať s cenou
-                            </Button>
-                          )}
-                        </div>
+                        <Button
+                          key={inst.id}
+                          variant="ghost"
+                          className="w-full justify-start text-sm"
+                          onClick={() => setConfiguringInstanceId(inst.id)}
+                        >
+                          <Badge variant="secondary" className="mr-2">{inst.countryCode}</Badge>
+                          {inst.name}
+                          <ChevronRight className="h-4 w-4 ml-auto" />
+                        </Button>
                       ))}
                       {instances.length === 0 && (
-                        <p className="text-sm text-muted-foreground">Žiadne odbery</p>
+                        <p className="text-sm text-muted-foreground text-center py-2">Žiadne odbery</p>
                       )}
                     </div>
                   </PopoverContent>
                 </Popover>
               </div>
               
+              {/* Collection Configuration Dialog */}
+              {configuringInstanceId && (
+                <CollectionConfigDialog
+                  open={!!configuringInstanceId}
+                  onOpenChange={(open) => !open && setConfiguringInstanceId(null)}
+                  instanceId={configuringInstanceId}
+                  instanceName={instances.find((i: any) => i.id === configuringInstanceId)?.name || ""}
+                  instanceCountry={instances.find((i: any) => i.id === configuringInstanceId)?.countryCode || ""}
+                  onSave={(config) => {
+                    addCollectionMutation.mutate(config);
+                    setConfiguringInstanceId(null);
+                  }}
+                />
+              )}
+              
               {(selectedSet?.collections || []).map((col: any) => {
                 const inst = instances.find((i: any) => i.id === col.instanceId);
+                const lineGross = parseFloat(col.lineGrossAmount || 0);
+                const lineNet = parseFloat(col.lineNetAmount || 0);
+                const lineDiscount = parseFloat(col.lineDiscountAmount || 0);
                 return (
-                  <div key={col.id} className="flex items-center justify-between p-2 border rounded mb-1">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary">{inst?.countryCode}</Badge>
-                      <span className="text-sm">{inst?.name || "Odber"}</span>
+                  <div key={col.id} className="p-2 border rounded mb-1">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary">{inst?.countryCode}</Badge>
+                        <span className="text-sm font-medium">{inst?.name || "Odber"}</span>
+                      </div>
+                      <Button size="icon" variant="ghost" onClick={() => removeCollectionMutation.mutate(col.id)}>
+                        <X className="h-4 w-4" />
+                      </Button>
                     </div>
-                    <Button size="icon" variant="ghost" onClick={() => removeCollectionMutation.mutate(col.id)}>
-                      <X className="h-4 w-4" />
-                    </Button>
+                    {lineGross > 0 && (
+                      <div className="mt-1 text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
+                        <span>Netto: {lineNet.toFixed(2)} €</span>
+                        {lineDiscount > 0 && <span className="text-green-600">Zľava: -{lineDiscount.toFixed(2)} €</span>}
+                        <Badge variant="outline" className="ml-auto">{lineGross.toFixed(2)} €</Badge>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -1326,20 +1588,28 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
               
               {(selectedSet?.collections || []).map((col: any, idx: number) => {
                 const inst = instances.find((i: any) => i.id === col.instanceId);
+                const lineGross = parseFloat(col.lineGrossAmount || 0);
+                const lineDiscount = parseFloat(col.lineDiscountAmount || 0);
                 return (
-                  <div key={col.id} className="flex justify-between text-sm py-1 border-b">
-                    <span>{idx + 1}. {inst?.name || "Odber"}</span>
-                    <span className="font-mono">{parseFloat(col.priceOverride || 0).toFixed(2)} €</span>
+                  <div key={col.id} className="py-1 border-b">
+                    <div className="flex justify-between text-sm">
+                      <span>{idx + 1}. {inst?.name || "Odber"} {col.quantity > 1 && `(${col.quantity}x)`}</span>
+                      <span className="font-mono font-medium">{lineGross.toFixed(2)} €</span>
+                    </div>
+                    {lineDiscount > 0 && (
+                      <div className="text-xs text-green-600 text-right">zľava: -{lineDiscount.toFixed(2)} €</div>
+                    )}
                   </div>
                 );
               })}
               
               {(selectedSet?.storage || []).map((stor: any, idx: number) => {
                 const svc = allStorageServices.find((s: any) => s.id === stor.serviceId);
+                const lineGross = parseFloat(stor.lineGrossAmount || stor.priceOverride || 0);
                 return (
                   <div key={stor.id} className="flex justify-between text-sm py-1 border-b">
                     <span>{(selectedSet?.collections?.length || 0) + idx + 1}. {svc?.name || "Skladovanie"}</span>
-                    <span className="font-mono">{parseFloat(stor.priceOverride || 0).toFixed(2)} €</span>
+                    <span className="font-mono font-medium">{lineGross.toFixed(2)} €</span>
                   </div>
                 );
               })}
