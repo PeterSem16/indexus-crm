@@ -2374,11 +2374,12 @@ function ProductDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{product.name}</DialogTitle>
+      <DialogContent className="w-[95vw] max-w-[95vw] h-[95vh] max-h-[95vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
+          <DialogTitle className="text-xl">{product.name}</DialogTitle>
           <DialogDescription>{t.products.editProduct}</DialogDescription>
         </DialogHeader>
+        <div className="flex-1 overflow-y-auto min-h-0">
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-4">
@@ -4558,8 +4559,9 @@ function ProductDetailDialog({
             <ZostavyTab productId={product.id} instances={instances} t={t} />
           </TabsContent>
         </Tabs>
+        </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex-shrink-0">
           <Button variant="outline" onClick={() => onOpenChange(false)}>{t.common.close}</Button>
         </DialogFooter>
       </DialogContent>
