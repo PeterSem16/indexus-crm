@@ -1552,11 +1552,11 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
                 const lineNet = parseFloat(col.lineNetAmount || 0);
                 const lineDiscount = parseFloat(col.lineDiscountAmount || 0);
                 return (
-                  <div key={col.id} className="p-2 border rounded mb-1">
+                  <div key={col.id} className="p-2 rounded mb-1 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Badge variant="secondary">{inst?.countryCode}</Badge>
-                        <span className="text-sm font-medium">{inst?.name || "Odber"}</span>
+                        <Badge variant="secondary" className="bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-300">{inst?.countryCode}</Badge>
+                        <span className="text-sm font-medium text-blue-900 dark:text-blue-100">{inst?.name || "Odber"}</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <Button 
@@ -1573,10 +1573,10 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
                       </div>
                     </div>
                     {lineGross > 0 && (
-                      <div className="mt-1 text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
+                      <div className="mt-1 text-xs text-blue-600 dark:text-blue-300 flex items-center gap-2 flex-wrap">
                         <span>Netto: {lineNet.toFixed(2)} €</span>
                         {lineDiscount > 0 && <span className="text-green-600">Zľava: -{lineDiscount.toFixed(2)} €</span>}
-                        <Badge variant="outline" className="ml-auto">{lineGross.toFixed(2)} €</Badge>
+                        <Badge variant="outline" className="ml-auto border-blue-300 dark:border-blue-600">{lineGross.toFixed(2)} €</Badge>
                       </div>
                     )}
                   </div>
@@ -1664,11 +1664,11 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
                 const svc = allStorageServices.find((s: any) => s.id === stor.serviceId);
                 const storPrice = parseFloat(stor.priceOverride || 0);
                 return (
-                  <div key={stor.id} className="flex items-center justify-between p-2 border rounded mb-1">
+                  <div key={stor.id} className="flex items-center justify-between p-2 rounded mb-1 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
                     <div className="flex items-center gap-2">
-                      {svc?.instanceCountryCode && <Badge variant="secondary">{svc.instanceCountryCode}</Badge>}
-                      <span className="text-sm">{svc?.name || "Skladovanie"}</span>
-                      {storPrice > 0 && <Badge variant="outline">{storPrice.toFixed(2)} €</Badge>}
+                      {svc?.instanceCountryCode && <Badge variant="secondary" className="bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300">{svc.instanceCountryCode}</Badge>}
+                      <span className="text-sm font-medium text-green-900 dark:text-green-100">{svc?.name || "Skladovanie"}</span>
+                      {storPrice > 0 && <Badge variant="outline" className="border-green-300 dark:border-green-600">{storPrice.toFixed(2)} €</Badge>}
                     </div>
                     <Button size="icon" variant="ghost" onClick={() => removeStorageMutation.mutate(stor.id)}>
                       <X className="h-4 w-4" />
@@ -1704,10 +1704,10 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
                 const lineGross = parseFloat(col.lineGrossAmount || 0);
                 const lineDiscount = parseFloat(col.lineDiscountAmount || 0);
                 return (
-                  <div key={col.id} className="py-1 border-b">
+                  <div key={col.id} className="py-1.5 px-2 rounded bg-blue-50 dark:bg-blue-900/20 border-l-2 border-blue-400 mb-1">
                     <div className="flex justify-between text-sm">
-                      <span>{idx + 1}. {inst?.name || "Odber"} {col.quantity > 1 && `(${col.quantity}x)`}</span>
-                      <span className="font-mono font-medium">{lineGross.toFixed(2)} €</span>
+                      <span className="text-blue-900 dark:text-blue-100">{idx + 1}. {inst?.name || "Odber"} {col.quantity > 1 && `(${col.quantity}x)`}</span>
+                      <span className="font-mono font-medium text-blue-700 dark:text-blue-300">{lineGross.toFixed(2)} €</span>
                     </div>
                     {lineDiscount > 0 && (
                       <div className="text-xs text-green-600 text-right">zľava: -{lineDiscount.toFixed(2)} €</div>
@@ -1720,9 +1720,9 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
                 const svc = allStorageServices.find((s: any) => s.id === stor.serviceId);
                 const lineGross = parseFloat(stor.lineGrossAmount || stor.priceOverride || 0);
                 return (
-                  <div key={stor.id} className="flex justify-between text-sm py-1 border-b">
-                    <span>{(selectedSet?.collections?.length || 0) + idx + 1}. {svc?.name || "Skladovanie"}</span>
-                    <span className="font-mono font-medium">{lineGross.toFixed(2)} €</span>
+                  <div key={stor.id} className="flex justify-between text-sm py-1.5 px-2 rounded bg-green-50 dark:bg-green-900/20 border-l-2 border-green-400 mb-1">
+                    <span className="text-green-900 dark:text-green-100">{(selectedSet?.collections?.length || 0) + idx + 1}. {svc?.name || "Skladovanie"}</span>
+                    <span className="font-mono font-medium text-green-700 dark:text-green-300">{lineGross.toFixed(2)} €</span>
                   </div>
                 );
               })}
@@ -1811,6 +1811,21 @@ function ProductDetailDialog({
   const [isAddingDiscount, setIsAddingDiscount] = useState(false);
   const [isAddingVat, setIsAddingVat] = useState(false);
   const [isAddingServiceVat, setIsAddingServiceVat] = useState(false);
+  const [isAddingServicePrice, setIsAddingServicePrice] = useState(false);
+  const [isAddingServicePayment, setIsAddingServicePayment] = useState(false);
+  const [isAddingServiceDiscount, setIsAddingServiceDiscount] = useState(false);
+  const [newServicePriceData, setNewServicePriceData] = useState<any>({
+    name: "", price: "", currency: "EUR", accountingCode: "", analyticalAccount: "",
+    fromDay: 0, fromMonth: 0, fromYear: 0, toDay: 0, toMonth: 0, toYear: 0, isActive: true, description: ""
+  });
+  const [newServicePaymentData, setNewServicePaymentData] = useState<any>({
+    name: "", isMultiPayment: false, installments: 1, intervalMonths: 1, interestRate: "",
+    fromDay: 0, fromMonth: 0, fromYear: 0, toDay: 0, toMonth: 0, toYear: 0, isActive: true, description: ""
+  });
+  const [newServiceDiscountData, setNewServiceDiscountData] = useState<any>({
+    name: "", isFixed: false, fixedValue: "", isPercentage: true, percentageValue: "",
+    fromDay: 0, fromMonth: 0, fromYear: 0, toDay: 0, toMonth: 0, toYear: 0, isActive: true, description: ""
+  });
   
   const [productData, setProductData] = useState<any>({
     name: "", description: "", countries: [] as string[], isActive: true
@@ -1913,6 +1928,39 @@ function ProductDetailDialog({
     queryFn: async () => {
       if (!selectedServiceId) return [];
       const res = await fetch(`/api/instance-vat-rates/${selectedServiceId}/service`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!selectedServiceId,
+  });
+
+  const { data: servicePrices = [], refetch: refetchServicePrices } = useQuery<any[]>({
+    queryKey: ["/api/instance-prices", selectedServiceId, "service"],
+    queryFn: async () => {
+      if (!selectedServiceId) return [];
+      const res = await fetch(`/api/instance-prices/${selectedServiceId}/service`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!selectedServiceId,
+  });
+
+  const { data: servicePayments = [], refetch: refetchServicePayments } = useQuery<any[]>({
+    queryKey: ["/api/instance-payment-options", selectedServiceId, "service"],
+    queryFn: async () => {
+      if (!selectedServiceId) return [];
+      const res = await fetch(`/api/instance-payment-options/${selectedServiceId}/service`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!selectedServiceId,
+  });
+
+  const { data: serviceDiscounts = [], refetch: refetchServiceDiscounts } = useQuery<any[]>({
+    queryKey: ["/api/instance-discounts", selectedServiceId, "service"],
+    queryFn: async () => {
+      if (!selectedServiceId) return [];
+      const res = await fetch(`/api/instance-discounts/${selectedServiceId}/service`, { credentials: "include" });
       if (!res.ok) return [];
       return res.json();
     },
@@ -2061,6 +2109,60 @@ function ProductDetailDialog({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/instance-vat-rates/${id}`),
     onSuccess: () => {
       refetchServiceVatRates();
+      toast({ title: t.success.deleted });
+    },
+  });
+
+  const createServicePriceMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", "/api/instance-prices", data),
+    onSuccess: () => {
+      refetchServicePrices();
+      setIsAddingServicePrice(false);
+      setNewServicePriceData({ name: "", price: "", currency: "EUR", accountingCode: "", analyticalAccount: "", fromDay: 0, fromMonth: 0, fromYear: 0, toDay: 0, toMonth: 0, toYear: 0, isActive: true, description: "" });
+      toast({ title: t.success.created });
+    },
+  });
+
+  const deleteServicePriceMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/instance-prices/${id}`),
+    onSuccess: () => {
+      refetchServicePrices();
+      toast({ title: t.success.deleted });
+    },
+  });
+
+  const createServicePaymentMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", "/api/instance-payment-options", data),
+    onSuccess: () => {
+      refetchServicePayments();
+      setIsAddingServicePayment(false);
+      setNewServicePaymentData({ name: "", isMultiPayment: false, installments: 1, intervalMonths: 1, interestRate: "", fromDay: 0, fromMonth: 0, fromYear: 0, toDay: 0, toMonth: 0, toYear: 0, isActive: true, description: "" });
+      toast({ title: t.success.created });
+    },
+  });
+
+  const deleteServicePaymentMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/instance-payment-options/${id}`),
+    onSuccess: () => {
+      refetchServicePayments();
+      toast({ title: t.success.deleted });
+    },
+  });
+
+  const createServiceDiscountMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", "/api/instance-discounts", data),
+    onSuccess: () => {
+      refetchServiceDiscounts();
+      setIsAddingServiceDiscount(false);
+      setNewServiceDiscountData({ name: "", isFixed: false, fixedValue: "", isPercentage: true, percentageValue: "", fromDay: 0, fromMonth: 0, fromYear: 0, toDay: 0, toMonth: 0, toYear: 0, isActive: true, description: "" });
+      toast({ title: t.success.created });
+    },
+  });
+
+  const deleteServiceDiscountMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/instance-discounts/${id}`),
+    onSuccess: () => {
+      refetchServiceDiscounts();
       toast({ title: t.success.deleted });
     },
   });
@@ -4106,16 +4208,214 @@ function ProductDetailDialog({
                   <Card className="mt-4">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-base flex items-center justify-between gap-2">
-                        <span>VAT sadzby pre: {selectedService.name}</span>
+                        <span>{selectedService.name}</span>
                         <Button size="sm" variant="ghost" onClick={() => setSelectedServiceId(null)}>
                           <X className="h-4 w-4" />
                         </Button>
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="flex justify-end mb-3">
-                        <Button size="sm" onClick={() => setIsAddingServiceVat(true)}><Plus className="h-4 w-4 mr-1" />Pridať VAT</Button>
-                      </div>
+                      <Tabs value={serviceSubTab} onValueChange={(v) => setServiceSubTab(v as any)}>
+                        <TabsList>
+                          <TabsTrigger value="prices">Ceny</TabsTrigger>
+                          <TabsTrigger value="payments">Platobné možnosti</TabsTrigger>
+                          <TabsTrigger value="discounts">Zľavy</TabsTrigger>
+                          <TabsTrigger value="vat">VAT sadzby</TabsTrigger>
+                        </TabsList>
+
+                        <TabsContent value="prices" className="space-y-3 mt-3">
+                          <div className="flex justify-end">
+                            <Button size="sm" onClick={() => setIsAddingServicePrice(true)}><Plus className="h-4 w-4 mr-1" />Pridať cenu</Button>
+                          </div>
+                          {isAddingServicePrice && (
+                            <Card className="p-4">
+                              <div className="space-y-4">
+                                <div className="grid grid-cols-3 gap-3">
+                                  <div className="col-span-2">
+                                    <Label>Názov ceny</Label>
+                                    <Input value={newServicePriceData.name} onChange={(e) => setNewServicePriceData({...newServicePriceData, name: e.target.value})} placeholder="Napr. Ročné skladovanie" />
+                                  </div>
+                                  <div className="flex items-center gap-2 pt-6">
+                                    <Switch checked={newServicePriceData.isActive} onCheckedChange={(v) => setNewServicePriceData({...newServicePriceData, isActive: v})} />
+                                    <Label>Aktívne</Label>
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-3 gap-3">
+                                  <div>
+                                    <Label>Cena</Label>
+                                    <Input type="number" step="0.01" value={newServicePriceData.price} onChange={(e) => setNewServicePriceData({...newServicePriceData, price: e.target.value})} />
+                                  </div>
+                                  <div>
+                                    <Label>Mena</Label>
+                                    <Select value={newServicePriceData.currency} onValueChange={(v) => setNewServicePriceData({...newServicePriceData, currency: v})}>
+                                      <SelectTrigger><SelectValue /></SelectTrigger>
+                                      <SelectContent>
+                                        {["EUR", "USD", "CZK", "HUF", "RON", "CHF"].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div>
+                                    <Label>Účtovný kód</Label>
+                                    <Input value={newServicePriceData.accountingCode} onChange={(e) => setNewServicePriceData({...newServicePriceData, accountingCode: e.target.value})} />
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
+                                <Button size="sm" variant="outline" onClick={() => setIsAddingServicePrice(false)}>{t.common.cancel}</Button>
+                                <Button size="sm" onClick={() => createServicePriceMutation.mutate({ 
+                                  ...newServicePriceData, 
+                                  instanceId: selectedServiceId!, 
+                                  instanceType: "service",
+                                  fromDate: componentsToISOString(newServicePriceData.fromDay, newServicePriceData.fromMonth, newServicePriceData.fromYear),
+                                  toDate: componentsToISOString(newServicePriceData.toDay, newServicePriceData.toMonth, newServicePriceData.toYear),
+                                })}>{t.common.save}</Button>
+                              </div>
+                            </Card>
+                          )}
+                          {servicePrices.map((price: any) => (
+                            <div key={price.id} className="flex items-center justify-between p-2 border rounded-md">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-medium">{price.name}</span>
+                                <Badge variant="outline">{price.price} {price.currency}</Badge>
+                                <Badge variant={price.isActive ? "default" : "secondary"}>{price.isActive ? "Aktívne" : "Neaktívne"}</Badge>
+                              </div>
+                              <Button variant="ghost" size="icon" onClick={() => deleteServicePriceMutation.mutate(price.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                            </div>
+                          ))}
+                          {servicePrices.length === 0 && !isAddingServicePrice && (
+                            <p className="text-sm text-muted-foreground text-center py-4">Žiadne ceny</p>
+                          )}
+                        </TabsContent>
+
+                        <TabsContent value="payments" className="space-y-3 mt-3">
+                          <div className="flex justify-end">
+                            <Button size="sm" onClick={() => setIsAddingServicePayment(true)}><Plus className="h-4 w-4 mr-1" />Pridať platbu</Button>
+                          </div>
+                          {isAddingServicePayment && (
+                            <Card className="p-4">
+                              <div className="space-y-4">
+                                <div className="grid grid-cols-3 gap-3">
+                                  <div className="col-span-2">
+                                    <Label>Názov</Label>
+                                    <Input value={newServicePaymentData.name} onChange={(e) => setNewServicePaymentData({...newServicePaymentData, name: e.target.value})} placeholder="Napr. Ročná platba" />
+                                  </div>
+                                  <div className="flex items-center gap-2 pt-6">
+                                    <Switch checked={newServicePaymentData.isActive} onCheckedChange={(v) => setNewServicePaymentData({...newServicePaymentData, isActive: v})} />
+                                    <Label>Aktívne</Label>
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-3 gap-3">
+                                  <div className="flex items-center gap-2">
+                                    <Checkbox checked={newServicePaymentData.isMultiPayment} onCheckedChange={(v) => setNewServicePaymentData({...newServicePaymentData, isMultiPayment: !!v})} />
+                                    <Label>Viac splátok</Label>
+                                  </div>
+                                  {newServicePaymentData.isMultiPayment && (
+                                    <>
+                                      <div>
+                                        <Label>Počet splátok</Label>
+                                        <Input type="number" min={1} value={newServicePaymentData.installments} onChange={(e) => setNewServicePaymentData({...newServicePaymentData, installments: parseInt(e.target.value) || 1})} />
+                                      </div>
+                                      <div>
+                                        <Label>Interval (mesiace)</Label>
+                                        <Input type="number" min={1} value={newServicePaymentData.intervalMonths} onChange={(e) => setNewServicePaymentData({...newServicePaymentData, intervalMonths: parseInt(e.target.value) || 1})} />
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
+                                <Button size="sm" variant="outline" onClick={() => setIsAddingServicePayment(false)}>{t.common.cancel}</Button>
+                                <Button size="sm" onClick={() => createServicePaymentMutation.mutate({ 
+                                  ...newServicePaymentData, 
+                                  instanceId: selectedServiceId!, 
+                                  instanceType: "service",
+                                  fromDate: componentsToISOString(newServicePaymentData.fromDay, newServicePaymentData.fromMonth, newServicePaymentData.fromYear),
+                                  toDate: componentsToISOString(newServicePaymentData.toDay, newServicePaymentData.toMonth, newServicePaymentData.toYear),
+                                })}>{t.common.save}</Button>
+                              </div>
+                            </Card>
+                          )}
+                          {servicePayments.map((payment: any) => (
+                            <div key={payment.id} className="flex items-center justify-between p-2 border rounded-md">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-medium">{payment.name}</span>
+                                {payment.isMultiPayment && <Badge variant="outline">{payment.installments}x / {payment.intervalMonths} mes.</Badge>}
+                                <Badge variant={payment.isActive ? "default" : "secondary"}>{payment.isActive ? "Aktívne" : "Neaktívne"}</Badge>
+                              </div>
+                              <Button variant="ghost" size="icon" onClick={() => deleteServicePaymentMutation.mutate(payment.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                            </div>
+                          ))}
+                          {servicePayments.length === 0 && !isAddingServicePayment && (
+                            <p className="text-sm text-muted-foreground text-center py-4">Žiadne platobné možnosti</p>
+                          )}
+                        </TabsContent>
+
+                        <TabsContent value="discounts" className="space-y-3 mt-3">
+                          <div className="flex justify-end">
+                            <Button size="sm" onClick={() => setIsAddingServiceDiscount(true)}><Plus className="h-4 w-4 mr-1" />Pridať zľavu</Button>
+                          </div>
+                          {isAddingServiceDiscount && (
+                            <Card className="p-4">
+                              <div className="space-y-4">
+                                <div className="grid grid-cols-3 gap-3">
+                                  <div className="col-span-2">
+                                    <Label>Názov zľavy</Label>
+                                    <Input value={newServiceDiscountData.name} onChange={(e) => setNewServiceDiscountData({...newServiceDiscountData, name: e.target.value})} placeholder="Napr. Vernostná zľava" />
+                                  </div>
+                                  <div className="flex items-center gap-2 pt-6">
+                                    <Switch checked={newServiceDiscountData.isActive} onCheckedChange={(v) => setNewServiceDiscountData({...newServiceDiscountData, isActive: v})} />
+                                    <Label>Aktívne</Label>
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div className="flex items-center gap-2">
+                                    <Checkbox checked={newServiceDiscountData.isPercentage} onCheckedChange={(v) => setNewServiceDiscountData({...newServiceDiscountData, isPercentage: !!v, isFixed: !v})} />
+                                    <Label>Percentuálna</Label>
+                                    {newServiceDiscountData.isPercentage && (
+                                      <Input type="number" step="0.01" className="w-24" value={newServiceDiscountData.percentageValue} onChange={(e) => setNewServiceDiscountData({...newServiceDiscountData, percentageValue: e.target.value})} placeholder="%" />
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Checkbox checked={newServiceDiscountData.isFixed} onCheckedChange={(v) => setNewServiceDiscountData({...newServiceDiscountData, isFixed: !!v, isPercentage: !v})} />
+                                    <Label>Fixná suma</Label>
+                                    {newServiceDiscountData.isFixed && (
+                                      <Input type="number" step="0.01" className="w-24" value={newServiceDiscountData.fixedValue} onChange={(e) => setNewServiceDiscountData({...newServiceDiscountData, fixedValue: e.target.value})} placeholder="€" />
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
+                                <Button size="sm" variant="outline" onClick={() => setIsAddingServiceDiscount(false)}>{t.common.cancel}</Button>
+                                <Button size="sm" onClick={() => createServiceDiscountMutation.mutate({ 
+                                  ...newServiceDiscountData, 
+                                  instanceId: selectedServiceId!, 
+                                  instanceType: "service",
+                                  fromDate: componentsToISOString(newServiceDiscountData.fromDay, newServiceDiscountData.fromMonth, newServiceDiscountData.fromYear),
+                                  toDate: componentsToISOString(newServiceDiscountData.toDay, newServiceDiscountData.toMonth, newServiceDiscountData.toYear),
+                                })}>{t.common.save}</Button>
+                              </div>
+                            </Card>
+                          )}
+                          {serviceDiscounts.map((discount: any) => (
+                            <div key={discount.id} className="flex items-center justify-between p-2 border rounded-md">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-medium">{discount.name}</span>
+                                {discount.isPercentage && <Badge variant="outline">{discount.percentageValue}%</Badge>}
+                                {discount.isFixed && <Badge variant="outline">{discount.fixedValue} €</Badge>}
+                                <Badge variant={discount.isActive ? "default" : "secondary"}>{discount.isActive ? "Aktívne" : "Neaktívne"}</Badge>
+                              </div>
+                              <Button variant="ghost" size="icon" onClick={() => deleteServiceDiscountMutation.mutate(discount.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                            </div>
+                          ))}
+                          {serviceDiscounts.length === 0 && !isAddingServiceDiscount && (
+                            <p className="text-sm text-muted-foreground text-center py-4">Žiadne zľavy</p>
+                          )}
+                        </TabsContent>
+
+                        <TabsContent value="vat" className="space-y-3 mt-3">
+                          <div className="flex justify-end">
+                            <Button size="sm" onClick={() => setIsAddingServiceVat(true)}><Plus className="h-4 w-4 mr-1" />Pridať VAT</Button>
+                          </div>
                       {isAddingServiceVat && (
                         <Card className="p-4 mb-3">
                           <div className="space-y-4">
@@ -4309,9 +4609,11 @@ function ProductDetailDialog({
                           </div>
                         )
                       ))}
-                      {serviceVatRates.length === 0 && !isAddingServiceVat && (
-                        <p className="text-sm text-muted-foreground text-center py-4">Žiadne VAT sadzby</p>
-                      )}
+                          {serviceVatRates.length === 0 && !isAddingServiceVat && (
+                            <p className="text-sm text-muted-foreground text-center py-4">Žiadne VAT sadzby</p>
+                          )}
+                        </TabsContent>
+                      </Tabs>
                     </CardContent>
                   </Card>
                 )}
