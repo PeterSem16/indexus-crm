@@ -409,7 +409,7 @@ function ProductWizard({
 
   const goToStep2 = () => {
     if (!productData.name.trim()) {
-      toast({ title: "Názov produktu je povinný", variant: "destructive" });
+      toast({ title: t.konfigurator.productNameRequired, variant: "destructive" });
       return;
     }
     if (productData.countries.length === 0) {
@@ -583,7 +583,7 @@ function ProductWizard({
                     </Select>
                   </div>
                   <div>
-                    <Label>Mena</Label>
+                    <Label>{t.konfigurator.currencyLabel}</Label>
                     <Select
                       value={currentInstance.currency}
                       onValueChange={(v) => updateInstanceField(currentInstanceIndex, "currency", v)}
@@ -686,7 +686,8 @@ function CollectionConfigDialog({
   instanceName,
   instanceCountry,
   onSave,
-  editingItem
+  editingItem,
+  t
 }: { 
   open: boolean; 
   onOpenChange: (open: boolean) => void; 
@@ -695,6 +696,7 @@ function CollectionConfigDialog({
   instanceCountry: string;
   onSave: (config: any) => void;
   editingItem?: any;
+  t: any;
 }) {
   const [selectedPriceId, setSelectedPriceId] = useState<string | null>(editingItem?.priceId || null);
   const [selectedDiscountId, setSelectedDiscountId] = useState<string | null>(editingItem?.discountId || null);
@@ -1026,9 +1028,9 @@ function CollectionConfigDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Zrušiť</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>{t.common.cancel}</Button>
           <Button onClick={handleSave} disabled={!selectedPriceId}>
-            <Check className="h-4 w-4 mr-2" /> {isEditing ? "Uložiť zmeny" : "Pridať do zostavy"}
+            <Check className="h-4 w-4 mr-2" /> {isEditing ? t.konfigurator.saveChanges : t.konfigurator.addToSet}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1044,7 +1046,8 @@ function StorageConfigDialog({
   serviceName,
   serviceCountry,
   onSave,
-  editingItem
+  editingItem,
+  t
 }: { 
   open: boolean; 
   onOpenChange: (open: boolean) => void; 
@@ -1053,6 +1056,7 @@ function StorageConfigDialog({
   serviceCountry: string;
   onSave: (config: any) => void;
   editingItem?: any;
+  t: any;
 }) {
   const [selectedPriceId, setSelectedPriceId] = useState<string | null>(editingItem?.priceId || null);
   const [selectedDiscountId, setSelectedDiscountId] = useState<string | null>(editingItem?.discountId || null);
@@ -1316,9 +1320,9 @@ function StorageConfigDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Zrušiť</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>{t.common.cancel}</Button>
           <Button onClick={handleSave} disabled={!selectedPriceId} className="bg-green-600 hover:bg-green-700">
-            <Check className="h-4 w-4 mr-2" /> {isEditing ? "Uložiť zmeny" : "Pridať do zostavy"}
+            <Check className="h-4 w-4 mr-2" /> {isEditing ? t.konfigurator.saveChanges : t.konfigurator.addToSet}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1773,7 +1777,7 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
       {/* Left Panel - Sets List */}
       <div className="border rounded-lg p-4 overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
-          <h4 className="font-medium">Zostavy</h4>
+          <h4 className="font-medium">{t.konfigurator.setsTitle}</h4>
           <Button size="sm" onClick={() => setIsAddingSet(true)} data-testid="button-add-set">
             <Plus className="h-4 w-4" />
           </Button>
@@ -1783,38 +1787,37 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
           <Card className="p-3 mb-4">
             <div className="space-y-3">
               <div>
-                <Label>Názov zostavy</Label>
+                <Label>{t.konfigurator.setName}</Label>
                 <Input 
                   value={newSetData.name}
                   onChange={(e) => setNewSetData({ ...newSetData, name: e.target.value })}
-                  placeholder="Napr. Základná zostava"
                 />
               </div>
               <div className="grid grid-cols-3 gap-2">
                 <div>
-                  <Label className="text-xs">Od - Deň</Label>
+                  <Label className="text-xs">{t.konfigurator.validFrom} - {t.collaborators.fields.day}</Label>
                   <Input type="number" min={1} max={31} value={newSetData.fromDay || ""} onChange={(e) => setNewSetData({ ...newSetData, fromDay: parseInt(e.target.value) || 0 })} />
                 </div>
                 <div>
-                  <Label className="text-xs">Mesiac</Label>
+                  <Label className="text-xs">{t.collaborators.fields.month}</Label>
                   <Input type="number" min={1} max={12} value={newSetData.fromMonth || ""} onChange={(e) => setNewSetData({ ...newSetData, fromMonth: parseInt(e.target.value) || 0 })} />
                 </div>
                 <div>
-                  <Label className="text-xs">Rok</Label>
+                  <Label className="text-xs">{t.collaborators.fields.year}</Label>
                   <Input type="number" min={2020} max={2100} value={newSetData.fromYear || ""} onChange={(e) => setNewSetData({ ...newSetData, fromYear: parseInt(e.target.value) || 0 })} />
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-2">
                 <div>
-                  <Label className="text-xs">Do - Deň</Label>
+                  <Label className="text-xs">{t.konfigurator.validTo} - {t.collaborators.fields.day}</Label>
                   <Input type="number" min={1} max={31} value={newSetData.toDay || ""} onChange={(e) => setNewSetData({ ...newSetData, toDay: parseInt(e.target.value) || 0 })} />
                 </div>
                 <div>
-                  <Label className="text-xs">Mesiac</Label>
+                  <Label className="text-xs">{t.collaborators.fields.month}</Label>
                   <Input type="number" min={1} max={12} value={newSetData.toMonth || ""} onChange={(e) => setNewSetData({ ...newSetData, toMonth: parseInt(e.target.value) || 0 })} />
                 </div>
                 <div>
-                  <Label className="text-xs">Rok</Label>
+                  <Label className="text-xs">{t.collaborators.fields.year}</Label>
                   <Input type="number" min={2020} max={2100} value={newSetData.toYear || ""} onChange={(e) => setNewSetData({ ...newSetData, toYear: parseInt(e.target.value) || 0 })} />
                 </div>
               </div>
@@ -1825,7 +1828,7 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
                   onCheckedChange={(checked) => setNewSetData({ ...newSetData, emailAlertEnabled: !!checked })}
                 />
                 <Label htmlFor="emailAlertEnabled" className="text-xs cursor-pointer">
-                  Email Alert o expirácii
+                  {t.konfigurator.emailAlertEnabled}
                 </Label>
               </div>
               <div className="flex gap-2">
@@ -1843,8 +1846,7 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
         {productSets.length === 0 && !isAddingSet && (
           <div className="text-center py-8 text-muted-foreground text-sm">
             <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p>Žiadne zostavy</p>
-            <p className="text-xs">Vytvorte prvú zostavu pre fakturáciu</p>
+            <p>{t.konfigurator.noSets}</p>
           </div>
         )}
 
@@ -1857,7 +1859,7 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
             <div className="flex items-center justify-between">
               <span className="font-medium text-sm">{set.name}</span>
               <Badge variant={set.isActive ? "default" : "secondary"} className="text-xs">
-                {set.isActive ? "Aktívna" : "Neaktívna"}
+                {set.isActive ? t.konfigurator.activeLabel : t.konfigurator.inactiveLabel}
               </Badge>
             </div>
             {(set.fromDate || set.toDate) && (
@@ -1874,7 +1876,7 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
         {!selectedSetId ? (
           <div className="text-center py-16 text-muted-foreground">
             <Settings className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>Vyberte zostavu na úpravu</p>
+            <p>{t.konfigurator.selectInstance}</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -1960,16 +1962,16 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
             {/* Odbery Section */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <Label className="text-sm font-medium">Odbery v zostave</Label>
+                <Label className="text-sm font-medium">{t.konfigurator.collectionsInSet}</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button size="sm" variant="outline">
-                      <Plus className="h-4 w-4 mr-1" /> Pridať odber
+                      <Plus className="h-4 w-4 mr-1" /> {t.konfigurator.addCollection}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-72">
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium">Vyberte odber na konfiguráciu</Label>
+                      <Label className="text-sm font-medium">{t.konfigurator.selectCollection}</Label>
                       {instances.map((inst: any) => (
                         <Button
                           key={inst.id}
@@ -1983,7 +1985,7 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
                         </Button>
                       ))}
                       {instances.length === 0 && (
-                        <p className="text-sm text-muted-foreground text-center py-2">Žiadne odbery</p>
+                        <p className="text-sm text-muted-foreground text-center py-2">{t.konfigurator.noCollections}</p>
                       )}
                     </div>
                   </PopoverContent>
@@ -2002,6 +2004,7 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
                     addCollectionMutation.mutate(config);
                     setConfiguringInstanceId(null);
                   }}
+                  t={t}
                 />
               )}
 
@@ -2018,6 +2021,7 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
                     updateCollectionMutation.mutate(config);
                     setEditingCollectionItem(null);
                   }}
+                  t={t}
                 />
               )}
               
@@ -2061,7 +2065,7 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
                 );
               })}
               {(selectedSet?.collections || []).length === 0 && (
-                <p className="text-xs text-muted-foreground text-center py-2">Žiadne odbery v zostave</p>
+                <p className="text-xs text-muted-foreground text-center py-2">{t.konfigurator.noCollectionsInSet}</p>
               )}
             </div>
 
@@ -2070,16 +2074,16 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
             {/* Skladovanie Section */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <Label className="text-sm font-medium">Skladovanie v zostave</Label>
+                <Label className="text-sm font-medium">{t.konfigurator.storageInSet}</Label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button size="sm" variant="outline" className="bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700 text-green-700 dark:text-green-300">
-                      <Plus className="h-4 w-4 mr-1" /> Pridať skladovanie
+                      <Plus className="h-4 w-4 mr-1" /> {t.konfigurator.addStorageItem}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-72">
                     <div className="space-y-3">
-                      <Label className="text-sm font-medium">Vyberte službu skladovania</Label>
+                      <Label className="text-sm font-medium">{t.konfigurator.selectStorageService}</Label>
                       {allStorageServices.map((svc: any) => (
                         <Button
                           key={svc.id}
@@ -2095,7 +2099,7 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
                         </Button>
                       ))}
                       {allStorageServices.length === 0 && (
-                        <p className="text-sm text-muted-foreground">Žiadne skladovanie k dispozícii</p>
+                        <p className="text-sm text-muted-foreground">{t.konfigurator.noStorageAvailable}</p>
                       )}
                     </div>
                   </PopoverContent>
@@ -2114,6 +2118,7 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
                     addStorageMutation.mutate(config);
                     setConfiguringStorageService(null);
                   }}
+                  t={t}
                 />
               )}
 
@@ -2130,6 +2135,7 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
                     updateStorageMutation.mutate(config);
                     setEditingStorageItem(null);
                   }}
+                  t={t}
                 />
               )}
               
@@ -2176,7 +2182,7 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
                 );
               })}
               {(selectedSet?.storage || []).length === 0 && (
-                <p className="text-xs text-muted-foreground text-center py-2">Žiadne skladovanie v zostave</p>
+                <p className="text-xs text-muted-foreground text-center py-2">{t.konfigurator.noStorageInSet}</p>
               )}
             </div>
           </div>
@@ -2190,7 +2196,7 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
         {!selectedSetId ? (
           <div className="text-center py-16 text-muted-foreground">
             <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p className="text-sm">Vyberte zostavu pre náhľad</p>
+            <p className="text-sm">{t.konfigurator.selectSetForPreview}</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -2985,7 +2991,7 @@ function ProductDetailDialog({
                     <Label>{t.common.active}</Label>
                   </div>
                   <DateFields
-                    label="Platné od"
+                    label={t.konfigurator.validFromLabel}
                     dayValue={newInstanceData.fromDay}
                     monthValue={newInstanceData.fromMonth}
                     yearValue={newInstanceData.fromYear}
@@ -2995,7 +3001,7 @@ function ProductDetailDialog({
                     testIdPrefix="new-instance-from"
                   />
                   <DateFields
-                    label="Platné do"
+                    label={t.konfigurator.validToLabel}
                     dayValue={newInstanceData.toDay}
                     monthValue={newInstanceData.toMonth}
                     yearValue={newInstanceData.toYear}
@@ -3005,7 +3011,7 @@ function ProductDetailDialog({
                     testIdPrefix="new-instance-to"
                   />
                   <div className="col-span-3">
-                    <Label>Popis</Label>
+                    <Label>{t.konfigurator.descriptionLabel}</Label>
                     <Textarea value={newInstanceData.description} onChange={(e) => setNewInstanceData({...newInstanceData, description: e.target.value})} />
                   </div>
                 </div>
@@ -3103,7 +3109,7 @@ function ProductDetailDialog({
                     <Label>{t.common.active}</Label>
                   </div>
                   <DateFields
-                    label="Platné od"
+                    label={t.konfigurator.validFromLabel}
                     dayValue={editingInstanceData.fromDay || 0}
                     monthValue={editingInstanceData.fromMonth || 0}
                     yearValue={editingInstanceData.fromYear || 0}
@@ -3113,7 +3119,7 @@ function ProductDetailDialog({
                     testIdPrefix="edit-instance-from"
                   />
                   <DateFields
-                    label="Platné do"
+                    label={t.konfigurator.validToLabel}
                     dayValue={editingInstanceData.toDay || 0}
                     monthValue={editingInstanceData.toMonth || 0}
                     yearValue={editingInstanceData.toYear || 0}
@@ -3123,7 +3129,7 @@ function ProductDetailDialog({
                     testIdPrefix="edit-instance-to"
                   />
                   <div className="col-span-3">
-                    <Label>Popis</Label>
+                    <Label>{t.konfigurator.descriptionLabel}</Label>
                     <Textarea value={editingInstanceData.description || ""} onChange={(e) => setEditingInstanceData({...editingInstanceData, description: e.target.value})} />
                   </div>
                 </div>
@@ -3168,24 +3174,24 @@ function ProductDetailDialog({
                           <div className="space-y-4">
                             <div className="grid grid-cols-3 gap-3">
                               <div className="col-span-2">
-                                <Label>Názov ceny</Label>
+                                <Label>{t.konfigurator.priceName}</Label>
                                 <Input value={newPriceData.name} onChange={(e) => setNewPriceData({...newPriceData, name: e.target.value})} placeholder="Napr. Základná cena" />
                               </div>
                               <div className="flex items-center gap-2 pt-6">
                                 <Switch checked={newPriceData.isActive} onCheckedChange={(v) => setNewPriceData({...newPriceData, isActive: v})} />
-                                <Label>Aktívne</Label>
+                                <Label>{t.konfigurator.activeLabel}</Label>
                               </div>
                             </div>
                             
                             <Separator />
-                            <p className="text-sm font-medium text-muted-foreground">Suma a účtovníctvo</p>
+                            <p className="text-sm font-medium text-muted-foreground">{t.konfigurator.amountAndAccounting}</p>
                             <div className="grid grid-cols-4 gap-3">
                               <div>
-                                <Label>Cena</Label>
+                                <Label>{t.konfigurator.priceLabel}</Label>
                                 <Input type="number" step="0.01" value={newPriceData.price} onChange={(e) => setNewPriceData({...newPriceData, price: e.target.value})} />
                               </div>
                               <div>
-                                <Label>Mena</Label>
+                                <Label>{t.konfigurator.currencyLabel}</Label>
                                 <Select value={newPriceData.currency} onValueChange={(v) => setNewPriceData({...newPriceData, currency: v})}>
                                   <SelectTrigger><SelectValue /></SelectTrigger>
                                   <SelectContent>
@@ -3194,20 +3200,20 @@ function ProductDetailDialog({
                                 </Select>
                               </div>
                               <div>
-                                <Label>Účtovný kód</Label>
+                                <Label>{t.konfigurator.accountingCodeLabel}</Label>
                                 <Input value={newPriceData.accountingCode} onChange={(e) => setNewPriceData({...newPriceData, accountingCode: e.target.value})} />
                               </div>
                               <div>
-                                <Label>Analytický účet</Label>
+                                <Label>{t.konfigurator.analyticalAccountLabel}</Label>
                                 <Input value={newPriceData.analyticalAccount} onChange={(e) => setNewPriceData({...newPriceData, analyticalAccount: e.target.value})} />
                               </div>
                             </div>
                             
                             <Separator />
-                            <p className="text-sm font-medium text-muted-foreground">Platnosť</p>
+                            <p className="text-sm font-medium text-muted-foreground">{t.konfigurator.validity}</p>
                             <div className="grid grid-cols-2 gap-3">
                               <DateFields
-                                label="Platné od"
+                                label={t.konfigurator.validFromLabel}
                                 dayValue={newPriceData.fromDay}
                                 monthValue={newPriceData.fromMonth}
                                 yearValue={newPriceData.fromYear}
@@ -3217,7 +3223,7 @@ function ProductDetailDialog({
                                 testIdPrefix="new-price-from"
                               />
                               <DateFields
-                                label="Platné do"
+                                label={t.konfigurator.validToLabel}
                                 dayValue={newPriceData.toDay}
                                 monthValue={newPriceData.toMonth}
                                 yearValue={newPriceData.toYear}
@@ -3229,7 +3235,7 @@ function ProductDetailDialog({
                             </div>
                             
                             <div>
-                              <Label>Popis</Label>
+                              <Label>{t.konfigurator.descriptionLabel}</Label>
                               <Textarea value={newPriceData.description} onChange={(e) => setNewPriceData({...newPriceData, description: e.target.value})} className="min-h-[60px]" />
                             </div>
                           </div>
@@ -3257,7 +3263,7 @@ function ProductDetailDialog({
                                 {price.fromDate ? new Date(price.fromDate).toLocaleDateString() : "..."} - {price.toDate ? new Date(price.toDate).toLocaleDateString() : "..."}
                               </span>
                             )}
-                            <Badge variant={price.isActive ? "default" : "secondary"}>{price.isActive ? "Aktívne" : "Neaktívne"}</Badge>
+                            <Badge variant={price.isActive ? "default" : "secondary"}>{price.isActive ? t.konfigurator.activeLabel : t.konfigurator.inactiveLabel}</Badge>
                           </div>
                           <div className="flex gap-1">
                             <Button variant="ghost" size="icon" onClick={() => { 
@@ -3283,24 +3289,24 @@ function ProductDetailDialog({
                           <div className="space-y-4">
                             <div className="grid grid-cols-3 gap-3">
                               <div className="col-span-2">
-                                <Label>Názov ceny</Label>
+                                <Label>{t.konfigurator.priceName}</Label>
                                 <Input value={editingPriceData.name} onChange={(e) => setEditingPriceData({...editingPriceData, name: e.target.value})} />
                               </div>
                               <div className="flex items-center gap-2 pt-6">
                                 <Switch checked={editingPriceData.isActive} onCheckedChange={(v) => setEditingPriceData({...editingPriceData, isActive: v})} />
-                                <Label>Aktívne</Label>
+                                <Label>{t.konfigurator.activeLabel}</Label>
                               </div>
                             </div>
                             
                             <Separator />
-                            <p className="text-sm font-medium text-muted-foreground">Suma a účtovníctvo</p>
+                            <p className="text-sm font-medium text-muted-foreground">{t.konfigurator.amountAndAccounting}</p>
                             <div className="grid grid-cols-4 gap-3">
                               <div>
-                                <Label>Cena</Label>
+                                <Label>{t.konfigurator.priceLabel}</Label>
                                 <Input type="number" step="0.01" value={editingPriceData.price} onChange={(e) => setEditingPriceData({...editingPriceData, price: e.target.value})} />
                               </div>
                               <div>
-                                <Label>Mena</Label>
+                                <Label>{t.konfigurator.currencyLabel}</Label>
                                 <Select value={editingPriceData.currency} onValueChange={(v) => setEditingPriceData({...editingPriceData, currency: v})}>
                                   <SelectTrigger><SelectValue /></SelectTrigger>
                                   <SelectContent>
@@ -3309,20 +3315,20 @@ function ProductDetailDialog({
                                 </Select>
                               </div>
                               <div>
-                                <Label>Účtovný kód</Label>
+                                <Label>{t.konfigurator.accountingCodeLabel}</Label>
                                 <Input value={editingPriceData.accountingCode || ""} onChange={(e) => setEditingPriceData({...editingPriceData, accountingCode: e.target.value})} />
                               </div>
                               <div>
-                                <Label>Analytický účet</Label>
+                                <Label>{t.konfigurator.analyticalAccountLabel}</Label>
                                 <Input value={editingPriceData.analyticalAccount || ""} onChange={(e) => setEditingPriceData({...editingPriceData, analyticalAccount: e.target.value})} />
                               </div>
                             </div>
                             
                             <Separator />
-                            <p className="text-sm font-medium text-muted-foreground">Platnosť</p>
+                            <p className="text-sm font-medium text-muted-foreground">{t.konfigurator.validity}</p>
                             <div className="grid grid-cols-2 gap-3">
                               <DateFields
-                                label="Platné od"
+                                label={t.konfigurator.validFromLabel}
                                 dayValue={editingPriceData.fromDay || 0}
                                 monthValue={editingPriceData.fromMonth || 0}
                                 yearValue={editingPriceData.fromYear || 0}
@@ -3332,7 +3338,7 @@ function ProductDetailDialog({
                                 testIdPrefix="edit-price-from"
                               />
                               <DateFields
-                                label="Platné do"
+                                label={t.konfigurator.validToLabel}
                                 dayValue={editingPriceData.toDay || 0}
                                 monthValue={editingPriceData.toMonth || 0}
                                 yearValue={editingPriceData.toYear || 0}
@@ -3344,7 +3350,7 @@ function ProductDetailDialog({
                             </div>
                             
                             <div>
-                              <Label>Popis</Label>
+                              <Label>{t.konfigurator.descriptionLabel}</Label>
                               <Textarea value={editingPriceData.description || ""} onChange={(e) => setEditingPriceData({...editingPriceData, description: e.target.value})} className="min-h-[60px]" />
                             </div>
                           </div>
@@ -3380,7 +3386,7 @@ function ProductDetailDialog({
                               </div>
                               <div className="flex items-center gap-2 pt-6">
                                 <Switch checked={newPaymentData.isActive} onCheckedChange={(v) => setNewPaymentData({...newPaymentData, isActive: v})} />
-                                <Label>Aktívne</Label>
+                                <Label>{t.konfigurator.activeLabel}</Label>
                               </div>
                             </div>
                             
@@ -3400,20 +3406,20 @@ function ProductDetailDialog({
                                 <Input type="number" step="0.01" value={newPaymentData.paymentTypeFee} onChange={(e) => setNewPaymentData({...newPaymentData, paymentTypeFee: e.target.value})} />
                               </div>
                               <div>
-                                <Label>Účtovný kód</Label>
+                                <Label>{t.konfigurator.accountingCodeLabel}</Label>
                                 <Input value={newPaymentData.accountingCode} onChange={(e) => setNewPaymentData({...newPaymentData, accountingCode: e.target.value})} />
                               </div>
                               <div>
-                                <Label>Analytický účet</Label>
+                                <Label>{t.konfigurator.analyticalAccountLabel}</Label>
                                 <Input value={newPaymentData.analyticalAccount} onChange={(e) => setNewPaymentData({...newPaymentData, analyticalAccount: e.target.value})} />
                               </div>
                             </div>
                             
                             <Separator />
-                            <p className="text-sm font-medium text-muted-foreground">Platnosť</p>
+                            <p className="text-sm font-medium text-muted-foreground">{t.konfigurator.validity}</p>
                             <div className="grid grid-cols-2 gap-3">
                               <DateFields
-                                label="Platné od"
+                                label={t.konfigurator.validFromLabel}
                                 dayValue={newPaymentData.fromDay}
                                 monthValue={newPaymentData.fromMonth}
                                 yearValue={newPaymentData.fromYear}
@@ -3423,7 +3429,7 @@ function ProductDetailDialog({
                                 testIdPrefix="new-payment-from"
                               />
                               <DateFields
-                                label="Platné do"
+                                label={t.konfigurator.validToLabel}
                                 dayValue={newPaymentData.toDay}
                                 monthValue={newPaymentData.toMonth}
                                 yearValue={newPaymentData.toYear}
@@ -3435,7 +3441,7 @@ function ProductDetailDialog({
                             </div>
                             
                             <div>
-                              <Label>Popis</Label>
+                              <Label>{t.konfigurator.descriptionLabel}</Label>
                               <Textarea value={newPaymentData.description} onChange={(e) => setNewPaymentData({...newPaymentData, description: e.target.value})} className="min-h-[60px]" />
                             </div>
                             
@@ -3661,7 +3667,7 @@ function ProductDetailDialog({
                                 {payment.fromDate ? new Date(payment.fromDate).toLocaleDateString() : "..."} - {payment.toDate ? new Date(payment.toDate).toLocaleDateString() : "..."}
                               </span>
                             )}
-                            <Badge variant={payment.isActive ? "default" : "secondary"}>{payment.isActive ? "Aktívne" : "Neaktívne"}</Badge>
+                            <Badge variant={payment.isActive ? "default" : "secondary"}>{payment.isActive ? t.konfigurator.activeLabel : t.konfigurator.inactiveLabel}</Badge>
                           </div>
                           <div className="flex gap-1">
                             <Button variant="ghost" size="icon" onClick={async () => { 
@@ -3707,7 +3713,7 @@ function ProductDetailDialog({
                               </div>
                               <div className="flex items-center gap-2 pt-6">
                                 <Switch checked={editingPaymentData.isActive} onCheckedChange={(v) => setEditingPaymentData({...editingPaymentData, isActive: v})} />
-                                <Label>Aktívne</Label>
+                                <Label>{t.konfigurator.activeLabel}</Label>
                               </div>
                             </div>
                             
@@ -3727,20 +3733,20 @@ function ProductDetailDialog({
                                 <Input type="number" step="0.01" value={editingPaymentData.paymentTypeFee || ""} onChange={(e) => setEditingPaymentData({...editingPaymentData, paymentTypeFee: e.target.value})} />
                               </div>
                               <div>
-                                <Label>Účtovný kód</Label>
+                                <Label>{t.konfigurator.accountingCodeLabel}</Label>
                                 <Input value={editingPaymentData.accountingCode || ""} onChange={(e) => setEditingPaymentData({...editingPaymentData, accountingCode: e.target.value})} />
                               </div>
                               <div>
-                                <Label>Analytický účet</Label>
+                                <Label>{t.konfigurator.analyticalAccountLabel}</Label>
                                 <Input value={editingPaymentData.analyticalAccount || ""} onChange={(e) => setEditingPaymentData({...editingPaymentData, analyticalAccount: e.target.value})} />
                               </div>
                             </div>
                             
                             <Separator />
-                            <p className="text-sm font-medium text-muted-foreground">Platnosť</p>
+                            <p className="text-sm font-medium text-muted-foreground">{t.konfigurator.validity}</p>
                             <div className="grid grid-cols-2 gap-3">
                               <DateFields
-                                label="Platné od"
+                                label={t.konfigurator.validFromLabel}
                                 dayValue={editingPaymentData.fromDay}
                                 monthValue={editingPaymentData.fromMonth}
                                 yearValue={editingPaymentData.fromYear}
@@ -3750,7 +3756,7 @@ function ProductDetailDialog({
                                 testIdPrefix="edit-payment-from"
                               />
                               <DateFields
-                                label="Platné do"
+                                label={t.konfigurator.validToLabel}
                                 dayValue={editingPaymentData.toDay}
                                 monthValue={editingPaymentData.toMonth}
                                 yearValue={editingPaymentData.toYear}
@@ -3762,7 +3768,7 @@ function ProductDetailDialog({
                             </div>
                             
                             <div>
-                              <Label>Popis</Label>
+                              <Label>{t.konfigurator.descriptionLabel}</Label>
                               <Textarea value={editingPaymentData.description || ""} onChange={(e) => setEditingPaymentData({...editingPaymentData, description: e.target.value})} className="min-h-[60px]" />
                             </div>
 
@@ -3990,7 +3996,7 @@ function ProductDetailDialog({
                               </div>
                               <div className="flex items-center gap-2 pt-6">
                                 <Switch checked={newDiscountData.isActive} onCheckedChange={(v) => setNewDiscountData({...newDiscountData, isActive: v})} />
-                                <Label>Aktívne</Label>
+                                <Label>{t.konfigurator.activeLabel}</Label>
                               </div>
                             </div>
                             
@@ -4006,7 +4012,7 @@ function ProductDetailDialog({
                                 <Label>Percentuálna</Label>
                               </div>
                               <div>
-                                <Label>{newDiscountData.isPercentage ? "Percento (%)" : "Fixná hodnota"}</Label>
+                                <Label>{newDiscountData.isPercentage ? t.konfigurator.percentageLabel : t.konfigurator.fixedValueLabel}</Label>
                                 <Input 
                                   type="number" 
                                   step="0.01" 
@@ -4027,20 +4033,20 @@ function ProductDetailDialog({
                                 <Input value={newDiscountData.invoiceItemText} onChange={(e) => setNewDiscountData({...newDiscountData, invoiceItemText: e.target.value})} />
                               </div>
                               <div>
-                                <Label>Účtovný kód</Label>
+                                <Label>{t.konfigurator.accountingCodeLabel}</Label>
                                 <Input value={newDiscountData.accountingCode || ""} onChange={(e) => setNewDiscountData({...newDiscountData, accountingCode: e.target.value})} />
                               </div>
                               <div>
-                                <Label>Analytický účet</Label>
+                                <Label>{t.konfigurator.analyticalAccountLabel}</Label>
                                 <Input value={newDiscountData.analyticalAccount} onChange={(e) => setNewDiscountData({...newDiscountData, analyticalAccount: e.target.value})} />
                               </div>
                             </div>
                             
                             <Separator />
-                            <p className="text-sm font-medium text-muted-foreground">Platnosť</p>
+                            <p className="text-sm font-medium text-muted-foreground">{t.konfigurator.validity}</p>
                             <div className="grid grid-cols-2 gap-3">
                               <DateFields
-                                label="Platné od"
+                                label={t.konfigurator.validFromLabel}
                                 dayValue={newDiscountData.fromDay}
                                 monthValue={newDiscountData.fromMonth}
                                 yearValue={newDiscountData.fromYear}
@@ -4050,7 +4056,7 @@ function ProductDetailDialog({
                                 testIdPrefix="new-discount-from"
                               />
                               <DateFields
-                                label="Platné do"
+                                label={t.konfigurator.validToLabel}
                                 dayValue={newDiscountData.toDay}
                                 monthValue={newDiscountData.toMonth}
                                 yearValue={newDiscountData.toYear}
@@ -4088,7 +4094,7 @@ function ProductDetailDialog({
                                 {discount.fromDate ? new Date(discount.fromDate).toLocaleDateString() : "..."} - {discount.toDate ? new Date(discount.toDate).toLocaleDateString() : "..."}
                               </span>
                             )}
-                            <Badge variant={discount.isActive ? "default" : "secondary"}>{discount.isActive ? "Aktívne" : "Neaktívne"}</Badge>
+                            <Badge variant={discount.isActive ? "default" : "secondary"}>{discount.isActive ? t.konfigurator.activeLabel : t.konfigurator.inactiveLabel}</Badge>
                           </div>
                           <div className="flex gap-1">
                             <Button variant="ghost" size="icon" onClick={() => { 
@@ -4119,7 +4125,7 @@ function ProductDetailDialog({
                               </div>
                               <div className="flex items-center gap-2 pt-6">
                                 <Switch checked={editingDiscountData.isActive} onCheckedChange={(v) => setEditingDiscountData({...editingDiscountData, isActive: v})} />
-                                <Label>Aktívne</Label>
+                                <Label>{t.konfigurator.activeLabel}</Label>
                               </div>
                             </div>
                             
@@ -4135,7 +4141,7 @@ function ProductDetailDialog({
                                 <Label>Percentuálna</Label>
                               </div>
                               <div>
-                                <Label>{editingDiscountData.isPercentage ? "Percento (%)" : "Fixná hodnota"}</Label>
+                                <Label>{editingDiscountData.isPercentage ? t.konfigurator.percentageLabel : t.konfigurator.fixedValueLabel}</Label>
                                 <Input 
                                   type="number" 
                                   step="0.01" 
@@ -4156,20 +4162,20 @@ function ProductDetailDialog({
                                 <Input value={editingDiscountData.invoiceItemText || ""} onChange={(e) => setEditingDiscountData({...editingDiscountData, invoiceItemText: e.target.value})} />
                               </div>
                               <div>
-                                <Label>Účtovný kód</Label>
+                                <Label>{t.konfigurator.accountingCodeLabel}</Label>
                                 <Input value={editingDiscountData.accountingCode || ""} onChange={(e) => setEditingDiscountData({...editingDiscountData, accountingCode: e.target.value})} />
                               </div>
                               <div>
-                                <Label>Analytický účet</Label>
+                                <Label>{t.konfigurator.analyticalAccountLabel}</Label>
                                 <Input value={editingDiscountData.analyticalAccount || ""} onChange={(e) => setEditingDiscountData({...editingDiscountData, analyticalAccount: e.target.value})} />
                               </div>
                             </div>
                             
                             <Separator />
-                            <p className="text-sm font-medium text-muted-foreground">Platnosť</p>
+                            <p className="text-sm font-medium text-muted-foreground">{t.konfigurator.validity}</p>
                             <div className="grid grid-cols-2 gap-3">
                               <DateFields
-                                label="Platné od"
+                                label={t.konfigurator.validFromLabel}
                                 dayValue={editingDiscountData.fromDay}
                                 monthValue={editingDiscountData.fromMonth}
                                 yearValue={editingDiscountData.fromYear}
@@ -4179,7 +4185,7 @@ function ProductDetailDialog({
                                 testIdPrefix="edit-discount-from"
                               />
                               <DateFields
-                                label="Platné do"
+                                label={t.konfigurator.validToLabel}
                                 dayValue={editingDiscountData.toDay}
                                 monthValue={editingDiscountData.toMonth}
                                 yearValue={editingDiscountData.toYear}
@@ -4226,7 +4232,7 @@ function ProductDetailDialog({
                                 />
                               </div>
                               <div>
-                                <Label>Účtovný kód</Label>
+                                <Label>{t.konfigurator.accountingCodeLabel}</Label>
                                 <Input 
                                   value={newVatRateData.accountingCode} 
                                   onChange={(e) => setNewVatRateData({...newVatRateData, accountingCode: e.target.value})}
@@ -4246,7 +4252,7 @@ function ProductDetailDialog({
                             </div>
                             <div className="grid grid-cols-2 gap-3">
                               <DateFields
-                                label="Platné od"
+                                label={t.konfigurator.validFromLabel}
                                 dayValue={newVatRateData.fromDay}
                                 monthValue={newVatRateData.fromMonth}
                                 yearValue={newVatRateData.fromYear}
@@ -4256,7 +4262,7 @@ function ProductDetailDialog({
                                 testIdPrefix="new-vat-from"
                               />
                               <DateFields
-                                label="Platné do"
+                                label={t.konfigurator.validToLabel}
                                 dayValue={newVatRateData.toDay}
                                 monthValue={newVatRateData.toMonth}
                                 yearValue={newVatRateData.toYear}
@@ -4311,7 +4317,7 @@ function ProductDetailDialog({
                                   />
                                 </div>
                                 <div>
-                                  <Label>Účtovný kód</Label>
+                                  <Label>{t.konfigurator.accountingCodeLabel}</Label>
                                   <Input 
                                     value={editingVatData.accountingCode || ""} 
                                     onChange={(e) => setEditingVatData({...editingVatData, accountingCode: e.target.value})}
@@ -4331,7 +4337,7 @@ function ProductDetailDialog({
                               </div>
                               <div className="grid grid-cols-2 gap-3">
                                 <DateFields
-                                  label="Platné od"
+                                  label={t.konfigurator.validFromLabel}
                                   dayValue={editingVatData.fromDay}
                                   monthValue={editingVatData.fromMonth}
                                   yearValue={editingVatData.fromYear}
@@ -4341,7 +4347,7 @@ function ProductDetailDialog({
                                   testIdPrefix="edit-vat-from"
                                 />
                                 <DateFields
-                                  label="Platné do"
+                                  label={t.konfigurator.validToLabel}
                                   dayValue={editingVatData.toDay}
                                   monthValue={editingVatData.toMonth}
                                   yearValue={editingVatData.toYear}
@@ -4530,10 +4536,10 @@ function ProductDetailDialog({
                       </div>
                       
                       <Separator />
-                      <p className="text-sm font-medium text-muted-foreground">Platnosť</p>
+                      <p className="text-sm font-medium text-muted-foreground">{t.konfigurator.validity}</p>
                       <div className="grid grid-cols-2 gap-3">
                         <DateFields
-                          label="Platné od"
+                          label={t.konfigurator.validFromLabel}
                           dayValue={newServiceData.fromDay}
                           monthValue={newServiceData.fromMonth}
                           yearValue={newServiceData.fromYear}
@@ -4543,7 +4549,7 @@ function ProductDetailDialog({
                           testIdPrefix="new-service-from"
                         />
                         <DateFields
-                          label="Platné do"
+                          label={t.konfigurator.validToLabel}
                           dayValue={newServiceData.toDay}
                           monthValue={newServiceData.toMonth}
                           yearValue={newServiceData.toYear}
@@ -4555,7 +4561,7 @@ function ProductDetailDialog({
                       </div>
                       
                       <div>
-                        <Label>Popis</Label>
+                        <Label>{t.konfigurator.descriptionLabel}</Label>
                         <Textarea value={newServiceData.description} onChange={(e) => setNewServiceData({...newServiceData, description: e.target.value})} className="min-h-[60px]" />
                       </div>
                     </div>
@@ -4737,10 +4743,10 @@ function ProductDetailDialog({
                       </div>
                       
                       <Separator />
-                      <p className="text-sm font-medium text-muted-foreground">Platnosť</p>
+                      <p className="text-sm font-medium text-muted-foreground">{t.konfigurator.validity}</p>
                       <div className="grid grid-cols-2 gap-3">
                         <DateFields
-                          label="Platné od"
+                          label={t.konfigurator.validFromLabel}
                           dayValue={editingServiceData.fromDay}
                           monthValue={editingServiceData.fromMonth}
                           yearValue={editingServiceData.fromYear}
@@ -4750,7 +4756,7 @@ function ProductDetailDialog({
                           testIdPrefix="edit-service-from"
                         />
                         <DateFields
-                          label="Platné do"
+                          label={t.konfigurator.validToLabel}
                           dayValue={editingServiceData.toDay}
                           monthValue={editingServiceData.toMonth}
                           yearValue={editingServiceData.toYear}
@@ -4762,7 +4768,7 @@ function ProductDetailDialog({
                       </div>
                       
                       <div>
-                        <Label>Popis</Label>
+                        <Label>{t.konfigurator.descriptionLabel}</Label>
                         <Textarea value={editingServiceData.description || ""} onChange={(e) => setEditingServiceData({...editingServiceData, description: e.target.value})} className="min-h-[60px]" />
                       </div>
                     </div>
@@ -4811,21 +4817,21 @@ function ProductDetailDialog({
                               <div className="space-y-4">
                                 <div className="grid grid-cols-3 gap-3">
                                   <div className="col-span-2">
-                                    <Label>Názov ceny</Label>
+                                    <Label>{t.konfigurator.priceName}</Label>
                                     <Input value={newServicePriceData.name} onChange={(e) => setNewServicePriceData({...newServicePriceData, name: e.target.value})} placeholder="Napr. Ročné skladovanie" />
                                   </div>
                                   <div className="flex items-center gap-2 pt-6">
                                     <Switch checked={newServicePriceData.isActive} onCheckedChange={(v) => setNewServicePriceData({...newServicePriceData, isActive: v})} />
-                                    <Label>Aktívne</Label>
+                                    <Label>{t.konfigurator.activeLabel}</Label>
                                   </div>
                                 </div>
                                 <div className="grid grid-cols-3 gap-3">
                                   <div>
-                                    <Label>Cena</Label>
+                                    <Label>{t.konfigurator.priceLabel}</Label>
                                     <Input type="number" step="0.01" value={newServicePriceData.price} onChange={(e) => setNewServicePriceData({...newServicePriceData, price: e.target.value})} />
                                   </div>
                                   <div>
-                                    <Label>Mena</Label>
+                                    <Label>{t.konfigurator.currencyLabel}</Label>
                                     <Select value={newServicePriceData.currency} onValueChange={(v) => setNewServicePriceData({...newServicePriceData, currency: v})}>
                                       <SelectTrigger><SelectValue /></SelectTrigger>
                                       <SelectContent>
@@ -4834,7 +4840,7 @@ function ProductDetailDialog({
                                     </Select>
                                   </div>
                                   <div>
-                                    <Label>Účtovný kód</Label>
+                                    <Label>{t.konfigurator.accountingCodeLabel}</Label>
                                     <Input value={newServicePriceData.accountingCode} onChange={(e) => setNewServicePriceData({...newServicePriceData, accountingCode: e.target.value})} />
                                   </div>
                                 </div>
@@ -4863,7 +4869,7 @@ function ProductDetailDialog({
                                     {price.fromDate ? new Date(price.fromDate).toLocaleDateString() : "..."} - {price.toDate ? new Date(price.toDate).toLocaleDateString() : "..."}
                                   </span>
                                 )}
-                                <Badge variant={price.isActive ? "default" : "secondary"}>{price.isActive ? "Aktívne" : "Neaktívne"}</Badge>
+                                <Badge variant={price.isActive ? "default" : "secondary"}>{price.isActive ? t.konfigurator.activeLabel : t.konfigurator.inactiveLabel}</Badge>
                               </div>
                               <div className="flex gap-1">
                                 <Button variant="ghost" size="icon" onClick={() => { 
@@ -4889,24 +4895,24 @@ function ProductDetailDialog({
                               <div className="space-y-4">
                                 <div className="grid grid-cols-3 gap-3">
                                   <div className="col-span-2">
-                                    <Label>Názov ceny</Label>
+                                    <Label>{t.konfigurator.priceName}</Label>
                                     <Input value={editingServicePriceData.name} onChange={(e) => setEditingServicePriceData({...editingServicePriceData, name: e.target.value})} />
                                   </div>
                                   <div className="flex items-center gap-2 pt-6">
                                     <Switch checked={editingServicePriceData.isActive} onCheckedChange={(v) => setEditingServicePriceData({...editingServicePriceData, isActive: v})} />
-                                    <Label>Aktívne</Label>
+                                    <Label>{t.konfigurator.activeLabel}</Label>
                                   </div>
                                 </div>
                                 
                                 <Separator />
-                                <p className="text-sm font-medium text-muted-foreground">Suma a účtovníctvo</p>
+                                <p className="text-sm font-medium text-muted-foreground">{t.konfigurator.amountAndAccounting}</p>
                                 <div className="grid grid-cols-4 gap-3">
                                   <div>
-                                    <Label>Cena</Label>
+                                    <Label>{t.konfigurator.priceLabel}</Label>
                                     <Input type="number" step="0.01" value={editingServicePriceData.price} onChange={(e) => setEditingServicePriceData({...editingServicePriceData, price: e.target.value})} />
                                   </div>
                                   <div>
-                                    <Label>Mena</Label>
+                                    <Label>{t.konfigurator.currencyLabel}</Label>
                                     <Select value={editingServicePriceData.currency} onValueChange={(v) => setEditingServicePriceData({...editingServicePriceData, currency: v})}>
                                       <SelectTrigger><SelectValue /></SelectTrigger>
                                       <SelectContent>
@@ -4915,20 +4921,20 @@ function ProductDetailDialog({
                                     </Select>
                                   </div>
                                   <div>
-                                    <Label>Účtovný kód</Label>
+                                    <Label>{t.konfigurator.accountingCodeLabel}</Label>
                                     <Input value={editingServicePriceData.accountingCode || ""} onChange={(e) => setEditingServicePriceData({...editingServicePriceData, accountingCode: e.target.value})} />
                                   </div>
                                   <div>
-                                    <Label>Analytický účet</Label>
+                                    <Label>{t.konfigurator.analyticalAccountLabel}</Label>
                                     <Input value={editingServicePriceData.analyticalAccount || ""} onChange={(e) => setEditingServicePriceData({...editingServicePriceData, analyticalAccount: e.target.value})} />
                                   </div>
                                 </div>
                                 
                                 <Separator />
-                                <p className="text-sm font-medium text-muted-foreground">Platnosť</p>
+                                <p className="text-sm font-medium text-muted-foreground">{t.konfigurator.validity}</p>
                                 <div className="grid grid-cols-2 gap-3">
                                   <DateFields
-                                    label="Platné od"
+                                    label={t.konfigurator.validFromLabel}
                                     dayValue={editingServicePriceData.fromDay || 0}
                                     monthValue={editingServicePriceData.fromMonth || 0}
                                     yearValue={editingServicePriceData.fromYear || 0}
@@ -4938,7 +4944,7 @@ function ProductDetailDialog({
                                     testIdPrefix="edit-service-price-from"
                                   />
                                   <DateFields
-                                    label="Platné do"
+                                    label={t.konfigurator.validToLabel}
                                     dayValue={editingServicePriceData.toDay || 0}
                                     monthValue={editingServicePriceData.toMonth || 0}
                                     yearValue={editingServicePriceData.toYear || 0}
@@ -4950,7 +4956,7 @@ function ProductDetailDialog({
                                 </div>
                                 
                                 <div>
-                                  <Label>Popis</Label>
+                                  <Label>{t.konfigurator.descriptionLabel}</Label>
                                   <Textarea value={editingServicePriceData.description || ""} onChange={(e) => setEditingServicePriceData({...editingServicePriceData, description: e.target.value})} className="min-h-[60px]" />
                                 </div>
                               </div>
@@ -4989,7 +4995,7 @@ function ProductDetailDialog({
                                   </div>
                                   <div className="flex items-center gap-2 pt-6">
                                     <Switch checked={newServicePaymentData.isActive} onCheckedChange={(v) => setNewServicePaymentData({...newServicePaymentData, isActive: v})} />
-                                    <Label>Aktívne</Label>
+                                    <Label>{t.konfigurator.activeLabel}</Label>
                                   </div>
                                 </div>
                                 
@@ -5009,20 +5015,20 @@ function ProductDetailDialog({
                                     <Input type="number" step="0.01" value={newServicePaymentData.paymentTypeFee} onChange={(e) => setNewServicePaymentData({...newServicePaymentData, paymentTypeFee: e.target.value})} />
                                   </div>
                                   <div>
-                                    <Label>Účtovný kód</Label>
+                                    <Label>{t.konfigurator.accountingCodeLabel}</Label>
                                     <Input value={newServicePaymentData.accountingCode} onChange={(e) => setNewServicePaymentData({...newServicePaymentData, accountingCode: e.target.value})} />
                                   </div>
                                   <div>
-                                    <Label>Analytický účet</Label>
+                                    <Label>{t.konfigurator.analyticalAccountLabel}</Label>
                                     <Input value={newServicePaymentData.analyticalAccount} onChange={(e) => setNewServicePaymentData({...newServicePaymentData, analyticalAccount: e.target.value})} />
                                   </div>
                                 </div>
                                 
                                 <Separator />
-                                <p className="text-sm font-medium text-muted-foreground">Platnosť</p>
+                                <p className="text-sm font-medium text-muted-foreground">{t.konfigurator.validity}</p>
                                 <div className="grid grid-cols-2 gap-3">
                                   <DateFields
-                                    label="Platné od"
+                                    label={t.konfigurator.validFromLabel}
                                     dayValue={newServicePaymentData.fromDay}
                                     monthValue={newServicePaymentData.fromMonth}
                                     yearValue={newServicePaymentData.fromYear}
@@ -5032,7 +5038,7 @@ function ProductDetailDialog({
                                     testIdPrefix="new-service-payment-from"
                                   />
                                   <DateFields
-                                    label="Platné do"
+                                    label={t.konfigurator.validToLabel}
                                     dayValue={newServicePaymentData.toDay}
                                     monthValue={newServicePaymentData.toMonth}
                                     yearValue={newServicePaymentData.toYear}
@@ -5044,7 +5050,7 @@ function ProductDetailDialog({
                                 </div>
                                 
                                 <div>
-                                  <Label>Popis</Label>
+                                  <Label>{t.konfigurator.descriptionLabel}</Label>
                                   <Textarea value={newServicePaymentData.description} onChange={(e) => setNewServicePaymentData({...newServicePaymentData, description: e.target.value})} className="min-h-[60px]" />
                                 </div>
                                 
@@ -5248,7 +5254,7 @@ function ProductDetailDialog({
                                     {payment.fromDate ? new Date(payment.fromDate).toLocaleDateString() : "..."} - {payment.toDate ? new Date(payment.toDate).toLocaleDateString() : "..."}
                                   </span>
                                 )}
-                                <Badge variant={payment.isActive ? "default" : "secondary"}>{payment.isActive ? "Aktívne" : "Neaktívne"}</Badge>
+                                <Badge variant={payment.isActive ? "default" : "secondary"}>{payment.isActive ? t.konfigurator.activeLabel : t.konfigurator.inactiveLabel}</Badge>
                               </div>
                               <div className="flex gap-1">
                                 <Button variant="ghost" size="icon" onClick={() => { 
@@ -5279,7 +5285,7 @@ function ProductDetailDialog({
                                   </div>
                                   <div className="flex items-center gap-2 pt-6">
                                     <Switch checked={editingServicePaymentData.isActive} onCheckedChange={(v) => setEditingServicePaymentData({...editingServicePaymentData, isActive: v})} />
-                                    <Label>Aktívne</Label>
+                                    <Label>{t.konfigurator.activeLabel}</Label>
                                   </div>
                                 </div>
                                 
@@ -5299,20 +5305,20 @@ function ProductDetailDialog({
                                     <Input type="number" step="0.01" value={editingServicePaymentData.paymentTypeFee || ""} onChange={(e) => setEditingServicePaymentData({...editingServicePaymentData, paymentTypeFee: e.target.value})} />
                                   </div>
                                   <div>
-                                    <Label>Účtovný kód</Label>
+                                    <Label>{t.konfigurator.accountingCodeLabel}</Label>
                                     <Input value={editingServicePaymentData.accountingCode || ""} onChange={(e) => setEditingServicePaymentData({...editingServicePaymentData, accountingCode: e.target.value})} />
                                   </div>
                                   <div>
-                                    <Label>Analytický účet</Label>
+                                    <Label>{t.konfigurator.analyticalAccountLabel}</Label>
                                     <Input value={editingServicePaymentData.analyticalAccount || ""} onChange={(e) => setEditingServicePaymentData({...editingServicePaymentData, analyticalAccount: e.target.value})} />
                                   </div>
                                 </div>
                                 
                                 <Separator />
-                                <p className="text-sm font-medium text-muted-foreground">Platnosť</p>
+                                <p className="text-sm font-medium text-muted-foreground">{t.konfigurator.validity}</p>
                                 <div className="grid grid-cols-2 gap-3">
                                   <DateFields
-                                    label="Platné od"
+                                    label={t.konfigurator.validFromLabel}
                                     dayValue={editingServicePaymentData.fromDay || 0}
                                     monthValue={editingServicePaymentData.fromMonth || 0}
                                     yearValue={editingServicePaymentData.fromYear || 0}
@@ -5322,7 +5328,7 @@ function ProductDetailDialog({
                                     testIdPrefix="edit-service-payment-from"
                                   />
                                   <DateFields
-                                    label="Platné do"
+                                    label={t.konfigurator.validToLabel}
                                     dayValue={editingServicePaymentData.toDay || 0}
                                     monthValue={editingServicePaymentData.toMonth || 0}
                                     yearValue={editingServicePaymentData.toYear || 0}
@@ -5334,7 +5340,7 @@ function ProductDetailDialog({
                                 </div>
                                 
                                 <div>
-                                  <Label>Popis</Label>
+                                  <Label>{t.konfigurator.descriptionLabel}</Label>
                                   <Textarea value={editingServicePaymentData.description || ""} onChange={(e) => setEditingServicePaymentData({...editingServicePaymentData, description: e.target.value})} className="min-h-[60px]" />
                                 </div>
                                 
@@ -5550,7 +5556,7 @@ function ProductDetailDialog({
                                   </div>
                                   <div className="flex items-center gap-2 pt-6">
                                     <Switch checked={newServiceDiscountData.isActive} onCheckedChange={(v) => setNewServiceDiscountData({...newServiceDiscountData, isActive: v})} />
-                                    <Label>Aktívne</Label>
+                                    <Label>{t.konfigurator.activeLabel}</Label>
                                   </div>
                                 </div>
                                 
@@ -5566,7 +5572,7 @@ function ProductDetailDialog({
                                     <Label>Percentuálna</Label>
                                   </div>
                                   <div>
-                                    <Label>{newServiceDiscountData.isPercentage ? "Percento (%)" : "Fixná hodnota"}</Label>
+                                    <Label>{newServiceDiscountData.isPercentage ? t.konfigurator.percentageLabel : t.konfigurator.fixedValueLabel}</Label>
                                     <Input 
                                       type="number" 
                                       step="0.01" 
@@ -5587,20 +5593,20 @@ function ProductDetailDialog({
                                     <Input value={newServiceDiscountData.invoiceItemText || ""} onChange={(e) => setNewServiceDiscountData({...newServiceDiscountData, invoiceItemText: e.target.value})} />
                                   </div>
                                   <div>
-                                    <Label>Účtovný kód</Label>
+                                    <Label>{t.konfigurator.accountingCodeLabel}</Label>
                                     <Input value={newServiceDiscountData.accountingCode || ""} onChange={(e) => setNewServiceDiscountData({...newServiceDiscountData, accountingCode: e.target.value})} />
                                   </div>
                                   <div>
-                                    <Label>Analytický účet</Label>
+                                    <Label>{t.konfigurator.analyticalAccountLabel}</Label>
                                     <Input value={newServiceDiscountData.analyticalAccount || ""} onChange={(e) => setNewServiceDiscountData({...newServiceDiscountData, analyticalAccount: e.target.value})} />
                                   </div>
                                 </div>
                                 
                                 <Separator />
-                                <p className="text-sm font-medium text-muted-foreground">Platnosť</p>
+                                <p className="text-sm font-medium text-muted-foreground">{t.konfigurator.validity}</p>
                                 <div className="grid grid-cols-2 gap-3">
                                   <DateFields
-                                    label="Platné od"
+                                    label={t.konfigurator.validFromLabel}
                                     dayValue={newServiceDiscountData.fromDay}
                                     monthValue={newServiceDiscountData.fromMonth}
                                     yearValue={newServiceDiscountData.fromYear}
@@ -5610,7 +5616,7 @@ function ProductDetailDialog({
                                     testIdPrefix="new-service-discount-from"
                                   />
                                   <DateFields
-                                    label="Platné do"
+                                    label={t.konfigurator.validToLabel}
                                     dayValue={newServiceDiscountData.toDay}
                                     monthValue={newServiceDiscountData.toMonth}
                                     yearValue={newServiceDiscountData.toYear}
@@ -5645,7 +5651,7 @@ function ProductDetailDialog({
                                     {discount.fromDate ? new Date(discount.fromDate).toLocaleDateString() : "..."} - {discount.toDate ? new Date(discount.toDate).toLocaleDateString() : "..."}
                                   </span>
                                 )}
-                                <Badge variant={discount.isActive ? "default" : "secondary"}>{discount.isActive ? "Aktívne" : "Neaktívne"}</Badge>
+                                <Badge variant={discount.isActive ? "default" : "secondary"}>{discount.isActive ? t.konfigurator.activeLabel : t.konfigurator.inactiveLabel}</Badge>
                               </div>
                               <div className="flex gap-1">
                                 <Button variant="ghost" size="icon" onClick={() => { 
@@ -5676,7 +5682,7 @@ function ProductDetailDialog({
                                   </div>
                                   <div className="flex items-center gap-2 pt-6">
                                     <Switch checked={editingServiceDiscountData.isActive} onCheckedChange={(v) => setEditingServiceDiscountData({...editingServiceDiscountData, isActive: v})} />
-                                    <Label>Aktívne</Label>
+                                    <Label>{t.konfigurator.activeLabel}</Label>
                                   </div>
                                 </div>
                                 
@@ -5692,7 +5698,7 @@ function ProductDetailDialog({
                                     <Label>Percentuálna</Label>
                                   </div>
                                   <div>
-                                    <Label>{editingServiceDiscountData.isPercentage ? "Percento (%)" : "Fixná hodnota"}</Label>
+                                    <Label>{editingServiceDiscountData.isPercentage ? t.konfigurator.percentageLabel : t.konfigurator.fixedValueLabel}</Label>
                                     <Input 
                                       type="number" 
                                       step="0.01" 
@@ -5713,20 +5719,20 @@ function ProductDetailDialog({
                                     <Input value={editingServiceDiscountData.invoiceItemText || ""} onChange={(e) => setEditingServiceDiscountData({...editingServiceDiscountData, invoiceItemText: e.target.value})} />
                                   </div>
                                   <div>
-                                    <Label>Účtovný kód</Label>
+                                    <Label>{t.konfigurator.accountingCodeLabel}</Label>
                                     <Input value={editingServiceDiscountData.accountingCode || ""} onChange={(e) => setEditingServiceDiscountData({...editingServiceDiscountData, accountingCode: e.target.value})} />
                                   </div>
                                   <div>
-                                    <Label>Analytický účet</Label>
+                                    <Label>{t.konfigurator.analyticalAccountLabel}</Label>
                                     <Input value={editingServiceDiscountData.analyticalAccount || ""} onChange={(e) => setEditingServiceDiscountData({...editingServiceDiscountData, analyticalAccount: e.target.value})} />
                                   </div>
                                 </div>
                                 
                                 <Separator />
-                                <p className="text-sm font-medium text-muted-foreground">Platnosť</p>
+                                <p className="text-sm font-medium text-muted-foreground">{t.konfigurator.validity}</p>
                                 <div className="grid grid-cols-2 gap-3">
                                   <DateFields
-                                    label="Platné od"
+                                    label={t.konfigurator.validFromLabel}
                                     dayValue={editingServiceDiscountData.fromDay || 0}
                                     monthValue={editingServiceDiscountData.fromMonth || 0}
                                     yearValue={editingServiceDiscountData.fromYear || 0}
@@ -5736,7 +5742,7 @@ function ProductDetailDialog({
                                     testIdPrefix="edit-service-discount-from"
                                   />
                                   <DateFields
-                                    label="Platné do"
+                                    label={t.konfigurator.validToLabel}
                                     dayValue={editingServiceDiscountData.toDay || 0}
                                     monthValue={editingServiceDiscountData.toMonth || 0}
                                     yearValue={editingServiceDiscountData.toYear || 0}
@@ -5788,7 +5794,7 @@ function ProductDetailDialog({
                                 />
                               </div>
                               <div>
-                                <Label>Účtovný kód</Label>
+                                <Label>{t.konfigurator.accountingCodeLabel}</Label>
                                 <Input 
                                   value={newServiceVatData.accountingCode} 
                                   onChange={(e) => setNewServiceVatData({...newServiceVatData, accountingCode: e.target.value})}
@@ -5808,7 +5814,7 @@ function ProductDetailDialog({
                             </div>
                             <div className="grid grid-cols-2 gap-3">
                               <DateFields
-                                label="Platné od"
+                                label={t.konfigurator.validFromLabel}
                                 dayValue={newServiceVatData.fromDay}
                                 monthValue={newServiceVatData.fromMonth}
                                 yearValue={newServiceVatData.fromYear}
@@ -5818,7 +5824,7 @@ function ProductDetailDialog({
                                 testIdPrefix="new-service-vat-from"
                               />
                               <DateFields
-                                label="Platné do"
+                                label={t.konfigurator.validToLabel}
                                 dayValue={newServiceVatData.toDay}
                                 monthValue={newServiceVatData.toMonth}
                                 yearValue={newServiceVatData.toYear}
@@ -5873,7 +5879,7 @@ function ProductDetailDialog({
                                   />
                                 </div>
                                 <div>
-                                  <Label>Účtovný kód</Label>
+                                  <Label>{t.konfigurator.accountingCodeLabel}</Label>
                                   <Input 
                                     value={editingServiceVatData.accountingCode || ""} 
                                     onChange={(e) => setEditingServiceVatData({...editingServiceVatData, accountingCode: e.target.value})}
@@ -5893,7 +5899,7 @@ function ProductDetailDialog({
                               </div>
                               <div className="grid grid-cols-2 gap-3">
                                 <DateFields
-                                  label="Platné od"
+                                  label={t.konfigurator.validFromLabel}
                                   dayValue={editingServiceVatData.fromDay}
                                   monthValue={editingServiceVatData.fromMonth}
                                   yearValue={editingServiceVatData.fromYear}
@@ -5903,7 +5909,7 @@ function ProductDetailDialog({
                                   testIdPrefix="edit-service-vat-from"
                                 />
                                 <DateFields
-                                  label="Platné do"
+                                  label={t.konfigurator.validToLabel}
                                   dayValue={editingServiceVatData.toDay}
                                   monthValue={editingServiceVatData.toMonth}
                                   yearValue={editingServiceVatData.toYear}
