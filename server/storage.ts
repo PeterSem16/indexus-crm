@@ -454,6 +454,9 @@ export interface IStorage {
   createProductSetStorage(data: InsertProductSetStorage): Promise<ProductSetStorage>;
   updateProductSetStorage(id: string, data: Partial<InsertProductSetStorage>): Promise<ProductSetStorage | undefined>;
   deleteProductSetStorage(id: string): Promise<boolean>;
+
+  // Product Duplication
+  duplicateProduct(productId: string, newName: string): Promise<Product>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2249,6 +2252,358 @@ export class DatabaseStorage implements IStorage {
   async deleteProductSetStorage(id: string): Promise<boolean> {
     await db.delete(productSetStorage).where(eq(productSetStorage.id, id));
     return true;
+  }
+
+  // Product Duplication - deep clone product with all configurations
+  async duplicateProduct(productId: string, newName: string): Promise<Product> {
+    // 1. Get original product
+    const [originalProduct] = await db.select().from(products).where(eq(products.id, productId));
+    if (!originalProduct) {
+      throw new Error("Product not found");
+    }
+
+    // 2. Create new product
+    const [newProduct] = await db.insert(products).values({
+      name: newName,
+      countries: originalProduct.countries,
+      description: originalProduct.description,
+      isActive: originalProduct.isActive,
+    }).returning();
+
+    // ID mappings for relinking
+    const instanceIdMap = new Map<string, string>(); // old -> new instance IDs
+    const serviceIdMap = new Map<string, string>(); // old -> new service IDs
+    const priceIdMap = new Map<string, string>(); // old -> new price IDs
+    const paymentOptionIdMap = new Map<string, string>(); // old -> new payment option IDs
+    const discountIdMap = new Map<string, string>(); // old -> new discount IDs
+    const vatRateIdMap = new Map<string, string>(); // old -> new VAT rate IDs
+
+    // 3. Clone market product instances (Odbery)
+    const originalInstances = await db.select().from(marketProductInstances)
+      .where(eq(marketProductInstances.productId, productId));
+
+    for (const instance of originalInstances) {
+      const [newInstance] = await db.insert(marketProductInstances).values({
+        productId: newProduct.id,
+        countryCode: instance.countryCode,
+        billingDetailsId: instance.billingDetailsId,
+        name: instance.name,
+        fromDate: instance.fromDate,
+        toDate: instance.toDate,
+        isActive: instance.isActive,
+        description: instance.description,
+      }).returning();
+      instanceIdMap.set(instance.id, newInstance.id);
+
+      // 3a. Clone instance prices
+      const prices = await db.select().from(instancePrices)
+        .where(and(eq(instancePrices.instanceId, instance.id), eq(instancePrices.instanceType, "market")));
+      for (const price of prices) {
+        const [newPrice] = await db.insert(instancePrices).values({
+          instanceId: newInstance.id,
+          instanceType: "market",
+          name: price.name,
+          accountingCode: price.accountingCode,
+          analyticalAccount: price.analyticalAccount,
+          price: price.price,
+          currency: price.currency,
+          amendment: price.amendment,
+          fromDate: price.fromDate,
+          toDate: price.toDate,
+          isActive: price.isActive,
+          description: price.description,
+        }).returning();
+        priceIdMap.set(price.id, newPrice.id);
+      }
+
+      // 3b. Clone instance payment options and installments
+      const paymentOptions = await db.select().from(instancePaymentOptions)
+        .where(and(eq(instancePaymentOptions.instanceId, instance.id), eq(instancePaymentOptions.instanceType, "market_instance")));
+      for (const option of paymentOptions) {
+        const [newOption] = await db.insert(instancePaymentOptions).values({
+          instanceId: newInstance.id,
+          instanceType: "market_instance",
+          type: option.type,
+          name: option.name,
+          invoiceItemText: option.invoiceItemText,
+          analyticalAccount: option.analyticalAccount,
+          accountingCode: option.accountingCode,
+          paymentTypeFee: option.paymentTypeFee,
+          amendment: option.amendment,
+          fromDate: option.fromDate,
+          toDate: option.toDate,
+          isActive: option.isActive,
+          description: option.description,
+          isMultiPayment: option.isMultiPayment,
+          frequency: option.frequency,
+          installmentCount: option.installmentCount,
+          calculationMode: option.calculationMode,
+          basePriceId: option.basePriceId ? priceIdMap.get(option.basePriceId) || option.basePriceId : null,
+        }).returning();
+        paymentOptionIdMap.set(option.id, newOption.id);
+
+        // Clone installments
+        const installments = await db.select().from(paymentInstallments)
+          .where(eq(paymentInstallments.paymentOptionId, option.id));
+        for (const inst of installments) {
+          await db.insert(paymentInstallments).values({
+            paymentOptionId: newOption.id,
+            installmentNumber: inst.installmentNumber,
+            label: inst.label,
+            calculationType: inst.calculationType,
+            amount: inst.amount,
+            percentage: inst.percentage,
+            dueOffsetMonths: inst.dueOffsetMonths,
+          });
+        }
+      }
+
+      // 3c. Clone instance discounts
+      const discounts = await db.select().from(instanceDiscounts)
+        .where(and(eq(instanceDiscounts.instanceId, instance.id), eq(instanceDiscounts.instanceType, "market")));
+      for (const discount of discounts) {
+        const [newDiscount] = await db.insert(instanceDiscounts).values({
+          instanceId: newInstance.id,
+          instanceType: "market",
+          type: discount.type,
+          name: discount.name,
+          invoiceItemText: discount.invoiceItemText,
+          analyticalAccount: discount.analyticalAccount,
+          accountingCode: discount.accountingCode,
+          isFixed: discount.isFixed,
+          fixedValue: discount.fixedValue,
+          isPercentage: discount.isPercentage,
+          percentageValue: discount.percentageValue,
+          fromDate: discount.fromDate,
+          toDate: discount.toDate,
+          isActive: discount.isActive,
+          description: discount.description,
+        }).returning();
+        discountIdMap.set(discount.id, newDiscount.id);
+      }
+
+      // 3d. Clone instance VAT rates
+      const vatRates = await db.select().from(instanceVatRates)
+        .where(and(eq(instanceVatRates.instanceId, instance.id), eq(instanceVatRates.instanceType, "market_instance")));
+      for (const vat of vatRates) {
+        const [newVat] = await db.insert(instanceVatRates).values({
+          instanceId: newInstance.id,
+          instanceType: "market_instance",
+          billingDetailsId: vat.billingDetailsId,
+          category: vat.category,
+          accountingCode: vat.accountingCode,
+          vatRate: vat.vatRate,
+          fromDate: vat.fromDate,
+          toDate: vat.toDate,
+          description: vat.description,
+          createAsNewVat: vat.createAsNewVat,
+          isActive: vat.isActive,
+        }).returning();
+        vatRateIdMap.set(vat.id, newVat.id);
+      }
+
+      // 4. Clone market product services (Skladovanie)
+      const services = await db.select().from(marketProductServices)
+        .where(eq(marketProductServices.instanceId, instance.id));
+      for (const service of services) {
+        const [newService] = await db.insert(marketProductServices).values({
+          instanceId: newInstance.id,
+          name: service.name,
+          fromDate: service.fromDate,
+          toDate: service.toDate,
+          invoiceIdentifier: service.invoiceIdentifier,
+          invoiceable: service.invoiceable,
+          collectable: service.collectable,
+          storable: service.storable,
+          isActive: service.isActive,
+          blockAutomation: service.blockAutomation,
+          certificateTemplate: service.certificateTemplate,
+          description: service.description,
+          allowProformaInvoices: service.allowProformaInvoices,
+          invoicingPeriodYears: service.invoicingPeriodYears,
+          firstInvoiceAliquote: service.firstInvoiceAliquote,
+          constantSymbol: service.constantSymbol,
+          startInvoicing: service.startInvoicing,
+          endInvoicing: service.endInvoicing,
+          accountingIdOffset: service.accountingIdOffset,
+          ledgerAccountProforma: service.ledgerAccountProforma,
+          ledgerAccountInvoice: service.ledgerAccountInvoice,
+        }).returning();
+        serviceIdMap.set(service.id, newService.id);
+
+        // Clone service prices
+        const servicePrices = await db.select().from(instancePrices)
+          .where(and(eq(instancePrices.instanceId, service.id), eq(instancePrices.instanceType, "service")));
+        for (const price of servicePrices) {
+          const [newPrice] = await db.insert(instancePrices).values({
+            instanceId: newService.id,
+            instanceType: "service",
+            name: price.name,
+            accountingCode: price.accountingCode,
+            analyticalAccount: price.analyticalAccount,
+            price: price.price,
+            currency: price.currency,
+            amendment: price.amendment,
+            fromDate: price.fromDate,
+            toDate: price.toDate,
+            isActive: price.isActive,
+            description: price.description,
+          }).returning();
+          priceIdMap.set(price.id, newPrice.id);
+        }
+
+        // Clone service payment options
+        const servicePaymentOptions = await db.select().from(instancePaymentOptions)
+          .where(and(eq(instancePaymentOptions.instanceId, service.id), eq(instancePaymentOptions.instanceType, "service")));
+        for (const option of servicePaymentOptions) {
+          const [newOption] = await db.insert(instancePaymentOptions).values({
+            instanceId: newService.id,
+            instanceType: "service",
+            type: option.type,
+            name: option.name,
+            invoiceItemText: option.invoiceItemText,
+            analyticalAccount: option.analyticalAccount,
+            accountingCode: option.accountingCode,
+            paymentTypeFee: option.paymentTypeFee,
+            amendment: option.amendment,
+            fromDate: option.fromDate,
+            toDate: option.toDate,
+            isActive: option.isActive,
+            description: option.description,
+            isMultiPayment: option.isMultiPayment,
+            frequency: option.frequency,
+            installmentCount: option.installmentCount,
+            calculationMode: option.calculationMode,
+            basePriceId: option.basePriceId ? priceIdMap.get(option.basePriceId) || option.basePriceId : null,
+          }).returning();
+          paymentOptionIdMap.set(option.id, newOption.id);
+
+          // Clone installments
+          const installments = await db.select().from(paymentInstallments)
+            .where(eq(paymentInstallments.paymentOptionId, option.id));
+          for (const inst of installments) {
+            await db.insert(paymentInstallments).values({
+              paymentOptionId: newOption.id,
+              installmentNumber: inst.installmentNumber,
+              label: inst.label,
+              calculationType: inst.calculationType,
+              amount: inst.amount,
+              percentage: inst.percentage,
+              dueOffsetMonths: inst.dueOffsetMonths,
+            });
+          }
+        }
+
+        // Clone service discounts
+        const serviceDiscounts = await db.select().from(instanceDiscounts)
+          .where(and(eq(instanceDiscounts.instanceId, service.id), eq(instanceDiscounts.instanceType, "service")));
+        for (const discount of serviceDiscounts) {
+          const [newDiscount] = await db.insert(instanceDiscounts).values({
+            instanceId: newService.id,
+            instanceType: "service",
+            type: discount.type,
+            name: discount.name,
+            invoiceItemText: discount.invoiceItemText,
+            analyticalAccount: discount.analyticalAccount,
+            accountingCode: discount.accountingCode,
+            isFixed: discount.isFixed,
+            fixedValue: discount.fixedValue,
+            isPercentage: discount.isPercentage,
+            percentageValue: discount.percentageValue,
+            fromDate: discount.fromDate,
+            toDate: discount.toDate,
+            isActive: discount.isActive,
+            description: discount.description,
+          }).returning();
+          discountIdMap.set(discount.id, newDiscount.id);
+        }
+
+        // Clone service VAT rates
+        const serviceVatRates = await db.select().from(instanceVatRates)
+          .where(and(eq(instanceVatRates.instanceId, service.id), eq(instanceVatRates.instanceType, "service")));
+        for (const vat of serviceVatRates) {
+          const [newVat] = await db.insert(instanceVatRates).values({
+            instanceId: newService.id,
+            instanceType: "service",
+            billingDetailsId: vat.billingDetailsId,
+            category: vat.category,
+            accountingCode: vat.accountingCode,
+            vatRate: vat.vatRate,
+            fromDate: vat.fromDate,
+            toDate: vat.toDate,
+            description: vat.description,
+            createAsNewVat: vat.createAsNewVat,
+            isActive: vat.isActive,
+          }).returning();
+          vatRateIdMap.set(vat.id, newVat.id);
+        }
+      }
+    }
+
+    // 5. Clone product sets (Zostavy)
+    const originalSets = await db.select().from(productSets)
+      .where(eq(productSets.productId, productId));
+
+    for (const set of originalSets) {
+      const [newSet] = await db.insert(productSets).values({
+        productId: newProduct.id,
+        name: set.name,
+        fromDate: set.fromDate,
+        toDate: set.toDate,
+        currency: set.currency,
+        notes: set.notes,
+        isActive: set.isActive,
+        emailAlertEnabled: set.emailAlertEnabled,
+        totalNetAmount: set.totalNetAmount,
+        totalDiscountAmount: set.totalDiscountAmount,
+        totalVatAmount: set.totalVatAmount,
+        totalGrossAmount: set.totalGrossAmount,
+      }).returning();
+
+      // Clone set collections
+      const collections = await db.select().from(productSetCollections)
+        .where(eq(productSetCollections.productSetId, set.id));
+      for (const col of collections) {
+        await db.insert(productSetCollections).values({
+          productSetId: newSet.id,
+          instanceId: instanceIdMap.get(col.instanceId) || col.instanceId,
+          priceId: col.priceId ? priceIdMap.get(col.priceId) || col.priceId : null,
+          paymentOptionId: col.paymentOptionId ? paymentOptionIdMap.get(col.paymentOptionId) || col.paymentOptionId : null,
+          discountId: col.discountId ? discountIdMap.get(col.discountId) || col.discountId : null,
+          vatRateId: col.vatRateId ? vatRateIdMap.get(col.vatRateId) || col.vatRateId : null,
+          quantity: col.quantity,
+          priceOverride: col.priceOverride,
+          sortOrder: col.sortOrder,
+          lineNetAmount: col.lineNetAmount,
+          lineDiscountAmount: col.lineDiscountAmount,
+          lineVatAmount: col.lineVatAmount,
+          lineGrossAmount: col.lineGrossAmount,
+        });
+      }
+
+      // Clone set storage items
+      const storageItems = await db.select().from(productSetStorage)
+        .where(eq(productSetStorage.productSetId, set.id));
+      for (const item of storageItems) {
+        await db.insert(productSetStorage).values({
+          productSetId: newSet.id,
+          serviceId: serviceIdMap.get(item.serviceId) || item.serviceId,
+          priceId: item.priceId ? priceIdMap.get(item.priceId) || item.priceId : null,
+          discountId: item.discountId ? discountIdMap.get(item.discountId) || item.discountId : null,
+          vatRateId: item.vatRateId ? vatRateIdMap.get(item.vatRateId) || item.vatRateId : null,
+          paymentOptionId: item.paymentOptionId ? paymentOptionIdMap.get(item.paymentOptionId) || item.paymentOptionId : null,
+          quantity: item.quantity,
+          priceOverride: item.priceOverride,
+          sortOrder: item.sortOrder,
+          lineNetAmount: item.lineNetAmount,
+          lineDiscountAmount: item.lineDiscountAmount,
+          lineVatAmount: item.lineVatAmount,
+          lineGrossAmount: item.lineGrossAmount,
+        });
+      }
+    }
+
+    return newProduct;
   }
 }
 

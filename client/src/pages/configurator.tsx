@@ -6076,6 +6076,8 @@ function ProductsTab() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
+  const [duplicatingProduct, setDuplicatingProduct] = useState<Product | null>(null);
+  const [duplicateNewName, setDuplicateNewName] = useState("");
 
   const userCountryCodes = user?.assignedCountries && user.assignedCountries.length > 0 ? user.assignedCountries : null;
 
@@ -6136,6 +6138,20 @@ function ProductsTab() {
     },
     onError: () => {
       toast({ title: t.errors.deleteFailed, variant: "destructive" });
+    },
+  });
+
+  const duplicateMutation = useMutation({
+    mutationFn: (data: { id: string; newName: string }) => 
+      apiRequest("POST", `/api/products/${data.id}/duplicate`, { newName: data.newName }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      setDuplicatingProduct(null);
+      setDuplicateNewName("");
+      toast({ title: t.konfigurator.productDuplicated || "Product duplicated successfully" });
+    },
+    onError: () => {
+      toast({ title: t.errors.duplicateFailed || "Failed to duplicate product", variant: "destructive" });
     },
   });
 
@@ -6207,6 +6223,12 @@ function ProductsTab() {
         <div className="flex items-center justify-end gap-1">
           <Button variant="ghost" size="icon" onClick={() => setViewingProduct(product)} data-testid={`button-edit-product-${product.id}`}>
             <Pencil className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={() => {
+            setDuplicatingProduct(product);
+            setDuplicateNewName(product.name + " (kópia)");
+          }} data-testid={`button-duplicate-product-${product.id}`}>
+            <Copy className="h-4 w-4" />
           </Button>
           <Button variant="ghost" size="icon" onClick={() => setDeletingProduct(product)} data-testid={`button-delete-product-${product.id}`}>
             <Trash2 className="h-4 w-4 text-destructive" />
@@ -6328,6 +6350,41 @@ function ProductsTab() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Duplicate Product Dialog */}
+      <Dialog open={!!duplicatingProduct} onOpenChange={(open) => { if (!open) { setDuplicatingProduct(null); setDuplicateNewName(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t.konfigurator.duplicateProduct || "Kopírovať produkt"}</DialogTitle>
+            <DialogDescription>
+              {t.konfigurator.duplicateProductDescription || "Zadajte názov nového produktu. Všetky nastavenia budú skopírované."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{t.products.productName}</Label>
+              <Input 
+                value={duplicateNewName} 
+                onChange={(e) => setDuplicateNewName(e.target.value)}
+                placeholder={t.products.productName}
+                data-testid="input-duplicate-product-name"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setDuplicatingProduct(null); setDuplicateNewName(""); }}>
+              {t.common.cancel}
+            </Button>
+            <Button 
+              onClick={() => duplicatingProduct && duplicateMutation.mutate({ id: duplicatingProduct.id, newName: duplicateNewName })}
+              disabled={!duplicateNewName.trim() || duplicateMutation.isPending}
+            >
+              {duplicateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
+              {t.konfigurator.duplicate || "Kopírovať"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ProductDetailDialog 
         product={viewingProduct} 

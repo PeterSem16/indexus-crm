@@ -515,6 +515,21 @@ export async function registerRoutes(
     }
   });
 
+  // Duplicate Product API
+  app.post("/api/products/:id/duplicate", requireAuth, async (req, res) => {
+    try {
+      const { newName } = req.body;
+      if (!newName || typeof newName !== "string") {
+        return res.status(400).json({ error: "New product name is required" });
+      }
+      const newProduct = await storage.duplicateProduct(req.params.id, newName);
+      res.status(201).json(newProduct);
+    } catch (error) {
+      console.error("Error duplicating product:", error);
+      res.status(500).json({ error: "Failed to duplicate product" });
+    }
+  });
+
   // Market Product Instances API
   app.get("/api/products/:productId/instances", requireAuth, async (req, res) => {
     try {
