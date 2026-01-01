@@ -1466,8 +1466,11 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
     toDay: 0, toMonth: 0, toYear: 0,
     currency: "EUR",
     notes: "",
-    isActive: true
+    isActive: true,
+    emailAlertEnabled: false
   });
+  const [isEditingSetDetails, setIsEditingSetDetails] = useState(false);
+  const [editSetDetails, setEditSetDetails] = useState<any>(null);
 
   // Fetch ALL storage services for the product (independent of collection selection)
   const { data: allStorageServices = [] } = useQuery<any[]>({
@@ -1520,13 +1523,14 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
         currency: data.currency,
         notes: data.notes,
         isActive: data.isActive,
+        emailAlertEnabled: data.emailAlertEnabled,
       });
     },
     onSuccess: () => {
       toast({ title: t.success.created });
       refetchSets();
       setIsAddingSet(false);
-      setNewSetData({ name: "", fromDay: 0, fromMonth: 0, fromYear: 0, toDay: 0, toMonth: 0, toYear: 0, currency: "EUR", notes: "", isActive: true });
+      setNewSetData({ name: "", fromDay: 0, fromMonth: 0, fromYear: 0, toDay: 0, toMonth: 0, toYear: 0, currency: "EUR", notes: "", isActive: true, emailAlertEnabled: false });
     },
     onError: () => toast({ title: t.errors.saveFailed, variant: "destructive" }),
   });
@@ -1657,8 +1661,115 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
 
   const totals = calculateTotals();
 
+  // Edit Set Details Dialog
+  const renderEditSetDetailsDialog = () => (
+    <Dialog open={isEditingSetDetails} onOpenChange={setIsEditingSetDetails}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Upraviť zostavu</DialogTitle>
+        </DialogHeader>
+        {editSetDetails && (
+          <div className="space-y-4">
+            <div>
+              <Label>Názov zostavy</Label>
+              <Input 
+                value={editSetDetails.name}
+                onChange={(e) => setEditSetDetails({ ...editSetDetails, name: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Platnosť od</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <Label className="text-xs">Deň</Label>
+                    <Input type="number" min={1} max={31} value={editSetDetails.fromDay || ""} onChange={(e) => setEditSetDetails({ ...editSetDetails, fromDay: parseInt(e.target.value) || 0 })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Mesiac</Label>
+                    <Input type="number" min={1} max={12} value={editSetDetails.fromMonth || ""} onChange={(e) => setEditSetDetails({ ...editSetDetails, fromMonth: parseInt(e.target.value) || 0 })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Rok</Label>
+                    <Input type="number" min={2020} max={2100} value={editSetDetails.fromYear || ""} onChange={(e) => setEditSetDetails({ ...editSetDetails, fromYear: parseInt(e.target.value) || 0 })} />
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Platnosť do</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <Label className="text-xs">Deň</Label>
+                    <Input type="number" min={1} max={31} value={editSetDetails.toDay || ""} onChange={(e) => setEditSetDetails({ ...editSetDetails, toDay: parseInt(e.target.value) || 0 })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Mesiac</Label>
+                    <Input type="number" min={1} max={12} value={editSetDetails.toMonth || ""} onChange={(e) => setEditSetDetails({ ...editSetDetails, toMonth: parseInt(e.target.value) || 0 })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Rok</Label>
+                    <Input type="number" min={2020} max={2100} value={editSetDetails.toYear || ""} onChange={(e) => setEditSetDetails({ ...editSetDetails, toYear: parseInt(e.target.value) || 0 })} />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <Separator />
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Checkbox 
+                  id="editEmailAlertEnabled" 
+                  checked={editSetDetails.emailAlertEnabled}
+                  onCheckedChange={(checked) => setEditSetDetails({ ...editSetDetails, emailAlertEnabled: !!checked })}
+                />
+                <Label htmlFor="editEmailAlertEnabled" className="cursor-pointer">
+                  Email Alert o expirácii
+                </Label>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Ak je zapnuté, systém odošle emailové upozornenie pred vypršaním platnosti zostavy.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox 
+                id="editIsActive" 
+                checked={editSetDetails.isActive}
+                onCheckedChange={(checked) => setEditSetDetails({ ...editSetDetails, isActive: !!checked })}
+              />
+              <Label htmlFor="editIsActive" className="cursor-pointer">
+                Aktívna zostava
+              </Label>
+            </div>
+          </div>
+        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setIsEditingSetDetails(false)}>Zrušiť</Button>
+          <Button onClick={() => {
+            if (editSetDetails) {
+              const fromDate = componentsToISOString(editSetDetails.fromDay, editSetDetails.fromMonth, editSetDetails.fromYear);
+              const toDate = componentsToISOString(editSetDetails.toDay, editSetDetails.toMonth, editSetDetails.toYear);
+              updateSetMutation.mutate({
+                id: editSetDetails.id,
+                data: {
+                  name: editSetDetails.name,
+                  fromDate,
+                  toDate,
+                  isActive: editSetDetails.isActive,
+                  emailAlertEnabled: editSetDetails.emailAlertEnabled,
+                }
+              });
+              setIsEditingSetDetails(false);
+            }
+          }}>
+            Uložiť
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
   return (
     <div className="grid grid-cols-3 gap-4 h-[500px]">
+      {renderEditSetDetailsDialog()}
       {/* Left Panel - Sets List */}
       <div className="border rounded-lg p-4 overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
@@ -1706,6 +1817,16 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
                   <Label className="text-xs">Rok</Label>
                   <Input type="number" min={2020} max={2100} value={newSetData.toYear || ""} onChange={(e) => setNewSetData({ ...newSetData, toYear: parseInt(e.target.value) || 0 })} />
                 </div>
+              </div>
+              <div className="flex items-center gap-2 pt-1">
+                <Checkbox 
+                  id="emailAlertEnabled" 
+                  checked={newSetData.emailAlertEnabled}
+                  onCheckedChange={(checked) => setNewSetData({ ...newSetData, emailAlertEnabled: !!checked })}
+                />
+                <Label htmlFor="emailAlertEnabled" className="text-xs cursor-pointer">
+                  Email Alert o expirácii
+                </Label>
               </div>
               <div className="flex gap-2">
                 <Button size="sm" onClick={() => createSetMutation.mutate(newSetData)}>
@@ -1802,6 +1923,33 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
                   >
                     <Pencil className="h-4 w-4" />
                   </Button>
+                  <Button 
+                    size="icon" 
+                    variant="ghost" 
+                    onClick={() => {
+                      const fromParts = isoStringToComponents(selectedSet?.fromDate);
+                      const toParts = isoStringToComponents(selectedSet?.toDate);
+                      setEditSetDetails({
+                        id: selectedSet?.id,
+                        name: selectedSet?.name || "",
+                        fromDay: fromParts.day, fromMonth: fromParts.month, fromYear: fromParts.year,
+                        toDay: toParts.day, toMonth: toParts.month, toYear: toParts.year,
+                        currency: selectedSet?.currency || "EUR",
+                        notes: selectedSet?.notes || "",
+                        isActive: selectedSet?.isActive ?? true,
+                        emailAlertEnabled: selectedSet?.emailAlertEnabled ?? false,
+                      });
+                      setIsEditingSetDetails(true);
+                    }}
+                    data-testid="button-edit-set-details"
+                  >
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                  {selectedSet?.emailAlertEnabled && (
+                    <Badge variant="outline" className="text-xs bg-orange-100 dark:bg-orange-800 border-orange-300 dark:border-orange-700">
+                      <Mail className="h-3 w-3 mr-1" /> Alert
+                    </Badge>
+                  )}
                 </div>
               )}
               <Button size="sm" variant="destructive" onClick={() => deleteSetMutation.mutate(selectedSetId)}>

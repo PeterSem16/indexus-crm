@@ -2329,6 +2329,7 @@ export const productSets = pgTable("product_sets", {
   currency: text("currency").notNull().default("EUR"),
   notes: text("notes"),
   isActive: boolean("is_active").notNull().default(true),
+  emailAlertEnabled: boolean("email_alert_enabled").notNull().default(false),
   // Calculated totals (updated on save)
   totalNetAmount: decimal("total_net_amount", { precision: 12, scale: 2 }),
   totalDiscountAmount: decimal("total_discount_amount", { precision: 12, scale: 2 }),
