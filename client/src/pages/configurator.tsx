@@ -2461,6 +2461,16 @@ function ProductDetailDialog({
     },
   });
 
+  const updateServicePriceMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => apiRequest("PATCH", `/api/instance-prices/${id}`, data),
+    onSuccess: () => {
+      refetchServicePrices();
+      setEditingServicePriceId(null);
+      setEditingServicePriceData(null);
+      toast({ title: t.success.updated });
+    },
+  });
+
   const createServicePaymentMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/instance-payment-options", data),
     onSuccess: () => {
@@ -2479,6 +2489,16 @@ function ProductDetailDialog({
     },
   });
 
+  const updateServicePaymentMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => apiRequest("PATCH", `/api/instance-payment-options/${id}`, data),
+    onSuccess: () => {
+      refetchServicePayments();
+      setEditingServicePaymentId(null);
+      setEditingServicePaymentData(null);
+      toast({ title: t.success.updated });
+    },
+  });
+
   const createServiceDiscountMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/instance-discounts", data),
     onSuccess: () => {
@@ -2494,6 +2514,16 @@ function ProductDetailDialog({
     onSuccess: () => {
       refetchServiceDiscounts();
       toast({ title: t.success.deleted });
+    },
+  });
+
+  const updateServiceDiscountMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => apiRequest("PATCH", `/api/instance-discounts/${id}`, data),
+    onSuccess: () => {
+      refetchServiceDiscounts();
+      setEditingServiceDiscountId(null);
+      setEditingServiceDiscountData(null);
+      toast({ title: t.success.updated });
     },
   });
 
@@ -2604,6 +2634,12 @@ function ProductDetailDialog({
   });
   const [editingServiceVatId, setEditingServiceVatId] = useState<string | null>(null);
   const [editingServiceVatData, setEditingServiceVatData] = useState<any>(null);
+  const [editingServicePriceId, setEditingServicePriceId] = useState<string | null>(null);
+  const [editingServicePriceData, setEditingServicePriceData] = useState<any>(null);
+  const [editingServicePaymentId, setEditingServicePaymentId] = useState<string | null>(null);
+  const [editingServicePaymentData, setEditingServicePaymentData] = useState<any>(null);
+  const [editingServiceDiscountId, setEditingServiceDiscountId] = useState<string | null>(null);
+  const [editingServiceDiscountData, setEditingServiceDiscountData] = useState<any>(null);
   const [newServiceData, setNewServiceData] = useState<any>({ 
     name: "", invoiceIdentifier: "", invoiceable: false, collectable: false, storable: false,
     fromDay: 0, fromMonth: 0, fromYear: 0, toDay: 0, toMonth: 0, toYear: 0, isActive: true, blockAutomation: false, certificateTemplate: "", description: "",
@@ -3003,7 +3039,7 @@ function ProductDetailDialog({
                         </Card>
                       )}
                       {instancePrices.map(price => (
-                        <div key={price.id} className="flex items-center justify-between p-2 border rounded-md">
+                        <div key={price.id} className="flex items-center justify-between p-2 rounded-md bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-medium">{price.name}</span>
                             <Badge variant="outline">{price.price} {price.currency}</Badge>
@@ -3399,7 +3435,7 @@ function ProductDetailDialog({
                         </Card>
                       )}
                       {instancePayments.map(payment => (
-                        <div key={payment.id} className="flex items-center justify-between p-2 border rounded-md">
+                        <div key={payment.id} className="flex items-center justify-between p-2 rounded-md bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-medium">{payment.name}</span>
                             {payment.type && <Badge variant="outline">{payment.type}</Badge>}
@@ -3834,7 +3870,7 @@ function ProductDetailDialog({
                         </Card>
                       )}
                       {instanceDiscounts.map(discount => (
-                        <div key={discount.id} className="flex items-center justify-between p-2 border rounded-md">
+                        <div key={discount.id} className="flex items-center justify-between p-2 rounded-md bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-medium">{discount.name}</span>
                             {discount.type && <Badge variant="outline">{discount.type}</Badge>}
@@ -4138,7 +4174,7 @@ function ProductDetailDialog({
                             </div>
                           </Card>
                         ) : (
-                          <div key={vat.id} className="flex items-center justify-between p-2 border rounded-md">
+                          <div key={vat.id} className="flex items-center justify-between p-2 rounded-md bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-medium">{vat.category}</span>
                               {vat.vatRate && <Badge variant="outline">{vat.vatRate}%</Badge>}
@@ -4603,16 +4639,125 @@ function ProductDetailDialog({
                             </Card>
                           )}
                           {servicePrices.map((price: any) => (
-                            <div key={price.id} className="flex items-center justify-between p-2 border rounded-md">
+                            <div key={price.id} className="flex items-center justify-between p-2 rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-medium">{price.name}</span>
                                 <Badge variant="outline">{price.price} {price.currency}</Badge>
+                                {price.accountingCode && <span className="text-xs text-muted-foreground">Účt: {price.accountingCode}</span>}
+                                {price.analyticalAccount && <span className="text-xs text-muted-foreground">Anal: {price.analyticalAccount}</span>}
+                                {(price.fromDate || price.toDate) && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {price.fromDate ? new Date(price.fromDate).toLocaleDateString() : "..."} - {price.toDate ? new Date(price.toDate).toLocaleDateString() : "..."}
+                                  </span>
+                                )}
                                 <Badge variant={price.isActive ? "default" : "secondary"}>{price.isActive ? "Aktívne" : "Neaktívne"}</Badge>
                               </div>
-                              <Button variant="ghost" size="icon" onClick={() => deleteServicePriceMutation.mutate(price.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                              <div className="flex gap-1">
+                                <Button variant="ghost" size="icon" onClick={() => { 
+                                  setEditingServicePriceId(price.id);
+                                  const fromParts = parseDateToComponents(price.fromDate);
+                                  const toParts = parseDateToComponents(price.toDate);
+                                  setEditingServicePriceData({
+                                    ...price,
+                                    fromDay: fromParts.day,
+                                    fromMonth: fromParts.month,
+                                    fromYear: fromParts.year,
+                                    toDay: toParts.day,
+                                    toMonth: toParts.month,
+                                    toYear: toParts.year,
+                                  }); 
+                                }}><Pencil className="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" onClick={() => deleteServicePriceMutation.mutate(price.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                              </div>
                             </div>
                           ))}
-                          {servicePrices.length === 0 && !isAddingServicePrice && (
+                          {editingServicePriceId && editingServicePriceData && (
+                            <Card className="p-4 border-primary">
+                              <div className="space-y-4">
+                                <div className="grid grid-cols-3 gap-3">
+                                  <div className="col-span-2">
+                                    <Label>Názov ceny</Label>
+                                    <Input value={editingServicePriceData.name} onChange={(e) => setEditingServicePriceData({...editingServicePriceData, name: e.target.value})} />
+                                  </div>
+                                  <div className="flex items-center gap-2 pt-6">
+                                    <Switch checked={editingServicePriceData.isActive} onCheckedChange={(v) => setEditingServicePriceData({...editingServicePriceData, isActive: v})} />
+                                    <Label>Aktívne</Label>
+                                  </div>
+                                </div>
+                                
+                                <Separator />
+                                <p className="text-sm font-medium text-muted-foreground">Suma a účtovníctvo</p>
+                                <div className="grid grid-cols-4 gap-3">
+                                  <div>
+                                    <Label>Cena</Label>
+                                    <Input type="number" step="0.01" value={editingServicePriceData.price} onChange={(e) => setEditingServicePriceData({...editingServicePriceData, price: e.target.value})} />
+                                  </div>
+                                  <div>
+                                    <Label>Mena</Label>
+                                    <Select value={editingServicePriceData.currency} onValueChange={(v) => setEditingServicePriceData({...editingServicePriceData, currency: v})}>
+                                      <SelectTrigger><SelectValue /></SelectTrigger>
+                                      <SelectContent>
+                                        {["EUR", "USD", "CZK", "HUF", "RON", "CHF"].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div>
+                                    <Label>Účtovný kód</Label>
+                                    <Input value={editingServicePriceData.accountingCode || ""} onChange={(e) => setEditingServicePriceData({...editingServicePriceData, accountingCode: e.target.value})} />
+                                  </div>
+                                  <div>
+                                    <Label>Analytický účet</Label>
+                                    <Input value={editingServicePriceData.analyticalAccount || ""} onChange={(e) => setEditingServicePriceData({...editingServicePriceData, analyticalAccount: e.target.value})} />
+                                  </div>
+                                </div>
+                                
+                                <Separator />
+                                <p className="text-sm font-medium text-muted-foreground">Platnosť</p>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <DateFields
+                                    label="Platné od"
+                                    dayValue={editingServicePriceData.fromDay || 0}
+                                    monthValue={editingServicePriceData.fromMonth || 0}
+                                    yearValue={editingServicePriceData.fromYear || 0}
+                                    onDayChange={(v) => setEditingServicePriceData({...editingServicePriceData, fromDay: v})}
+                                    onMonthChange={(v) => setEditingServicePriceData({...editingServicePriceData, fromMonth: v})}
+                                    onYearChange={(v) => setEditingServicePriceData({...editingServicePriceData, fromYear: v})}
+                                    testIdPrefix="edit-service-price-from"
+                                  />
+                                  <DateFields
+                                    label="Platné do"
+                                    dayValue={editingServicePriceData.toDay || 0}
+                                    monthValue={editingServicePriceData.toMonth || 0}
+                                    yearValue={editingServicePriceData.toYear || 0}
+                                    onDayChange={(v) => setEditingServicePriceData({...editingServicePriceData, toDay: v})}
+                                    onMonthChange={(v) => setEditingServicePriceData({...editingServicePriceData, toMonth: v})}
+                                    onYearChange={(v) => setEditingServicePriceData({...editingServicePriceData, toYear: v})}
+                                    testIdPrefix="edit-service-price-to"
+                                  />
+                                </div>
+                                
+                                <div>
+                                  <Label>Popis</Label>
+                                  <Textarea value={editingServicePriceData.description || ""} onChange={(e) => setEditingServicePriceData({...editingServicePriceData, description: e.target.value})} className="min-h-[60px]" />
+                                </div>
+                              </div>
+                              <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
+                                <Button size="sm" variant="outline" onClick={() => { setEditingServicePriceId(null); setEditingServicePriceData(null); }}>{t.common.cancel}</Button>
+                                <Button size="sm" onClick={() => {
+                                  const { id, instanceId, createdAt, fromDay, fromMonth, fromYear, toDay, toMonth, toYear, ...updateData } = editingServicePriceData;
+                                  updateServicePriceMutation.mutate({ 
+                                    id: editingServicePriceId, 
+                                    data: {
+                                      ...updateData,
+                                      fromDate: componentsToISOString(fromDay, fromMonth, fromYear),
+                                      toDate: componentsToISOString(toDay, toMonth, toYear),
+                                    }
+                                  });
+                                }}>{t.common.save}</Button>
+                              </div>
+                            </Card>
+                          )}
+                          {servicePrices.length === 0 && !isAddingServicePrice && !editingServicePriceId && (
                             <p className="text-sm text-muted-foreground text-center py-4">Žiadne ceny</p>
                           )}
                         </TabsContent>
@@ -4666,16 +4811,118 @@ function ProductDetailDialog({
                             </Card>
                           )}
                           {servicePayments.map((payment: any) => (
-                            <div key={payment.id} className="flex items-center justify-between p-2 border rounded-md">
+                            <div key={payment.id} className="flex items-center justify-between p-2 rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-medium">{payment.name}</span>
+                                {payment.type && <Badge variant="outline">{payment.type}</Badge>}
                                 {payment.isMultiPayment && <Badge variant="outline">{payment.installments}x / {payment.intervalMonths} mes.</Badge>}
+                                {(payment.fromDate || payment.toDate) && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {payment.fromDate ? new Date(payment.fromDate).toLocaleDateString() : "..."} - {payment.toDate ? new Date(payment.toDate).toLocaleDateString() : "..."}
+                                  </span>
+                                )}
                                 <Badge variant={payment.isActive ? "default" : "secondary"}>{payment.isActive ? "Aktívne" : "Neaktívne"}</Badge>
                               </div>
-                              <Button variant="ghost" size="icon" onClick={() => deleteServicePaymentMutation.mutate(payment.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                              <div className="flex gap-1">
+                                <Button variant="ghost" size="icon" onClick={() => { 
+                                  setEditingServicePaymentId(payment.id);
+                                  const fromParts = parseDateToComponents(payment.fromDate);
+                                  const toParts = parseDateToComponents(payment.toDate);
+                                  setEditingServicePaymentData({
+                                    ...payment,
+                                    fromDay: fromParts.day,
+                                    fromMonth: fromParts.month,
+                                    fromYear: fromParts.year,
+                                    toDay: toParts.day,
+                                    toMonth: toParts.month,
+                                    toYear: toParts.year,
+                                  }); 
+                                }}><Pencil className="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" onClick={() => deleteServicePaymentMutation.mutate(payment.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                              </div>
                             </div>
                           ))}
-                          {servicePayments.length === 0 && !isAddingServicePayment && (
+                          {editingServicePaymentId && editingServicePaymentData && (
+                            <Card className="p-4 border-primary">
+                              <div className="space-y-4">
+                                <div className="grid grid-cols-3 gap-3">
+                                  <div className="col-span-2">
+                                    <Label>Názov</Label>
+                                    <Input value={editingServicePaymentData.name} onChange={(e) => setEditingServicePaymentData({...editingServicePaymentData, name: e.target.value})} />
+                                  </div>
+                                  <div className="flex items-center gap-2 pt-6">
+                                    <Switch checked={editingServicePaymentData.isActive} onCheckedChange={(v) => setEditingServicePaymentData({...editingServicePaymentData, isActive: v})} />
+                                    <Label>Aktívne</Label>
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-3 gap-3">
+                                  <div>
+                                    <Label>Typ platby</Label>
+                                    <Input value={editingServicePaymentData.type || ""} onChange={(e) => setEditingServicePaymentData({...editingServicePaymentData, type: e.target.value})} />
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Checkbox checked={editingServicePaymentData.isMultiPayment} onCheckedChange={(v) => setEditingServicePaymentData({...editingServicePaymentData, isMultiPayment: !!v})} />
+                                    <Label>Viac splátok</Label>
+                                  </div>
+                                  {editingServicePaymentData.isMultiPayment && (
+                                    <>
+                                      <div>
+                                        <Label>Počet splátok</Label>
+                                        <Input type="number" min={1} value={editingServicePaymentData.installments} onChange={(e) => setEditingServicePaymentData({...editingServicePaymentData, installments: parseInt(e.target.value) || 1})} />
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                                {editingServicePaymentData.isMultiPayment && (
+                                  <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                      <Label>Interval (mesiace)</Label>
+                                      <Input type="number" min={1} value={editingServicePaymentData.intervalMonths} onChange={(e) => setEditingServicePaymentData({...editingServicePaymentData, intervalMonths: parseInt(e.target.value) || 1})} />
+                                    </div>
+                                  </div>
+                                )}
+                                <Separator />
+                                <p className="text-sm font-medium text-muted-foreground">Platnosť</p>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <DateFields
+                                    label="Platné od"
+                                    dayValue={editingServicePaymentData.fromDay || 0}
+                                    monthValue={editingServicePaymentData.fromMonth || 0}
+                                    yearValue={editingServicePaymentData.fromYear || 0}
+                                    onDayChange={(v) => setEditingServicePaymentData({...editingServicePaymentData, fromDay: v})}
+                                    onMonthChange={(v) => setEditingServicePaymentData({...editingServicePaymentData, fromMonth: v})}
+                                    onYearChange={(v) => setEditingServicePaymentData({...editingServicePaymentData, fromYear: v})}
+                                    testIdPrefix="edit-service-payment-from"
+                                  />
+                                  <DateFields
+                                    label="Platné do"
+                                    dayValue={editingServicePaymentData.toDay || 0}
+                                    monthValue={editingServicePaymentData.toMonth || 0}
+                                    yearValue={editingServicePaymentData.toYear || 0}
+                                    onDayChange={(v) => setEditingServicePaymentData({...editingServicePaymentData, toDay: v})}
+                                    onMonthChange={(v) => setEditingServicePaymentData({...editingServicePaymentData, toMonth: v})}
+                                    onYearChange={(v) => setEditingServicePaymentData({...editingServicePaymentData, toYear: v})}
+                                    testIdPrefix="edit-service-payment-to"
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
+                                <Button size="sm" variant="outline" onClick={() => { setEditingServicePaymentId(null); setEditingServicePaymentData(null); }}>{t.common.cancel}</Button>
+                                <Button size="sm" onClick={() => {
+                                  const { id, instanceId, createdAt, fromDay, fromMonth, fromYear, toDay, toMonth, toYear, ...updateData } = editingServicePaymentData;
+                                  updateServicePaymentMutation.mutate({ 
+                                    id: editingServicePaymentId, 
+                                    data: {
+                                      ...updateData,
+                                      fromDate: componentsToISOString(fromDay, fromMonth, fromYear),
+                                      toDate: componentsToISOString(toDay, toMonth, toYear),
+                                    }
+                                  });
+                                }}>{t.common.save}</Button>
+                              </div>
+                            </Card>
+                          )}
+                          {servicePayments.length === 0 && !isAddingServicePayment && !editingServicePaymentId && (
                             <p className="text-sm text-muted-foreground text-center py-4">Žiadne platobné možnosti</p>
                           )}
                         </TabsContent>
@@ -4727,17 +4974,115 @@ function ProductDetailDialog({
                             </Card>
                           )}
                           {serviceDiscounts.map((discount: any) => (
-                            <div key={discount.id} className="flex items-center justify-between p-2 border rounded-md">
+                            <div key={discount.id} className="flex items-center justify-between p-2 rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-medium">{discount.name}</span>
-                                {discount.isPercentage && <Badge variant="outline">{discount.percentageValue}%</Badge>}
-                                {discount.isFixed && <Badge variant="outline">{discount.fixedValue} €</Badge>}
+                                {discount.type && <Badge variant="outline">{discount.type}</Badge>}
+                                {discount.isPercentage && <span className="text-sm">{discount.percentageValue}%</span>}
+                                {discount.isFixed && <span className="text-sm">{discount.fixedValue} €</span>}
+                                {(discount.fromDate || discount.toDate) && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {discount.fromDate ? new Date(discount.fromDate).toLocaleDateString() : "..."} - {discount.toDate ? new Date(discount.toDate).toLocaleDateString() : "..."}
+                                  </span>
+                                )}
                                 <Badge variant={discount.isActive ? "default" : "secondary"}>{discount.isActive ? "Aktívne" : "Neaktívne"}</Badge>
                               </div>
-                              <Button variant="ghost" size="icon" onClick={() => deleteServiceDiscountMutation.mutate(discount.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                              <div className="flex gap-1">
+                                <Button variant="ghost" size="icon" onClick={() => { 
+                                  setEditingServiceDiscountId(discount.id);
+                                  const fromParts = parseDateToComponents(discount.fromDate);
+                                  const toParts = parseDateToComponents(discount.toDate);
+                                  setEditingServiceDiscountData({
+                                    ...discount,
+                                    fromDay: fromParts.day,
+                                    fromMonth: fromParts.month,
+                                    fromYear: fromParts.year,
+                                    toDay: toParts.day,
+                                    toMonth: toParts.month,
+                                    toYear: toParts.year,
+                                  }); 
+                                }}><Pencil className="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" onClick={() => deleteServiceDiscountMutation.mutate(discount.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                              </div>
                             </div>
                           ))}
-                          {serviceDiscounts.length === 0 && !isAddingServiceDiscount && (
+                          {editingServiceDiscountId && editingServiceDiscountData && (
+                            <Card className="p-4 border-primary">
+                              <div className="space-y-4">
+                                <div className="grid grid-cols-3 gap-3">
+                                  <div className="col-span-2">
+                                    <Label>Názov zľavy</Label>
+                                    <Input value={editingServiceDiscountData.name} onChange={(e) => setEditingServiceDiscountData({...editingServiceDiscountData, name: e.target.value})} />
+                                  </div>
+                                  <div className="flex items-center gap-2 pt-6">
+                                    <Switch checked={editingServiceDiscountData.isActive} onCheckedChange={(v) => setEditingServiceDiscountData({...editingServiceDiscountData, isActive: v})} />
+                                    <Label>Aktívne</Label>
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-3 gap-3">
+                                  <div>
+                                    <Label>Typ zľavy</Label>
+                                    <Input value={editingServiceDiscountData.type || ""} onChange={(e) => setEditingServiceDiscountData({...editingServiceDiscountData, type: e.target.value})} />
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Checkbox checked={editingServiceDiscountData.isPercentage} onCheckedChange={(v) => setEditingServiceDiscountData({...editingServiceDiscountData, isPercentage: !!v, isFixed: !v})} />
+                                    <Label>Percentuálna</Label>
+                                    {editingServiceDiscountData.isPercentage && (
+                                      <Input type="number" step="0.01" className="w-24" value={editingServiceDiscountData.percentageValue} onChange={(e) => setEditingServiceDiscountData({...editingServiceDiscountData, percentageValue: e.target.value})} placeholder="%" />
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Checkbox checked={editingServiceDiscountData.isFixed} onCheckedChange={(v) => setEditingServiceDiscountData({...editingServiceDiscountData, isFixed: !!v, isPercentage: !v})} />
+                                    <Label>Fixná suma</Label>
+                                    {editingServiceDiscountData.isFixed && (
+                                      <Input type="number" step="0.01" className="w-24" value={editingServiceDiscountData.fixedValue} onChange={(e) => setEditingServiceDiscountData({...editingServiceDiscountData, fixedValue: e.target.value})} placeholder="€" />
+                                    )}
+                                  </div>
+                                </div>
+                                <Separator />
+                                <p className="text-sm font-medium text-muted-foreground">Platnosť</p>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <DateFields
+                                    label="Platné od"
+                                    dayValue={editingServiceDiscountData.fromDay || 0}
+                                    monthValue={editingServiceDiscountData.fromMonth || 0}
+                                    yearValue={editingServiceDiscountData.fromYear || 0}
+                                    onDayChange={(v) => setEditingServiceDiscountData({...editingServiceDiscountData, fromDay: v})}
+                                    onMonthChange={(v) => setEditingServiceDiscountData({...editingServiceDiscountData, fromMonth: v})}
+                                    onYearChange={(v) => setEditingServiceDiscountData({...editingServiceDiscountData, fromYear: v})}
+                                    testIdPrefix="edit-service-discount-from"
+                                  />
+                                  <DateFields
+                                    label="Platné do"
+                                    dayValue={editingServiceDiscountData.toDay || 0}
+                                    monthValue={editingServiceDiscountData.toMonth || 0}
+                                    yearValue={editingServiceDiscountData.toYear || 0}
+                                    onDayChange={(v) => setEditingServiceDiscountData({...editingServiceDiscountData, toDay: v})}
+                                    onMonthChange={(v) => setEditingServiceDiscountData({...editingServiceDiscountData, toMonth: v})}
+                                    onYearChange={(v) => setEditingServiceDiscountData({...editingServiceDiscountData, toYear: v})}
+                                    testIdPrefix="edit-service-discount-to"
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
+                                <Button size="sm" variant="outline" onClick={() => { setEditingServiceDiscountId(null); setEditingServiceDiscountData(null); }}>{t.common.cancel}</Button>
+                                <Button size="sm" onClick={() => {
+                                  const { id, instanceId, createdAt, fromDay, fromMonth, fromYear, toDay, toMonth, toYear, ...updateData } = editingServiceDiscountData;
+                                  updateServiceDiscountMutation.mutate({ 
+                                    id: editingServiceDiscountId, 
+                                    data: {
+                                      ...updateData,
+                                      fixedValue: updateData.fixedValue === "" ? null : updateData.fixedValue,
+                                      percentageValue: updateData.percentageValue === "" ? null : updateData.percentageValue,
+                                      fromDate: componentsToISOString(fromDay, fromMonth, fromYear),
+                                      toDate: componentsToISOString(toDay, toMonth, toYear),
+                                    }
+                                  });
+                                }}>{t.common.save}</Button>
+                              </div>
+                            </Card>
+                          )}
+                          {serviceDiscounts.length === 0 && !isAddingServiceDiscount && !editingServiceDiscountId && (
                             <p className="text-sm text-muted-foreground text-center py-4">Žiadne zľavy</p>
                           )}
                         </TabsContent>
@@ -4915,7 +5260,7 @@ function ProductDetailDialog({
                             </div>
                           </Card>
                         ) : (
-                          <div key={vat.id} className="flex items-center justify-between p-2 border rounded-md mb-2">
+                          <div key={vat.id} className="flex items-center justify-between p-2 rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 mb-2">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-medium">{vat.category}</span>
                               {vat.vatRate && <Badge variant="outline">{vat.vatRate}%</Badge>}
