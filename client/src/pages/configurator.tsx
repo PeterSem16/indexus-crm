@@ -1666,12 +1666,12 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
     <Dialog open={isEditingSetDetails} onOpenChange={setIsEditingSetDetails}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Upraviť zostavu</DialogTitle>
+          <DialogTitle>{t.konfigurator.editSet}</DialogTitle>
         </DialogHeader>
         {editSetDetails && (
           <div className="space-y-4">
             <div>
-              <Label>Názov zostavy</Label>
+              <Label>{t.konfigurator.setName}</Label>
               <Input 
                 value={editSetDetails.name}
                 onChange={(e) => setEditSetDetails({ ...editSetDetails, name: e.target.value })}
@@ -1679,7 +1679,7 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-sm font-medium">Platnosť od</Label>
+                <Label className="text-sm font-medium">{t.konfigurator.validFrom}</Label>
                 <div className="grid grid-cols-3 gap-2">
                   <div>
                     <Label className="text-xs">Deň</Label>
@@ -1696,18 +1696,18 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
                 </div>
               </div>
               <div className="space-y-2">
-                <Label className="text-sm font-medium">Platnosť do</Label>
+                <Label className="text-sm font-medium">{t.konfigurator.validTo}</Label>
                 <div className="grid grid-cols-3 gap-2">
                   <div>
-                    <Label className="text-xs">Deň</Label>
+                    <Label className="text-xs">{t.collaborators.fields.day}</Label>
                     <Input type="number" min={1} max={31} value={editSetDetails.toDay || ""} onChange={(e) => setEditSetDetails({ ...editSetDetails, toDay: parseInt(e.target.value) || 0 })} />
                   </div>
                   <div>
-                    <Label className="text-xs">Mesiac</Label>
+                    <Label className="text-xs">{t.collaborators.fields.month}</Label>
                     <Input type="number" min={1} max={12} value={editSetDetails.toMonth || ""} onChange={(e) => setEditSetDetails({ ...editSetDetails, toMonth: parseInt(e.target.value) || 0 })} />
                   </div>
                   <div>
-                    <Label className="text-xs">Rok</Label>
+                    <Label className="text-xs">{t.collaborators.fields.year}</Label>
                     <Input type="number" min={2020} max={2100} value={editSetDetails.toYear || ""} onChange={(e) => setEditSetDetails({ ...editSetDetails, toYear: parseInt(e.target.value) || 0 })} />
                   </div>
                 </div>
@@ -1722,11 +1722,11 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
                   onCheckedChange={(checked) => setEditSetDetails({ ...editSetDetails, emailAlertEnabled: !!checked })}
                 />
                 <Label htmlFor="editEmailAlertEnabled" className="cursor-pointer">
-                  Email Alert o expirácii
+                  {t.konfigurator.emailAlertEnabled}
                 </Label>
               </div>
               <p className="text-xs text-muted-foreground">
-                Ak je zapnuté, systém odošle emailové upozornenie pred vypršaním platnosti zostavy.
+                {t.konfigurator.emailAlertHint}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -1736,13 +1736,13 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
                 onCheckedChange={(checked) => setEditSetDetails({ ...editSetDetails, isActive: !!checked })}
               />
               <Label htmlFor="editIsActive" className="cursor-pointer">
-                Aktívna zostava
+                {t.konfigurator.activeSet}
               </Label>
             </div>
           </div>
         )}
         <DialogFooter>
-          <Button variant="outline" onClick={() => setIsEditingSetDetails(false)}>Zrušiť</Button>
+          <Button variant="outline" onClick={() => setIsEditingSetDetails(false)}>{t.common.cancel}</Button>
           <Button onClick={() => {
             if (editSetDetails) {
               const fromDate = componentsToISOString(editSetDetails.fromDay, editSetDetails.fromMonth, editSetDetails.fromYear);
@@ -1760,7 +1760,7 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
               setIsEditingSetDetails(false);
             }
           }}>
-            Uložiť
+            {t.common.save}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -2871,9 +2871,9 @@ function ProductDetailDialog({
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="detail">{t.common.detail}</TabsTrigger>
-            <TabsTrigger value="instances">Odbery</TabsTrigger>
-            <TabsTrigger value="services">Skladovanie</TabsTrigger>
-            <TabsTrigger value="setts">Zostavy</TabsTrigger>
+            <TabsTrigger value="instances">{t.konfigurator.tabCollections}</TabsTrigger>
+            <TabsTrigger value="services">{t.konfigurator.tabStorage}</TabsTrigger>
+            <TabsTrigger value="setts">{t.konfigurator.tabSets}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="detail" className="space-y-4 mt-4">
@@ -3153,10 +3153,10 @@ function ProductDetailDialog({
                 <CardContent>
                   <Tabs value={instanceSubTab} onValueChange={(v) => setInstanceSubTab(v as any)}>
                     <TabsList>
-                      <TabsTrigger value="prices">Ceny</TabsTrigger>
-                      <TabsTrigger value="payments">Platobné možnosti</TabsTrigger>
-                      <TabsTrigger value="discounts">Zľavy</TabsTrigger>
-                      <TabsTrigger value="vat">VAT sadzby</TabsTrigger>
+                      <TabsTrigger value="prices">{t.konfigurator.subTabPrices}</TabsTrigger>
+                      <TabsTrigger value="payments">{t.konfigurator.subTabPayments}</TabsTrigger>
+                      <TabsTrigger value="discounts">{t.konfigurator.subTabDiscounts}</TabsTrigger>
+                      <TabsTrigger value="vat">{t.konfigurator.subTabVat}</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="prices" className="space-y-3 mt-3">
@@ -4796,10 +4796,10 @@ function ProductDetailDialog({
                     <CardContent>
                       <Tabs value={serviceSubTab} onValueChange={(v) => setServiceSubTab(v as any)}>
                         <TabsList>
-                          <TabsTrigger value="prices">Ceny</TabsTrigger>
-                          <TabsTrigger value="payments">Platobné možnosti</TabsTrigger>
-                          <TabsTrigger value="discounts">Zľavy</TabsTrigger>
-                          <TabsTrigger value="vat">VAT sadzby</TabsTrigger>
+                          <TabsTrigger value="prices">{t.konfigurator.subTabPrices}</TabsTrigger>
+                          <TabsTrigger value="payments">{t.konfigurator.subTabPayments}</TabsTrigger>
+                          <TabsTrigger value="discounts">{t.konfigurator.subTabDiscounts}</TabsTrigger>
+                          <TabsTrigger value="vat">{t.konfigurator.subTabVat}</TabsTrigger>
                         </TabsList>
 
                         <TabsContent value="prices" className="space-y-3 mt-3">
@@ -10184,14 +10184,14 @@ function BillingCompanyDialog({
 
         <Tabs value={activeTab} onValueChange={onTabChange} className="mt-4">
           <TabsList className="hidden">
-            <TabsTrigger value="postal">Postal</TabsTrigger>
-            <TabsTrigger value="residency">Residency</TabsTrigger>
-            <TabsTrigger value="details">Details</TabsTrigger>
-            <TabsTrigger value="accounts">Accounts</TabsTrigger>
-            <TabsTrigger value="couriers">Couriers</TabsTrigger>
-            <TabsTrigger value="laboratories">Labs</TabsTrigger>
-            <TabsTrigger value="collaborators">Collaborators</TabsTrigger>
-            <TabsTrigger value="history">History</TabsTrigger>
+            <TabsTrigger value="postal">{t.konfigurator.tabPostal}</TabsTrigger>
+            <TabsTrigger value="residency">{t.konfigurator.tabResidency}</TabsTrigger>
+            <TabsTrigger value="details">{t.konfigurator.tabDetails}</TabsTrigger>
+            <TabsTrigger value="accounts">{t.konfigurator.tabAccounts}</TabsTrigger>
+            <TabsTrigger value="couriers">{t.konfigurator.tabCouriers}</TabsTrigger>
+            <TabsTrigger value="laboratories">{t.konfigurator.tabLabs}</TabsTrigger>
+            <TabsTrigger value="collaborators">{t.konfigurator.tabCollaborators}</TabsTrigger>
+            <TabsTrigger value="history">{t.konfigurator.tabHistory}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="postal" className="space-y-4 mt-4">
