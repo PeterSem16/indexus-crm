@@ -895,7 +895,7 @@ function CollectionConfigDialog({
                 className={`p-2 rounded cursor-pointer hover-elevate flex justify-between items-center ${selectedPaymentOptionId === null ? 'bg-primary/10 border border-primary' : 'border'}`}
                 onClick={() => setSelectedPaymentOptionId(null)}
               >
-                <span className="text-sm">Bez platobnej možnosti</span>
+                <span className="text-sm">{t.konfigurator.noPaymentOption}</span>
               </div>
               {paymentOptions.map((opt: any) => (
                 <div 
@@ -905,7 +905,7 @@ function CollectionConfigDialog({
                 >
                   <div>
                     <span className="text-sm font-medium">{opt.name}</span>
-                    {opt.isMultiPayment && <Badge variant="secondary" className="ml-2 text-xs">Splátky</Badge>}
+                    {opt.isMultiPayment && <Badge variant="secondary" className="ml-2 text-xs">{t.konfigurator.installmentsLabel}</Badge>}
                   </div>
                   {opt.paymentTypeFee && <Badge variant="outline">{parseFloat(opt.paymentTypeFee || 0).toFixed(2)} €</Badge>}
                 </div>
@@ -915,7 +915,7 @@ function CollectionConfigDialog({
 
           {/* Quantity */}
           <div className="flex items-center gap-4">
-            <Label className="text-sm font-medium">Množstvo:</Label>
+            <Label className="text-sm font-medium">{t.konfigurator.quantityLabel}:</Label>
             <Input 
               type="number" 
               min="1" 
@@ -928,29 +928,29 @@ function CollectionConfigDialog({
           {/* Preview calculation */}
           <Card className="bg-accent/50">
             <CardContent className="p-4">
-              <h4 className="text-sm font-medium mb-2">Náhľad výpočtu</h4>
+              <h4 className="text-sm font-medium mb-2">{t.konfigurator.calculationPreview}</h4>
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between">
-                  <span>Základná cena:</span>
+                  <span>{t.konfigurator.basePrice}:</span>
                   <span className="font-mono">{basePrice.toFixed(2)} €</span>
                 </div>
                 {discountAmount > 0 && (
                   <div className="flex justify-between text-green-600">
-                    <span>Zľava:</span>
+                    <span>{t.konfigurator.discountText}:</span>
                     <span className="font-mono">-{discountAmount.toFixed(2)} €</span>
                   </div>
                 )}
                 <div className="flex justify-between">
-                  <span>Netto ({quantity}x):</span>
+                  <span>{t.konfigurator.netLabel} ({quantity}x):</span>
                   <span className="font-mono">{netAmount.toFixed(2)} €</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>DPH ({vatRate}%):</span>
+                  <span>{t.konfigurator.vatText} ({vatRate}%):</span>
                   <span className="font-mono">{vatAmount.toFixed(2)} €</span>
                 </div>
                 <Separator className="my-1" />
                 <div className="flex justify-between font-bold">
-                  <span>Celkom:</span>
+                  <span>{t.konfigurator.totalLabel}:</span>
                   <span className="font-mono">{grossAmount.toFixed(2)} €</span>
                 </div>
 
@@ -964,25 +964,25 @@ function CollectionConfigDialog({
                   
                   if (paymentOpt.isMultiPayment && paymentOpt.installmentCount > 1) {
                     const installmentAmount = totalWithFee / paymentOpt.installmentCount;
-                    const frequencyLabel = paymentOpt.frequency === 'monthly' ? 'mesačne' : 
-                                          paymentOpt.frequency === 'quarterly' ? 'štvrťročne' : 
-                                          paymentOpt.frequency === 'yearly' ? 'ročne' : paymentOpt.frequency;
+                    const frequencyLabel = paymentOpt.frequency === 'monthly' ? t.konfigurator.monthly : 
+                                          paymentOpt.frequency === 'quarterly' ? t.konfigurator.quarterly : 
+                                          paymentOpt.frequency === 'yearly' ? t.konfigurator.yearly : paymentOpt.frequency;
                     return (
                       <>
                         <Separator className="my-2" />
                         <div className="bg-blue-50 dark:bg-blue-900/20 rounded p-2 space-y-1">
                           <div className="flex items-center gap-2 mb-1">
                             <CreditCard className="h-4 w-4 text-blue-600" />
-                            <span className="font-medium text-blue-700 dark:text-blue-400">Rozpis splátok</span>
+                            <span className="font-medium text-blue-700 dark:text-blue-400">{t.konfigurator.installmentBreakdown}</span>
                           </div>
                           {fee > 0 && (
                             <div className="flex justify-between text-xs">
-                              <span>Poplatok za splátky:</span>
+                              <span>{t.konfigurator.installmentFee}:</span>
                               <span className="font-mono">+{fee.toFixed(2)} €</span>
                             </div>
                           )}
                           <div className="flex justify-between text-xs">
-                            <span>Celkom so splátkami:</span>
+                            <span>{t.konfigurator.withInstallments}:</span>
                             <span className="font-mono">{totalWithFee.toFixed(2)} €</span>
                           </div>
                           <Separator className="my-1" />
@@ -993,12 +993,12 @@ function CollectionConfigDialog({
                           <div className="text-xs text-muted-foreground mt-1">
                             {Array.from({ length: Math.min(paymentOpt.installmentCount, 6) }, (_, i) => (
                               <div key={i} className="flex justify-between">
-                                <span>Splátka {i + 1}:</span>
+                                <span>{t.konfigurator.installmentLabel} {i + 1}:</span>
                                 <span>{installmentAmount.toFixed(2)} €</span>
                               </div>
                             ))}
                             {paymentOpt.installmentCount > 6 && (
-                              <div className="text-center text-muted-foreground">... a ďalších {paymentOpt.installmentCount - 6} splátok</div>
+                              <div className="text-center text-muted-foreground">{t.konfigurator.andMoreInstallments.replace('{count}', paymentOpt.installmentCount - 6)}</div>
                             )}
                           </div>
                         </div>
@@ -1011,10 +1011,10 @@ function CollectionConfigDialog({
                         <div className="bg-green-50 dark:bg-green-900/20 rounded p-2">
                           <div className="flex items-center gap-2 mb-1">
                             <CreditCard className="h-4 w-4 text-green-600" />
-                            <span className="font-medium text-green-700 dark:text-green-400">Jednorázová platba</span>
+                            <span className="font-medium text-green-700 dark:text-green-400">{t.konfigurator.oneTimePaymentLabel}</span>
                           </div>
                           <div className="flex justify-between font-medium">
-                            <span>K úhrade:</span>
+                            <span>{t.konfigurator.amountDue}:</span>
                             <span className="font-mono">{grossAmount.toFixed(2)} €</span>
                           </div>
                         </div>
@@ -1256,7 +1256,7 @@ function StorageConfigDialog({
                 className={`p-2 rounded cursor-pointer hover-elevate flex justify-between items-center ${selectedPaymentOptionId === null ? 'bg-green-100 dark:bg-green-800/50 border border-green-500' : 'border'}`}
                 onClick={() => setSelectedPaymentOptionId(null)}
               >
-                <span className="text-sm">Bez platobnej možnosti</span>
+                <span className="text-sm">{t.konfigurator.noPaymentOption}</span>
               </div>
               {paymentOptions.map((opt: any) => (
                 <div 
@@ -1266,7 +1266,7 @@ function StorageConfigDialog({
                 >
                   <div>
                     <span className="text-sm font-medium">{opt.name}</span>
-                    {opt.isMultiPayment && <Badge variant="secondary" className="ml-2 text-xs">Splátky</Badge>}
+                    {opt.isMultiPayment && <Badge variant="secondary" className="ml-2 text-xs">{t.konfigurator.installmentsLabel}</Badge>}
                   </div>
                   {opt.paymentTypeFee && <Badge variant="outline">{parseFloat(opt.paymentTypeFee || 0).toFixed(2)} €</Badge>}
                 </div>
@@ -1276,7 +1276,7 @@ function StorageConfigDialog({
 
           {/* Quantity */}
           <div className="flex items-center gap-4">
-            <Label className="text-sm font-medium">Množstvo:</Label>
+            <Label className="text-sm font-medium">{t.konfigurator.quantityLabel}:</Label>
             <Input 
               type="number" 
               min="1" 
@@ -1289,29 +1289,29 @@ function StorageConfigDialog({
           {/* Preview calculation */}
           <Card className="bg-green-50 dark:bg-green-900/20">
             <CardContent className="p-4">
-              <h4 className="text-sm font-medium mb-2 text-green-800 dark:text-green-200">Náhľad výpočtu</h4>
+              <h4 className="text-sm font-medium mb-2 text-green-800 dark:text-green-200">{t.konfigurator.calculationPreview}</h4>
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between">
-                  <span>Základná cena:</span>
+                  <span>{t.konfigurator.basePrice}:</span>
                   <span className="font-mono">{basePrice.toFixed(2)} €</span>
                 </div>
                 {discountAmount > 0 && (
                   <div className="flex justify-between text-green-600">
-                    <span>Zľava:</span>
+                    <span>{t.konfigurator.discountText}:</span>
                     <span className="font-mono">-{discountAmount.toFixed(2)} €</span>
                   </div>
                 )}
                 <div className="flex justify-between">
-                  <span>Netto ({quantity}x):</span>
+                  <span>{t.konfigurator.netLabel} ({quantity}x):</span>
                   <span className="font-mono">{netAmount.toFixed(2)} €</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>DPH ({vatRate}%):</span>
+                  <span>{t.konfigurator.vatText} ({vatRate}%):</span>
                   <span className="font-mono">{vatAmount.toFixed(2)} €</span>
                 </div>
                 <Separator className="my-1" />
                 <div className="flex justify-between font-bold text-green-800 dark:text-green-200">
-                  <span>Celkom:</span>
+                  <span>{t.konfigurator.totalLabel}:</span>
                   <span className="font-mono">{grossAmount.toFixed(2)} €</span>
                 </div>
               </div>
