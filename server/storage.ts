@@ -57,7 +57,7 @@ import {
   type CampaignOperatorSetting, type InsertCampaignOperatorSetting,
   type CampaignContactSession, type InsertCampaignContactSession,
   type CampaignMetricsSnapshot, type InsertCampaignMetricsSnapshot,
-  sipSettings, callLogs, chatMessages,
+  sipSettings, callLogs, chatMessages, exchangeRates,
   productSets, productSetCollections, productSetStorage, customerConsents, tasks,
   type SipSettings, type InsertSipSettings,
   type CallLog, type InsertCallLog,
@@ -66,7 +66,8 @@ import {
   type ProductSetStorage, type InsertProductSetStorage,
   type CustomerConsent, type InsertCustomerConsent,
   type Task, type InsertTask,
-  type ChatMessage, type InsertChatMessage
+  type ChatMessage, type InsertChatMessage,
+  type ExchangeRate, type InsertExchangeRate
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, inArray, sql, desc, and, or } from "drizzle-orm";
@@ -485,6 +486,12 @@ export interface IStorage {
   getChatConversations(userId: string): Promise<{ partnerId: string; lastMessage: ChatMessage; unreadCount: number }[]>;
   createChatMessage(data: InsertChatMessage): Promise<ChatMessage>;
   markMessagesAsRead(senderId: string, receiverId: string): Promise<void>;
+
+  // Exchange Rates
+  getLatestExchangeRates(): Promise<ExchangeRate[]>;
+  getExchangeRateByCode(currencyCode: string): Promise<ExchangeRate | undefined>;
+  upsertExchangeRates(rates: InsertExchangeRate[]): Promise<ExchangeRate[]>;
+  getExchangeRatesLastUpdate(): Promise<Date | null>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2856,6 +2863,57 @@ export class DatabaseStorage implements IStorage {
           eq(chatMessages.isRead, false)
         )
       );
+  }
+
+  // Exchange Rates
+  async getLatestExchangeRates(): Promise<ExchangeRate[]> {
+    const rates = await db.select()
+      .from(exchangeRates)
+      .orderBy(exchangeRates.currencyCode);
+    return rates;
+  }
+
+  async getExchangeRateByCode(currencyCode: string): Promise<ExchangeRate | undefined> {
+    const [rate] = await db.select()
+      .from(exchangeRates)
+      .where(eq(exchangeRates.currencyCode, currencyCode));
+    return rate || undefined;
+  }
+
+  async upsertExchangeRates(rates: InsertExchangeRate[]): Promise<ExchangeRate[]> {
+    const results: ExchangeRate[] = [];
+    
+    for (const rate of rates) {
+      const existing = await this.getExchangeRateByCode(rate.currencyCode);
+      
+      if (existing) {
+        const [updated] = await db.update(exchangeRates)
+          .set({
+            currencyName: rate.currencyName,
+            rate: rate.rate,
+            rateDate: rate.rateDate,
+            updatedAt: sql`now()`
+          })
+          .where(eq(exchangeRates.currencyCode, rate.currencyCode))
+          .returning();
+        results.push(updated);
+      } else {
+        const [created] = await db.insert(exchangeRates)
+          .values(rate)
+          .returning();
+        results.push(created);
+      }
+    }
+    
+    return results;
+  }
+
+  async getExchangeRatesLastUpdate(): Promise<Date | null> {
+    const [rate] = await db.select()
+      .from(exchangeRates)
+      .orderBy(desc(exchangeRates.updatedAt))
+      .limit(1);
+    return rate?.updatedAt || null;
   }
 }
 
