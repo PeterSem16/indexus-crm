@@ -86,10 +86,9 @@ export function ChatProvider({ children }: ChatProviderProps) {
             const msg = data.message as ChatMessage;
             const sender = data.sender as SafeUser;
             
-            const handler = messageHandlersRef.current.get(msg.senderId);
-            if (handler) {
-              handler(msg, sender);
-            }
+            window.dispatchEvent(new CustomEvent("chat_new_message", {
+              detail: { message: msg, partnerId: msg.senderId }
+            }));
             
             const currentOpenChats = openChatsRef.current;
             const isOpen = currentOpenChats.some(c => c.partnerId === msg.senderId && !c.minimized);
@@ -116,10 +115,9 @@ export function ChatProvider({ children }: ChatProviderProps) {
             break;
             
           case "message_sent":
-            const sentHandler = messageHandlersRef.current.get(data.message.receiverId);
-            if (sentHandler) {
-              sentHandler(data.message);
-            }
+            window.dispatchEvent(new CustomEvent("chat_message_sent", {
+              detail: { message: data.message, receiverId: data.message.receiverId }
+            }));
             break;
             
           case "messages_read":
