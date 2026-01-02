@@ -2101,35 +2101,54 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
             <div>
               <div className="flex items-center justify-between mb-2">
                 <Label className="text-sm font-medium">{t.konfigurator.storageInSet}</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button size="sm" variant="outline" className="bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700 text-green-700 dark:text-green-300">
-                      <Plus className="h-4 w-4 mr-1" /> {t.konfigurator.addStorageItem}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-72">
-                    <div className="space-y-3">
-                      <Label className="text-sm font-medium">{t.konfigurator.selectStorageService}</Label>
-                      {allStorageServices.map((svc: any) => (
-                        <Button
-                          key={svc.id}
-                          size="sm"
-                          variant="ghost"
-                          className="w-full justify-start text-sm hover:bg-green-50 dark:hover:bg-green-900/20"
-                          onClick={() => setConfiguringStorageService(svc)}
+                {(() => {
+                  // Filter storage services based on selected collections' instances
+                  const selectedInstanceIds = (selectedSet?.collections || []).map((col: any) => col.instanceId);
+                  const filteredStorageServices = selectedInstanceIds.length > 0
+                    ? allStorageServices.filter((svc: any) => {
+                        // Find the instance this service belongs to and check if it's in selected collections
+                        const serviceInstance = instances.find((inst: any) => inst.id === svc.instanceId);
+                        return serviceInstance && selectedInstanceIds.includes(serviceInstance.id);
+                      })
+                    : [];
+                  
+                  return (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700 text-green-700 dark:text-green-300"
+                          disabled={selectedInstanceIds.length === 0}
                         >
-                          <div className="flex items-center gap-2 w-full">
-                            {svc.instanceCountryCode && <Badge variant="secondary" className="bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300">{svc.instanceCountryCode}</Badge>}
-                            <span className="text-sm font-medium">{svc.name}</span>
-                          </div>
+                          <Plus className="h-4 w-4 mr-1" /> {t.konfigurator.addStorageItem}
                         </Button>
-                      ))}
-                      {allStorageServices.length === 0 && (
-                        <p className="text-sm text-muted-foreground">{t.konfigurator.noStorageAvailable}</p>
-                      )}
-                    </div>
-                  </PopoverContent>
-                </Popover>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-72">
+                        <div className="space-y-3">
+                          <Label className="text-sm font-medium">{t.konfigurator.selectStorageService}</Label>
+                          {filteredStorageServices.map((svc: any) => (
+                            <Button
+                              key={svc.id}
+                              size="sm"
+                              variant="ghost"
+                              className="w-full justify-start text-sm hover:bg-green-50 dark:hover:bg-green-900/20"
+                              onClick={() => setConfiguringStorageService(svc)}
+                            >
+                              <div className="flex items-center gap-2 w-full">
+                                {svc.instanceCountryCode && <Badge variant="secondary" className="bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300">{svc.instanceCountryCode}</Badge>}
+                                <span className="text-sm font-medium">{svc.name}</span>
+                              </div>
+                            </Button>
+                          ))}
+                          {filteredStorageServices.length === 0 && (
+                            <p className="text-sm text-muted-foreground">{t.konfigurator.noStorageAvailable}</p>
+                          )}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  );
+                })()}
               </div>
 
               {/* Storage Config Dialog - for adding new */}
