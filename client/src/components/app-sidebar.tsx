@@ -1,4 +1,5 @@
 import { Link, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { 
   LayoutDashboard, 
   Users, 
@@ -18,6 +19,8 @@ import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/contexts/permissions-context";
 import { useI18n } from "@/i18n";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import type { Task } from "@shared/schema";
 import {
   Sidebar,
   SidebarContent,
@@ -38,6 +41,15 @@ export function AppSidebar() {
   const { user, logout } = useAuth();
   const { canAccessModule } = usePermissions();
   const { t } = useI18n();
+
+  const { data: tasks = [] } = useQuery<Task[]>({
+    queryKey: ["/api/tasks"],
+    enabled: !!user,
+  });
+
+  const pendingTasksCount = tasks.filter(
+    task => task.assignedUserId === user?.id && task.status === "pending"
+  ).length;
 
   const mainNavItems = [
     { title: t.nav.dashboard, url: "/", icon: LayoutDashboard, testId: "dashboard", moduleKey: "dashboard" },
@@ -168,7 +180,14 @@ export function AppSidebar() {
         {user && (
           <div className="flex items-center justify-between gap-2 p-2 rounded-md bg-sidebar-accent">
             <div className="flex flex-col min-w-0">
-              <span className="text-sm font-medium truncate">{user.fullName}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium truncate">{user.fullName}</span>
+                {pendingTasksCount > 0 && (
+                  <Badge variant="destructive" className="text-xs px-1.5 py-0" data-testid="badge-pending-tasks">
+                    {pendingTasksCount}
+                  </Badge>
+                )}
+              </div>
               <span className="text-xs text-muted-foreground truncate">{user.role}</span>
             </div>
             <Button
