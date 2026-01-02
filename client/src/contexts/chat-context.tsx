@@ -52,6 +52,11 @@ export function ChatProvider({ children }: ChatProviderProps) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const messageHandlersRef = useRef<Map<string, (msg: ChatMessage, sender?: SafeUser) => void>>(new Map());
+  const openChatsRef = useRef<ChatWindow[]>([]);
+  
+  useEffect(() => {
+    openChatsRef.current = openChats;
+  }, [openChats]);
 
   const connect = useCallback(() => {
     if (!user?.id || wsRef.current?.readyState === WebSocket.OPEN) return;
@@ -86,7 +91,8 @@ export function ChatProvider({ children }: ChatProviderProps) {
               handler(msg, sender);
             }
             
-            const isOpen = openChats.some(c => c.partnerId === msg.senderId && !c.minimized);
+            const currentOpenChats = openChatsRef.current;
+            const isOpen = currentOpenChats.some(c => c.partnerId === msg.senderId && !c.minimized);
             if (!isOpen) {
               setUnreadCounts(prev => {
                 const newCounts = new Map(prev);
@@ -94,7 +100,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
                 return newCounts;
               });
               
-              if (!openChats.some(c => c.partnerId === msg.senderId)) {
+              if (!currentOpenChats.some(c => c.partnerId === msg.senderId)) {
                 setOpenChats(prev => [...prev, {
                   partnerId: msg.senderId,
                   partner: {
