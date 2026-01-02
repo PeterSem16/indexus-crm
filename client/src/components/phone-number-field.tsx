@@ -87,12 +87,15 @@ export function PhoneNumberField({
   const country = PHONE_COUNTRIES.find((c) => c.code === selectedCountry) || PHONE_COUNTRIES[0];
 
   useEffect(() => {
+    const parsed = parsePhoneValue(value);
     if (value) {
-      const parsed = parsePhoneValue(value);
       setSelectedCountry(parsed.countryCode);
       setPhoneNumber(parsed.number);
+    } else {
+      setSelectedCountry(defaultCountryCode);
+      setPhoneNumber("");
     }
-  }, []);
+  }, [value, defaultCountryCode]);
 
   const handleCountryChange = (countryCode: string) => {
     setSelectedCountry(countryCode);
