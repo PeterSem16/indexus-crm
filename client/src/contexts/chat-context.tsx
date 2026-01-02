@@ -149,7 +149,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
     ws.onerror = (error) => {
       console.error("WebSocket error:", error);
     };
-  }, [user?.id, openChats]);
+  }, [user?.id]);
 
   useEffect(() => {
     if (user?.id) {
