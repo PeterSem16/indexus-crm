@@ -701,14 +701,70 @@ export type SavedSearch = typeof savedSearches.$inferSelect;
 export const activityLogs = pgTable("activity_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull(),
-  action: text("action").notNull(), // login, logout, create, update, delete, view
-  entityType: text("entity_type"), // customer, product, invoice, user, etc.
+  action: text("action").notNull(), // login, logout, create, update, delete, view, export, consent_granted, consent_revoked
+  entityType: text("entity_type"), // customer, product, invoice, user, consent, etc.
   entityId: varchar("entity_id"),
   entityName: text("entity_name"), // human-readable name for the entity
   details: text("details"), // JSON string with additional details
   ipAddress: text("ip_address"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
+
+// GDPR Customer Consents - tracks all consent records
+export const customerConsents = pgTable("customer_consents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull(),
+  consentType: text("consent_type").notNull(), // marketing_email, marketing_sms, data_processing, newsletter, third_party_sharing
+  legalBasis: text("legal_basis").notNull(), // consent, contract, legal_obligation, vital_interests, public_task, legitimate_interests
+  purpose: text("purpose").notNull(), // description of why data is processed
+  granted: boolean("granted").notNull().default(false),
+  grantedAt: timestamp("granted_at"),
+  grantedByUserId: varchar("granted_by_user_id"), // who recorded the consent
+  revokedAt: timestamp("revoked_at"),
+  revokedByUserId: varchar("revoked_by_user_id"), // who recorded the revocation
+  revokeReason: text("revoke_reason"),
+  expiresAt: timestamp("expires_at"), // optional expiration date
+  source: text("source"), // web_form, phone, email, in_person
+  documentReference: text("document_reference"), // reference to signed document if any
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertCustomerConsentSchema = createInsertSchema(customerConsents).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertCustomerConsent = z.infer<typeof insertCustomerConsentSchema>;
+export type CustomerConsent = typeof customerConsents.$inferSelect;
+
+// GDPR consent types enum
+export const CONSENT_TYPES = [
+  { value: "marketing_email", label: "Marketing email" },
+  { value: "marketing_sms", label: "Marketing SMS" },
+  { value: "marketing_phone", label: "Marketing telefón" },
+  { value: "data_processing", label: "Spracovanie osobných údajov" },
+  { value: "newsletter", label: "Newsletter" },
+  { value: "third_party_sharing", label: "Zdieľanie s tretími stranami" },
+  { value: "profiling", label: "Profilovanie" },
+  { value: "automated_decisions", label: "Automatizované rozhodnutia" },
+] as const;
+
+// GDPR legal basis enum
+export const LEGAL_BASIS_TYPES = [
+  { value: "consent", label: "Súhlas" },
+  { value: "contract", label: "Plnenie zmluvy" },
+  { value: "legal_obligation", label: "Právna povinnosť" },
+  { value: "vital_interests", label: "Životne dôležité záujmy" },
+  { value: "public_task", label: "Verejný záujem" },
+  { value: "legitimate_interests", label: "Oprávnený záujem" },
+] as const;
+
+// GDPR consent source enum
+export const CONSENT_SOURCES = [
+  { value: "web_form", label: "Webový formulár" },
+  { value: "phone", label: "Telefonicky" },
+  { value: "email", label: "Emailom" },
+  { value: "in_person", label: "Osobne" },
+  { value: "signed_document", label: "Podpísaný dokument" },
+] as const;
 
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
@@ -723,6 +779,18 @@ export const customersRelations = relations(customers, ({ one, many }) => ({
   customerProducts: many(customerProducts),
   invoices: many(invoices),
   notes: many(customerNotes),
+  consents: many(customerConsents),
+}));
+
+export const customerConsentsRelations = relations(customerConsents, ({ one }) => ({
+  customer: one(customers, {
+    fields: [customerConsents.customerId],
+    references: [customers.id],
+  }),
+  grantedByUser: one(users, {
+    fields: [customerConsents.grantedByUserId],
+    references: [users.id],
+  }),
 }));
 
 export const customerNotesRelations = relations(customerNotes, ({ one }) => ({
