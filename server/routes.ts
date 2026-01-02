@@ -175,55 +175,53 @@ async function logActivity(
   }
 }
 
-// NBS Exchange Rate Fetcher
-interface NBSRate {
-  currencyCode: string;
-  currencyName: string;
-  rate: string;
-}
-
+// NBS Exchange Rate Fetcher (XML format)
 async function fetchNBSExchangeRates(): Promise<{ currencyCode: string; currencyName: string; rate: string; rateDate: string }[]> {
   try {
-    const response = await fetch("https://nbs.sk/export/sk/exchange-rate/latest/csv");
+    // Build URL with current date
+    const today = new Date();
+    const dateStr = today.toISOString().split("T")[0]; // YYYY-MM-DD format
+    const url = `https://nbs.sk/export/sk/exchange-rate/${dateStr}/xml`;
+    
+    console.log(`[ExchangeRates] Fetching from: ${url}`);
+    const response = await fetch(url);
     
     if (!response.ok) {
       throw new Error(`Failed to fetch NBS rates: ${response.status}`);
     }
     
-    const csvText = await response.text();
-    const lines = csvText.split("\n").filter(line => line.trim());
-    
-    // Skip header line and parse rates
+    const xmlText = await response.text();
     const rates: { currencyCode: string; currencyName: string; rate: string; rateDate: string }[] = [];
-    let rateDate = new Date().toISOString().split("T")[0]; // Default to today
     
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i];
-      // CSV format: code;name;quantity;rate (semicolon separated)
-      const parts = line.split(";");
+    // Extract date from XML (format: <ExchangeRates Date="2026-01-02">)
+    const dateMatch = xmlText.match(/Date="(\d{4}-\d{2}-\d{2})"/);
+    const rateDate = dateMatch ? dateMatch[1] : dateStr;
+    
+    // Parse each ExchangeRate element
+    // XML structure: <ExchangeRate><Code>USD</Code><Name>dolár</Name><Quantity>1</Quantity><Value>0,9291</Value></ExchangeRate>
+    const rateRegex = /<ExchangeRate>[\s\S]*?<Code>([^<]+)<\/Code>[\s\S]*?<Name>([^<]+)<\/Name>[\s\S]*?<Quantity>(\d+)<\/Quantity>[\s\S]*?<Value>([^<]+)<\/Value>[\s\S]*?<\/ExchangeRate>/g;
+    
+    let match;
+    while ((match = rateRegex.exec(xmlText)) !== null) {
+      const currencyCode = match[1].trim();
+      const currencyName = match[2].trim();
+      const quantity = parseInt(match[3].trim()) || 1;
+      const rateValue = match[4].trim().replace(",", "."); // Replace comma with dot for decimal
       
-      if (parts.length >= 4) {
-        const currencyCode = parts[0].trim();
-        const currencyName = parts[1].trim();
-        const quantity = parseFloat(parts[2].trim()) || 1;
-        const rateValue = parts[3].trim().replace(",", "."); // Replace comma with dot for decimal
+      if (currencyCode && currencyName && rateValue) {
+        // Adjust rate by quantity (e.g., JPY is often quoted per 100 units)
+        const adjustedRate = (parseFloat(rateValue) / quantity).toFixed(6);
         
-        // Skip empty or invalid lines
-        if (currencyCode && currencyName && rateValue) {
-          // Adjust rate by quantity (e.g., JPY is often quoted per 100 units)
-          const adjustedRate = (parseFloat(rateValue) / quantity).toFixed(6);
-          
-          rates.push({
-            currencyCode,
-            currencyName,
-            rate: adjustedRate,
-            rateDate
-          });
-        }
+        rates.push({
+          currencyCode,
+          currencyName,
+          rate: adjustedRate,
+          rateDate
+        });
       }
     }
     
-    console.log(`[ExchangeRates] Fetched ${rates.length} rates from NBS`);
+    console.log(`[ExchangeRates] Fetched ${rates.length} rates from NBS XML`);
     return rates;
   } catch (error) {
     console.error("[ExchangeRates] Failed to fetch NBS rates:", error);
