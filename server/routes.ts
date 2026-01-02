@@ -175,7 +175,40 @@ async function logActivity(
   }
 }
 
-// NBS Exchange Rate Fetcher (XML format)
+// NBS Exchange Rate Fetcher (XML format - ECB rates via NBS)
+// Currency names mapping for display
+const currencyNames: Record<string, string> = {
+  USD: "americký dolár",
+  JPY: "japonský jen",
+  CZK: "česká koruna",
+  DKK: "dánska koruna",
+  GBP: "britská libra",
+  HUF: "maďarský forint",
+  PLN: "poľský zlotý",
+  RON: "rumunský leu",
+  SEK: "švédska koruna",
+  CHF: "švajčiarsky frank",
+  ISK: "islandská koruna",
+  NOK: "nórska koruna",
+  TRY: "turecká líra",
+  AUD: "austrálsky dolár",
+  BRL: "brazílsky real",
+  CAD: "kanadský dolár",
+  CNY: "čínsky juan",
+  HKD: "hongkongský dolár",
+  IDR: "indonézska rupia",
+  ILS: "izraelský šekel",
+  INR: "indická rupia",
+  KRW: "juhokórejský won",
+  MXN: "mexické peso",
+  MYR: "malajzijský ringgit",
+  NZD: "novozélandský dolár",
+  PHP: "filipínske peso",
+  SGD: "singapurský dolár",
+  THB: "thajský baht",
+  ZAR: "juhoafrický rand"
+};
+
 async function fetchNBSExchangeRates(): Promise<{ currencyCode: string; currencyName: string; rate: string; rateDate: string }[]> {
   try {
     // Build URL with current date
@@ -193,29 +226,27 @@ async function fetchNBSExchangeRates(): Promise<{ currencyCode: string; currency
     const xmlText = await response.text();
     const rates: { currencyCode: string; currencyName: string; rate: string; rateDate: string }[] = [];
     
-    // Extract date from XML (format: <ExchangeRates Date="2026-01-02">)
-    const dateMatch = xmlText.match(/Date="(\d{4}-\d{2}-\d{2})"/);
+    // Extract date from XML (format: <Cube time="2026-01-02">)
+    const dateMatch = xmlText.match(/time="(\d{4}-\d{2}-\d{2})"/);
     const rateDate = dateMatch ? dateMatch[1] : dateStr;
     
-    // Parse each ExchangeRate element
-    // XML structure: <ExchangeRate><Code>USD</Code><Name>dolár</Name><Quantity>1</Quantity><Value>0,9291</Value></ExchangeRate>
-    const rateRegex = /<ExchangeRate>[\s\S]*?<Code>([^<]+)<\/Code>[\s\S]*?<Name>([^<]+)<\/Name>[\s\S]*?<Quantity>(\d+)<\/Quantity>[\s\S]*?<Value>([^<]+)<\/Value>[\s\S]*?<\/ExchangeRate>/g;
+    // Parse each Cube element with currency and rate
+    // XML structure: <Cube currency="USD" rate="1,1721"/>
+    const rateRegex = /<Cube\s+currency="([A-Z]{3})"\s+rate="([^"]+)"\s*\/>/g;
     
     let match;
     while ((match = rateRegex.exec(xmlText)) !== null) {
       const currencyCode = match[1].trim();
-      const currencyName = match[2].trim();
-      const quantity = parseInt(match[3].trim()) || 1;
-      const rateValue = match[4].trim().replace(",", "."); // Replace comma with dot for decimal
+      // Rate value may have space as thousand separator and comma as decimal
+      const rateValue = match[2].trim().replace(/\s/g, "").replace(",", ".");
       
-      if (currencyCode && currencyName && rateValue) {
-        // Adjust rate by quantity (e.g., JPY is often quoted per 100 units)
-        const adjustedRate = (parseFloat(rateValue) / quantity).toFixed(6);
+      if (currencyCode && rateValue) {
+        const currencyName = currencyNames[currencyCode] || currencyCode;
         
         rates.push({
           currencyCode,
           currencyName,
-          rate: adjustedRate,
+          rate: parseFloat(rateValue).toFixed(6),
           rateDate
         });
       }
