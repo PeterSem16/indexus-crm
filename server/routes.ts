@@ -5386,8 +5386,10 @@ export async function registerRoutes(
   
   // Create WebSocket server
   const wss = new WebSocketServer({ server: httpServer, path: "/ws/chat" });
+  console.log("[Chat] WebSocket server initialized on path /ws/chat");
   
   wss.on("connection", (ws, req) => {
+    console.log("[Chat] New WebSocket connection from:", req.socket.remoteAddress);
     let userId: string | null = null;
     let user: SafeUser | null = null;
     
@@ -5400,16 +5402,20 @@ export async function registerRoutes(
             // Authenticate user by session or user info passed from client
             userId = message.userId;
             if (userId) {
+              console.log("[Chat] Auth attempt for user:", userId);
               const fullUser = await storage.getUser(userId);
               if (fullUser) {
                 const { passwordHash, ...safeUser } = fullUser;
                 user = safeUser;
                 onlineUsers.set(userId, { ws, user });
+                console.log("[Chat] User authenticated:", fullUser.fullName, "| Total online:", onlineUsers.size);
                 
                 // Broadcast user online status to all connected clients
                 broadcastPresence();
                 
                 ws.send(JSON.stringify({ type: "auth_success", userId }));
+              } else {
+                console.log("[Chat] User not found:", userId);
               }
             }
             break;
