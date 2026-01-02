@@ -87,6 +87,35 @@ const uploadInvoiceImage = multer({
   },
 });
 
+// Configure multer for user avatar uploads
+const avatarStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(process.cwd(), "uploads", "avatars");
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    const ext = path.extname(file.originalname);
+    cb(null, `avatar-${uniqueSuffix}${ext}`);
+  },
+});
+
+const uploadAvatar = multer({
+  storage: avatarStorage,
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Invalid file type. Only JPEG, PNG, GIF, WEBP are allowed."));
+    }
+  },
+});
+
 // Helper function to convert date strings to Date objects
 function parseDateFields(data: Record<string, any>): Record<string, any> {
   const result = { ...data };
@@ -349,6 +378,34 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting user:", error);
       res.status(500).json({ error: "Failed to delete user" });
+    }
+  });
+
+  // User avatar upload
+  app.post("/api/users/:id/avatar", requireAuth, uploadAvatar.single("avatar"), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+      
+      const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+      const user = await storage.updateUser(req.params.id, { avatarUrl });
+      
+      if (!user) {
+        // Delete the uploaded file if user not found
+        fs.unlinkSync(req.file.path);
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Update session if it's the current user
+      if (req.session.user && req.session.user.id === req.params.id) {
+        req.session.user = { ...req.session.user, avatarUrl } as SafeUser;
+      }
+      
+      res.json({ avatarUrl, user });
+    } catch (error) {
+      console.error("Error uploading avatar:", error);
+      res.status(500).json({ error: "Failed to upload avatar" });
     }
   });
 
