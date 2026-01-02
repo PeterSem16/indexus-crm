@@ -234,7 +234,7 @@ export function QuickCreate() {
     },
   });
 
-  const handleOpenChange = (dialog: "contact" | "task" | "note" | null) => {
+  const handleOpenChange = (dialog: "contact" | "task" | "note" | "chat" | null) => {
     setOpenDialog(dialog);
     if (dialog === "contact") {
       contactForm.reset({

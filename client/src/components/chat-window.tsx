@@ -66,7 +66,16 @@ export function ChatWindow({ partnerId, partner, minimized, position }: ChatWind
     const handleSentMessage = (event: CustomEvent) => {
       const { message: msg, receiverId } = event.detail;
       if (receiverId === partnerId) {
-        setMessages(prev => [...prev, msg]);
+        // Replace optimistic message with server-confirmed message
+        setMessages(prev => {
+          const optimisticIndex = prev.findIndex(m => m.senderId === "self" && m.content === msg.content);
+          if (optimisticIndex >= 0) {
+            const newMessages = [...prev];
+            newMessages[optimisticIndex] = msg;
+            return newMessages;
+          }
+          return prev;
+        });
       }
     };
 

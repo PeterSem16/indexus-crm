@@ -124,6 +124,11 @@ export interface Translations {
     noteContent: string;
     duplicateWarning: string;
     searchCustomer: string;
+    chat: string;
+    chatWithUser: string;
+    selectOnlineUser: string;
+    connecting: string;
+    noOnlineUsers: string;
   };
   tasks: {
     title: string;
@@ -1492,6 +1497,11 @@ export const translations: Record<Locale, Translations> = {
       noteContent: 'Note Content',
       duplicateWarning: 'Possible duplicate contact found:',
       searchCustomer: 'Search customer...',
+      chat: 'Chat',
+      chatWithUser: 'Chat with User',
+      selectOnlineUser: 'Select an online user to start chatting',
+      connecting: 'Connecting...',
+      noOnlineUsers: 'No users are currently online',
     },
     tasks: {
       title: 'Tasks',
@@ -2876,6 +2886,11 @@ export const translations: Record<Locale, Translations> = {
       noteContent: 'Obsah poznámky',
       duplicateWarning: 'Možný duplicitný kontakt:',
       searchCustomer: 'Vyhľadať zákazníka...',
+      chat: 'Chat',
+      chatWithUser: 'Chat s používateľom',
+      selectOnlineUser: 'Vyberte online používateľa pre začatie chatu',
+      connecting: 'Pripájanie...',
+      noOnlineUsers: 'Žiadni používatelia nie sú online',
     },
     tasks: {
       title: 'Úlohy',
@@ -4245,6 +4260,11 @@ export const translations: Record<Locale, Translations> = {
       noteContent: 'Obsah poznámky',
       duplicateWarning: 'Možný duplicitní kontakt:',
       searchCustomer: 'Vyhledat zákazníka...',
+      chat: 'Chat',
+      chatWithUser: 'Chat s uživatelem',
+      selectOnlineUser: 'Vyberte online uživatele pro zahájení chatu',
+      connecting: 'Připojování...',
+      noOnlineUsers: 'Žádní uživatelé nejsou online',
     },
     tasks: {
       title: 'Úkoly',
@@ -5569,6 +5589,11 @@ export const translations: Record<Locale, Translations> = {
       noteContent: 'Megjegyzés tartalma',
       duplicateWarning: 'Lehetséges duplikált kapcsolat:',
       searchCustomer: 'Ügyfél keresése...',
+      chat: 'Chat',
+      chatWithUser: 'Chat felhasználóval',
+      selectOnlineUser: 'Válasszon online felhasználót a csevegés indításához',
+      connecting: 'Csatlakozás...',
+      noOnlineUsers: 'Jelenleg nincsenek online felhasználók',
     },
     tasks: {
       title: 'Feladatok',
@@ -6893,6 +6918,11 @@ export const translations: Record<Locale, Translations> = {
       noteContent: 'Conținutul notei',
       duplicateWarning: 'Posibil contact duplicat:',
       searchCustomer: 'Căutare client...',
+      chat: 'Chat',
+      chatWithUser: 'Chat cu utilizator',
+      selectOnlineUser: 'Selectați un utilizator online pentru a începe chatul',
+      connecting: 'Se conectează...',
+      noOnlineUsers: 'Niciun utilizator nu este online',
     },
     tasks: {
       title: 'Sarcini',
@@ -8217,6 +8247,11 @@ export const translations: Record<Locale, Translations> = {
       noteContent: 'Contenuto nota',
       duplicateWarning: 'Possibile contatto duplicato:',
       searchCustomer: 'Cerca cliente...',
+      chat: 'Chat',
+      chatWithUser: 'Chat con utente',
+      selectOnlineUser: 'Seleziona un utente online per iniziare a chattare',
+      connecting: 'Connessione in corso...',
+      noOnlineUsers: 'Nessun utente è attualmente online',
     },
     tasks: {
       title: 'Attività',
@@ -9541,6 +9576,11 @@ export const translations: Record<Locale, Translations> = {
       noteContent: 'Notizinhalt',
       duplicateWarning: 'Möglicher doppelter Kontakt:',
       searchCustomer: 'Kunde suchen...',
+      chat: 'Chat',
+      chatWithUser: 'Chat mit Benutzer',
+      selectOnlineUser: 'Wählen Sie einen Online-Benutzer zum Chatten',
+      connecting: 'Verbindung wird hergestellt...',
+      noOnlineUsers: 'Keine Benutzer sind derzeit online',
     },
     tasks: {
       title: 'Aufgaben',
