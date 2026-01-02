@@ -11893,12 +11893,8 @@ export default function ConfiguratorPage() {
             <Hash className="h-4 w-4" />
             {t.konfigurator.numberRanges}
           </TabsTrigger>
-          <TabsTrigger value="templates" className="flex items-center gap-2" data-testid="tab-templates">
+          <TabsTrigger value="invoicing" className="flex items-center gap-2" data-testid="tab-invoicing">
             <FileText className="h-4 w-4" />
-            {t.konfigurator.invoiceTemplates}
-          </TabsTrigger>
-          <TabsTrigger value="editor" className="flex items-center gap-2" data-testid="tab-editor">
-            <Layout className="h-4 w-4" />
             {t.konfigurator.invoiceEditor}
           </TabsTrigger>
           <TabsTrigger value="rates-inflation" className="flex items-center gap-2" data-testid="tab-rates-inflation">
@@ -11947,26 +11943,31 @@ export default function ConfiguratorPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="templates">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t.konfigurator.invoiceTemplates}</CardTitle>
-              <CardDescription>{t.konfigurator.templatesDescription}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <InvoiceTemplatesTab />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="editor">
+        <TabsContent value="invoicing">
           <Card>
             <CardHeader>
               <CardTitle>{t.konfigurator.invoiceEditor}</CardTitle>
               <CardDescription>{t.konfigurator.layoutsDescription}</CardDescription>
             </CardHeader>
             <CardContent>
-              <InvoiceEditorTab />
+              <Tabs defaultValue="templates" className="space-y-4">
+                <TabsList>
+                  <TabsTrigger value="templates" data-testid="subtab-templates">
+                    <FileText className="h-4 w-4 mr-2" />
+                    {t.konfigurator.invoiceTemplates}
+                  </TabsTrigger>
+                  <TabsTrigger value="editor" data-testid="subtab-editor">
+                    <Layout className="h-4 w-4 mr-2" />
+                    {t.konfigurator.designInvoice || "Dizajnér faktúr"}
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="templates">
+                  <InvoiceTemplatesTab />
+                </TabsContent>
+                <TabsContent value="editor">
+                  <InvoiceEditorTab />
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
         </TabsContent>
