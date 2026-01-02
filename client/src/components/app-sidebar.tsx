@@ -182,7 +182,7 @@ export function AppSidebar() {
           <div className="flex items-center justify-between gap-2 p-2 rounded-md bg-sidebar-accent">
             <div className="flex items-center gap-2 min-w-0">
               <Avatar className="h-8 w-8 shrink-0">
-                <AvatarImage src={(user as any).avatarUrl || undefined} />
+                <AvatarImage src={(user as any).avatarUrl || undefined} className="object-cover" />
                 <AvatarFallback className="text-xs">
                   {user.fullName.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)}
                 </AvatarFallback>

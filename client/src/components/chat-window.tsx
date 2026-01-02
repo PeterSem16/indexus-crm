@@ -206,7 +206,7 @@ export function ChatWindow({ partnerId, partner, minimized, position }: ChatWind
           <div className="flex items-center gap-2">
             <div className="relative">
               <Avatar className="h-6 w-6">
-                <AvatarImage src={partner.avatarUrl || undefined} />
+                <AvatarImage src={partner.avatarUrl || undefined} className="object-cover" />
                 <AvatarFallback className="text-xs">{initials}</AvatarFallback>
               </Avatar>
               {isOnline && (
@@ -242,7 +242,7 @@ export function ChatWindow({ partnerId, partner, minimized, position }: ChatWind
         <div className="flex items-center gap-2">
           <div className="relative">
             <Avatar className="h-8 w-8">
-              <AvatarImage src={partner.avatarUrl || undefined} />
+              <AvatarImage src={partner.avatarUrl || undefined} className="object-cover" />
               <AvatarFallback>{initials}</AvatarFallback>
             </Avatar>
             {isOnline && (

@@ -205,7 +205,7 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
       <div className="flex items-center gap-4 mb-4">
         <div className="relative">
           <Avatar className="h-20 w-20">
-            <AvatarImage src={avatarPreview || undefined} />
+            <AvatarImage src={avatarPreview || undefined} className="object-cover" />
             <AvatarFallback className="text-lg">
               {getInitials(form.watch("fullName") || "U")}
             </AvatarFallback>

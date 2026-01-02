@@ -6,6 +6,7 @@ import { usePermissions } from "@/contexts/permissions-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Dialog,
   DialogContent,
@@ -97,9 +98,12 @@ export default function UsersPage() {
       header: t.users.userColumn,
       cell: (user: User) => (
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground font-medium">
-            {user.fullName.split(" ").map(n => n[0]).join("").slice(0, 2)}
-          </div>
+          <Avatar className="h-10 w-10">
+            <AvatarImage src={(user as any).avatarUrl || undefined} className="object-cover" />
+            <AvatarFallback className="bg-primary text-primary-foreground font-medium">
+              {user.fullName.split(" ").map(n => n[0]).join("").slice(0, 2)}
+            </AvatarFallback>
+          </Avatar>
           <div>
             <p className="font-medium">{user.fullName}</p>
             <p className="text-sm text-muted-foreground">{user.email}</p>
