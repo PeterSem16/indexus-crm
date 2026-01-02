@@ -23,9 +23,10 @@ interface ChatWindowProps {
   };
   minimized: boolean;
   position: number;
+  unreadCount: number;
 }
 
-export function ChatWindow({ partnerId, partner, minimized, position }: ChatWindowProps) {
+export function ChatWindow({ partnerId, partner, minimized, position, unreadCount }: ChatWindowProps) {
   const { closeChat, minimizeChat, sendMessage, markAsRead, onlineUsers } = useChatContext();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -214,6 +215,14 @@ export function ChatWindow({ partnerId, partner, minimized, position }: ChatWind
               )}
             </div>
             <span className="text-sm font-medium truncate">{partner.fullName}</span>
+            {unreadCount > 0 && (
+              <span 
+                className="flex items-center justify-center min-w-5 h-5 px-1.5 text-xs font-medium bg-destructive text-destructive-foreground rounded-full"
+                data-testid={`badge-unread-${partnerId}`}
+              >
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
           </div>
           <Button
             size="icon"
