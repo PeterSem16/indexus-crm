@@ -1043,6 +1043,9 @@ export interface Translations {
     discountText: string;
     vatText: string;
     totalLabel: string;
+    subtotalAfterDiscount: string;
+    priceWithoutVat: string;
+    vatValue: string;
     paymentBreakdown: string;
     collectionItem: string;
     storageItem: string;
@@ -2318,6 +2321,9 @@ export const translations: Record<Locale, Translations> = {
       discountText: 'Discount',
       vatText: 'VAT',
       totalLabel: 'Total',
+      subtotalAfterDiscount: 'Subtotal after discount',
+      priceWithoutVat: 'Price without VAT',
+      vatValue: 'VAT value',
       paymentBreakdown: 'Payment Breakdown',
       collectionItem: 'Collection',
       storageItem: 'Storage',
@@ -3613,6 +3619,9 @@ export const translations: Record<Locale, Translations> = {
       discountText: 'Zľava',
       vatText: 'DPH',
       totalLabel: 'Celkom',
+      subtotalAfterDiscount: 'Medzisúčet po zľave',
+      priceWithoutVat: 'Cena bez DPH',
+      vatValue: 'Hodnota DPH',
       paymentBreakdown: 'Rozpis platieb',
       collectionItem: 'Odber',
       storageItem: 'Skladovanie',
@@ -4908,6 +4917,9 @@ export const translations: Record<Locale, Translations> = {
       discountText: 'Sleva',
       vatText: 'DPH',
       totalLabel: 'Celkem',
+      subtotalAfterDiscount: 'Mezisoučet po slevě',
+      priceWithoutVat: 'Cena bez DPH',
+      vatValue: 'Hodnota DPH',
       paymentBreakdown: 'Rozpis plateb',
       collectionItem: 'Odběr',
       storageItem: 'Skladování',
@@ -6166,6 +6178,9 @@ export const translations: Record<Locale, Translations> = {
       discountText: 'Kedvezmény',
       vatText: 'ÁFA',
       totalLabel: 'Összesen',
+      subtotalAfterDiscount: 'Részösszeg kedvezmény után',
+      priceWithoutVat: 'Ár ÁFA nélkül',
+      vatValue: 'ÁFA érték',
       paymentBreakdown: 'Fizetési bontás',
       collectionItem: 'Mintavétel',
       storageItem: 'Tárolás',
@@ -7424,6 +7439,9 @@ export const translations: Record<Locale, Translations> = {
       discountText: 'Reducere',
       vatText: 'TVA',
       totalLabel: 'Total',
+      subtotalAfterDiscount: 'Subtotal după reducere',
+      priceWithoutVat: 'Preț fără TVA',
+      vatValue: 'Valoare TVA',
       paymentBreakdown: 'Defalcare plăți',
       collectionItem: 'Colectare',
       storageItem: 'Stocare',
@@ -8682,6 +8700,9 @@ export const translations: Record<Locale, Translations> = {
       discountText: 'Sconto',
       vatText: 'IVA',
       totalLabel: 'Totale',
+      subtotalAfterDiscount: 'Subtotale dopo sconto',
+      priceWithoutVat: 'Prezzo senza IVA',
+      vatValue: 'Valore IVA',
       paymentBreakdown: 'Dettaglio pagamenti',
       collectionItem: 'Prelievo',
       storageItem: 'Conservazione',
@@ -9940,6 +9961,9 @@ export const translations: Record<Locale, Translations> = {
       discountText: 'Rabatt',
       vatText: 'MwSt',
       totalLabel: 'Gesamt',
+      subtotalAfterDiscount: 'Zwischensumme nach Rabatt',
+      priceWithoutVat: 'Preis ohne MwSt',
+      vatValue: 'MwSt-Wert',
       paymentBreakdown: 'Zahlungsübersicht',
       collectionItem: 'Entnahme',
       storageItem: 'Lagerung',
