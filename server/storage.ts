@@ -58,12 +58,13 @@ import {
   type CampaignContactSession, type InsertCampaignContactSession,
   type CampaignMetricsSnapshot, type InsertCampaignMetricsSnapshot,
   sipSettings, callLogs,
-  productSets, productSetCollections, productSetStorage,
+  productSets, productSetCollections, productSetStorage, customerConsents,
   type SipSettings, type InsertSipSettings,
   type CallLog, type InsertCallLog,
   type ProductSet, type InsertProductSet,
   type ProductSetCollection, type InsertProductSetCollection,
-  type ProductSetStorage, type InsertProductSetStorage
+  type ProductSetStorage, type InsertProductSetStorage,
+  type CustomerConsent, type InsertCustomerConsent
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, inArray, sql, desc, and } from "drizzle-orm";
@@ -207,6 +208,15 @@ export interface IStorage {
   getActivityLogsByUser(userId: string, limit?: number): Promise<ActivityLog[]>;
   getActivityLogsByEntity(entityType: string, entityId: string): Promise<ActivityLog[]>;
   getAllActivityLogs(limit?: number): Promise<ActivityLog[]>;
+
+  // Customer Consents (GDPR)
+  getCustomerConsents(customerId: string): Promise<CustomerConsent[]>;
+  getCustomerConsentById(id: string): Promise<CustomerConsent | undefined>;
+  createCustomerConsent(consent: InsertCustomerConsent): Promise<CustomerConsent>;
+  updateCustomerConsent(id: string, data: Partial<InsertCustomerConsent>): Promise<CustomerConsent | undefined>;
+  revokeCustomerConsent(id: string, userId: string, reason?: string): Promise<CustomerConsent | undefined>;
+  getActiveConsentsForCustomer(customerId: string): Promise<CustomerConsent[]>;
+  getCustomerDataExport(customerId: string): Promise<any>;
 
   // Communication Messages
   createCommunicationMessage(message: InsertCommunicationMessage): Promise<CommunicationMessage>;
@@ -1119,6 +1129,122 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(activityLogs)
       .orderBy(desc(activityLogs.createdAt))
       .limit(limit);
+  }
+
+  // Customer Consents (GDPR)
+  async getCustomerConsents(customerId: string): Promise<CustomerConsent[]> {
+    return db.select().from(customerConsents)
+      .where(eq(customerConsents.customerId, customerId))
+      .orderBy(desc(customerConsents.createdAt));
+  }
+
+  async getCustomerConsentById(id: string): Promise<CustomerConsent | undefined> {
+    const [consent] = await db.select().from(customerConsents).where(eq(customerConsents.id, id));
+    return consent;
+  }
+
+  async createCustomerConsent(consent: InsertCustomerConsent): Promise<CustomerConsent> {
+    const [created] = await db.insert(customerConsents).values(consent).returning();
+    return created;
+  }
+
+  async updateCustomerConsent(id: string, data: Partial<InsertCustomerConsent>): Promise<CustomerConsent | undefined> {
+    const [updated] = await db.update(customerConsents)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(customerConsents.id, id))
+      .returning();
+    return updated;
+  }
+
+  async revokeCustomerConsent(id: string, userId: string, reason?: string): Promise<CustomerConsent | undefined> {
+    const [revoked] = await db.update(customerConsents)
+      .set({
+        granted: false,
+        revokedAt: new Date(),
+        revokedByUserId: userId,
+        revokeReason: reason,
+        updatedAt: new Date()
+      })
+      .where(eq(customerConsents.id, id))
+      .returning();
+    return revoked;
+  }
+
+  async getActiveConsentsForCustomer(customerId: string): Promise<CustomerConsent[]> {
+    return db.select().from(customerConsents)
+      .where(and(
+        eq(customerConsents.customerId, customerId),
+        eq(customerConsents.granted, true)
+      ))
+      .orderBy(desc(customerConsents.grantedAt));
+  }
+
+  async getCustomerDataExport(customerId: string): Promise<any> {
+    // Get all customer data for GDPR export
+    const [customer] = await db.select().from(customers).where(eq(customers.id, customerId));
+    if (!customer) return null;
+
+    const customerProducts = await this.getCustomerProducts(customerId);
+    const customerInvoices = await this.getCustomerInvoices(customerId);
+    const notes = await this.getCustomerNotes(customerId);
+    const consents = await this.getCustomerConsents(customerId);
+    const messages = await this.getCommunicationMessagesByCustomer(customerId);
+    const accessLogs = await db.select().from(activityLogs)
+      .where(and(
+        eq(activityLogs.entityType, "customer"),
+        eq(activityLogs.entityId, customerId)
+      ))
+      .orderBy(desc(activityLogs.createdAt));
+
+    return {
+      exportDate: new Date().toISOString(),
+      customer: {
+        personalData: {
+          firstName: customer.firstName,
+          lastName: customer.lastName,
+          maidenName: customer.maidenName,
+          titleBefore: customer.titleBefore,
+          titleAfter: customer.titleAfter,
+          email: customer.email,
+          email2: customer.email2,
+          phone: customer.phone,
+          mobile: customer.mobile,
+          mobile2: customer.mobile2,
+          dateOfBirth: customer.dateOfBirth,
+          nationalId: customer.nationalId,
+          idCardNumber: customer.idCardNumber,
+        },
+        address: {
+          permanentStreet: customer.permanentStreet,
+          permanentCity: customer.permanentCity,
+          permanentPostalCode: customer.permanentPostalCode,
+          permanentCountry: customer.permanentCountry,
+          correspondenceStreet: customer.correspondenceStreet,
+          correspondenceCity: customer.correspondenceCity,
+          correspondencePostalCode: customer.correspondencePostalCode,
+          correspondenceCountry: customer.correspondenceCountry,
+        },
+        status: customer.status,
+        country: customer.country,
+        newsletter: customer.newsletter,
+        createdAt: customer.createdAt,
+      },
+      products: customerProducts,
+      invoices: customerInvoices,
+      notes: notes.map(n => ({ content: n.content, createdAt: n.createdAt })),
+      consents: consents,
+      communications: messages.map(m => ({
+        type: m.type,
+        subject: m.subject,
+        sentAt: m.sentAt,
+        status: m.status
+      })),
+      accessLogs: accessLogs.map(l => ({
+        action: l.action,
+        createdAt: l.createdAt,
+        details: l.details
+      }))
+    };
   }
 
   // Communication Messages

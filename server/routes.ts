@@ -445,6 +445,126 @@ export async function registerRoutes(
     }
   });
 
+  // GDPR Customer Consents API
+  app.get("/api/customers/:id/consents", requireAuth, async (req, res) => {
+    try {
+      const consents = await storage.getCustomerConsents(req.params.id);
+      res.json(consents);
+    } catch (error) {
+      console.error("Error fetching consents:", error);
+      res.status(500).json({ error: "Failed to fetch consents" });
+    }
+  });
+
+  app.post("/api/customers/:id/consents", requireAuth, async (req, res) => {
+    try {
+      const consentData = {
+        ...req.body,
+        customerId: req.params.id,
+        grantedByUserId: req.session.user!.id,
+        grantedAt: req.body.granted ? new Date() : null,
+      };
+      const consent = await storage.createCustomerConsent(consentData);
+      
+      // Log activity
+      await logActivity(
+        req.session.user!.id,
+        req.body.granted ? "consent_granted" : "consent_created",
+        "consent",
+        consent.id,
+        `${req.body.consentType} for customer ${req.params.id}`,
+        { consentType: req.body.consentType, legalBasis: req.body.legalBasis },
+        req.ip
+      );
+      
+      res.status(201).json(consent);
+    } catch (error) {
+      console.error("Error creating consent:", error);
+      res.status(500).json({ error: "Failed to create consent" });
+    }
+  });
+
+  app.patch("/api/customers/:customerId/consents/:id", requireAuth, async (req, res) => {
+    try {
+      const consent = await storage.updateCustomerConsent(req.params.id, req.body);
+      if (!consent) {
+        return res.status(404).json({ error: "Consent not found" });
+      }
+      res.json(consent);
+    } catch (error) {
+      console.error("Error updating consent:", error);
+      res.status(500).json({ error: "Failed to update consent" });
+    }
+  });
+
+  app.post("/api/customers/:customerId/consents/:id/revoke", requireAuth, async (req, res) => {
+    try {
+      const consent = await storage.revokeCustomerConsent(
+        req.params.id,
+        req.session.user!.id,
+        req.body.reason
+      );
+      if (!consent) {
+        return res.status(404).json({ error: "Consent not found" });
+      }
+      
+      // Log activity
+      await logActivity(
+        req.session.user!.id,
+        "consent_revoked",
+        "consent",
+        consent.id,
+        `${consent.consentType} for customer ${req.params.customerId}`,
+        { consentType: consent.consentType, reason: req.body.reason },
+        req.ip
+      );
+      
+      res.json(consent);
+    } catch (error) {
+      console.error("Error revoking consent:", error);
+      res.status(500).json({ error: "Failed to revoke consent" });
+    }
+  });
+
+  // GDPR Data Export
+  app.get("/api/customers/:id/gdpr-export", requireAuth, async (req, res) => {
+    try {
+      const customer = await storage.getCustomer(req.params.id);
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+      
+      const exportData = await storage.getCustomerDataExport(req.params.id);
+      
+      // Log the export activity
+      await logActivity(
+        req.session.user!.id,
+        "export",
+        "customer",
+        req.params.id,
+        `${customer.firstName} ${customer.lastName}`,
+        { exportType: "gdpr_data_export" },
+        req.ip
+      );
+      
+      res.json(exportData);
+    } catch (error) {
+      console.error("Error exporting customer data:", error);
+      res.status(500).json({ error: "Failed to export customer data" });
+    }
+  });
+
+  // GDPR Access Log for Customer
+  app.get("/api/customers/:id/access-logs", requireAuth, async (req, res) => {
+    try {
+      const logs = await storage.getActivityLogsByEntity("customer", req.params.id);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching access logs:", error);
+      res.status(500).json({ error: "Failed to fetch access logs" });
+    }
+  });
+
   // Products API (protected)
   app.get("/api/products", requireAuth, async (req, res) => {
     try {
