@@ -2208,34 +2208,74 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
               
               {(selectedSet?.collections || []).map((col: any, idx: number) => {
                 const inst = instances.find((i: any) => i.id === col.instanceId);
-                const lineGross = parseFloat(col.lineGrossAmount || 0);
+                const lineNet = parseFloat(col.lineNetAmount || 0);
                 const lineDiscount = parseFloat(col.lineDiscountAmount || 0);
+                const lineVat = parseFloat(col.lineVatAmount || 0);
+                const lineGross = parseFloat(col.lineGrossAmount || 0);
                 return (
                   <div key={col.id} className="py-1.5 px-2 rounded bg-blue-50 dark:bg-blue-900/20 border-l-2 border-blue-400 mb-1">
-                    <div className="flex justify-between text-sm">
+                    <div className="flex justify-between text-sm font-medium">
                       <span className="text-blue-900 dark:text-blue-100">{idx + 1}. {inst?.name || t.konfigurator.collectionItem} {col.quantity > 1 && `(${col.quantity}x)`}</span>
-                      <span className="font-mono font-medium text-blue-700 dark:text-blue-300">{lineGross.toFixed(2)} €</span>
                     </div>
-                    {lineDiscount > 0 && (
-                      <div className="text-xs text-green-600 text-right">{t.konfigurator.discountText}: -{lineDiscount.toFixed(2)} €</div>
-                    )}
+                    <div className="mt-1 space-y-0.5 text-xs text-blue-700 dark:text-blue-300">
+                      <div className="flex justify-between">
+                        <span>{t.konfigurator.priceWithoutVat}:</span>
+                        <span className="font-mono">{lineNet.toFixed(2)} €</span>
+                      </div>
+                      {lineDiscount > 0 && (
+                        <div className="flex justify-between text-amber-600 dark:text-amber-400">
+                          <span>{t.konfigurator.discountText}:</span>
+                          <span className="font-mono">-{lineDiscount.toFixed(2)} €</span>
+                        </div>
+                      )}
+                      {lineVat > 0 && (
+                        <div className="flex justify-between">
+                          <span>{t.konfigurator.vatValue}:</span>
+                          <span className="font-mono">+{lineVat.toFixed(2)} €</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between font-medium pt-0.5 border-t border-blue-200 dark:border-blue-700">
+                        <span>{t.konfigurator.totalLabel}:</span>
+                        <span className="font-mono">{lineGross.toFixed(2)} €</span>
+                      </div>
+                    </div>
                   </div>
                 );
               })}
               
               {(selectedSet?.storage || []).map((stor: any, idx: number) => {
                 const svc = allStorageServices.find((s: any) => s.id === stor.serviceId);
-                const lineGross = parseFloat(stor.lineGrossAmount || stor.priceOverride || 0);
+                const lineNet = parseFloat(stor.lineNetAmount || stor.priceOverride || 0);
                 const lineDiscount = parseFloat(stor.lineDiscountAmount || 0);
+                const lineVat = parseFloat(stor.lineVatAmount || 0);
+                const lineGross = parseFloat(stor.lineGrossAmount || stor.priceOverride || 0);
                 return (
                   <div key={stor.id} className="py-1.5 px-2 rounded bg-green-50 dark:bg-green-900/20 border-l-2 border-green-400 mb-1">
-                    <div className="flex justify-between text-sm">
+                    <div className="flex justify-between text-sm font-medium">
                       <span className="text-green-900 dark:text-green-100">{(selectedSet?.collections?.length || 0) + idx + 1}. {svc?.name || t.konfigurator.storageItem}</span>
-                      <span className="font-mono font-medium text-green-700 dark:text-green-300">{lineGross.toFixed(2)} €</span>
                     </div>
-                    {lineDiscount > 0 && (
-                      <div className="text-xs text-green-600 text-right">{t.konfigurator.discountText}: -{lineDiscount.toFixed(2)} €</div>
-                    )}
+                    <div className="mt-1 space-y-0.5 text-xs text-green-700 dark:text-green-300">
+                      <div className="flex justify-between">
+                        <span>{t.konfigurator.priceWithoutVat}:</span>
+                        <span className="font-mono">{lineNet.toFixed(2)} €</span>
+                      </div>
+                      {lineDiscount > 0 && (
+                        <div className="flex justify-between text-amber-600 dark:text-amber-400">
+                          <span>{t.konfigurator.discountText}:</span>
+                          <span className="font-mono">-{lineDiscount.toFixed(2)} €</span>
+                        </div>
+                      )}
+                      {lineVat > 0 && (
+                        <div className="flex justify-between">
+                          <span>{t.konfigurator.vatValue}:</span>
+                          <span className="font-mono">+{lineVat.toFixed(2)} €</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between font-medium pt-0.5 border-t border-green-200 dark:border-green-700">
+                        <span>{t.konfigurator.totalLabel}:</span>
+                        <span className="font-mono">{lineGross.toFixed(2)} €</span>
+                      </div>
+                    </div>
                   </div>
                 );
               })}
@@ -2253,10 +2293,18 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
                 <span>{t.konfigurator.netWithoutVat}:</span>
                 <span className="font-mono">{totals.net.toFixed(2)} €</span>
               </div>
-              <div className="flex justify-between text-sm text-muted-foreground">
-                <span>{t.konfigurator.discountText}:</span>
-                <span className="font-mono">-{totals.discount.toFixed(2)} €</span>
-              </div>
+              {totals.discount > 0 && (
+                <div className="flex justify-between text-sm text-amber-600 dark:text-amber-400">
+                  <span>{t.konfigurator.discountText}:</span>
+                  <span className="font-mono">-{totals.discount.toFixed(2)} €</span>
+                </div>
+              )}
+              {totals.discount > 0 && (
+                <div className="flex justify-between text-sm font-medium">
+                  <span>{t.konfigurator.subtotalAfterDiscount}:</span>
+                  <span className="font-mono">{(totals.net - totals.discount).toFixed(2)} €</span>
+                </div>
+              )}
               <div className="flex justify-between text-sm text-muted-foreground">
                 <span>{t.konfigurator.vatText}:</span>
                 <span className="font-mono">+{totals.vat.toFixed(2)} €</span>
