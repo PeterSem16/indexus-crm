@@ -9090,13 +9090,48 @@ interface InflationRate {
 }
 
 const INFLATION_COUNTRIES = [
-  { code: "SK", name: "Slovensko" },
-  { code: "CZ", name: "Česká republika" },
-  { code: "HU", name: "Maďarsko" },
-  { code: "RO", name: "Rumunsko" },
-  { code: "IT", name: "Taliansko" },
-  { code: "DE", name: "Nemecko" },
-  { code: "US", name: "USA" },
+  { 
+    code: "SK", 
+    name: "Slovensko",
+    source: "Štatistický úrad SR",
+    url: "https://slovak.statistics.sk"
+  },
+  { 
+    code: "CZ", 
+    name: "Česká republika",
+    source: "Český statistický úřad",
+    url: "https://csu.gov.cz/inflation-consumer-prices"
+  },
+  { 
+    code: "HU", 
+    name: "Maďarsko",
+    source: "Központi Statisztikai Hivatal (KSH)",
+    url: "https://www.ksh.hu/stadat_infra/konyvtar/katalogus/prices_e.html"
+  },
+  { 
+    code: "RO", 
+    name: "Rumunsko",
+    source: "Institutul Național de Statistică (INS)",
+    url: "https://insse.ro/cms/en/content/consumer-price-indices"
+  },
+  { 
+    code: "IT", 
+    name: "Taliansko",
+    source: "ISTAT",
+    url: "https://www.istat.it/en/prices"
+  },
+  { 
+    code: "DE", 
+    name: "Nemecko",
+    source: "Statistisches Bundesamt (Destatis)",
+    url: "https://www.destatis.de/EN/Themes/Economy/Prices/Consumer-Price-Index/_node.html"
+  },
+  { 
+    code: "US", 
+    name: "USA",
+    source: "Bureau of Labor Statistics (BLS)",
+    url: "https://www.bls.gov/cpi/"
+  },
 ];
 
 function InflationTab() {
@@ -9336,8 +9371,28 @@ function InflationTab() {
         </div>
       )}
       
-      <div className="text-xs text-muted-foreground">
-        {t.konfigurator.inflationManualNote || "Údaje o inflácii je potrebné aktualizovať manuálne."}
+      <div className="text-xs text-muted-foreground space-y-1">
+        <div>{t.konfigurator.inflationManualNote || "Údaje o inflácii je potrebné aktualizovať manuálne."}</div>
+        {(() => {
+          const countryInfo = INFLATION_COUNTRIES.find(c => c.code === selectedCountry);
+          if (countryInfo) {
+            return (
+              <div>
+                {t.konfigurator.inflationSource || "Zdroj"}: {countryInfo.source} - {" "}
+                <a 
+                  href={countryInfo.url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                  data-testid="link-inflation-source"
+                >
+                  {countryInfo.url}
+                </a>
+              </div>
+            );
+          }
+          return null;
+        })()}
       </div>
     </div>
   );
