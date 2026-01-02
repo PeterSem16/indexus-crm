@@ -60,18 +60,34 @@ export function ChatWindow({ partnerId, partner, minimized, position }: ChatWind
   });
 
   const handleCreateTask = () => {
-    const selectedContent = messages
-      .filter(msg => selectedMessages.has(msg.id))
-      .map(msg => {
-        const senderName = msg.senderId === user?.id || msg.senderId === "self" 
-          ? user?.fullName || "Ja" 
-          : partner.fullName;
-        return `${senderName}: ${msg.content}`;
-      })
-      .join("\n");
+    const selectedIndices = messages
+      .map((msg, idx) => selectedMessages.has(msg.id) ? idx : -1)
+      .filter(idx => idx !== -1);
     
-    if (selectedContent) {
-      createTaskMutation.mutate(selectedContent);
+    if (selectedIndices.length === 0) return;
+
+    const contextMessages: string[] = [];
+    const includedIndices = new Set<number>();
+    
+    selectedIndices.forEach(selectedIdx => {
+      const startIdx = Math.max(0, selectedIdx - 3);
+      for (let i = startIdx; i <= selectedIdx; i++) {
+        if (!includedIndices.has(i)) {
+          includedIndices.add(i);
+          const msg = messages[i];
+          const senderName = msg.senderId === user?.id || msg.senderId === "self" 
+            ? user?.fullName || "Ja" 
+            : partner.fullName;
+          const isSelected = selectedMessages.has(msg.id);
+          const prefix = isSelected ? ">> " : "   ";
+          contextMessages.push(`${prefix}${senderName}: ${msg.content}`);
+        }
+      }
+    });
+    
+    const content = contextMessages.join("\n");
+    if (content) {
+      createTaskMutation.mutate(content);
     }
   };
 
@@ -276,12 +292,22 @@ export function ChatWindow({ partnerId, partner, minimized, position }: ChatWind
               )}
             >
               {!isSelf && (
-                <Checkbox
-                  checked={isSelected}
-                  onCheckedChange={() => toggleMessageSelection(msg.id)}
-                  className="mt-1 h-3 w-3"
-                  data-testid={`checkbox-msg-${msg.id}`}
-                />
+                <div 
+                  className="flex items-center gap-0.5 mt-1 cursor-pointer group"
+                  onClick={() => toggleMessageSelection(msg.id)}
+                  title="Pridať do úlohy"
+                >
+                  <ListTodo className={cn(
+                    "h-3 w-3 transition-colors",
+                    isSelected ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                  )} />
+                  <Checkbox
+                    checked={isSelected}
+                    onCheckedChange={() => toggleMessageSelection(msg.id)}
+                    className="h-3 w-3"
+                    data-testid={`checkbox-msg-${msg.id}`}
+                  />
+                </div>
               )}
               <div
                 className={cn(
@@ -307,12 +333,22 @@ export function ChatWindow({ partnerId, partner, minimized, position }: ChatWind
                 </p>
               </div>
               {isSelf && (
-                <Checkbox
-                  checked={isSelected}
-                  onCheckedChange={() => toggleMessageSelection(msg.id)}
-                  className="mt-1 h-3 w-3"
-                  data-testid={`checkbox-msg-${msg.id}`}
-                />
+                <div 
+                  className="flex items-center gap-0.5 mt-1 cursor-pointer group"
+                  onClick={() => toggleMessageSelection(msg.id)}
+                  title="Pridať do úlohy"
+                >
+                  <Checkbox
+                    checked={isSelected}
+                    onCheckedChange={() => toggleMessageSelection(msg.id)}
+                    className="h-3 w-3"
+                    data-testid={`checkbox-msg-${msg.id}`}
+                  />
+                  <ListTodo className={cn(
+                    "h-3 w-3 transition-colors",
+                    isSelected ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                  )} />
+                </div>
               )}
             </div>
           );
