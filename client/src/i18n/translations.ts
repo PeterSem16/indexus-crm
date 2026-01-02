@@ -93,6 +93,34 @@ export interface Translations {
     from: string;
     to: string;
   };
+  quickCreate: {
+    title: string;
+    newContact: string;
+    newContactDesc: string;
+    newTask: string;
+    newTaskDesc: string;
+    newNote: string;
+    newNoteDesc: string;
+    contactCreated: string;
+    contactCreatedDesc: string;
+    taskCreated: string;
+    taskCreatedDesc: string;
+    noteCreated: string;
+    noteCreatedDesc: string;
+    createFailed: string;
+    taskTitle: string;
+    taskDescription: string;
+    priority: string;
+    priorityLow: string;
+    priorityMedium: string;
+    priorityHigh: string;
+    priorityUrgent: string;
+    assignedTo: string;
+    linkedCustomer: string;
+    optionalCustomer: string;
+    selectCustomer: string;
+    noteContent: string;
+  };
   dashboard: {
     title: string;
     description: string;
@@ -1389,6 +1417,34 @@ export const translations: Record<Locale, Translations> = {
       changedField: 'Changed field',
       from: 'from',
       to: 'to',
+    },
+    quickCreate: {
+      title: 'Quick Create',
+      newContact: 'New Contact',
+      newContactDesc: 'Quickly add a new customer contact',
+      newTask: 'New Task',
+      newTaskDesc: 'Create a task and assign it to a team member',
+      newNote: 'New Note',
+      newNoteDesc: 'Add a note to a customer record',
+      contactCreated: 'Contact Created',
+      contactCreatedDesc: 'New contact has been added successfully',
+      taskCreated: 'Task Created',
+      taskCreatedDesc: 'New task has been created successfully',
+      noteCreated: 'Note Added',
+      noteCreatedDesc: 'Note has been added to the customer',
+      createFailed: 'Failed to create. Please try again.',
+      taskTitle: 'Task Title',
+      taskDescription: 'Description',
+      priority: 'Priority',
+      priorityLow: 'Low',
+      priorityMedium: 'Medium',
+      priorityHigh: 'High',
+      priorityUrgent: 'Urgent',
+      assignedTo: 'Assigned To',
+      linkedCustomer: 'Linked Customer',
+      optionalCustomer: 'Optional - select a customer',
+      selectCustomer: 'Select Customer',
+      noteContent: 'Note Content',
     },
     dashboard: {
       title: 'Dashboard',
@@ -2703,6 +2759,34 @@ export const translations: Record<Locale, Translations> = {
       from: 'z',
       to: 'na',
     },
+    quickCreate: {
+      title: 'Rýchle vytvorenie',
+      newContact: 'Nový kontakt',
+      newContactDesc: 'Rýchlo pridať nový kontakt zákazníka',
+      newTask: 'Nová úloha',
+      newTaskDesc: 'Vytvoriť úlohu a prideliť ju členovi tímu',
+      newNote: 'Nová poznámka',
+      newNoteDesc: 'Pridať poznámku k zákazníkovi',
+      contactCreated: 'Kontakt vytvorený',
+      contactCreatedDesc: 'Nový kontakt bol úspešne pridaný',
+      taskCreated: 'Úloha vytvorená',
+      taskCreatedDesc: 'Nová úloha bola úspešne vytvorená',
+      noteCreated: 'Poznámka pridaná',
+      noteCreatedDesc: 'Poznámka bola pridaná k zákazníkovi',
+      createFailed: 'Nepodarilo sa vytvoriť. Skúste to znova.',
+      taskTitle: 'Názov úlohy',
+      taskDescription: 'Popis',
+      priority: 'Priorita',
+      priorityLow: 'Nízka',
+      priorityMedium: 'Stredná',
+      priorityHigh: 'Vysoká',
+      priorityUrgent: 'Urgentná',
+      assignedTo: 'Priradené',
+      linkedCustomer: 'Prepojený zákazník',
+      optionalCustomer: 'Voliteľné - vyberte zákazníka',
+      selectCustomer: 'Vybrať zákazníka',
+      noteContent: 'Obsah poznámky',
+    },
     dashboard: {
       title: 'Prehľad',
       description: 'Prehľad vášho podnikania v banke pupočníkovej krvi',
@@ -4001,6 +4085,34 @@ export const translations: Record<Locale, Translations> = {
       from: 'z',
       to: 'na',
     },
+    quickCreate: {
+      title: 'Rychlé vytvoření',
+      newContact: 'Nový kontakt',
+      newContactDesc: 'Rychle přidat nový kontakt zákazníka',
+      newTask: 'Nový úkol',
+      newTaskDesc: 'Vytvořit úkol a přidělit jej členovi týmu',
+      newNote: 'Nová poznámka',
+      newNoteDesc: 'Přidat poznámku k zákazníkovi',
+      contactCreated: 'Kontakt vytvořen',
+      contactCreatedDesc: 'Nový kontakt byl úspěšně přidán',
+      taskCreated: 'Úkol vytvořen',
+      taskCreatedDesc: 'Nový úkol byl úspěšně vytvořen',
+      noteCreated: 'Poznámka přidána',
+      noteCreatedDesc: 'Poznámka byla přidána k zákazníkovi',
+      createFailed: 'Nepodařilo se vytvořit. Zkuste to znovu.',
+      taskTitle: 'Název úkolu',
+      taskDescription: 'Popis',
+      priority: 'Priorita',
+      priorityLow: 'Nízká',
+      priorityMedium: 'Střední',
+      priorityHigh: 'Vysoká',
+      priorityUrgent: 'Urgentní',
+      assignedTo: 'Přidělit',
+      linkedCustomer: 'Propojený zákazník',
+      optionalCustomer: 'Volitelné - vyberte zákazníka',
+      selectCustomer: 'Vybrat zákazníka',
+      noteContent: 'Obsah poznámky',
+    },
     dashboard: {
       title: 'Přehled',
       description: 'Přehled vašeho podnikání v bance pupečníkové krve',
@@ -5261,6 +5373,34 @@ export const translations: Record<Locale, Translations> = {
       changedField: 'Változott mező',
       from: 'ról',
       to: 'ra',
+    },
+    quickCreate: {
+      title: 'Gyors létrehozás',
+      newContact: 'Új kapcsolat',
+      newContactDesc: 'Új ügyfél kapcsolat gyors hozzáadása',
+      newTask: 'Új feladat',
+      newTaskDesc: 'Feladat létrehozása és hozzárendelése csapattaghoz',
+      newNote: 'Új megjegyzés',
+      newNoteDesc: 'Megjegyzés hozzáadása ügyfélhez',
+      contactCreated: 'Kapcsolat létrehozva',
+      contactCreatedDesc: 'Az új kapcsolat sikeresen hozzáadva',
+      taskCreated: 'Feladat létrehozva',
+      taskCreatedDesc: 'Az új feladat sikeresen létrehozva',
+      noteCreated: 'Megjegyzés hozzáadva',
+      noteCreatedDesc: 'A megjegyzés sikeresen hozzáadva az ügyfélhez',
+      createFailed: 'A létrehozás sikertelen. Próbálja újra.',
+      taskTitle: 'Feladat címe',
+      taskDescription: 'Leírás',
+      priority: 'Prioritás',
+      priorityLow: 'Alacsony',
+      priorityMedium: 'Közepes',
+      priorityHigh: 'Magas',
+      priorityUrgent: 'Sürgős',
+      assignedTo: 'Hozzárendelve',
+      linkedCustomer: 'Csatolt ügyfél',
+      optionalCustomer: 'Opcionális - válasszon ügyfelet',
+      selectCustomer: 'Ügyfél kiválasztása',
+      noteContent: 'Megjegyzés tartalma',
     },
     dashboard: {
       title: 'Irányítópult',
@@ -6523,6 +6663,34 @@ export const translations: Record<Locale, Translations> = {
       from: 'de la',
       to: 'la',
     },
+    quickCreate: {
+      title: 'Creare rapidă',
+      newContact: 'Contact nou',
+      newContactDesc: 'Adăugați rapid un nou contact client',
+      newTask: 'Sarcină nouă',
+      newTaskDesc: 'Creați o sarcină și atribuiți-o unui membru al echipei',
+      newNote: 'Notă nouă',
+      newNoteDesc: 'Adăugați o notă la un client',
+      contactCreated: 'Contact creat',
+      contactCreatedDesc: 'Noul contact a fost adăugat cu succes',
+      taskCreated: 'Sarcină creată',
+      taskCreatedDesc: 'Noua sarcină a fost creată cu succes',
+      noteCreated: 'Notă adăugată',
+      noteCreatedDesc: 'Nota a fost adăugată la client',
+      createFailed: 'Creare eșuată. Încercați din nou.',
+      taskTitle: 'Titlul sarcinii',
+      taskDescription: 'Descriere',
+      priority: 'Prioritate',
+      priorityLow: 'Scăzută',
+      priorityMedium: 'Medie',
+      priorityHigh: 'Înaltă',
+      priorityUrgent: 'Urgentă',
+      assignedTo: 'Atribuit',
+      linkedCustomer: 'Client legat',
+      optionalCustomer: 'Opțional - selectați un client',
+      selectCustomer: 'Selectați clientul',
+      noteContent: 'Conținutul notei',
+    },
     dashboard: {
       title: 'Panou de control',
       description: 'Prezentare generală a afacerii dvs. de banking cu sânge din cordon',
@@ -7784,6 +7952,34 @@ export const translations: Record<Locale, Translations> = {
       from: 'da',
       to: 'a',
     },
+    quickCreate: {
+      title: 'Creazione rapida',
+      newContact: 'Nuovo contatto',
+      newContactDesc: 'Aggiungi rapidamente un nuovo contatto cliente',
+      newTask: 'Nuova attività',
+      newTaskDesc: 'Crea un compito e assegnalo a un membro del team',
+      newNote: 'Nuova nota',
+      newNoteDesc: 'Aggiungi una nota a un cliente',
+      contactCreated: 'Contatto creato',
+      contactCreatedDesc: 'Il nuovo contatto è stato aggiunto con successo',
+      taskCreated: 'Attività creata',
+      taskCreatedDesc: 'La nuova attività è stata creata con successo',
+      noteCreated: 'Nota aggiunta',
+      noteCreatedDesc: 'La nota è stata aggiunta al cliente',
+      createFailed: 'Creazione fallita. Riprova.',
+      taskTitle: 'Titolo attività',
+      taskDescription: 'Descrizione',
+      priority: 'Priorità',
+      priorityLow: 'Bassa',
+      priorityMedium: 'Media',
+      priorityHigh: 'Alta',
+      priorityUrgent: 'Urgente',
+      assignedTo: 'Assegnato a',
+      linkedCustomer: 'Cliente collegato',
+      optionalCustomer: 'Opzionale - seleziona un cliente',
+      selectCustomer: 'Seleziona cliente',
+      noteContent: 'Contenuto nota',
+    },
     dashboard: {
       title: 'Dashboard',
       description: 'Panoramica della tua attività di banking del sangue cordonale',
@@ -9044,6 +9240,34 @@ export const translations: Record<Locale, Translations> = {
       changedField: 'Geändertes Feld',
       from: 'von',
       to: 'zu',
+    },
+    quickCreate: {
+      title: 'Schnell erstellen',
+      newContact: 'Neuer Kontakt',
+      newContactDesc: 'Neuen Kundenkontakt schnell hinzufügen',
+      newTask: 'Neue Aufgabe',
+      newTaskDesc: 'Aufgabe erstellen und einem Teammitglied zuweisen',
+      newNote: 'Neue Notiz',
+      newNoteDesc: 'Notiz zu einem Kunden hinzufügen',
+      contactCreated: 'Kontakt erstellt',
+      contactCreatedDesc: 'Neuer Kontakt wurde erfolgreich hinzugefügt',
+      taskCreated: 'Aufgabe erstellt',
+      taskCreatedDesc: 'Neue Aufgabe wurde erfolgreich erstellt',
+      noteCreated: 'Notiz hinzugefügt',
+      noteCreatedDesc: 'Notiz wurde zum Kunden hinzugefügt',
+      createFailed: 'Erstellung fehlgeschlagen. Bitte erneut versuchen.',
+      taskTitle: 'Aufgabentitel',
+      taskDescription: 'Beschreibung',
+      priority: 'Priorität',
+      priorityLow: 'Niedrig',
+      priorityMedium: 'Mittel',
+      priorityHigh: 'Hoch',
+      priorityUrgent: 'Dringend',
+      assignedTo: 'Zugewiesen an',
+      linkedCustomer: 'Verknüpfter Kunde',
+      optionalCustomer: 'Optional - Kunden auswählen',
+      selectCustomer: 'Kunde auswählen',
+      noteContent: 'Notizinhalt',
     },
     dashboard: {
       title: 'Dashboard',

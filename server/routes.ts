@@ -565,6 +565,116 @@ export async function registerRoutes(
     }
   });
 
+  // Tasks API (protected)
+  app.get("/api/tasks", requireAuth, async (req, res) => {
+    try {
+      const tasks = await storage.getAllTasks();
+      res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+      res.status(500).json({ error: "Failed to fetch tasks" });
+    }
+  });
+
+  app.get("/api/tasks/my", requireAuth, async (req, res) => {
+    try {
+      const tasks = await storage.getTasksByUser(req.session.user!.id);
+      res.json(tasks);
+    } catch (error) {
+      console.error("Error fetching user tasks:", error);
+      res.status(500).json({ error: "Failed to fetch tasks" });
+    }
+  });
+
+  app.get("/api/tasks/:id", requireAuth, async (req, res) => {
+    try {
+      const task = await storage.getTask(req.params.id);
+      if (!task) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+      res.json(task);
+    } catch (error) {
+      console.error("Error fetching task:", error);
+      res.status(500).json({ error: "Failed to fetch task" });
+    }
+  });
+
+  app.post("/api/tasks", requireAuth, async (req, res) => {
+    try {
+      const taskData = {
+        ...req.body,
+        createdByUserId: req.session.user!.id,
+      };
+      const task = await storage.createTask(taskData);
+      
+      await logActivity(
+        req.session.user!.id,
+        "create",
+        "task",
+        task.id,
+        task.title,
+        { priority: task.priority, assignedUserId: task.assignedUserId },
+        req.ip
+      );
+      
+      res.status(201).json(task);
+    } catch (error) {
+      console.error("Error creating task:", error);
+      res.status(500).json({ error: "Failed to create task" });
+    }
+  });
+
+  app.patch("/api/tasks/:id", requireAuth, async (req, res) => {
+    try {
+      const task = await storage.updateTask(req.params.id, req.body);
+      if (!task) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+      
+      await logActivity(
+        req.session.user!.id,
+        "update",
+        "task",
+        task.id,
+        task.title,
+        req.body,
+        req.ip
+      );
+      
+      res.json(task);
+    } catch (error) {
+      console.error("Error updating task:", error);
+      res.status(500).json({ error: "Failed to update task" });
+    }
+  });
+
+  app.delete("/api/tasks/:id", requireAuth, async (req, res) => {
+    try {
+      const task = await storage.getTask(req.params.id);
+      if (!task) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+      
+      const deleted = await storage.deleteTask(req.params.id);
+      if (deleted) {
+        await logActivity(
+          req.session.user!.id,
+          "delete",
+          "task",
+          req.params.id,
+          task.title,
+          {},
+          req.ip
+        );
+      }
+      
+      res.json({ success: deleted });
+    } catch (error) {
+      console.error("Error deleting task:", error);
+      res.status(500).json({ error: "Failed to delete task" });
+    }
+  });
+
   // Products API (protected)
   app.get("/api/products", requireAuth, async (req, res) => {
     try {

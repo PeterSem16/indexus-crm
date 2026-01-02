@@ -666,6 +666,40 @@ export const customerNotes = pgTable("customer_notes", {
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
+// Tasks - tasks assigned to users, optionally linked to customers
+export const tasks = pgTable("tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  description: text("description"),
+  dueDate: timestamp("due_date"),
+  priority: text("priority").notNull().default("medium"), // low, medium, high, urgent
+  status: text("status").notNull().default("pending"), // pending, in_progress, completed, cancelled
+  assignedUserId: varchar("assigned_user_id").notNull(),
+  createdByUserId: varchar("created_by_user_id").notNull(),
+  customerId: varchar("customer_id"), // optional - link to customer
+  country: text("country"), // optional - for filtering by country
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertTaskSchema = createInsertSchema(tasks).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertTask = z.infer<typeof insertTaskSchema>;
+export type Task = typeof tasks.$inferSelect;
+
+export const TASK_PRIORITIES = [
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+  { value: "urgent", label: "Urgent" },
+] as const;
+
+export const TASK_STATUSES = [
+  { value: "pending", label: "Pending" },
+  { value: "in_progress", label: "In Progress" },
+  { value: "completed", label: "Completed" },
+  { value: "cancelled", label: "Cancelled" },
+] as const;
+
 // Communication messages - tracks emails and SMS sent to customers
 export const communicationMessages = pgTable("communication_messages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

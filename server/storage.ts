@@ -58,13 +58,14 @@ import {
   type CampaignContactSession, type InsertCampaignContactSession,
   type CampaignMetricsSnapshot, type InsertCampaignMetricsSnapshot,
   sipSettings, callLogs,
-  productSets, productSetCollections, productSetStorage, customerConsents,
+  productSets, productSetCollections, productSetStorage, customerConsents, tasks,
   type SipSettings, type InsertSipSettings,
   type CallLog, type InsertCallLog,
   type ProductSet, type InsertProductSet,
   type ProductSetCollection, type InsertProductSetCollection,
   type ProductSetStorage, type InsertProductSetStorage,
-  type CustomerConsent, type InsertCustomerConsent
+  type CustomerConsent, type InsertCustomerConsent,
+  type Task, type InsertTask
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, inArray, sql, desc, and } from "drizzle-orm";
@@ -217,6 +218,16 @@ export interface IStorage {
   revokeCustomerConsent(id: string, userId: string, reason?: string): Promise<CustomerConsent | undefined>;
   getActiveConsentsForCustomer(customerId: string): Promise<CustomerConsent[]>;
   getCustomerDataExport(customerId: string): Promise<any>;
+
+  // Tasks
+  getTask(id: string): Promise<Task | undefined>;
+  getAllTasks(): Promise<Task[]>;
+  getTasksByUser(userId: string): Promise<Task[]>;
+  getTasksByCustomer(customerId: string): Promise<Task[]>;
+  getTasksByCountry(countryCodes: string[]): Promise<Task[]>;
+  createTask(task: InsertTask): Promise<Task>;
+  updateTask(id: string, data: Partial<InsertTask>): Promise<Task | undefined>;
+  deleteTask(id: string): Promise<boolean>;
 
   // Communication Messages
   createCommunicationMessage(message: InsertCommunicationMessage): Promise<CommunicationMessage>;
@@ -1245,6 +1256,53 @@ export class DatabaseStorage implements IStorage {
         details: l.details
       }))
     };
+  }
+
+  // Tasks
+  async getTask(id: string): Promise<Task | undefined> {
+    const [task] = await db.select().from(tasks).where(eq(tasks.id, id));
+    return task || undefined;
+  }
+
+  async getAllTasks(): Promise<Task[]> {
+    return db.select().from(tasks).orderBy(desc(tasks.createdAt));
+  }
+
+  async getTasksByUser(userId: string): Promise<Task[]> {
+    return db.select().from(tasks)
+      .where(eq(tasks.assignedUserId, userId))
+      .orderBy(desc(tasks.createdAt));
+  }
+
+  async getTasksByCustomer(customerId: string): Promise<Task[]> {
+    return db.select().from(tasks)
+      .where(eq(tasks.customerId, customerId))
+      .orderBy(desc(tasks.createdAt));
+  }
+
+  async getTasksByCountry(countryCodes: string[]): Promise<Task[]> {
+    if (countryCodes.length === 0) return [];
+    return db.select().from(tasks)
+      .where(inArray(tasks.country, countryCodes))
+      .orderBy(desc(tasks.createdAt));
+  }
+
+  async createTask(task: InsertTask): Promise<Task> {
+    const [created] = await db.insert(tasks).values(task).returning();
+    return created;
+  }
+
+  async updateTask(id: string, data: Partial<InsertTask>): Promise<Task | undefined> {
+    const [updated] = await db.update(tasks)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(tasks.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteTask(id: string): Promise<boolean> {
+    const result = await db.delete(tasks).where(eq(tasks.id, id)).returning();
+    return result.length > 0;
   }
 
   // Communication Messages
