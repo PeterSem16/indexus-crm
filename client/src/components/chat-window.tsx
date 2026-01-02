@@ -1,12 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useChatContext } from "@/contexts/chat-context";
+import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { X, Minus, Send, Circle } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { X, Minus, Send, Circle, ListTodo } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import type { ChatMessage } from "@shared/schema";
 
 interface ChatWindowProps {
@@ -23,12 +27,65 @@ interface ChatWindowProps {
 
 export function ChatWindow({ partnerId, partner, minimized, position }: ChatWindowProps) {
   const { closeChat, minimizeChat, sendMessage, markAsRead, onlineUsers } = useChatContext();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const isOnline = onlineUsers.some(u => u.id === partnerId);
+
+  const createTaskMutation = useMutation({
+    mutationFn: async (content: string) => {
+      return apiRequest("POST", "/api/tasks", {
+        title: `Chat: ${content.slice(0, 50)}${content.length > 50 ? "..." : ""}`,
+        description: content,
+        priority: "medium",
+        status: "pending",
+        assignedUserId: user?.id,
+        createdByUserId: user?.id,
+        country: user?.assignedCountries?.[0] || "SK"
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      toast({ title: "Úloha vytvorená", description: "Úloha bola úspešne vytvorená z chatu" });
+      setSelectedMessages(new Set());
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa vytvoriť úlohu", variant: "destructive" });
+    }
+  });
+
+  const handleCreateTask = () => {
+    const selectedContent = messages
+      .filter(msg => selectedMessages.has(msg.id))
+      .map(msg => {
+        const senderName = msg.senderId === user?.id || msg.senderId === "self" 
+          ? user?.fullName || "Ja" 
+          : partner.fullName;
+        return `${senderName}: ${msg.content}`;
+      })
+      .join("\n");
+    
+    if (selectedContent) {
+      createTaskMutation.mutate(selectedContent);
+    }
+  };
+
+  const toggleMessageSelection = (msgId: string) => {
+    setSelectedMessages(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(msgId)) {
+        newSet.delete(msgId);
+      } else {
+        newSet.add(msgId);
+      }
+      return newSet;
+    });
+  };
 
   const { data: historicalMessages } = useQuery<ChatMessage[]>({
     queryKey: ["/api/chat/messages", partnerId],
@@ -207,23 +264,40 @@ export function ChatWindow({ partnerId, partner, minimized, position }: ChatWind
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {messages.map((msg, idx) => {
-          const isSelf = msg.senderId === "self" || msg.receiverId === partnerId && msg.senderId !== partnerId;
+          const isSelf = msg.senderId === "self" || msg.senderId === user?.id;
+          const senderName = isSelf ? (user?.fullName || "Ja") : partner.fullName;
+          const isSelected = selectedMessages.has(msg.id);
           return (
             <div
               key={msg.id || idx}
               className={cn(
-                "flex",
+                "flex items-start gap-1",
                 isSelf ? "justify-end" : "justify-start"
               )}
             >
+              {!isSelf && (
+                <Checkbox
+                  checked={isSelected}
+                  onCheckedChange={() => toggleMessageSelection(msg.id)}
+                  className="mt-1 h-3 w-3"
+                  data-testid={`checkbox-msg-${msg.id}`}
+                />
+              )}
               <div
                 className={cn(
-                  "max-w-[80%] rounded-lg px-3 py-2 text-sm",
+                  "max-w-[75%] rounded-lg px-3 py-2 text-sm",
                   isSelf
                     ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-foreground"
+                    : "bg-muted text-foreground",
+                  isSelected && "ring-2 ring-primary"
                 )}
               >
+                <p className={cn(
+                  "text-[10px] font-medium mb-0.5",
+                  isSelf ? "text-primary-foreground/80" : "text-muted-foreground"
+                )}>
+                  {senderName}
+                </p>
                 <p className="break-words">{msg.content}</p>
                 <p className={cn(
                   "text-[10px] mt-1",
@@ -232,20 +306,45 @@ export function ChatWindow({ partnerId, partner, minimized, position }: ChatWind
                   {format(new Date(msg.createdAt), "HH:mm")}
                 </p>
               </div>
+              {isSelf && (
+                <Checkbox
+                  checked={isSelected}
+                  onCheckedChange={() => toggleMessageSelection(msg.id)}
+                  className="mt-1 h-3 w-3"
+                  data-testid={`checkbox-msg-${msg.id}`}
+                />
+              )}
             </div>
           );
         })}
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="p-2 border-t border-border">
+      <div className="p-2 border-t border-border space-y-2">
+        {selectedMessages.size > 0 && (
+          <div className="flex items-center justify-between bg-muted/50 rounded px-2 py-1">
+            <span className="text-xs text-muted-foreground">
+              {selectedMessages.size} správ vybraných
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleCreateTask}
+              disabled={createTaskMutation.isPending}
+              data-testid={`button-create-task-${partnerId}`}
+            >
+              <ListTodo className="h-3 w-3 mr-1" />
+              Vytvoriť úlohu
+            </Button>
+          </div>
+        )}
         <div className="flex gap-2">
           <Input
             ref={inputRef}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Type a message..."
+            placeholder="Napíšte správu..."
             className="flex-1"
             data-testid={`input-message-${partnerId}`}
           />
