@@ -29,7 +29,7 @@ import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/contexts/auth-context";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import type { ServiceConfiguration, ServiceInstance, InvoiceTemplate, InvoiceLayout, Product, Role, RoleModulePermission, RoleFieldPermission, Department, BillingDetails, NumberRange } from "@shared/schema";
+import type { ServiceConfiguration, ServiceInstance, InvoiceTemplate, InvoiceLayout, Product, Role, RoleModulePermission, RoleFieldPermission, Department, BillingDetails, NumberRange, ExchangeRate } from "@shared/schema";
 import { CRM_MODULES, DEPARTMENTS, type ModuleDefinition, type FieldPermission, type ModuleAccess } from "@shared/permissions-config";
 import { Building2, User, Mail, Phone } from "lucide-react";
 import { DepartmentTree } from "@/components/department-tree";
@@ -8968,6 +8968,118 @@ function InvoiceEditorTab() {
   );
 }
 
+function ExchangeRatesTab() {
+  const { t } = useI18n();
+  const { toast } = useToast();
+  
+  const { data: ratesData, isLoading } = useQuery<{ rates: ExchangeRate[]; lastUpdate: string | null }>({
+    queryKey: ["/api/exchange-rates"],
+  });
+  
+  const refreshMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch("/api/exchange-rates/refresh", {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to refresh rates");
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/exchange-rates"] });
+      toast({
+        title: t.common.success || "Úspech",
+        description: `Aktualizovaných ${data.ratesCount} kurzov`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: t.common.error || "Chyba",
+        description: "Nepodarilo sa aktualizovať kurzy",
+        variant: "destructive",
+      });
+    },
+  });
+  
+  const formatDate = (dateInput: string | Date | null | undefined) => {
+    if (!dateInput) return "-";
+    const date = typeof dateInput === "string" ? new Date(dateInput) : dateInput;
+    return date.toLocaleDateString("sk-SK", { 
+      day: "2-digit", 
+      month: "2-digit", 
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  };
+  
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin" />
+      </div>
+    );
+  }
+  
+  const rates = ratesData?.rates || [];
+  const lastUpdate = ratesData?.lastUpdate;
+  
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-4">
+        <div className="text-sm text-muted-foreground">
+          Posledná aktualizácia: {formatDate(lastUpdate)}
+        </div>
+        <Button 
+          onClick={() => refreshMutation.mutate()} 
+          disabled={refreshMutation.isPending}
+          data-testid="button-refresh-rates"
+        >
+          {refreshMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+          Aktualizovať kurzy
+        </Button>
+      </div>
+      
+      {rates.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          Žiadne kurzy. Kliknite na "Aktualizovať kurzy" pre načítanie.
+        </div>
+      ) : (
+        <div className="border rounded-lg overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="text-left py-3 px-4 font-medium">Kód</th>
+                <th className="text-left py-3 px-4 font-medium">Názov meny</th>
+                <th className="text-right py-3 px-4 font-medium">Kurz (EUR)</th>
+                <th className="text-right py-3 px-4 font-medium">Platný od</th>
+                <th className="text-right py-3 px-4 font-medium">Aktualizované</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rates.map((rate, index) => (
+                <tr key={rate.id} className={index % 2 === 0 ? "bg-background" : "bg-muted/30"}>
+                  <td className="py-2 px-4 font-mono font-medium">{rate.currencyCode}</td>
+                  <td className="py-2 px-4">{rate.currencyName}</td>
+                  <td className="py-2 px-4 text-right font-mono">{parseFloat(rate.rate).toFixed(4)}</td>
+                  <td className="py-2 px-4 text-right text-muted-foreground">{rate.rateDate}</td>
+                  <td className="py-2 px-4 text-right text-muted-foreground text-sm">
+                    {formatDate(rate.updatedAt)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      
+      <div className="text-xs text-muted-foreground">
+        Kurzy sú automaticky aktualizované denne o polnoci zo stránky NBS.sk (Národná banka Slovenska - ECB kurzy).
+      </div>
+    </div>
+  );
+}
+
 const roleFormSchema = z.object({
   name: z.string().min(1, "Role name is required"),
   description: z.string().optional(),
@@ -11450,7 +11562,7 @@ export default function ConfiguratorPage() {
       />
       
       <Tabs defaultValue="products" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-6 max-w-5xl">
+        <TabsList className="grid w-full grid-cols-7 max-w-6xl">
           <TabsTrigger value="products" className="flex items-center gap-2" data-testid="tab-products">
             <Package className="h-4 w-4" />
             {t.products.title}
@@ -11470,6 +11582,10 @@ export default function ConfiguratorPage() {
           <TabsTrigger value="editor" className="flex items-center gap-2" data-testid="tab-editor">
             <Layout className="h-4 w-4" />
             {t.konfigurator.invoiceEditor}
+          </TabsTrigger>
+          <TabsTrigger value="exchange-rates" className="flex items-center gap-2" data-testid="tab-exchange-rates">
+            <DollarSign className="h-4 w-4" />
+            {t.konfigurator.exchangeRates || "Kurzy"}
           </TabsTrigger>
           <TabsTrigger value="permissions" className="flex items-center gap-2" data-testid="tab-permissions">
             <Shield className="h-4 w-4" />
@@ -11533,6 +11649,18 @@ export default function ConfiguratorPage() {
             </CardHeader>
             <CardContent>
               <InvoiceEditorTab />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="exchange-rates">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t.konfigurator.exchangeRates || "Kurzy mien"}</CardTitle>
+              <CardDescription>{t.konfigurator.exchangeRatesDescription || "Kurzy mien z NBS (Národná banka Slovenska)"}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ExchangeRatesTab />
             </CardContent>
           </Card>
         </TabsContent>

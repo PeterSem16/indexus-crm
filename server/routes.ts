@@ -233,8 +233,16 @@ async function fetchNBSExchangeRates(): Promise<{ currencyCode: string; currency
 
 // Schedule automatic exchange rate update at midnight
 let exchangeRateInterval: NodeJS.Timeout | null = null;
+let exchangeRateSchedulerInitialized = false;
 
 function scheduleExchangeRateUpdate() {
+  // Singleton guard - only initialize once
+  if (exchangeRateSchedulerInitialized) {
+    console.log("[ExchangeRates] Scheduler already initialized, skipping");
+    return;
+  }
+  exchangeRateSchedulerInitialized = true;
+  
   // Calculate milliseconds until next midnight
   const now = new Date();
   const midnight = new Date(now);
