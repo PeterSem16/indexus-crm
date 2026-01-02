@@ -1339,6 +1339,7 @@ function PaymentBreakdownItem({
   storageIncluded = false,
   storageAmount = 0,
   collectionAmount = 0,
+  currencySymbol = "€",
   t
 }: { 
   instanceId: string; 
@@ -1348,6 +1349,7 @@ function PaymentBreakdownItem({
   storageIncluded?: boolean;
   storageAmount?: number;
   collectionAmount?: number;
+  currencySymbol?: string;
   t: any;
 }) {
   const { data: paymentOptions = [] } = useQuery<any[]>({
@@ -1391,34 +1393,34 @@ function PaymentBreakdownItem({
             <>
               <div className="flex justify-between text-blue-600 dark:text-blue-400">
                 <span>{t.konfigurator.collectionItem}:</span>
-                <span>{collectionAmount.toFixed(2)} €</span>
+                <span>{collectionAmount.toFixed(2)} {currencySymbol}</span>
               </div>
               <div className="flex justify-between text-green-600 dark:text-green-400">
                 <span>{t.konfigurator.storageItem}:</span>
-                <span>+{storageAmount.toFixed(2)} €</span>
+                <span>+{storageAmount.toFixed(2)} {currencySymbol}</span>
               </div>
             </>
           )}
           {fee > 0 && (
             <div className="flex justify-between text-muted-foreground">
               <span>{t.konfigurator.feeLabel}:</span>
-              <span>+{fee.toFixed(2)} €</span>
+              <span>+{fee.toFixed(2)} {currencySymbol}</span>
             </div>
           )}
           <div className="flex justify-between">
             <span>{t.konfigurator.totalLabel}:</span>
-            <span className="font-medium">{totalWithFee.toFixed(2)} €</span>
+            <span className="font-medium">{totalWithFee.toFixed(2)} {currencySymbol}</span>
           </div>
           <Separator className="my-1" />
           <div className="flex justify-between font-medium text-blue-700 dark:text-blue-400">
             <span>{paymentOption.installmentCount}x {frequencyLabel}:</span>
-            <span>{installmentAmount.toFixed(2)} €</span>
+            <span>{installmentAmount.toFixed(2)} {currencySymbol}</span>
           </div>
           <div className="pt-1 border-t border-blue-200 dark:border-blue-800 mt-1 space-y-0.5">
             {Array.from({ length: Math.min(paymentOption.installmentCount, 6) }, (_, i) => (
               <div key={i} className="flex justify-between text-muted-foreground">
                 <span>{t.konfigurator.installmentLabel} {i + 1}:</span>
-                <span>{installmentAmount.toFixed(2)} €</span>
+                <span>{installmentAmount.toFixed(2)} {currencySymbol}</span>
               </div>
             ))}
             {paymentOption.installmentCount > 6 && (
@@ -1445,7 +1447,7 @@ function PaymentBreakdownItem({
           </div>
           <div className="flex justify-between font-medium text-green-700 dark:text-green-400">
             <span>{t.konfigurator.amountDue}:</span>
-            <span>{amount.toFixed(2)} €</span>
+            <span>{amount.toFixed(2)} {currencySymbol}</span>
           </div>
         </div>
       </div>
@@ -2355,6 +2357,7 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
                 <div className="space-y-3">
                   <Label className="text-xs text-muted-foreground">{t.konfigurator.paymentBreakdown}</Label>
                   {(() => {
+                    const currencySymbol = getCurrencySymbol(selectedSet?.currency || "EUR");
                     // Calculate total storage amount to add to installments
                     const storageTotal = (selectedSet?.storage || []).reduce((sum: number, stor: any) => {
                       return sum + parseFloat(stor.lineGrossAmount || stor.priceOverride || 0);
@@ -2388,6 +2391,7 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
                           storageIncluded={includeStorage}
                           storageAmount={includeStorage ? storageTotal : 0}
                           collectionAmount={lineGross}
+                          currencySymbol={currencySymbol}
                           t={t}
                         />
                       );
