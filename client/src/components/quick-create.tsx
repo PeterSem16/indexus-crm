@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { PhoneNumberField } from "@/components/phone-number-field";
 import {
   Select,
   SelectContent,
@@ -348,7 +349,12 @@ export function QuickCreate() {
                   <FormItem>
                     <FormLabel>{t.customers.phone}</FormLabel>
                     <FormControl>
-                      <Input {...field} data-testid="input-quick-phone" />
+                      <PhoneNumberField 
+                        value={field.value} 
+                        onChange={field.onChange}
+                        defaultCountryCode={contactForm.watch("country") || "SK"}
+                        data-testid="input-quick-phone"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
