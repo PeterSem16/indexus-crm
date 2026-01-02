@@ -1,5 +1,6 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import { createServer, type Server } from "http";
+import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { 
   insertUserSchema, insertCustomerSchema, updateUserSchema, loginSchema,
@@ -5375,6 +5376,204 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Failed to delete set storage:", error);
       res.status(500).json({ error: "Failed to delete set storage" });
+    }
+  });
+
+  // ==== Chat System with WebSocket ====
+  
+  // Track online users and their WebSocket connections
+  const onlineUsers = new Map<string, { ws: WebSocket; user: SafeUser }>();
+  
+  // Create WebSocket server
+  const wss = new WebSocketServer({ server: httpServer, path: "/ws/chat" });
+  
+  wss.on("connection", (ws, req) => {
+    let userId: string | null = null;
+    let user: SafeUser | null = null;
+    
+    ws.on("message", async (data) => {
+      try {
+        const message = JSON.parse(data.toString());
+        
+        switch (message.type) {
+          case "auth":
+            // Authenticate user by session or user info passed from client
+            userId = message.userId;
+            if (userId) {
+              const fullUser = await storage.getUser(userId);
+              if (fullUser) {
+                const { passwordHash, ...safeUser } = fullUser;
+                user = safeUser;
+                onlineUsers.set(userId, { ws, user });
+                
+                // Broadcast user online status to all connected clients
+                broadcastPresence();
+                
+                ws.send(JSON.stringify({ type: "auth_success", userId }));
+              }
+            }
+            break;
+            
+          case "chat_message":
+            if (!userId || !user) {
+              ws.send(JSON.stringify({ type: "error", error: "Not authenticated" }));
+              return;
+            }
+            
+            const { receiverId, content } = message;
+            
+            // Store message in database
+            const chatMsg = await storage.createChatMessage({
+              senderId: userId,
+              receiverId,
+              content,
+              isRead: false,
+            });
+            
+            // Send confirmation to sender
+            ws.send(JSON.stringify({ 
+              type: "message_sent", 
+              message: chatMsg 
+            }));
+            
+            // Deliver to recipient if online
+            const recipient = onlineUsers.get(receiverId);
+            if (recipient) {
+              recipient.ws.send(JSON.stringify({
+                type: "new_message",
+                message: chatMsg,
+                sender: user
+              }));
+            }
+            break;
+            
+          case "mark_read":
+            if (!userId) return;
+            const { senderId } = message;
+            await storage.markMessagesAsRead(senderId, userId);
+            
+            // Notify sender that messages were read
+            const sender = onlineUsers.get(senderId);
+            if (sender) {
+              sender.ws.send(JSON.stringify({
+                type: "messages_read",
+                readBy: userId
+              }));
+            }
+            break;
+            
+          case "typing":
+            if (!userId) return;
+            const typingRecipient = onlineUsers.get(message.receiverId);
+            if (typingRecipient) {
+              typingRecipient.ws.send(JSON.stringify({
+                type: "user_typing",
+                userId: userId,
+                isTyping: message.isTyping
+              }));
+            }
+            break;
+        }
+      } catch (error) {
+        console.error("WebSocket message error:", error);
+        ws.send(JSON.stringify({ type: "error", error: "Invalid message format" }));
+      }
+    });
+    
+    ws.on("close", () => {
+      if (userId) {
+        onlineUsers.delete(userId);
+        broadcastPresence();
+      }
+    });
+    
+    ws.on("error", (error) => {
+      console.error("WebSocket error:", error);
+      if (userId) {
+        onlineUsers.delete(userId);
+      }
+    });
+  });
+  
+  function broadcastPresence() {
+    const onlineUserList = Array.from(onlineUsers.values()).map(u => ({
+      id: u.user.id,
+      fullName: u.user.fullName,
+      username: u.user.username,
+      avatarUrl: u.user.avatarUrl
+    }));
+    
+    const presenceMessage = JSON.stringify({
+      type: "presence_update",
+      onlineUsers: onlineUserList
+    });
+    
+    for (const { ws } of onlineUsers.values()) {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(presenceMessage);
+      }
+    }
+  }
+  
+  // REST API for chat history
+  app.get("/api/chat/conversations", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user!.id;
+      const conversations = await storage.getChatConversations(userId);
+      
+      // Enrich with user data
+      const enrichedConversations = await Promise.all(
+        conversations.map(async (conv) => {
+          const partner = await storage.getUser(conv.partnerId);
+          return {
+            ...conv,
+            partner: partner ? { 
+              id: partner.id, 
+              fullName: partner.fullName, 
+              username: partner.username,
+              avatarUrl: partner.avatarUrl 
+            } : null
+          };
+        })
+      );
+      
+      res.json(enrichedConversations);
+    } catch (error) {
+      console.error("Failed to fetch conversations:", error);
+      res.status(500).json({ error: "Failed to fetch conversations" });
+    }
+  });
+  
+  app.get("/api/chat/messages/:partnerId", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user!.id;
+      const { partnerId } = req.params;
+      const limit = parseInt(req.query.limit as string) || 50;
+      
+      const messages = await storage.getChatMessages(userId, partnerId, limit);
+      
+      // Mark messages as read
+      await storage.markMessagesAsRead(partnerId, userId);
+      
+      res.json(messages.reverse()); // Return in chronological order
+    } catch (error) {
+      console.error("Failed to fetch messages:", error);
+      res.status(500).json({ error: "Failed to fetch messages" });
+    }
+  });
+  
+  app.get("/api/chat/online-users", requireAuth, async (req, res) => {
+    try {
+      const onlineUserList = Array.from(onlineUsers.values()).map(u => ({
+        id: u.user.id,
+        fullName: u.user.fullName,
+        username: u.user.username,
+        avatarUrl: u.user.avatarUrl
+      }));
+      res.json(onlineUserList);
+    } catch (error) {
+      console.error("Failed to fetch online users:", error);
+      res.status(500).json({ error: "Failed to fetch online users" });
     }
   });
 
