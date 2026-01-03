@@ -1074,6 +1074,34 @@ export async function registerRoutes(
     }
   });
 
+  // Get collections (market product instances) filtered by country
+  app.get("/api/products/:productId/collections", requireAuth, async (req, res) => {
+    try {
+      const { country } = req.query;
+      if (!country || typeof country !== "string") {
+        return res.status(400).json({ error: "Country parameter is required" });
+      }
+      const collections = await storage.getMarketProductInstancesByCountry(req.params.productId, country);
+      res.json(collections);
+    } catch (error) {
+      console.error("Error fetching collections:", error);
+      res.status(500).json({ error: "Failed to fetch collections" });
+    }
+  });
+
+  // Get billsets (instance prices) for a collection
+  app.get("/api/collections/:instanceId/billsets", requireAuth, async (req, res) => {
+    try {
+      const prices = await storage.getInstancePrices(req.params.instanceId, "market");
+      // Filter only active billsets
+      const activePrices = prices.filter((p: any) => p.isActive !== false);
+      res.json(activePrices);
+    } catch (error) {
+      console.error("Error fetching billsets:", error);
+      res.status(500).json({ error: "Failed to fetch billsets" });
+    }
+  });
+
   app.post("/api/products/:productId/instances", requireAuth, async (req, res) => {
     try {
       const data = parseDateFields({ ...req.body, productId: req.params.productId });
