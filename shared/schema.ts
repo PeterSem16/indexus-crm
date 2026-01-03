@@ -336,6 +336,7 @@ export const instancePrices = pgTable("instance_prices", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   instanceId: varchar("instance_id").notNull(),
   instanceType: text("instance_type").notNull().default("market"), // market or service
+  countryCode: text("country_code"), // optional: specific country for this billing set
   name: text("name").notNull(),
   accountingCode: text("accounting_code"),
   analyticalAccount: text("analytical_account"),
