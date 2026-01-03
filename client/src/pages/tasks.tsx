@@ -373,6 +373,7 @@ export default function TasksPage() {
                 <Button 
                   variant="outline" 
                   size="sm" 
+                  className="border-blue-300 text-blue-600 dark:border-blue-700 dark:text-blue-400"
                   onClick={() => handleViewDetails(task)}
                   data-testid={`task-details-${task.id}`}
                 >
@@ -384,6 +385,7 @@ export default function TasksPage() {
                     <Button 
                       variant="outline" 
                       size="sm" 
+                      className="border-green-300 text-green-600 dark:border-green-700 dark:text-green-400"
                       onClick={() => handleResolveTask(task)}
                       data-testid={`task-resolve-${task.id}`}
                     >
@@ -393,6 +395,7 @@ export default function TasksPage() {
                     <Button 
                       variant="outline" 
                       size="sm" 
+                      className="border-amber-300 text-amber-600 dark:border-amber-700 dark:text-amber-400"
                       onClick={() => handleReassignTask(task)}
                       data-testid={`task-reassign-${task.id}`}
                     >
