@@ -2921,7 +2921,7 @@ function ProductDetailDialog({
     fromDay: 0, fromMonth: 0, fromYear: 0, toDay: 0, toMonth: 0, toYear: 0, description: ""
   });
   const [newPriceData, setNewPriceData] = useState<any>({ 
-    name: "", price: "", currency: "EUR", accountingCode: "", analyticalAccount: "",
+    name: "", price: "", currency: "EUR", accountingCode: "", analyticalAccount: "", countryCode: "",
     fromDay: 0, fromMonth: 0, fromYear: 0, toDay: 0, toMonth: 0, toYear: 0, isActive: true, description: "", amendment: ""
   });
   const [newPaymentData, setNewPaymentData] = useState<any>({ 
@@ -3278,10 +3278,20 @@ function ProductDetailDialog({
                       {isAddingPrice && (
                         <Card className="p-4">
                           <div className="space-y-4">
-                            <div className="grid grid-cols-3 gap-3">
+                            <div className="grid grid-cols-4 gap-3">
                               <div className="col-span-2">
                                 <Label>{t.konfigurator.priceName}</Label>
                                 <Input value={newPriceData.name} onChange={(e) => setNewPriceData({...newPriceData, name: e.target.value})} placeholder="Napr. Základná cena" />
+                              </div>
+                              <div>
+                                <Label>{t.common.country}</Label>
+                                <Select value={newPriceData.countryCode || ""} onValueChange={(v) => setNewPriceData({...newPriceData, countryCode: v || null})}>
+                                  <SelectTrigger><SelectValue placeholder={t.common.select} /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="">-- {t.common.all} --</SelectItem>
+                                    {COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.flag} {c.code}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
                               </div>
                               <div className="flex items-center gap-2 pt-6">
                                 <Switch checked={newPriceData.isActive} onCheckedChange={(v) => setNewPriceData({...newPriceData, isActive: v})} />
@@ -3358,14 +3368,16 @@ function ProductDetailDialog({
                         </Card>
                       )}
                       {instancePrices.map(price => {
-                        const countryInfo = COUNTRIES.find(c => c.code === selectedInstance?.countryCode);
+                        const priceCountryInfo = COUNTRIES.find(c => c.code === price.countryCode);
                         return (
                         <div key={price.id} className="flex items-center justify-between p-2 rounded-md bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
                           <div className="flex items-center gap-2 flex-wrap">
-                            {selectedInstance?.countryCode && (
+                            {price.countryCode ? (
                               <Badge variant="secondary" className="text-xs">
-                                {countryInfo?.flag} {selectedInstance.countryCode}
+                                {priceCountryInfo?.flag} {price.countryCode}
                               </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-xs">{t.common.all || "All"}</Badge>
                             )}
                             <span className="font-medium">{price.name}</span>
                             <Badge variant="outline">{price.price} {price.currency}</Badge>
@@ -3399,22 +3411,23 @@ function ProductDetailDialog({
                       );
                       })}
                       {editingPriceId && editingPriceData && (() => {
-                        const editCountryInfo = COUNTRIES.find(c => c.code === selectedInstance?.countryCode);
                         return (
                         <Card className="p-4 border-primary">
                           <div className="space-y-4">
-                            {selectedInstance?.countryCode && (
-                              <div className="flex items-center gap-2">
-                                <Badge variant="secondary">
-                                  {editCountryInfo?.flag} {selectedInstance.countryCode}
-                                </Badge>
-                                <span className="text-sm text-muted-foreground">{t.konfigurator.country || "Country"}</span>
-                              </div>
-                            )}
-                            <div className="grid grid-cols-3 gap-3">
+                            <div className="grid grid-cols-4 gap-3">
                               <div className="col-span-2">
                                 <Label>{t.konfigurator.priceName}</Label>
                                 <Input value={editingPriceData.name} onChange={(e) => setEditingPriceData({...editingPriceData, name: e.target.value})} />
+                              </div>
+                              <div>
+                                <Label>{t.common.country}</Label>
+                                <Select value={editingPriceData.countryCode || ""} onValueChange={(v) => setEditingPriceData({...editingPriceData, countryCode: v || null})}>
+                                  <SelectTrigger><SelectValue placeholder={t.common.select} /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="">-- {t.common.all} --</SelectItem>
+                                    {COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.flag} {c.code}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
                               </div>
                               <div className="flex items-center gap-2 pt-6">
                                 <Switch checked={editingPriceData.isActive} onCheckedChange={(v) => setEditingPriceData({...editingPriceData, isActive: v})} />

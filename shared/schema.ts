@@ -1087,6 +1087,7 @@ export const insertInstancePriceSchema = createInsertSchema(instancePrices).omit
 }).extend({
   instanceId: z.string(),
   instanceType: z.string().optional().default("market"),
+  countryCode: z.string().optional().nullable(),
   name: z.string().min(1),
   analyticalAccount: z.string().optional().nullable(),
   price: z.string(),

@@ -1154,6 +1154,7 @@ export async function registerRoutes(
   app.post("/api/instance-prices", requireAuth, async (req, res) => {
     try {
       const data = parseDateFields(req.body);
+      if (data.countryCode === "") data.countryCode = null;
       const price = await storage.createInstancePrice(data);
       res.status(201).json(price);
     } catch (error) {
@@ -1165,6 +1166,7 @@ export async function registerRoutes(
   app.patch("/api/instance-prices/:id", requireAuth, async (req, res) => {
     try {
       const data = parseDateFields(req.body);
+      if (data.countryCode === "") data.countryCode = null;
       const price = await storage.updateInstancePrice(req.params.id, data);
       if (!price) {
         return res.status(404).json({ error: "Price not found" });
