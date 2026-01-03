@@ -1832,15 +1832,26 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
                   onChange={(e) => setNewSetData({ ...newSetData, name: e.target.value })}
                 />
               </div>
-              <div>
-                <Label>{t.common.country}</Label>
-                <Select value={newSetData.countryCode || "ALL"} onValueChange={(v) => setNewSetData({ ...newSetData, countryCode: v === "ALL" ? null : v })}>
-                  <SelectTrigger><SelectValue placeholder={t.common.select} /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">-- {t.common.all} --</SelectItem>
-                    {COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.flag} {c.code}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label>{t.common.country}</Label>
+                  <Select value={newSetData.countryCode || "ALL"} onValueChange={(v) => setNewSetData({ ...newSetData, countryCode: v === "ALL" ? null : v })}>
+                    <SelectTrigger><SelectValue placeholder={t.common.select} /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">-- {t.common.all} --</SelectItem>
+                      {COUNTRIES.map(c => <SelectItem key={c.code} value={c.code}>{c.flag} {c.code}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>{t.konfigurator.currency}</Label>
+                  <Select value={newSetData.currency} onValueChange={(v) => setNewSetData({ ...newSetData, currency: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {CURRENCIES.map(c => <SelectItem key={c.code} value={c.code}>{c.symbol} {c.code}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div className="grid grid-cols-3 gap-2">
                 <div>
@@ -1899,17 +1910,27 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
           </div>
         )}
 
-        {productSets.map((set: any) => (
+        {productSets.map((set: any) => {
+          const countryInfo = set.countryCode ? COUNTRIES.find(c => c.code === set.countryCode) : null;
+          return (
           <div
             key={set.id}
             className={`p-3 rounded-lg border mb-2 cursor-pointer hover-elevate ${selectedSetId === set.id ? 'border-primary bg-accent' : ''}`}
             onClick={() => setSelectedSetId(set.id)}
           >
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <span className="font-medium text-sm">{set.name}</span>
-              <Badge variant={set.isActive ? "default" : "secondary"} className="text-xs">
-                {set.isActive ? t.konfigurator.activeLabel : t.konfigurator.inactiveLabel}
-              </Badge>
+              <div className="flex items-center gap-1">
+                {countryInfo ? (
+                  <Badge variant="outline" className="text-xs">{countryInfo.flag} {countryInfo.code}</Badge>
+                ) : (
+                  <Badge variant="outline" className="text-xs">{t.common.all}</Badge>
+                )}
+                <Badge variant="outline" className="text-xs">{set.currency}</Badge>
+                <Badge variant={set.isActive ? "default" : "secondary"} className="text-xs">
+                  {set.isActive ? t.konfigurator.activeLabel : t.konfigurator.inactiveLabel}
+                </Badge>
+              </div>
             </div>
             {(set.fromDate || set.toDate) && (
               <div className="text-xs text-muted-foreground mt-1">
@@ -1917,7 +1938,7 @@ function ZostavyTab({ productId, instances, t }: { productId: string; instances:
               </div>
             )}
           </div>
-        ))}
+        );})}
       </div>
 
       {/* Middle Panel - Set Builder */}
