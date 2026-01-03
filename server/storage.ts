@@ -109,6 +109,7 @@ export interface IStorage {
   deleteProduct(id: string): Promise<boolean>;
 
   // Market Product Instances (Collections)
+  getMarketProductInstance(id: string): Promise<any | undefined>;
   getMarketProductInstances(productId: string): Promise<any[]>;
   getMarketProductInstancesByCountry(productId: string, countryCode: string): Promise<any[]>;
   createMarketProductInstance(data: any): Promise<any>;
@@ -142,6 +143,7 @@ export interface IStorage {
   deleteInstanceDiscount(id: string): Promise<boolean>;
 
   // Market Product Services
+  getMarketProductService(id: string): Promise<any | undefined>;
   getMarketProductServices(instanceId: string): Promise<any[]>;
   createMarketProductService(data: any): Promise<any>;
   updateMarketProductService(id: string, data: any): Promise<any | undefined>;
@@ -644,6 +646,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Market Product Instances (Collections)
+  async getMarketProductInstance(id: string): Promise<any | undefined> {
+    const [instance] = await db.select().from(marketProductInstances).where(eq(marketProductInstances.id, id));
+    return instance || undefined;
+  }
+  
   async getMarketProductInstances(productId: string): Promise<any[]> {
     return await db.select().from(marketProductInstances).where(eq(marketProductInstances.productId, productId));
   }
@@ -797,6 +804,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Market Product Services
+  async getMarketProductService(id: string): Promise<any | undefined> {
+    const [service] = await db.select().from(marketProductServices).where(eq(marketProductServices.id, id));
+    return service || undefined;
+  }
+  
   async getMarketProductServices(instanceId: string): Promise<any[]> {
     return await db.select().from(marketProductServices).where(eq(marketProductServices.instanceId, instanceId));
   }

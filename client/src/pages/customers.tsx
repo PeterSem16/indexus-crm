@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, Phone, PhoneCall, Baby, Copy, ListChecks, FileEdit, UserCircle, Clock, PlusCircle, RefreshCw, XCircle, LogIn, LogOut, AlertCircle, CheckCircle2, ArrowRight, Shield, CreditCard } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, Phone, PhoneCall, Baby, Copy, ListChecks, FileEdit, UserCircle, Clock, PlusCircle, RefreshCw, XCircle, LogIn, LogOut, AlertCircle, CheckCircle2, ArrowRight, Shield, CreditCard, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -522,6 +522,9 @@ function CustomerDetailsContent({
   const [emailSubject, setEmailSubject] = useState<string>("");
   const [emailContent, setEmailContent] = useState<string>("");
   const [smsContent, setSmsContent] = useState<string>("");
+  const [isEmailPreviewOpen, setIsEmailPreviewOpen] = useState(false);
+  const [selectedEmailRecipients, setSelectedEmailRecipients] = useState<string[]>([]);
+  const [isEmailSending, setIsEmailSending] = useState(false);
 
   const { data: products = [] } = useQuery<Product[]>({
     queryKey: ["/api/products"],
@@ -1801,10 +1804,13 @@ function CustomerDetailsContent({
                         const lineGross = parseFloat(col.lineGrossAmount || 0);
                         return (
                           <div key={col.id} className="py-1.5 px-2 rounded bg-blue-50 dark:bg-blue-900/20 border-l-2 border-blue-400 mb-1">
-                            <div className="flex justify-between text-sm font-medium">
-                              <span className="text-blue-900 dark:text-blue-100">
+                            <div className="flex flex-col gap-0.5">
+                              <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
                                 {idx + 1}. {t.konfigurator?.collectionItem || "Odber"} {col.quantity > 1 && `(${col.quantity}x)`}
                               </span>
+                              {col.instanceName && (
+                                <span className="text-xs text-blue-700 dark:text-blue-300 font-normal">{col.instanceName}</span>
+                              )}
                             </div>
                             <div className="mt-1 space-y-0.5 text-xs text-blue-700 dark:text-blue-300">
                               <div className="flex justify-between">
@@ -1841,10 +1847,13 @@ function CustomerDetailsContent({
                         const lineGross = parseFloat(stor.lineGrossAmount || stor.priceOverride || 0);
                         return (
                           <div key={stor.id} className="py-1.5 px-2 rounded bg-green-50 dark:bg-green-900/20 border-l-2 border-green-400 mb-1">
-                            <div className="flex justify-between text-sm font-medium">
-                              <span className="text-green-900 dark:text-green-100">
+                            <div className="flex flex-col gap-0.5">
+                              <span className="text-sm font-medium text-green-900 dark:text-green-100">
                                 {(billsetDetails.collections?.length || 0) + idx + 1}. {t.konfigurator?.storageItem || "Uskladnenie"}
                               </span>
+                              {stor.serviceName && (
+                                <span className="text-xs text-green-700 dark:text-green-300 font-normal">{stor.serviceName}</span>
+                              )}
                             </div>
                             <div className="mt-1 space-y-0.5 text-xs text-green-700 dark:text-green-300">
                               <div className="flex justify-between">
@@ -1964,9 +1973,195 @@ function CustomerDetailsContent({
             </div>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="flex-wrap gap-2">
+            <Button 
+              variant="default" 
+              onClick={() => {
+                const emails: string[] = [];
+                if (customer.email) emails.push(customer.email);
+                if (customer.email2) emails.push(customer.email2);
+                setSelectedEmailRecipients(emails.length > 0 ? [emails[0]] : []);
+                setIsEmailPreviewOpen(true);
+              }}
+              disabled={!customer.email && !customer.email2}
+              data-testid="button-send-invoice-email"
+            >
+              <Mail className="w-4 h-4 mr-2" />
+              {t.customers?.details?.sendEmail || "Odoslať emailom"}
+            </Button>
             <Button variant="outline" onClick={() => setIsInvoiceDetailOpen(false)}>
               {t.common?.close || "Zavrieť"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Email Preview Dialog */}
+      <Dialog open={isEmailPreviewOpen} onOpenChange={setIsEmailPreviewOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{t.customers?.details?.emailPreview || "Náhľad emailu"}</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Recipient Selection */}
+            <div className="space-y-2">
+              <Label>{t.customers?.details?.selectRecipients || "Vyberte príjemcov"}</Label>
+              <div className="space-y-2">
+                {customer.email && (
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="checkbox" 
+                      id="email1"
+                      checked={selectedEmailRecipients.includes(customer.email)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedEmailRecipients(prev => [...prev, customer.email]);
+                        } else {
+                          setSelectedEmailRecipients(prev => prev.filter(em => em !== customer.email));
+                        }
+                      }}
+                      className="rounded"
+                    />
+                    <Label htmlFor="email1" className="font-normal">{customer.email}</Label>
+                  </div>
+                )}
+                {customer.email2 && (
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="checkbox" 
+                      id="email2"
+                      checked={selectedEmailRecipients.includes(customer.email2)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedEmailRecipients(prev => [...prev, customer.email2!]);
+                        } else {
+                          setSelectedEmailRecipients(prev => prev.filter(em => em !== customer.email2));
+                        }
+                      }}
+                      className="rounded"
+                    />
+                    <Label htmlFor="email2" className="font-normal">{customer.email2}</Label>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <Separator />
+            
+            {/* Email Preview */}
+            <div className="space-y-2">
+              <Label>{t.customers?.details?.emailPreviewLabel || "Náhľad obsahu"}</Label>
+              {billsetDetails && (
+                <div className="border rounded-lg p-4 bg-white dark:bg-gray-900 text-sm space-y-4">
+                  {/* Billing Company Header */}
+                  <div className="border-b pb-4">
+                    <h3 className="font-bold text-lg">{t.customers?.details?.invoiceCalculation || "Kalkulácia faktúry"}</h3>
+                    <p className="text-muted-foreground text-xs">{t.customers?.details?.billingSet || "Zostava"}: {billsetDetails.name}</p>
+                  </div>
+                  
+                  {/* Line Items */}
+                  <div className="space-y-3">
+                    {(() => {
+                      const currencySymbol = billsetDetails.currency === "EUR" ? "€" : 
+                                             billsetDetails.currency === "CZK" ? "Kč" : 
+                                             billsetDetails.currency === "USD" ? "$" : billsetDetails.currency;
+                      
+                      let totalGross = 0;
+                      
+                      return (
+                        <>
+                          {(billsetDetails.collections || []).map((col: any, idx: number) => {
+                            const lineGross = parseFloat(col.lineGrossAmount || 0);
+                            totalGross += lineGross;
+                            return (
+                              <div key={col.id} className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
+                                <div className="font-medium">{idx + 1}. {t.konfigurator?.collectionItem || "Odber"}</div>
+                                {col.instanceName && <div className="text-xs text-muted-foreground">{col.instanceName}</div>}
+                                <div className="text-right font-mono">{lineGross.toFixed(2)} {currencySymbol}</div>
+                              </div>
+                            );
+                          })}
+                          {(billsetDetails.storage || []).map((stor: any, idx: number) => {
+                            const lineGross = parseFloat(stor.lineGrossAmount || stor.priceOverride || 0);
+                            totalGross += lineGross;
+                            return (
+                              <div key={stor.id} className="p-2 bg-green-50 dark:bg-green-900/20 rounded">
+                                <div className="font-medium">{(billsetDetails.collections?.length || 0) + idx + 1}. {t.konfigurator?.storageItem || "Uskladnenie"}</div>
+                                {stor.serviceName && <div className="text-xs text-muted-foreground">{stor.serviceName}</div>}
+                                <div className="text-right font-mono">{lineGross.toFixed(2)} {currencySymbol}</div>
+                              </div>
+                            );
+                          })}
+                          <div className="pt-2 border-t flex justify-between font-bold">
+                            <span>{t.konfigurator?.totalLabel || "Celkom"}:</span>
+                            <span className="font-mono">{totalGross.toFixed(2)} {currencySymbol}</span>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEmailPreviewOpen(false)}>
+              {t.common?.cancel || "Zrušiť"}
+            </Button>
+            <Button 
+              disabled={selectedEmailRecipients.length === 0 || isEmailSending}
+              onClick={async () => {
+                setIsEmailSending(true);
+                try {
+                  const res = await fetch("/api/send-invoice-email", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify({
+                      customerId: customer.id,
+                      billsetId: selectedInvoiceDetailProduct?.billsetId,
+                      recipients: selectedEmailRecipients,
+                    }),
+                  });
+                  if (res.ok) {
+                    toast({
+                      title: t.customers?.details?.emailSent || "Email odoslaný",
+                      description: t.customers?.details?.emailSentDesc || "Kalkulácia bola úspešne odoslaná",
+                    });
+                    setIsEmailPreviewOpen(false);
+                  } else {
+                    const err = await res.json();
+                    toast({
+                      title: t.common?.error || "Chyba",
+                      description: err.error || t.customers?.details?.emailFailed || "Nepodarilo sa odoslať email",
+                      variant: "destructive",
+                    });
+                  }
+                } catch (error) {
+                  toast({
+                    title: t.common?.error || "Chyba",
+                    description: t.customers?.details?.emailFailed || "Nepodarilo sa odoslať email",
+                    variant: "destructive",
+                  });
+                } finally {
+                  setIsEmailSending(false);
+                }
+              }}
+              data-testid="button-confirm-send-email"
+            >
+              {isEmailSending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {t.common?.sending || "Odosielam..."}
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4 mr-2" />
+                  {t.customers?.details?.sendEmail || "Odoslať"}
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

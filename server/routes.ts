@@ -2487,6 +2487,226 @@ export async function registerRoutes(
     }
   });
 
+  // Send invoice calculation email with HTML format
+  app.post("/api/send-invoice-email", requireAuth, async (req, res) => {
+    try {
+      const { customerId, billsetId, recipients } = req.body;
+      
+      if (!customerId || !billsetId || !recipients || !Array.isArray(recipients) || recipients.length === 0) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+      
+      const customer = await storage.getCustomer(customerId);
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+      
+      const productSet = await storage.getProductSet(billsetId);
+      if (!productSet) {
+        return res.status(404).json({ error: "Product set not found" });
+      }
+      
+      const collections = await storage.getProductSetCollections(billsetId);
+      const storageItems = await storage.getProductSetStorage(billsetId);
+      
+      // Enrich with names
+      const enrichedCollections = await Promise.all(collections.map(async (col: any) => {
+        if (col.instanceId) {
+          const instance = await storage.getMarketProductInstance(col.instanceId);
+          return { ...col, instanceName: instance?.name || null };
+        }
+        return col;
+      }));
+      
+      const enrichedStorage = await Promise.all(storageItems.map(async (stor: any) => {
+        if (stor.serviceId) {
+          const service = await storage.getMarketProductService(stor.serviceId);
+          return { ...stor, serviceName: service?.name || null };
+        }
+        return stor;
+      }));
+      
+      // Get billing company details
+      let billingCompany: any = null;
+      if (customer.country) {
+        const billingDetails = await storage.getBillingDetailsByCountry(customer.country);
+        if (billingDetails.length > 0) {
+          billingCompany = billingDetails[0];
+        }
+      }
+      
+      const currencySymbol = productSet.currency === "EUR" ? "€" : 
+                             productSet.currency === "CZK" ? "Kč" : 
+                             productSet.currency === "USD" ? "$" : productSet.currency;
+      
+      // Calculate totals
+      let totalGross = 0;
+      
+      // Build HTML email content
+      let collectionsHtml = '';
+      enrichedCollections.forEach((col: any, idx: number) => {
+        const lineGross = parseFloat(col.lineGrossAmount || 0);
+        totalGross += lineGross;
+        collectionsHtml += `
+          <tr style="background-color: #eff6ff;">
+            <td style="padding: 12px; border-bottom: 1px solid #dbeafe;">
+              <strong>${idx + 1}. Odber</strong>
+              ${col.instanceName ? `<br><span style="color: #6b7280; font-size: 14px;">${col.instanceName}</span>` : ''}
+            </td>
+            <td style="padding: 12px; border-bottom: 1px solid #dbeafe; text-align: right; font-family: monospace;">
+              ${lineGross.toFixed(2)} ${currencySymbol}
+            </td>
+          </tr>
+        `;
+      });
+      
+      let storageHtml = '';
+      enrichedStorage.forEach((stor: any, idx: number) => {
+        const lineGross = parseFloat(stor.lineGrossAmount || stor.priceOverride || 0);
+        totalGross += lineGross;
+        storageHtml += `
+          <tr style="background-color: #f0fdf4;">
+            <td style="padding: 12px; border-bottom: 1px solid #dcfce7;">
+              <strong>${enrichedCollections.length + idx + 1}. Uskladnenie</strong>
+              ${stor.serviceName ? `<br><span style="color: #6b7280; font-size: 14px;">${stor.serviceName}</span>` : ''}
+            </td>
+            <td style="padding: 12px; border-bottom: 1px solid #dcfce7; text-align: right; font-family: monospace;">
+              ${lineGross.toFixed(2)} ${currencySymbol}
+            </td>
+          </tr>
+        `;
+      });
+      
+      const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Kalkulácia faktúry</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  ${billingCompany ? `
+  <div style="border-bottom: 2px solid #7c3aed; padding-bottom: 20px; margin-bottom: 20px;">
+    <h2 style="margin: 0; color: #7c3aed;">${billingCompany.name || 'Fakturačná spoločnosť'}</h2>
+    ${billingCompany.address ? `<p style="margin: 5px 0; color: #6b7280;">${billingCompany.address}</p>` : ''}
+    ${billingCompany.ico ? `<p style="margin: 5px 0; color: #6b7280;">IČO: ${billingCompany.ico}</p>` : ''}
+  </div>
+  ` : ''}
+  
+  <h1 style="color: #1f2937; font-size: 24px; margin-bottom: 10px;">Kalkulácia faktúry</h1>
+  <p style="color: #6b7280; margin-bottom: 20px;">Zostava: <strong>${productSet.name}</strong></p>
+  
+  <p style="margin-bottom: 20px;">
+    Vážený/á ${customer.firstName} ${customer.lastName},<br>
+    nižšie nájdete kalkuláciu vašej faktúry:
+  </p>
+  
+  <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+    <thead>
+      <tr style="background-color: #f3f4f6;">
+        <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e5e7eb;">Položka</th>
+        <th style="padding: 12px; text-align: right; border-bottom: 2px solid #e5e7eb;">Cena s DPH</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${collectionsHtml}
+      ${storageHtml}
+    </tbody>
+    <tfoot>
+      <tr style="background-color: #f9fafb;">
+        <td style="padding: 12px; font-weight: bold; border-top: 2px solid #e5e7eb;">Celkom:</td>
+        <td style="padding: 12px; font-weight: bold; text-align: right; font-family: monospace; border-top: 2px solid #e5e7eb; font-size: 18px; color: #7c3aed;">
+          ${totalGross.toFixed(2)} ${currencySymbol}
+        </td>
+      </tr>
+    </tfoot>
+  </table>
+  
+  <p style="color: #6b7280; font-size: 14px;">
+    V prípade otázok nás neváhajte kontaktovať.
+  </p>
+  
+  <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;">
+  
+  <p style="color: #9ca3af; font-size: 12px;">
+    Tento email bol vygenerovaný automaticky z CRM systému INDEXUS.
+  </p>
+</body>
+</html>
+      `;
+      
+      const user = req.session.user!;
+      const subject = `Kalkulácia faktúry - ${productSet.name}`;
+      
+      // Create message record for each recipient
+      for (const recipientEmail of recipients) {
+        const message = await storage.createCommunicationMessage({
+          customerId,
+          userId: user.id,
+          type: "email",
+          subject,
+          content: htmlContent,
+          recipientEmail,
+          status: "pending",
+        });
+        
+        // Try to send email via SendGrid or fallback to simulation
+        const sendGridApiKey = process.env.SENDGRID_API_KEY;
+        const fromEmail = process.env.EMAIL_FROM || "noreply@nexusbiolink.com";
+        
+        if (sendGridApiKey) {
+          try {
+            const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${sendGridApiKey}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                personalizations: [{ to: [{ email: recipientEmail }] }],
+                from: { email: fromEmail },
+                subject,
+                content: [{ type: "text/html", value: htmlContent }],
+              }),
+            });
+
+            if (response.ok) {
+              await storage.updateCommunicationMessage(message.id, {
+                status: "sent",
+                sentAt: new Date(),
+              });
+            } else {
+              const errorText = await response.text();
+              await storage.updateCommunicationMessage(message.id, {
+                status: "failed",
+                errorMessage: errorText,
+              });
+            }
+          } catch (emailError: any) {
+            await storage.updateCommunicationMessage(message.id, {
+              status: "failed",
+              errorMessage: emailError.message,
+            });
+          }
+        } else {
+          // Simulate sending
+          await storage.updateCommunicationMessage(message.id, {
+            status: "sent",
+            sentAt: new Date(),
+          });
+        }
+        
+        await logActivity(user.id, "send_email", "communication", message.id, 
+          `Invoice calculation email to ${customer.firstName} ${customer.lastName}`, { subject, recipient: recipientEmail });
+      }
+      
+      res.json({ success: true, recipientCount: recipients.length });
+    } catch (error) {
+      console.error("Error sending invoice email:", error);
+      res.status(500).json({ error: "Failed to send invoice email" });
+    }
+  });
+
   app.post("/api/customers/:customerId/messages/sms", requireAuth, async (req, res) => {
     try {
       const parsed = sendSmsSchema.safeParse(req.body);
@@ -5577,7 +5797,26 @@ export async function registerRoutes(
       }
       const collections = await storage.getProductSetCollections(req.params.id);
       const storageItems = await storage.getProductSetStorage(req.params.id);
-      res.json({ ...set, collections, storage: storageItems });
+      
+      // Enrich collections with instance names
+      const enrichedCollections = await Promise.all(collections.map(async (col: any) => {
+        if (col.instanceId) {
+          const instance = await storage.getMarketProductInstance(col.instanceId);
+          return { ...col, instanceName: instance?.name || null };
+        }
+        return col;
+      }));
+      
+      // Enrich storage with service names
+      const enrichedStorage = await Promise.all(storageItems.map(async (stor: any) => {
+        if (stor.serviceId) {
+          const service = await storage.getMarketProductService(stor.serviceId);
+          return { ...stor, serviceName: service?.name || null };
+        }
+        return stor;
+      }));
+      
+      res.json({ ...set, collections: enrichedCollections, storage: enrichedStorage });
     } catch (error) {
       console.error("Failed to fetch product set:", error);
       res.status(500).json({ error: "Failed to fetch product set" });
