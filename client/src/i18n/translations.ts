@@ -339,6 +339,11 @@ export interface Translations {
       noProducts: string;
       addProduct: string;
       selectProduct: string;
+      selectBillset: string;
+      noBillsets: string;
+      productBillsetValidation: string;
+      productAdded: string;
+      productAddFailed: string;
       quantity: string;
       invoices: string;
       createInvoice: string;
@@ -1780,6 +1785,11 @@ export const translations: Record<Locale, Translations> = {
         noProducts: 'No products assigned yet.',
         addProduct: 'Add Product',
         selectProduct: 'Select product',
+        selectBillset: 'Select billset',
+        noBillsets: 'No billsets available',
+        productBillsetValidation: 'Please select a product, billset and enter a valid quantity',
+        productAdded: 'Product added to customer',
+        productAddFailed: 'Failed to add product',
         quantity: 'Qty',
         invoices: 'Invoices',
         createInvoice: 'Create Invoice',
@@ -3236,6 +3246,11 @@ export const translations: Record<Locale, Translations> = {
         noProducts: 'Zatiaľ žiadne priradené produkty.',
         addProduct: 'Pridať produkt',
         selectProduct: 'Vyberte produkt',
+        selectBillset: 'Vyberte cenový balík',
+        noBillsets: 'Žiadne cenové balíky nie sú dostupné',
+        productBillsetValidation: 'Prosím vyberte produkt, cenový balík a zadajte platné množstvo',
+        productAdded: 'Produkt pridaný zákazníkovi',
+        productAddFailed: 'Nepodarilo sa pridať produkt',
         quantity: 'Množstvo',
         invoices: 'Faktúry',
         createInvoice: 'Vytvoriť faktúru',
@@ -4692,6 +4707,11 @@ export const translations: Record<Locale, Translations> = {
         noProducts: 'Zatím žádné přiřazené produkty.',
         addProduct: 'Přidat produkt',
         selectProduct: 'Vyberte produkt',
+        selectBillset: 'Vyberte cenový balíček',
+        noBillsets: 'Žádné cenové balíčky nejsou k dispozici',
+        productBillsetValidation: 'Prosím vyberte produkt, cenový balíček a zadejte platné množství',
+        productAdded: 'Produkt přidán zákazníkovi',
+        productAddFailed: 'Nepodařilo se přidat produkt',
         quantity: 'Množství',
         invoices: 'Faktury',
         createInvoice: 'Vytvořit fakturu',
@@ -6111,6 +6131,11 @@ export const translations: Record<Locale, Translations> = {
         noProducts: 'Még nincs hozzárendelt termék.',
         addProduct: 'Termék hozzáadása',
         selectProduct: 'Válasszon terméket',
+        selectBillset: 'Válasszon árlistát',
+        noBillsets: 'Nincs elérhető árlista',
+        productBillsetValidation: 'Kérjük válasszon terméket, árlistát és adjon meg érvényes mennyiséget',
+        productAdded: 'Termék hozzáadva az ügyfélhez',
+        productAddFailed: 'Nem sikerült a termék hozzáadása',
         quantity: 'Mennyiség',
         invoices: 'Számlák',
         createInvoice: 'Számla létrehozása',
@@ -7530,6 +7555,11 @@ export const translations: Record<Locale, Translations> = {
         noProducts: 'Nu există produse alocate încă.',
         addProduct: 'Adaugă produs',
         selectProduct: 'Selectați produsul',
+        selectBillset: 'Selectați pachetul de prețuri',
+        noBillsets: 'Nu există pachete de prețuri disponibile',
+        productBillsetValidation: 'Vă rugăm selectați un produs, un pachet de prețuri și introduceți o cantitate validă',
+        productAdded: 'Produs adăugat clientului',
+        productAddFailed: 'Nu s-a putut adăuga produsul',
         quantity: 'Cantitate',
         invoices: 'Facturi',
         createInvoice: 'Creează factură',
@@ -8949,6 +8979,11 @@ export const translations: Record<Locale, Translations> = {
         noProducts: 'Nessun prodotto assegnato.',
         addProduct: 'Aggiungi prodotto',
         selectProduct: 'Seleziona prodotto',
+        selectBillset: 'Seleziona listino prezzi',
+        noBillsets: 'Nessun listino prezzi disponibile',
+        productBillsetValidation: 'Seleziona un prodotto, un listino prezzi e inserisci una quantità valida',
+        productAdded: 'Prodotto aggiunto al cliente',
+        productAddFailed: 'Impossibile aggiungere il prodotto',
         quantity: 'Quantità',
         invoices: 'Fatture',
         createInvoice: 'Crea fattura',
@@ -10368,6 +10403,11 @@ export const translations: Record<Locale, Translations> = {
         noProducts: 'Noch keine Produkte zugewiesen.',
         addProduct: 'Produkt hinzufügen',
         selectProduct: 'Produkt auswählen',
+        selectBillset: 'Preisliste auswählen',
+        noBillsets: 'Keine Preislisten verfügbar',
+        productBillsetValidation: 'Bitte wählen Sie ein Produkt, eine Preisliste und geben Sie eine gültige Menge ein',
+        productAdded: 'Produkt zum Kunden hinzugefügt',
+        productAddFailed: 'Produkt konnte nicht hinzugefügt werden',
         quantity: 'Menge',
         invoices: 'Rechnungen',
         createInvoice: 'Rechnung erstellen',

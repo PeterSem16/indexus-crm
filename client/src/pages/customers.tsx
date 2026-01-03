@@ -45,7 +45,7 @@ import { usePermissions } from "@/contexts/permissions-context";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCountryFlag, getCountryName } from "@/lib/countries";
-import type { Customer, Product, CustomerProduct, Invoice, BillingDetails, CustomerNote, ActivityLog, CommunicationMessage, CustomerPotentialCase } from "@shared/schema";
+import type { Customer, Product, CustomerProduct, Invoice, BillingDetails, CustomerNote, ActivityLog, CommunicationMessage, CustomerPotentialCase, MarketProductInstance } from "@shared/schema";
 import {
   Select,
   SelectContent,
@@ -384,6 +384,7 @@ function CustomerDetailsContent({
   const { t } = useI18n();
   const { toast } = useToast();
   const [selectedProductId, setSelectedProductId] = useState<string>("");
+  const [selectedInstanceId, setSelectedInstanceId] = useState<string>("");
   const [quantity, setQuantity] = useState<string>("1");
   const [isManualInvoiceOpen, setIsManualInvoiceOpen] = useState(false);
   const [invoiceLines, setInvoiceLines] = useState<InvoiceLineItem[]>([]);
@@ -398,6 +399,18 @@ function CustomerDetailsContent({
 
   const { data: products = [] } = useQuery<Product[]>({
     queryKey: ["/api/products"],
+  });
+
+  // Fetch instances (billsets) for the selected product
+  const { data: productInstances = [], isLoading: instancesLoading } = useQuery<MarketProductInstance[]>({
+    queryKey: ["/api/products", selectedProductId, "instances"],
+    queryFn: async () => {
+      if (!selectedProductId) return [];
+      const res = await fetch(`/api/products/${selectedProductId}/instances`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!selectedProductId,
   });
 
   const { data: customerNotes = [], isLoading: notesLoading } = useQuery<CustomerNote[]>({
@@ -564,17 +577,18 @@ function CustomerDetailsContent({
   });
 
   const addProductMutation = useMutation({
-    mutationFn: (data: { productId: string; quantity: number }) =>
+    mutationFn: (data: { productId: string; instanceId?: string; quantity: number }) =>
       apiRequest("POST", `/api/customers/${customer.id}/products`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers", customer.id, "products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
       setSelectedProductId("");
+      setSelectedInstanceId("");
       setQuantity("1");
-      toast({ title: "Product added to customer" });
+      toast({ title: t.customers.details?.productAdded || "Product added to customer" });
     },
     onError: () => {
-      toast({ title: "Failed to add product", variant: "destructive" });
+      toast({ title: t.customers.details?.productAddFailed || "Failed to add product", variant: "destructive" });
     },
   });
 
@@ -940,47 +954,87 @@ function CustomerDetailsContent({
             )}
 
             {availableProducts.length > 0 && (
-              <div className="flex items-end gap-2">
-                <div className="flex-1">
-                  <Label className="text-xs">{t.customers.details?.addProduct || "Add Product"}</Label>
-                  <Select value={selectedProductId} onValueChange={setSelectedProductId}>
-                    <SelectTrigger data-testid="select-add-product">
-                      <SelectValue placeholder={t.customers.details?.selectProduct || "Select product"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableProducts.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.name} - {parseFloat(p.price).toFixed(2)} {p.currency}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              <div className="space-y-3">
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <Label className="text-xs">{t.customers.details?.addProduct || "Add Product"}</Label>
+                    <Select 
+                      value={selectedProductId} 
+                      onValueChange={(value) => {
+                        setSelectedProductId(value);
+                        setSelectedInstanceId(""); // Reset instance when product changes
+                      }}
+                    >
+                      <SelectTrigger data-testid="select-add-product">
+                        <SelectValue placeholder={t.customers.details?.selectProduct || "Select product"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableProducts.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div className="w-20">
-                  <Label className="text-xs">{t.customers.details?.quantity || "Qty"}</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={quantity}
-                    onChange={(e) => setQuantity(e.target.value)}
-                    data-testid="input-product-quantity"
-                  />
-                </div>
-                <Button
-                  size="icon"
-                  onClick={() => {
-                    const qty = parseInt(quantity) || 0;
-                    if (selectedProductId && qty > 0) {
-                      addProductMutation.mutate({ productId: selectedProductId, quantity: qty });
-                    } else {
-                      toast({ title: t.customers.details?.productValidation || "Please select a product and enter a valid quantity", variant: "destructive" });
-                    }
-                  }}
-                  disabled={!selectedProductId || !quantity || parseInt(quantity) < 1 || addProductMutation.isPending}
-                  data-testid="button-add-product-to-customer"
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
+
+                {selectedProductId && (
+                  <div className="flex items-end gap-2">
+                    <div className="flex-1">
+                      <Label className="text-xs">{t.customers.details?.selectBillset || "Select Billset"}</Label>
+                      <Select value={selectedInstanceId} onValueChange={setSelectedInstanceId}>
+                        <SelectTrigger data-testid="select-add-billset">
+                          <SelectValue placeholder={instancesLoading ? (t.common?.loading || "Loading...") : (t.customers.details?.selectBillset || "Select billset")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {productInstances.filter(inst => inst.isActive).map((inst) => (
+                            <SelectItem key={inst.id} value={inst.id}>
+                              {inst.name} {inst.countryCode ? `(${inst.countryCode})` : ""}
+                            </SelectItem>
+                          ))}
+                          {productInstances.filter(inst => inst.isActive).length === 0 && !instancesLoading && (
+                            <SelectItem value="__no_instances" disabled>
+                              {t.customers.details?.noBillsets || "No billsets available"}
+                            </SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="w-20">
+                      <Label className="text-xs">{t.customers.details?.quantity || "Qty"}</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={quantity}
+                        onChange={(e) => setQuantity(e.target.value)}
+                        data-testid="input-product-quantity"
+                      />
+                    </div>
+                    <Button
+                      size="icon"
+                      onClick={() => {
+                        const qty = parseInt(quantity) || 0;
+                        if (selectedProductId && selectedInstanceId && qty > 0) {
+                          addProductMutation.mutate({ 
+                            productId: selectedProductId, 
+                            instanceId: selectedInstanceId,
+                            quantity: qty 
+                          });
+                        } else {
+                          toast({ 
+                            title: t.customers.details?.productBillsetValidation || "Please select a product, billset and enter a valid quantity", 
+                            variant: "destructive" 
+                          });
+                        }
+                      }}
+                      disabled={!selectedProductId || !selectedInstanceId || !quantity || parseInt(quantity) < 1 || addProductMutation.isPending}
+                      data-testid="button-add-product-to-customer"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </div>
