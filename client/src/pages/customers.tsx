@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, Phone, PhoneCall, Baby, Copy, ListChecks, FileEdit, UserCircle, Clock, PlusCircle, RefreshCw, XCircle, LogIn, LogOut, AlertCircle, CheckCircle2, ArrowRight, Shield } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, Phone, PhoneCall, Baby, Copy, ListChecks, FileEdit, UserCircle, Clock, PlusCircle, RefreshCw, XCircle, LogIn, LogOut, AlertCircle, CheckCircle2, ArrowRight, Shield, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -373,6 +373,129 @@ function GdprTab({ customerId }: { customerId: string }) {
       </Dialog>
     </div>
   );
+}
+
+// Payment breakdown component for invoice detail dialog
+function InvoicePaymentBreakdownItem({ 
+  instanceId, 
+  paymentOptionId, 
+  amount,
+  storageIncluded = false,
+  storageAmount = 0,
+  collectionAmount = 0,
+  currencySymbol = "€",
+  t
+}: { 
+  instanceId: string; 
+  paymentOptionId: string; 
+  amount: number;
+  storageIncluded?: boolean;
+  storageAmount?: number;
+  collectionAmount?: number;
+  currencySymbol?: string;
+  t: any;
+}) {
+  const { data: paymentOptions = [] } = useQuery<any[]>({
+    queryKey: ["/api/instance-payment-options", instanceId, "market_instance"],
+    queryFn: async () => {
+      const res = await fetch(`/api/instance-payment-options/${instanceId}/market_instance`, { credentials: "include" });
+      return res.ok ? res.json() : [];
+    },
+    enabled: !!instanceId && !!paymentOptionId,
+  });
+
+  const paymentOption = paymentOptions.find((p: any) => p.id === paymentOptionId);
+  
+  if (!paymentOption) {
+    return null;
+  }
+
+  const fee = parseFloat(paymentOption.paymentTypeFee || 0);
+  const totalWithFee = amount + fee;
+
+  if (paymentOption.isMultiPayment && paymentOption.installmentCount > 1) {
+    const installmentAmount = totalWithFee / paymentOption.installmentCount;
+    const frequencyLabel = paymentOption.frequency === 'monthly' ? (t.konfigurator?.monthly || "mesačne") : 
+                          paymentOption.frequency === 'quarterly' ? (t.konfigurator?.quarterly || "štvrťročne") : 
+                          paymentOption.frequency === 'yearly' ? (t.konfigurator?.yearly || "ročne") : paymentOption.frequency;
+    
+    return (
+      <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 space-y-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <CreditCard className="h-4 w-4 text-blue-600" />
+          <span className="text-sm font-medium text-blue-700 dark:text-blue-400">{t.konfigurator?.collectionItem || "Odber"}</span>
+          <Badge variant="secondary" className="text-xs">{t.konfigurator?.installmentsLabel || "Splátky"}</Badge>
+          {storageIncluded && <Badge variant="outline" className="text-xs bg-green-100 dark:bg-green-800 border-green-300 dark:border-green-700">{t.konfigurator?.storageAddOn || "+ Uskladnenie"}</Badge>}
+        </div>
+        <div className="text-xs space-y-1">
+          <div className="flex justify-between">
+            <span>{t.konfigurator?.paymentType || "Typ platby"}:</span>
+            <span className="font-medium">{paymentOption.name}</span>
+          </div>
+          {storageIncluded && (
+            <>
+              <div className="flex justify-between text-blue-600 dark:text-blue-400">
+                <span>{t.konfigurator?.collectionItem || "Odber"}:</span>
+                <span>{collectionAmount.toFixed(2)} {currencySymbol}</span>
+              </div>
+              <div className="flex justify-between text-green-600 dark:text-green-400">
+                <span>{t.konfigurator?.storageItem || "Uskladnenie"}:</span>
+                <span>+{storageAmount.toFixed(2)} {currencySymbol}</span>
+              </div>
+            </>
+          )}
+          {fee > 0 && (
+            <div className="flex justify-between text-muted-foreground">
+              <span>{t.konfigurator?.feeLabel || "Poplatok"}:</span>
+              <span>+{fee.toFixed(2)} {currencySymbol}</span>
+            </div>
+          )}
+          <div className="flex justify-between">
+            <span>{t.konfigurator?.totalLabel || "Celkom"}:</span>
+            <span className="font-medium">{totalWithFee.toFixed(2)} {currencySymbol}</span>
+          </div>
+          <Separator className="my-1" />
+          <div className="flex justify-between font-medium text-blue-700 dark:text-blue-400">
+            <span>{paymentOption.installmentCount}x {frequencyLabel}:</span>
+            <span>{installmentAmount.toFixed(2)} {currencySymbol}</span>
+          </div>
+          <div className="pt-1 border-t border-blue-200 dark:border-blue-800 mt-1 space-y-0.5">
+            {Array.from({ length: Math.min(paymentOption.installmentCount, 6) }, (_, i) => (
+              <div key={i} className="flex justify-between text-muted-foreground">
+                <span>{t.konfigurator?.installmentLabel || "Splátka"} {i + 1}:</span>
+                <span>{installmentAmount.toFixed(2)} {currencySymbol}</span>
+              </div>
+            ))}
+            {paymentOption.installmentCount > 6 && (
+              <div className="text-center text-xs text-muted-foreground pt-1">
+                {(t.konfigurator?.andMoreInstallments || "... a ďalších {count} splátok").replace('{count}', String(paymentOption.installmentCount - 6))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  } else {
+    return (
+      <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
+        <div className="flex items-center gap-2 mb-1">
+          <CreditCard className="h-4 w-4 text-green-600" />
+          <span className="text-sm font-medium text-green-700 dark:text-green-400">{t.konfigurator?.collectionItem || "Odber"}</span>
+          <Badge variant="outline" className="text-xs">{t.konfigurator?.oneTimePayment || "Jednorázová platba"}</Badge>
+        </div>
+        <div className="text-xs space-y-1">
+          <div className="flex justify-between">
+            <span>{t.konfigurator?.paymentType || "Typ platby"}:</span>
+            <span className="font-medium">{paymentOption.name}</span>
+          </div>
+          <div className="flex justify-between font-medium text-green-700 dark:text-green-400">
+            <span>{t.konfigurator?.amountDue || "K úhrade"}:</span>
+            <span>{amount.toFixed(2)} {currencySymbol}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 }
 
 function CustomerDetailsContent({ 
@@ -1784,6 +1907,47 @@ function CustomerDetailsContent({
                         <span className="font-mono text-lg">{totalGross.toFixed(2)} {currencySymbol}</span>
                       </div>
                     </div>
+                    
+                    {/* Installments Breakdown */}
+                    {(billsetDetails.collections || []).some((col: any) => col.paymentOptionId) && (
+                      <>
+                        <Separator />
+                        <div className="space-y-3">
+                          <Label className="text-xs text-muted-foreground">{t.konfigurator?.paymentBreakdown || "Rozpis splátok"}</Label>
+                          {(() => {
+                            const storageTotal = (billsetDetails.storage || []).reduce((sum: number, stor: any) => {
+                              return sum + parseFloat(stor.lineGrossAmount || stor.priceOverride || 0);
+                            }, 0);
+                            
+                            const collectionsWithPayment = (billsetDetails.collections || []).filter((col: any) => col.paymentOptionId);
+                            let storageAlreadyAdded = false;
+                            
+                            return collectionsWithPayment.map((col: any, idx: number) => {
+                              const lineGross = parseFloat(col.lineGrossAmount || 0);
+                              const includeStorage = storageTotal > 0 && !storageAlreadyAdded;
+                              if (includeStorage) {
+                                storageAlreadyAdded = true;
+                              }
+                              const combinedAmount = includeStorage ? lineGross + storageTotal : lineGross;
+                              
+                              return (
+                                <InvoicePaymentBreakdownItem
+                                  key={col.id}
+                                  instanceId={col.instanceId}
+                                  paymentOptionId={col.paymentOptionId}
+                                  amount={combinedAmount}
+                                  storageIncluded={includeStorage}
+                                  storageAmount={includeStorage ? storageTotal : 0}
+                                  collectionAmount={lineGross}
+                                  currencySymbol={currencySymbol}
+                                  t={t}
+                                />
+                              );
+                            });
+                          })()}
+                        </div>
+                      </>
+                    )}
                   </>
                 );
               })()}
