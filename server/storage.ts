@@ -58,7 +58,7 @@ import {
   type CampaignContactSession, type InsertCampaignContactSession,
   type CampaignMetricsSnapshot, type InsertCampaignMetricsSnapshot,
   sipSettings, callLogs, chatMessages, exchangeRates, inflationRates,
-  productSets, productSetCollections, productSetStorage, customerConsents, tasks,
+  productSets, productSetCollections, productSetStorage, customerConsents, tasks, taskComments,
   type SipSettings, type InsertSipSettings,
   type CallLog, type InsertCallLog,
   type ProductSet, type InsertProductSet,
@@ -66,6 +66,7 @@ import {
   type ProductSetStorage, type InsertProductSetStorage,
   type CustomerConsent, type InsertCustomerConsent,
   type Task, type InsertTask,
+  type TaskComment, type InsertTaskComment,
   type ChatMessage, type InsertChatMessage,
   type ExchangeRate, type InsertExchangeRate,
   type InflationRate, type InsertInflationRate
@@ -231,6 +232,13 @@ export interface IStorage {
   createTask(task: InsertTask): Promise<Task>;
   updateTask(id: string, data: Partial<InsertTask>): Promise<Task | undefined>;
   deleteTask(id: string): Promise<boolean>;
+  resolveTask(id: string, resolution: string, resolvedByUserId: string): Promise<Task | undefined>;
+  reassignTask(id: string, newAssignedUserId: string): Promise<Task | undefined>;
+
+  // Task Comments
+  getTaskComments(taskId: string): Promise<TaskComment[]>;
+  createTaskComment(comment: InsertTaskComment): Promise<TaskComment>;
+  deleteTaskComment(id: string): Promise<boolean>;
 
   // Communication Messages
   createCommunicationMessage(message: InsertCommunicationMessage): Promise<CommunicationMessage>;
@@ -1322,6 +1330,45 @@ export class DatabaseStorage implements IStorage {
 
   async deleteTask(id: string): Promise<boolean> {
     const result = await db.delete(tasks).where(eq(tasks.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async resolveTask(id: string, resolution: string, resolvedByUserId: string): Promise<Task | undefined> {
+    const [updated] = await db.update(tasks)
+      .set({ 
+        resolution, 
+        resolvedByUserId, 
+        resolvedAt: new Date(),
+        status: "completed",
+        updatedAt: new Date() 
+      })
+      .where(eq(tasks.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async reassignTask(id: string, newAssignedUserId: string): Promise<Task | undefined> {
+    const [updated] = await db.update(tasks)
+      .set({ assignedUserId: newAssignedUserId, updatedAt: new Date() })
+      .where(eq(tasks.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  // Task Comments
+  async getTaskComments(taskId: string): Promise<TaskComment[]> {
+    return db.select().from(taskComments)
+      .where(eq(taskComments.taskId, taskId))
+      .orderBy(taskComments.createdAt);
+  }
+
+  async createTaskComment(comment: InsertTaskComment): Promise<TaskComment> {
+    const [created] = await db.insert(taskComments).values(comment).returning();
+    return created;
+  }
+
+  async deleteTaskComment(id: string): Promise<boolean> {
+    const result = await db.delete(taskComments).where(eq(taskComments.id, id)).returning();
     return result.length > 0;
   }
 

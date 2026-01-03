@@ -877,6 +877,107 @@ export async function registerRoutes(
     }
   });
 
+  // Resolve task with solution
+  app.post("/api/tasks/:id/resolve", requireAuth, async (req, res) => {
+    try {
+      const { resolution } = req.body;
+      if (!resolution) {
+        return res.status(400).json({ error: "Resolution text is required" });
+      }
+      
+      const task = await storage.resolveTask(req.params.id, resolution, req.session.user!.id);
+      if (!task) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+      
+      await logActivity(
+        req.session.user!.id,
+        "resolve",
+        "task",
+        task.id,
+        task.title,
+        { resolution },
+        req.ip
+      );
+      
+      res.json(task);
+    } catch (error) {
+      console.error("Error resolving task:", error);
+      res.status(500).json({ error: "Failed to resolve task" });
+    }
+  });
+
+  // Reassign task to another user
+  app.post("/api/tasks/:id/reassign", requireAuth, async (req, res) => {
+    try {
+      const { newAssignedUserId } = req.body;
+      if (!newAssignedUserId) {
+        return res.status(400).json({ error: "New assigned user ID is required" });
+      }
+      
+      const task = await storage.reassignTask(req.params.id, newAssignedUserId);
+      if (!task) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+      
+      await logActivity(
+        req.session.user!.id,
+        "reassign",
+        "task",
+        task.id,
+        task.title,
+        { newAssignedUserId },
+        req.ip
+      );
+      
+      res.json(task);
+    } catch (error) {
+      console.error("Error reassigning task:", error);
+      res.status(500).json({ error: "Failed to reassign task" });
+    }
+  });
+
+  // Task Comments API
+  app.get("/api/tasks/:taskId/comments", requireAuth, async (req, res) => {
+    try {
+      const comments = await storage.getTaskComments(req.params.taskId);
+      res.json(comments);
+    } catch (error) {
+      console.error("Error fetching task comments:", error);
+      res.status(500).json({ error: "Failed to fetch comments" });
+    }
+  });
+
+  app.post("/api/tasks/:taskId/comments", requireAuth, async (req, res) => {
+    try {
+      const { content } = req.body;
+      if (!content) {
+        return res.status(400).json({ error: "Comment content is required" });
+      }
+      
+      const comment = await storage.createTaskComment({
+        taskId: req.params.taskId,
+        userId: req.session.user!.id,
+        content,
+      });
+      
+      res.status(201).json(comment);
+    } catch (error) {
+      console.error("Error creating task comment:", error);
+      res.status(500).json({ error: "Failed to create comment" });
+    }
+  });
+
+  app.delete("/api/tasks/:taskId/comments/:commentId", requireAuth, async (req, res) => {
+    try {
+      const deleted = await storage.deleteTaskComment(req.params.commentId);
+      res.json({ success: deleted });
+    } catch (error) {
+      console.error("Error deleting task comment:", error);
+      res.status(500).json({ error: "Failed to delete comment" });
+    }
+  });
+
   // Products API (protected)
   app.get("/api/products", requireAuth, async (req, res) => {
     try {
