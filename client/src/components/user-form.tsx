@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
-import { Phone, User, Shield, MapPin, Camera, Loader2, Link2 } from "lucide-react";
+import { Phone, User, Shield, MapPin, Camera, Loader2, Link2, RefreshCw } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
@@ -643,8 +643,25 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
           Načítavanie Jira používateľov...
         </div>
       ) : jiraUsers.length === 0 ? (
-        <div className="p-4 rounded-md bg-muted text-sm text-muted-foreground">
-          Nepodarilo sa načítať Jira používateľov. Skontrolujte, či je Jira integrácia správne nakonfigurovaná.
+        <div className="p-4 rounded-md bg-muted space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Nepodarilo sa načítať Jira používateľov. Toto môže byť spôsobené:
+          </p>
+          <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
+            <li>Vypršaním prístupového tokenu (vyžaduje opätovné pripojenie)</li>
+            <li>Chýbajúcimi oprávneniami v Jira</li>
+            <li>Neaktívnou Jira integráciou</li>
+          </ul>
+          <Button 
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => window.location.reload()}
+            data-testid="button-refresh-jira"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Obnoviť pripojenie
+          </Button>
         </div>
       ) : (
         <div className="space-y-4">
