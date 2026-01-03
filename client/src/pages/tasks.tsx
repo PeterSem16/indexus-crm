@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import type { Task, User, Customer } from "@shared/schema";
+import type { Task, User, Customer, TaskComment } from "@shared/schema";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -49,8 +49,14 @@ import {
   XCircle,
   Edit,
   BarChart3,
-  TrendingUp
+  TrendingUp,
+  MessageSquare,
+  UserPlus,
+  Eye,
+  Send,
+  Trash2
 } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 
 const priorityConfig = {
@@ -78,6 +84,12 @@ export default function TasksPage() {
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [resolveDialogOpen, setResolveDialogOpen] = useState(false);
+  const [reassignDialogOpen, setReassignDialogOpen] = useState(false);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [resolutionText, setResolutionText] = useState("");
+  const [reassignUserId, setReassignUserId] = useState("");
+  const [newComment, setNewComment] = useState("");
   const [editForm, setEditForm] = useState({
     title: "",
     description: "",
@@ -117,6 +129,87 @@ export default function TasksPage() {
         description: t.tasks.updateFailed,
         variant: "destructive",
       });
+    },
+  });
+
+  const resolveTaskMutation = useMutation({
+    mutationFn: async ({ id, resolution }: { id: string; resolution: string }) => {
+      return apiRequest("POST", `/api/tasks/${id}/resolve`, { resolution });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      toast({
+        title: t.common.success,
+        description: t.tasks.taskResolved,
+      });
+      setResolveDialogOpen(false);
+      setSelectedTask(null);
+      setResolutionText("");
+    },
+    onError: () => {
+      toast({
+        title: t.common.error,
+        description: t.tasks.resolveFailed,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const reassignTaskMutation = useMutation({
+    mutationFn: async ({ id, newAssignedUserId }: { id: string; newAssignedUserId: string }) => {
+      return apiRequest("POST", `/api/tasks/${id}/reassign`, { newAssignedUserId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      toast({
+        title: t.common.success,
+        description: t.tasks.taskReassigned,
+      });
+      setReassignDialogOpen(false);
+      setSelectedTask(null);
+      setReassignUserId("");
+    },
+    onError: () => {
+      toast({
+        title: t.common.error,
+        description: t.tasks.reassignFailed,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const { data: taskComments = [] } = useQuery<TaskComment[]>({
+    queryKey: ["/api/tasks", selectedTask?.id, "comments"],
+    enabled: !!selectedTask && detailsDialogOpen,
+  });
+
+  const addCommentMutation = useMutation({
+    mutationFn: async ({ taskId, content }: { taskId: string; content: string }) => {
+      return apiRequest("POST", `/api/tasks/${taskId}/comments`, { content });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks", selectedTask?.id, "comments"] });
+      toast({
+        title: t.common.success,
+        description: t.tasks.commentAdded,
+      });
+      setNewComment("");
+    },
+    onError: () => {
+      toast({
+        title: t.common.error,
+        description: t.tasks.commentFailed,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteCommentMutation = useMutation({
+    mutationFn: async ({ taskId, commentId }: { taskId: string; commentId: string }) => {
+      return apiRequest("DELETE", `/api/tasks/${taskId}/comments/${commentId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks", selectedTask?.id, "comments"] });
     },
   });
 
@@ -166,18 +259,54 @@ export default function TasksPage() {
     });
   };
 
+  const handleResolveTask = (task: Task) => {
+    setSelectedTask(task);
+    setResolutionText("");
+    setResolveDialogOpen(true);
+  };
+
+  const handleReassignTask = (task: Task) => {
+    setSelectedTask(task);
+    setReassignUserId("");
+    setReassignDialogOpen(true);
+  };
+
+  const handleViewDetails = (task: Task) => {
+    setSelectedTask(task);
+    setDetailsDialogOpen(true);
+  };
+
+  const handleSubmitResolve = () => {
+    if (!selectedTask || !resolutionText.trim()) return;
+    resolveTaskMutation.mutate({ id: selectedTask.id, resolution: resolutionText });
+  };
+
+  const handleSubmitReassign = () => {
+    if (!selectedTask || !reassignUserId) return;
+    reassignTaskMutation.mutate({ id: selectedTask.id, newAssignedUserId: reassignUserId });
+  };
+
+  const handleAddComment = () => {
+    if (!selectedTask || !newComment.trim()) return;
+    addCommentMutation.mutate({ taskId: selectedTask.id, content: newComment });
+  };
+
   const TaskCard = ({ task }: { task: Task }) => {
     const assignedUser = getUser(task.assignedUserId);
+    const createdByUser = getUser(task.createdByUserId);
+    const resolvedByUser = task.resolvedByUserId ? getUser(task.resolvedByUserId) : null;
     const linkedCustomer = getCustomer(task.customerId || null);
     const PriorityIcon = priorityConfig[task.priority as keyof typeof priorityConfig]?.icon || Clock;
     const StatusIcon = statusConfig[task.status as keyof typeof statusConfig]?.icon || Clock;
+    const isResolved = task.status === "completed" && task.resolution;
+    const isActive = task.status !== "completed" && task.status !== "cancelled";
 
     return (
       <Card className="hover-elevate" data-testid={`task-card-${task.id}`}>
         <CardContent className="p-4">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <Badge className={priorityConfig[task.priority as keyof typeof priorityConfig]?.color || ""}>
                   <PriorityIcon className="h-3 w-3 mr-1" />
                   {t.tasks.priorities[task.priority as keyof typeof t.tasks.priorities] || task.priority}
@@ -195,11 +324,17 @@ export default function TasksPage() {
                   {task.description}
                 </p>
               )}
-              <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
+              <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground flex-wrap">
                 {assignedUser && (
                   <div className="flex items-center gap-1">
                     <UserIcon className="h-3 w-3" />
                     <span>{assignedUser.fullName || assignedUser.username}</span>
+                  </div>
+                )}
+                {createdByUser && (
+                  <div className="flex items-center gap-1">
+                    <span className="text-muted-foreground">{t.tasks.createdBy}:</span>
+                    <span>{createdByUser.fullName || createdByUser.username}</span>
                   </div>
                 )}
                 {task.dueDate && (
@@ -215,47 +350,82 @@ export default function TasksPage() {
                   <span className="font-medium">{linkedCustomer.firstName} {linkedCustomer.lastName}</span>
                 </div>
               )}
-            </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" data-testid={`task-menu-${task.id}`}>
-                  <MoreHorizontal className="h-4 w-4" />
+              {isResolved && (
+                <div className="mt-3 p-2 rounded-md bg-green-50 dark:bg-green-900/20 text-xs">
+                  <div className="font-medium text-green-700 dark:text-green-300 mb-1">{t.tasks.resolution}:</div>
+                  <p className="text-muted-foreground line-clamp-2">{task.resolution}</p>
+                  {resolvedByUser && task.resolvedAt && (
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {t.tasks.resolvedBy}: {resolvedByUser.fullName || resolvedByUser.username} ({format(new Date(task.resolvedAt), "dd.MM.yyyy HH:mm")})
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="flex items-center gap-2 mt-3 flex-wrap">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => handleViewDetails(task)}
+                  data-testid={`task-details-${task.id}`}
+                >
+                  <Eye className="h-3 w-3 mr-1" />
+                  {t.tasks.viewDetails}
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => handleEditTask(task)} data-testid={`task-edit-${task.id}`}>
-                  <Edit className="h-4 w-4 mr-2" />
-                  {t.common.edit}
-                </DropdownMenuItem>
-                {task.status !== "in_progress" && (
-                  <DropdownMenuItem 
-                    onClick={() => handleStatusChange(task, "in_progress")}
-                    data-testid={`task-start-${task.id}`}
-                  >
-                    <Play className="h-4 w-4 mr-2" />
-                    {t.tasks.startWorking}
-                  </DropdownMenuItem>
+                {isActive && (
+                  <>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => handleResolveTask(task)}
+                      data-testid={`task-resolve-${task.id}`}
+                    >
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      {t.tasks.resolve}
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => handleReassignTask(task)}
+                      data-testid={`task-reassign-${task.id}`}
+                    >
+                      <UserPlus className="h-3 w-3 mr-1" />
+                      {t.tasks.reassign}
+                    </Button>
+                  </>
                 )}
-                {task.status !== "completed" && (
-                  <DropdownMenuItem 
-                    onClick={() => handleStatusChange(task, "completed")}
-                    data-testid={`task-complete-${task.id}`}
-                  >
-                    <CheckCircle2 className="h-4 w-4 mr-2" />
-                    {t.tasks.markComplete}
-                  </DropdownMenuItem>
-                )}
-                {task.status !== "cancelled" && task.status !== "completed" && (
-                  <DropdownMenuItem 
-                    onClick={() => handleStatusChange(task, "cancelled")}
-                    data-testid={`task-cancel-${task.id}`}
-                  >
-                    <XCircle className="h-4 w-4 mr-2" />
-                    {t.tasks.cancel}
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" data-testid={`task-menu-${task.id}`}>
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => handleEditTask(task)} data-testid={`task-edit-${task.id}`}>
+                      <Edit className="h-4 w-4 mr-2" />
+                      {t.common.edit}
+                    </DropdownMenuItem>
+                    {task.status !== "in_progress" && isActive && (
+                      <DropdownMenuItem 
+                        onClick={() => handleStatusChange(task, "in_progress")}
+                        data-testid={`task-start-${task.id}`}
+                      >
+                        <Play className="h-4 w-4 mr-2" />
+                        {t.tasks.startWorking}
+                      </DropdownMenuItem>
+                    )}
+                    {isActive && (
+                      <DropdownMenuItem 
+                        onClick={() => handleStatusChange(task, "cancelled")}
+                        data-testid={`task-cancel-${task.id}`}
+                      >
+                        <XCircle className="h-4 w-4 mr-2" />
+                        {t.tasks.cancel}
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -565,6 +735,197 @@ export default function TasksPage() {
               {t.common.save}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={resolveDialogOpen} onOpenChange={setResolveDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t.tasks.resolveTask}</DialogTitle>
+            <DialogDescription>{t.tasks.resolveTaskDesc}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {selectedTask && (
+              <div className="p-3 rounded-md bg-muted">
+                <h4 className="font-medium text-sm">{selectedTask.title}</h4>
+                {selectedTask.description && (
+                  <p className="text-xs text-muted-foreground mt-1">{selectedTask.description}</p>
+                )}
+              </div>
+            )}
+            <div>
+              <label className="text-sm font-medium">{t.tasks.resolution}</label>
+              <Textarea
+                value={resolutionText}
+                onChange={(e) => setResolutionText(e.target.value)}
+                placeholder={t.tasks.resolution}
+                className="min-h-[100px]"
+                data-testid="input-resolve-resolution"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResolveDialogOpen(false)}>
+              {t.common.cancel}
+            </Button>
+            <Button 
+              onClick={handleSubmitResolve} 
+              disabled={resolveTaskMutation.isPending || !resolutionText.trim()}
+            >
+              {resolveTaskMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {t.tasks.resolve}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={reassignDialogOpen} onOpenChange={setReassignDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t.tasks.reassignTask}</DialogTitle>
+            <DialogDescription>{t.tasks.reassignTaskDesc}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {selectedTask && (
+              <div className="p-3 rounded-md bg-muted">
+                <h4 className="font-medium text-sm">{selectedTask.title}</h4>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {t.quickCreate.assignedTo}: {getUser(selectedTask.assignedUserId)?.fullName || getUser(selectedTask.assignedUserId)?.username}
+                </div>
+              </div>
+            )}
+            <div>
+              <label className="text-sm font-medium">{t.tasks.reassignTo}</label>
+              <Select value={reassignUserId} onValueChange={setReassignUserId}>
+                <SelectTrigger data-testid="select-reassign-user">
+                  <SelectValue placeholder={t.common.select} />
+                </SelectTrigger>
+                <SelectContent>
+                  {users.filter(u => u.id && u.id !== selectedTask?.assignedUserId).map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.fullName || u.username}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReassignDialogOpen(false)}>
+              {t.common.cancel}
+            </Button>
+            <Button 
+              onClick={handleSubmitReassign} 
+              disabled={reassignTaskMutation.isPending || !reassignUserId}
+            >
+              {reassignTaskMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {t.tasks.reassign}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t.tasks.viewDetails}</DialogTitle>
+          </DialogHeader>
+          {selectedTask && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge className={priorityConfig[selectedTask.priority as keyof typeof priorityConfig]?.color || ""}>
+                    {t.tasks.priorities[selectedTask.priority as keyof typeof t.tasks.priorities] || selectedTask.priority}
+                  </Badge>
+                  <Badge className={statusConfig[selectedTask.status as keyof typeof statusConfig]?.color || ""}>
+                    {t.tasks.statuses[selectedTask.status as keyof typeof t.tasks.statuses] || selectedTask.status}
+                  </Badge>
+                </div>
+                <h3 className="font-semibold">{selectedTask.title}</h3>
+                {selectedTask.description && (
+                  <p className="text-sm text-muted-foreground">{selectedTask.description}</p>
+                )}
+                <div className="text-xs text-muted-foreground">
+                  {t.quickCreate.assignedTo}: {getUser(selectedTask.assignedUserId)?.fullName || getUser(selectedTask.assignedUserId)?.username}
+                </div>
+                {selectedTask.createdByUserId && (
+                  <div className="text-xs text-muted-foreground">
+                    {t.tasks.createdBy}: {getUser(selectedTask.createdByUserId)?.fullName || getUser(selectedTask.createdByUserId)?.username}
+                  </div>
+                )}
+                {selectedTask.resolution && (
+                  <div className="mt-3 p-3 rounded-md bg-green-50 dark:bg-green-900/20">
+                    <div className="font-medium text-sm text-green-700 dark:text-green-300">{t.tasks.resolution}</div>
+                    <p className="text-sm mt-1">{selectedTask.resolution}</p>
+                    {selectedTask.resolvedByUserId && selectedTask.resolvedAt && (
+                      <div className="text-xs text-muted-foreground mt-2">
+                        {t.tasks.resolvedBy}: {getUser(selectedTask.resolvedByUserId)?.fullName || getUser(selectedTask.resolvedByUserId)?.username} ({format(new Date(selectedTask.resolvedAt), "dd.MM.yyyy HH:mm")})
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t pt-4">
+                <h4 className="font-medium flex items-center gap-2 mb-3">
+                  <MessageSquare className="h-4 w-4" />
+                  {t.tasks.comments}
+                </h4>
+                <ScrollArea className="h-[200px] pr-4">
+                  {taskComments.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">{t.tasks.noComments}</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {taskComments.map((comment) => {
+                        const commentUser = getUser(comment.userId);
+                        return (
+                          <div key={comment.id} className="p-3 rounded-md bg-muted text-sm">
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                              <span className="font-medium">{commentUser?.fullName || commentUser?.username}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground">
+                                  {format(new Date(comment.createdAt), "dd.MM.yyyy HH:mm")}
+                                </span>
+                                {comment.userId === user?.id && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6"
+                                    onClick={() => deleteCommentMutation.mutate({ taskId: selectedTask.id, commentId: comment.id })}
+                                    data-testid={`delete-comment-${comment.id}`}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                            <p>{comment.content}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </ScrollArea>
+                <div className="flex gap-2 mt-3">
+                  <Input
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    placeholder={t.tasks.commentPlaceholder}
+                    onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleAddComment()}
+                    data-testid="input-new-comment"
+                  />
+                  <Button 
+                    size="icon" 
+                    onClick={handleAddComment} 
+                    disabled={addCommentMutation.isPending || !newComment.trim()}
+                    data-testid="button-add-comment"
+                  >
+                    {addCommentMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
