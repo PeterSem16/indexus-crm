@@ -949,7 +949,11 @@ function CustomerDetailsContent({
                     className="flex items-center justify-between p-2 rounded-md bg-muted/50"
                   >
                     <div className="flex-1">
-                      <p className="font-medium text-sm">{cp.product.name}</p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">{getCountryFlag(customer.country)}</span>
+                        <p className="font-medium text-sm">{cp.product.name}</p>
+                        <Badge variant="outline" className="text-xs">{customer.country}</Badge>
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         {cp.quantity} x {parseFloat(cp.priceOverride || cp.product.price).toFixed(2)} {cp.product.currency}
                       </p>
@@ -1042,7 +1046,7 @@ function CustomerDetailsContent({
                         <SelectContent>
                           {billsets.map((bs) => (
                             <SelectItem key={bs.id} value={bs.id}>
-                              {bs.name} - {parseFloat(bs.price).toFixed(2)} {bs.currency}
+                              {getCountryFlag(customer.country)} [{customer.country}] {bs.name} - {parseFloat(bs.price).toFixed(2)} {bs.currency}
                             </SelectItem>
                           ))}
                           {billsets.length === 0 && !billsetsLoading && (
