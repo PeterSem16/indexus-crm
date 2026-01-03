@@ -1600,7 +1600,7 @@ function CustomerDetailsContent({
           <DialogHeader>
             <DialogTitle>{t.customers.details?.invoiceDetail || "Detail fakturácie"}</DialogTitle>
             <DialogDescription>
-              {selectedInvoiceDetailProduct?.product?.name} - {t.customers.details?.billsetPreview || "Invoice preview from billing set"}
+              {selectedInvoiceDetailProduct?.product?.name} - {t.konfigurator?.invoicePreviewTitle || "Náhľad faktúry"}
             </DialogDescription>
           </DialogHeader>
 
@@ -1611,7 +1611,7 @@ function CustomerDetailsContent({
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <h4 className="font-semibold">{billsetDetails.name}</h4>
                   <Badge variant={billsetDetails.isActive ? "default" : "secondary"}>
-                    {billsetDetails.isActive ? t.konfigurator?.activeLabel || "Active" : t.konfigurator?.inactiveLabel || "Inactive"}
+                    {billsetDetails.isActive ? t.konfigurator?.activeLabel || "Aktívny" : t.konfigurator?.inactiveLabel || "Neaktívny"}
                   </Badge>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
@@ -1620,91 +1620,173 @@ function CustomerDetailsContent({
                   )}
                   <Badge variant="outline">{billsetDetails.currency}</Badge>
                   {billsetDetails.fromDate && (
-                    <span>{t.konfigurator?.validFrom || "From"}: {format(new Date(billsetDetails.fromDate), "dd.MM.yyyy")}</span>
+                    <span>{t.konfigurator?.validFrom || "Od"}: {format(new Date(billsetDetails.fromDate), "dd.MM.yyyy")}</span>
                   )}
                   {billsetDetails.toDate && (
-                    <span>{t.konfigurator?.validTo || "To"}: {format(new Date(billsetDetails.toDate), "dd.MM.yyyy")}</span>
+                    <span>{t.konfigurator?.validTo || "Do"}: {format(new Date(billsetDetails.toDate), "dd.MM.yyyy")}</span>
                   )}
                 </div>
               </div>
 
-              {/* Collections Section */}
-              {billsetDetails.collections && billsetDetails.collections.length > 0 && (
-                <div className="space-y-2">
-                  <h5 className="font-medium text-sm">{t.konfigurator?.collectionsTitle || "Collections"}</h5>
-                  <div className="border rounded-lg divide-y">
-                    {billsetDetails.collections.map((coll: any) => (
-                      <div key={coll.id} className="p-3 flex items-center justify-between gap-2">
-                        <div>
-                          <p className="text-sm font-medium">{t.konfigurator?.collectionItem || "Collection item"}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {t.customers.details?.quantity || "Qty"}: {coll.quantity}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-medium">{coll.lineNetAmount ? parseFloat(coll.lineNetAmount).toFixed(2) : "0.00"} {billsetDetails.currency}</p>
-                          {coll.lineDiscountAmount && parseFloat(coll.lineDiscountAmount) > 0 && (
-                            <p className="text-xs text-green-600">-{parseFloat(coll.lineDiscountAmount).toFixed(2)}</p>
-                          )}
-                        </div>
+              {/* Invoice Line Items - Same format as configurator */}
+              {(() => {
+                const currencySymbol = billsetDetails.currency === "EUR" ? "€" : 
+                                       billsetDetails.currency === "CZK" ? "Kč" : 
+                                       billsetDetails.currency === "USD" ? "$" : billsetDetails.currency;
+                
+                // Calculate totals
+                let totalNet = 0;
+                let totalDiscount = 0;
+                let totalVat = 0;
+                let totalGross = 0;
+                
+                (billsetDetails.collections || []).forEach((col: any) => {
+                  const lineNetAfterDiscount = parseFloat(col.lineNetAmount || 0);
+                  const lineDiscount = parseFloat(col.lineDiscountAmount || 0);
+                  const lineNetBeforeDiscount = lineNetAfterDiscount + lineDiscount;
+                  const lineVat = parseFloat(col.lineVatAmount || 0);
+                  const lineGross = parseFloat(col.lineGrossAmount || 0);
+                  totalNet += lineNetBeforeDiscount;
+                  totalDiscount += lineDiscount;
+                  totalVat += lineVat;
+                  totalGross += lineGross;
+                });
+                
+                (billsetDetails.storage || []).forEach((stor: any) => {
+                  const lineNetAfterDiscount = parseFloat(stor.lineNetAmount || stor.priceOverride || 0);
+                  const lineDiscount = parseFloat(stor.lineDiscountAmount || 0);
+                  const lineNetBeforeDiscount = lineNetAfterDiscount + lineDiscount;
+                  const lineVat = parseFloat(stor.lineVatAmount || 0);
+                  const lineGross = parseFloat(stor.lineGrossAmount || stor.priceOverride || 0);
+                  totalNet += lineNetBeforeDiscount;
+                  totalDiscount += lineDiscount;
+                  totalVat += lineVat;
+                  totalGross += lineGross;
+                });
+                
+                return (
+                  <>
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">{t.konfigurator?.lineItemsLabel || "Položky"}</Label>
+                      
+                      {/* Collection Items - Blue */}
+                      {(billsetDetails.collections || []).map((col: any, idx: number) => {
+                        const lineNetAfterDiscount = parseFloat(col.lineNetAmount || 0);
+                        const lineDiscount = parseFloat(col.lineDiscountAmount || 0);
+                        const lineNetBeforeDiscount = lineNetAfterDiscount + lineDiscount;
+                        const lineVat = parseFloat(col.lineVatAmount || 0);
+                        const lineGross = parseFloat(col.lineGrossAmount || 0);
+                        return (
+                          <div key={col.id} className="py-1.5 px-2 rounded bg-blue-50 dark:bg-blue-900/20 border-l-2 border-blue-400 mb-1">
+                            <div className="flex justify-between text-sm font-medium">
+                              <span className="text-blue-900 dark:text-blue-100">
+                                {idx + 1}. {t.konfigurator?.collectionItem || "Odber"} {col.quantity > 1 && `(${col.quantity}x)`}
+                              </span>
+                            </div>
+                            <div className="mt-1 space-y-0.5 text-xs text-blue-700 dark:text-blue-300">
+                              <div className="flex justify-between">
+                                <span>{t.konfigurator?.priceWithoutVat || "Cena bez DPH"}:</span>
+                                <span className="font-mono">{lineNetBeforeDiscount.toFixed(2)} {currencySymbol}</span>
+                              </div>
+                              {lineDiscount > 0 && (
+                                <div className="flex justify-between text-amber-600 dark:text-amber-400">
+                                  <span>{t.konfigurator?.discountText || "Zľava"}:</span>
+                                  <span className="font-mono">-{lineDiscount.toFixed(2)} {currencySymbol}</span>
+                                </div>
+                              )}
+                              {lineVat > 0 && (
+                                <div className="flex justify-between">
+                                  <span>{t.konfigurator?.vatValue || "DPH"}:</span>
+                                  <span className="font-mono">+{lineVat.toFixed(2)} {currencySymbol}</span>
+                                </div>
+                              )}
+                              <div className="flex justify-between font-medium pt-0.5 border-t border-blue-200 dark:border-blue-700">
+                                <span>{t.konfigurator?.totalLabel || "Celkom"}:</span>
+                                <span className="font-mono">{lineGross.toFixed(2)} {currencySymbol}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      
+                      {/* Storage Items - Green */}
+                      {(billsetDetails.storage || []).map((stor: any, idx: number) => {
+                        const lineNetAfterDiscount = parseFloat(stor.lineNetAmount || stor.priceOverride || 0);
+                        const lineDiscount = parseFloat(stor.lineDiscountAmount || 0);
+                        const lineNetBeforeDiscount = lineNetAfterDiscount + lineDiscount;
+                        const lineVat = parseFloat(stor.lineVatAmount || 0);
+                        const lineGross = parseFloat(stor.lineGrossAmount || stor.priceOverride || 0);
+                        return (
+                          <div key={stor.id} className="py-1.5 px-2 rounded bg-green-50 dark:bg-green-900/20 border-l-2 border-green-400 mb-1">
+                            <div className="flex justify-between text-sm font-medium">
+                              <span className="text-green-900 dark:text-green-100">
+                                {(billsetDetails.collections?.length || 0) + idx + 1}. {t.konfigurator?.storageItem || "Uskladnenie"}
+                              </span>
+                            </div>
+                            <div className="mt-1 space-y-0.5 text-xs text-green-700 dark:text-green-300">
+                              <div className="flex justify-between">
+                                <span>{t.konfigurator?.priceWithoutVat || "Cena bez DPH"}:</span>
+                                <span className="font-mono">{lineNetBeforeDiscount.toFixed(2)} {currencySymbol}</span>
+                              </div>
+                              {lineDiscount > 0 && (
+                                <div className="flex justify-between text-amber-600 dark:text-amber-400">
+                                  <span>{t.konfigurator?.discountText || "Zľava"}:</span>
+                                  <span className="font-mono">-{lineDiscount.toFixed(2)} {currencySymbol}</span>
+                                </div>
+                              )}
+                              {lineVat > 0 && (
+                                <div className="flex justify-between">
+                                  <span>{t.konfigurator?.vatValue || "DPH"}:</span>
+                                  <span className="font-mono">+{lineVat.toFixed(2)} {currencySymbol}</span>
+                                </div>
+                              )}
+                              <div className="flex justify-between font-medium pt-0.5 border-t border-green-200 dark:border-green-700">
+                                <span>{t.konfigurator?.totalLabel || "Celkom"}:</span>
+                                <span className="font-mono">{lineGross.toFixed(2)} {currencySymbol}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      
+                      {(billsetDetails.collections || []).length === 0 && (billsetDetails.storage || []).length === 0 && (
+                        <p className="text-xs text-muted-foreground text-center py-4">{t.konfigurator?.noItemsInSet || "Žiadne položky"}</p>
+                      )}
+                    </div>
+                    
+                    <Separator />
+                    
+                    {/* Totals Summary */}
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>{t.konfigurator?.netWithoutVat || "Cena bez DPH"}:</span>
+                        <span className="font-mono">{totalNet.toFixed(2)} {currencySymbol}</span>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Storage Section */}
-              {billsetDetails.storage && billsetDetails.storage.length > 0 && (
-                <div className="space-y-2">
-                  <h5 className="font-medium text-sm">{t.konfigurator?.storageTitle || "Storage Services"}</h5>
-                  <div className="border rounded-lg divide-y">
-                    {billsetDetails.storage.map((stor: any) => (
-                      <div key={stor.id} className="p-3 flex items-center justify-between gap-2">
-                        <div>
-                          <p className="text-sm font-medium">{t.konfigurator?.storageItem || "Storage item"}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {t.customers.details?.quantity || "Qty"}: {stor.quantity}
-                          </p>
+                      {totalDiscount > 0 && (
+                        <div className="flex justify-between text-sm text-amber-600 dark:text-amber-400">
+                          <span>{t.konfigurator?.discountText || "Zľava"}:</span>
+                          <span className="font-mono">-{totalDiscount.toFixed(2)} {currencySymbol}</span>
                         </div>
-                        <div className="text-right">
-                          <p className="font-medium">{stor.lineNetAmount ? parseFloat(stor.lineNetAmount).toFixed(2) : (stor.priceOverride ? parseFloat(stor.priceOverride).toFixed(2) : "0.00")} {billsetDetails.currency}</p>
-                          {stor.lineDiscountAmount && parseFloat(stor.lineDiscountAmount) > 0 && (
-                            <p className="text-xs text-green-600">-{parseFloat(stor.lineDiscountAmount).toFixed(2)}</p>
-                          )}
+                      )}
+                      {totalDiscount > 0 && (
+                        <div className="flex justify-between text-sm font-medium">
+                          <span>{t.konfigurator?.subtotalAfterDiscount || "Medzisúčet po zľave"}:</span>
+                          <span className="font-mono">{(totalNet - totalDiscount).toFixed(2)} {currencySymbol}</span>
                         </div>
+                      )}
+                      <div className="flex justify-between text-sm text-muted-foreground">
+                        <span>{t.konfigurator?.vatText || "DPH"}:</span>
+                        <span className="font-mono">+{totalVat.toFixed(2)} {currencySymbol}</span>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Totals */}
-              <div className="border-t pt-4 space-y-2">
-                {billsetDetails.totalNetAmount && (
-                  <div className="flex justify-between text-sm">
-                    <span>{t.customers.details?.netAmount || "Net amount"}</span>
-                    <span>{parseFloat(billsetDetails.totalNetAmount).toFixed(2)} {billsetDetails.currency}</span>
-                  </div>
-                )}
-                {billsetDetails.totalDiscountAmount && parseFloat(billsetDetails.totalDiscountAmount) > 0 && (
-                  <div className="flex justify-between text-sm text-green-600">
-                    <span>{t.customers.details?.discount || "Discount"}</span>
-                    <span>-{parseFloat(billsetDetails.totalDiscountAmount).toFixed(2)} {billsetDetails.currency}</span>
-                  </div>
-                )}
-                {billsetDetails.totalVatAmount && (
-                  <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>{t.customers.details?.vatLabel || "VAT"}</span>
-                    <span>{parseFloat(billsetDetails.totalVatAmount).toFixed(2)} {billsetDetails.currency}</span>
-                  </div>
-                )}
-                {billsetDetails.totalGrossAmount && (
-                  <div className="flex justify-between font-semibold text-lg">
-                    <span>{t.customers.details?.total || "Total"}</span>
-                    <span>{parseFloat(billsetDetails.totalGrossAmount).toFixed(2)} {billsetDetails.currency}</span>
-                  </div>
-                )}
-              </div>
+                      <Separator />
+                      <div className="flex justify-between font-medium">
+                        <span>{t.konfigurator?.totalLabel || "Celkom"}:</span>
+                        <span className="font-mono text-lg">{totalGross.toFixed(2)} {currencySymbol}</span>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
 
               {billsetDetails.notes && (
                 <div className="p-3 rounded-lg bg-muted/30">
@@ -1714,13 +1796,13 @@ function CustomerDetailsContent({
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
-              {t.common?.loading || "Loading..."}
+              {t.common?.loading || "Načítavam..."}
             </div>
           )}
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsInvoiceDetailOpen(false)}>
-              {t.common?.close || "Close"}
+              {t.common?.close || "Zavrieť"}
             </Button>
           </DialogFooter>
         </DialogContent>
