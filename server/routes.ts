@@ -1521,6 +1521,23 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/customer-products/:id", requireAuth, async (req, res) => {
+    try {
+      const { billsetId } = req.body;
+      if (!billsetId) {
+        return res.status(400).json({ error: "billsetId is required" });
+      }
+      const updated = await storage.updateCustomerProduct(req.params.id, { billsetId });
+      if (!updated) {
+        return res.status(404).json({ error: "Customer product not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating customer product:", error);
+      res.status(500).json({ error: "Failed to update customer product" });
+    }
+  });
+
   // Invoices API (protected)
   app.get("/api/invoices", requireAuth, async (req, res) => {
     try {

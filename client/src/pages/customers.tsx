@@ -648,6 +648,8 @@ function CustomerDetailsContent({
   const [isEmailPreviewOpen, setIsEmailPreviewOpen] = useState(false);
   const [selectedEmailRecipients, setSelectedEmailRecipients] = useState<string[]>([]);
   const [isEmailSending, setIsEmailSending] = useState(false);
+  const [editingProductAssignment, setEditingProductAssignment] = useState<any>(null);
+  const [editBillsetId, setEditBillsetId] = useState<string>("");
 
   const { data: products = [] } = useQuery<Product[]>({
     queryKey: ["/api/products"],
@@ -868,6 +870,34 @@ function CustomerDetailsContent({
     onError: () => {
       toast({ title: "Failed to remove product", variant: "destructive" });
     },
+  });
+
+  const updateProductMutation = useMutation({
+    mutationFn: (data: { id: string; billsetId: string }) => 
+      apiRequest("PATCH", `/api/customer-products/${data.id}`, { billsetId: data.billsetId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customers", customer.id, "products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      setEditingProductAssignment(null);
+      setEditBillsetId("");
+      toast({ title: t.customers.details?.productUpdated || "Product assignment updated" });
+    },
+    onError: () => {
+      toast({ title: t.customers.details?.productUpdateFailed || "Failed to update product", variant: "destructive" });
+    },
+  });
+
+  // Fetch billsets for editing product assignment
+  const { data: editBillsets = [], isLoading: editBillsetsLoading } = useQuery<Array<{ id: string; name: string; currency: string; countryCode: string | null; isActive: boolean; totalGrossAmount: string | null }>>({
+    queryKey: ["/api/products", editingProductAssignment?.productId, "sets", customer.country, "edit"],
+    queryFn: async () => {
+      if (!editingProductAssignment?.productId) return [];
+      const res = await fetch(`/api/products/${editingProductAssignment.productId}/sets?country=${customer.country}`, { credentials: "include" });
+      if (!res.ok) return [];
+      const sets = await res.json();
+      return sets.filter((s: any) => s.isActive);
+    },
+    enabled: !!editingProductAssignment?.productId,
   });
 
   const generateInvoiceMutation = useMutation({
@@ -1224,6 +1254,17 @@ function CustomerDetailsContent({
                           {t.customers.details?.invoiceDetail || "Detail fakturácie"}
                         </Button>
                       )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setEditingProductAssignment(cp);
+                          setEditBillsetId(cp.billsetId || "");
+                        }}
+                        data-testid={`button-edit-product-${cp.id}`}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -2456,6 +2497,88 @@ function CustomerDetailsContent({
                   <Send className="w-4 h-4 mr-2" />
                   {t.customers?.details?.sendEmail || "Odoslať"}
                 </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Edit Product Assignment Dialog */}
+      <Dialog open={!!editingProductAssignment} onOpenChange={(open) => {
+        if (!open) {
+          setEditingProductAssignment(null);
+          setEditBillsetId("");
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t.customers?.details?.editProductAssignment || "Upraviť priradenie produktu"}</DialogTitle>
+          </DialogHeader>
+          
+          {editingProductAssignment && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>{t.customers?.details?.product || "Produkt"}</Label>
+                <div className="p-2 bg-muted rounded-md text-sm font-medium">
+                  {editingProductAssignment.product?.name || "Unknown product"}
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>{t.customers?.details?.selectBillset || "Vyberte zostavu"}</Label>
+                <Select value={editBillsetId} onValueChange={setEditBillsetId}>
+                  <SelectTrigger data-testid="select-edit-billset">
+                    <SelectValue placeholder={editBillsetsLoading ? (t.common?.loading || "Načítavam...") : (t.customers?.details?.selectBillset || "Vyberte zostavu")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {editBillsets.map((bs) => (
+                      <SelectItem key={bs.id} value={bs.id}>
+                        {bs.countryCode ? `${getCountryFlag(bs.countryCode)} [${bs.countryCode}]` : `[${t.common?.all || "Všetky"}]`} {bs.name} - {bs.totalGrossAmount ? parseFloat(bs.totalGrossAmount).toFixed(2) : "0.00"} {bs.currency}
+                      </SelectItem>
+                    ))}
+                    {editBillsets.length === 0 && !editBillsetsLoading && (
+                      <SelectItem value="__no_billsets" disabled>
+                        {t.customers?.details?.noBillsets || "Žiadne zostavy"}
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {editingProductAssignment.billsetName && (
+                <p className="text-xs text-muted-foreground">
+                  {t.customers?.details?.currentBillset || "Aktuálna zostava"}: {editingProductAssignment.billsetName}
+                </p>
+              )}
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setEditingProductAssignment(null);
+              setEditBillsetId("");
+            }}>
+              {t.common?.cancel || "Zrušiť"}
+            </Button>
+            <Button 
+              onClick={() => {
+                if (editingProductAssignment && editBillsetId) {
+                  updateProductMutation.mutate({
+                    id: editingProductAssignment.id,
+                    billsetId: editBillsetId
+                  });
+                }
+              }}
+              disabled={!editBillsetId || updateProductMutation.isPending}
+              data-testid="button-save-product-assignment"
+            >
+              {updateProductMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {t.common?.saving || "Ukladám..."}
+                </>
+              ) : (
+                t.common?.save || "Uložiť"
               )}
             </Button>
           </DialogFooter>
