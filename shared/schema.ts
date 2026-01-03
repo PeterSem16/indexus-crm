@@ -630,6 +630,7 @@ export const customerProducts = pgTable("customer_products", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   customerId: varchar("customer_id").notNull(),
   productId: varchar("product_id").notNull(),
+  instanceId: varchar("instance_id"), // optional FK to market_product_instances (billset)
   quantity: integer("quantity").notNull().default(1),
   priceOverride: decimal("price_override", { precision: 10, scale: 2 }),
   notes: text("notes"),
