@@ -5790,18 +5790,64 @@ export async function registerRoutes(
 
   // ========== PRODUCT SETS (ZOSTAVY) ==========
 
+  // Get products that have billsets for a specific country (for contract product selection)
+  app.get("/api/products-with-sets", requireAuth, async (req, res) => {
+    try {
+      const countryFilter = req.query.country as string | undefined;
+      const products = await storage.getProducts();
+      const productsWithSets: any[] = [];
+      
+      for (const product of products) {
+        const sets = await storage.getProductSets(product.id);
+        // Filter sets by country - include if matches OR if set has no country (global)
+        const matchingSets = countryFilter 
+          ? sets.filter(s => !s.countryCode || s.countryCode.toUpperCase() === countryFilter.toUpperCase())
+          : sets;
+        
+        if (matchingSets.length > 0) {
+          productsWithSets.push({
+            id: product.id,
+            name: product.name,
+            setsCount: matchingSets.length
+          });
+        }
+      }
+      
+      res.json(productsWithSets);
+    } catch (error) {
+      console.error("Failed to fetch products with sets:", error);
+      res.status(500).json({ error: "Failed to fetch products" });
+    }
+  });
+
   // Get all product sets (for contract product selection)
   app.get("/api/product-sets", requireAuth, async (req, res) => {
     try {
       const countryFilter = req.query.country as string | undefined;
-      // Get all products first, then get their sets
+      const productIdFilter = req.query.productId as string | undefined;
+      
+      // If productId is provided, get sets for that product only
+      if (productIdFilter) {
+        let sets = await storage.getProductSets(productIdFilter);
+        if (countryFilter) {
+          sets = sets.filter(s => !s.countryCode || s.countryCode.toUpperCase() === countryFilter.toUpperCase());
+        }
+        const product = await storage.getProduct(productIdFilter);
+        const enrichedSets = sets.map(s => ({
+          ...s,
+          productName: product?.name || ""
+        }));
+        return res.json(enrichedSets);
+      }
+      
+      // Otherwise get all sets
       const products = await storage.getProducts();
       const allSets: any[] = [];
       
       for (const product of products) {
         const sets = await storage.getProductSets(product.id);
         for (const set of sets) {
-          if (!countryFilter || !set.countryCode || set.countryCode === countryFilter) {
+          if (!countryFilter || !set.countryCode || set.countryCode.toUpperCase() === countryFilter.toUpperCase()) {
             allSets.push({
               ...set,
               productName: product.name

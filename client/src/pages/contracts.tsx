@@ -341,6 +341,12 @@ export default function ContractsPage() {
     enabled: isPreviewOpen && !!selectedContract?.id
   });
 
+  type ProductWithSets = {
+    id: string;
+    name: string;
+    setsCount: number;
+  };
+
   type ProductSet = {
     id: string;
     name: string;
@@ -351,12 +357,23 @@ export default function ContractsPage() {
     totalGrossAmount: string | null;
   };
 
-  // Get billing details to filter product sets by country
-  const billingDetail = billingDetails.find(b => b.id === selectedContract?.billingDetailsId);
+  // Get customer's country to filter products and sets
+  const contractCustomer = customers.find(c => c.id === selectedContract?.customerId);
+  const customerCountry = contractCustomer?.country?.toUpperCase();
 
+  // State for selected product in two-step selection
+  const [selectedProductId, setSelectedProductId] = useState<string>("");
+
+  // Get products that have billsets for customer's country
+  const { data: productsWithSets = [] } = useQuery<ProductWithSets[]>({
+    queryKey: ["/api/products-with-sets", { country: customerCountry }],
+    enabled: isPreviewOpen && !!selectedContract?.id && !!customerCountry
+  });
+
+  // Get billsets for selected product and customer's country
   const { data: productSets = [] } = useQuery<ProductSet[]>({
-    queryKey: ["/api/product-sets", { country: billingDetail?.countryCode }],
-    enabled: isPreviewOpen && !!selectedContract?.id
+    queryKey: ["/api/product-sets", { productId: selectedProductId, country: customerCountry }],
+    enabled: isPreviewOpen && !!selectedContract?.id && !!selectedProductId && !!customerCountry
   });
 
   const addContractProductMutation = useMutation({
@@ -1211,31 +1228,64 @@ export default function ContractsPage() {
                   
                   {isAddingProduct && (
                     <div className="p-3 border rounded-md space-y-3 bg-muted/30">
+                      <div className="text-xs text-muted-foreground mb-2">
+                        Krajina zákazníka: <span className="font-medium">{customerCountry || "Neurčená"}</span>
+                      </div>
                       <div>
-                        <Label>Vyberte cenovú sadu (billset)</Label>
+                        <Label>1. Vyberte produkt</Label>
                         <Select 
-                          value={selectedProductSetId} 
-                          onValueChange={setSelectedProductSetId}
+                          value={selectedProductId} 
+                          onValueChange={(v) => {
+                            setSelectedProductId(v);
+                            setSelectedProductSetId("");
+                          }}
                         >
-                          <SelectTrigger data-testid="select-product-set">
+                          <SelectTrigger data-testid="select-product">
                             <SelectValue placeholder="Vyberte produkt" />
                           </SelectTrigger>
                           <SelectContent>
-                            {productSets.length === 0 ? (
-                              <div className="p-2 text-sm text-muted-foreground">Žiadne cenové sady pre túto krajinu</div>
+                            {!customerCountry ? (
+                              <div className="p-2 text-sm text-muted-foreground">Zákazník nemá nastavenú krajinu</div>
+                            ) : productsWithSets.length === 0 ? (
+                              <div className="p-2 text-sm text-muted-foreground">Žiadne produkty pre krajinu {customerCountry}</div>
                             ) : (
-                              productSets.map((ps) => (
-                                <SelectItem key={ps.id} value={ps.id}>
-                                  {ps.productName}: {ps.name} - {ps.totalGrossAmount || "0"} {ps.currency}
+                              productsWithSets.map((p) => (
+                                <SelectItem key={p.id} value={p.id}>
+                                  {p.name} ({p.setsCount} cenových sád)
                                 </SelectItem>
                               ))
                             )}
                           </SelectContent>
                         </Select>
                       </div>
+                      {selectedProductId && (
+                        <div>
+                          <Label>2. Vyberte cenovú sadu</Label>
+                          <Select 
+                            value={selectedProductSetId} 
+                            onValueChange={setSelectedProductSetId}
+                          >
+                            <SelectTrigger data-testid="select-product-set">
+                              <SelectValue placeholder="Vyberte cenovú sadu" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {productSets.length === 0 ? (
+                                <div className="p-2 text-sm text-muted-foreground">Žiadne cenové sady</div>
+                              ) : (
+                                productSets.map((ps) => (
+                                  <SelectItem key={ps.id} value={ps.id}>
+                                    {ps.name} - {ps.totalGrossAmount || "0"} {ps.currency}
+                                  </SelectItem>
+                                ))
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
                       <div className="flex justify-end gap-2">
                         <Button variant="outline" size="sm" onClick={() => {
                           setIsAddingProduct(false);
+                          setSelectedProductId("");
                           setSelectedProductSetId("");
                         }}>
                           Zrušiť
@@ -1248,6 +1298,7 @@ export default function ContractsPage() {
                               contractId: selectedContract.id,
                               productSetId: selectedProductSetId
                             });
+                            setSelectedProductId("");
                           }}
                           data-testid="button-save-product"
                         >
