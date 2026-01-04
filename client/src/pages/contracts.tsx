@@ -318,7 +318,7 @@ export default function ContractsPage() {
       languageCode: template.languageCode,
       description: template.description || "",
       countryCode: template.countryCode,
-      contentHtml: ""
+      contentHtml: template.contentHtml || ""
     });
     setIsTemplateDialogOpen(true);
   };
@@ -700,11 +700,17 @@ export default function ContractsPage() {
                       <SelectValue placeholder="Vyberte šablónu" />
                     </SelectTrigger>
                     <SelectContent>
-                      {filteredTemplates.filter(t => t.status === "published").map(template => (
-                        <SelectItem key={template.id} value={template.id}>
-                          {template.name}
-                        </SelectItem>
-                      ))}
+                      {filteredTemplates.length === 0 ? (
+                        <div className="py-6 text-center text-sm text-muted-foreground">
+                          Žiadne šablóny. Najprv vytvorte šablónu zmluvy.
+                        </div>
+                      ) : (
+                        filteredTemplates.map(template => (
+                          <SelectItem key={template.id} value={template.id}>
+                            {template.name} {template.status === "draft" && "(koncept)"}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
