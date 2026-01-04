@@ -449,8 +449,11 @@ export default function ContractsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contracts", selectedContract?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/product-sets-all", customerCountry] });
       setIsAddingProduct(false);
       setSelectedProductSetId("");
+      setSelectedProductId("");
       toast({ title: "Produkt pridaný" });
     },
     onError: () => {
@@ -1305,6 +1308,8 @@ export default function ContractsPage() {
                     <div className="space-y-2">
                       {contractDetail.products.map((p) => {
                         const productSet = allProductSets.find(ps => ps.id === p.productSetId);
+                        const priceDisplay = p.lineGrossAmount || productSet?.totalGrossAmount || p.priceOverride;
+                        const currency = productSet?.currency || selectedContract.currency;
                         return (
                           <div key={p.id} className="flex items-center justify-between gap-2 p-2 border rounded-md bg-muted/50">
                             <div>
@@ -1312,7 +1317,7 @@ export default function ContractsPage() {
                                 {productSet ? `${productSet.productName}: ${productSet.name}` : "Neznámy produkt"}
                               </div>
                               <div className="text-xs text-muted-foreground">
-                                Množstvo: {p.quantity} | Cena: {productSet?.totalGrossAmount || p.priceOverride || "N/A"} {productSet?.currency || selectedContract.currency}
+                                Množstvo: {p.quantity} | Cena: {priceDisplay ? `${priceDisplay} ${currency}` : "nie je nastavená"}
                               </div>
                             </div>
                             <Button 
