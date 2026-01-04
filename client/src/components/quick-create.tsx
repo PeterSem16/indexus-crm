@@ -3,8 +3,9 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, User, ClipboardList, FileText, Loader2, AlertTriangle, Search, Check, ChevronsUpDown, MessageCircle, Circle } from "lucide-react";
+import { Plus, User, ClipboardList, FileText, FileSignature, Loader2, AlertTriangle, Search, Check, ChevronsUpDown, MessageCircle, Circle } from "lucide-react";
 import { useChatContext } from "@/contexts/chat-context";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -91,6 +92,7 @@ export function QuickCreate() {
   const { t } = useI18n();
   const { toast } = useToast();
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
   const { onlineUsers, openChat, isConnected } = useChatContext();
   const [openDialog, setOpenDialog] = useState<"contact" | "task" | "note" | "chat" | null>(null);
   const [taskCustomerOpen, setTaskCustomerOpen] = useState(false);
@@ -305,6 +307,13 @@ export function QuickCreate() {
                 {onlineUsers.length}
               </span>
             )}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => setLocation("/contracts")}
+            data-testid="menu-item-quick-contract"
+          >
+            <FileSignature className="h-4 w-4 mr-2" />
+            {t.nav.contracts}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

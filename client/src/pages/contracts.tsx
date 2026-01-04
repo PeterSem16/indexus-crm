@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useSearch } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +52,10 @@ export default function ContractsPage() {
   const { toast } = useToast();
   const { selectedCountries } = useCountryFilter();
   const selectedCountry = selectedCountries.length === 1 ? selectedCountries[0] : null;
+  const searchString = useSearch();
+  const urlParams = new URLSearchParams(searchString);
+  const urlCustomerId = urlParams.get("customerId");
+  
   const [activeTab, setActiveTab] = useState<TabType>("contracts");
   
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
@@ -85,6 +90,8 @@ export default function ContractsPage() {
     currency: "EUR",
     notes: ""
   });
+  
+  const [urlCustomerProcessed, setUrlCustomerProcessed] = useState(false);
   
   const [signatureForm, setSignatureForm] = useState({
     otpCode: "",
@@ -134,9 +141,24 @@ export default function ContractsPage() {
     queryKey: ["/api/contracts"],
   });
 
-  const { data: customers = [] } = useQuery<Customer[]>({
+  const { data: customers = [], isLoading: customersLoading } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
   });
+
+  useEffect(() => {
+    if (urlCustomerId && customers.length > 0 && !urlCustomerProcessed) {
+      const customerExists = customers.some(c => c.id === urlCustomerId);
+      if (customerExists) {
+        setContractForm(prev => ({ ...prev, customerId: urlCustomerId }));
+        setIsContractWizardOpen(true);
+        toast({ 
+          title: "Zákazník vybraný", 
+          description: customers.find(c => c.id === urlCustomerId)?.firstName + " " + customers.find(c => c.id === urlCustomerId)?.lastName 
+        });
+      }
+      setUrlCustomerProcessed(true);
+    }
+  }, [urlCustomerId, customers, urlCustomerProcessed, toast]);
 
   const { data: billingDetails = [] } = useQuery<BillingDetails[]>({
     queryKey: ["/api/billing-details"],

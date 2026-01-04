@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
+import { useLocation } from "wouter";
+import { Loader2, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -219,6 +220,7 @@ function DateFields({
 export function PotentialCaseForm({ customer, open, onClose }: PotentialCaseFormProps) {
   const { t } = useI18n();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("status");
   const [formData, setFormData] = useState<FormData>(emptyFormData(customer.id));
 
@@ -709,18 +711,31 @@ export function PotentialCaseForm({ customer, open, onClose }: PotentialCaseForm
               </TabsContent>
             </Tabs>
 
-            <div className="flex justify-end gap-2 pt-4 border-t">
-              <Button variant="outline" onClick={onClose} data-testid="button-cancel">
-                {t.common.cancel}
-              </Button>
+            <div className="flex justify-between gap-2 pt-4 border-t">
               <Button
-                onClick={handleSubmit}
-                disabled={saveMutation.isPending}
-                data-testid="button-save"
+                variant="outline"
+                onClick={() => {
+                  onClose();
+                  setLocation(`/contracts?customerId=${customer.id}`);
+                }}
+                data-testid="button-create-contract"
               >
-                {saveMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                {t.common.save}
+                <FileText className="h-4 w-4 mr-2" />
+                {t.nav.contracts}
               </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={onClose} data-testid="button-cancel">
+                  {t.common.cancel}
+                </Button>
+                <Button
+                  onClick={handleSubmit}
+                  disabled={saveMutation.isPending}
+                  data-testid="button-save"
+                >
+                  {saveMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  {t.common.save}
+                </Button>
+              </div>
             </div>
           </div>
         )}
@@ -733,6 +748,7 @@ export function PotentialCaseForm({ customer, open, onClose }: PotentialCaseForm
 export function EmbeddedPotentialCaseForm({ customer }: EmbeddedPotentialCaseFormProps) {
   const { t } = useI18n();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("status");
   const [formData, setFormData] = useState<FormData>(emptyFormData(customer.id));
 
@@ -1181,7 +1197,15 @@ export function EmbeddedPotentialCaseForm({ customer }: EmbeddedPotentialCaseFor
         </TabsContent>
       </Tabs>
 
-      <div className="flex justify-end pt-4 border-t">
+      <div className="flex justify-between gap-2 pt-4 border-t">
+        <Button
+          variant="outline"
+          onClick={() => setLocation(`/contracts?customerId=${customer.id}`)}
+          data-testid="button-embedded-create-contract"
+        >
+          <FileText className="h-4 w-4 mr-2" />
+          {t.nav.contracts}
+        </Button>
         <Button
           onClick={handleSubmit}
           disabled={saveMutation.isPending}
