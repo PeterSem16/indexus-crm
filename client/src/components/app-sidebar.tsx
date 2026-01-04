@@ -32,10 +32,15 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
   SidebarHeader,
   SidebarFooter,
   SidebarSeparator,
 } from "@/components/ui/sidebar";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDown } from "lucide-react";
 import { CountryFilter } from "./country-filter";
 
 export function AppSidebar() {
@@ -55,11 +60,15 @@ export function AppSidebar() {
 
   const mainNavItems = [
     { title: t.nav.dashboard, url: "/", icon: LayoutDashboard, testId: "dashboard", moduleKey: "dashboard" },
-    { title: t.nav.customers, url: "/customers", icon: Users, testId: "customers", moduleKey: "customers" },
     { title: t.nav.hospitals, url: "/hospitals", icon: Building2, testId: "hospitals", moduleKey: "hospitals" },
     { title: t.nav.collaborators, url: "/collaborators", icon: Handshake, testId: "collaborators", moduleKey: "collaborators" },
     { title: t.nav.invoices, url: "/invoices", icon: FileText, testId: "invoices", moduleKey: "invoices" },
     { title: t.nav.campaigns, url: "/campaigns", icon: Megaphone, testId: "campaigns", moduleKey: "campaigns" },
+  ];
+
+  const customerSubItems = [
+    { title: t.nav.customers, url: "/customers", testId: "customers", moduleKey: "customers" },
+    { title: t.nav.contracts, url: "/contracts", testId: "contracts", moduleKey: "contracts" },
   ];
   
   const adminNavItems = [
@@ -70,7 +79,6 @@ export function AppSidebar() {
 
   const toolsNavItems = [
     { title: t.nav.tasks, url: "/tasks", icon: CheckSquare, testId: "tasks", moduleKey: "tasks" },
-    { title: t.nav.contracts, url: "/contracts", icon: FileSignature, testId: "contracts", moduleKey: "contracts" },
   ];
 
   const visibleMainItems = mainNavItems.filter(item => canAccessModule(item.moduleKey));
@@ -111,7 +119,46 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {visibleMainItems.map((item) => (
+              {visibleMainItems.slice(0, 1).map((item) => (
+                <SidebarMenuItem key={item.testId}>
+                  <SidebarMenuButton 
+                    asChild 
+                    isActive={location === item.url}
+                  >
+                    <Link href={item.url} data-testid={`nav-${item.testId}`}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+              
+              <Collapsible defaultOpen className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton isActive={location === "/customers" || location === "/contracts"}>
+                      <Users className="h-4 w-4" />
+                      <span>{t.nav.customers}</span>
+                      <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {customerSubItems.filter(item => canAccessModule(item.moduleKey)).map((item) => (
+                        <SidebarMenuSubItem key={item.testId}>
+                          <SidebarMenuSubButton asChild isActive={location === item.url}>
+                            <Link href={item.url} data-testid={`nav-${item.testId}`}>
+                              <span>{item.title}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+              
+              {visibleMainItems.slice(1).map((item) => (
                 <SidebarMenuItem key={item.testId}>
                   <SidebarMenuButton 
                     asChild 
