@@ -2649,7 +2649,7 @@ export const contractInstances = pgTable("contract_instances", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   contractNumber: varchar("contract_number", { length: 50 }).notNull(), // e.g., ZML-2025-00001
   templateId: varchar("template_id").notNull(),
-  templateVersionId: varchar("template_version_id").notNull(),
+  templateVersionId: varchar("template_version_id"), // optional - only used if versioning is enabled
   customerId: varchar("customer_id").notNull(),
   billingDetailsId: varchar("billing_details_id").notNull(),
   // Initiation source
