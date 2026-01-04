@@ -113,6 +113,7 @@ export default function ContractsPage() {
   
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [selectedProductSetId, setSelectedProductSetId] = useState("");
+  const [expandedProductSetId, setExpandedProductSetId] = useState<string | null>(null);
   
   type SignatureRequest = {
     id: string;
@@ -390,6 +391,42 @@ export default function ContractsPage() {
     totalGrossAmount: string | null;
   };
 
+  type ProductSetDetail = {
+    id: string;
+    name: string;
+    productId: string;
+    productName: string;
+    currency: string;
+    collections: Array<{
+      id: string;
+      instanceName: string | null;
+      priceName: string | null;
+      priceAmount: string | null;
+      discountName: string | null;
+      discountPercent: string | null;
+      vatName: string | null;
+      vatPercent: string | null;
+      quantity: number;
+      lineNetAmount: string | null;
+      lineDiscountAmount: string | null;
+      lineVatAmount: string | null;
+      lineGrossAmount: string | null;
+    }>;
+    storage: Array<{
+      id: string;
+      serviceName: string | null;
+      priceName: string | null;
+      priceAmount: string | null;
+      lineGrossAmount: string | null;
+    }>;
+    calculatedTotals: {
+      totalNetAmount: string;
+      totalDiscountAmount: string;
+      totalVatAmount: string;
+      totalGrossAmount: string;
+    };
+  };
+
   // Get customer's country to filter products and sets
   const contractCustomer = customers.find(c => c.id === selectedContract?.customerId);
   const customerCountry = contractCustomer?.country?.toUpperCase();
@@ -423,6 +460,17 @@ export default function ContractsPage() {
       return res.json();
     },
     enabled: isPreviewOpen && !!selectedContract?.id && !!customerCountry
+  });
+
+  // Get detailed info for expanded product set (with price breakdown)
+  const { data: expandedProductSetDetail, isLoading: loadingProductSetDetail } = useQuery<ProductSetDetail>({
+    queryKey: ["/api/product-sets", expandedProductSetId, "detail"],
+    queryFn: async () => {
+      const res = await fetch(`/api/product-sets/${expandedProductSetId}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch product set details");
+      return res.json();
+    },
+    enabled: !!expandedProductSetId
   });
 
   // Get billsets for selected product (for dropdown selection)
@@ -1308,29 +1356,107 @@ export default function ContractsPage() {
                     <div className="space-y-2">
                       {contractDetail.products.map((p) => {
                         const productSet = allProductSets.find(ps => ps.id === p.productSetId);
-                        const priceDisplay = p.lineGrossAmount || productSet?.totalGrossAmount || p.priceOverride;
+                        const isExpanded = expandedProductSetId === p.productSetId;
+                        const detail = isExpanded ? expandedProductSetDetail : null;
+                        const totalPrice = detail?.calculatedTotals?.totalGrossAmount || productSet?.totalGrossAmount || p.priceOverride;
                         const currency = productSet?.currency || selectedContract.currency;
+                        
                         return (
-                          <div key={p.id} className="flex items-center justify-between gap-2 p-2 border rounded-md bg-muted/50">
-                            <div>
-                              <div className="font-medium text-sm">
-                                {productSet ? `${productSet.productName}: ${productSet.name}` : "Neznámy produkt"}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                Množstvo: {p.quantity} | Cena: {priceDisplay ? `${priceDisplay} ${currency}` : "nie je nastavená"}
-                              </div>
-                            </div>
-                            <Button 
-                              variant="ghost" 
-                              size="icon"
-                              onClick={() => removeContractProductMutation.mutate({ 
-                                contractId: selectedContract.id, 
-                                productId: p.id 
-                              })}
-                              data-testid={`button-remove-product-${p.id}`}
+                          <div key={p.id} className="border rounded-md bg-muted/50 overflow-hidden">
+                            <div 
+                              className="flex items-center justify-between gap-2 p-2 cursor-pointer hover-elevate"
+                              onClick={() => setExpandedProductSetId(isExpanded ? null : p.productSetId)}
                             >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
+                              <div className="flex items-center gap-2">
+                                <ChevronRight className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                                <div>
+                                  <div className="font-medium text-sm">
+                                    {productSet ? `${productSet.productName}: ${productSet.name}` : "Neznámy produkt"}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    Množstvo: {p.quantity} | Celkom: {totalPrice ? `${totalPrice} ${currency}` : "načítavam..."}
+                                  </div>
+                                </div>
+                              </div>
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeContractProductMutation.mutate({ 
+                                    contractId: selectedContract.id, 
+                                    productId: p.id 
+                                  });
+                                }}
+                                data-testid={`button-remove-product-${p.id}`}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                            
+                            {isExpanded && (
+                              <div className="border-t p-3 bg-background/50">
+                                {loadingProductSetDetail ? (
+                                  <div className="flex items-center justify-center py-4">
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                    <span className="text-sm text-muted-foreground">Načítavam...</span>
+                                  </div>
+                                ) : detail ? (
+                                  <div className="space-y-3">
+                                    <h5 className="text-sm font-medium">Rekapitulácia ceny</h5>
+                                    
+                                    {detail.collections && detail.collections.length > 0 && (
+                                      <div className="space-y-1">
+                                        <div className="text-xs font-medium text-muted-foreground uppercase">Odbery</div>
+                                        {detail.collections.map((col, idx) => (
+                                          <div key={col.id || idx} className="flex justify-between text-sm py-1 border-b border-dashed">
+                                            <span>{col.instanceName || "Položka"}: {col.priceName || ""}</span>
+                                            <span className="font-mono">{col.lineGrossAmount || col.priceAmount || "0.00"} {currency}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                    
+                                    {detail.storage && detail.storage.length > 0 && (
+                                      <div className="space-y-1">
+                                        <div className="text-xs font-medium text-muted-foreground uppercase">Úložné služby</div>
+                                        {detail.storage.map((stor, idx) => (
+                                          <div key={stor.id || idx} className="flex justify-between text-sm py-1 border-b border-dashed">
+                                            <span>{stor.serviceName || "Služba"}: {stor.priceName || ""}</span>
+                                            <span className="font-mono">{stor.lineGrossAmount || stor.priceAmount || "0.00"} {currency}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                    
+                                    <div className="pt-2 space-y-1 border-t">
+                                      <div className="flex justify-between text-sm">
+                                        <span>Základ:</span>
+                                        <span className="font-mono">{detail.calculatedTotals.totalNetAmount} {currency}</span>
+                                      </div>
+                                      {parseFloat(detail.calculatedTotals.totalDiscountAmount) > 0 && (
+                                        <div className="flex justify-between text-sm text-green-600 dark:text-green-400">
+                                          <span>Zľava:</span>
+                                          <span className="font-mono">-{detail.calculatedTotals.totalDiscountAmount} {currency}</span>
+                                        </div>
+                                      )}
+                                      {parseFloat(detail.calculatedTotals.totalVatAmount) > 0 && (
+                                        <div className="flex justify-between text-sm">
+                                          <span>DPH:</span>
+                                          <span className="font-mono">{detail.calculatedTotals.totalVatAmount} {currency}</span>
+                                        </div>
+                                      )}
+                                      <div className="flex justify-between text-sm font-bold pt-1 border-t">
+                                        <span>Celkom:</span>
+                                        <span className="font-mono">{detail.calculatedTotals.totalGrossAmount} {currency}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-muted-foreground">Nepodarilo sa načítať detail.</p>
+                                )}
+                              </div>
+                            )}
                           </div>
                         );
                       })}

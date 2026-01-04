@@ -5891,25 +5891,82 @@ export async function registerRoutes(
       const collections = await storage.getProductSetCollections(req.params.id);
       const storageItems = await storage.getProductSetStorage(req.params.id);
       
-      // Enrich collections with instance names
+      // Enrich collections with instance names and price details
       const enrichedCollections = await Promise.all(collections.map(async (col: any) => {
+        let enriched = { ...col };
         if (col.instanceId) {
           const instance = await storage.getMarketProductInstance(col.instanceId);
-          return { ...col, instanceName: instance?.name || null };
+          enriched.instanceName = instance?.name || null;
         }
-        return col;
+        if (col.priceId) {
+          const price = await storage.getInstancePrice(col.priceId);
+          enriched.priceName = price?.name || null;
+          enriched.priceAmount = price?.price || null;
+        }
+        if (col.discountId) {
+          const discount = await storage.getInstanceDiscount(col.discountId);
+          enriched.discountName = discount?.name || null;
+          enriched.discountPercent = discount?.percentageValue || null;
+          enriched.discountFixed = discount?.fixedValue || null;
+        }
+        if (col.vatRateId) {
+          const vat = await storage.getInstanceVatRate(col.vatRateId);
+          enriched.vatName = vat?.name || null;
+          enriched.vatPercent = vat?.ratePercentage || null;
+        }
+        return enriched;
       }));
       
-      // Enrich storage with service names
+      // Enrich storage with service names and price details
       const enrichedStorage = await Promise.all(storageItems.map(async (stor: any) => {
+        let enriched = { ...stor };
         if (stor.serviceId) {
           const service = await storage.getMarketProductService(stor.serviceId);
-          return { ...stor, serviceName: service?.name || null };
+          enriched.serviceName = service?.name || null;
         }
-        return stor;
+        if (stor.priceId) {
+          const price = await storage.getInstancePrice(stor.priceId);
+          enriched.priceName = price?.name || null;
+          enriched.priceAmount = price?.price || null;
+        }
+        return enriched;
       }));
       
-      res.json({ ...set, collections: enrichedCollections, storage: enrichedStorage });
+      // Calculate totals from collections and storage
+      let totalNet = 0;
+      let totalVat = 0;
+      let totalGross = 0;
+      let totalDiscount = 0;
+      
+      for (const col of enrichedCollections) {
+        totalNet += parseFloat(col.lineNetAmount || "0");
+        totalVat += parseFloat(col.lineVatAmount || "0");
+        totalGross += parseFloat(col.lineGrossAmount || "0");
+        totalDiscount += parseFloat(col.lineDiscountAmount || "0");
+      }
+      
+      for (const stor of enrichedStorage) {
+        totalNet += parseFloat(stor.lineNetAmount || "0");
+        totalVat += parseFloat(stor.lineVatAmount || "0");
+        totalGross += parseFloat(stor.lineGrossAmount || "0");
+        totalDiscount += parseFloat(stor.lineDiscountAmount || "0");
+      }
+      
+      // Get product name
+      const product = await storage.getProduct(set.productId);
+      
+      res.json({ 
+        ...set, 
+        productName: product?.name || null,
+        collections: enrichedCollections, 
+        storage: enrichedStorage,
+        calculatedTotals: {
+          totalNetAmount: totalNet.toFixed(2),
+          totalDiscountAmount: totalDiscount.toFixed(2),
+          totalVatAmount: totalVat.toFixed(2),
+          totalGrossAmount: totalGross.toFixed(2)
+        }
+      });
     } catch (error) {
       console.error("Failed to fetch product set:", error);
       res.status(500).json({ error: "Failed to fetch product set" });

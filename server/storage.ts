@@ -126,6 +126,7 @@ export interface IStorage {
   deleteMarketProductInstance(id: string): Promise<boolean>;
 
   // Instance Prices
+  getInstancePrice(id: string): Promise<any | undefined>;
   getInstancePrices(instanceId: string, instanceType: string): Promise<any[]>;
   createInstancePrice(data: any): Promise<any>;
   updateInstancePrice(id: string, data: any): Promise<any | undefined>;
@@ -146,10 +147,14 @@ export interface IStorage {
   bulkCreatePaymentInstallments(data: any[]): Promise<any[]>;
 
   // Instance Discounts
+  getInstanceDiscount(id: string): Promise<any | undefined>;
   getInstanceDiscounts(instanceId: string, instanceType: string): Promise<any[]>;
   createInstanceDiscount(data: any): Promise<any>;
   updateInstanceDiscount(id: string, data: any): Promise<any | undefined>;
   deleteInstanceDiscount(id: string): Promise<boolean>;
+
+  // Instance VAT Rates
+  getInstanceVatRate(id: string): Promise<any | undefined>;
 
   // Market Product Services
   getMarketProductService(id: string): Promise<any | undefined>;
@@ -742,6 +747,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Instance Prices
+  async getInstancePrice(id: string): Promise<any | undefined> {
+    const [price] = await db.select().from(instancePrices).where(eq(instancePrices.id, id));
+    return price || undefined;
+  }
+
   async getInstancePrices(instanceId: string, instanceType: string): Promise<any[]> {
     return await db.select().from(instancePrices).where(
       and(eq(instancePrices.instanceId, instanceId), eq(instancePrices.instanceType, instanceType))
@@ -821,6 +831,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Instance Discounts
+  async getInstanceDiscount(id: string): Promise<any | undefined> {
+    const [discount] = await db.select().from(instanceDiscounts).where(eq(instanceDiscounts.id, id));
+    return discount || undefined;
+  }
+
   async getInstanceDiscounts(instanceId: string, instanceType: string): Promise<any[]> {
     return await db.select().from(instanceDiscounts).where(
       and(eq(instanceDiscounts.instanceId, instanceId), eq(instanceDiscounts.instanceType, instanceType))
@@ -843,6 +858,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Instance VAT Rates
+  async getInstanceVatRate(id: string): Promise<any | undefined> {
+    const [vatRate] = await db.select().from(instanceVatRates).where(eq(instanceVatRates.id, id));
+    return vatRate || undefined;
+  }
+
   async getInstanceVatRates(instanceId: string, instanceType: string): Promise<any[]> {
     return await db.select().from(instanceVatRates).where(
       and(eq(instanceVatRates.instanceId, instanceId), eq(instanceVatRates.instanceType, instanceType))
