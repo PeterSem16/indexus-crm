@@ -6696,9 +6696,13 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Contract not found" });
       }
       
-      const templateVersion = await storage.getContractTemplateVersion(contract.templateVersionId);
-      if (!templateVersion) {
-        return res.status(404).json({ error: "Template version not found" });
+      const contractTemplate = await storage.getContractTemplate(contract.templateId);
+      if (!contractTemplate) {
+        return res.status(404).json({ error: "Contract template not found" });
+      }
+      
+      if (!contractTemplate.contentHtml) {
+        return res.status(400).json({ error: "Template has no content. Please edit the template first." });
       }
       
       const [customer, billingDetails, products] = await Promise.all([
@@ -6707,7 +6711,7 @@ export async function registerRoutes(
         storage.getContractInstanceProducts(contract.id)
       ]);
       
-      const template = Handlebars.compile(templateVersion.contentHtml);
+      const template = Handlebars.compile(contractTemplate.contentHtml);
       
       const context = {
         customer: {

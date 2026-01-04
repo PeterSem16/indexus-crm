@@ -101,6 +101,15 @@ export default function ContractsPage() {
   const [otpVerified, setOtpVerified] = useState(false);
   const [signatureData, setSignatureData] = useState("");
   
+  const [participantForm, setParticipantForm] = useState({
+    fullName: "",
+    email: "",
+    phone: "",
+    role: "client",
+    signatureRequired: true
+  });
+  const [isAddingParticipant, setIsAddingParticipant] = useState(false);
+  
   type SignatureRequest = {
     id: string;
     contractId: string;
@@ -285,8 +294,45 @@ export default function ContractsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts", selectedContract?.id] });
       toast({ title: "Zmluva vygenerovaná" });
     }
+  });
+
+  const addParticipantMutation = useMutation({
+    mutationFn: async ({ contractId, data }: { contractId: string; data: typeof participantForm }) => {
+      return apiRequest("POST", `/api/contracts/${contractId}/participants`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts", selectedContract?.id] });
+      setIsAddingParticipant(false);
+      setParticipantForm({ fullName: "", email: "", phone: "", role: "client", signatureRequired: true });
+      toast({ title: "Účastník pridaný" });
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa pridať účastníka.", variant: "destructive" });
+    }
+  });
+
+  type ContractDetail = ContractInstance & {
+    participants?: Array<{
+      id: string;
+      fullName: string;
+      email: string | null;
+      phone: string | null;
+      role: string;
+      signatureRequired: boolean;
+    }>;
+    products?: Array<{
+      id: string;
+      productId: string;
+      quantity: number;
+    }>;
+  };
+
+  const { data: contractDetail } = useQuery<ContractDetail>({
+    queryKey: ["/api/contracts", selectedContract?.id],
+    enabled: isPreviewOpen && !!selectedContract?.id
   });
 
   const resetTemplateForm = () => {
@@ -889,10 +935,156 @@ export default function ContractsPage() {
               
               <Separator />
               
-              {selectedContract.renderedHtml ? (
+              {selectedContract.status === "draft" && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="font-medium flex items-center gap-2">
+                      <PenTool className="h-4 w-4" />
+                      Podpisovatelia
+                    </h4>
+                    {!isAddingParticipant && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          const customer = customers.find(c => c.id === selectedContract.customerId);
+                          if (customer) {
+                            setParticipantForm({
+                              fullName: `${customer.firstName || ""} ${customer.lastName || ""}`.trim(),
+                              email: customer.email || "",
+                              phone: customer.phone || customer.mobile || "",
+                              role: "client",
+                              signatureRequired: true
+                            });
+                          }
+                          setIsAddingParticipant(true);
+                        }}
+                        data-testid="button-add-participant"
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Pridať
+                      </Button>
+                    )}
+                  </div>
+                  
+                  {contractDetail?.participants && contractDetail.participants.length > 0 ? (
+                    <div className="space-y-2">
+                      {contractDetail.participants.map((p) => (
+                        <div key={p.id} className="flex items-center justify-between gap-2 p-2 border rounded-md bg-muted/50">
+                          <div className="flex items-center gap-2">
+                            <div>
+                              <div className="font-medium text-sm">{p.fullName}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {p.email && <span>{p.email}</span>}
+                                {p.email && p.phone && <span> | </span>}
+                                {p.phone && <span>{p.phone}</span>}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary">{p.role}</Badge>
+                            {p.signatureRequired && <Badge>Podpis</Badge>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground py-2">
+                      Žiadni podpisovatelia. Pridajte aspoň jedného podpisovateľa pre odoslanie zmluvy.
+                    </p>
+                  )}
+                  
+                  {isAddingParticipant && (
+                    <div className="p-3 border rounded-md space-y-3 bg-muted/30">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label htmlFor="participantName">Meno a priezvisko</Label>
+                          <Input
+                            id="participantName"
+                            value={participantForm.fullName}
+                            onChange={(e) => setParticipantForm({ ...participantForm, fullName: e.target.value })}
+                            data-testid="input-participant-name"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="participantRole">Rola</Label>
+                          <Select 
+                            value={participantForm.role} 
+                            onValueChange={(v) => setParticipantForm({ ...participantForm, role: v })}
+                          >
+                            <SelectTrigger data-testid="select-participant-role">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="client">Klient</SelectItem>
+                              <SelectItem value="provider">Poskytovateľ</SelectItem>
+                              <SelectItem value="witness">Svedok</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label htmlFor="participantEmail">Email</Label>
+                          <Input
+                            id="participantEmail"
+                            type="email"
+                            value={participantForm.email}
+                            onChange={(e) => setParticipantForm({ ...participantForm, email: e.target.value })}
+                            data-testid="input-participant-email"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="participantPhone">Telefón</Label>
+                          <Input
+                            id="participantPhone"
+                            value={participantForm.phone}
+                            onChange={(e) => setParticipantForm({ ...participantForm, phone: e.target.value })}
+                            data-testid="input-participant-phone"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <input 
+                            type="checkbox" 
+                            id="signatureRequired"
+                            checked={participantForm.signatureRequired}
+                            onChange={(e) => setParticipantForm({ ...participantForm, signatureRequired: e.target.checked })}
+                            className="rounded"
+                          />
+                          <Label htmlFor="signatureRequired" className="text-sm cursor-pointer">Vyžaduje podpis</Label>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm" onClick={() => setIsAddingParticipant(false)}>
+                            Zrušiť
+                          </Button>
+                          <Button 
+                            size="sm"
+                            disabled={!participantForm.fullName || addParticipantMutation.isPending}
+                            onClick={() => {
+                              addParticipantMutation.mutate({
+                                contractId: selectedContract.id,
+                                data: participantForm
+                              });
+                            }}
+                            data-testid="button-save-participant"
+                          >
+                            {addParticipantMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Uložiť"}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              <Separator />
+              
+              {selectedContract.renderedHtml || contractDetail?.renderedHtml ? (
                 <div 
                   className="prose prose-sm max-w-none dark:prose-invert p-4 border rounded-md bg-white dark:bg-gray-900"
-                  dangerouslySetInnerHTML={{ __html: selectedContract.renderedHtml }}
+                  dangerouslySetInnerHTML={{ __html: selectedContract.renderedHtml || contractDetail?.renderedHtml || "" }}
                 />
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
