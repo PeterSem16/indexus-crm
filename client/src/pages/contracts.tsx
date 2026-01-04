@@ -105,7 +105,8 @@ export default function ContractsPage() {
     fullName: "",
     email: "",
     phone: "",
-    role: "client",
+    role: "signer",
+    participantType: "customer", // customer, billing_company, internal_witness, guarantor
     signatureRequired: true
   });
   const [isAddingParticipant, setIsAddingParticipant] = useState(false);
@@ -309,7 +310,7 @@ export default function ContractsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contracts", selectedContract?.id] });
       setIsAddingParticipant(false);
-      setParticipantForm({ fullName: "", email: "", phone: "", role: "client", signatureRequired: true });
+      setParticipantForm({ fullName: "", email: "", phone: "", role: "signer", participantType: "customer", signatureRequired: true });
       toast({ title: "Účastník pridaný" });
     },
     onError: () => {
@@ -344,13 +345,17 @@ export default function ContractsPage() {
     id: string;
     name: string;
     productId: string;
+    productName: string;
     countryCode: string | null;
     currency: string;
     totalGrossAmount: string | null;
   };
 
+  // Get billing details to filter product sets by country
+  const billingDetail = billingDetails.find(b => b.id === selectedContract?.billingDetailsId);
+
   const { data: productSets = [] } = useQuery<ProductSet[]>({
-    queryKey: ["/api/product-sets"],
+    queryKey: ["/api/product-sets", { country: billingDetail?.countryCode }],
     enabled: isPreviewOpen && !!selectedContract?.id
   });
 
@@ -1006,7 +1011,8 @@ export default function ContractsPage() {
                               fullName: `${customer.firstName || ""} ${customer.lastName || ""}`.trim(),
                               email: customer.email || "",
                               phone: customer.phone || customer.mobile || "",
-                              role: "client",
+                              role: "signer",
+                              participantType: "customer",
                               signatureRequired: true
                             });
                           }
@@ -1060,7 +1066,26 @@ export default function ContractsPage() {
                           />
                         </div>
                         <div>
-                          <Label htmlFor="participantRole">Rola</Label>
+                          <Label>Typ účastníka</Label>
+                          <Select 
+                            value={participantForm.participantType} 
+                            onValueChange={(v) => setParticipantForm({ ...participantForm, participantType: v })}
+                          >
+                            <SelectTrigger data-testid="select-participant-type">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="customer">Klient / Zákazník</SelectItem>
+                              <SelectItem value="billing_company">Poskytovateľ / Firma</SelectItem>
+                              <SelectItem value="internal_witness">Interný svedok</SelectItem>
+                              <SelectItem value="guarantor">Ručiteľ</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label>Rola pri podpise</Label>
                           <Select 
                             value={participantForm.role} 
                             onValueChange={(v) => setParticipantForm({ ...participantForm, role: v })}
@@ -1069,12 +1094,13 @@ export default function ContractsPage() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="client">Klient</SelectItem>
-                              <SelectItem value="provider">Poskytovateľ</SelectItem>
+                              <SelectItem value="signer">Podpisovateľ</SelectItem>
                               <SelectItem value="witness">Svedok</SelectItem>
+                              <SelectItem value="authorized_representative">Splnomocnený zástupca</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
+                        <div></div>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
@@ -1195,11 +1221,15 @@ export default function ContractsPage() {
                             <SelectValue placeholder="Vyberte produkt" />
                           </SelectTrigger>
                           <SelectContent>
-                            {productSets.map((ps) => (
-                              <SelectItem key={ps.id} value={ps.id}>
-                                {ps.name} - {ps.totalGrossAmount || "0"} {ps.currency}
-                              </SelectItem>
-                            ))}
+                            {productSets.length === 0 ? (
+                              <div className="p-2 text-sm text-muted-foreground">Žiadne cenové sady pre túto krajinu</div>
+                            ) : (
+                              productSets.map((ps) => (
+                                <SelectItem key={ps.id} value={ps.id}>
+                                  {ps.productName}: {ps.name} - {ps.totalGrossAmount || "0"} {ps.currency}
+                                </SelectItem>
+                              ))
+                            )}
                           </SelectContent>
                         </Select>
                       </div>
