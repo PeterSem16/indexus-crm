@@ -411,7 +411,21 @@ export default function ContractsPage() {
     enabled: isPreviewOpen && !!selectedContract?.id && !!customerCountry
   });
 
-  // Get billsets for selected product and customer's country
+  // Get ALL billsets for customer's country (for displaying added products)
+  const { data: allProductSets = [] } = useQuery<ProductSet[]>({
+    queryKey: ["/api/product-sets-all", customerCountry],
+    queryFn: async () => {
+      const url = customerCountry 
+        ? `/api/product-sets?country=${encodeURIComponent(customerCountry)}`
+        : "/api/product-sets";
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch product sets");
+      return res.json();
+    },
+    enabled: isPreviewOpen && !!selectedContract?.id && !!customerCountry
+  });
+
+  // Get billsets for selected product (for dropdown selection)
   const { data: productSets = [] } = useQuery<ProductSet[]>({
     queryKey: ["/api/product-sets", selectedProductId, customerCountry],
     queryFn: async () => {
@@ -1290,11 +1304,13 @@ export default function ContractsPage() {
                   {contractDetail?.products && contractDetail.products.length > 0 ? (
                     <div className="space-y-2">
                       {contractDetail.products.map((p) => {
-                        const productSet = productSets.find(ps => ps.id === p.productSetId);
+                        const productSet = allProductSets.find(ps => ps.id === p.productSetId);
                         return (
                           <div key={p.id} className="flex items-center justify-between gap-2 p-2 border rounded-md bg-muted/50">
                             <div>
-                              <div className="font-medium text-sm">{productSet?.name || "Neznámy produkt"}</div>
+                              <div className="font-medium text-sm">
+                                {productSet ? `${productSet.productName}: ${productSet.name}` : "Neznámy produkt"}
+                              </div>
                               <div className="text-xs text-muted-foreground">
                                 Množstvo: {p.quantity} | Cena: {productSet?.totalGrossAmount || p.priceOverride || "N/A"} {productSet?.currency || selectedContract.currency}
                               </div>
