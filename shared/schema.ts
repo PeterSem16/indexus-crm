@@ -2613,6 +2613,7 @@ export const contractTemplates = pgTable("contract_templates", {
   languageCode: varchar("language_code", { length: 5 }).notNull(), // sk, cs, hu, ro, it, de, en
   category: varchar("category", { length: 50 }).notNull().default("general"), // general, cord_blood, service, storage
   status: varchar("status", { length: 20 }).notNull().default("draft"), // draft, published, archived
+  contentHtml: text("content_html"), // HTML content with Handlebars placeholders
   placeholders: text("placeholders"), // JSON array of available placeholders with descriptions
   isDefault: boolean("is_default").notNull().default(false),
   sortOrder: integer("sort_order").notNull().default(0),
