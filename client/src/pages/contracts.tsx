@@ -219,8 +219,8 @@ export default function ContractsPage() {
   });
 
   const verifyOtpMutation = useMutation({
-    mutationFn: async ({ contractId, otpCode }: { contractId: string; otpCode: string }) => {
-      const response = await apiRequest("POST", `/api/contracts/${contractId}/verify-otp`, { otpCode });
+    mutationFn: async ({ contractId, otpCode, signatureRequestId }: { contractId: string; otpCode: string; signatureRequestId: string }) => {
+      const response = await apiRequest("POST", `/api/contracts/${contractId}/verify-otp`, { otpCode, signatureRequestId });
       return await response.json() as { success: boolean; verified: boolean; signatureRequestId: string };
     },
     onSuccess: (data) => {
@@ -929,6 +929,9 @@ export default function ContractsPage() {
             {(selectedContract?.status === "sent" || selectedContract?.status === "pending_signature") && (
               <Button onClick={() => {
                 setIsPreviewOpen(false);
+                setOtpVerified(false);
+                setSignatureForm({ otpCode: "", signatureRequestId: "" });
+                setSignatureData("");
                 setIsSignatureModalOpen(true);
               }}>
                 <Edit className="h-4 w-4 mr-2" />
@@ -997,7 +1000,8 @@ export default function ContractsPage() {
                       }
                       verifyOtpMutation.mutate({
                         contractId: selectedContract.id,
-                        otpCode: signatureForm.otpCode
+                        otpCode: signatureForm.otpCode,
+                        signatureRequestId: signatureForm.signatureRequestId
                       });
                     }}
                     data-testid="button-verify-otp"
