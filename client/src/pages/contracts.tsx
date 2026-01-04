@@ -110,6 +110,9 @@ export default function ContractsPage() {
   });
   const [isAddingParticipant, setIsAddingParticipant] = useState(false);
   
+  const [isAddingProduct, setIsAddingProduct] = useState(false);
+  const [selectedProductSetId, setSelectedProductSetId] = useState("");
+  
   type SignatureRequest = {
     id: string;
     contractId: string;
@@ -326,13 +329,57 @@ export default function ContractsPage() {
     products?: Array<{
       id: string;
       productId: string;
+      productSetId: string;
       quantity: number;
+      priceOverride: string | null;
     }>;
   };
 
   const { data: contractDetail } = useQuery<ContractDetail>({
     queryKey: ["/api/contracts", selectedContract?.id],
     enabled: isPreviewOpen && !!selectedContract?.id
+  });
+
+  type ProductSet = {
+    id: string;
+    name: string;
+    productId: string;
+    countryCode: string | null;
+    currency: string;
+    totalGrossAmount: string | null;
+  };
+
+  const { data: productSets = [] } = useQuery<ProductSet[]>({
+    queryKey: ["/api/product-sets"],
+    enabled: isPreviewOpen && !!selectedContract?.id
+  });
+
+  const addContractProductMutation = useMutation({
+    mutationFn: async ({ contractId, productSetId }: { contractId: string; productSetId: string }) => {
+      return apiRequest("POST", `/api/contracts/${contractId}/products`, { 
+        productSetId,
+        quantity: 1
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts", selectedContract?.id] });
+      setIsAddingProduct(false);
+      setSelectedProductSetId("");
+      toast({ title: "Produkt pridaný" });
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa pridať produkt.", variant: "destructive" });
+    }
+  });
+
+  const removeContractProductMutation = useMutation({
+    mutationFn: async ({ contractId, productId }: { contractId: string; productId: string }) => {
+      return apiRequest("DELETE", `/api/contracts/${contractId}/products/${productId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts", selectedContract?.id] });
+      toast({ title: "Produkt odstránený" });
+    }
   });
 
   const resetTemplateForm = () => {
@@ -926,6 +973,12 @@ export default function ContractsPage() {
                   <div className="mt-1 font-medium">{getCustomerName(selectedContract.customerId)}</div>
                 </div>
                 <div>
+                  <span className="text-sm text-muted-foreground">Fakturačná spoločnosť:</span>
+                  <div className="mt-1 font-medium">
+                    {billingDetails.find(b => b.id === selectedContract.billingDetailsId)?.companyName || "Nevybraná"}
+                  </div>
+                </div>
+                <div>
                   <span className="text-sm text-muted-foreground">Suma:</span>
                   <div className="mt-1 font-medium">
                     {selectedContract.totalGrossAmount || "0"} {selectedContract.currency}
@@ -1073,6 +1126,103 @@ export default function ContractsPage() {
                             {addParticipantMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Uložiť"}
                           </Button>
                         </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <Separator className="my-4" />
+                  
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="font-medium flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      Produkty / Cenové sady
+                    </h4>
+                    {!isAddingProduct && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setIsAddingProduct(true)}
+                        data-testid="button-add-product"
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Pridať produkt
+                      </Button>
+                    )}
+                  </div>
+                  
+                  {contractDetail?.products && contractDetail.products.length > 0 ? (
+                    <div className="space-y-2">
+                      {contractDetail.products.map((p) => {
+                        const productSet = productSets.find(ps => ps.id === p.productSetId);
+                        return (
+                          <div key={p.id} className="flex items-center justify-between gap-2 p-2 border rounded-md bg-muted/50">
+                            <div>
+                              <div className="font-medium text-sm">{productSet?.name || "Neznámy produkt"}</div>
+                              <div className="text-xs text-muted-foreground">
+                                Množstvo: {p.quantity} | Cena: {productSet?.totalGrossAmount || p.priceOverride || "N/A"} {productSet?.currency || selectedContract.currency}
+                              </div>
+                            </div>
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              onClick={() => removeContractProductMutation.mutate({ 
+                                contractId: selectedContract.id, 
+                                productId: p.id 
+                              })}
+                              data-testid={`button-remove-product-${p.id}`}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground py-2">
+                      Žiadne produkty. Pridajte produkty pre výpočet ceny zmluvy.
+                    </p>
+                  )}
+                  
+                  {isAddingProduct && (
+                    <div className="p-3 border rounded-md space-y-3 bg-muted/30">
+                      <div>
+                        <Label>Vyberte cenovú sadu (billset)</Label>
+                        <Select 
+                          value={selectedProductSetId} 
+                          onValueChange={setSelectedProductSetId}
+                        >
+                          <SelectTrigger data-testid="select-product-set">
+                            <SelectValue placeholder="Vyberte produkt" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {productSets.map((ps) => (
+                              <SelectItem key={ps.id} value={ps.id}>
+                                {ps.name} - {ps.totalGrossAmount || "0"} {ps.currency}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" size="sm" onClick={() => {
+                          setIsAddingProduct(false);
+                          setSelectedProductSetId("");
+                        }}>
+                          Zrušiť
+                        </Button>
+                        <Button 
+                          size="sm"
+                          disabled={!selectedProductSetId || addContractProductMutation.isPending}
+                          onClick={() => {
+                            addContractProductMutation.mutate({
+                              contractId: selectedContract.id,
+                              productSetId: selectedProductSetId
+                            });
+                          }}
+                          data-testid="button-save-product"
+                        >
+                          {addContractProductMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Pridať"}
+                        </Button>
                       </div>
                     </div>
                   )}
