@@ -27,6 +27,7 @@ import {
 import type { 
   ContractTemplate, ContractInstance, Customer, BillingDetails
 } from "@shared/schema";
+import { ContractTemplateEditor, DEFAULT_CONTRACT_TEMPLATE } from "@/components/contract-template-editor";
 
 type TabType = "templates" | "contracts";
 
@@ -569,106 +570,87 @@ export default function ContractsPage() {
       </div>
 
       <Dialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>{selectedTemplate ? "Upraviť šablónu" : "Nová šablóna zmluvy"}</DialogTitle>
             <DialogDescription>
-              Vytvorte alebo upravte šablónu zmluvy s Handlebars premennými.
+              Vytvorte alebo upravte šablónu zmluvy. Kliknite na pole vľavo pre vloženie do šablóny.
             </DialogDescription>
           </DialogHeader>
           
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="template-name">Názov šablóny</Label>
-                <Input
-                  id="template-name"
-                  value={templateForm.name}
-                  onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })}
-                  placeholder="Zmluva o uchovávaní krvotvorných buniek"
-                  data-testid="input-template-name"
-                />
+          <div className="flex-1 overflow-y-auto">
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="template-name">Názov šablóny</Label>
+                  <Input
+                    id="template-name"
+                    value={templateForm.name}
+                    onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })}
+                    placeholder="Zmluva o uchovávaní"
+                    data-testid="input-template-name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="template-category">Kategória</Label>
+                  <Select
+                    value={templateForm.category}
+                    onValueChange={(value) => setTemplateForm({ ...templateForm, category: value })}
+                  >
+                    <SelectTrigger id="template-category" data-testid="select-template-category">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TEMPLATE_CATEGORIES.map(cat => (
+                        <SelectItem key={cat.value} value={cat.value}>
+                          {cat.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="template-country">Krajina</Label>
+                  <Select
+                    value={templateForm.countryCode}
+                    onValueChange={(value) => setTemplateForm({ ...templateForm, countryCode: value })}
+                  >
+                    <SelectTrigger id="template-country" data-testid="select-template-country">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="SK">Slovensko</SelectItem>
+                      <SelectItem value="CZ">Česká republika</SelectItem>
+                      <SelectItem value="HU">Maďarsko</SelectItem>
+                      <SelectItem value="RO">Rumunsko</SelectItem>
+                      <SelectItem value="IT">Taliansko</SelectItem>
+                      <SelectItem value="DE">Nemecko</SelectItem>
+                      <SelectItem value="US">USA</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="template-description">Popis</Label>
+                  <Input
+                    id="template-description"
+                    value={templateForm.description}
+                    onChange={(e) => setTemplateForm({ ...templateForm, description: e.target.value })}
+                    placeholder="Štandardná zmluva"
+                    data-testid="input-template-description"
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="template-category">Kategória</Label>
-                <Select
-                  value={templateForm.category}
-                  onValueChange={(value) => setTemplateForm({ ...templateForm, category: value })}
-                >
-                  <SelectTrigger id="template-category" data-testid="select-template-category">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TEMPLATE_CATEGORIES.map(cat => (
-                      <SelectItem key={cat.value} value={cat.value}>
-                        {cat.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="template-country">Krajina</Label>
-                <Select
-                  value={templateForm.countryCode}
-                  onValueChange={(value) => setTemplateForm({ ...templateForm, countryCode: value })}
-                >
-                  <SelectTrigger id="template-country" data-testid="select-template-country">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="SK">Slovensko</SelectItem>
-                    <SelectItem value="CZ">Česká republika</SelectItem>
-                    <SelectItem value="HU">Maďarsko</SelectItem>
-                    <SelectItem value="RO">Rumunsko</SelectItem>
-                    <SelectItem value="IT">Taliansko</SelectItem>
-                    <SelectItem value="DE">Nemecko</SelectItem>
-                    <SelectItem value="US">USA</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="template-description">Popis</Label>
-                <Input
-                  id="template-description"
-                  value={templateForm.description}
-                  onChange={(e) => setTemplateForm({ ...templateForm, description: e.target.value })}
-                  placeholder="Štandardná zmluva pre nových klientov"
-                  data-testid="input-template-description"
-                />
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <Label htmlFor="template-content">Obsah šablóny (HTML s Handlebars)</Label>
-                <Button variant="ghost" size="sm" className="text-xs">
-                  Zobraziť dostupné premenné
-                </Button>
-              </div>
-              <Textarea
-                id="template-content"
+              
+              <Separator />
+              
+              <ContractTemplateEditor
                 value={templateForm.contentHtml}
-                onChange={(e) => setTemplateForm({ ...templateForm, contentHtml: e.target.value })}
-                placeholder={`<h1>Zmluva č. {{contract.number}}</h1>
-<p>Zmluvné strany:</p>
-<p><strong>Poskytovateľ:</strong> {{billing.companyName}}, {{billing.address}}</p>
-<p><strong>Klient:</strong> {{customer.fullName}}, {{customer.address}}</p>
-...`}
-                className="min-h-[200px] font-mono text-sm"
-                data-testid="textarea-template-content"
+                onChange={(value) => setTemplateForm({ ...templateForm, contentHtml: value })}
               />
-              <p className="text-xs text-muted-foreground">
-                Dostupné premenné: {"{{customer.fullName}}"}, {"{{customer.email}}"}, {"{{billing.companyName}}"}, 
-                {"{{billing.ico}}"}, {"{{contract.number}}"}, {"{{contract.date}}"}, {"{{products[0].name}}"}...
-              </p>
             </div>
           </div>
           
-          <DialogFooter>
+          <DialogFooter className="pt-4 border-t">
             <Button variant="outline" onClick={() => setIsTemplateDialogOpen(false)}>
               Zrušiť
             </Button>
