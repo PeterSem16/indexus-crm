@@ -361,251 +361,241 @@ const SPECIAL_ELEMENTS = {
   },
 };
 
-const DEFAULT_CONTRACT_TEMPLATE = `<div style="font-family: 'Times New Roman', serif; font-size: 10pt; line-height: 1.4; max-width: 900px; margin: 0 auto; padding: 30px;">
+const DEFAULT_CONTRACT_TEMPLATE = `<div style="font-family: 'Times New Roman', serif; font-size: 9pt; line-height: 1.35; max-width: 900px; margin: 0 auto; padding: 20px;">
 
   <!-- Hlavička zmluvy -->
-  <div style="text-align: center; margin-bottom: 20px;">
-    <h1 style="font-size: 16pt; font-weight: bold; margin-bottom: 5px; color: #000;">
-      Zmluva o odbere
-    </h1>
+  <div style="text-align: center; margin-bottom: 15px;">
+    <h1 style="font-size: 14pt; font-weight: bold; margin-bottom: 5px; color: #000;">Zmluva o odbere</h1>
     <p style="font-size: 10pt; margin: 5px 0;">číslo zmluvy: {{contract.number}}</p>
-    <p style="font-size: 9pt; color: #333; margin-top: 10px;">
-      uzavretá podľa § 262 ods. 1 a § 269 ods. 2 zákona č. 513/1991 Zb. Obchodný zákonník v znení neskorších predpisov
-    </p>
+    <p style="font-size: 8pt; color: #333; margin-top: 8px;">uzavretá podľa § 262 ods. 1 a § 269 ods. 2 zákona č. 513/1991 Zb. Obchodný zákonník v znení neskorších predpisov (ďalej len „Obchodný zákonník")</p>
   </div>
 
   <!-- Zmluvné strany - dvojstĺpcové rozloženie -->
-  <div style="display: flex; justify-content: space-between; margin-bottom: 25px; gap: 30px;">
+  <div style="display: flex; justify-content: space-between; margin-bottom: 15px; gap: 20px;">
     <div style="width: 48%;">
-      <p style="font-weight: bold; margin-bottom: 8px;">medzi</p>
+      <p style="font-weight: bold; margin-bottom: 5px;">medzi</p>
       <p style="margin: 2px 0;"><strong>{{billing.companyName}}</strong></p>
-      <p style="margin: 2px 0; font-size: 9pt;">so sídlom: {{billing.address}}, {{billing.postalCode}} {{billing.city}}, {{billing.country}}</p>
-      <p style="margin: 2px 0; font-size: 9pt;">Identifikačné číslo: {{billing.taxId}}</p>
-      <p style="margin: 2px 0; font-size: 9pt;">Daňové Identifikačné číslo: {{billing.dic}}</p>
-      <p style="margin: 2px 0; font-size: 9pt;">Identifikačné číslo DPH: {{billing.vatId}}</p>
-      <p style="margin: 2px 0; font-size: 9pt;">IBAN: {{billing.iban}}</p>
-      <p style="margin: 2px 0; font-size: 9pt;">SWIFT: {{billing.swift}}</p>
-      <p style="margin: 8px 0; font-size: 9pt; font-style: italic;">(ďalej ako spoločnosť „CBC AG")</p>
+      <p style="margin: 2px 0; font-size: 8pt;">so sídlom: {{billing.address}}, {{billing.postalCode}} {{billing.city}}, {{billing.country}}</p>
+      <p style="margin: 2px 0; font-size: 8pt;">Identifikačné číslo: {{billing.taxId}}</p>
+      <p style="margin: 2px 0; font-size: 8pt;">Daňové Identifikačné číslo: {{billing.dic}}</p>
+      <p style="margin: 2px 0; font-size: 8pt;">Identifikačné číslo DPH: {{billing.vatId}}</p>
+      <p style="margin: 2px 0; font-size: 8pt;">Zastúpená na základe plnomocenstva: {{billing.representative}}, splnomocnenec</p>
+      <p style="margin: 2px 0; font-size: 8pt;">IBAN: {{billing.iban}}</p>
+      <p style="margin: 2px 0; font-size: 8pt;">SWIFT: {{billing.swift}}</p>
+      <p style="margin: 5px 0; font-size: 8pt; font-style: italic;">(ďalej ako spoločnosť „CBC AG" v príslušnom ženskom rode)</p>
     </div>
     <div style="width: 48%;">
-      <p style="font-weight: bold; margin-bottom: 8px;">a</p>
+      <p style="font-weight: bold; margin-bottom: 5px;">a</p>
       <p style="margin: 2px 0;">pani: <strong>{{customer.fullName}}</strong> (ďalej len „RODIČKA")</p>
-      <p style="margin: 2px 0; font-size: 9pt;">trvale bytom: {{customer.address}}, {{customer.postalCode}} {{customer.city}}</p>
-      <p style="margin: 2px 0; font-size: 9pt;">dátum narodenia: {{customer.dateOfBirth}}</p>
-      <p style="margin: 2px 0; font-size: 9pt;">rodné číslo: {{customer.birthNumber}}</p>
-      <p style="margin: 2px 0; font-size: 9pt;">e-mail: {{customer.email}}</p>
-      <p style="margin: 2px 0; font-size: 9pt;">telefón: {{customer.phone}}</p>
-      <p style="margin: 8px 0; font-size: 9pt;">a</p>
-      <p style="margin: 2px 0;">pán: {{father.fullName}} (ďalej len „Otec")</p>
-      <p style="margin: 2px 0; font-size: 9pt;">trvale bytom: {{father.address}}, {{father.postalCode}} {{father.city}}</p>
+      <p style="margin: 2px 0; font-size: 8pt;">trvale bytom: {{customer.address}}, {{customer.postalCode}} {{customer.city}}</p>
+      <p style="margin: 2px 0; font-size: 8pt;">dátum narodenia: {{customer.dateOfBirth}}</p>
+      <p style="margin: 2px 0; font-size: 8pt;">rodné číslo: {{customer.birthNumber}}</p>
+      <p style="margin: 2px 0; font-size: 8pt;">e-mail: {{customer.email}}</p>
+      <p style="margin: 2px 0; font-size: 8pt;">telefón: {{customer.phone}}</p>
+      <p style="margin: 5px 0; font-size: 8pt;">a</p>
+      <p style="margin: 2px 0;">pán: <strong>{{father.fullName}}</strong> (ďalej len „Otec")</p>
+      <p style="margin: 2px 0; font-size: 8pt;">trvale bytom: {{father.address}}, {{father.postalCode}} {{father.city}}</p>
     </div>
   </div>
 
-  <p style="text-align: center; margin-bottom: 20px; font-size: 9pt;">(ďalej len „Zmluva") takto:</p>
+  <p style="text-align: center; margin-bottom: 15px; font-size: 8pt;">(ďalej len „Zmluva") takto:</p>
 
   <!-- Článok I - Preambula -->
-  <div style="margin-bottom: 20px;">
-    <h2 style="font-size: 11pt; font-weight: bold; text-align: center; margin-bottom: 10px;">
-      Článok I - Preambula
-    </h2>
-    <p style="margin-bottom: 8px; text-align: justify;">
-      <strong>I.1</strong> Zmluvné strany sa dohodli, že túto Zmluvu uzatvárajú podľa § 262 ods. 1 Obchodného zákonníka 
-      a v zmysle § 269 ods. 2 Obchodného zákonníka.
-    </p>
-    <p style="margin-bottom: 8px; text-align: justify;">
-      <strong>I.2</strong> Zmluvné strany vyhlasujú, že túto Zmluvu uzatvárajú slobodne, vážne a bez omylu, že sú spôsobilé 
-      na právne úkony v plnom rozsahu, obsah Zmluvy im je dobre známy v celom jeho rozsahu a Zmluvu neuzatvárajú 
-      v tiesni alebo za nápadne nevýhodných podmienok.
-    </p>
-    <p style="margin-bottom: 8px; text-align: justify;">
-      <strong>I.3</strong> CBC AG je obchodná spoločnosť, ktorá zabezpečuje niektoré činnosti registra pupočníkovej 
-      a placentárnej krvi, tkaniva pupočníka a placenty, pričom predmetná činnosť zahŕňa najmä zabezpečenie odberu 
-      krvotvorných kmeňových buniek z pupočníkovej a placentárnej krvi a tkaniva pupočníka a placenty zdravotníckym 
-      zariadením pri pôrode dieťaťa RODIČKY a ich následné spracovanie na autológnu transplantáciu.
-    </p>
+  <div style="margin-bottom: 12px;">
+    <h2 style="font-size: 10pt; font-weight: bold; text-align: center; margin-bottom: 8px;">Článok I - Preambula</h2>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>I.1</strong> Zmluvné strany sa dohodli, že túto Zmluvu uzatvárajú podľa § 262 ods. 1 Obchodného zákonníka a v zmysle § 269 ods. 2 Obchodného zákonníka.</p>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>I.2</strong> Zmluvné strany vyhlasujú, že túto Zmluvu uzatvárajú slobodne, vážne a bez omylu, že sú spôsobilé na právne úkony v plnom rozsahu, obsah Zmluvy im je dobre známy v celom jeho rozsahu a Zmluvu neuzatvárajú v tiesni alebo za nápadne nevýhodných podmienok.</p>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>I.3</strong> CBC AG je obchodná spoločnosť založená a existujúca podľa práva Švajčiarskej konfederácie, ktorá zabezpečuje niektoré činnosti registra pupočníkovej a placentárnej krvi, tkaniva pupočníka a placenty, pričom predmetná činnosť zahŕňa najmä zabezpečenie odberu krvotvorných kmeňových buniek z pupočníkovej a placentárnej krvi a tkaniva pupočníka a placenty zdravotníckym zariadením pri pôrode dieťaťa RODIČKY a ich následné spracovanie na autológnu transplantáciu.</p>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>I.4</strong> CBC AG so súhlasom RODIČKY zabezpečuje činnosti podľa bodu I.3 a plní si svoje povinnosti v súlade s ustanovením bodu VI.1 tejto Zmluvy prostredníctvom na takúto činnosť riadne licencovaného subjektu na území Slovenskej republiky (Slovenský register placentárnych krvotvorných buniek, Dúbravská cesta 9, 841 04 Bratislava, IČO: 31771165 (ďalej len „S.R.P.K.B."), resp. iným riadne licencovaným subjektom v Slovenskej republike). Pre vylúčenie akýchkoľvek pochybností, sa zmluvné strany dohodli, že plnenie akýchkoľvek povinností, záväzkov a práv CBC AG podľa tejto Zmluvy, ktoré by spočívalo vo vykonávaní akejkoľvek činnosti, podliehajúcej osobitnej regulácii poskytovania zdravotnej starostlivosti v Slovenskej republike, bude tieto CBC AG vždy zabezpečovať výlučne prostredníctvom riadne licencovaného subjektu v Slovenskej republike.</p>
   </div>
 
   <!-- Článok II - Predmet Zmluvy -->
-  <div style="margin-bottom: 20px;">
-    <h2 style="font-size: 11pt; font-weight: bold; text-align: center; margin-bottom: 10px;">
-      Článok II - Predmet Zmluvy
-    </h2>
-    <p style="margin-bottom: 8px; text-align: justify;">
-      <strong>II.1</strong> Predmetom záväzku CBC AG podľa tejto Zmluvy pre RODIČKU je zabezpečenie odberu pupočníkovej 
-      a/alebo placentárnej krvi (ďalej len „krv") a/alebo tkaniva pupočníka a/alebo placenty (ďalej len „tkanivo") 
-      zdravotníckym zariadením pri pôrode dieťaťa RODIČKY, ich následné spracovanie (ďalej spoločne len "transplantát"), 
-      ako aj na základe záujmu RODIČKY zabezpečenie následného skladovania transplantátu za podmienok nižšie uvedených v Zmluve.
-    </p>
+  <div style="margin-bottom: 12px;">
+    <h2 style="font-size: 10pt; font-weight: bold; text-align: center; margin-bottom: 8px;">Článok II - Predmet Zmluvy</h2>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>II.1</strong> Predmetom záväzku CBC AG podľa tejto Zmluvy pre RODIČKU je zabezpečenie odberu pupočníkovej a/alebo placentárnej krvi (ďalej len „krv") a/alebo tkaniva pupočníka a/alebo placenty (ďalej len „tkanivo") zdravotníckym zariadením pri pôrode dieťaťa RODIČKY, ich následné spracovanie (ďalej spoločne len "transplantát"), ako aj na základe záujmu RODIČKY zabezpečenie následného skladovania transplantátu za podmienok nižšie uvedených v Zmluve.</p>
   </div>
 
   <!-- Článok III – Zabezpečenie činností -->
-  <div style="margin-bottom: 20px;">
-    <h2 style="font-size: 11pt; font-weight: bold; text-align: center; margin-bottom: 10px;">
-      Článok III – Zabezpečenie činností
-    </h2>
-    <p style="margin-bottom: 8px; text-align: justify;">
-      <strong>III.1</strong> RODIČKA podpisom Zmluvy vyjadruje svoj výslovný súhlas so zabezpečením činností CBC AG 
-      v súlade s bodom II.1 Zmluvy, pričom sa zaväzuje zaplatiť dohodnutú odplatu podľa tejto Zmluvy.
-    </p>
-    <p style="margin-bottom: 8px; text-align: justify;">
-      <strong>III.2</strong> Transplantát môže byť použitý na autológnu transplantáciu. Transplantát môže byť pripravený 
-      spracovaním z pupočníkovej krvi (ďalej ako „<strong>{{product.name}}</strong>").
-    </p>
+  <div style="margin-bottom: 12px;">
+    <h2 style="font-size: 10pt; font-weight: bold; text-align: center; margin-bottom: 8px;">Článok III – Zabezpečenie činností</h2>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>III.1</strong> RODIČKA podpisom Zmluvy vyjadruje svoj výslovný súhlas so zabezpečením činností CBC AG v súlade s bodom II.1 Zmluvy, pričom sa zaväzuje zaplatiť dohodnutú odplatu podľa tejto Zmluvy. Zabezpečenie skladovania transplantátu bude medzi zmluvnými stranami upravené prostredníctvom osobitnej Zmluvy o skladovaní.</p>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>III.2</strong> Transplantát môže byť použitý na autológnu transplantáciu. Transplantát môže byť pripravený spracovaním z pupočníkovej krvi (ďalej ako „Produkt Štandard") alebo z pupočníkovej a placentárnej krvi alebo iba z placentárnej krvi (ďalej ako „Produkt Prémium") alebo z pupočníkovej krvi a tkaniva pupočníka (ďalej ako „Produkt Štandard + tkanivo pupočníka") alebo z pupočníkovej a placentárnej krvi alebo iba z placentárnej krvi a tkaniva pupočníka (ďalej ako „Produkt Prémium + tkanivo pupočníka") alebo z pupočníkovej a placentárnej krvi alebo iba z placentárnej krvi a tkaniva pupočníka a tkaniva placenty (ďalej ako „Produkt Prémium + tkanivo pupočníka + tkanivo placenty") alebo iba z tkaniva pupočníka (ďalej ako „Produkt Tkanivo pupočníka").</p>
   </div>
 
   <!-- Článok IV - Transplantát -->
-  <div style="margin-bottom: 20px;">
-    <h2 style="font-size: 11pt; font-weight: bold; text-align: center; margin-bottom: 10px;">
-      Článok IV - Transplantát
-    </h2>
-    <p style="margin-bottom: 8px; text-align: justify;">
-      <strong>IV.1</strong> CBC AG je povinná zabezpečiť spracovanie krvi a/alebo tkaniva na transplantát alebo časti 
-      transplantátu RODIČKE v stave použiteľnom na účely autológnej transplantácie.
-    </p>
-    <p style="margin-bottom: 8px; text-align: justify;">
-      <strong>IV.2</strong> Transplantát sa v zmysle Zmluvy považuje za použiteľný na účely autológnej transplantácie, ak:
-    </p>
-    <ul style="margin-left: 30px; margin-bottom: 10px; font-size: 9pt;">
-      <li>a) odobratá krv a/alebo tkanivo je/sú spracovaná/é v súlade s platnou právnou úpravou a odbornými postupmi,</li>
-      <li>b) transplantát je v momente jeho vydania riadne vyšetrený a boli vykonané požadované testy v súlade s platnou právnou úpravou,</li>
-      <li>c) je stanovený počet jadrových buniek v krvi.</li>
-    </ul>
-    <p style="margin-bottom: 8px; text-align: justify;">
-      <strong>IV.3</strong> Po spracovaní krvi a/alebo tkaniva bude S.R.P.K.B. písomne informovať RODIČKU o použiteľnosti 
-      transplantátu, ako aj o výsledkoch spracovania krvi a/alebo tkaniva (ďalej len „Výsledky spracovania").
-    </p>
+  <div style="margin-bottom: 12px;">
+    <h2 style="font-size: 10pt; font-weight: bold; text-align: center; margin-bottom: 8px;">Článok IV - Transplantát</h2>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>IV.1</strong> CBC AG je povinná zabezpečiť spracovanie krvi a/alebo tkaniva na transplantát alebo časti transplantátu RODIČKE v stave použiteľnom na účely autológnej transplantácie, pokiaľ nie je v Zmluve uvedené inak alebo pokiaľ sa zmluvné strany nedohodnú inak. RODIČKA berie na vedomie, že transplantáciu do tela príjemcu je možné uskutočniť výlučne len, ak to zdravotný stav príjemcu dovoľuje podľa posúdenia ošetrujúcim, prípadne iným príslušným lekárom a príjemca, resp. jeho zákonný zástupca pred transplantáciou riadne poskytol informovaný súhlas po jeho predchádzajúcom poučení, pričom výber príjemcu sa riadi výlučne medicínskym hľadiskom.</p>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>IV.2</strong> Transplantát sa v zmysle Zmluvy považuje za použiteľný na účely autológnej transplantácie, ak:</p>
+    <p style="margin-bottom: 3px; text-align: justify; margin-left: 20px;">a) odobratá krv a/alebo tkanivo je/sú spracovaná/é v súlade s platnou právnou úpravou a odbornými postupmi,</p>
+    <p style="margin-bottom: 3px; text-align: justify; margin-left: 20px;">b) transplantát je v momente jeho vydania riadne vyšetrený a boli vykonané požadované testy v súlade s platnou právnou úpravou,</p>
+    <p style="margin-bottom: 6px; text-align: justify; margin-left: 20px;">c) je stanovený počet jadrových buniek v krvi.</p>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>IV.3</strong> Po spracovaní krvi a/alebo tkaniva bude S.R.P.K.B. písomne informovať RODIČKU o použiteľnosti transplantátu, ako aj o výsledkoch spracovania krvi a/alebo tkaniva (ďalej len „Výsledky spracovania"). Na základe Výsledkov spracovania má RODIČKA právo rozhodnúť sa, že nevyužije svoje právo na akceptáciu pripraveného transplantátu, a teda pripravený transplantát odmietne a tým ho zároveň daruje S.R.P.K.B. na vedecké a medicínske účely alebo na zabezpečenie jeho likvidácie v súlade s príslušnými právnymi predpismi, s čím RODIČKA výslovne súhlasí.</p>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>IV.4</strong> V prípade, ak sa RODIČKA rozhodne pre odmietnutie a darovanie pripraveného transplantátu, je povinná túto skutočnosť bezodkladne, najneskôr do 14 kalendárnych dní odo dňa doručenia Výsledkov spracovania, písomne oznámiť CBC AG, ak v Zmluve nie je uvedené inak. Za moment akceptácie sa pritom považuje okamih zaplatenia celej odplaty v zmysle bodu V.1 tejto Zmluvy a následné zabezpečenie transplantátu na účely jeho skladovania podľa osobitnej Zmluvy o skladovaní uzavretej medzi zmluvnými stranami alebo iným Subjektom (tak ako je definovaný v bode IV.9 nižšie) v súlade s a za podmienok tejto Zmluvy.</p>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>IV.5</strong> V súvislosti s odberom a spracovaním krvi a/alebo tkaniva na transplantát RODIČKA:</p>
+    <p style="margin-bottom: 3px; text-align: justify; margin-left: 20px;">a) je povinná pred odberom krvi a/alebo tkaniva vyplniť Dotazník pre rodičku a poskytnúť všetky údaje požadované v tomto dotazníku úplne, pravdivo a správne,</p>
+    <p style="margin-bottom: 3px; text-align: justify; margin-left: 20px;">b) je povinná pred odberom krvi a/alebo tkaniva podpísať informovaný súhlas vyžadovaný platnou právnou úpravou,</p>
+    <p style="margin-bottom: 3px; text-align: justify; margin-left: 20px;">c) je povinná bezodkladne informovať CBC AG o akejkoľvek zmene údajov uvedených v Dotazníku pre rodičku,</p>
+    <p style="margin-bottom: 3px; text-align: justify; margin-left: 20px;">d) je povinná poskytnúť CBC AG, resp. S.R.P.K.B. alebo inému licencovanému subjektu v Slovenskej republike, prostredníctvom ktorého CBC AG plní Zmluvu, alebo príslušnému zdravotníckemu zariadeniu, vzorky krvi potrebné na vykonanie vyšetrení a testov podľa platnej právnej úpravy,</p>
+    <p style="margin-bottom: 3px; text-align: justify; margin-left: 20px;">e) má právo kedykoľvek od CBC AG požadovať podrobné informácie o predmete plnenia podľa tejto Zmluvy,</p>
+    <p style="margin-bottom: 3px; text-align: justify; margin-left: 20px;">f) má právo nahliadať do dokumentácie CBC AG súvisiacej s plnením tejto Zmluvy za prítomnosti oprávneného zamestnanca CBC AG alebo S.R.P.K.B.,</p>
+    <p style="margin-bottom: 3px; text-align: justify; margin-left: 20px;">g) má právo kedykoľvek písomne odstúpiť od Zmluvy bez akýchkoľvek sankcií pred vykonaním odberu,</p>
+    <p style="margin-bottom: 3px; text-align: justify; margin-left: 20px;">h) má právo sa do 14 kalendárnych dní odo dňa doručenia Výsledkov spracovania rozhodnúť, či využije právo na akceptáciu transplantátu alebo ho odmietne a daruje S.R.P.K.B. na vedecké a medicínske účely alebo na zabezpečenie jeho likvidácie v súlade s príslušnými právnymi predpismi; v prípade odmietnutia je RODIČKA povinná zaslať CBC AG doporučený list,</p>
+    <p style="margin-bottom: 6px; text-align: justify; margin-left: 20px;">i) v prípade mikrobiologickej kontaminácie transplantátu má právo písomne odstúpiť od celej Zmluvy alebo od časti Zmluvy týkajúcej sa kontaminovaného transplantátu, a to do 8 týždňov odo dňa doručenia Výsledkov spracovania, ak v Zmluve nie je uvedené inak.</p>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>IV.6</strong> Povinnosti podľa bodu IV.5 písm. a), b) a d) Zmluvy sa v plnom rozsahu vzťahujú aj na Otca, ktorý podpisom Zmluvy s nimi vyjadruje výslovný súhlas a zaväzuje sa ich dodržiavať. Ostatné práva a povinnosti podľa tejto Zmluvy vykonáva RODIČKA v súlade s ustanovením bodu VII.11 Zmluvy.</p>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>IV.7</strong> V súvislosti s odberom a spracovaním krvi a/alebo tkaniva na transplantát CBC AG:</p>
+    <p style="margin-bottom: 3px; text-align: justify; margin-left: 20px;">a) sa zaväzuje plniť predmet Zmluvy s vynaložením odbornej starostlivosti,</p>
+    <p style="margin-bottom: 3px; text-align: justify; margin-left: 20px;">b) pred odberom zabezpečí vysvetlenie významu a dôvodov vyšetrenia krvi a/alebo tkaniva, dôvodov zisťovania anamnézy RODIČKY a údajov o jej predchádzajúcich liečeniach,</p>
+    <p style="margin-bottom: 3px; text-align: justify; margin-left: 20px;">c) sa zaväzuje vrátiť RODIČKE v celom rozsahu už poskytnuté finančné plnenie v súlade s bodom V.1 Zmluvy v prípade, že sa RODIČKA rozhodne odstúpiť od zamýšľaného odberu v súlade s bodom IV.5 písm. g) alebo písm. i) tejto Zmluvy, a to do 28 kalendárnych dní od doručenia písomného odstúpenia,</p>
+    <p style="margin-bottom: 6px; text-align: justify; margin-left: 20px;">d) je povinná zabezpečiť realizáciu vyšetrení a testov podľa platnej právnej úpravy najmä tie, ktoré sú uvedené v bode IV.2 písm. b) a písm. c) Zmluvy.</p>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>IV.8</strong> V prípade, ak RODIČKA v súlade s bodom IV.4 tejto Zmluvy najneskôr do 14 kalendárnych dní odo dňa doručenia Výsledkov spracovania oznámi CBC AG, že odmieta transplantát, dohodli sa zmluvné strany, že RODIČKA transplantát darováva S.R.P.K.B. na vedecké a medicínske účely podľa tejto Zmluvy, resp. na zabezpečenie jeho likvidácie v súlade s príslušnými právnymi predpismi, s čím RODIČKA výslovne súhlasí. V takomto prípade sa CBC AG zaväzuje vrátiť RODIČKE v celom rozsahu už poskytnuté finančné plnenie v súlade s bodom V.1 Zmluvy do 28 kalendárnych dní odo dňa, kedy bude CBC AG toto písomné oznámenie doručené spolu s číslom účtu, na ktoré má byť finančné plnenie vrátené.</p>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>IV.9</strong> Bezodkladne po uhradení celej odplaty v zmysle bodu V.1 Zmluvy, CBC AG zabezpečí skladovanie transplantátu v súlade s podmienkami podľa osobitnej Zmluvy o skladovaní. V prípade, ak RODIČKA zvolila možnosť úhrady odplaty podľa bodu V.1 Zmluvy o odbere formou postupných mesačných splátok, CBC AG zabezpečí skladovanie transplantátu momentom uhradenia zálohovej platby a prvej mesačnej splátky odplaty podľa bodu V.1 tejto Zmluvy. V prípade, ak si bude RODIČKA želať skladovanie prostredníctvom tretej osoby, CBC AG zabezpečí umožniť, aby transplantát prevzalo RODIČKOU písomne určené a na takúto činnosť riadne licencované zdravotnícke zariadenie (ďalej len „Subjekt").</p>
   </div>
 
   <!-- Článok V - Odplata -->
-  <div style="margin-bottom: 20px;">
-    <h2 style="font-size: 11pt; font-weight: bold; text-align: center; margin-bottom: 10px;">
-      Článok V - Odplata
-    </h2>
-    <p style="margin-bottom: 8px; text-align: justify;">
-      <strong>V.1</strong> Za zabezpečenie odberu a spracovania krvi a/alebo tkaniva na transplantát pre RODIČKU, 
-      prináleží CBC AG odplata. Zmluvné strany sa dohodli, že RODIČKA a Otec sú solidárne (spoločne a nerozdielne) 
-      povinní dohodnutú odplatu CBC AG zaplatiť včas.
-    </p>
+  <div style="margin-bottom: 12px;">
+    <h2 style="font-size: 10pt; font-weight: bold; text-align: center; margin-bottom: 8px;">Článok V - Odplata</h2>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>V.1</strong> Za zabezpečenie odberu a spracovania krvi a/alebo tkaniva na transplantát pre RODIČKU, prináleží CBC AG odplata. Zmluvné strany sa dohodli, že RODIČKA a Otec sú solidárne (spoločne a nerozdielne) povinní dohodnutú odplatu CBC AG zaplatiť včas, pokiaľ v Zmluve nie je dohodnuté inak. Zmluvné strany sa dohodli na nasledovnej odplate podľa typu produktu:</p>
     
     <!-- Cenová tabuľka -->
-    <div style="margin: 15px 0;">
-      <p style="font-weight: bold; margin-bottom: 8px; font-size: 9pt; text-transform: uppercase;">
-        Pre zmluvné strany je záväzná nasledovná odplata:
-      </p>
-      <table style="width: 100%; border-collapse: collapse; font-size: 9pt; margin-bottom: 15px;">
+    <div style="margin: 10px 0;">
+      <p style="font-weight: bold; margin-bottom: 6px; font-size: 8pt; text-transform: uppercase;">Pre zmluvné strany je záväzná možnosť označená krížikom:</p>
+      <table style="width: 100%; border-collapse: collapse; font-size: 8pt; margin-bottom: 10px;">
         <thead>
-          <tr style="background-color: #f5f5f5;">
-            <th style="border: 1px solid #333; padding: 8px; text-align: left;">Typ produktu</th>
-            <th style="border: 1px solid #333; padding: 8px; text-align: right;">Celková suma</th>
-            <th style="border: 1px solid #333; padding: 8px; text-align: center;">Počet platieb</th>
-            <th style="border: 1px solid #333; padding: 8px; text-align: right;">Zálohová platba</th>
-            <th style="border: 1px solid #333; padding: 8px; text-align: right;">Zostávajúca platba</th>
+          <tr style="background-color: #f0f0f0;">
+            <th style="border: 1px solid #333; padding: 5px; text-align: left;">Typ produktu</th>
+            <th style="border: 1px solid #333; padding: 5px; text-align: right;">Celková suma</th>
+            <th style="border: 1px solid #333; padding: 5px; text-align: center;">Počet platieb</th>
+            <th style="border: 1px solid #333; padding: 5px; text-align: right;">Zálohová platba</th>
+            <th style="border: 1px solid #333; padding: 5px; text-align: right;">Výška zostávajúcej platby*</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td style="border: 1px solid #333; padding: 8px; font-weight: bold;">{{product.name}}</td>
-            <td style="border: 1px solid #333; padding: 8px; text-align: right; font-weight: bold;">{{billset.totalGrossAmount}} {{billset.currency}}</td>
-            <td style="border: 1px solid #333; padding: 8px; text-align: center;">{{payment.installments}}</td>
-            <td style="border: 1px solid #333; padding: 8px; text-align: right;">{{payment.depositAmount}} {{billset.currency}}</td>
-            <td style="border: 1px solid #333; padding: 8px; text-align: right;">{{payment.remainingAmount}} {{billset.currency}}</td>
+            <td style="border: 1px solid #333; padding: 5px;">Štandard</td>
+            <td style="border: 1px solid #333; padding: 5px; text-align: right;">590 EUR</td>
+            <td style="border: 1px solid #333; padding: 5px; text-align: center;">2</td>
+            <td style="border: 1px solid #333; padding: 5px; text-align: right;">150 EUR</td>
+            <td style="border: 1px solid #333; padding: 5px; text-align: right;">440 EUR</td>
+          </tr>
+          <tr>
+            <td style="border: 1px solid #333; padding: 5px;">Štandard + tkanivo pupočníka</td>
+            <td style="border: 1px solid #333; padding: 5px; text-align: right;">790 EUR</td>
+            <td style="border: 1px solid #333; padding: 5px; text-align: center;">2</td>
+            <td style="border: 1px solid #333; padding: 5px; text-align: right;">150 EUR</td>
+            <td style="border: 1px solid #333; padding: 5px; text-align: right;">640 EUR</td>
+          </tr>
+          <tr>
+            <td style="border: 1px solid #333; padding: 5px;">Prémium</td>
+            <td style="border: 1px solid #333; padding: 5px; text-align: right;">790 EUR</td>
+            <td style="border: 1px solid #333; padding: 5px; text-align: center;">2</td>
+            <td style="border: 1px solid #333; padding: 5px; text-align: right;">150 EUR</td>
+            <td style="border: 1px solid #333; padding: 5px; text-align: right;">640 EUR</td>
+          </tr>
+          <tr>
+            <td style="border: 1px solid #333; padding: 5px;">Prémium + tkanivo pupočníka</td>
+            <td style="border: 1px solid #333; padding: 5px; text-align: right;">990 EUR</td>
+            <td style="border: 1px solid #333; padding: 5px; text-align: center;">2</td>
+            <td style="border: 1px solid #333; padding: 5px; text-align: right;">150 EUR</td>
+            <td style="border: 1px solid #333; padding: 5px; text-align: right;">840 EUR</td>
+          </tr>
+          <tr>
+            <td style="border: 1px solid #333; padding: 5px;">Tkanivo pupočníka**</td>
+            <td style="border: 1px solid #333; padding: 5px; text-align: right;">300 EUR</td>
+            <td style="border: 1px solid #333; padding: 5px; text-align: center;">1</td>
+            <td style="border: 1px solid #333; padding: 5px; text-align: right;">0 EUR</td>
+            <td style="border: 1px solid #333; padding: 5px; text-align: right;">300 EUR</td>
+          </tr>
+          <tr>
+            <td style="border: 1px solid #333; padding: 5px;">Prémium + tkanivo pupočníka + tkanivo placenty</td>
+            <td style="border: 1px solid #333; padding: 5px; text-align: right;">1 490 EUR</td>
+            <td style="border: 1px solid #333; padding: 5px; text-align: center;">2</td>
+            <td style="border: 1px solid #333; padding: 5px; text-align: right;">150 EUR</td>
+            <td style="border: 1px solid #333; padding: 5px; text-align: right;">1 340 EUR</td>
+          </tr>
+          <tr style="background-color: #fffde7;">
+            <td style="border: 1px solid #333; padding: 5px; font-weight: bold;">{{product.name}}</td>
+            <td style="border: 1px solid #333; padding: 5px; text-align: right; font-weight: bold;">{{billset.totalGrossAmount}} {{billset.currency}}</td>
+            <td style="border: 1px solid #333; padding: 5px; text-align: center; font-weight: bold;">{{payment.installments}}</td>
+            <td style="border: 1px solid #333; padding: 5px; text-align: right; font-weight: bold;">{{payment.depositAmount}} {{billset.currency}}</td>
+            <td style="border: 1px solid #333; padding: 5px; text-align: right; font-weight: bold;">{{payment.remainingAmount}} {{billset.currency}}</td>
           </tr>
         </tbody>
       </table>
+      <p style="font-size: 7pt; color: #666; margin-bottom: 3px;">* Po odbere a obdržaní Výsledkov spracovania.</p>
+      <p style="font-size: 7pt; color: #666;">** Odplata CBC AG za zabezpečenie odberu Tkaniva pupočníka pri kontaminácii časti odberu, pokiaľ sa zmluvné strany nedohodli inak.</p>
     </div>
 
-    <p style="margin-bottom: 8px; text-align: justify;">
-      <strong>V.2</strong> Zmluvné strany sa dohodli na nasledovnom postupe úhrady odplaty:
-    </p>
-    <ul style="margin-left: 30px; margin-bottom: 10px; font-size: 9pt;">
-      <li>zálohová platba v sume {{payment.depositAmount}} {{billset.currency}} je splatná do 14 kalendárnych dní odo dňa vystavenia zálohovej faktúry,</li>
-      <li>zostatok odplaty po odpočítaní zaplatenej zálohovej platby je splatný do 14 kalendárnych dní odo dňa vystavenia faktúry.</li>
-    </ul>
-    <p style="margin-bottom: 8px; text-align: justify;">
-      <strong>V.3</strong> RODIČKA a Otec sú povinní spoločne a nerozdielne uhradiť odplatu CBC AG na bankový účet 
-      uvedený v záhlaví Zmluvy.
-    </p>
+    <p style="margin-bottom: 6px; text-align: justify;"><input type="checkbox" style="margin-right: 5px;" /> Mám záujem o postupné mesačné platby formou splátok bez navýšenia.</p>
+    <p style="margin-bottom: 6px; text-align: justify;">Zmluvné strany sa dohodli na nasledovnom postupe úhrady odplaty podľa bodu V.1 Zmluvy:</p>
+    <p style="margin-bottom: 3px; text-align: justify; margin-left: 20px;">- zálohová platba v sume 150 EUR je splatná do 14 kalendárnych dní odo dňa vystavenia zálohovej faktúry,</p>
+    <p style="margin-bottom: 3px; text-align: justify; margin-left: 20px;">- zostatok odplaty po odpočítaní zaplatenej zálohovej platby je splatný do 14 kalendárnych dní odo dňa vystavenia faktúry (vystavená do 10 dní odo dňa doručenia Výsledkov spracovania),</p>
+    <p style="margin-bottom: 6px; text-align: justify; margin-left: 20px;">- v prípade, ak si RODIČKA zvolila možnosť platby formou postupných mesačných splátok, tieto budú rozdelené na jednorazovú zálohovú platbu v sume 150 EUR a následné rovnaké mesačné platby, maximálne v počte 10. Podmienky platby budú upravené splátkovým kalendárom medzi RODIČKOU a CBC AG, ktorý sa stane súčasťou tejto Zmluvy.</p>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>V.2</strong> V prípade, ak bude RODIČKA alebo Otec v omeškaní s úhradou akejkoľvek platby odplaty v zmysle bodu V.1 Zmluvy o 90 a viac kalendárnych dní, a to aj napriek písomnej upomienke zaslanej RODIČKE v rámci tejto lehoty, dohodli sa zmluvné strany, že RODIČKA nemá záujem o transplantát a tento darováva S.R.P.K.B. na vedecké a medicínske účely, resp. na zabezpečenie jeho likvidácie v súlade s príslušnými právnymi predpismi, s čím RODIČKA výslovne súhlasí.</p>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>V.3</strong> RODIČKA a Otec sú povinní spoločne a nerozdielne uhradiť odplatu CBC AG na bankový účet uvedený v záhlaví Zmluvy. V prípade zmeny bankového spojenia oznámi CBC AG túto skutočnosť bezodkladne RODIČKE a RODIČKA a Otec sú povinní odo dňa oznámenia používať v platobnom styku výlučne nové bankové účty CBC AG.</p>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>V.4</strong> Odplata sa považuje za zaplatenú dňom jej riadneho pripísania na bankový účet CBC AG.</p>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>V.5</strong> V prípade, ak RODIČKA na základe Výsledkov spracovania, ktoré preukázali mikrobiologickú kontamináciu transplantátu, neodstúpi od Zmluvy alebo jej časti v súlade s bodom IV.5 i) Zmluvy, ale písomne oznámi do 8 týždňov odo dňa doručenia Výsledkov spracovania, že má záujem o zabezpečenie skladovania takéhoto transplantátu, a ak v tomto čase došlo zmluvnými stranami k podpisu Zmluvy o skladovaní, táto nezaniká, zmluvné strany sa však dohodli, že CBC AG má vo vzťahu ku kontaminovanej časti transplantátu nárok len na odplatu podľa tejto Zmluvy v sume 1 EUR.</p>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>V.6</strong> V prípade, že RODIČKA a Otec po splnení podmienok určených právnymi predpismi výslovne požiadajú CBC AG o zabezpečenie likvidácie transplantátu z iných dôvodov ako sú uvedené v bode IV.5 i) Zmluvy alebo bez udania dôvodu po uplynutí lehoty uvedenej v bode IV.5 h) Zmluvy, sú RODIČKA a Otec povinní spoločne a nerozdielne uhradiť poplatok za likvidáciu vo výške 200 EUR.</p>
   </div>
 
   <!-- Článok VI - Ďalšie zmluvné ustanovenia -->
-  <div style="margin-bottom: 20px;">
-    <h2 style="font-size: 11pt; font-weight: bold; text-align: center; margin-bottom: 10px;">
-      Článok VI - Ďalšie zmluvné ustanovenia
-    </h2>
-    <p style="margin-bottom: 8px; text-align: justify;">
-      <strong>VI.1</strong> CBC AG sa zaväzuje zabezpečovať plnenie predmetu Zmluvy prostredníctvom riadne 
-      licencovaných subjektov v Slovenskej republike s tým, že za výsledok ich činnosti zodpovedá akoby plnila sama.
-    </p>
-    <p style="margin-bottom: 8px; text-align: justify;">
-      <strong>VI.2</strong> V prípade poškodenia transplantátu do času jeho odovzdania na skladovanie, keď medzi 
-      zavineným porušením povinností zo strany CBC AG a spôsobenou škodou existuje priama príčinná súvislosť, 
-      sa CBC AG zaväzuje nahradiť RODIČKE vzniknutú skutočnú škodu.
-    </p>
+  <div style="margin-bottom: 12px;">
+    <h2 style="font-size: 10pt; font-weight: bold; text-align: center; margin-bottom: 8px;">Článok VI - Ďalšie zmluvné ustanovenia</h2>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>VI.1</strong> CBC AG sa zaväzuje zabezpečovať plnenie predmetu Zmluvy prostredníctvom riadne licencovaných subjektov v Slovenskej republike (najmä prostredníctvom S.R.P.K.B.) s tým, že za výsledok ich činnosti zodpovedá akoby plnila sama.</p>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>VI.2</strong> V prípade poškodenia transplantátu do času jeho odovzdania na skladovanie, keď medzi zavineným porušením povinností zo strany CBC AG a spôsobenou škodou existuje priama príčinná súvislosť, sa CBC AG zaväzuje nahradiť RODIČKE vzniknutú skutočnú škodu. CBC AG predpokladá a predvída pri podpise tejto Zmluvy, že výška škody môže byť maximálne vo výške odplaty zaplatenej RODIČKOU. CBC AG nezodpovedá za škody vzniknuté na transplantáte, pokiaľ nedošlo k zavineniu zo strany CBC AG ako aj v prípade poškodenia zapríčineného tzv. vyššou mocou, napr. živelnou pohromou, vojnou alebo inou udalosťou a pod., ktorej CBC AG nemohla zabrániť ani pri vynaložení odbornej starostlivosti.</p>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>VI.3</strong> Ak v dôsledku konania alebo nekonania RODIČKY alebo Otca v rozpore so Zmluvou nebude môcť CBC AG, resp. S.R.P.K.B. alebo iný licencovaný subjekt v Slovenskej republike, prostredníctvom ktorého CBC AG plní Zmluvu, riadne a včas splniť niektorú zo svojich povinností podľa Zmluvy, na základe výslovnej dohody zmluvných strán sa má za to, že k splneniu týchto povinností vyplývajúcich zo Zmluvy došlo riadne a včas.</p>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>VI.4</strong> Ak RODIČKA neoznámi CBC AG zvolený Subjekt a čas prevzatia transplantátu podľa Zmluvy v lehote do 6 mesiacov odo dňa doručenia Výsledkov spracovania a ak sa zmluvné strany nedohodnú inak (napríklad neuzatvoria Zmluvu o skladovaní), a to ani po predchádzajúcej výzve CBC AG uskutočnenej v lehote 3 mesiacov odo dňa doručenia Výsledkov spracovania, dohodli sa zmluvné strany, že RODIČKA darováva transplantát S.R.P.K.B. na vedecké a medicínske účely alebo S.R.P.K.B. je oprávnené zabezpečiť likvidáciu transplantátu v súlade s príslušnými právnymi predpismi, s čím RODIČKA výslovne súhlasí.</p>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>VI.5</strong> Pri prevzatí transplantátu Subjektom podpíšu CBC AG a RODIČKA protokol o prevzatí transplantátu, v ktorom opíšu stav transplantátu pri jeho prevzatí Subjektom a uvedú dátum prevzatia transplantátu Subjektom. Od momentu prevzatia transplantátu Subjektom, CBC AG nenesie žiadnu zodpovednosť za stav a použiteľnosť transplantátu.</p>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>VI.6</strong> CBC AG nie je povinná zabezpečiť spôsobom podľa bodu IV.9 umožnenie prevzatia transplantátu Subjektom, resp. inou treťou osobou, a to aj napriek tomu, že je riadne licencovaná, kým nie sú uhradené všetky dlžné pohľadávky CBC AG voči RODIČKE.</p>
   </div>
 
   <!-- Článok VII - Záverečné ustanovenia -->
-  <div style="margin-bottom: 20px;">
-    <h2 style="font-size: 11pt; font-weight: bold; text-align: center; margin-bottom: 10px;">
-      Článok VII - Záverečné ustanovenia
-    </h2>
-    <p style="margin-bottom: 8px; text-align: justify;">
-      <strong>VII.1</strong> Zmluvné strany sa dohodli, že v prípade smrti RODIČKY prechádzajú všetky práva 
-      a povinnosti zo Zmluvy na dieťa narodené bezprostredne pred odberom krvi a/alebo tkaniva za účelom 
-      ich spracovania na transplantát.
-    </p>
-    <p style="margin-bottom: 8px; text-align: justify;">
-      <strong>VII.4</strong> Táto Zmluva sa uzatvára na dobu určitú, a to na dobu od podpisu tejto Zmluvy 
-      až do momentu akceptácie transplantátu RODIČKOU.
-    </p>
-    <p style="margin-bottom: 8px; text-align: justify;">
-      <strong>VII.6</strong> Zmluva nadobúda platnosť a účinnosť dňom jej podpísania oboma zmluvnými stranami. 
-      Zmluva a vzťahy z nej vyplývajúce sa budú vykladať a riadiť právnym poriadkom Slovenskej republiky.
-    </p>
-    <p style="margin-bottom: 8px; text-align: justify;">
-      <strong>VII.7</strong> Zmluva je vyhotovená v dvoch exemplároch s platnosťou originálu, pričom CBC AG 
-      obdrží jedno (1) vyhotovenie a RODIČKA a Otec spoločne obdržia jedno (1) vyhotovenie.
-    </p>
-    <p style="margin-bottom: 8px; text-align: justify;">
-      <strong>VII.8</strong> Súčasťou Zmluvy je „Dotazník pre rodičku", „Informácie pre rodičov", 
-      „Informácia o spracúvaní osobných údajov dotknutej osoby". Všetky prílohy tejto Zmluvy tvoria jej neoddeliteľnú časť.
-    </p>
+  <div style="margin-bottom: 12px;">
+    <h2 style="font-size: 10pt; font-weight: bold; text-align: center; margin-bottom: 8px;">Článok VII - Záverečné ustanovenia</h2>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>VII.1</strong> Zmluvné strany sa dohodli, že v prípade smrti RODIČKY prechádzajú všetky práva a povinnosti zo Zmluvy na dieťa narodené bezprostredne pred odberom krvi a/alebo tkaniva za účelom ich spracovania na transplantát. V prípade úmrtia Otca je RODIČKA povinná v čo najkratšom čase vysporiadať príslušné práva a oznámiť CBC AG, kto vstúpi do práv Otca vyplývajúcich zo Zmluvy.</p>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>VII.2</strong> V prípade zániku CBC AG bez právneho nástupcu sa CBC AG zaväzuje oznámiť bez zbytočného odkladu túto skutočnosť RODIČKE a na základe písomného požiadania RODIČKY uskutočneného v lehote do 12 mesiacov od doručenia vyššie uvedeného oznámenia zabezpečiť umožnenie prevzatia uskladneného transplantátu v súlade s bodom IV.9 Zmluvy zo strany RODIČKY resp. Subjektu.</p>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>VII.3</strong> Zmluvné strany sa dohodli, že CBC AG je oprávnená kedykoľvek postúpiť (previesť) svoje práva a povinnosti v zmysle tejto Zmluvy na inú entitu a táto iná entita je oprávnená prevziať povinnosti CBC AG vyplývajúce jej z tejto Zmluvy ak, (i) je táto entita členom skupiny CBC, (ii) má materiálno-technické zabezpečenie k plneniu povinností CBC AG v zmysle tejto Zmluvy, (iii) nebol voči nej vyhlásený konkurz alebo schválená reštrukturalizácia, (iv) nie je v predĺžení ani v likvidácii (ďalej len „Postúpenie"). V prípade potreby sa RODIČKA s Otcom zaväzujú vykonať akýkoľvek úkon, vrátane ale nie výlučne, podpísania súhlasu alebo dodatku, na základe ktorého dôjde k potvrdeniu účinného Postúpenia.</p>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>VII.4</strong> Táto Zmluva sa uzatvára na dobu určitú, a to na dobu od podpisu tejto Zmluvy až do momentu akceptácie transplantátu RODIČKOU. Ostatné dojednania uvedené v tejto Zmluve tým nie sú dotknuté (najmä v prípade odmietnutia pripraveného transplantátu RODIČKOU, resp. aj Otcom, neplnenie finančných záväzkov voči CBC AG a pod.). Zmluvu možno meniť a dopĺňať len na základe súhlasu obidvoch zmluvných strán formou písomných dodatkov, s výslovným odvolaním sa na Zmluvu, ak sa zmluvné strany výslovne nedohodnú inak.</p>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>VII.5</strong> Ak sa akékoľvek ustanovenie tejto Zmluvy stane neplatným či nevymáhateľným, nebude to mať vplyv na platnosť a vymáhateľnosť ostatných ustanovení tejto Zmluvy. Zmluvné strany sa zaväzujú nahradiť neplatné alebo nevymáhateľné ustanovenia novým ustanovením, ktorého znenie bude zodpovedať úmyslu vyjadrenému pôvodným ustanovením a touto Zmluvou ako celkom.</p>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>VII.6</strong> Zmluva nadobúda platnosť a účinnosť dňom jej podpísania oboma zmluvnými stranami. Zmluva a vzťahy z nej vyplývajúce sa budú vykladať a riadiť právnym poriadkom Slovenskej republiky.</p>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>VII.7</strong> Zmluva je vyhotovená v dvoch exemplároch s platnosťou originálu, pričom CBC AG obdrží jedno (1) vyhotovenie a RODIČKA a Otec spoločne obdržia jedno (1) vyhotovenie.</p>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>VII.8</strong> Súčasťou Zmluvy je „Dotazník pre rodičku", „Informácie pre rodičov", „Informácia o spracúvaní osobných údajov dotknutej osoby". Všetky prílohy tejto Zmluvy tvoria jej neoddeliteľnú časť.</p>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>VII.9</strong> Ak počas pôrodu bude odobratých menej ako 20 mililitrov krvi a/alebo tkanivo nebude odobraté v súlade so schváleným štandardným pracovným postupom a ak sa zmluvné strany nedohodnú inak, má sa za to, že RODIČKA nemá záujem o spracovanie krvi a/alebo tkaniva. V takom prípade CBC AG nebude ďalej zabezpečovať následné plnenie podľa tejto Zmluvy, a teda S.R.P.K.B. nepoužije odobratú krv a/alebo tkanivo na prípravu transplantátu a ani nevystaví a neposkytne RODIČKE Výsledky spracovania.</p>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>VII.10</strong> RODIČKA je povinná CBC AG bezodkladne oznámiť akúkoľvek zmenu svojej adresy alebo akýchkoľvek iných údajov. V prípade, ak CBC AG zašle akúkoľvek písomnosť na adresu RODIČKY uvedenú v záhlaví Zmluvy, alebo na poslednú oznámenú adresu RODIČKY, považuje sa takáto písomnosť za doručenú siedmym pracovným dňom po jej podaní na poštovú prepravu.</p>
+    <p style="margin-bottom: 6px; text-align: justify;"><strong>VII.11</strong> Otec podpisom tejto Zmluvy vyjadruje svoj výslovný súhlas s tým, aby všetky práva resp. povinnosti súvisiace s plnením tejto Zmluvy patriace Otcovi vykonávala resp. plnila v Otcovom mene RODIČKA, na čo jej podpisom tejto Zmluvy udeľuje plnomocenstvo, okrem prípadov, kedy je v tejto Zmluve uvedené, že sa vyžaduje aj súhlas Otca. Otec zároveň súhlasí s tým, aby boli všetky písomnosti podľa tejto Zmluvy adresované RODIČKE alebo Otcovi zasielané len RODIČKE. RODIČKA sa podpisom tejto Zmluvy zaväzuje informovať Otca o doručení písomností a ich obsahu. V prípade, že Otec nebude účastníkom tejto Zmluvy, všetky práva a povinnosti Otca vyplývajúce z tejto Zmluvy bude vykonávať výlučne RODIČKA.</p>
   </div>
 
-  <!-- Zlom strany pred podpismi -->
-  <div style="page-break-before: always;"></div>
-
   <!-- Podpisy -->
-  <div style="margin-top: 40px;">
-    <div style="display: flex; justify-content: space-between; gap: 40px;">
+  <div style="margin-top: 30px;">
+    <div style="display: flex; justify-content: space-between; gap: 30px;">
       <div style="width: 45%; text-align: center;">
-        <p style="margin-bottom: 5px; font-size: 9pt;">V {{contract.signaturePlace}} dňa {{contract.date}}</p>
-        <div style="margin-top: 60px;">
-          <div style="border-top: 1px solid #000; padding-top: 8px;">
-            <p style="margin: 0; font-size: 9pt;">za CBC AG</p>
-            <p style="margin: 5px 0 0 0; font-weight: bold; font-size: 10pt;">{{billing.representative}}</p>
-            <p style="margin: 0; font-size: 8pt; color: #666;">(splnomocnenec)</p>
+        <p style="margin-bottom: 5px; font-size: 8pt;">V {{contract.signaturePlace}} dňa {{contract.date}}</p>
+        <div style="margin-top: 50px;">
+          <div style="border-top: 1px solid #000; padding-top: 6px;">
+            <p style="margin: 0; font-size: 8pt;">za CBC AG</p>
+            <p style="margin: 3px 0 0 0; font-weight: bold; font-size: 9pt;">{{billing.representative}}</p>
+            <p style="margin: 0; font-size: 7pt; color: #666;">(splnomocnenec)</p>
           </div>
         </div>
       </div>
       <div style="width: 45%;">
-        <p style="margin-bottom: 5px; font-size: 9pt; text-align: center;">V _________________ dňa {{contract.date}}</p>
-        <div style="margin-top: 60px; text-align: center;">
-          <div style="border-top: 1px solid #000; padding-top: 8px; margin-bottom: 40px;">
-            <p style="margin: 5px 0 0 0; font-weight: bold; font-size: 10pt;">{{customer.fullName}}</p>
-            <p style="margin: 0; font-size: 8pt; color: #666;">(RODIČKA)</p>
+        <p style="margin-bottom: 5px; font-size: 8pt; text-align: center;">V _________________ dňa {{contract.date}}</p>
+        <div style="margin-top: 50px; text-align: center;">
+          <div style="border-top: 1px solid #000; padding-top: 6px; margin-bottom: 30px;">
+            <p style="margin: 3px 0 0 0; font-weight: bold; font-size: 9pt;">{{customer.fullName}}</p>
+            <p style="margin: 0; font-size: 7pt; color: #666;">(RODIČKA)</p>
           </div>
-          <div style="border-top: 1px solid #000; padding-top: 8px; margin-top: 50px;">
-            <p style="margin: 5px 0 0 0; font-weight: bold; font-size: 10pt;">{{father.fullName}}</p>
-            <p style="margin: 0; font-size: 8pt; color: #666;">(Otec)</p>
+          <div style="border-top: 1px solid #000; padding-top: 6px; margin-top: 40px;">
+            <p style="margin: 3px 0 0 0; font-weight: bold; font-size: 9pt;">{{father.fullName}}</p>
+            <p style="margin: 0; font-size: 7pt; color: #666;">(Otec)</p>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Referenčné číslo verzie -->
-  <div style="position: absolute; bottom: 20px; right: 30px;">
-    <p style="font-size: 7pt; color: #999;">CBCAG-ZDLMO-V003</p>
+  <div style="margin-top: 20px; text-align: right;">
+    <p style="font-size: 7pt; color: #999;">CBCAG-ZDLMO-V003-P080322</p>
   </div>
 
 </div>`;
