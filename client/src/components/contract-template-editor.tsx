@@ -107,6 +107,23 @@ const AVAILABLE_FIELDS = {
       { key: "billing.defaultCurrency", label: "Mena", type: "text" },
       { key: "billing.registrationInfo", label: "Registračné údaje", type: "text" },
       { key: "billing.courtRegistration", label: "Registrácia súd", type: "text" },
+      { key: "billing.representative", label: "Zástupca / Splnomocnenec", type: "text" },
+    ],
+  },
+  father: {
+    label: "Otec",
+    icon: User,
+    fields: [
+      { key: "father.fullName", label: "Celé meno", type: "text" },
+      { key: "father.firstName", label: "Meno", type: "text" },
+      { key: "father.lastName", label: "Priezvisko", type: "text" },
+      { key: "father.address", label: "Adresa", type: "address" },
+      { key: "father.city", label: "Mesto", type: "text" },
+      { key: "father.postalCode", label: "PSČ", type: "text" },
+      { key: "father.dateOfBirth", label: "Dátum narodenia", type: "date" },
+      { key: "father.birthNumber", label: "Rodné číslo", type: "text" },
+      { key: "father.email", label: "E-mail", type: "email" },
+      { key: "father.phone", label: "Telefón", type: "phone" },
     ],
   },
   product: {
@@ -344,139 +361,251 @@ const SPECIAL_ELEMENTS = {
   },
 };
 
-const DEFAULT_CONTRACT_TEMPLATE = `<div style="font-family: Arial, sans-serif; font-size: 11pt; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 40px;">
+const DEFAULT_CONTRACT_TEMPLATE = `<div style="font-family: 'Times New Roman', serif; font-size: 10pt; line-height: 1.4; max-width: 900px; margin: 0 auto; padding: 30px;">
 
-  <!-- Hlavička -->
-  <div style="text-align: center; margin-bottom: 30px;">
-    <h1 style="font-size: 18pt; font-weight: bold; margin-bottom: 5px; color: #1a1a1a;">
-      ZMLUVA O UCHOVÁVANÍ KRVOTVORNÝCH BUNIEK
+  <!-- Hlavička zmluvy -->
+  <div style="text-align: center; margin-bottom: 20px;">
+    <h1 style="font-size: 16pt; font-weight: bold; margin-bottom: 5px; color: #000;">
+      Zmluva o odbere
     </h1>
-    <p style="font-size: 10pt; color: #666;">Číslo zmluvy: {{contract.number}}</p>
+    <p style="font-size: 10pt; margin: 5px 0;">číslo zmluvy: {{contract.number}}</p>
+    <p style="font-size: 9pt; color: #333; margin-top: 10px;">
+      uzavretá podľa § 262 ods. 1 a § 269 ods. 2 zákona č. 513/1991 Zb. Obchodný zákonník v znení neskorších predpisov
+    </p>
   </div>
 
-  <!-- Zmluvné strany -->
-  <div style="margin-bottom: 25px;">
-    <h2 style="font-size: 12pt; font-weight: bold; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-bottom: 15px;">
-      I. ZMLUVNÉ STRANY
-    </h2>
-    
-    <div style="margin-bottom: 15px;">
-      <p style="font-weight: bold; margin-bottom: 5px;">Poskytovateľ:</p>
-      <p style="margin: 0;">{{billing.companyName}}</p>
-      <p style="margin: 0;">{{billing.address}}, {{billing.postalCode}} {{billing.city}}</p>
-      <p style="margin: 0;">IČO: {{billing.taxId}}, DIČ: {{billing.dic}}, IČ DPH: {{billing.vatId}}</p>
-      <p style="margin: 0;">Bankové spojenie: {{billing.bankName}}, IBAN: {{billing.iban}}</p>
-      <p style="margin: 0;">Zapísaná: {{billing.courtRegistration}}</p>
-      <p style="margin: 0; font-size: 10pt;">(ďalej len "Poskytovateľ")</p>
+  <!-- Zmluvné strany - dvojstĺpcové rozloženie -->
+  <div style="display: flex; justify-content: space-between; margin-bottom: 25px; gap: 30px;">
+    <div style="width: 48%;">
+      <p style="font-weight: bold; margin-bottom: 8px;">medzi</p>
+      <p style="margin: 2px 0;"><strong>{{billing.companyName}}</strong></p>
+      <p style="margin: 2px 0; font-size: 9pt;">so sídlom: {{billing.address}}, {{billing.postalCode}} {{billing.city}}, {{billing.country}}</p>
+      <p style="margin: 2px 0; font-size: 9pt;">Identifikačné číslo: {{billing.taxId}}</p>
+      <p style="margin: 2px 0; font-size: 9pt;">Daňové Identifikačné číslo: {{billing.dic}}</p>
+      <p style="margin: 2px 0; font-size: 9pt;">Identifikačné číslo DPH: {{billing.vatId}}</p>
+      <p style="margin: 2px 0; font-size: 9pt;">IBAN: {{billing.iban}}</p>
+      <p style="margin: 2px 0; font-size: 9pt;">SWIFT: {{billing.swift}}</p>
+      <p style="margin: 8px 0; font-size: 9pt; font-style: italic;">(ďalej ako spoločnosť „CBC AG")</p>
     </div>
-    
-    <div>
-      <p style="font-weight: bold; margin-bottom: 5px;">Objednávateľ:</p>
-      <p style="margin: 0;">{{customer.fullName}}</p>
-      <p style="margin: 0;">Dátum narodenia: {{customer.dateOfBirth}}, Rodné číslo: {{customer.birthNumber}}</p>
-      <p style="margin: 0;">Adresa: {{customer.address}}, {{customer.postalCode}} {{customer.city}}</p>
-      <p style="margin: 0;">E-mail: {{customer.email}}, Tel: {{customer.phone}}</p>
-      <p style="margin: 0; font-size: 10pt;">(ďalej len "Objednávateľ")</p>
+    <div style="width: 48%;">
+      <p style="font-weight: bold; margin-bottom: 8px;">a</p>
+      <p style="margin: 2px 0;">pani: <strong>{{customer.fullName}}</strong> (ďalej len „RODIČKA")</p>
+      <p style="margin: 2px 0; font-size: 9pt;">trvale bytom: {{customer.address}}, {{customer.postalCode}} {{customer.city}}</p>
+      <p style="margin: 2px 0; font-size: 9pt;">dátum narodenia: {{customer.dateOfBirth}}</p>
+      <p style="margin: 2px 0; font-size: 9pt;">rodné číslo: {{customer.birthNumber}}</p>
+      <p style="margin: 2px 0; font-size: 9pt;">e-mail: {{customer.email}}</p>
+      <p style="margin: 2px 0; font-size: 9pt;">telefón: {{customer.phone}}</p>
+      <p style="margin: 8px 0; font-size: 9pt;">a</p>
+      <p style="margin: 2px 0;">pán: {{father.fullName}} (ďalej len „Otec")</p>
+      <p style="margin: 2px 0; font-size: 9pt;">trvale bytom: {{father.address}}, {{father.postalCode}} {{father.city}}</p>
     </div>
   </div>
 
-  <!-- Predmet zmluvy -->
-  <div style="margin-bottom: 25px;">
-    <h2 style="font-size: 12pt; font-weight: bold; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-bottom: 15px;">
-      II. PREDMET ZMLUVY
+  <p style="text-align: center; margin-bottom: 20px; font-size: 9pt;">(ďalej len „Zmluva") takto:</p>
+
+  <!-- Článok I - Preambula -->
+  <div style="margin-bottom: 20px;">
+    <h2 style="font-size: 11pt; font-weight: bold; text-align: center; margin-bottom: 10px;">
+      Článok I - Preambula
     </h2>
-    <p style="margin-bottom: 10px;">
-      <strong>2.1</strong> Poskytovateľ sa zaväzuje poskytnúť Objednávateľovi službu <strong>{{product.name}}</strong> 
-      v súlade s podmienkami stanovenými touto zmluvou.
+    <p style="margin-bottom: 8px; text-align: justify;">
+      <strong>I.1</strong> Zmluvné strany sa dohodli, že túto Zmluvu uzatvárajú podľa § 262 ods. 1 Obchodného zákonníka 
+      a v zmysle § 269 ods. 2 Obchodného zákonníka.
     </p>
-    <p style="margin-bottom: 10px;">
-      <strong>2.2</strong> Popis služby: {{product.description}}
+    <p style="margin-bottom: 8px; text-align: justify;">
+      <strong>I.2</strong> Zmluvné strany vyhlasujú, že túto Zmluvu uzatvárajú slobodne, vážne a bez omylu, že sú spôsobilé 
+      na právne úkony v plnom rozsahu, obsah Zmluvy im je dobre známy v celom jeho rozsahu a Zmluvu neuzatvárajú 
+      v tiesni alebo za nápadne nevýhodných podmienok.
     </p>
-    <p style="margin-bottom: 10px;">
-      <strong>2.3</strong> Doba uloženia: {{product.storageYears}} rokov
+    <p style="margin-bottom: 8px; text-align: justify;">
+      <strong>I.3</strong> CBC AG je obchodná spoločnosť, ktorá zabezpečuje niektoré činnosti registra pupočníkovej 
+      a placentárnej krvi, tkaniva pupočníka a placenty, pričom predmetná činnosť zahŕňa najmä zabezpečenie odberu 
+      krvotvorných kmeňových buniek z pupočníkovej a placentárnej krvi a tkaniva pupočníka a placenty zdravotníckym 
+      zariadením pri pôrode dieťaťa RODIČKY a ich následné spracovanie na autológnu transplantáciu.
     </p>
   </div>
 
-  <!-- Cena a platobné podmienky -->
-  <div style="margin-bottom: 25px;">
-    <h2 style="font-size: 12pt; font-weight: bold; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-bottom: 15px;">
-      III. CENA A PLATOBNÉ PODMIENKY
+  <!-- Článok II - Predmet Zmluvy -->
+  <div style="margin-bottom: 20px;">
+    <h2 style="font-size: 11pt; font-weight: bold; text-align: center; margin-bottom: 10px;">
+      Článok II - Predmet Zmluvy
     </h2>
-    <p style="margin-bottom: 10px;">
-      <strong>3.1</strong> Celková cena za poskytnutie služby: <strong>{{product.totalPrice}} {{product.currency}}</strong>
-      (slovom: <em>{{product.totalPriceWords}}</em>)
-    </p>
-    <p style="margin-bottom: 10px;">
-      <strong>3.2</strong> Cena bez DPH: {{product.basePrice}} {{product.currency}}
-    </p>
-    <p style="margin-bottom: 10px;">
-      <strong>3.3</strong> DPH ({{product.vatRate}}%): {{product.vatAmount}} {{product.currency}}
-    </p>
-    <p style="margin-bottom: 10px;">
-      <strong>3.4</strong> Spôsob platby: {{#if product.installments}}Splátky - {{product.installments}}x {{product.monthlyPayment}} {{product.currency}}/mesiac{{else}}Jednorazová platba{{/if}}
-    </p>
-    <p style="margin-bottom: 10px;">
-      <strong>3.5</strong> Splatnosť faktúry: {{billing.paymentTermsDays}} dní od vystavenia
+    <p style="margin-bottom: 8px; text-align: justify;">
+      <strong>II.1</strong> Predmetom záväzku CBC AG podľa tejto Zmluvy pre RODIČKU je zabezpečenie odberu pupočníkovej 
+      a/alebo placentárnej krvi (ďalej len „krv") a/alebo tkaniva pupočníka a/alebo placenty (ďalej len „tkanivo") 
+      zdravotníckym zariadením pri pôrode dieťaťa RODIČKY, ich následné spracovanie (ďalej spoločne len "transplantát"), 
+      ako aj na základe záujmu RODIČKY zabezpečenie následného skladovania transplantátu za podmienok nižšie uvedených v Zmluve.
     </p>
   </div>
 
-  <!-- Práva a povinnosti -->
-  <div style="margin-bottom: 25px;">
-    <h2 style="font-size: 12pt; font-weight: bold; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-bottom: 15px;">
-      IV. PRÁVA A POVINNOSTI ZMLUVNÝCH STRÁN
+  <!-- Článok III – Zabezpečenie činností -->
+  <div style="margin-bottom: 20px;">
+    <h2 style="font-size: 11pt; font-weight: bold; text-align: center; margin-bottom: 10px;">
+      Článok III – Zabezpečenie činností
     </h2>
-    <p style="margin-bottom: 10px;">
-      <strong>4.1</strong> Poskytovateľ sa zaväzuje:
+    <p style="margin-bottom: 8px; text-align: justify;">
+      <strong>III.1</strong> RODIČKA podpisom Zmluvy vyjadruje svoj výslovný súhlas so zabezpečením činností CBC AG 
+      v súlade s bodom II.1 Zmluvy, pričom sa zaväzuje zaplatiť dohodnutú odplatu podľa tejto Zmluvy.
     </p>
-    <ul style="margin-left: 20px; margin-bottom: 15px;">
-      <li>poskytnúť služby v súlade s platnými predpismi a štandardami</li>
-      <li>zabezpečiť odborné spracovanie a uchovávanie</li>
-      <li>informovať Objednávateľa o všetkých podstatných skutočnostiach</li>
+    <p style="margin-bottom: 8px; text-align: justify;">
+      <strong>III.2</strong> Transplantát môže byť použitý na autológnu transplantáciu. Transplantát môže byť pripravený 
+      spracovaním z pupočníkovej krvi (ďalej ako „<strong>{{product.name}}</strong>").
+    </p>
+  </div>
+
+  <!-- Článok IV - Transplantát -->
+  <div style="margin-bottom: 20px;">
+    <h2 style="font-size: 11pt; font-weight: bold; text-align: center; margin-bottom: 10px;">
+      Článok IV - Transplantát
+    </h2>
+    <p style="margin-bottom: 8px; text-align: justify;">
+      <strong>IV.1</strong> CBC AG je povinná zabezpečiť spracovanie krvi a/alebo tkaniva na transplantát alebo časti 
+      transplantátu RODIČKE v stave použiteľnom na účely autológnej transplantácie.
+    </p>
+    <p style="margin-bottom: 8px; text-align: justify;">
+      <strong>IV.2</strong> Transplantát sa v zmysle Zmluvy považuje za použiteľný na účely autológnej transplantácie, ak:
+    </p>
+    <ul style="margin-left: 30px; margin-bottom: 10px; font-size: 9pt;">
+      <li>a) odobratá krv a/alebo tkanivo je/sú spracovaná/é v súlade s platnou právnou úpravou a odbornými postupmi,</li>
+      <li>b) transplantát je v momente jeho vydania riadne vyšetrený a boli vykonané požadované testy v súlade s platnou právnou úpravou,</li>
+      <li>c) je stanovený počet jadrových buniek v krvi.</li>
     </ul>
-    <p style="margin-bottom: 10px;">
-      <strong>4.2</strong> Objednávateľ sa zaväzuje:
+    <p style="margin-bottom: 8px; text-align: justify;">
+      <strong>IV.3</strong> Po spracovaní krvi a/alebo tkaniva bude S.R.P.K.B. písomne informovať RODIČKU o použiteľnosti 
+      transplantátu, ako aj o výsledkoch spracovania krvi a/alebo tkaniva (ďalej len „Výsledky spracovania").
     </p>
-    <ul style="margin-left: 20px;">
-      <li>uhradiť cenu za služby v stanovených termínoch</li>
-      <li>poskytnúť potrebnú súčinnosť</li>
-      <li>informovať o zmenách kontaktných údajov</li>
-    </ul>
   </div>
 
-  <!-- Záverečné ustanovenia -->
-  <div style="margin-bottom: 25px;">
-    <h2 style="font-size: 12pt; font-weight: bold; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-bottom: 15px;">
-      V. ZÁVEREČNÉ USTANOVENIA
+  <!-- Článok V - Odplata -->
+  <div style="margin-bottom: 20px;">
+    <h2 style="font-size: 11pt; font-weight: bold; text-align: center; margin-bottom: 10px;">
+      Článok V - Odplata
     </h2>
-    <p style="margin-bottom: 10px;">
-      <strong>5.1</strong> Táto zmluva nadobúda platnosť dňom jej podpisu oboma zmluvnými stranami.
+    <p style="margin-bottom: 8px; text-align: justify;">
+      <strong>V.1</strong> Za zabezpečenie odberu a spracovania krvi a/alebo tkaniva na transplantát pre RODIČKU, 
+      prináleží CBC AG odplata. Zmluvné strany sa dohodli, že RODIČKA a Otec sú solidárne (spoločne a nerozdielne) 
+      povinní dohodnutú odplatu CBC AG zaplatiť včas.
     </p>
-    <p style="margin-bottom: 10px;">
-      <strong>5.2</strong> Zmluva je vyhotovená v dvoch rovnopisoch, z ktorých každá zmluvná strana obdrží jeden.
+    
+    <!-- Cenová tabuľka -->
+    <div style="margin: 15px 0;">
+      <p style="font-weight: bold; margin-bottom: 8px; font-size: 9pt; text-transform: uppercase;">
+        Pre zmluvné strany je záväzná nasledovná odplata:
+      </p>
+      <table style="width: 100%; border-collapse: collapse; font-size: 9pt; margin-bottom: 15px;">
+        <thead>
+          <tr style="background-color: #f5f5f5;">
+            <th style="border: 1px solid #333; padding: 8px; text-align: left;">Typ produktu</th>
+            <th style="border: 1px solid #333; padding: 8px; text-align: right;">Celková suma</th>
+            <th style="border: 1px solid #333; padding: 8px; text-align: center;">Počet platieb</th>
+            <th style="border: 1px solid #333; padding: 8px; text-align: right;">Zálohová platba</th>
+            <th style="border: 1px solid #333; padding: 8px; text-align: right;">Zostávajúca platba</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="border: 1px solid #333; padding: 8px; font-weight: bold;">{{product.name}}</td>
+            <td style="border: 1px solid #333; padding: 8px; text-align: right; font-weight: bold;">{{billset.totalGrossAmount}} {{billset.currency}}</td>
+            <td style="border: 1px solid #333; padding: 8px; text-align: center;">{{payment.installments}}</td>
+            <td style="border: 1px solid #333; padding: 8px; text-align: right;">{{payment.depositAmount}} {{billset.currency}}</td>
+            <td style="border: 1px solid #333; padding: 8px; text-align: right;">{{payment.remainingAmount}} {{billset.currency}}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p style="margin-bottom: 8px; text-align: justify;">
+      <strong>V.2</strong> Zmluvné strany sa dohodli na nasledovnom postupe úhrady odplaty:
     </p>
-    <p style="margin-bottom: 10px;">
-      <strong>5.3</strong> Akékoľvek zmeny a doplnky tejto zmluvy musia byť vykonané písomne.
+    <ul style="margin-left: 30px; margin-bottom: 10px; font-size: 9pt;">
+      <li>zálohová platba v sume {{payment.depositAmount}} {{billset.currency}} je splatná do 14 kalendárnych dní odo dňa vystavenia zálohovej faktúry,</li>
+      <li>zostatok odplaty po odpočítaní zaplatenej zálohovej platby je splatný do 14 kalendárnych dní odo dňa vystavenia faktúry.</li>
+    </ul>
+    <p style="margin-bottom: 8px; text-align: justify;">
+      <strong>V.3</strong> RODIČKA a Otec sú povinní spoločne a nerozdielne uhradiť odplatu CBC AG na bankový účet 
+      uvedený v záhlaví Zmluvy.
     </p>
   </div>
+
+  <!-- Článok VI - Ďalšie zmluvné ustanovenia -->
+  <div style="margin-bottom: 20px;">
+    <h2 style="font-size: 11pt; font-weight: bold; text-align: center; margin-bottom: 10px;">
+      Článok VI - Ďalšie zmluvné ustanovenia
+    </h2>
+    <p style="margin-bottom: 8px; text-align: justify;">
+      <strong>VI.1</strong> CBC AG sa zaväzuje zabezpečovať plnenie predmetu Zmluvy prostredníctvom riadne 
+      licencovaných subjektov v Slovenskej republike s tým, že za výsledok ich činnosti zodpovedá akoby plnila sama.
+    </p>
+    <p style="margin-bottom: 8px; text-align: justify;">
+      <strong>VI.2</strong> V prípade poškodenia transplantátu do času jeho odovzdania na skladovanie, keď medzi 
+      zavineným porušením povinností zo strany CBC AG a spôsobenou škodou existuje priama príčinná súvislosť, 
+      sa CBC AG zaväzuje nahradiť RODIČKE vzniknutú skutočnú škodu.
+    </p>
+  </div>
+
+  <!-- Článok VII - Záverečné ustanovenia -->
+  <div style="margin-bottom: 20px;">
+    <h2 style="font-size: 11pt; font-weight: bold; text-align: center; margin-bottom: 10px;">
+      Článok VII - Záverečné ustanovenia
+    </h2>
+    <p style="margin-bottom: 8px; text-align: justify;">
+      <strong>VII.1</strong> Zmluvné strany sa dohodli, že v prípade smrti RODIČKY prechádzajú všetky práva 
+      a povinnosti zo Zmluvy na dieťa narodené bezprostredne pred odberom krvi a/alebo tkaniva za účelom 
+      ich spracovania na transplantát.
+    </p>
+    <p style="margin-bottom: 8px; text-align: justify;">
+      <strong>VII.4</strong> Táto Zmluva sa uzatvára na dobu určitú, a to na dobu od podpisu tejto Zmluvy 
+      až do momentu akceptácie transplantátu RODIČKOU.
+    </p>
+    <p style="margin-bottom: 8px; text-align: justify;">
+      <strong>VII.6</strong> Zmluva nadobúda platnosť a účinnosť dňom jej podpísania oboma zmluvnými stranami. 
+      Zmluva a vzťahy z nej vyplývajúce sa budú vykladať a riadiť právnym poriadkom Slovenskej republiky.
+    </p>
+    <p style="margin-bottom: 8px; text-align: justify;">
+      <strong>VII.7</strong> Zmluva je vyhotovená v dvoch exemplároch s platnosťou originálu, pričom CBC AG 
+      obdrží jedno (1) vyhotovenie a RODIČKA a Otec spoločne obdržia jedno (1) vyhotovenie.
+    </p>
+    <p style="margin-bottom: 8px; text-align: justify;">
+      <strong>VII.8</strong> Súčasťou Zmluvy je „Dotazník pre rodičku", „Informácie pre rodičov", 
+      „Informácia o spracúvaní osobných údajov dotknutej osoby". Všetky prílohy tejto Zmluvy tvoria jej neoddeliteľnú časť.
+    </p>
+  </div>
+
+  <!-- Zlom strany pred podpismi -->
+  <div style="page-break-before: always;"></div>
 
   <!-- Podpisy -->
-  <div style="margin-top: 50px;">
-    <div style="display: flex; justify-content: space-between;">
+  <div style="margin-top: 40px;">
+    <div style="display: flex; justify-content: space-between; gap: 40px;">
       <div style="width: 45%; text-align: center;">
-        <p style="margin-bottom: 5px;">V {{contract.signaturePlace}}, dňa {{contract.date}}</p>
-        <div style="border-top: 1px solid #000; padding-top: 10px; margin-top: 60px;">
-          <p style="font-weight: bold; margin: 0;">{{billing.companyName}}</p>
-          <p style="font-size: 10pt; margin: 0;">Poskytovateľ</p>
+        <p style="margin-bottom: 5px; font-size: 9pt;">V {{contract.signaturePlace}} dňa {{contract.date}}</p>
+        <div style="margin-top: 60px;">
+          <div style="border-top: 1px solid #000; padding-top: 8px;">
+            <p style="margin: 0; font-size: 9pt;">za CBC AG</p>
+            <p style="margin: 5px 0 0 0; font-weight: bold; font-size: 10pt;">{{billing.representative}}</p>
+            <p style="margin: 0; font-size: 8pt; color: #666;">(splnomocnenec)</p>
+          </div>
         </div>
       </div>
-      <div style="width: 45%; text-align: center;">
-        <p style="margin-bottom: 5px;">V ________________, dňa {{contract.date}}</p>
-        <div style="border-top: 1px solid #000; padding-top: 10px; margin-top: 60px;">
-          <p style="font-weight: bold; margin: 0;">{{customer.fullName}}</p>
-          <p style="font-size: 10pt; margin: 0;">Objednávateľ</p>
+      <div style="width: 45%;">
+        <p style="margin-bottom: 5px; font-size: 9pt; text-align: center;">V _________________ dňa {{contract.date}}</p>
+        <div style="margin-top: 60px; text-align: center;">
+          <div style="border-top: 1px solid #000; padding-top: 8px; margin-bottom: 40px;">
+            <p style="margin: 5px 0 0 0; font-weight: bold; font-size: 10pt;">{{customer.fullName}}</p>
+            <p style="margin: 0; font-size: 8pt; color: #666;">(RODIČKA)</p>
+          </div>
+          <div style="border-top: 1px solid #000; padding-top: 8px; margin-top: 50px;">
+            <p style="margin: 5px 0 0 0; font-weight: bold; font-size: 10pt;">{{father.fullName}}</p>
+            <p style="margin: 0; font-size: 8pt; color: #666;">(Otec)</p>
+          </div>
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- Referenčné číslo verzie -->
+  <div style="position: absolute; bottom: 20px; right: 30px;">
+    <p style="font-size: 7pt; color: #999;">CBCAG-ZDLMO-V003</p>
   </div>
 
 </div>`;
@@ -493,8 +622,13 @@ export function ContractTemplateEditor({ value, onChange, onLoadDefault }: Contr
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     customer: true,
     billing: true,
+    father: false,
     product: false,
     contract: false,
+    billset: false,
+    payment: false,
+    discount: false,
+    vat: false,
   });
   const [previewHtml, setPreviewHtml] = useState("");
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -616,6 +750,18 @@ export function ContractTemplateEditor({ value, onChange, onLoadDefault }: Contr
       "billing.defaultCurrency": "EUR",
       "billing.registrationInfo": "OR Bratislava I, oddiel Sro, vložka 12345/B",
       "billing.courtRegistration": "Okresný súd Bratislava I, oddiel Sro, vložka 12345/B",
+      "billing.representative": "Ján Šidlík, MBA",
+      // Father fields
+      "father.fullName": "Peter Novák",
+      "father.firstName": "Peter",
+      "father.lastName": "Novák",
+      "father.address": "Hlavná 123",
+      "father.city": "Bratislava",
+      "father.postalCode": "811 01",
+      "father.dateOfBirth": "20.05.1983",
+      "father.birthNumber": "830520/1234",
+      "father.email": "peter.novak@email.sk",
+      "father.phone": "+421 900 987 654",
       "product.name": "Premium Plus - Uchovávanie kmeňových buniek",
       "product.code": "PP-25",
       "product.description": "Kompletné spracovanie a uchovávanie kmeňových buniek z pupočníkovej krvi na 25 rokov",
