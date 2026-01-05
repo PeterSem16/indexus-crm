@@ -472,48 +472,48 @@ const DEFAULT_CONTRACT_TEMPLATE = `<div style="font-family: 'Times New Roman', s
           </tr>
         </thead>
         <tbody>
-          <tr style="background-color: #ecf0f1;">
-            <td style="border: 1px solid #bdc3c7; padding: 8px; text-align: center;"><span style="display: inline-block; width: 14px; height: 14px; border: 2px solid #2c3e50; border-radius: 50%;"></span></td>
+          <tr data-product-id="standard" style="background-color: #ecf0f1;">
+            <td style="border: 1px solid #bdc3c7; padding: 8px; text-align: center;"><span class="product-radio" style="display: inline-block; width: 14px; height: 14px; border: 2px solid #2c3e50; border-radius: 50%;"></span></td>
             <td style="border: 1px solid #bdc3c7; padding: 8px;">Štandard</td>
             <td style="border: 1px solid #bdc3c7; padding: 8px; text-align: right;">590 EUR</td>
             <td style="border: 1px solid #bdc3c7; padding: 8px; text-align: center;">2</td>
             <td style="border: 1px solid #bdc3c7; padding: 8px; text-align: right;">150 EUR</td>
             <td style="border: 1px solid #bdc3c7; padding: 8px; text-align: right; background-color: #fff9c4; font-weight: bold;">440 EUR</td>
           </tr>
-          <tr style="background-color: #ffffff;">
-            <td style="border: 1px solid #bdc3c7; padding: 8px; text-align: center;"><span style="display: inline-block; width: 14px; height: 14px; border: 2px solid #2c3e50; border-radius: 50%;"></span></td>
+          <tr data-product-id="standard_tissue" style="background-color: #ffffff;">
+            <td style="border: 1px solid #bdc3c7; padding: 8px; text-align: center;"><span class="product-radio" style="display: inline-block; width: 14px; height: 14px; border: 2px solid #2c3e50; border-radius: 50%;"></span></td>
             <td style="border: 1px solid #bdc3c7; padding: 8px;">Štandard + tkanivo pupočníka</td>
             <td style="border: 1px solid #bdc3c7; padding: 8px; text-align: right;">790 EUR</td>
             <td style="border: 1px solid #bdc3c7; padding: 8px; text-align: center;">2</td>
             <td style="border: 1px solid #bdc3c7; padding: 8px; text-align: right;">150 EUR</td>
             <td style="border: 1px solid #bdc3c7; padding: 8px; text-align: right; background-color: #fff9c4; font-weight: bold;">640 EUR</td>
           </tr>
-          <tr style="background-color: #ecf0f1;">
-            <td style="border: 1px solid #bdc3c7; padding: 8px; text-align: center;"><span style="display: inline-block; width: 14px; height: 14px; border: 2px solid #2c3e50; border-radius: 50%;"></span></td>
+          <tr data-product-id="premium" style="background-color: #ecf0f1;">
+            <td style="border: 1px solid #bdc3c7; padding: 8px; text-align: center;"><span class="product-radio" style="display: inline-block; width: 14px; height: 14px; border: 2px solid #2c3e50; border-radius: 50%;"></span></td>
             <td style="border: 1px solid #bdc3c7; padding: 8px;">Prémium</td>
             <td style="border: 1px solid #bdc3c7; padding: 8px; text-align: right;">790 EUR</td>
             <td style="border: 1px solid #bdc3c7; padding: 8px; text-align: center;">2</td>
             <td style="border: 1px solid #bdc3c7; padding: 8px; text-align: right;">150 EUR</td>
             <td style="border: 1px solid #bdc3c7; padding: 8px; text-align: right; background-color: #fff9c4; font-weight: bold;">640 EUR</td>
           </tr>
-          <tr style="background-color: #ffffff;">
-            <td style="border: 1px solid #bdc3c7; padding: 8px; text-align: center;"><span style="display: inline-block; width: 14px; height: 14px; border: 2px solid #2c3e50; border-radius: 50%;"></span></td>
+          <tr data-product-id="premium_tissue" style="background-color: #ffffff;">
+            <td style="border: 1px solid #bdc3c7; padding: 8px; text-align: center;"><span class="product-radio" style="display: inline-block; width: 14px; height: 14px; border: 2px solid #2c3e50; border-radius: 50%;"></span></td>
             <td style="border: 1px solid #bdc3c7; padding: 8px;">Prémium + tkanivo pupočníka</td>
             <td style="border: 1px solid #bdc3c7; padding: 8px; text-align: right;">990 EUR</td>
             <td style="border: 1px solid #bdc3c7; padding: 8px; text-align: center;">2</td>
             <td style="border: 1px solid #bdc3c7; padding: 8px; text-align: right;">150 EUR</td>
             <td style="border: 1px solid #bdc3c7; padding: 8px; text-align: right; background-color: #fff9c4; font-weight: bold;">840 EUR</td>
           </tr>
-          <tr style="background-color: #ecf0f1;">
-            <td style="border: 1px solid #bdc3c7; padding: 8px; text-align: center;"><span style="display: inline-block; width: 14px; height: 14px; border: 2px solid #2c3e50; border-radius: 50%;"></span></td>
+          <tr data-product-id="tissue_only" style="background-color: #ecf0f1;">
+            <td style="border: 1px solid #bdc3c7; padding: 8px; text-align: center;"><span class="product-radio" style="display: inline-block; width: 14px; height: 14px; border: 2px solid #2c3e50; border-radius: 50%;"></span></td>
             <td style="border: 1px solid #bdc3c7; padding: 8px;">Tkanivo pupočníka**</td>
             <td style="border: 1px solid #bdc3c7; padding: 8px; text-align: right;">300 EUR</td>
             <td style="border: 1px solid #bdc3c7; padding: 8px; text-align: center;">1</td>
             <td style="border: 1px solid #bdc3c7; padding: 8px; text-align: right;">0 EUR</td>
             <td style="border: 1px solid #bdc3c7; padding: 8px; text-align: right; background-color: #fff9c4; font-weight: bold;">300 EUR</td>
           </tr>
-          <tr style="background-color: #ffffff;">
-            <td style="border: 1px solid #bdc3c7; padding: 8px; text-align: center;"><span style="display: inline-block; width: 14px; height: 14px; border: 2px solid #2c3e50; border-radius: 50%;"></span></td>
+          <tr data-product-id="premium_all" style="background-color: #ffffff;">
+            <td style="border: 1px solid #bdc3c7; padding: 8px; text-align: center;"><span class="product-radio" style="display: inline-block; width: 14px; height: 14px; border: 2px solid #2c3e50; border-radius: 50%;"></span></td>
             <td style="border: 1px solid #bdc3c7; padding: 8px;">Prémium + tkanivo pupočníka + tkanivo placenty</td>
             <td style="border: 1px solid #bdc3c7; padding: 8px; text-align: right;">1 490 EUR</td>
             <td style="border: 1px solid #bdc3c7; padding: 8px; text-align: center;">2</td>
