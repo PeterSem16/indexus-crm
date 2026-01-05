@@ -6970,23 +6970,15 @@ export async function registerRoutes(
       if (contract.selectedProductId) {
         const filledRadio = `<span class="product-radio product-selected" style="display: inline-block; width: 14px; height: 14px; border: 2px solid #2c3e50; border-radius: 50%; background-color: #2c3e50; position: relative;"><span style="position: absolute; top: 2px; left: 2px; width: 6px; height: 6px; border-radius: 50%; background-color: white;"></span></span>`;
         
-        // Find the row with data-product-id matching selectedProductId and replace the empty radio
+        // Find the tr with matching data-product-id and replace span.product-radio within it
         const rowRegex = new RegExp(
-          `(<tr[^>]*data-product-id="${contract.selectedProductId}"[^>]*>[\\s\\S]*?<span class="product-radio"[^>]*>)([\\s\\S]*?)(</span>)`,
-          'g'
-        );
-        renderedHtml = renderedHtml.replace(rowRegex, (match, before, content, after) => {
-          return filledRadio;
-        });
-        
-        // Alternative: simpler approach - find the tr with matching data-product-id and replace span.product-radio
-        const simpleRegex = new RegExp(
           `(<tr[^>]*data-product-id="${contract.selectedProductId}"[^>]*>)([\\s\\S]*?)(<\\/tr>)`,
           'g'
         );
-        renderedHtml = renderedHtml.replace(simpleRegex, (match, trStart, content, trEnd) => {
+        renderedHtml = renderedHtml.replace(rowRegex, (match, trStart, content, trEnd) => {
+          // Replace the empty radio span with the filled one, preserving all other content
           const updatedContent = content.replace(
-            /<span class="product-radio"[^>]*>(<span[^>]*><\/span>)?<\/span>/,
+            /<span class="product-radio"[^>]*>[^<]*(<span[^>]*>[^<]*<\/span>)?<\/span>/,
             filledRadio
           );
           return trStart + updatedContent + trEnd;
@@ -7150,14 +7142,15 @@ export async function registerRoutes(
       if (contract.selectedProductId) {
         const filledRadio = `<span class="product-radio product-selected" style="display: inline-block; width: 14px; height: 14px; border: 2px solid #2c3e50; border-radius: 50%; background-color: #2c3e50; position: relative;"><span style="position: absolute; top: 2px; left: 2px; width: 6px; height: 6px; border-radius: 50%; background-color: white;"></span></span>`;
         
-        // Find the tr with matching data-product-id and replace span.product-radio
-        const simpleRegex = new RegExp(
+        // Find the tr with matching data-product-id and replace span.product-radio within it
+        const rowRegex = new RegExp(
           `(<tr[^>]*data-product-id="${contract.selectedProductId}"[^>]*>)([\\s\\S]*?)(<\\/tr>)`,
           'g'
         );
-        renderedHtml = renderedHtml.replace(simpleRegex, (match, trStart, content, trEnd) => {
+        renderedHtml = renderedHtml.replace(rowRegex, (match, trStart, content, trEnd) => {
+          // Replace the empty radio span with the filled one, preserving all other content
           const updatedContent = content.replace(
-            /<span class="product-radio"[^>]*>(<span[^>]*><\/span>)?<\/span>/,
+            /<span class="product-radio"[^>]*>[^<]*(<span[^>]*>[^<]*<\/span>)?<\/span>/,
             filledRadio
           );
           return trStart + updatedContent + trEnd;
