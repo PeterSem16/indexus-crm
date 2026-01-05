@@ -6865,13 +6865,12 @@ export async function registerRoutes(
       
       // Get billing details - first try by ID, then fallback to customer's country
       let billingDetails = contract.billingDetailsId 
-        ? await storage.getBillingDetails(contract.billingDetailsId)
+        ? await storage.getBillingDetailsById(contract.billingDetailsId)
         : null;
       
       // If no billing details by ID, try to find by customer's country
       if (!billingDetails && customer?.country) {
-        const allBillingDetails = await storage.getAllBillingDetails();
-        billingDetails = allBillingDetails.find(bd => bd.countryCode === customer.country) || allBillingDetails[0] || null;
+        billingDetails = await storage.getBillingDetails(customer.country);
       }
       
       // If still no billing details, try to get the first available one
@@ -6969,12 +6968,11 @@ export async function registerRoutes(
       
       // Get billing details - first try by ID, then fallback to customer's country
       let billingDetails = contract.billingDetailsId 
-        ? await storage.getBillingDetails(contract.billingDetailsId)
+        ? await storage.getBillingDetailsById(contract.billingDetailsId)
         : null;
       
-      if (!billingDetails && customer?.countryCode) {
-        const allBillingDetails = await storage.getAllBillingDetails();
-        billingDetails = allBillingDetails.find(bd => bd.countryCode === customer.countryCode) || allBillingDetails[0] || null;
+      if (!billingDetails && customer?.country) {
+        billingDetails = await storage.getBillingDetails(customer.country);
       }
       
       if (!billingDetails) {
@@ -7080,18 +7078,36 @@ export async function registerRoutes(
         // Continue with PDF generation even if DB update fails
       }
       
-      // Create PDF document
+      // Validate we have data before streaming
+      if (!context.customer.fullName && !context.billing.companyName) {
+        return res.status(400).json({ error: "Insufficient data for PDF generation" });
+      }
+      
+      // Create PDF document with buffer collection
       const doc = new PDFDocument({ 
         margin: 40,
-        size: "A4"
+        size: "A4",
+        bufferPages: true
       });
       
-      res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", `attachment; filename="zmluva-${contract.contractNumber}.pdf"`);
+      // Collect PDF chunks in memory first
+      const chunks: Buffer[] = [];
+      doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+      doc.on('end', () => {
+        const pdfBuffer = Buffer.concat(chunks);
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Disposition", `attachment; filename="zmluva-${contract.contractNumber}.pdf"`);
+        res.setHeader("Content-Length", pdfBuffer.length);
+        res.send(pdfBuffer);
+      });
+      doc.on('error', (err: Error) => {
+        console.error("PDF generation error:", err);
+        if (!res.headersSent) {
+          res.status(500).json({ error: "PDF generation failed" });
+        }
+      });
       
-      doc.pipe(res);
-      
-      // PDF Header
+      // PDF Header - use ASCII-compatible text where possible
       doc.fontSize(16).font("Helvetica-Bold").text("Zmluva o odbere", { align: "center" });
       doc.fontSize(10).font("Helvetica").text(`číslo zmluvy: ${contract.contractNumber}`, { align: "center" });
       doc.moveDown(0.5);
@@ -7223,12 +7239,11 @@ export async function registerRoutes(
       
       // Get billing details - first try by ID, then fallback to customer's country
       let billingDetails = contract.billingDetailsId 
-        ? await storage.getBillingDetails(contract.billingDetailsId)
+        ? await storage.getBillingDetailsById(contract.billingDetailsId)
         : null;
       
-      if (!billingDetails && customer?.countryCode) {
-        const allBillingDetails = await storage.getAllBillingDetails();
-        billingDetails = allBillingDetails.find(bd => bd.countryCode === customer.countryCode) || allBillingDetails[0] || null;
+      if (!billingDetails && customer?.country) {
+        billingDetails = await storage.getBillingDetails(customer.country);
       }
       
       if (!billingDetails) {
