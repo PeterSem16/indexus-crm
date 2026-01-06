@@ -7179,9 +7179,10 @@ export async function registerRoutes(
         const conversionResult = await convertPdfToDocx(req.file.path, path.dirname(req.file.path));
         
         if (!conversionResult.success || !conversionResult.docxPath) {
-          return res.status(500).json({ 
-            error: `Konverzia PDF do DOCX zlyhala: ${conversionResult.error}`,
-            conversionFailed: true
+          return res.status(400).json({ 
+            error: `Konverzia PDF zlyhala. Odporúčame otvoriť PDF v MS Word a uložiť ako DOCX, potom nahrať DOCX súbor.`,
+            conversionFailed: true,
+            suggestion: "Otvorte PDF v MS Word → Súbor → Uložiť ako → DOCX"
           });
         }
         

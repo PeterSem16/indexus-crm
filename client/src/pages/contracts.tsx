@@ -1788,8 +1788,11 @@ export default function ContractsPage() {
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Šablóny zmlúv pre krajiny</Label>
                   <p className="text-xs text-muted-foreground">
-                    Nahrajte vyplniteľné PDF formuláre alebo Word dokumenty (DOCX) s premennými ako {"{{meno}}"}.
+                    Nahrajte <strong>Word dokumenty (DOCX)</strong> s premennými ako {"{{meno}}"}, {"{{adresa}}"}.
                     Tieto šablóny sa použijú na generovanie zmlúv pre zákazníkov.
+                  </p>
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    Tip: Ak máte PDF, otvorte ho v MS Word a uložte ako DOCX pred nahraním.
                   </p>
                 </div>
                 
@@ -1814,7 +1817,7 @@ export default function ContractsPage() {
                         <div className="flex-1">
                           <Input
                             type="file"
-                            accept=".pdf,.docx"
+                            accept=".docx,.pdf"
                             onChange={(e) => {
                               const file = e.target.files?.[0];
                               if (file) handlePdfUpload(country.code, file);
@@ -1855,10 +1858,10 @@ export default function ContractsPage() {
                 </div>
                 
                 <div className="p-4 bg-muted/50 rounded-md space-y-2">
-                  <p className="text-sm font-medium">Podporované formáty:</p>
+                  <p className="text-sm font-medium">Odporúčaný formát: DOCX</p>
                   <ul className="text-sm text-muted-foreground list-disc pl-4 space-y-1">
-                    <li><strong>PDF formuláre</strong> - Vyplniteľné PDF s AcroForm poľami (vytvorené v Adobe Acrobat)</li>
-                    <li><strong>Word dokumenty</strong> - DOCX s premennými ako {"{{meno_zakaznika}}"}, {"{{adresa}}"}</li>
+                    <li><strong>Word dokumenty (DOCX)</strong> - Použite premenné ako {"{{meno}}"}, {"{{priezvisko}}"}, {"{{adresa}}"}</li>
+                    <li className="text-amber-600 dark:text-amber-400">PDF konverzia má obmedzenia - odporúčame skonvertovať PDF v MS Word pred nahraním</li>
                   </ul>
                 </div>
               </div>
@@ -2092,7 +2095,7 @@ export default function ContractsPage() {
                             <div className="flex-1">
                               <Input
                                 type="file"
-                                accept=".pdf,.docx"
+                                accept=".docx,.pdf"
                                 onChange={async (e) => {
                                   const file = e.target.files?.[0];
                                   if (file && selectedCategory) {
