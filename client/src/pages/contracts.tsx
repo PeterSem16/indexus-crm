@@ -25,11 +25,12 @@ import {
   CheckCircle, Loader2, Edit, Pencil
 } from "lucide-react";
 import type { 
-  ContractTemplate, ContractInstance, Customer, BillingDetails
+  ContractTemplate, ContractInstance, Customer, BillingDetails, ContractCategory
 } from "@shared/schema";
 import { ContractTemplateEditor, DEFAULT_CONTRACT_TEMPLATE } from "@/components/contract-template-editor";
 
 type TabType = "templates" | "contracts";
+type TemplateSubTab = "list" | "categories";
 
 const CONTRACT_STATUSES: Record<string, { label: string; variant: "secondary" | "default" | "destructive"; icon: typeof FileText }> = {
   draft: { label: "Koncept", variant: "secondary" as const, icon: FileText },
@@ -67,8 +68,11 @@ export default function ContractsPage() {
   const urlCustomerId = urlParams.get("customerId");
   
   const [activeTab, setActiveTab] = useState<TabType>("contracts");
+  const [templateSubTab, setTemplateSubTab] = useState<TemplateSubTab>("list");
   
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
+  const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<ContractCategory | null>(null);
   const [isContractWizardOpen, setIsContractWizardOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
@@ -91,6 +95,13 @@ export default function ContractsPage() {
     description: "",
     countryCode: selectedCountry || "SK",
     contentHtml: ""
+  });
+  
+  const [categoryForm, setCategoryForm] = useState({
+    value: "",
+    label: "",
+    description: "",
+    sortOrder: 0
   });
   
   const [contractForm, setContractForm] = useState({
@@ -162,6 +173,10 @@ export default function ContractsPage() {
     queryKey: ["/api/contracts/templates", selectedCountry],
   });
 
+  const { data: categories = [], isLoading: categoriesLoading } = useQuery<ContractCategory[]>({
+    queryKey: ["/api/contracts/categories"],
+  });
+
   const { data: contracts = [], isLoading: contractsLoading } = useQuery<ContractInstance[]>({
     queryKey: ["/api/contracts"],
   });
@@ -224,6 +239,47 @@ export default function ContractsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contracts/templates"] });
       toast({ title: "Šablóna vymazaná" });
+    }
+  });
+
+  const createCategoryMutation = useMutation({
+    mutationFn: async (data: typeof categoryForm) => {
+      return apiRequest("POST", "/api/contracts/categories", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/categories"] });
+      setIsCategoryDialogOpen(false);
+      resetCategoryForm();
+      toast({ title: "Kategória vytvorená", description: "Kategória bola úspešne vytvorená." });
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa vytvoriť kategóriu.", variant: "destructive" });
+    }
+  });
+
+  const updateCategoryMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: typeof categoryForm }) => {
+      return apiRequest("PATCH", `/api/contracts/categories/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/categories"] });
+      setIsCategoryDialogOpen(false);
+      setSelectedCategory(null);
+      resetCategoryForm();
+      toast({ title: "Kategória aktualizovaná" });
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa aktualizovať kategóriu.", variant: "destructive" });
+    }
+  });
+
+  const deleteCategoryMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest("DELETE", `/api/contracts/categories/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/categories"] });
+      toast({ title: "Kategória vymazaná" });
     }
   });
 
@@ -593,6 +649,34 @@ export default function ContractsPage() {
     });
   };
 
+  const resetCategoryForm = () => {
+    setCategoryForm({
+      value: "",
+      label: "",
+      description: "",
+      sortOrder: 0
+    });
+  };
+
+  const handleEditCategory = (category: ContractCategory) => {
+    setSelectedCategory(category);
+    setCategoryForm({
+      value: category.value,
+      label: category.label,
+      description: category.description || "",
+      sortOrder: category.sortOrder
+    });
+    setIsCategoryDialogOpen(true);
+  };
+
+  const handleSaveCategory = () => {
+    if (selectedCategory) {
+      updateCategoryMutation.mutate({ id: selectedCategory.id, data: categoryForm });
+    } else {
+      createCategoryMutation.mutate(categoryForm);
+    }
+  };
+
   const handleEditTemplate = (template: ContractTemplate) => {
     setSelectedTemplate(template);
     setTemplateForm({
@@ -664,7 +748,7 @@ export default function ContractsPage() {
             </TabsList>
             
             <div className="flex gap-2 flex-wrap">
-              {activeTab === "templates" && (
+              {activeTab === "templates" && templateSubTab === "list" && (
                 <Button 
                   onClick={() => {
                     resetTemplateForm();
@@ -677,6 +761,19 @@ export default function ContractsPage() {
                   Nová šablóna
                 </Button>
               )}
+              {activeTab === "templates" && templateSubTab === "categories" && (
+                <Button 
+                  onClick={() => {
+                    resetCategoryForm();
+                    setSelectedCategory(null);
+                    setIsCategoryDialogOpen(true);
+                  }}
+                  data-testid="button-add-category"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Nová kategória
+                </Button>
+              )}
               {activeTab === "contracts" && (
                 <Button onClick={() => setIsContractWizardOpen(true)} data-testid="button-add-contract">
                   <Plus className="h-4 w-4 mr-2" />
@@ -687,79 +784,160 @@ export default function ContractsPage() {
           </div>
 
           <TabsContent value="templates" className="mt-0">
-            <Card>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Názov</TableHead>
-                      <TableHead>Typ</TableHead>
-                      <TableHead>Krajina</TableHead>
-                      <TableHead>Stav</TableHead>
-                      <TableHead>Vytvorená</TableHead>
-                      <TableHead className="text-right">Akcie</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {templatesLoading ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                          Načítavam...
-                        </TableCell>
-                      </TableRow>
-                    ) : filteredTemplates.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                          Žiadne šablóny
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredTemplates.map(template => (
-                        <TableRow key={template.id} data-testid={`row-template-${template.id}`}>
-                          <TableCell className="font-medium">{template.name}</TableCell>
-                          <TableCell>
-                            {TEMPLATE_CATEGORIES.find(c => c.value === template.category)?.label || template.category}
-                          </TableCell>
-                          <TableCell>{template.countryCode}</TableCell>
-                          <TableCell>
-                            <Badge variant={template.status === "published" ? "default" : "secondary"}>
-                              {template.status === "published" ? "Publikovaná" : "Koncept"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {template.createdAt && format(new Date(template.createdAt), "d.M.yyyy", { locale: sk })}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-1">
-                              <Button 
-                                size="icon" 
-                                variant="ghost" 
-                                onClick={() => handleEditTemplate(template)}
-                                data-testid={`button-edit-template-${template.id}`}
-                              >
-                                <Edit2 className="h-4 w-4" />
-                              </Button>
-                              <Button 
-                                size="icon" 
-                                variant="ghost"
-                                onClick={() => {
-                                  if (confirm("Naozaj chcete vymazať túto šablónu?")) {
-                                    deleteTemplateMutation.mutate(template.id);
-                                  }
-                                }}
-                                data-testid={`button-delete-template-${template.id}`}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
+            <Tabs value={templateSubTab} onValueChange={(v) => setTemplateSubTab(v as TemplateSubTab)}>
+              <TabsList className="mb-4">
+                <TabsTrigger value="list" className="gap-2" data-testid="subtab-template-list">
+                  <FileText className="h-4 w-4" />
+                  Šablóny
+                </TabsTrigger>
+                <TabsTrigger value="categories" className="gap-2" data-testid="subtab-categories">
+                  <Settings className="h-4 w-4" />
+                  Kategórie
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="list" className="mt-0">
+                <Card>
+                  <CardContent className="p-0">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Názov</TableHead>
+                          <TableHead>Typ</TableHead>
+                          <TableHead>Krajina</TableHead>
+                          <TableHead>Stav</TableHead>
+                          <TableHead>Vytvorená</TableHead>
+                          <TableHead className="text-right">Akcie</TableHead>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+                      </TableHeader>
+                      <TableBody>
+                        {templatesLoading ? (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                              Načítavam...
+                            </TableCell>
+                          </TableRow>
+                        ) : filteredTemplates.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                              Žiadne šablóny
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          filteredTemplates.map(template => (
+                            <TableRow key={template.id} data-testid={`row-template-${template.id}`}>
+                              <TableCell className="font-medium">{template.name}</TableCell>
+                              <TableCell>
+                                {categories.find(c => c.value === template.category)?.label || TEMPLATE_CATEGORIES.find(c => c.value === template.category)?.label || template.category}
+                              </TableCell>
+                              <TableCell>{template.countryCode}</TableCell>
+                              <TableCell>
+                                <Badge variant={template.status === "published" ? "default" : "secondary"}>
+                                  {template.status === "published" ? "Publikovaná" : "Koncept"}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                {template.createdAt && format(new Date(template.createdAt), "d.M.yyyy", { locale: sk })}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-1">
+                                  <Button 
+                                    size="icon" 
+                                    variant="ghost" 
+                                    onClick={() => handleEditTemplate(template)}
+                                    data-testid={`button-edit-template-${template.id}`}
+                                  >
+                                    <Edit2 className="h-4 w-4" />
+                                  </Button>
+                                  <Button 
+                                    size="icon" 
+                                    variant="ghost"
+                                    onClick={() => {
+                                      if (confirm("Naozaj chcete vymazať túto šablónu?")) {
+                                        deleteTemplateMutation.mutate(template.id);
+                                      }
+                                    }}
+                                    data-testid={`button-delete-template-${template.id}`}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="categories" className="mt-0">
+                <Card>
+                  <CardContent className="p-0">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Kód</TableHead>
+                          <TableHead>Názov</TableHead>
+                          <TableHead>Popis</TableHead>
+                          <TableHead>Poradie</TableHead>
+                          <TableHead className="text-right">Akcie</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {categoriesLoading ? (
+                          <TableRow>
+                            <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                              Načítavam...
+                            </TableCell>
+                          </TableRow>
+                        ) : categories.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                              Žiadne kategórie
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          categories.map(category => (
+                            <TableRow key={category.id} data-testid={`row-category-${category.id}`}>
+                              <TableCell className="font-mono text-sm">{category.value}</TableCell>
+                              <TableCell className="font-medium">{category.label}</TableCell>
+                              <TableCell className="text-muted-foreground">{category.description || "-"}</TableCell>
+                              <TableCell>{category.sortOrder}</TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-1">
+                                  <Button 
+                                    size="icon" 
+                                    variant="ghost" 
+                                    onClick={() => handleEditCategory(category)}
+                                    data-testid={`button-edit-category-${category.id}`}
+                                  >
+                                    <Edit2 className="h-4 w-4" />
+                                  </Button>
+                                  <Button 
+                                    size="icon" 
+                                    variant="ghost"
+                                    onClick={() => {
+                                      if (confirm("Naozaj chcete vymazať túto kategóriu?")) {
+                                        deleteCategoryMutation.mutate(category.id);
+                                      }
+                                    }}
+                                    data-testid={`button-delete-category-${category.id}`}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
           </TabsContent>
 
           <TabsContent value="contracts" className="mt-0">
@@ -884,11 +1062,19 @@ export default function ContractsPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {TEMPLATE_CATEGORIES.map(cat => (
-                        <SelectItem key={cat.value} value={cat.value}>
-                          {cat.label}
-                        </SelectItem>
-                      ))}
+                      {categories.length > 0 ? (
+                        categories.map(cat => (
+                          <SelectItem key={cat.value} value={cat.value}>
+                            {cat.label}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        TEMPLATE_CATEGORIES.map(cat => (
+                          <SelectItem key={cat.value} value={cat.value}>
+                            {cat.label}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -943,6 +1129,74 @@ export default function ContractsPage() {
               data-testid="button-save-template"
             >
               {createTemplateMutation.isPending || updateTemplateMutation.isPending ? "Ukladám..." : "Uložiť"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isCategoryDialogOpen} onOpenChange={setIsCategoryDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{selectedCategory ? "Upraviť kategóriu" : "Nová kategória zmluvy"}</DialogTitle>
+            <DialogDescription>
+              Vytvorte alebo upravte kategóriu pre šablóny zmlúv.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="category-value">Kód kategórie</Label>
+              <Input
+                id="category-value"
+                value={categoryForm.value}
+                onChange={(e) => setCategoryForm({ ...categoryForm, value: e.target.value.toLowerCase().replace(/\s+/g, '_') })}
+                placeholder="cord_blood"
+                data-testid="input-category-value"
+              />
+              <p className="text-xs text-muted-foreground">Interný kód bez diakritiky a medzier</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="category-label">Názov kategórie</Label>
+              <Input
+                id="category-label"
+                value={categoryForm.label}
+                onChange={(e) => setCategoryForm({ ...categoryForm, label: e.target.value })}
+                placeholder="Zmluva o uchovávaní krvotvorných buniek"
+                data-testid="input-category-label"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="category-description">Popis (voliteľný)</Label>
+              <Textarea
+                id="category-description"
+                value={categoryForm.description}
+                onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })}
+                placeholder="Popis kategórie..."
+                data-testid="input-category-description"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="category-sort-order">Poradie zobrazovania</Label>
+              <Input
+                id="category-sort-order"
+                type="number"
+                value={categoryForm.sortOrder}
+                onChange={(e) => setCategoryForm({ ...categoryForm, sortOrder: parseInt(e.target.value) || 0 })}
+                data-testid="input-category-sort-order"
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCategoryDialogOpen(false)}>
+              Zrušiť
+            </Button>
+            <Button 
+              onClick={handleSaveCategory}
+              disabled={!categoryForm.value || !categoryForm.label || createCategoryMutation.isPending || updateCategoryMutation.isPending}
+              data-testid="button-save-category"
+            >
+              {createCategoryMutation.isPending || updateCategoryMutation.isPending ? "Ukladám..." : "Uložiť"}
             </Button>
           </DialogFooter>
         </DialogContent>

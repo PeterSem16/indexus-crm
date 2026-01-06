@@ -6538,6 +6538,98 @@ export async function registerRoutes(
   // CONTRACT MANAGEMENT ENDPOINTS
   // ============================================
 
+  // Contract Categories
+  app.get("/api/contracts/categories", requireAuth, async (req, res) => {
+    try {
+      const categories = await storage.getAllContractCategories();
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching contract categories:", error);
+      res.status(500).json({ error: "Failed to fetch contract categories" });
+    }
+  });
+
+  app.get("/api/contracts/categories/:id", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const category = await storage.getContractCategory(id);
+      if (!category) {
+        return res.status(404).json({ error: "Category not found" });
+      }
+      res.json(category);
+    } catch (error) {
+      console.error("Error fetching contract category:", error);
+      res.status(500).json({ error: "Failed to fetch contract category" });
+    }
+  });
+
+  app.post("/api/contracts/categories", requireAuth, async (req, res) => {
+    try {
+      const { value, label, description, sortOrder } = req.body;
+      
+      // Check if value already exists
+      const existing = await storage.getContractCategoryByValue(value);
+      if (existing) {
+        return res.status(400).json({ error: "Category with this value already exists" });
+      }
+      
+      const category = await storage.createContractCategory({
+        value,
+        label,
+        description: description || null,
+        sortOrder: sortOrder || 0,
+      });
+      res.status(201).json(category);
+    } catch (error) {
+      console.error("Error creating contract category:", error);
+      res.status(500).json({ error: "Failed to create contract category" });
+    }
+  });
+
+  app.patch("/api/contracts/categories/:id", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { value, label, description, sortOrder } = req.body;
+      
+      // Check if value already exists for another category
+      if (value) {
+        const existing = await storage.getContractCategoryByValue(value);
+        if (existing && existing.id !== id) {
+          return res.status(400).json({ error: "Category with this value already exists" });
+        }
+      }
+      
+      const category = await storage.updateContractCategory(id, {
+        ...(value && { value }),
+        ...(label && { label }),
+        ...(description !== undefined && { description }),
+        ...(sortOrder !== undefined && { sortOrder }),
+      });
+      
+      if (!category) {
+        return res.status(404).json({ error: "Category not found" });
+      }
+      res.json(category);
+    } catch (error) {
+      console.error("Error updating contract category:", error);
+      res.status(500).json({ error: "Failed to update contract category" });
+    }
+  });
+
+  app.delete("/api/contracts/categories/:id", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await storage.deleteContractCategory(id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Category not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting contract category:", error);
+      res.status(500).json({ error: "Failed to delete contract category" });
+    }
+  });
+
   // Contract Templates
   app.get("/api/contracts/templates", requireAuth, async (req, res) => {
     try {
