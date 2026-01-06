@@ -7430,6 +7430,41 @@ Odpovedz v JSON formáte:
     }
   });
   
+  // Preview template as PDF - alternate route (for new template creation flow)
+  app.get("/api/contracts/categories/:categoryId/default-templates/:countryCode/preview", requireAuth, async (req, res) => {
+    try {
+      const categoryId = parseInt(req.params.categoryId);
+      const countryCode = req.params.countryCode.toUpperCase();
+      
+      const template = await storage.getCategoryDefaultTemplate(categoryId, countryCode);
+      
+      if (!template) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+      
+      const pdfPath = template.previewPdfPath || template.sourcePdfPath;
+      
+      if (!pdfPath) {
+        return res.status(404).json({ error: "PDF preview not available" });
+      }
+      
+      const fullPath = path.join(process.cwd(), pdfPath);
+      
+      if (!fs.existsSync(fullPath)) {
+        return res.status(404).json({ error: "PDF preview file not found" });
+      }
+      
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `inline; filename="preview-${countryCode}.pdf"`);
+      
+      const fileStream = fs.createReadStream(fullPath);
+      fileStream.pipe(res);
+    } catch (error) {
+      console.error("Error serving template preview:", error);
+      res.status(500).json({ error: "Failed to serve preview" });
+    }
+  });
+  
   // Generate contract from template for a customer
   app.post("/api/contracts/generate", requireAuth, async (req, res) => {
     try {

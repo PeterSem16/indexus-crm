@@ -860,7 +860,7 @@ export default function ContractsPage() {
     
     setLoadingCategoryTemplate(true);
     try {
-      const response = await fetch(`/api/contracts/categories/${category.id}/templates/${templateForm.countryCode}`, {
+      const response = await fetch(`/api/contracts/categories/${category.id}/default-templates/${templateForm.countryCode}`, {
         credentials: "include"
       });
       
@@ -888,7 +888,7 @@ export default function ContractsPage() {
         placeholderMappings: template.placeholderMappings || {}
       }));
       
-      setTemplatePreviewPdfUrl(`/api/contracts/categories/${category.id}/templates/${templateForm.countryCode}/preview?t=${Date.now()}`);
+      setTemplatePreviewPdfUrl(`/api/contracts/categories/${category.id}/default-templates/${templateForm.countryCode}/preview?t=${Date.now()}`);
       
       toast({ title: "Šablóna načítaná", description: `Načítaná DOCX šablóna z kategórie "${category.label}"` });
     } catch (error) {
