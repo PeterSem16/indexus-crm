@@ -200,10 +200,10 @@ async function convertPdfToImages(pdfPath: string, maxPages: number = 3): Promis
   const outputPrefix = path.join(outputDir, `${baseName}-page`);
   
   try {
-    // Convert PDF to JPEG images - 200 DPI for readable fine print (legal clauses, IBANs, addresses)
-    // Higher resolution needed for accurate text extraction from legal documents
-    // 80% quality provides good balance between file size and readability
-    await execAsync(`pdftoppm -jpeg -jpegopt quality=80 -r 200 -l ${maxPages} "${pdfPath}" "${outputPrefix}"`);
+    // Convert PDF to JPEG images - 300 DPI for clear fine print (legal clauses, IBANs, addresses)
+    // OpenAI Vision API recommends at least 300 DPI for accurate text extraction
+    // 85% quality provides good balance between file size and readability
+    await execAsync(`pdftoppm -jpeg -jpegopt quality=85 -r 300 -l ${maxPages} "${pdfPath}" "${outputPrefix}"`);
     
     // Find all generated image files
     const files = fs.readdirSync(outputDir);
@@ -213,7 +213,7 @@ async function convertPdfToImages(pdfPath: string, maxPages: number = 3): Promis
       .slice(0, maxPages)
       .map(f => path.join(outputDir, f));
     
-    console.log(`[PDF Conversion] Generated ${imageFiles.length} images from PDF (max ${maxPages} pages, 200 DPI, 80% quality)`);
+    console.log(`[PDF Conversion] Generated ${imageFiles.length} images from PDF (max ${maxPages} pages, 300 DPI, 85% quality)`);
     return imageFiles;
   } catch (error) {
     console.error("PDF to image conversion failed:", error);
@@ -6817,7 +6817,7 @@ export async function registerRoutes(
         
         // Convert images to base64 for Vision API
         const imageInputs = imagesToBase64(imagePaths);
-        console.log(`[PDF Conversion] Sending ${imageInputs.length} page images to OpenAI Vision (200 DPI)`);
+        console.log(`[PDF Conversion] Sending ${imageInputs.length} page images to OpenAI Vision (300 DPI)`);
         
         // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
         console.log(`[PDF Conversion] Starting OpenAI Vision API call...`);
