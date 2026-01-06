@@ -396,8 +396,8 @@ async function convertPdfToHtmlWithAI(
           const base64 = imageBuffer.toString("base64");
           const sizeKB = Math.round(imageBuffer.length / 1024);
           
-          // Skip images larger than 2MB to avoid API issues
-          if (sizeKB > 2000) {
+          // Skip images larger than 4MB to avoid API issues (OpenAI supports up to 20MB)
+          if (sizeKB > 4000) {
             console.warn(`[PDF AI] Skipping oversized image: ${sizeKB}KB`);
             continue;
           }
@@ -417,31 +417,29 @@ async function convertPdfToHtmlWithAI(
       }
       
       const numPages = imageMessages.length;
-      const prompt = `Konvertuj tento ${numPages}-stranový dokument na HTML. 
-
-INŠTRUKCIE:
-- Prepíš VŠETOK TEXT z každej strany dokumentu
-- Nepýtaj sa na lepšiu kvalitu - pracuj s tým, čo máš
-- Ak niečo nie je čitateľné, skús to odhadnúť z kontextu
-- Vytvor HTML kód priamo bez vysvetlení alebo komentárov
-
-FORMÁT:
-- HTML5 s inline štýlmi, šírka 816px
-- Zachovaj: nadpisy, tučné, kurzíva, tabuľky, zoznamy
-- Pre každú stranu: <section><!-- PAGE X -->...</section>
-- Preskuč obrázky/logá
-
-VRAŤ LEN HTML KÓD - žiadne vysvetlenia, žiadne otázky, žiadne poznámky.`;
-
-      console.log(`[PDF AI] Sending ${numPages} pages to Vision API with enhanced prompt...`);
+      
+      console.log(`[PDF AI] Sending ${numPages} pages to Vision API...`);
       
       const response = await openai.chat.completions.create({
         model: "gpt-5",
         messages: [
           {
+            role: "system",
+            content: `Si OCR nástroj. Tvoja JEDINÁ úloha je konvertovať obrázky dokumentov na HTML kód.
+NIKDY neodpovedaj ničím iným ako čistým HTML kódom.
+NIKDY nepýtaj na lepšiu kvalitu.
+NIKDY nevysvetľuj čo robíš.
+NIKDY nehovor že niečo nie je čitateľné.
+Ak text nie je jasný, odhadni ho z kontextu.
+Začni VŽDY s <!DOCTYPE html> a skonči s </html>.`
+          },
+          {
             role: "user",
             content: [
-              { type: "text", text: prompt },
+              { 
+                type: "text", 
+                text: `Konvertuj tento ${numPages}-stranový dokument na HTML. Šírka 816px. Zachovaj formátovanie (nadpisy, tučné, tabuľky). Preskuč obrázky. Každá strana: <section><!-- PAGE X -->...</section>`
+              },
               ...imageMessages
             ],
           },
