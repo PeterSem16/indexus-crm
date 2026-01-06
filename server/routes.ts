@@ -164,7 +164,12 @@ async function extractPdfText(filePath: string): Promise<string> {
   try {
     const dataBuffer = fs.readFileSync(filePath);
     // Dynamic import for pdf-parse which doesn't have proper ESM exports
-    const pdfParse = (await import("pdf-parse")).default;
+    const pdfParseModule = await import("pdf-parse");
+    const pdfParse = pdfParseModule.default || pdfParseModule;
+    if (typeof pdfParse !== 'function') {
+      console.error("pdf-parse is not a function, module structure:", Object.keys(pdfParseModule));
+      return "";
+    }
     const data = await pdfParse(dataBuffer);
     return data.text || "";
   } catch (error) {
