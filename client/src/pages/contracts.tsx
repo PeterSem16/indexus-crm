@@ -211,6 +211,11 @@ export default function ContractsPage() {
     DE: { file: null, uploading: false, uploaded: false },
     US: { file: null, uploading: false, uploaded: false },
   });
+  const [isTemplatePreviewOpen, setIsTemplatePreviewOpen] = useState(false);
+  const [templatePreviewContent, setTemplatePreviewContent] = useState("");
+  const [templatePreviewCountry, setTemplatePreviewCountry] = useState("");
+  const [templatePreviewLoading, setTemplatePreviewLoading] = useState(false);
+  const [categoryDefaultTemplates, setCategoryDefaultTemplates] = useState<Record<string, boolean>>({});
   
   const [contractForm, setContractForm] = useState({
     templateId: "",
@@ -784,9 +789,10 @@ export default function ContractsPage() {
       DE: { file: null, uploading: false, uploaded: false },
       US: { file: null, uploading: false, uploaded: false },
     });
+    setCategoryDefaultTemplates({});
   };
 
-  const handleEditCategory = (category: ContractCategory) => {
+  const handleEditCategory = async (category: ContractCategory) => {
     setSelectedCategory(category);
     setCategoryForm({
       value: category.value,
@@ -801,8 +807,45 @@ export default function ContractsPage() {
       description: category.description || "",
       sortOrder: category.sortOrder
     });
-    setCategoryWizardStep(1);
+    setCategoryWizardStep(0);
+    
+    try {
+      const response = await fetch(`/api/contracts/categories/${category.id}/default-templates`, {
+        credentials: "include"
+      });
+      if (response.ok) {
+        const templates = await response.json() as Array<{ countryCode: string }>;
+        const templateMap: Record<string, boolean> = {};
+        templates.forEach(t => { templateMap[t.countryCode] = true; });
+        setCategoryDefaultTemplates(templateMap);
+      }
+    } catch (e) {
+      setCategoryDefaultTemplates({});
+    }
+    
     setIsCategoryDialogOpen(true);
+  };
+  
+  const handlePreviewTemplate = async (categoryId: number, countryCode: string) => {
+    setTemplatePreviewLoading(true);
+    setTemplatePreviewCountry(countryCode);
+    setIsTemplatePreviewOpen(true);
+    
+    try {
+      const response = await fetch(`/api/contracts/categories/${categoryId}/default-templates/${countryCode}`, {
+        credentials: "include"
+      });
+      if (response.ok) {
+        const template = await response.json();
+        setTemplatePreviewContent(template.contentHtml || "<p>Šablóna je prázdna</p>");
+      } else {
+        setTemplatePreviewContent("<p>Nepodarilo sa načítať šablónu</p>");
+      }
+    } catch (e) {
+      setTemplatePreviewContent("<p>Chyba pri načítaní šablóny</p>");
+    } finally {
+      setTemplatePreviewLoading(false);
+    }
   };
   
   const handlePdfUpload = async (countryCode: string, file: File) => {
@@ -1376,24 +1419,32 @@ export default function ContractsPage() {
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader className="shrink-0">
             <DialogTitle>
-              {selectedCategory ? "Upraviť kategóriu" : "Nová kategória zmluvy"} - Krok {categoryWizardStep}/2
+              {categoryWizardStep === 0 
+                ? "Upraviť kategóriu" 
+                : selectedCategory 
+                  ? `Upraviť kategóriu - Krok ${categoryWizardStep}/2`
+                  : `Nová kategória zmluvy - Krok ${categoryWizardStep}/2`
+              }
             </DialogTitle>
             <DialogDescription>
+              {categoryWizardStep === 0 && "Upravte informácie a prezrite si konvertované šablóny"}
               {categoryWizardStep === 1 && "Zadajte základné informácie a jazykové mutácie"}
               {categoryWizardStep === 2 && "Nahrajte PDF šablóny pre jednotlivé krajiny (voliteľné)"}
             </DialogDescription>
           </DialogHeader>
           
-          <div className="flex gap-2 mb-4 px-1">
-            {[1, 2].map(step => (
-              <div 
-                key={step}
-                className={`flex-1 h-2 rounded-full ${
-                  step <= categoryWizardStep ? "bg-primary" : "bg-muted"
-                }`}
-              />
-            ))}
-          </div>
+          {categoryWizardStep > 0 && (
+            <div className="flex gap-2 mb-4 px-1">
+              {[1, 2].map(step => (
+                <div 
+                  key={step}
+                  className={`flex-1 h-2 rounded-full ${
+                    step <= categoryWizardStep ? "bg-primary" : "bg-muted"
+                  }`}
+                />
+              ))}
+            </div>
+          )}
           
           <div className="flex-1 overflow-y-auto">
             {categoryWizardStep === 1 && (
@@ -1597,6 +1648,99 @@ export default function ContractsPage() {
                 </div>
               </div>
             )}
+            
+            {categoryWizardStep === 0 && selectedCategory && (
+              <div className="grid gap-6 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-category-value">Kód kategórie</Label>
+                    <Input
+                      id="edit-category-value"
+                      value={categoryForm.value}
+                      onChange={(e) => setCategoryForm({ ...categoryForm, value: e.target.value.toLowerCase().replace(/\s+/g, '_') })}
+                      placeholder="cord_blood"
+                      data-testid="input-edit-category-value"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-category-sort-order">Poradie</Label>
+                    <Input
+                      id="edit-category-sort-order"
+                      type="number"
+                      value={categoryForm.sortOrder}
+                      onChange={(e) => setCategoryForm({ ...categoryForm, sortOrder: parseInt(e.target.value) || 0 })}
+                      data-testid="input-edit-category-sort-order"
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="edit-category-label">Predvolený názov</Label>
+                  <Input
+                    id="edit-category-label"
+                    value={categoryForm.label}
+                    onChange={(e) => setCategoryForm({ ...categoryForm, label: e.target.value })}
+                    placeholder="Zmluva o uchovávaní krvotvorných buniek"
+                    data-testid="input-edit-category-label"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="edit-category-description">Popis</Label>
+                  <Textarea
+                    id="edit-category-description"
+                    value={categoryForm.description}
+                    onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })}
+                    placeholder="Popis kategórie..."
+                    data-testid="input-edit-category-description"
+                  />
+                </div>
+                
+                <Separator />
+                
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">Konvertované šablóny</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Prezrite si nahrané a konvertované šablóny pre jednotlivé krajiny
+                  </p>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { code: "SK", name: "Slovensko" },
+                      { code: "CZ", name: "Česká republika" },
+                      { code: "HU", name: "Maďarsko" },
+                      { code: "RO", name: "Rumunsko" },
+                      { code: "IT", name: "Taliansko" },
+                      { code: "DE", name: "Nemecko" },
+                      { code: "US", name: "USA" },
+                    ].map(country => {
+                      const hasTemplate = categoryDefaultTemplates[country.code];
+                      return (
+                        <div key={country.code} className="flex items-center justify-between p-3 border rounded-md">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium">{country.name}</span>
+                            <span className="text-xs text-muted-foreground">({country.code})</span>
+                          </div>
+                          {hasTemplate ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handlePreviewTemplate(selectedCategory.id, country.code)}
+                              data-testid={`button-preview-template-${country.code}`}
+                            >
+                              <Eye className="h-4 w-4 mr-1" />
+                              Náhľad
+                            </Button>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs">Bez šablóny</Badge>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
           
           <DialogFooter className="shrink-0 pt-4 border-t gap-2">
@@ -1610,12 +1754,36 @@ export default function ContractsPage() {
               </Button>
             )}
             
-            {categoryWizardStep < 2 && (
+            {categoryWizardStep === 1 && (
               <Button 
-                onClick={() => setCategoryWizardStep(prev => prev + 1)}
+                onClick={() => setCategoryWizardStep(2)}
                 disabled={!categoryForm.value || !categoryForm.label}
               >
                 Ďalej
+              </Button>
+            )}
+            
+            {categoryWizardStep === 0 && selectedCategory && (
+              <Button 
+                onClick={async () => {
+                  try {
+                    await updateCategoryMutation.mutateAsync({ id: selectedCategory.id, data: categoryForm });
+                    toast({ title: "Kategória aktualizovaná" });
+                    setIsCategoryDialogOpen(false);
+                    resetCategoryForm();
+                    setSelectedCategory(null);
+                  } catch (error: any) {
+                    toast({
+                      title: "Chyba pri ukladaní",
+                      description: error.message || "Nepodarilo sa uložiť zmeny",
+                      variant: "destructive"
+                    });
+                  }
+                }}
+                disabled={updateCategoryMutation.isPending || !categoryForm.value || !categoryForm.label}
+                data-testid="button-save-category-edit"
+              >
+                {updateCategoryMutation.isPending ? "Ukladám..." : "Uložiť zmeny"}
               </Button>
             )}
             
@@ -1670,6 +1838,36 @@ export default function ContractsPage() {
                 {createCategoryMutation.isPending || updateCategoryMutation.isPending ? "Ukladám..." : "Uložiť a konvertovať"}
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isTemplatePreviewOpen} onOpenChange={setIsTemplatePreviewOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="shrink-0">
+            <DialogTitle>Náhľad šablóny - {templatePreviewCountry}</DialogTitle>
+            <DialogDescription>
+              Konvertovaná HTML šablóna z PDF
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-y-auto border rounded-md p-4 bg-white">
+            {templatePreviewLoading ? (
+              <div className="flex items-center justify-center h-64">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div 
+                className="prose max-w-none text-foreground"
+                dangerouslySetInnerHTML={{ __html: templatePreviewContent }}
+              />
+            )}
+          </div>
+          
+          <DialogFooter className="shrink-0 pt-4 border-t">
+            <Button variant="outline" onClick={() => setIsTemplatePreviewOpen(false)}>
+              Zavrieť
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
