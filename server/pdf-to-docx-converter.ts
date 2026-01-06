@@ -13,55 +13,9 @@ export interface ConversionResult {
   converter?: string;
 }
 
-async function findLibreOffice(): Promise<string | null> {
-  const possiblePaths = [
-    "soffice",
-    "libreoffice",
-    "/usr/bin/soffice",
-    "/usr/bin/libreoffice",
-    "/usr/local/bin/soffice",
-    "/usr/local/bin/libreoffice",
-    "/nix/store/*/bin/soffice",
-  ];
-
-  for (const cmdPath of possiblePaths) {
-    try {
-      await execAsync(`which ${cmdPath.split("/").pop()}`);
-      return cmdPath.split("/").pop()!;
-    } catch {
-      if (cmdPath.startsWith("/") && fs.existsSync(cmdPath)) {
-        return cmdPath;
-      }
-    }
-  }
-
-  try {
-    await execAsync("soffice --version");
-    return "soffice";
-  } catch {
-    try {
-      await execAsync("libreoffice --version");
-      return "libreoffice";
-    } catch {
-      return null;
-    }
-  }
-}
-
 export async function convertPdfToDocx(pdfPath: string, outputDir: string): Promise<ConversionResult> {
   try {
-    console.log(`[LibreOffice] Starting PDF to DOCX conversion: ${pdfPath}`);
-
-    const libreOfficePath = await findLibreOffice();
-    if (!libreOfficePath) {
-      return {
-        success: false,
-        error: "LibreOffice nie je nainštalovaný. Konverzia PDF na DOCX nie je dostupná.",
-        originalPdfPath: pdfPath
-      };
-    }
-
-    console.log(`[LibreOffice] Found at: ${libreOfficePath}`);
+    console.log(`[pdf2docx] Starting PDF to DOCX conversion: ${pdfPath}`);
 
     if (!fs.existsSync(pdfPath)) {
       return {
@@ -75,30 +29,43 @@ export async function convertPdfToDocx(pdfPath: string, outputDir: string): Prom
       fs.mkdirSync(outputDir, { recursive: true });
     }
 
-    const tempDir = path.join(outputDir, `temp_${Date.now()}`);
-    fs.mkdirSync(tempDir, { recursive: true });
+    const pdfBasename = path.basename(pdfPath, path.extname(pdfPath));
+    const docxPath = path.join(outputDir, `${pdfBasename}_converted.docx`);
 
-    const command = `${libreOfficePath} --headless --convert-to docx --outdir "${tempDir}" "${pdfPath}"`;
+    const scriptPath = path.join(process.cwd(), "server", "convert-pdf-to-docx.py");
     
-    console.log(`[LibreOffice] Running command: ${command}`);
+    if (!fs.existsSync(scriptPath)) {
+      return {
+        success: false,
+        error: "Konverzný skript nebol nájdený",
+        originalPdfPath: pdfPath
+      };
+    }
+
+    const command = `python3 "${scriptPath}" "${pdfPath}" "${docxPath}"`;
+    
+    console.log(`[pdf2docx] Running command: ${command}`);
 
     try {
       const { stdout, stderr } = await execAsync(command, { 
-        timeout: 120000,
-        env: {
-          ...process.env,
-          HOME: tempDir
-        }
+        timeout: 180000,
+        env: process.env
       });
       
-      if (stdout) console.log(`[LibreOffice] stdout: ${stdout}`);
-      if (stderr) console.log(`[LibreOffice] stderr: ${stderr}`);
-    } catch (execError: any) {
-      console.error(`[LibreOffice] Exec error:`, execError);
+      if (stdout) console.log(`[pdf2docx] stdout: ${stdout}`);
+      if (stderr) console.log(`[pdf2docx] stderr: ${stderr}`);
       
-      if (tempDir && fs.existsSync(tempDir)) {
-        fs.rmSync(tempDir, { recursive: true, force: true });
+      if (stdout.includes("ERROR:")) {
+        const errorMatch = stdout.match(/ERROR: (.+)/);
+        return {
+          success: false,
+          error: errorMatch ? errorMatch[1] : "Neznáma chyba pri konverzii",
+          originalPdfPath: pdfPath
+        };
       }
+      
+    } catch (execError: any) {
+      console.error(`[pdf2docx] Exec error:`, execError);
       
       return {
         success: false,
@@ -107,32 +74,7 @@ export async function convertPdfToDocx(pdfPath: string, outputDir: string): Prom
       };
     }
 
-    const pdfBasename = path.basename(pdfPath, path.extname(pdfPath));
-    const tempDocxPath = path.join(tempDir, `${pdfBasename}.docx`);
-    
-    if (!fs.existsSync(tempDocxPath)) {
-      const files = fs.readdirSync(tempDir);
-      console.log(`[LibreOffice] Files in temp dir: ${files.join(", ")}`);
-      
-      const docxFile = files.find(f => f.endsWith(".docx"));
-      if (docxFile) {
-        const actualTempPath = path.join(tempDir, docxFile);
-        const finalDocxPath = path.join(outputDir, `${pdfBasename}_converted.docx`);
-        fs.renameSync(actualTempPath, finalDocxPath);
-        fs.rmSync(tempDir, { recursive: true, force: true });
-        
-        console.log(`[LibreOffice] Conversion successful: ${finalDocxPath}`);
-        
-        return {
-          success: true,
-          docxPath: finalDocxPath,
-          originalPdfPath: pdfPath,
-          converter: "libreoffice"
-        };
-      }
-      
-      fs.rmSync(tempDir, { recursive: true, force: true });
-      
+    if (!fs.existsSync(docxPath)) {
       return {
         success: false,
         error: "Konverzia zlyhala - výstupný DOCX súbor nebol vytvorený",
@@ -140,21 +82,17 @@ export async function convertPdfToDocx(pdfPath: string, outputDir: string): Prom
       };
     }
 
-    const finalDocxPath = path.join(outputDir, `${pdfBasename}_converted.docx`);
-    fs.renameSync(tempDocxPath, finalDocxPath);
-    fs.rmSync(tempDir, { recursive: true, force: true });
-
-    console.log(`[LibreOffice] Conversion successful: ${finalDocxPath}`);
+    console.log(`[pdf2docx] Conversion successful: ${docxPath}`);
 
     return {
       success: true,
-      docxPath: finalDocxPath,
+      docxPath,
       originalPdfPath: pdfPath,
-      converter: "libreoffice"
+      converter: "pdf2docx"
     };
 
   } catch (err: any) {
-    console.error("[LibreOffice] Conversion error:", err);
+    console.error("[pdf2docx] Conversion error:", err);
 
     return {
       success: false,
@@ -165,9 +103,10 @@ export async function convertPdfToDocx(pdfPath: string, outputDir: string): Prom
 }
 
 export async function isConverterAvailable(): Promise<{ available: boolean; converter?: string }> {
-  const libreOfficePath = await findLibreOffice();
-  if (libreOfficePath) {
-    return { available: true, converter: "libreoffice" };
+  try {
+    await execAsync("python3 -c 'from pdf2docx import Converter; print(\"OK\")'", { timeout: 10000 });
+    return { available: true, converter: "pdf2docx" };
+  } catch {
+    return { available: false };
   }
-  return { available: false };
 }
