@@ -899,7 +899,7 @@ export default function ContractsPage() {
       
       try {
         const formData = new FormData();
-        formData.append("pdf", data.file);
+        formData.append("file", data.file);
         formData.append("countryCode", countryCode);
         
         const response = await fetch(`/api/contracts/categories/${categoryId}/default-templates/upload`, {
@@ -913,9 +913,17 @@ export default function ContractsPage() {
           throw new Error(error.error || "Upload failed");
         }
         
+        const result = await response.json();
+        
         setCategoryPdfUploads(prev => ({
           ...prev,
-          [countryCode]: { ...prev[countryCode], uploading: false, uploaded: true }
+          [countryCode]: { 
+            ...prev[countryCode], 
+            uploading: false, 
+            uploaded: true,
+            extractedFields: result.extractedFields || [],
+            templateType: result.templateType
+          }
         }));
         successCount++;
       } catch (error: any) {
@@ -1610,10 +1618,10 @@ export default function ContractsPage() {
             {categoryWizardStep === 2 && (
               <div className="grid gap-4 py-4">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium">Predvolené PDF šablóny pre krajiny</Label>
+                  <Label className="text-sm font-medium">Šablóny zmlúv pre krajiny</Label>
                   <p className="text-xs text-muted-foreground">
-                    Nahrajte PDF súbory, ktoré budú automaticky konvertované na HTML šablóny. 
-                    Tieto šablóny sa použijú ako predvolené pri vytváraní zmluvy tejto kategórie.
+                    Nahrajte vyplniteľné PDF formuláre alebo Word dokumenty (DOCX) s premennými ako {"{{meno}}"}.
+                    Tieto šablóny sa použijú na generovanie zmlúv pre zákazníkov.
                   </p>
                 </div>
                 
@@ -1638,22 +1646,31 @@ export default function ContractsPage() {
                         <div className="flex-1">
                           <Input
                             type="file"
-                            accept=".pdf"
+                            accept=".pdf,.docx"
                             onChange={(e) => {
                               const file = e.target.files?.[0];
                               if (file) handlePdfUpload(country.code, file);
                             }}
                             className="text-sm"
-                            data-testid={`input-pdf-${country.code}`}
+                            data-testid={`input-template-${country.code}`}
                           />
                         </div>
                         
-                        <div className="flex-shrink-0 w-32 text-right">
+                        <div className="flex-shrink-0 w-40 text-right">
                           {uploadState.uploading && (
-                            <span className="text-xs text-muted-foreground">Konvertujem...</span>
+                            <span className="text-xs text-muted-foreground">Spracovávam...</span>
                           )}
                           {uploadState.uploaded && (
-                            <Badge variant="default" className="bg-green-600">Nahraté</Badge>
+                            <div className="flex items-center gap-2 justify-end">
+                              <Badge variant="default" className="bg-green-600">
+                                {(uploadState as any).templateType === "docx" ? "DOCX" : "PDF"}
+                              </Badge>
+                              {(uploadState as any).extractedFields?.length > 0 && (
+                                <span className="text-xs text-muted-foreground">
+                                  {(uploadState as any).extractedFields.length} polí
+                                </span>
+                              )}
+                            </div>
                           )}
                           {uploadState.error && (
                             <Badge variant="destructive" className="text-xs">{uploadState.error}</Badge>
@@ -1669,11 +1686,12 @@ export default function ContractsPage() {
                   })}
                 </div>
                 
-                <div className="p-4 bg-muted/50 rounded-md">
-                  <p className="text-sm text-muted-foreground">
-                    PDF súbory budú automaticky analyzované a konvertované na HTML šablóny s Handlebars premennými. 
-                    Konverzia sa spustí po uložení kategórie.
-                  </p>
+                <div className="p-4 bg-muted/50 rounded-md space-y-2">
+                  <p className="text-sm font-medium">Podporované formáty:</p>
+                  <ul className="text-sm text-muted-foreground list-disc pl-4 space-y-1">
+                    <li><strong>PDF formuláre</strong> - Vyplniteľné PDF s AcroForm poľami (vytvorené v Adobe Acrobat)</li>
+                    <li><strong>Word dokumenty</strong> - DOCX s premennými ako {"{{meno_zakaznika}}"}, {"{{adresa}}"}</li>
+                  </ul>
                 </div>
               </div>
             )}
@@ -1906,7 +1924,7 @@ export default function ContractsPage() {
                             <div className="flex-1">
                               <Input
                                 type="file"
-                                accept=".pdf"
+                                accept=".pdf,.docx"
                                 onChange={async (e) => {
                                   const file = e.target.files?.[0];
                                   if (file && selectedCategory) {
@@ -1917,7 +1935,7 @@ export default function ContractsPage() {
                                     
                                     try {
                                       const formData = new FormData();
-                                      formData.append("pdf", file);
+                                      formData.append("file", file);
                                       formData.append("countryCode", country.code);
                                       
                                       const response = await fetch(`/api/contracts/categories/${selectedCategory.id}/default-templates/upload`, {
@@ -1939,20 +1957,18 @@ export default function ContractsPage() {
                                           ...prev[country.code], 
                                           uploading: false, 
                                           uploaded: true,
-                                          extractedText: result.extractedText,
-                                          embeddedImages: result.embeddedImages || [],
-                                          pageImages: result.pageImages || [],
-                                          conversionMethod: result.conversionMethod
+                                          extractedFields: result.extractedFields || [],
+                                          templateType: result.templateType
                                         }
                                       }));
                                       setCategoryDefaultTemplates(prev => ({
                                         ...prev,
                                         [country.code]: true
                                       }));
-                                      const method = result.conversionMethod === "ai" ? "AI konverzia" : "Text";
+                                      const fieldCount = result.extractedFields?.length || 0;
                                       toast({ 
-                                        title: `PDF konvertované`, 
-                                        description: `${method} - HTML šablóna vytvorená` 
+                                        title: `Šablóna nahraná`, 
+                                        description: `${result.templateType === "docx" ? "DOCX" : "PDF formulár"} - ${fieldCount} polí nájdených` 
                                       });
                                     } catch (error: any) {
                                       setCategoryPdfUploads(prev => ({
@@ -1960,7 +1976,7 @@ export default function ContractsPage() {
                                         [country.code]: { ...prev[country.code], uploading: false, error: error.message }
                                       }));
                                       toast({
-                                        title: "Chyba pri konverzii",
+                                        title: "Chyba pri nahrávaní",
                                         description: error.message,
                                         variant: "destructive"
                                       });
@@ -1969,14 +1985,14 @@ export default function ContractsPage() {
                                 }}
                                 className="text-sm"
                                 disabled={isConverting}
-                                data-testid={`input-reupload-pdf-${country.code}`}
+                                data-testid={`input-reupload-template-${country.code}`}
                               />
                             </div>
                             
                             <div className="w-auto shrink-0 flex items-center justify-end gap-2">
                               {uploadState?.uploaded && (
-                                <Badge variant="default" className={uploadState.conversionMethod === "ai" ? "bg-green-600 text-xs" : "bg-blue-600 text-xs"}>
-                                  {uploadState.conversionMethod === "ai" ? "AI" : "Text"}
+                                <Badge variant="default" className={(uploadState as any).templateType === "docx" ? "bg-blue-600 text-xs" : "bg-green-600 text-xs"}>
+                                  {(uploadState as any).templateType === "docx" ? "DOCX" : "PDF"}
                                 </Badge>
                               )}
                               {uploadState?.error && (

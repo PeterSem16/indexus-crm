@@ -2627,13 +2627,20 @@ export type InsertContractCategory = z.infer<typeof insertContractCategorySchema
 export type ContractCategory = typeof contractCategories.$inferSelect;
 
 // Contract Category Default Templates - per-country default templates for categories
+// Supports two template types:
+// 1. "pdf_form" - Fillable PDF with AcroForm fields (filled via pdf-lib)
+// 2. "docx" - Word document with {{placeholders}} (processed via docxtemplater, converted to PDF)
 export const contractCategoryDefaultTemplates = pgTable("contract_category_default_templates", {
   id: serial("id").primaryKey(),
   categoryId: integer("category_id").notNull(), // FK to contract_categories
   countryCode: varchar("country_code", { length: 2 }).notNull(), // SK, CZ, HU, RO, IT, DE, US
+  templateType: varchar("template_type", { length: 20 }).notNull().default("pdf_form"), // pdf_form, docx
   templateId: varchar("template_id"), // FK to contract_templates (optional - if linked to existing template)
-  sourcePdfPath: text("source_pdf_path"), // Path to uploaded source PDF
-  htmlContent: text("html_content"), // Converted HTML content
+  sourcePdfPath: text("source_pdf_path"), // Path to uploaded source PDF (for pdf_form type)
+  sourceDocxPath: text("source_docx_path"), // Path to uploaded source DOCX (for docx type)
+  extractedFields: text("extracted_fields"), // JSON array of field/placeholder names found in template
+  placeholderMappings: text("placeholder_mappings"), // JSON mapping of template fields to CRM data fields
+  htmlContent: text("html_content"), // Legacy HTML content (for backward compatibility)
   conversionStatus: varchar("conversion_status", { length: 20 }).notNull().default("pending"), // pending, processing, completed, failed
   conversionError: text("conversion_error"), // Error message if conversion failed
   conversionMetadata: text("conversion_metadata"), // JSON with conversion details

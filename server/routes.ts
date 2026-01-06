@@ -31,6 +31,16 @@ import path from "path";
 import fs from "fs";
 import multer from "multer";
 import OpenAI from "openai";
+import {
+  extractPdfFormFields,
+  extractDocxPlaceholders,
+  fillPdfForm,
+  fillDocxTemplate,
+  convertDocxToPdf,
+  generateContractFromTemplate,
+  getCustomerDataForContract,
+  CRM_DATA_FIELDS,
+} from "./template-processor";
 
 // Global uploads directory
 const uploadsDir = path.join(process.cwd(), "uploads");
@@ -147,10 +157,14 @@ const uploadContractPdf = multer({
   storage: contractPdfStorage,
   limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit
   fileFilter: (req, file, cb) => {
-    if (file.mimetype === "application/pdf") {
+    const allowedTypes = [
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+    ];
+    if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error("Invalid file type. Only PDF files are allowed."));
+      cb(new Error("Invalid file type. Only PDF and DOCX files are allowed."));
     }
   },
 });
@@ -7096,8 +7110,8 @@ export async function registerRoutes(
     }
   });
 
-  // Upload PDF and extract page images for HTML editor
-  app.post("/api/contracts/categories/:categoryId/default-templates/upload", requireAuth, uploadContractPdf.single("pdf"), async (req, res) => {
+  // Upload PDF form or DOCX template and extract fields/placeholders
+  app.post("/api/contracts/categories/:categoryId/default-templates/upload", requireAuth, uploadContractPdf.single("file"), async (req, res) => {
     try {
       const categoryId = parseInt(req.params.categoryId);
       const { countryCode } = req.body;
@@ -7106,7 +7120,6 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Country code is required" });
       }
       
-      // Validate countryCode to prevent path traversal attacks
       const validCountryCodes = ["SK", "CZ", "HU", "RO", "IT", "DE", "US"];
       const normalizedCountryCode = String(countryCode).toUpperCase().trim();
       if (!validCountryCodes.includes(normalizedCountryCode) || !/^[A-Z]{2}$/.test(normalizedCountryCode)) {
@@ -7114,69 +7127,178 @@ export async function registerRoutes(
       }
       
       if (!req.file) {
-        return res.status(400).json({ error: "PDF file is required" });
+        return res.status(400).json({ error: "File is required (PDF or DOCX)" });
       }
 
-      console.log(`[PDF Upload] Starting AI conversion of PDF: ${req.file.path} for category ${categoryId}, country ${normalizedCountryCode}`);
+      const isPdf = req.file.mimetype === "application/pdf";
+      const isDocx = req.file.mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
       
-      // AI-powered PDF to HTML conversion with robust image handling
-      const { htmlContent, extractedText, embeddedImages, pageImages, conversionMethod } = await convertPdfToHtmlWithAI(
-        req.file.path, 
-        categoryId, 
-        normalizedCountryCode
-      );
-      
-      if (!extractedText && !htmlContent) {
-        return res.status(500).json({ error: "Failed to convert PDF. Make sure the PDF is valid." });
+      if (!isPdf && !isDocx) {
+        return res.status(400).json({ error: "File must be PDF or DOCX" });
       }
-      
-      console.log(`[PDF Upload] Conversion complete: ${htmlContent.length} chars HTML, method: ${conversionMethod}`);
 
-      // Store metadata about conversion
+      const templateType = isPdf ? "pdf_form" : "docx";
+      console.log(`[Template Upload] Processing ${templateType} template: ${req.file.path}`);
+      
+      let extractedFields: any[] = [];
+      let conversionError: string | null = null;
+      
+      try {
+        if (isPdf) {
+          extractedFields = await extractPdfFormFields(req.file.path);
+        } else {
+          extractedFields = await extractDocxPlaceholders(req.file.path);
+        }
+      } catch (extractError: any) {
+        console.warn("[Template Upload] Field extraction warning:", extractError.message);
+        conversionError = extractError.message;
+      }
+
       const conversionMetadata = JSON.stringify({
-        extractedText: extractedText.substring(0, 10000),
-        embeddedImages,
-        pageImages,
-        conversionMethod,
-        convertedAt: new Date().toISOString()
+        originalFilename: req.file.originalname,
+        fileSize: req.file.size,
+        extractedAt: new Date().toISOString(),
+        fieldCount: extractedFields.length,
       });
 
-      // Check if template already exists for this category and country
       const existing = await storage.getCategoryDefaultTemplate(categoryId, normalizedCountryCode);
       
-      // Create or update the default template
+      const templateData: any = {
+        templateType,
+        extractedFields: JSON.stringify(extractedFields),
+        conversionStatus: extractedFields.length > 0 ? "completed" : "pending",
+        conversionError,
+        conversionMetadata,
+      };
+      
+      if (isPdf) {
+        templateData.sourcePdfPath = req.file.path;
+        templateData.sourceDocxPath = null;
+      } else {
+        templateData.sourceDocxPath = req.file.path;
+        templateData.sourcePdfPath = null;
+      }
+
       let result;
       if (existing) {
-        result = await storage.updateCategoryDefaultTemplate(existing.id, {
-          sourcePdfPath: req.file.path,
-          htmlContent,
-          conversionStatus: "completed",
-          conversionError: null,
-          conversionMetadata,
-        });
+        result = await storage.updateCategoryDefaultTemplate(existing.id, templateData);
       } else {
         result = await storage.createCategoryDefaultTemplate({
           categoryId,
           countryCode: normalizedCountryCode,
-          sourcePdfPath: req.file.path,
-          htmlContent,
-          conversionStatus: "completed",
-          conversionMetadata,
+          ...templateData,
           createdBy: req.session.user!.id,
         });
       }
       
-      // Return template and all extracted content
       res.json({
         ...result,
-        extractedText: extractedText.substring(0, 5000),
-        embeddedImages,
-        pageImages,
-        conversionMethod
+        extractedFields,
+        templateType,
+        crmDataFields: CRM_DATA_FIELDS,
       });
     } catch (error) {
-      console.error("Error uploading PDF:", error);
-      res.status(500).json({ error: "Failed to upload and extract PDF pages" });
+      console.error("Error uploading template:", error);
+      res.status(500).json({ error: "Failed to upload template" });
+    }
+  });
+  
+  // Get available CRM data fields for mapping
+  app.get("/api/contracts/crm-fields", requireAuth, async (req, res) => {
+    res.json(CRM_DATA_FIELDS);
+  });
+  
+  // Generate contract from template for a customer
+  app.post("/api/contracts/generate", requireAuth, async (req, res) => {
+    try {
+      const { categoryId, countryCode, customerId, contractId } = req.body;
+      
+      if (!categoryId || !countryCode || !customerId) {
+        return res.status(400).json({ error: "categoryId, countryCode, and customerId are required" });
+      }
+
+      const template = await storage.getCategoryDefaultTemplate(categoryId, countryCode);
+      if (!template) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+
+      const customer = await storage.getCustomer(customerId);
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+
+      const sourcePath = template.templateType === "pdf_form" 
+        ? template.sourcePdfPath 
+        : template.sourceDocxPath;
+        
+      if (!sourcePath || !fs.existsSync(sourcePath)) {
+        return res.status(400).json({ error: "Template source file not found" });
+      }
+
+      const placeholderMappings = template.placeholderMappings 
+        ? JSON.parse(template.placeholderMappings) 
+        : {};
+
+      const customerData = getCustomerDataForContract(customer);
+      
+      const data: Record<string, string> = {};
+      const extractedFields = template.extractedFields ? JSON.parse(template.extractedFields) : [];
+      
+      for (const field of extractedFields) {
+        const mapping = placeholderMappings[field.name];
+        if (mapping && customerData[mapping]) {
+          data[field.name] = customerData[mapping];
+        } else if (customerData[field.name]) {
+          data[field.name] = customerData[field.name];
+        } else {
+          data[field.name] = "";
+        }
+      }
+
+      const outputDir = path.join(process.cwd(), "uploads", "generated-contracts");
+      const generatedContractId = contractId || `${customerId}-${Date.now()}`;
+      
+      const result = await generateContractFromTemplate(
+        template.templateType as "pdf_form" | "docx",
+        sourcePath,
+        data,
+        outputDir,
+        generatedContractId
+      );
+
+      res.json({
+        success: true,
+        pdfPath: result.pdfPath,
+        pdfUrl: `/uploads/generated-contracts/${path.basename(result.pdfPath)}`,
+        customerId,
+        contractId: generatedContractId,
+      });
+    } catch (error) {
+      console.error("Error generating contract:", error);
+      res.status(500).json({ error: "Failed to generate contract" });
+    }
+  });
+  
+  // Update placeholder mappings for a template
+  app.patch("/api/contracts/categories/:categoryId/default-templates/:countryCode/mappings", requireAuth, async (req, res) => {
+    try {
+      const categoryId = parseInt(req.params.categoryId);
+      const { countryCode } = req.params;
+      const { mappings } = req.body;
+      
+      const template = await storage.getCategoryDefaultTemplate(categoryId, countryCode);
+      if (!template) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+
+      const result = await storage.updateCategoryDefaultTemplate(template.id, {
+        placeholderMappings: JSON.stringify(mappings),
+      });
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error updating mappings:", error);
+      res.status(500).json({ error: "Failed to update mappings" });
     }
   });
 
