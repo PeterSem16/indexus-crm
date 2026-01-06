@@ -1791,12 +1791,12 @@ export default function ContractsPage() {
                 <Separator />
                 
                 <div className="space-y-3">
-                  <Label className="text-sm font-medium">Konvertované šablóny</Label>
+                  <Label className="text-sm font-medium">Šablóny pre krajiny</Label>
                   <p className="text-xs text-muted-foreground">
-                    Prezrite si nahrané a konvertované šablóny pre jednotlivé krajiny
+                    Prezrite si šablóny alebo nahrajte nové PDF pre konverziu
                   </p>
                   
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3">
                     {[
                       { code: "SK", name: "Slovensko" },
                       { code: "CZ", name: "Česká republika" },
@@ -1807,25 +1807,97 @@ export default function ContractsPage() {
                       { code: "US", name: "USA" },
                     ].map(country => {
                       const hasTemplate = categoryDefaultTemplates[country.code];
+                      const uploadState = categoryPdfUploads[country.code];
                       return (
-                        <div key={country.code} className="flex items-center justify-between p-3 border rounded-md">
-                          <div className="flex items-center gap-2">
+                        <div key={country.code} className="flex items-center gap-4 p-3 border rounded-md">
+                          <div className="w-28 shrink-0">
                             <span className="text-sm font-medium">{country.name}</span>
-                            <span className="text-xs text-muted-foreground">({country.code})</span>
+                            <span className="text-xs text-muted-foreground ml-1">({country.code})</span>
                           </div>
-                          {hasTemplate ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handlePreviewTemplate(selectedCategory.id, country.code)}
-                              data-testid={`button-preview-template-${country.code}`}
-                            >
-                              <Eye className="h-4 w-4 mr-1" />
-                              Náhľad
-                            </Button>
-                          ) : (
-                            <Badge variant="secondary" className="text-xs">Bez šablóny</Badge>
-                          )}
+                          
+                          <div className="flex-1">
+                            <Input
+                              type="file"
+                              accept=".pdf"
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (file && selectedCategory) {
+                                  setCategoryPdfUploads(prev => ({
+                                    ...prev,
+                                    [country.code]: { file, uploading: true, uploaded: false, error: undefined }
+                                  }));
+                                  
+                                  try {
+                                    const formData = new FormData();
+                                    formData.append("pdf", file);
+                                    formData.append("countryCode", country.code);
+                                    
+                                    const response = await fetch(`/api/contracts/categories/${selectedCategory.id}/default-templates/upload`, {
+                                      method: "POST",
+                                      body: formData,
+                                      credentials: "include"
+                                    });
+                                    
+                                    if (!response.ok) {
+                                      const error = await response.json();
+                                      throw new Error(error.error || "Upload failed");
+                                    }
+                                    
+                                    setCategoryPdfUploads(prev => ({
+                                      ...prev,
+                                      [country.code]: { ...prev[country.code], uploading: false, uploaded: true }
+                                    }));
+                                    setCategoryDefaultTemplates(prev => ({
+                                      ...prev,
+                                      [country.code]: true
+                                    }));
+                                    toast({ title: `PDF pre ${country.name} úspešne konvertované` });
+                                  } catch (error: any) {
+                                    setCategoryPdfUploads(prev => ({
+                                      ...prev,
+                                      [country.code]: { ...prev[country.code], uploading: false, error: error.message }
+                                    }));
+                                    toast({
+                                      title: "Chyba pri konverzii",
+                                      description: error.message,
+                                      variant: "destructive"
+                                    });
+                                  }
+                                }
+                              }}
+                              className="text-sm"
+                              disabled={uploadState?.uploading}
+                              data-testid={`input-reupload-pdf-${country.code}`}
+                            />
+                          </div>
+                          
+                          <div className="w-32 shrink-0 flex items-center justify-end gap-2">
+                            {uploadState?.uploading && (
+                              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                                Konvertujem...
+                              </span>
+                            )}
+                            {uploadState?.uploaded && (
+                              <Badge variant="default" className="bg-green-600 text-xs">OK</Badge>
+                            )}
+                            {uploadState?.error && (
+                              <Badge variant="destructive" className="text-xs">Chyba</Badge>
+                            )}
+                            {hasTemplate && !uploadState?.uploading && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handlePreviewTemplate(selectedCategory.id, country.code)}
+                                data-testid={`button-preview-template-${country.code}`}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {!hasTemplate && !uploadState?.uploading && !uploadState?.uploaded && (
+                              <Badge variant="secondary" className="text-xs">Bez šablóny</Badge>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
