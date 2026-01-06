@@ -2043,7 +2043,7 @@ export default function ContractsPage() {
                 <TabsContent value="templates" className="space-y-4">
                   <div className="p-3 bg-muted/50 rounded-md">
                     <p className="text-sm text-muted-foreground">
-                      Nahrajte PDF šablóny pre jednotlivé krajiny. AI automaticky konvertuje PDF na HTML šablónu.
+                      Nahrajte DOCX šablóny pre jednotlivé krajiny. Šablóny môžete stiahnuť, upraviť v MS Word a nahrať späť.
                     </p>
                   </div>
                   
@@ -2073,8 +2073,8 @@ export default function ContractsPage() {
                                 </div>
                               </div>
                               <div className="text-center space-y-1">
-                                <p className="text-sm font-semibold text-foreground">AI konvertuje PDF do HTML</p>
-                                <p className="text-xs text-muted-foreground">Zachovávam formátovanie dokumentu...</p>
+                                <p className="text-sm font-semibold text-foreground">Spracovávam DOCX šablónu</p>
+                                <p className="text-xs text-muted-foreground">Extrahujem premenné a generujem náhľad...</p>
                               </div>
                               <div className="w-48 space-y-2">
                                 <div className="h-2 bg-muted rounded-full overflow-hidden">
@@ -2384,7 +2384,7 @@ export default function ContractsPage() {
           <DialogHeader className="shrink-0">
             <DialogTitle>Náhľad šablóny - {templatePreviewCountry}</DialogTitle>
             <DialogDescription>
-              Konvertovaná HTML šablóna z PDF
+              DOCX šablóna s premennými
             </DialogDescription>
           </DialogHeader>
           
@@ -2393,11 +2393,16 @@ export default function ContractsPage() {
               <div className="flex items-center justify-center h-64">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
-            ) : (
+            ) : templatePreviewContent ? (
               <div 
                 className="prose max-w-none text-foreground"
                 dangerouslySetInnerHTML={{ __html: templatePreviewContent }}
               />
+            ) : (
+              <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
+                <FileText className="h-12 w-12 mb-4" />
+                <p>Pre náhľad DOCX šablóny otvorte editor mapovania</p>
+              </div>
             )}
           </div>
           
@@ -3501,12 +3506,12 @@ export default function ContractsPage() {
                         </ol>
                         
                         <div className="mt-4 flex flex-col gap-2">
-                          {editingTemplateData.sourcePath && (
+                          {editingTemplateData.categoryId && editingTemplateData.countryCode && (
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => {
-                                window.open(`/api/contracts/template-file/${encodeURIComponent(editingTemplateData.sourcePath)}`, '_blank');
+                                window.open(`/api/contracts/categories/${editingTemplateData.categoryId}/templates/${editingTemplateData.countryCode}/download`, '_blank');
                               }}
                               data-testid="button-download-docx"
                             >

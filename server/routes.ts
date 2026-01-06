@@ -7169,7 +7169,8 @@ export async function registerRoutes(
       
       let extractedFields: any[] = [];
       let conversionError: string | null = null;
-      const docxPath = req.file.path;
+      // Store relative path, not absolute
+      const docxPath = req.file.path.replace(process.cwd() + "/", "");
       let previewPdfPath: string | null = null;
       const templateType = "docx";
       
@@ -7258,7 +7259,15 @@ export async function registerRoutes(
   // Download template file (DOCX or PDF)
   app.get("/api/contracts/template-file/:filePath(*)", requireAuth, async (req, res) => {
     try {
-      const filePath = decodeURIComponent(req.params.filePath);
+      let filePath = decodeURIComponent(req.params.filePath);
+      
+      // Handle both absolute paths (legacy) and relative paths
+      if (filePath.startsWith("/home/runner/workspace/")) {
+        filePath = filePath.replace("/home/runner/workspace/", "");
+      }
+      if (filePath.startsWith(process.cwd() + "/")) {
+        filePath = filePath.replace(process.cwd() + "/", "");
+      }
       
       if (!filePath.startsWith("uploads/") || filePath.includes("..")) {
         return res.status(403).json({ error: "Access denied" });
@@ -7288,6 +7297,46 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error serving template file:", error);
       res.status(500).json({ error: "Failed to serve file" });
+    }
+  });
+  
+  // Download DOCX template by category and country
+  app.get("/api/contracts/categories/:categoryId/templates/:countryCode/download", requireAuth, async (req, res) => {
+    try {
+      const categoryId = parseInt(req.params.categoryId);
+      const countryCode = req.params.countryCode.toUpperCase();
+      
+      const template = await storage.getCategoryDefaultTemplate(categoryId, countryCode);
+      
+      if (!template || !template.sourceDocxPath) {
+        return res.status(404).json({ error: "DOCX template not found" });
+      }
+      
+      // Handle both absolute and relative paths
+      let docxPath = template.sourceDocxPath;
+      if (docxPath.startsWith("/home/runner/workspace/")) {
+        docxPath = docxPath.replace("/home/runner/workspace/", "");
+      }
+      if (docxPath.startsWith(process.cwd() + "/")) {
+        docxPath = docxPath.replace(process.cwd() + "/", "");
+      }
+      
+      const fullPath = path.join(process.cwd(), docxPath);
+      
+      if (!fs.existsSync(fullPath)) {
+        return res.status(404).json({ error: "DOCX file not found" });
+      }
+      
+      const filename = `template-${countryCode}.docx`;
+      
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      
+      const fileStream = fs.createReadStream(fullPath);
+      fileStream.pipe(res);
+    } catch (error) {
+      console.error("Error downloading DOCX template:", error);
+      res.status(500).json({ error: "Failed to download template" });
     }
   });
   
