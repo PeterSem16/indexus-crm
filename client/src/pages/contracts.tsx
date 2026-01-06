@@ -187,6 +187,8 @@ export default function ContractsPage() {
     contentHtml: ""
   });
   
+  const [templatePageImages, setTemplatePageImages] = useState<{ pageNumber: number; imageUrl: string; fileName: string }[]>([]);
+  
   const [categoryForm, setCategoryForm] = useState({
     value: "",
     label: "",
@@ -1416,6 +1418,7 @@ export default function ContractsPage() {
               <ContractTemplateEditor
                 value={templateForm.contentHtml}
                 onChange={(value) => setTemplateForm({ ...templateForm, contentHtml: value })}
+                pageImages={templatePageImages}
               />
             </div>
           </div>

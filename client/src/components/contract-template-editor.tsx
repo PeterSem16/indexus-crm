@@ -627,10 +627,17 @@ const DEFAULT_CONTRACT_TEMPLATE = `<div style="font-family: 'Times New Roman', s
 
 </div>`;
 
+interface PageImage {
+  pageNumber: number;
+  imageUrl: string;
+  fileName: string;
+}
+
 interface ContractTemplateEditorProps {
   value: string;
   onChange: (value: string) => void;
   onLoadDefault?: () => void;
+  pageImages?: PageImage[];
 }
 
 const PRODUCT_OPTIONS = [
@@ -642,7 +649,8 @@ const PRODUCT_OPTIONS = [
   { id: "premium_all", name: "Prémium + tkanivo pupočníka + tkanivo placenty", total: 1490, payments: 2, deposit: 150, remaining: 1340 },
 ];
 
-export function ContractTemplateEditor({ value, onChange, onLoadDefault }: ContractTemplateEditorProps) {
+export function ContractTemplateEditor({ value, onChange, onLoadDefault, pageImages = [] }: ContractTemplateEditorProps) {
+  const [selectedPageIndex, setSelectedPageIndex] = useState(0);
   const { toast } = useToast();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -873,7 +881,64 @@ export function ContractTemplateEditor({ value, onChange, onLoadDefault }: Contr
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-full">
+    <div className={`grid gap-4 h-full ${pageImages.length > 0 ? 'grid-cols-1 lg:grid-cols-4' : 'grid-cols-1 lg:grid-cols-3'}`}>
+      {pageImages.length > 0 && (
+        <div className="lg:col-span-1 flex flex-col border rounded-md overflow-hidden bg-muted/30">
+          <div className="flex items-center justify-between p-2 border-b bg-muted/50">
+            <h3 className="text-sm font-semibold">Obrázky stránok PDF</h3>
+            <Badge variant="secondary" className="text-xs">{pageImages.length}</Badge>
+          </div>
+          
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="flex gap-1 p-2 border-b overflow-x-auto flex-shrink-0">
+              {pageImages.map((page, idx) => (
+                <button
+                  key={page.pageNumber}
+                  onClick={() => setSelectedPageIndex(idx)}
+                  className={`shrink-0 w-10 h-14 border rounded overflow-hidden transition-all ${
+                    selectedPageIndex === idx 
+                      ? 'ring-2 ring-primary border-primary' 
+                      : 'hover:border-primary/50'
+                  }`}
+                  data-testid={`page-thumb-${page.pageNumber}`}
+                >
+                  <img 
+                    src={page.imageUrl} 
+                    alt={`Strana ${page.pageNumber}`}
+                    className="w-full h-full object-cover object-top"
+                  />
+                </button>
+              ))}
+            </div>
+            
+            <ScrollArea className="flex-1 p-2">
+              {pageImages[selectedPageIndex] && (
+                <div className="space-y-2">
+                  <div className="text-xs text-center text-muted-foreground">
+                    Strana {pageImages[selectedPageIndex].pageNumber} z {pageImages.length}
+                  </div>
+                  <a
+                    href={pageImages[selectedPageIndex].imageUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block"
+                  >
+                    <img 
+                      src={pageImages[selectedPageIndex].imageUrl} 
+                      alt={`Strana ${pageImages[selectedPageIndex].pageNumber}`}
+                      className="w-full border rounded shadow-sm hover:shadow-md transition-shadow cursor-zoom-in"
+                    />
+                  </a>
+                  <p className="text-[10px] text-center text-muted-foreground">
+                    Kliknutím zväčšíte
+                  </p>
+                </div>
+              )}
+            </ScrollArea>
+          </div>
+        </div>
+      )}
+      
       <div className="lg:col-span-1 flex flex-col">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold">Dostupné polia</h3>

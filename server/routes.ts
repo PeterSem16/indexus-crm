@@ -403,86 +403,12 @@ async function convertPdfToHtmlWithAI(
     console.warn("[PDF AI] Page image creation failed, will use text-only:", error);
   }
   
-  // 4. Use text-only conversion with clean single-column formatting
-  console.log("[PDF] Using text-only conversion (single-column format)");
+  // 4. Generate empty HTML template - user will edit manually using page images as reference
+  console.log("[PDF] Creating empty template - images available for reference");
   conversionMethod = "text-only";
   
-  // Use page data from pdfplumber if available, otherwise split by form feed
-  let pages: string[];
-  if (pdfPages.length > 0) {
-    pages = pdfPages.map(p => p.text);
-    console.log(`[PDF] Using ${pages.length} pages from pdfplumber`);
-  } else {
-    // Fallback: clean and split extracted text
-    const cleanText = extractedText
-      .replace(/\r\n/g, '\n')
-      .replace(/[ \t]+/g, ' ')
-      .replace(/^\s+$/gm, '')
-      .replace(/\n{3,}/g, '\n\n');
-    pages = cleanText.split(/\f/).filter(p => p.trim().length > 0);
-    if (pages.length === 0 && cleanText.trim()) {
-      pages = [cleanText];
-    }
-  }
-  
-  // Process text into clean HTML
-  const processText = (text: string): string => {
-    // Escape HTML
-    let html = text
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
-    
-    // Replace dotted lines with styled spans
-    html = html.replace(/\.{6,}/g, '<span class="fill-line"></span>');
-    
-    // Format article headers (Článok I, II, III, etc.)
-    html = html.replace(/(Článok\s+[IVXLCDM]+)\s*[-–—]\s*([^\n]+)/gi, 
-      '\n<h3>$1 - $2</h3>\n');
-    
-    // Format numbered sections (I.1, II.2, VII.10, etc.)
-    html = html.replace(/\n([IVXLCDM]+\.\d+)\s+/g, '\n<div class="section"><b>$1</b> ');
-    
-    // Close section divs before next section or header
-    html = html.replace(/<div class="section">([^<]*(?:<(?!div class="section"|h3)[^<]*)*)/g, 
-      '<div class="section">$1</div>');
-    
-    // Format subsections a), b), c)
-    html = html.replace(/\n\s*([a-z]\))\s+/g, '\n<div class="subsection">$1 ');
-    html = html.replace(/<div class="subsection">([^<]*(?:<(?!div class="sub)[^<]*)*)/g, 
-      '<div class="subsection">$1</div>');
-    
-    // Convert paragraphs (double newlines)
-    html = html.replace(/\n\n+/g, '</p>\n<p>');
-    
-    // Convert remaining single newlines to line breaks for readability
-    html = html.replace(/\n/g, '<br>\n');
-    
-    // Clean up
-    html = html.replace(/<p>\s*<\/p>/g, '');
-    html = html.replace(/<br>\s*<br>/g, '<br>');
-    html = html.replace(/^<\/p>/g, '');
-    html = html.replace(/<br>\s*<\/div>/g, '</div>');
-    
-    // Wrap in paragraph
-    if (!html.trim().startsWith('<')) {
-      html = '<p>' + html;
-    }
-    if (!html.trim().endsWith('</p>') && !html.trim().endsWith('</h3>') && !html.trim().endsWith('</div>')) {
-      html = html + '</p>';
-    }
-    
-    return html;
-  };
-  
-  // Process all pages
-  const pagesHtml = pages.map((pageText, idx) => {
-    const content = processText(pageText);
-    return `<section class="page">
-      <div class="page-num">Strana ${idx + 1}</div>
-      ${content}
-    </section>`;
-  }).join('\n');
+  // Create a clean starting template for the contract
+  const pageCount = pageImages.length || 1;
   
   htmlContent = `<!DOCTYPE html>
 <html lang="sk">
@@ -499,6 +425,12 @@ async function convertPdfToHtmlWithAI(
       color: #000; 
       padding: 20px 30px;
     }
+    .contract-content h2 {
+      font-size: 16px;
+      font-weight: bold;
+      text-align: center;
+      margin: 20px 0;
+    }
     .contract-content h3 { 
       font-size: 13px; 
       font-weight: bold;
@@ -509,50 +441,77 @@ async function convertPdfToHtmlWithAI(
       margin: 8px 0; 
       text-align: justify;
     }
-    .contract-content .section { 
-      margin: 10px 0;
-      text-align: justify;
+    .contract-content .parties {
+      margin: 20px 0;
     }
-    .contract-content .subsection { 
-      margin: 6px 0 6px 20px;
-      text-align: justify;
-    }
-    .contract-content .fill-line {
+    .contract-content .fill-field {
       display: inline-block;
       border-bottom: 1px dotted #000;
-      min-width: 150px;
+      min-width: 200px;
+      padding: 2px 5px;
     }
-    .contract-content .page { 
-      margin-bottom: 30px;
-      padding-bottom: 15px;
-      border-bottom: 1px dashed #999;
+    .contract-content .signature-block {
+      margin-top: 40px;
+      display: flex;
+      justify-content: space-between;
     }
-    .contract-content .page:last-child {
-      border-bottom: none;
+    .contract-content .signature {
+      text-align: center;
+      width: 45%;
     }
-    .contract-content .page-num {
-      text-align: right;
-      font-size: 10px;
-      color: #888;
-      margin-bottom: 10px;
+    .contract-content .signature-line {
+      border-top: 1px solid #000;
+      margin-top: 50px;
+      padding-top: 5px;
     }
     @media print { 
-      .contract-content .page { 
-        border-bottom: none;
-        page-break-after: always;
-      }
-      .contract-content .page-num { display: none; }
+      .contract-content { padding: 0; }
     }
   </style>
 </head>
 <body>
   <div class="contract-content">
-    ${pagesHtml}
+    <h2>ZMLUVA</h2>
+    
+    <p style="text-align: center; margin-bottom: 30px;">
+      <em>Prepíšte obsah zmluvy podľa obrázkov stránok zobrazených vľavo.</em>
+    </p>
+    
+    <div class="parties">
+      <p><strong>Zmluvná strana 1:</strong></p>
+      <p>Názov: <span class="fill-field" contenteditable="true"></span></p>
+      <p>Sídlo: <span class="fill-field" contenteditable="true"></span></p>
+      <p>IČO: <span class="fill-field" contenteditable="true"></span></p>
+    </div>
+    
+    <div class="parties">
+      <p><strong>Zmluvná strana 2:</strong></p>
+      <p>Meno: <span class="fill-field" contenteditable="true"></span></p>
+      <p>Adresa: <span class="fill-field" contenteditable="true"></span></p>
+    </div>
+    
+    <h3>Článok I - Predmet zmluvy</h3>
+    <p>Tu vložte text článku I...</p>
+    
+    <h3>Článok II - Práva a povinnosti</h3>
+    <p>Tu vložte text článku II...</p>
+    
+    <h3>Článok III - Záverečné ustanovenia</h3>
+    <p>Tu vložte text článku III...</p>
+    
+    <div class="signature-block">
+      <div class="signature">
+        <div class="signature-line">Zmluvná strana 1</div>
+      </div>
+      <div class="signature">
+        <div class="signature-line">Zmluvná strana 2</div>
+      </div>
+    </div>
   </div>
 </body>
 </html>`;
   
-  console.log(`[PDF] Generated ${htmlContent.length} chars of formatted HTML (${pages.length} pages)`);
+  console.log(`[PDF] Created empty template with ${pageCount} page images for reference`);
   
   return { htmlContent, extractedText, embeddedImages, pageImages, conversionMethod };
 }
@@ -7108,7 +7067,29 @@ export async function registerRoutes(
       if (!template) {
         return res.status(404).json({ error: "Default template not found" });
       }
-      res.json(template);
+      
+      // Parse conversionMetadata to extract pageImages and other conversion data
+      let pageImages: any[] = [];
+      let embeddedImages: any[] = [];
+      let conversionMethod: string | null = null;
+      
+      if (template.conversionMetadata) {
+        try {
+          const metadata = JSON.parse(template.conversionMetadata);
+          pageImages = metadata.pageImages || [];
+          embeddedImages = metadata.embeddedImages || [];
+          conversionMethod = metadata.conversionMethod || null;
+        } catch (parseErr) {
+          console.warn("Failed to parse conversionMetadata:", parseErr);
+        }
+      }
+      
+      res.json({
+        ...template,
+        pageImages,
+        embeddedImages,
+        conversionMethod
+      });
     } catch (error) {
       console.error("Error fetching category default template:", error);
       res.status(500).json({ error: "Failed to fetch category default template" });
