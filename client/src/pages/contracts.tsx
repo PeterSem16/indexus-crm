@@ -275,6 +275,7 @@ export default function ContractsPage() {
   const [categoryDefaultTemplates, setCategoryDefaultTemplates] = useState<Record<string, boolean>>({});
   
   const [isTemplateEditorOpen, setIsTemplateEditorOpen] = useState(false);
+  const [isTemplateEditorLoading, setIsTemplateEditorLoading] = useState(false);
   const [editingTemplateCountry, setEditingTemplateCountry] = useState("");
   const [editingTemplateData, setEditingTemplateData] = useState<{
     templateType: string;
@@ -935,6 +936,9 @@ export default function ContractsPage() {
   
   const handleEditCategoryTemplate = async (categoryId: number, countryCode: string) => {
     setEditingTemplateCountry(countryCode);
+    setEditingTemplateData(null);
+    setTemplateMappings({});
+    setIsTemplateEditorLoading(true);
     setIsTemplateEditorOpen(true);
     
     try {
@@ -972,6 +976,8 @@ export default function ContractsPage() {
           mappings = {};
         }
         
+        console.log('[Template Editor] Loaded template:', { templateType: template.templateType, extractedFields, mappings });
+        
         setEditingTemplateData({
           templateType: template.templateType || "pdf_form",
           extractedFields: extractedFields,
@@ -979,6 +985,7 @@ export default function ContractsPage() {
           sourcePath: template.sourcePdfPath || template.sourceDocxPath || ""
         });
         setTemplateMappings(mappings);
+        setIsTemplateEditorLoading(false);
       } else {
         toast({ 
           title: "Chyba", 
@@ -986,6 +993,7 @@ export default function ContractsPage() {
           variant: "destructive" 
         });
         setIsTemplateEditorOpen(false);
+        setIsTemplateEditorLoading(false);
       }
     } catch (e) {
       toast({ 
@@ -994,6 +1002,7 @@ export default function ContractsPage() {
         variant: "destructive" 
       });
       setIsTemplateEditorOpen(false);
+      setIsTemplateEditorLoading(false);
     }
   };
   
@@ -3393,7 +3402,12 @@ export default function ContractsPage() {
           </DialogHeader>
           
           <div className="flex-1 overflow-y-auto">
-            {editingTemplateData ? (
+            {isTemplateEditorLoading ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+                <p className="text-muted-foreground">Načítavam šablónu...</p>
+              </div>
+            ) : editingTemplateData ? (
               <Tabs defaultValue="mapping" className="w-full">
                 <TabsList className="grid w-full grid-cols-2 mb-4">
                   <TabsTrigger value="mapping" data-testid="tab-template-mapping">
@@ -3601,8 +3615,10 @@ export default function ContractsPage() {
                 </TabsContent>
               </Tabs>
             ) : (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <div className="flex flex-col items-center justify-center py-12">
+                <FileText className="h-12 w-12 text-muted-foreground mb-4 opacity-50" />
+                <p className="text-muted-foreground">Šablóna nebola načítaná.</p>
+                <p className="text-sm text-muted-foreground">Zatvorte dialóg a skúste znova.</p>
               </div>
             )}
           </div>
