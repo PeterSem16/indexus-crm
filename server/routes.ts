@@ -7206,7 +7206,18 @@ export async function registerRoutes(
         templateData.sourceDocxPath = null;
       } else {
         templateData.sourceDocxPath = req.file.path;
-        templateData.sourcePdfPath = null;
+        
+        // Convert DOCX to PDF for preview purposes
+        try {
+          console.log(`[Template Upload] Converting DOCX to PDF for preview...`);
+          const pdfPath = await convertDocxToPdf(req.file.path, path.dirname(req.file.path));
+          templateData.sourcePdfPath = pdfPath;
+          console.log(`[Template Upload] DOCX converted to PDF: ${pdfPath}`);
+        } catch (convErr: any) {
+          console.warn(`[Template Upload] DOCX to PDF conversion failed: ${convErr.message}`);
+          templateData.sourcePdfPath = null;
+          // Don't fail the upload - DOCX is still usable for contract generation
+        }
       }
 
       let result;
