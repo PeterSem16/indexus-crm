@@ -159,32 +159,19 @@ function parseDateFields(data: Record<string, any>): Record<string, any> {
   return result;
 }
 
-// Extract text from PDF
+// Extract text from PDF using pdftotext command (more reliable than pdf-parse)
 async function extractPdfText(filePath: string): Promise<string> {
   try {
-    const dataBuffer = fs.readFileSync(filePath);
-    // Dynamic import for pdf-parse - try multiple possible exports
-    const pdfParseModule = await import("pdf-parse");
-    let pdfParse = pdfParseModule.default || pdfParseModule.PDFParse || pdfParseModule;
+    const { exec } = await import("child_process");
+    const { promisify } = await import("util");
+    const execAsync = promisify(exec);
     
-    // If it's still not a function, try to find any function export
-    if (typeof pdfParse !== 'function') {
-      for (const key of Object.keys(pdfParseModule)) {
-        if (typeof (pdfParseModule as any)[key] === 'function' && key.toLowerCase().includes('parse')) {
-          pdfParse = (pdfParseModule as any)[key];
-          break;
-        }
-      }
-    }
-    
-    if (typeof pdfParse !== 'function') {
-      console.warn("[PDF Text] pdf-parse not available, skipping text extraction");
-      return "";
-    }
-    const data = await pdfParse(dataBuffer);
-    return data.text || "";
+    // Use pdftotext from poppler-utils - more reliable than pdf-parse
+    const { stdout } = await execAsync(`pdftotext -layout "${filePath}" -`);
+    console.log(`[PDF Text] Extracted ${stdout.length} characters using pdftotext`);
+    return stdout || "";
   } catch (error) {
-    console.warn("[PDF Text] Text extraction failed (this is OK for scanned PDFs):", error);
+    console.warn("[PDF Text] pdftotext extraction failed (this is OK for scanned PDFs):", error);
     return "";
   }
 }
@@ -200,20 +187,20 @@ async function convertPdfToImages(pdfPath: string, maxPages: number = 3): Promis
   const outputPrefix = path.join(outputDir, `${baseName}-page`);
   
   try {
-    // Convert PDF to PNG images - lossless format for best text clarity
-    // 300 DPI for clear fine print (legal clauses, IBANs, addresses)
-    // PNG preserves sharp glyph edges better than JPEG compression
-    await execAsync(`pdftoppm -png -r 300 -l ${maxPages} "${pdfPath}" "${outputPrefix}"`);
+    // Convert PDF to JPEG images - 150 DPI is sufficient for OCR with detail:high
+    // Use high-quality JPEG (90%) to keep file sizes manageable (<500KB per page)
+    // This prevents API timeouts while maintaining text readability
+    await execAsync(`pdftoppm -jpeg -jpegopt quality=90 -r 150 -l ${maxPages} "${pdfPath}" "${outputPrefix}"`);
     
-    // Find all generated image files (PNG preferred, fallback to JPG)
+    // Find all generated image files
     const files = fs.readdirSync(outputDir);
     const imageFiles = files
-      .filter(f => f.startsWith(`${baseName}-page`) && (f.endsWith(".png") || f.endsWith(".jpg")))
+      .filter(f => f.startsWith(`${baseName}-page`) && (f.endsWith(".jpg") || f.endsWith(".png")))
       .sort()
       .slice(0, maxPages)
       .map(f => path.join(outputDir, f));
     
-    console.log(`[PDF Conversion] Generated ${imageFiles.length} PNG images from PDF (max ${maxPages} pages, 300 DPI, lossless)`);
+    console.log(`[PDF Conversion] Generated ${imageFiles.length} JPEG images from PDF (max ${maxPages} pages, 150 DPI, 90% quality)`);
     return imageFiles;
   } catch (error) {
     console.error("PDF to image conversion failed:", error);
@@ -6808,126 +6795,94 @@ export async function registerRoutes(
       const pdfText = await extractPdfText(req.file.path);
       console.log(`[PDF Conversion] Extracted ${pdfText.length} characters of text from PDF`);
       
-      // Convert PDF to HTML using OpenAI Vision with actual images
+      // Convert PDF to HTML using OpenAI Vision - process pages one at a time to avoid timeout
       let htmlContent = "";
       try {
         const OpenAI = (await import("openai")).default;
         const openai = new OpenAI({ 
           apiKey: process.env.OPENAI_API_KEY,
-          timeout: 180000 // 3 minute timeout for high-res images
+          timeout: 120000 // 2 minute timeout per page
         });
         
-        // Convert images to base64 for Vision API
-        const imageInputs = imagesToBase64(imagePaths);
-        console.log(`[PDF Conversion] Sending ${imageInputs.length} page images to OpenAI Vision (300 DPI PNG, detail:high)`);
+        const systemPrompt = `You are an expert at converting PDF documents to HTML. Extract ALL text and preserve layout.
+
+RULES:
+1. Extract EVERY piece of text - do not skip anything
+2. Keep original language (Slovak, Czech, etc.) - do NOT translate
+3. Use inline CSS for layout, width 816px
+4. Use HTML tables for columnar content
+5. Font: Times New Roman, 12px base
+
+PLACEHOLDERS (replace only variable data):
+- Client: {{client.fullName}}, {{client.address}}, {{client.birthDate}}, {{client.email}}, {{client.phone}}
+- Contract: {{contract.number}}, {{contract.date}}
+- Company: {{company.name}}, {{company.iban}}, {{company.vatNumber}}
+- Product: {{product.name}}, {{product.price}}
+- Signature lines: <div style="border-bottom:1px solid #000;width:200px;margin-top:20px;"></div>
+
+Keep ALL static text exactly as shown. Output clean HTML only, no markdown.`;
+
+        // Process each page separately to avoid timeout
+        const pageHtmls: string[] = [];
+        console.log(`[PDF Conversion] Processing ${imagePaths.length} pages individually...`);
         
-        // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-        console.log(`[PDF Conversion] Starting OpenAI Vision API call...`);
-        const startTime = Date.now();
-        
-        const systemPrompt = `You are an expert at converting PDF contract documents to HTML templates. Your task is to extract and convert ALL content from the PDF images to HTML.
-
-CRITICAL REQUIREMENTS:
-1. Extract EVERY SINGLE piece of text from the PDF - do not skip anything
-2. Preserve the EXACT visual layout, formatting, and structure
-3. Include ALL paragraphs, sections, terms, and conditions - even long legal text
-4. Keep ALL text in its original language (Slovak, Czech, Hungarian, etc.) - do NOT translate
-5. Extract ALL fine print including: IBAN numbers, SWIFT codes, company IDs, VAT numbers, addresses, legal clauses
-
-CONTENT TO EXTRACT:
-- ALL text content including headers, paragraphs, bullet points, numbered lists
-- ALL tables with their complete content including prices, numbers, dates
-- ALL terms and conditions - every single paragraph
-- ALL legal text and fine print - every clause
-- ALL company details: addresses, IDs, bank accounts, phone numbers, emails
-- Headers and footers
-- Signature blocks and lines
-- Company logos/images (as placeholders)
-
-HTML STRUCTURE:
-- Use inline CSS styles for layout
-- Use HTML tables for columnar layouts  
-- Width should be 816px (A4 paper width at 96dpi)
-- Use font-family: "Times New Roman", Georgia, serif
-- Use font-size: 12px as base
-
-PLACEHOLDERS FOR DYNAMIC CONTENT:
-For images/logos: <div class="image-placeholder" style="width:100px;height:100px;border:1px dashed #ccc;"></div>
-For signature lines: <div class="signature-line" style="border-bottom:1px solid #000;width:200px;margin-top:30px;"></div>
-
-Replace ONLY variable data with Handlebars placeholders:
-- Client: {{client.fullName}}, {{client.address}}, {{client.birthDate}}, {{client.email}}, {{client.phone}}, {{client.idNumber}}
-- Father: {{father.fullName}}, {{father.birthDate}}, {{father.address}}, {{father.idNumber}}
-- Mother: {{mother.fullName}}, {{mother.birthDate}}, {{mother.address}}
-- Contract: {{contract.number}}, {{contract.date}}, {{contract.effectiveDate}}
-- Company: {{company.name}}, {{company.address}}, {{company.vatNumber}}, {{company.email}}, {{company.phone}}, {{company.iban}}, {{company.swift}}, {{company.bankName}}
-- Product: {{product.name}}, {{product.price}}, {{product.description}}
-- Payment: {{payment.total}}, {{payment.dueDate}}, {{payment.method}}
-- Signatures: {{signatures.client.date}}, {{signatures.company.name}}, {{signatures.company.title}}
-
-KEEP ALL STATIC TEXT EXACTLY AS SHOWN - including all terms, conditions, legal paragraphs in the original language.
-
-Output ONLY clean HTML code. Start with <div class="contract-template" style="width:816px;margin:0 auto;"> and end with </div>.
-Do NOT wrap in markdown code blocks.`;
-
-        const userPrompt = `Convert these PDF page images to HTML. This is a legal contract document.
-
-IMPORTANT:
-1. Extract and include EVERY piece of text you see - do not summarize or skip any content
-2. Keep all text in the original language exactly as shown
-3. Include all paragraphs, terms, conditions, legal text, fine print
-4. Extract all numbers, IBANs, addresses, IDs, phone numbers exactly as shown
-5. Replace only variable data (specific client names, dates, client addresses) with Handlebars placeholders
-6. Keep all static/legal text, company info, and terms exactly as written
-
-${pdfText.length > 0 ? `Additional extracted text for reference:\n${pdfText.substring(0, 3000)}` : "No text could be extracted - rely on the images."}`;
-        
-        const response = await openai.chat.completions.create({
-          model: "gpt-5",
-          messages: [
-            { role: "system", content: systemPrompt },
-            {
-              role: "user",
-              content: [
-                { type: "text", text: userPrompt },
-                ...imageInputs
-              ]
-            }
-          ],
-          max_completion_tokens: 16384,
-        });
-        
-        const elapsed = Date.now() - startTime;
-        htmlContent = response.choices[0].message.content || "";
-        console.log(`[PDF Conversion] Received ${htmlContent.length} characters of HTML from OpenAI in ${elapsed}ms`);
-        
-        // Check if the API returned an error about image quality
-        const lowQualityIndicators = [
-          "image too small", "too low-resolution", "cannot read", "unable to read",
-          "poor quality", "blurry", "illegible", "higher resolution"
-        ];
-        const hasQualityIssue = lowQualityIndicators.some(indicator => 
-          htmlContent.toLowerCase().includes(indicator)
-        );
-        
-        if (hasQualityIssue) {
-          console.warn(`[PDF Conversion] API indicated image quality issue, response may be incomplete`);
+        for (let i = 0; i < imagePaths.length; i++) {
+          const imagePath = imagePaths[i];
+          const imageBuffer = fs.readFileSync(imagePath);
+          const base64 = imageBuffer.toString("base64");
+          const fileSizeKB = Math.round(imageBuffer.length / 1024);
+          console.log(`[PDF Conversion] Processing page ${i + 1}/${imagePaths.length} (${fileSizeKB}KB)...`);
+          
+          const startTime = Date.now();
+          
+          // the newest OpenAI model is "gpt-5" which was released August 7, 2025
+          const response = await openai.chat.completions.create({
+            model: "gpt-5",
+            messages: [
+              { role: "system", content: systemPrompt },
+              {
+                role: "user",
+                content: [
+                  { 
+                    type: "text", 
+                    text: `Convert page ${i + 1} of this contract to HTML. Extract ALL text exactly as shown.${pdfText.length > 0 ? `\n\nReference text:\n${pdfText.substring(i * 1000, (i + 1) * 1000)}` : ""}` 
+                  },
+                  { 
+                    type: "image_url", 
+                    image_url: { 
+                      url: `data:image/jpeg;base64,${base64}`,
+                      detail: "high"
+                    } 
+                  }
+                ]
+              }
+            ],
+            max_completion_tokens: 8000,
+          });
+          
+          const elapsed = Date.now() - startTime;
+          let pageHtml = response.choices[0].message.content || "";
+          pageHtml = pageHtml.replace(/^```html\n?/i, "").replace(/\n?```$/i, "").trim();
+          
+          console.log(`[PDF Conversion] Page ${i + 1} completed: ${pageHtml.length} chars in ${elapsed}ms`);
+          pageHtmls.push(pageHtml);
         }
         
-        // Clean up the response - remove markdown code blocks if present
-        htmlContent = htmlContent.replace(/^```html\n?/i, "").replace(/\n?```$/i, "").trim();
+        // Combine all pages into single HTML
+        htmlContent = `<div class="contract-template" style="width:816px;margin:0 auto;font-family:'Times New Roman',Georgia,serif;font-size:12px;">
+${pageHtmls.map((html, i) => `<!-- Page ${i + 1} -->\n<div class="page" style="page-break-after:always;margin-bottom:20px;">\n${html}\n</div>`).join('\n')}
+</div>`;
         
-        if (htmlContent.length < 100) {
-          console.warn(`[PDF Conversion] Warning: Very short HTML output (${htmlContent.length} chars)`);
-        }
+        console.log(`[PDF Conversion] Combined ${pageHtmls.length} pages into ${htmlContent.length} chars total`);
         
       } catch (aiError: any) {
         console.error("[PDF Conversion] OpenAI conversion failed:", aiError?.message || aiError);
         // Fallback to basic HTML wrapper with extracted text
         htmlContent = `<div class="contract-template">
           <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px;">
-            <p style="color: red; margin-bottom: 20px;">OpenAI konverzia zlyhala. Zobrazený je iba extrahovaný text:</p>
-            <pre style="white-space: pre-wrap; font-family: inherit;">${pdfText}</pre>
+            <p style="color: red; margin-bottom: 20px;">OpenAI konverzia zlyhala: ${aiError?.message || 'Neznáma chyba'}</p>
+            <p>Extrahovaný text z PDF:</p>
+            <pre style="white-space: pre-wrap; font-family: inherit;">${pdfText || 'Žiadny text nebol extrahovaný.'}</pre>
           </div>
         </div>`;
       } finally {
