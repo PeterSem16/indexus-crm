@@ -2638,9 +2638,10 @@ export const contractCategoryDefaultTemplates = pgTable("contract_category_defau
   templateId: varchar("template_id"), // FK to contract_templates (optional - if linked to existing template)
   sourcePdfPath: text("source_pdf_path"), // Path to uploaded source PDF (for pdf_form type)
   sourceDocxPath: text("source_docx_path"), // Path to uploaded source DOCX (for docx type)
+  previewPdfPath: text("preview_pdf_path"), // Path to generated PDF preview (from DOCX)
   extractedFields: text("extracted_fields"), // JSON array of field/placeholder names found in template
   placeholderMappings: text("placeholder_mappings"), // JSON mapping of template fields to CRM data fields
-  htmlContent: text("html_content"), // Legacy HTML content (for backward compatibility)
+  htmlContent: text("html_content"), // Legacy HTML content (deprecated - not used)
   conversionStatus: varchar("conversion_status", { length: 20 }).notNull().default("pending"), // pending, processing, completed, failed
   conversionError: text("conversion_error"), // Error message if conversion failed
   conversionMetadata: text("conversion_metadata"), // JSON with conversion details
