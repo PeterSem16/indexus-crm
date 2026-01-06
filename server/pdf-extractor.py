@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """
-PDF Text Extractor with Column Detection
-Extracts text from two-column PDFs in correct reading order
+PDF Text Extractor with Two-Column Detection
+Extracts text from two-column PDFs in correct reading order:
+- First reads entire LEFT column (top to bottom)
+- Then reads entire RIGHT column (top to bottom)
 """
 
 import sys
 import json
 import pdfplumber
-from collections import defaultdict
 
 def extract_with_columns(pdf_path: str) -> dict:
-    """Extract text from PDF with intelligent column detection."""
+    """Extract text from PDF with intelligent two-column detection."""
     result = {
         "success": True,
         "pages": [],
@@ -24,19 +25,16 @@ def extract_with_columns(pdf_path: str) -> dict:
             
             for page_num, page in enumerate(pdf.pages, 1):
                 page_width = page.width
-                page_height = page.height
                 mid_x = page_width / 2
                 
                 # Extract words with bounding boxes
                 words = page.extract_words(
                     keep_blank_chars=False,
                     x_tolerance=3,
-                    y_tolerance=3,
-                    extra_attrs=['fontname', 'size']
+                    y_tolerance=3
                 )
                 
                 if not words:
-                    # Fallback to simple text extraction
                     simple_text = page.extract_text() or ""
                     result["pages"].append({
                         "pageNumber": page_num,
@@ -46,73 +44,75 @@ def extract_with_columns(pdf_path: str) -> dict:
                     all_text.append(simple_text)
                     continue
                 
-                # Detect if this is a two-column layout
-                left_words = [w for w in words if w['x0'] < mid_x - 20]
-                right_words = [w for w in words if w['x0'] >= mid_x - 20]
+                # Separate words into LEFT and RIGHT columns
+                # Use a gap in the middle to distinguish columns
+                gap_left = mid_x - 30  # Left column ends here
+                gap_right = mid_x + 10  # Right column starts here
                 
-                # Check if there's significant content in both columns
-                has_columns = len(left_words) > 10 and len(right_words) > 10
+                left_words = []
+                right_words = []
                 
-                if has_columns:
-                    # Sort words by column, then by vertical position
-                    # Group into lines first
-                    def get_lines(word_list):
-                        if not word_list:
-                            return []
-                        
-                        # Sort by y position (top to bottom)
-                        sorted_words = sorted(word_list, key=lambda w: (w['top'], w['x0']))
-                        
-                        lines = []
-                        current_line = [sorted_words[0]]
-                        current_top = sorted_words[0]['top']
-                        
-                        for word in sorted_words[1:]:
-                            # Same line if y position is similar (within 5 pixels)
-                            if abs(word['top'] - current_top) < 8:
-                                current_line.append(word)
-                            else:
-                                # Sort current line left-to-right and add
-                                current_line.sort(key=lambda w: w['x0'])
-                                lines.append(' '.join(w['text'] for w in current_line))
-                                current_line = [word]
-                                current_top = word['top']
-                        
-                        # Don't forget last line
-                        if current_line:
-                            current_line.sort(key=lambda w: w['x0'])
-                            lines.append(' '.join(w['text'] for w in current_line))
-                        
-                        return lines
+                for w in words:
+                    word_center = (w['x0'] + w['x1']) / 2
+                    if word_center < gap_left:
+                        left_words.append(w)
+                    elif word_center > gap_right:
+                        right_words.append(w)
+                    else:
+                        # Words in the gap - assign based on x0
+                        if w['x0'] < mid_x:
+                            left_words.append(w)
+                        else:
+                            right_words.append(w)
+                
+                # Check if this is truly a two-column layout
+                has_columns = len(left_words) > 20 and len(right_words) > 20
+                
+                def words_to_text(word_list):
+                    """Convert word list to text, preserving line structure."""
+                    if not word_list:
+                        return ""
                     
-                    # Process left column first, then right column
-                    left_lines = get_lines(left_words)
-                    right_lines = get_lines(right_words)
-                    
-                    # Combine: left column text, then right column text
-                    page_text = '\n'.join(left_lines) + '\n\n' + '\n'.join(right_lines)
-                else:
-                    # Single column - just sort by position
-                    sorted_words = sorted(words, key=lambda w: (w['top'], w['x0']))
+                    # Sort by vertical position first, then horizontal
+                    sorted_words = sorted(word_list, key=lambda w: (w['top'], w['x0']))
                     
                     lines = []
-                    current_line = [sorted_words[0]] if sorted_words else []
-                    current_top = sorted_words[0]['top'] if sorted_words else 0
+                    current_line_words = []
+                    current_top = None
                     
-                    for word in sorted_words[1:]:
-                        if abs(word['top'] - current_top) < 8:
-                            current_line.append(word)
+                    for word in sorted_words:
+                        if current_top is None:
+                            current_top = word['top']
+                            current_line_words = [word]
+                        elif abs(word['top'] - current_top) < 10:
+                            # Same line
+                            current_line_words.append(word)
                         else:
-                            current_line.sort(key=lambda w: w['x0'])
-                            lines.append(' '.join(w['text'] for w in current_line))
-                            current_line = [word]
+                            # New line - save current line
+                            current_line_words.sort(key=lambda w: w['x0'])
+                            line_text = ' '.join(w['text'] for w in current_line_words)
+                            lines.append(line_text)
+                            current_line_words = [word]
                             current_top = word['top']
                     
-                    if current_line:
-                        current_line.sort(key=lambda w: w['x0'])
-                        lines.append(' '.join(w['text'] for w in current_line))
+                    # Don't forget last line
+                    if current_line_words:
+                        current_line_words.sort(key=lambda w: w['x0'])
+                        line_text = ' '.join(w['text'] for w in current_line_words)
+                        lines.append(line_text)
                     
-                    page_text = '\n'.join(lines)
+                    return '\n'.join(lines)
+                
+                if has_columns:
+                    # Read LEFT column completely, then RIGHT column
+                    left_text = words_to_text(left_words)
+                    right_text = words_to_text(right_words)
+                    
+                    # Combine with clear separation
+                    page_text = left_text + '\n\n' + right_text
+                else:
+                    # Single column - just read normally
+                    page_text = words_to_text(words)
                 
                 result["pages"].append({
                     "pageNumber": page_num,
@@ -121,7 +121,7 @@ def extract_with_columns(pdf_path: str) -> dict:
                 })
                 all_text.append(page_text)
             
-            result["fullText"] = '\n\n--- Page Break ---\n\n'.join(all_text)
+            result["fullText"] = '\n\n'.join(all_text)
             
     except Exception as e:
         result["success"] = False
