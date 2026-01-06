@@ -7256,7 +7256,7 @@ export async function registerRoutes(
     res.json(CRM_DATA_FIELDS);
   });
   
-  // AI-powered field mapping
+  // AI-powered field mapping (legacy - maps existing placeholders)
   app.post("/api/contracts/ai-mapping", requireAuth, async (req, res) => {
     try {
       const { extractedFields, availableFields } = req.body;
@@ -7307,6 +7307,145 @@ Odpovedz v JSON formáte:
     } catch (error) {
       console.error("AI mapping error:", error);
       res.status(500).json({ error: "AI mapping failed" });
+    }
+  });
+  
+  // AI-powered placeholder insertion - analyzes DOCX and inserts {{placeholders}} into the document
+  app.post("/api/contracts/ai-insert-placeholders", requireAuth, async (req, res) => {
+    try {
+      const { categoryId, countryCode } = req.body;
+      
+      if (!categoryId || !countryCode) {
+        return res.status(400).json({ error: "categoryId and countryCode are required" });
+      }
+      
+      const template = await storage.getCategoryDefaultTemplate(categoryId, countryCode.toUpperCase());
+      if (!template || !template.sourceDocxPath) {
+        return res.status(404).json({ error: "DOCX template not found" });
+      }
+      
+      const docxPath = path.join(process.cwd(), template.sourceDocxPath);
+      if (!fs.existsSync(docxPath)) {
+        return res.status(404).json({ error: "DOCX file not found on disk" });
+      }
+      
+      const { extractDocxFullText, insertPlaceholdersIntoDocx, convertDocxToPdf } = await import("./template-processor");
+      
+      const fullText = await extractDocxFullText(docxPath);
+      
+      if (fullText.length < 50) {
+        return res.status(400).json({ error: "Document is too short for analysis" });
+      }
+      
+      const crmFieldsList = Object.entries(CRM_DATA_FIELDS)
+        .map(([id, label]) => `${id}: ${label}`)
+        .join("\n");
+      
+      const prompt = `Analyzuj tento text zmluvy a nájdi miesta kde by mali byť premenné z CRM systému.
+
+TEXT ZMLUVY:
+${fullText.substring(0, 8000)}
+
+DOSTUPNÉ CRM PREMENNÉ:
+${crmFieldsList}
+
+ÚLOHA:
+1. Nájdi v texte konkrétne hodnoty ktoré by mali byť nahradené premennými (mená, adresy, dátumy, čísla zmlúv, atď.)
+2. Pre každú nájdenú hodnotu urči ktorá CRM premenná ju má nahradiť
+3. Vráť zoznam nahradení
+
+PRAVIDLÁ:
+- Hľadaj skutočné údaje zákazníka (mená ako "Ján Novák", adresy, rodné čísla, dátumy narodenia)
+- Hľadaj údaje spoločnosti (názov, IČO, DIČ, adresa)
+- Hľadaj čísla zmlúv, dátumy podpisu
+- Ignoruj všeobecný právny text
+
+Odpovedz v JSON formáte:
+{
+  "replacements": [
+    { "original": "Ján Novák", "placeholder": "customer.fullName", "reason": "Meno zákazníka" },
+    { "original": "01.01.2024", "placeholder": "contract.date", "reason": "Dátum zmluvy" }
+  ],
+  "summary": "Nájdených X polí na nahradenie"
+}`;
+
+      console.log("[AI] Analyzing document for placeholder insertion...");
+      
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          { role: "system", content: "Si expert na analýzu zmlúv a identifikáciu polí pre automatické vyplnenie. Odpovedaj len v JSON formáte." },
+          { role: "user", content: prompt }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.2
+      });
+      
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error("No response from AI");
+      }
+      
+      const aiResult = JSON.parse(content);
+      console.log(`[AI] Found ${aiResult.replacements?.length || 0} replacements`);
+      
+      if (!aiResult.replacements || aiResult.replacements.length === 0) {
+        return res.json({
+          success: true,
+          message: "AI nenašlo žiadne polia na nahradenie",
+          replacements: [],
+          modifiedDocxPath: null
+        });
+      }
+      
+      const outputFilename = `template-ai-${Date.now()}.docx`;
+      const outputPath = path.join(process.cwd(), "uploads/contract-pdfs", outputFilename);
+      
+      await insertPlaceholdersIntoDocx(docxPath, aiResult.replacements, outputPath);
+      
+      const previewDir = path.join(process.cwd(), `uploads/contract-previews/${categoryId}/${countryCode.toUpperCase()}`);
+      if (!fs.existsSync(previewDir)) {
+        fs.mkdirSync(previewDir, { recursive: true });
+      }
+      const previewFilename = `preview-ai-${Date.now()}.pdf`;
+      const previewPath = path.join(previewDir, previewFilename);
+      
+      try {
+        await convertDocxToPdf(outputPath, previewPath);
+      } catch (pdfError) {
+        console.warn("[AI] PDF preview generation failed:", pdfError);
+      }
+      
+      const relativeDocxPath = `uploads/contract-pdfs/${outputFilename}`;
+      const relativePreviewPath = `uploads/contract-previews/${categoryId}/${countryCode.toUpperCase()}/${previewFilename}`;
+      
+      await storage.updateCategoryDefaultTemplate(template.id, {
+        sourceDocxPath: relativeDocxPath,
+        previewPdfPath: fs.existsSync(previewPath) ? relativePreviewPath : template.previewPdfPath,
+        extractedFields: JSON.stringify(aiResult.replacements.map((r: any) => r.placeholder)),
+        placeholderMappings: JSON.stringify(
+          aiResult.replacements.reduce((acc: any, r: any) => {
+            acc[r.placeholder] = r.placeholder;
+            return acc;
+          }, {})
+        ),
+        conversionMetadata: JSON.stringify({
+          aiProcessedAt: new Date().toISOString(),
+          replacementsCount: aiResult.replacements.length,
+          summary: aiResult.summary
+        })
+      });
+      
+      res.json({
+        success: true,
+        message: aiResult.summary || `Vložených ${aiResult.replacements.length} premenných`,
+        replacements: aiResult.replacements,
+        modifiedDocxPath: relativeDocxPath,
+        previewPdfPath: fs.existsSync(previewPath) ? relativePreviewPath : null
+      });
+    } catch (error) {
+      console.error("AI placeholder insertion error:", error);
+      res.status(500).json({ error: "AI placeholder insertion failed: " + (error as Error).message });
     }
   });
   

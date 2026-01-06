@@ -291,6 +291,7 @@ export default function ContractsPage() {
   
   const [isTemplateEditorOpen, setIsTemplateEditorOpen] = useState(false);
   const [isTemplateEditorLoading, setIsTemplateEditorLoading] = useState(false);
+  const [isAiInsertingPlaceholders, setIsAiInsertingPlaceholders] = useState(false);
   const [editingTemplateCountry, setEditingTemplateCountry] = useState("");
   const [editingTemplateData, setEditingTemplateData] = useState<{
     templateType: string;
@@ -3801,32 +3802,108 @@ export default function ContractsPage() {
                       <p className="text-muted-foreground mb-4">Žiadne premenné neboli nájdené v šablóne.</p>
                       
                       <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 max-w-md mx-auto text-left">
-                        <h4 className="font-medium text-blue-700 dark:text-blue-300 mb-3">Ako pridať premenné do šablóny:</h4>
-                        <ol className="text-sm text-blue-600 dark:text-blue-400 space-y-2 list-decimal list-inside">
-                          <li>Stiahnite konvertovaný DOCX súbor</li>
-                          <li>Otvorte ho v Microsoft Word</li>
-                          <li>Pridajte premenné v tvare <code className="bg-blue-100 dark:bg-blue-800 px-1 rounded">{"{{meno}}"}</code></li>
-                          <li>Uložte súbor a nahrajte ho späť</li>
-                        </ol>
+                        <h4 className="font-medium text-blue-700 dark:text-blue-300 mb-3">Automatické vloženie premenných pomocou AI:</h4>
+                        <p className="text-sm text-blue-600 dark:text-blue-400 mb-4">
+                          AI analyzuje text zmluvy a automaticky vloží premenné na správne miesta (mená, adresy, dátumy atď.)
+                        </p>
                         
-                        <div className="mt-4 flex flex-col gap-2">
+                        <div className="flex flex-col gap-2">
                           {editingTemplateData.categoryId && editingTemplateData.countryCode && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                window.open(`/api/contracts/categories/${editingTemplateData.categoryId}/templates/${editingTemplateData.countryCode}/download`, '_blank');
-                              }}
-                              data-testid="button-download-docx"
-                            >
-                              <Download className="h-4 w-4 mr-2" />
-                              Stiahnuť DOCX šablónu
-                            </Button>
+                            <>
+                              <Button
+                                onClick={async () => {
+                                  setIsAiInsertingPlaceholders(true);
+                                  try {
+                                    const response = await fetch("/api/contracts/ai-insert-placeholders", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      credentials: "include",
+                                      body: JSON.stringify({
+                                        categoryId: editingTemplateData.categoryId,
+                                        countryCode: editingTemplateData.countryCode
+                                      })
+                                    });
+                                    
+                                    if (!response.ok) {
+                                      const error = await response.json();
+                                      throw new Error(error.error || "AI insertion failed");
+                                    }
+                                    
+                                    const result = await response.json();
+                                    
+                                    if (result.replacements && result.replacements.length > 0) {
+                                      toast({
+                                        title: "AI vložilo premenné",
+                                        description: result.message || `Vložených ${result.replacements.length} premenných`
+                                      });
+                                      
+                                      setEditingTemplateData(prev => prev ? {
+                                        ...prev,
+                                        extractedFields: result.replacements.map((r: any) => r.placeholder),
+                                        sourcePath: result.modifiedDocxPath || prev.sourcePath
+                                      } : null);
+                                      
+                                      queryClient.invalidateQueries({ queryKey: ["/api/contracts/categories"] });
+                                    } else {
+                                      toast({
+                                        title: "Žiadne zmeny",
+                                        description: "AI nenašlo žiadne polia na nahradenie v dokumente",
+                                        variant: "default"
+                                      });
+                                    }
+                                  } catch (error) {
+                                    console.error("AI insertion error:", error);
+                                    toast({
+                                      title: "Chyba AI",
+                                      description: (error as Error).message,
+                                      variant: "destructive"
+                                    });
+                                  } finally {
+                                    setIsAiInsertingPlaceholders(false);
+                                  }
+                                }}
+                                disabled={isAiInsertingPlaceholders}
+                                data-testid="button-ai-insert-placeholders"
+                              >
+                                {isAiInsertingPlaceholders ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    AI analyzuje dokument...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Sparkles className="h-4 w-4 mr-2" />
+                                    AI vložiť premenné automaticky
+                                  </>
+                                )}
+                              </Button>
+                              
+                              <div className="relative my-2">
+                                <div className="absolute inset-0 flex items-center">
+                                  <span className="w-full border-t" />
+                                </div>
+                                <div className="relative flex justify-center text-xs uppercase">
+                                  <span className="bg-blue-50 dark:bg-blue-900/20 px-2 text-muted-foreground">alebo manuálne</span>
+                                </div>
+                              </div>
+                              
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  window.open(`/api/contracts/categories/${editingTemplateData.categoryId}/templates/${editingTemplateData.countryCode}/download`, '_blank');
+                                }}
+                                data-testid="button-download-docx"
+                              >
+                                <Download className="h-4 w-4 mr-2" />
+                                Stiahnuť DOCX a upraviť v Worde
+                              </Button>
+                            </>
                           )}
                         </div>
                         
                         <p className="text-xs text-blue-500 dark:text-blue-400 mt-3">
-                          Príklady premenných: {"{{meno}}"}, {"{{priezvisko}}"}, {"{{adresa}}"}, {"{{datum}}"}
+                          Príklady premenných: {"{{customer.fullName}}"}, {"{{customer.address.city}}"}, {"{{contract.date}}"}
                         </p>
                       </div>
                     </div>

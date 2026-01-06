@@ -354,6 +354,64 @@ export const CRM_DATA_FIELDS = [
   { id: "today", label: "Dnešný dátum", category: "system" },
 ];
 
+export async function extractDocxFullText(docxPath: string): Promise<string> {
+  try {
+    const content = fs.readFileSync(docxPath, "binary");
+    const zip = new PizZip(content);
+    const doc = new Docxtemplater(zip, {
+      paragraphLoop: true,
+      linebreaks: true,
+    });
+    
+    const text = doc.getFullText();
+    console.log(`[DOCX] Extracted ${text.length} characters from ${docxPath}`);
+    return text;
+  } catch (error) {
+    console.error("[DOCX] Error extracting full text:", error);
+    throw new Error(`Failed to extract DOCX text: ${error}`);
+  }
+}
+
+export async function insertPlaceholdersIntoDocx(
+  docxPath: string,
+  replacements: Array<{ original: string; placeholder: string }>,
+  outputPath: string
+): Promise<string> {
+  try {
+    const content = fs.readFileSync(docxPath, "binary");
+    const zip = new PizZip(content);
+    
+    const documentXml = zip.file("word/document.xml");
+    if (!documentXml) {
+      throw new Error("No document.xml found in DOCX");
+    }
+    
+    let xmlContent = documentXml.asText();
+    
+    for (const { original, placeholder } of replacements) {
+      const escapedOriginal = original.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(escapedOriginal, 'g');
+      xmlContent = xmlContent.replace(regex, `{{${placeholder}}}`);
+    }
+    
+    zip.file("word/document.xml", xmlContent);
+    
+    const outputDir = path.dirname(outputPath);
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+    
+    const outputBuffer = zip.generate({ type: "nodebuffer" });
+    fs.writeFileSync(outputPath, outputBuffer);
+    
+    console.log(`[DOCX] Inserted ${replacements.length} placeholders, saved to ${outputPath}`);
+    return outputPath;
+  } catch (error) {
+    console.error("[DOCX] Error inserting placeholders:", error);
+    throw new Error(`Failed to insert placeholders: ${error}`);
+  }
+}
+
 export function getCustomerDataForContract(customer: any, contract?: any): Record<string, string> {
   const today = new Date().toLocaleDateString("sk-SK");
   
