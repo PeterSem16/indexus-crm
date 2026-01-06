@@ -1,122 +1,173 @@
-import {
-  ServicePrincipalCredentials,
-  PDFServices,
-  MimeType,
-  ExportPDFJob,
-  ExportPDFParams,
-  ExportPDFTargetFormat,
-  ExportPDFResult,
-  SDKError,
-  ServiceUsageError,
-  ServiceApiError
-} from "@adobe/pdfservices-node-sdk";
+import { exec } from "child_process";
+import { promisify } from "util";
 import fs from "fs";
 import path from "path";
+
+const execAsync = promisify(exec);
 
 export interface ConversionResult {
   success: boolean;
   docxPath?: string;
   error?: string;
   originalPdfPath: string;
+  converter?: string;
+}
+
+async function findLibreOffice(): Promise<string | null> {
+  const possiblePaths = [
+    "soffice",
+    "libreoffice",
+    "/usr/bin/soffice",
+    "/usr/bin/libreoffice",
+    "/usr/local/bin/soffice",
+    "/usr/local/bin/libreoffice",
+    "/nix/store/*/bin/soffice",
+  ];
+
+  for (const cmdPath of possiblePaths) {
+    try {
+      await execAsync(`which ${cmdPath.split("/").pop()}`);
+      return cmdPath.split("/").pop()!;
+    } catch {
+      if (cmdPath.startsWith("/") && fs.existsSync(cmdPath)) {
+        return cmdPath;
+      }
+    }
+  }
+
+  try {
+    await execAsync("soffice --version");
+    return "soffice";
+  } catch {
+    try {
+      await execAsync("libreoffice --version");
+      return "libreoffice";
+    } catch {
+      return null;
+    }
+  }
 }
 
 export async function convertPdfToDocx(pdfPath: string, outputDir: string): Promise<ConversionResult> {
-  const clientId = process.env.ADOBE_PDF_SERVICES_CLIENT_ID;
-  const clientSecret = process.env.ADOBE_PDF_SERVICES_CLIENT_SECRET;
-
-  if (!clientId || !clientSecret) {
-    return {
-      success: false,
-      error: "Adobe PDF Services API credentials not configured. Please set ADOBE_PDF_SERVICES_CLIENT_ID and ADOBE_PDF_SERVICES_CLIENT_SECRET environment variables.",
-      originalPdfPath: pdfPath
-    };
-  }
-
-  let readStream: fs.ReadStream | undefined;
-
   try {
-    console.log(`[Adobe PDF] Starting PDF to DOCX conversion: ${pdfPath}`);
+    console.log(`[LibreOffice] Starting PDF to DOCX conversion: ${pdfPath}`);
 
-    const credentials = new ServicePrincipalCredentials({
-      clientId,
-      clientSecret
-    });
-
-    const pdfServices = new PDFServices({ credentials });
-
-    readStream = fs.createReadStream(pdfPath);
-    const inputAsset = await pdfServices.upload({
-      readStream,
-      mimeType: MimeType.PDF
-    });
-
-    const params = new ExportPDFParams({
-      targetFormat: ExportPDFTargetFormat.DOCX
-    });
-
-    const job = new ExportPDFJob({ inputAsset, params });
-    const pollingURL = await pdfServices.submit({ job });
-    
-    console.log(`[Adobe PDF] Job submitted, polling for result...`);
-    
-    const pdfServicesResponse = await pdfServices.getJobResult({
-      pollingURL,
-      resultType: ExportPDFResult
-    });
-
-    if (!pdfServicesResponse.result) {
-      throw new Error("No result returned from Adobe PDF Services");
+    const libreOfficePath = await findLibreOffice();
+    if (!libreOfficePath) {
+      return {
+        success: false,
+        error: "LibreOffice nie je nainštalovaný. Konverzia PDF na DOCX nie je dostupná.",
+        originalPdfPath: pdfPath
+      };
     }
 
-    const resultAsset = pdfServicesResponse.result.asset;
-    const streamAsset = await pdfServices.getContent({ asset: resultAsset });
+    console.log(`[LibreOffice] Found at: ${libreOfficePath}`);
+
+    if (!fs.existsSync(pdfPath)) {
+      return {
+        success: false,
+        error: `Zdrojový PDF súbor neexistuje: ${pdfPath}`,
+        originalPdfPath: pdfPath
+      };
+    }
+
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    const tempDir = path.join(outputDir, `temp_${Date.now()}`);
+    fs.mkdirSync(tempDir, { recursive: true });
+
+    const command = `${libreOfficePath} --headless --convert-to docx --outdir "${tempDir}" "${pdfPath}"`;
+    
+    console.log(`[LibreOffice] Running command: ${command}`);
+
+    try {
+      const { stdout, stderr } = await execAsync(command, { 
+        timeout: 120000,
+        env: {
+          ...process.env,
+          HOME: tempDir
+        }
+      });
+      
+      if (stdout) console.log(`[LibreOffice] stdout: ${stdout}`);
+      if (stderr) console.log(`[LibreOffice] stderr: ${stderr}`);
+    } catch (execError: any) {
+      console.error(`[LibreOffice] Exec error:`, execError);
+      
+      if (tempDir && fs.existsSync(tempDir)) {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+      
+      return {
+        success: false,
+        error: `Chyba pri konverzii: ${execError.message || "Neznáma chyba"}`,
+        originalPdfPath: pdfPath
+      };
+    }
 
     const pdfBasename = path.basename(pdfPath, path.extname(pdfPath));
-    const docxFilename = `${pdfBasename}_converted.docx`;
-    const docxPath = path.join(outputDir, docxFilename);
+    const tempDocxPath = path.join(tempDir, `${pdfBasename}.docx`);
+    
+    if (!fs.existsSync(tempDocxPath)) {
+      const files = fs.readdirSync(tempDir);
+      console.log(`[LibreOffice] Files in temp dir: ${files.join(", ")}`);
+      
+      const docxFile = files.find(f => f.endsWith(".docx"));
+      if (docxFile) {
+        const actualTempPath = path.join(tempDir, docxFile);
+        const finalDocxPath = path.join(outputDir, `${pdfBasename}_converted.docx`);
+        fs.renameSync(actualTempPath, finalDocxPath);
+        fs.rmSync(tempDir, { recursive: true, force: true });
+        
+        console.log(`[LibreOffice] Conversion successful: ${finalDocxPath}`);
+        
+        return {
+          success: true,
+          docxPath: finalDocxPath,
+          originalPdfPath: pdfPath,
+          converter: "libreoffice"
+        };
+      }
+      
+      fs.rmSync(tempDir, { recursive: true, force: true });
+      
+      return {
+        success: false,
+        error: "Konverzia zlyhala - výstupný DOCX súbor nebol vytvorený",
+        originalPdfPath: pdfPath
+      };
+    }
 
-    await new Promise<void>((resolve, reject) => {
-      const outputStream = fs.createWriteStream(docxPath);
-      streamAsset.readStream.pipe(outputStream);
-      outputStream.on("finish", () => resolve());
-      outputStream.on("error", (err) => reject(err));
-    });
+    const finalDocxPath = path.join(outputDir, `${pdfBasename}_converted.docx`);
+    fs.renameSync(tempDocxPath, finalDocxPath);
+    fs.rmSync(tempDir, { recursive: true, force: true });
 
-    console.log(`[Adobe PDF] Conversion successful: ${docxPath}`);
+    console.log(`[LibreOffice] Conversion successful: ${finalDocxPath}`);
 
     return {
       success: true,
-      docxPath,
-      originalPdfPath: pdfPath
+      docxPath: finalDocxPath,
+      originalPdfPath: pdfPath,
+      converter: "libreoffice"
     };
 
   } catch (err: any) {
-    console.error("[Adobe PDF] Conversion error:", err);
-
-    let errorMessage = "Unknown error during PDF to DOCX conversion";
-
-    if (err instanceof SDKError) {
-      errorMessage = `SDK Error: ${err.message}`;
-    } else if (err instanceof ServiceUsageError) {
-      errorMessage = `Service Usage Error: ${err.message}`;
-    } else if (err instanceof ServiceApiError) {
-      errorMessage = `API Error: ${err.message}`;
-    } else if (err.message) {
-      errorMessage = err.message;
-    }
+    console.error("[LibreOffice] Conversion error:", err);
 
     return {
       success: false,
-      error: errorMessage,
+      error: err.message || "Neznáma chyba pri konverzii PDF na DOCX",
       originalPdfPath: pdfPath
     };
-  } finally {
-    if (readStream) {
-      readStream.destroy();
-    }
   }
 }
 
-export function isAdobeApiConfigured(): boolean {
-  return !!(process.env.ADOBE_PDF_SERVICES_CLIENT_ID && process.env.ADOBE_PDF_SERVICES_CLIENT_SECRET);
+export async function isConverterAvailable(): Promise<{ available: boolean; converter?: string }> {
+  const libreOfficePath = await findLibreOffice();
+  if (libreOfficePath) {
+    return { available: true, converter: "libreoffice" };
+  }
+  return { available: false };
 }

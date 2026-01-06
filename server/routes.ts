@@ -42,7 +42,7 @@ import {
   getCustomerDataForContract,
   CRM_DATA_FIELDS,
 } from "./template-processor";
-import { convertPdfToDocx, isAdobeApiConfigured } from "./pdf-to-docx-converter";
+import { convertPdfToDocx, isConverterAvailable } from "./pdf-to-docx-converter";
 
 // Global uploads directory
 const uploadsDir = path.join(process.cwd(), "uploads");
@@ -7167,14 +7167,15 @@ export async function registerRoutes(
       if (isPdf) {
         pdfPath = req.file.path;
         
-        if (!isAdobeApiConfigured()) {
+        const converterStatus = await isConverterAvailable();
+        if (!converterStatus.available) {
           return res.status(400).json({ 
-            error: "Adobe PDF Services API nie je nakonfigurované. Nastavte ADOBE_PDF_SERVICES_CLIENT_ID a ADOBE_PDF_SERVICES_CLIENT_SECRET pre konverziu PDF do DOCX.",
+            error: "Konvertor PDF nie je dostupný. LibreOffice nie je nainštalovaný.",
             requiresConfig: true
           });
         }
         
-        console.log(`[Template Upload] Converting PDF to DOCX using Adobe PDF Services...`);
+        console.log(`[Template Upload] Converting PDF to DOCX using ${converterStatus.converter}...`);
         const conversionResult = await convertPdfToDocx(req.file.path, path.dirname(req.file.path));
         
         if (!conversionResult.success || !conversionResult.docxPath) {
