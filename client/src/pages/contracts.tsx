@@ -100,6 +100,13 @@ export default function ContractsPage() {
   const [categoryForm, setCategoryForm] = useState({
     value: "",
     label: "",
+    labelSk: "",
+    labelCz: "",
+    labelHu: "",
+    labelRo: "",
+    labelIt: "",
+    labelDe: "",
+    labelUs: "",
     description: "",
     sortOrder: 0
   });
@@ -653,6 +660,13 @@ export default function ContractsPage() {
     setCategoryForm({
       value: "",
       label: "",
+      labelSk: "",
+      labelCz: "",
+      labelHu: "",
+      labelRo: "",
+      labelIt: "",
+      labelDe: "",
+      labelUs: "",
       description: "",
       sortOrder: 0
     });
@@ -663,6 +677,13 @@ export default function ContractsPage() {
     setCategoryForm({
       value: category.value,
       label: category.label,
+      labelSk: category.labelSk || "",
+      labelCz: category.labelCz || "",
+      labelHu: category.labelHu || "",
+      labelRo: category.labelRo || "",
+      labelIt: category.labelIt || "",
+      labelDe: category.labelDe || "",
+      labelUs: category.labelUs || "",
       description: category.description || "",
       sortOrder: category.sortOrder
     });
@@ -724,6 +745,30 @@ export default function ContractsPage() {
         {config.label}
       </Badge>
     );
+  };
+
+  const getCategoryLabel = (category: ContractCategory, countryCode?: string): string => {
+    if (!countryCode) return category.label;
+    
+    switch (countryCode.toUpperCase()) {
+      case "SK": return category.labelSk || category.label;
+      case "CZ": return category.labelCz || category.label;
+      case "HU": return category.labelHu || category.label;
+      case "RO": return category.labelRo || category.label;
+      case "IT": return category.labelIt || category.label;
+      case "DE": return category.labelDe || category.label;
+      case "US": return category.labelUs || category.label;
+      default: return category.label;
+    }
+  };
+
+  const getCategoryLabelByValue = (categoryValue: string, countryCode?: string): string => {
+    const category = categories.find(c => c.value === categoryValue);
+    if (category) {
+      return getCategoryLabel(category, countryCode);
+    }
+    const fallback = TEMPLATE_CATEGORIES.find(c => c.value === categoryValue);
+    return fallback?.label || categoryValue;
   };
 
   return (
@@ -828,7 +873,7 @@ export default function ContractsPage() {
                             <TableRow key={template.id} data-testid={`row-template-${template.id}`}>
                               <TableCell className="font-medium">{template.name}</TableCell>
                               <TableCell>
-                                {categories.find(c => c.value === template.category)?.label || TEMPLATE_CATEGORIES.find(c => c.value === template.category)?.label || template.category}
+                                {getCategoryLabelByValue(template.category, template.countryCode)}
                               </TableCell>
                               <TableCell>{template.countryCode}</TableCell>
                               <TableCell>
@@ -1135,59 +1180,146 @@ export default function ContractsPage() {
       </Dialog>
 
       <Dialog open={isCategoryDialogOpen} onOpenChange={setIsCategoryDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="shrink-0">
             <DialogTitle>{selectedCategory ? "Upraviť kategóriu" : "Nová kategória zmluvy"}</DialogTitle>
             <DialogDescription>
-              Vytvorte alebo upravte kategóriu pre šablóny zmlúv.
+              Vytvorte alebo upravte kategóriu pre šablóny zmlúv s jazykovými mutáciami.
             </DialogDescription>
           </DialogHeader>
           
-          <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="category-value">Kód kategórie</Label>
-              <Input
-                id="category-value"
-                value={categoryForm.value}
-                onChange={(e) => setCategoryForm({ ...categoryForm, value: e.target.value.toLowerCase().replace(/\s+/g, '_') })}
-                placeholder="cord_blood"
-                data-testid="input-category-value"
-              />
-              <p className="text-xs text-muted-foreground">Interný kód bez diakritiky a medzier</p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="category-label">Názov kategórie</Label>
-              <Input
-                id="category-label"
-                value={categoryForm.label}
-                onChange={(e) => setCategoryForm({ ...categoryForm, label: e.target.value })}
-                placeholder="Zmluva o uchovávaní krvotvorných buniek"
-                data-testid="input-category-label"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="category-description">Popis (voliteľný)</Label>
-              <Textarea
-                id="category-description"
-                value={categoryForm.description}
-                onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })}
-                placeholder="Popis kategórie..."
-                data-testid="input-category-description"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="category-sort-order">Poradie zobrazovania</Label>
-              <Input
-                id="category-sort-order"
-                type="number"
-                value={categoryForm.sortOrder}
-                onChange={(e) => setCategoryForm({ ...categoryForm, sortOrder: parseInt(e.target.value) || 0 })}
-                data-testid="input-category-sort-order"
-              />
+          <div className="flex-1 overflow-y-auto">
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="category-value">Kód kategórie</Label>
+                  <Input
+                    id="category-value"
+                    value={categoryForm.value}
+                    onChange={(e) => setCategoryForm({ ...categoryForm, value: e.target.value.toLowerCase().replace(/\s+/g, '_') })}
+                    placeholder="cord_blood"
+                    data-testid="input-category-value"
+                  />
+                  <p className="text-xs text-muted-foreground">Interný kód bez diakritiky a medzier</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="category-sort-order">Poradie zobrazovania</Label>
+                  <Input
+                    id="category-sort-order"
+                    type="number"
+                    value={categoryForm.sortOrder}
+                    onChange={(e) => setCategoryForm({ ...categoryForm, sortOrder: parseInt(e.target.value) || 0 })}
+                    data-testid="input-category-sort-order"
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="category-label">Predvolený názov</Label>
+                <Input
+                  id="category-label"
+                  value={categoryForm.label}
+                  onChange={(e) => setCategoryForm({ ...categoryForm, label: e.target.value })}
+                  placeholder="Zmluva o uchovávaní krvotvorných buniek"
+                  data-testid="input-category-label"
+                />
+                <p className="text-xs text-muted-foreground">Použije sa ak nie je dostupná jazyková mutácia</p>
+              </div>
+              
+              <Separator />
+              
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Jazykové mutácie názvu</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="category-label-sk" className="text-xs text-muted-foreground">Slovensko (SK)</Label>
+                    <Input
+                      id="category-label-sk"
+                      value={categoryForm.labelSk}
+                      onChange={(e) => setCategoryForm({ ...categoryForm, labelSk: e.target.value })}
+                      placeholder="Zmluva o uchovávaní..."
+                      data-testid="input-category-label-sk"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="category-label-cz" className="text-xs text-muted-foreground">Česká republika (CZ)</Label>
+                    <Input
+                      id="category-label-cz"
+                      value={categoryForm.labelCz}
+                      onChange={(e) => setCategoryForm({ ...categoryForm, labelCz: e.target.value })}
+                      placeholder="Smlouva o uchovávání..."
+                      data-testid="input-category-label-cz"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="category-label-hu" className="text-xs text-muted-foreground">Maďarsko (HU)</Label>
+                    <Input
+                      id="category-label-hu"
+                      value={categoryForm.labelHu}
+                      onChange={(e) => setCategoryForm({ ...categoryForm, labelHu: e.target.value })}
+                      placeholder="Tárolási szerződés..."
+                      data-testid="input-category-label-hu"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="category-label-ro" className="text-xs text-muted-foreground">Rumunsko (RO)</Label>
+                    <Input
+                      id="category-label-ro"
+                      value={categoryForm.labelRo}
+                      onChange={(e) => setCategoryForm({ ...categoryForm, labelRo: e.target.value })}
+                      placeholder="Contract de depozitare..."
+                      data-testid="input-category-label-ro"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="category-label-it" className="text-xs text-muted-foreground">Taliansko (IT)</Label>
+                    <Input
+                      id="category-label-it"
+                      value={categoryForm.labelIt}
+                      onChange={(e) => setCategoryForm({ ...categoryForm, labelIt: e.target.value })}
+                      placeholder="Contratto di conservazione..."
+                      data-testid="input-category-label-it"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="category-label-de" className="text-xs text-muted-foreground">Nemecko (DE)</Label>
+                    <Input
+                      id="category-label-de"
+                      value={categoryForm.labelDe}
+                      onChange={(e) => setCategoryForm({ ...categoryForm, labelDe: e.target.value })}
+                      placeholder="Aufbewahrungsvertrag..."
+                      data-testid="input-category-label-de"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="category-label-us" className="text-xs text-muted-foreground">USA (US)</Label>
+                    <Input
+                      id="category-label-us"
+                      value={categoryForm.labelUs}
+                      onChange={(e) => setCategoryForm({ ...categoryForm, labelUs: e.target.value })}
+                      placeholder="Storage Agreement..."
+                      data-testid="input-category-label-us"
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              <Separator />
+              
+              <div className="space-y-2">
+                <Label htmlFor="category-description">Popis (voliteľný)</Label>
+                <Textarea
+                  id="category-description"
+                  value={categoryForm.description}
+                  onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })}
+                  placeholder="Popis kategórie..."
+                  data-testid="input-category-description"
+                />
+              </div>
             </div>
           </div>
           
-          <DialogFooter>
+          <DialogFooter className="shrink-0 pt-4 border-t">
             <Button variant="outline" onClick={() => setIsCategoryDialogOpen(false)}>
               Zrušiť
             </Button>
