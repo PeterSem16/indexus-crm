@@ -352,13 +352,11 @@ export default function ContractsPage() {
 
   const createCategoryMutation = useMutation({
     mutationFn: async (data: typeof categoryForm) => {
-      return apiRequest("POST", "/api/contracts/categories", data);
+      const response = await apiRequest("POST", "/api/contracts/categories", data);
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contracts/categories"] });
-      setIsCategoryDialogOpen(false);
-      resetCategoryForm();
-      toast({ title: "Kategória vytvorená", description: "Kategória bola úspešne vytvorená." });
     },
     onError: () => {
       toast({ title: "Chyba", description: "Nepodarilo sa vytvoriť kategóriu.", variant: "destructive" });
@@ -371,10 +369,6 @@ export default function ContractsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contracts/categories"] });
-      setIsCategoryDialogOpen(false);
-      setSelectedCategory(null);
-      resetCategoryForm();
-      toast({ title: "Kategória aktualizovaná" });
     },
     onError: () => {
       toast({ title: "Chyba", description: "Nepodarilo sa aktualizovať kategóriu.", variant: "destructive" });
@@ -818,8 +812,11 @@ export default function ContractsPage() {
     }));
   };
   
-  const uploadCategoryPdfs = async (categoryId: number) => {
+  const uploadCategoryPdfs = async (categoryId: number): Promise<{ successCount: number; errorCount: number; errors: string[] }> => {
     const countries = Object.entries(categoryPdfUploads).filter(([_, data]) => data.file);
+    let successCount = 0;
+    let errorCount = 0;
+    const errors: string[] = [];
     
     for (const [countryCode, data] of countries) {
       if (!data.file) continue;
@@ -849,13 +846,18 @@ export default function ContractsPage() {
           ...prev,
           [countryCode]: { ...prev[countryCode], uploading: false, uploaded: true }
         }));
+        successCount++;
       } catch (error: any) {
         setCategoryPdfUploads(prev => ({
           ...prev,
           [countryCode]: { ...prev[countryCode], uploading: false, error: error.message }
         }));
+        errorCount++;
+        errors.push(`${countryCode}: ${error.message}`);
       }
     }
+    
+    return { successCount, errorCount, errors };
   };
 
   const handleSaveCategory = () => {
@@ -1364,7 +1366,13 @@ export default function ContractsPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isCategoryDialogOpen} onOpenChange={setIsCategoryDialogOpen}>
+      <Dialog open={isCategoryDialogOpen} onOpenChange={(open) => {
+        setIsCategoryDialogOpen(open);
+        if (!open) {
+          resetCategoryForm();
+          setSelectedCategory(null);
+        }
+      }}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader className="shrink-0">
             <DialogTitle>
@@ -1614,14 +1622,45 @@ export default function ContractsPage() {
             {categoryWizardStep === 2 && (
               <Button 
                 onClick={async () => {
-                  if (selectedCategory) {
-                    updateCategoryMutation.mutate({ id: selectedCategory.id, data: categoryForm });
-                    await uploadCategoryPdfs(selectedCategory.id);
-                  } else {
-                    createCategoryMutation.mutate(categoryForm, {
-                      onSuccess: async (newCategory: any) => {
-                        await uploadCategoryPdfs(newCategory.id);
+                  try {
+                    let categoryId: number;
+                    
+                    if (selectedCategory) {
+                      await updateCategoryMutation.mutateAsync({ id: selectedCategory.id, data: categoryForm });
+                      categoryId = selectedCategory.id;
+                      toast({ title: "Kategória aktualizovaná" });
+                    } else {
+                      const newCategory = await createCategoryMutation.mutateAsync(categoryForm);
+                      categoryId = newCategory.id;
+                      toast({ title: "Kategória vytvorená" });
+                    }
+                    
+                    const hasFilesToUpload = Object.values(categoryPdfUploads).some(u => u.file);
+                    if (hasFilesToUpload) {
+                      const uploadResult = await uploadCategoryPdfs(categoryId);
+                      
+                      if (uploadResult.errorCount > 0) {
+                        toast({
+                          title: "Niektoré PDF sa nepodarilo konvertovať",
+                          description: uploadResult.errors.join(", "),
+                          variant: "destructive"
+                        });
+                        return;
                       }
+                      
+                      if (uploadResult.successCount > 0) {
+                        toast({ title: `${uploadResult.successCount} PDF úspešne konvertovaných` });
+                      }
+                    }
+                    
+                    setIsCategoryDialogOpen(false);
+                    resetCategoryForm();
+                    setSelectedCategory(null);
+                  } catch (error: any) {
+                    toast({
+                      title: "Chyba pri ukladaní kategórie",
+                      description: error.message || "Nepodarilo sa uložiť kategóriu",
+                      variant: "destructive"
                     });
                   }
                 }}
