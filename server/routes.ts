@@ -176,7 +176,7 @@ async function extractPdfText(filePath: string): Promise<string> {
   }
 }
 
-// Convert PDF pages to JPEG images using pdftoppm (poppler-utils)
+// Convert PDF pages to JPEG images using pdftoppm (poppler-utils) - for AI processing
 async function convertPdfToImages(pdfPath: string, maxPages: number = 3): Promise<string[]> {
   const { exec } = await import("child_process");
   const { promisify } = await import("util");
@@ -205,6 +205,69 @@ async function convertPdfToImages(pdfPath: string, maxPages: number = 3): Promis
   } catch (error) {
     console.error("PDF to image conversion failed:", error);
     return [];
+  }
+}
+
+// Extract PDF pages as high-quality PNG images for use in HTML editor
+async function extractPdfPagesAsImages(
+  pdfPath: string, 
+  categoryId: number, 
+  countryCode: string,
+  maxPages: number = 10
+): Promise<{ pages: { pageNumber: number; imageUrl: string; fileName: string }[] }> {
+  const { exec } = await import("child_process");
+  const { promisify } = await import("util");
+  const execAsync = promisify(exec);
+  
+  // Create permanent directory for extracted images
+  const outputDir = path.join(uploadsDir, "contract-pdfs", `category-${categoryId}`, countryCode);
+  
+  // Ensure directory exists and clean previous extractions
+  if (fs.existsSync(outputDir)) {
+    const oldFiles = fs.readdirSync(outputDir);
+    for (const file of oldFiles) {
+      if (file.startsWith("page-") && file.endsWith(".png")) {
+        fs.unlinkSync(path.join(outputDir, file));
+      }
+    }
+  } else {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
+  
+  const outputPrefix = path.join(outputDir, "page");
+  
+  try {
+    // Convert PDF to high-quality PNG images at 200 DPI for clear text
+    await execAsync(`pdftoppm -png -r 200 -l ${maxPages} "${pdfPath}" "${outputPrefix}"`);
+    
+    // Find all generated image files
+    const files = fs.readdirSync(outputDir);
+    const imageFiles = files
+      .filter(f => f.startsWith("page-") && f.endsWith(".png"))
+      .sort((a, b) => {
+        const numA = parseInt(a.match(/page-(\d+)/)?.[1] || "0");
+        const numB = parseInt(b.match(/page-(\d+)/)?.[1] || "0");
+        return numA - numB;
+      })
+      .slice(0, maxPages);
+    
+    const pages = imageFiles.map((fileName, index) => {
+      const filePath = path.join(outputDir, fileName);
+      const stats = fs.statSync(filePath);
+      console.log(`[PDF Extract] Page ${index + 1}: ${fileName} (${Math.round(stats.size / 1024)}KB)`);
+      
+      return {
+        pageNumber: index + 1,
+        imageUrl: `/uploads/contract-pdfs/category-${categoryId}/${countryCode}/${fileName}`,
+        fileName
+      };
+    });
+    
+    console.log(`[PDF Extract] Extracted ${pages.length} PNG pages from PDF at 200 DPI`);
+    return { pages };
+  } catch (error) {
+    console.error("PDF page extraction failed:", error);
+    return { pages: [] };
   }
 }
 
@@ -6766,7 +6829,7 @@ export async function registerRoutes(
     }
   });
 
-  // Upload PDF and convert to HTML for category default template
+  // Upload PDF and extract page images for HTML editor
   app.post("/api/contracts/categories/:categoryId/default-templates/upload", requireAuth, uploadContractPdf.single("pdf"), async (req, res) => {
     try {
       const categoryId = parseInt(req.params.categoryId);
@@ -6780,139 +6843,70 @@ export async function registerRoutes(
         return res.status(400).json({ error: "PDF file is required" });
       }
 
-      // Check if template already exists for this category and country
-      const existing = await storage.getCategoryDefaultTemplate(categoryId, countryCode);
+      console.log(`[PDF Upload] Extracting pages from PDF: ${req.file.path} for category ${categoryId}, country ${countryCode}`);
       
-      // Convert PDF pages to images for Vision analysis (limit to 3 pages for speed)
-      console.log(`[PDF Conversion] Converting PDF to images: ${req.file.path}`);
-      const imagePaths = await convertPdfToImages(req.file.path, 3);
+      // Extract PDF pages as high-quality PNG images (no AI conversion)
+      const { pages } = await extractPdfPagesAsImages(req.file.path, categoryId, countryCode, 10);
       
-      if (imagePaths.length === 0) {
-        return res.status(500).json({ error: "Failed to convert PDF to images. Make sure the PDF is valid." });
+      if (pages.length === 0) {
+        return res.status(500).json({ error: "Failed to extract images from PDF. Make sure the PDF is valid." });
       }
       
       // Extract text from PDF as supplementary info
       const pdfText = await extractPdfText(req.file.path);
-      console.log(`[PDF Conversion] Extracted ${pdfText.length} characters of text from PDF`);
+      console.log(`[PDF Upload] Extracted ${pdfText.length} characters of text from PDF`);
       
-      // Convert PDF to HTML using OpenAI Vision - process pages one at a time to avoid timeout
-      let htmlContent = "";
-      try {
-        const OpenAI = (await import("openai")).default;
-        const openai = new OpenAI({ 
-          apiKey: process.env.OPENAI_API_KEY,
-          timeout: 180000 // 3 minute timeout per page
-        });
-        
-        const systemPrompt = `You are an expert at converting PDF documents to HTML. Extract ALL text and preserve layout.
-
-RULES:
-1. Extract EVERY piece of text - do not skip anything
-2. Keep original language (Slovak, Czech, etc.) - do NOT translate
-3. Use inline CSS for layout, width 816px
-4. Use HTML tables for columnar content
-5. Font: Times New Roman, 12px base
-
-PLACEHOLDERS (replace only variable data):
-- Client: {{client.fullName}}, {{client.address}}, {{client.birthDate}}, {{client.email}}, {{client.phone}}
-- Contract: {{contract.number}}, {{contract.date}}
-- Company: {{company.name}}, {{company.iban}}, {{company.vatNumber}}
-- Product: {{product.name}}, {{product.price}}
-- Signature lines: <div style="border-bottom:1px solid #000;width:200px;margin-top:20px;"></div>
-
-Keep ALL static text exactly as shown. Output clean HTML only, no markdown.`;
-
-        // Process each page separately to avoid timeout
-        const pageHtmls: string[] = [];
-        console.log(`[PDF Conversion] Processing ${imagePaths.length} pages individually...`);
-        
-        for (let i = 0; i < imagePaths.length; i++) {
-          const imagePath = imagePaths[i];
-          const imageBuffer = fs.readFileSync(imagePath);
-          const base64 = imageBuffer.toString("base64");
-          const fileSizeKB = Math.round(imageBuffer.length / 1024);
-          console.log(`[PDF Conversion] Processing page ${i + 1}/${imagePaths.length} (${fileSizeKB}KB)...`);
-          
-          const startTime = Date.now();
-          
-          // the newest OpenAI model is "gpt-5" which was released August 7, 2025
-          const response = await openai.chat.completions.create({
-            model: "gpt-5",
-            messages: [
-              { role: "system", content: systemPrompt },
-              {
-                role: "user",
-                content: [
-                  { 
-                    type: "text", 
-                    text: `Convert page ${i + 1} of this contract to HTML. Extract ALL text exactly as shown.${pdfText.length > 0 ? `\n\nReference text:\n${pdfText.substring(i * 1000, (i + 1) * 1000)}` : ""}` 
-                  },
-                  { 
-                    type: "image_url", 
-                    image_url: { 
-                      url: `data:image/jpeg;base64,${base64}`,
-                      detail: "high"
-                    } 
-                  }
-                ]
-              }
-            ],
-            max_completion_tokens: 8000,
-          });
-          
-          const elapsed = Date.now() - startTime;
-          let pageHtml = response.choices[0].message.content || "";
-          pageHtml = pageHtml.replace(/^```html\n?/i, "").replace(/\n?```$/i, "").trim();
-          
-          console.log(`[PDF Conversion] Page ${i + 1} completed: ${pageHtml.length} chars in ${elapsed}ms`);
-          pageHtmls.push(pageHtml);
-        }
-        
-        // Combine all pages into single HTML
-        htmlContent = `<div class="contract-template" style="width:816px;margin:0 auto;font-family:'Times New Roman',Georgia,serif;font-size:12px;">
-${pageHtmls.map((html, i) => `<!-- Page ${i + 1} -->\n<div class="page" style="page-break-after:always;margin-bottom:20px;">\n${html}\n</div>`).join('\n')}
+      // Create basic HTML template with placeholders for images
+      const htmlContent = `<div class="contract-template" style="width:816px;margin:0 auto;font-family:'Times New Roman',Georgia,serif;font-size:12px;">
+  <p style="color:#666;margin-bottom:20px;">Extrahované stránky z PDF. Vložte obrázky podľa potreby pomocou editora.</p>
+  <div style="background:#f0f0f0;padding:10px;border-radius:4px;">
+    <p style="font-weight:bold;">Dostupné obrázky stránok:</p>
+    <ul>
+${pages.map(p => `      <li>Strana ${p.pageNumber}: <code>${p.imageUrl}</code></li>`).join('\n')}
+    </ul>
+  </div>
 </div>`;
-        
-        console.log(`[PDF Conversion] Combined ${pageHtmls.length} pages into ${htmlContent.length} chars total`);
-        
-      } catch (aiError: any) {
-        console.error("[PDF Conversion] OpenAI conversion failed:", aiError?.message || aiError);
-        // Fallback to basic HTML wrapper with extracted text
-        htmlContent = `<div class="contract-template">
-          <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px;">
-            <p style="color: red; margin-bottom: 20px;">OpenAI konverzia zlyhala: ${aiError?.message || 'Neznáma chyba'}</p>
-            <p>Extrahovaný text z PDF:</p>
-            <pre style="white-space: pre-wrap; font-family: inherit;">${pdfText || 'Žiadny text nebol extrahovaný.'}</pre>
-          </div>
-        </div>`;
-      } finally {
-        // Cleanup temporary image files
-        cleanupTempImages(imagePaths);
-      }
+
+      // Store metadata about extracted pages
+      const conversionMetadata = JSON.stringify({
+        extractedPages: pages,
+        extractedText: pdfText.substring(0, 5000), // Store first 5000 chars
+        extractedAt: new Date().toISOString()
+      });
+
+      // Check if template already exists for this category and country
+      const existing = await storage.getCategoryDefaultTemplate(categoryId, countryCode);
       
       // Create or update the default template
+      let result;
       if (existing) {
-        const updated = await storage.updateCategoryDefaultTemplate(existing.id, {
+        result = await storage.updateCategoryDefaultTemplate(existing.id, {
           sourcePdfPath: req.file.path,
           htmlContent,
           conversionStatus: "completed",
           conversionError: null,
+          conversionMetadata,
         });
-        res.json(updated);
       } else {
-        const created = await storage.createCategoryDefaultTemplate({
+        result = await storage.createCategoryDefaultTemplate({
           categoryId,
           countryCode,
           sourcePdfPath: req.file.path,
           htmlContent,
           conversionStatus: "completed",
+          conversionMetadata,
           createdBy: req.session.user!.id,
         });
-        res.status(201).json(created);
       }
+      
+      // Return both template and extracted pages info
+      res.json({
+        ...result,
+        extractedPages: pages
+      });
     } catch (error) {
-      console.error("Error uploading and converting PDF:", error);
-      res.status(500).json({ error: "Failed to upload and convert PDF" });
+      console.error("Error uploading PDF:", error);
+      res.status(500).json({ error: "Failed to upload and extract PDF pages" });
     }
   });
 
