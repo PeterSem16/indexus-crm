@@ -319,14 +319,33 @@ async function convertPdfToHtmlWithAI(
   let htmlContent = "";
   let conversionMethod: "ai" | "text-only" = "ai";
   
-  // 1. Extract text - try multiple methods for best results
+  // 1. Extract text using Python pdfplumber (handles two-column layouts)
+  let pdfPages: { pageNumber: number; text: string; hasColumns: boolean }[] = [];
   try {
-    // First try: extract without layout (natural reading order)
-    const { stdout } = await execAsync(`pdftotext "${pdfPath}" -`);
-    extractedText = stdout || "";
-    console.log(`[PDF] Extracted ${extractedText.length} characters of text`);
+    const pythonScript = path.join(process.cwd(), 'server', 'pdf-extractor.py');
+    const { stdout } = await execAsync(`python3 "${pythonScript}" "${pdfPath}"`);
+    const result = JSON.parse(stdout);
+    
+    if (result.success) {
+      extractedText = result.fullText || "";
+      pdfPages = result.pages || [];
+      console.log(`[PDF] Extracted ${extractedText.length} chars from ${pdfPages.length} pages (pdfplumber)`);
+    } else {
+      console.warn("[PDF] pdfplumber failed:", result.error);
+      // Fallback to pdftotext
+      const { stdout: fallbackText } = await execAsync(`pdftotext "${pdfPath}" -`);
+      extractedText = fallbackText || "";
+      console.log(`[PDF] Fallback: extracted ${extractedText.length} chars (pdftotext)`);
+    }
   } catch (error) {
-    console.warn("[PDF] Text extraction failed:", error);
+    console.warn("[PDF] Python extraction failed, trying pdftotext:", error);
+    try {
+      const { stdout } = await execAsync(`pdftotext "${pdfPath}" -`);
+      extractedText = stdout || "";
+      console.log(`[PDF] Fallback extracted ${extractedText.length} chars`);
+    } catch (e) {
+      console.warn("[PDF] All text extraction failed");
+    }
   }
   
   // 2. Extract embedded images (logos, graphics) - skip if fails
@@ -388,15 +407,23 @@ async function convertPdfToHtmlWithAI(
   console.log("[PDF] Using text-only conversion (single-column format)");
   conversionMethod = "text-only";
   
-  // Clean and format extracted text
-  let cleanText = extractedText
-    .replace(/\r\n/g, '\n')
-    .replace(/[ \t]+/g, ' ')
-    .replace(/^\s+$/gm, '')
-    .replace(/\n{3,}/g, '\n\n');
-  
-  // Split by form feed (page breaks)
-  const pages = cleanText.split(/\f/).filter(p => p.trim().length > 0);
+  // Use page data from pdfplumber if available, otherwise split by form feed
+  let pages: string[];
+  if (pdfPages.length > 0) {
+    pages = pdfPages.map(p => p.text);
+    console.log(`[PDF] Using ${pages.length} pages from pdfplumber`);
+  } else {
+    // Fallback: clean and split extracted text
+    const cleanText = extractedText
+      .replace(/\r\n/g, '\n')
+      .replace(/[ \t]+/g, ' ')
+      .replace(/^\s+$/gm, '')
+      .replace(/\n{3,}/g, '\n\n');
+    pages = cleanText.split(/\f/).filter(p => p.trim().length > 0);
+    if (pages.length === 0 && cleanText.trim()) {
+      pages = [cleanText];
+    }
+  }
   
   // Process text into clean HTML
   const processText = (text: string): string => {
