@@ -42,6 +42,7 @@ import {
   getCustomerDataForContract,
   CRM_DATA_FIELDS,
 } from "./template-processor";
+import { convertPdfToDocx, isAdobeApiConfigured } from "./pdf-to-docx-converter";
 
 // Global uploads directory
 const uploadsDir = path.join(process.cwd(), "uploads");
@@ -7155,33 +7156,62 @@ export async function registerRoutes(
         return res.status(400).json({ error: "File must be PDF or DOCX" });
       }
 
-      const templateType = isPdf ? "pdf_form" : "docx";
-      console.log(`[Template Upload] Processing ${templateType} template: ${req.file.path}`);
+      console.log(`[Template Upload] Processing ${isPdf ? "PDF" : "DOCX"} file: ${req.file.path}`);
       
       let extractedFields: any[] = [];
       let conversionError: string | null = null;
+      let docxPath: string | null = null;
+      let pdfPath: string | null = null;
+      let templateType = "docx";
       
-      try {
-        if (isPdf) {
-          extractedFields = await extractPdfFormFields(req.file.path);
-          
-          if (extractedFields.length === 0) {
-            console.log("[Template Upload] No AcroForm fields in PDF. Will use HTML-based editing.");
-            const existing = await storage.getCategoryDefaultTemplate(categoryId, normalizedCountryCode);
-            if (existing && existing.htmlContent) {
-              const htmlFields = extractHtmlPlaceholders(existing.htmlContent);
-              if (htmlFields.length > 0) {
-                extractedFields = htmlFields;
-                console.log(`[Template Upload] Extracted ${htmlFields.length} fields from HTML content`);
-              }
-            }
-          }
-        } else {
-          extractedFields = await extractDocxPlaceholders(req.file.path);
+      if (isPdf) {
+        pdfPath = req.file.path;
+        
+        if (!isAdobeApiConfigured()) {
+          return res.status(400).json({ 
+            error: "Adobe PDF Services API nie je nakonfigurované. Nastavte ADOBE_PDF_SERVICES_CLIENT_ID a ADOBE_PDF_SERVICES_CLIENT_SECRET pre konverziu PDF do DOCX.",
+            requiresConfig: true
+          });
         }
-      } catch (extractError: any) {
-        console.warn("[Template Upload] Field extraction warning:", extractError.message);
-        conversionError = extractError.message;
+        
+        console.log(`[Template Upload] Converting PDF to DOCX using Adobe PDF Services...`);
+        const conversionResult = await convertPdfToDocx(req.file.path, path.dirname(req.file.path));
+        
+        if (!conversionResult.success || !conversionResult.docxPath) {
+          return res.status(500).json({ 
+            error: `Konverzia PDF do DOCX zlyhala: ${conversionResult.error}`,
+            conversionFailed: true
+          });
+        }
+        
+        docxPath = conversionResult.docxPath;
+        console.log(`[Template Upload] PDF converted to DOCX: ${docxPath}`);
+        
+        try {
+          extractedFields = await extractDocxPlaceholders(docxPath);
+          console.log(`[Template Upload] Extracted ${extractedFields.length} placeholders from converted DOCX`);
+        } catch (extractError: any) {
+          console.warn("[Template Upload] Placeholder extraction warning:", extractError.message);
+        }
+        
+      } else {
+        docxPath = req.file.path;
+        
+        try {
+          extractedFields = await extractDocxPlaceholders(req.file.path);
+          console.log(`[Template Upload] Extracted ${extractedFields.length} placeholders from DOCX`);
+        } catch (extractError: any) {
+          console.warn("[Template Upload] Placeholder extraction warning:", extractError.message);
+          conversionError = extractError.message;
+        }
+        
+        try {
+          console.log(`[Template Upload] Converting DOCX to PDF for preview...`);
+          pdfPath = await convertDocxToPdf(req.file.path, path.dirname(req.file.path));
+          console.log(`[Template Upload] DOCX converted to PDF: ${pdfPath}`);
+        } catch (convErr: any) {
+          console.warn(`[Template Upload] DOCX to PDF conversion failed: ${convErr.message}`);
+        }
       }
 
       const conversionMetadata = JSON.stringify({
@@ -7189,6 +7219,7 @@ export async function registerRoutes(
         fileSize: req.file.size,
         extractedAt: new Date().toISOString(),
         fieldCount: extractedFields.length,
+        convertedFromPdf: isPdf,
       });
 
       const existing = await storage.getCategoryDefaultTemplate(categoryId, normalizedCountryCode);
@@ -7196,29 +7227,12 @@ export async function registerRoutes(
       const templateData: any = {
         templateType,
         extractedFields: JSON.stringify(extractedFields),
-        conversionStatus: extractedFields.length > 0 ? "completed" : "pending",
+        conversionStatus: "completed",
         conversionError,
         conversionMetadata,
+        sourceDocxPath: docxPath,
+        sourcePdfPath: pdfPath,
       };
-      
-      if (isPdf) {
-        templateData.sourcePdfPath = req.file.path;
-        templateData.sourceDocxPath = null;
-      } else {
-        templateData.sourceDocxPath = req.file.path;
-        
-        // Convert DOCX to PDF for preview purposes
-        try {
-          console.log(`[Template Upload] Converting DOCX to PDF for preview...`);
-          const pdfPath = await convertDocxToPdf(req.file.path, path.dirname(req.file.path));
-          templateData.sourcePdfPath = pdfPath;
-          console.log(`[Template Upload] DOCX converted to PDF: ${pdfPath}`);
-        } catch (convErr: any) {
-          console.warn(`[Template Upload] DOCX to PDF conversion failed: ${convErr.message}`);
-          templateData.sourcePdfPath = null;
-          // Don't fail the upload - DOCX is still usable for contract generation
-        }
-      }
 
       let result;
       if (existing) {
