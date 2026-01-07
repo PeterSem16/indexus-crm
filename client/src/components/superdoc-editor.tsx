@@ -557,23 +557,32 @@ export function SuperDocEditor({
           </TabsContent>
 
           <TabsContent value="preview" className="mt-4 flex-1 overflow-auto">
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md p-3 mb-4">
-              <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                Toto je náhľad konvertovaný do HTML. Pre presnú podobu stiahnite DOCX.
-              </p>
+            <div className="flex items-center justify-between gap-4 mb-4">
+              <div>
+                <h3 className="font-medium">Náhľad DOCX šablóny</h3>
+                <p className="text-sm text-muted-foreground">
+                  PDF náhľad konvertovaný z DOCX dokumentu
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownload}
+                data-testid="button-download-preview"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Stiahnuť DOCX
+              </Button>
             </div>
             
-            {htmlContent ? (
-              <div 
-                className="bg-white dark:bg-gray-800 p-6 rounded-md border prose dark:prose-invert max-w-none"
-                style={{ minHeight: "400px" }}
-                dangerouslySetInnerHTML={{ __html: htmlContent }}
+            <div className="rounded-md border overflow-hidden bg-gray-100 dark:bg-gray-900" style={{ height: "500px" }}>
+              <iframe
+                src={`/api/contracts/categories/${categoryId}/default-templates/${countryCode}/preview-pdf`}
+                className="w-full h-full"
+                title="DOCX Preview"
+                data-testid="iframe-docx-preview"
               />
-            ) : (
-              <div className="flex items-center justify-center h-64 text-muted-foreground">
-                <p>Žiadny obsah</p>
-              </div>
-            )}
+            </div>
           </TabsContent>
 
           <TabsContent value="history" className="mt-4 flex-1 overflow-auto">
