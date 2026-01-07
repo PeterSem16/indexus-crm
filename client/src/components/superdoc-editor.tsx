@@ -63,10 +63,11 @@ export function SuperDocEditor({
         containerRef.current.innerHTML = "";
         
         superDocInstance.current = new SuperDoc({
-          selector: "#superdoc-container",
-          toolbar: "#superdoc-toolbar",
+          selector: containerRef.current,
+          toolbar: toolbarRef.current,
           document: url,
           documentMode: "editing",
+          rulers: true,
           onReady: (event: any) => {
             console.log("SuperDoc ready", event);
             extractVariablesFromDocument();
@@ -329,8 +330,8 @@ export function SuperDocEditor({
         <div
           id="superdoc-container"
           ref={containerRef}
-          className="superdoc-container min-h-full"
-          style={{ height: "100%" }}
+          className="superdoc-container"
+          style={{ minHeight: "700px", height: "100%" }}
         />
       </div>
 
