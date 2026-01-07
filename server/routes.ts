@@ -7343,13 +7343,27 @@ Odpovedz v JSON formáte:
         return res.status(404).json({ error: "DOCX file not found on disk" });
       }
       
-      const { extractDocxFullText, insertPlaceholdersIntoDocx, convertDocxToPdf } = await import("./template-processor");
+      const { 
+        extractDocxFullText, 
+        insertPlaceholdersIntoDocx, 
+        convertDocxToPdf, 
+        detectFieldsWithPatterns,
+        extractDocxStructuredContent,
+        SAMPLE_DATA
+      } = await import("./template-processor");
       
-      const fullText = await extractDocxFullText(docxPath);
+      const structuredContent = await extractDocxStructuredContent(docxPath);
+      const fullText = structuredContent.text;
+      
+      console.log(`[AI] Document extracted: ${fullText.length} chars, ${structuredContent.sections.length} sections`);
       
       if (fullText.length < 50) {
         return res.status(400).json({ error: "Document is too short for analysis" });
       }
+      
+      const patternDetectedFields = detectFieldsWithPatterns(fullText);
+      console.log(`[AI] Pattern detection found ${patternDetectedFields.length} fields:`, 
+        patternDetectedFields.map(f => `${f.placeholder}: "${f.original.substring(0, 30)}..."`));
       
       const crmFieldsTable = `
 | Premenná | Popis | Príklad hodnoty |
@@ -7529,14 +7543,49 @@ Hľadaj údaje označené ako: "Dieťa", "Novorodenec"
         });
       }
       
-      console.log(`[AI] After validation: ${validatedReplacements.length} valid replacements`);
+      console.log(`[AI] After AI validation: ${validatedReplacements.length} valid replacements`);
       
-      aiResult.replacements = validatedReplacements;
+      const finalReplacements: Array<{ original: string; placeholder: string; reason: string; crmField: string }> = [];
+      const usedOriginals = new Set<string>();
+      
+      for (const field of patternDetectedFields) {
+        if (!usedOriginals.has(field.original.toLowerCase())) {
+          usedOriginals.add(field.original.toLowerCase());
+          finalReplacements.push({
+            original: field.original,
+            placeholder: field.placeholder,
+            reason: field.label,
+            crmField: field.placeholder
+          });
+        }
+      }
+      
+      for (const r of validatedReplacements) {
+        if (!usedOriginals.has(r.original.toLowerCase())) {
+          usedOriginals.add(r.original.toLowerCase());
+          finalReplacements.push({
+            ...r,
+            crmField: r.placeholder
+          });
+        }
+      }
+      
+      console.log(`[AI] Final merged replacements: ${finalReplacements.length} (${patternDetectedFields.length} from patterns, ${validatedReplacements.length} from AI)`);
+      
+      if (finalReplacements.length === 0) {
+        return res.json({
+          success: true,
+          message: "AI nenašlo žiadne polia na nahradenie",
+          replacements: [],
+          modifiedDocxPath: null,
+          suggestedMappings: {}
+        });
+      }
       
       const outputFilename = `template-ai-${Date.now()}.docx`;
       const outputPath = path.join(process.cwd(), "uploads/contract-pdfs", outputFilename);
       
-      await insertPlaceholdersIntoDocx(docxPath, aiResult.replacements, outputPath);
+      await insertPlaceholdersIntoDocx(docxPath, finalReplacements, outputPath);
       
       const previewDir = path.join(process.cwd(), `uploads/contract-previews/${categoryId}/${countryCode.toUpperCase()}`);
       if (!fs.existsSync(previewDir)) {
@@ -7555,30 +7604,34 @@ Hľadaj údaje označené ako: "Dieťa", "Novorodenec"
         ? `uploads/contract-previews/${categoryId}/${countryCode.toUpperCase()}/${path.basename(previewPdfPath)}`
         : null;
       
+      const suggestedMappings: Record<string, string> = {};
+      for (const r of finalReplacements) {
+        suggestedMappings[`{{${r.placeholder}}}`] = r.crmField;
+      }
+      
       await storage.updateCategoryDefaultTemplate(template.id, {
         sourceDocxPath: relativeDocxPath,
         previewPdfPath: previewPdfPath ? relativePreviewPath : template.previewPdfPath,
-        extractedFields: JSON.stringify(aiResult.replacements.map((r: any) => r.placeholder)),
-        placeholderMappings: JSON.stringify(
-          aiResult.replacements.reduce((acc: any, r: any) => {
-            acc[r.placeholder] = r.placeholder;
-            return acc;
-          }, {})
-        ),
+        extractedFields: JSON.stringify(finalReplacements.map(r => r.placeholder)),
+        placeholderMappings: JSON.stringify(suggestedMappings),
         conversionMetadata: JSON.stringify({
           aiProcessedAt: new Date().toISOString(),
-          replacementsCount: aiResult.replacements.length,
-          summary: aiResult.summary
+          replacementsCount: finalReplacements.length,
+          patternDetectedCount: patternDetectedFields.length,
+          aiDetectedCount: validatedReplacements.length,
+          summary: `Nájdených ${finalReplacements.length} polí (${patternDetectedFields.length} automaticky, ${validatedReplacements.length} AI)`
         })
       });
       
       res.json({
         success: true,
-        message: aiResult.summary || `Vložených ${aiResult.replacements.length} premenných`,
-        replacements: aiResult.replacements,
+        message: `Vložených ${finalReplacements.length} premenných (${patternDetectedFields.length} automaticky, ${validatedReplacements.length} AI)`,
+        replacements: finalReplacements,
+        suggestedMappings,
         modifiedDocxPath: relativeDocxPath,
         previewPdfPath: relativePreviewPath,
-        extractedFields: aiResult.replacements.map((r: any) => r.placeholder)
+        extractedFields: finalReplacements.map(r => r.placeholder),
+        sampleData: SAMPLE_DATA
       });
     } catch (error) {
       console.error("AI placeholder insertion error:", error);
@@ -7764,10 +7817,10 @@ Hľadaj údaje označené ako: "Dieťa", "Novorodenec"
         return res.status(404).json({ error: "DOCX file not found" });
       }
       
-      const { extractDocxFullText } = await import("./template-processor");
-      let text = await extractDocxFullText(fullPath);
+      const { extractDocxStructuredContent, SAMPLE_DATA } = await import("./template-processor");
+      const structuredContent = await extractDocxStructuredContent(fullPath);
+      let text = structuredContent.text;
       
-      // Get extracted fields
       let extractedFields: string[] = [];
       if (template.extractedFields) {
         try {
@@ -7777,53 +7830,42 @@ Hľadaj údaje označené ako: "Dieťa", "Novorodenec"
         } catch {}
       }
       
-      // Sample data for preview
-      const sampleData: Record<string, string> = {
-        "customer.firstName": "Jana",
-        "customer.lastName": "Nováková",
-        "customer.fullName": "Jana Nováková",
-        "customer.email": "jana.novakova@example.com",
-        "customer.phone": "+421 900 123 456",
-        "customer.birthDate": "15.03.1990",
-        "customer.personalId": "900315/1234",
-        "customer.dateOfBirth": "15.03.1990",
-        "customer.permanentAddress": "Hlavná 123, 831 01 Bratislava",
-        "customer.correspondenceAddress": "Korešpondenčná 45, 831 02 Bratislava",
-        "customer.address.street": "Hlavná 123",
-        "customer.address.city": "Bratislava",
-        "customer.address.postalCode": "831 01",
-        "customer.address.country": "Slovensko",
-        "customer.IBAN": "SK89 1100 0000 0012 3456 7890",
-        "customer.SWIFT": "TATRSKBX",
-        "father.fullName": "Peter Novák",
-        "father.permanentAddress": "Hlavná 123, 831 01 Bratislava",
-        "representative.fullName": "Mgr. Martin Kováč",
-        "company.name": "Cord Blood Center AG",
-        "company.address": "Bodenhof 4, 6014 Luzern",
-        "company.identificationNumber": "CHE-178.669.230",
-        "company.taxIdentificationNumber": "2014927",
-        "company.vatNumber": "CHE-178.669.230 MWST",
-        "contract.number": "ZML-2026-0001",
-        "contract.date": new Date().toLocaleDateString("sk-SK"),
-        "today": new Date().toLocaleDateString("sk-SK"),
-      };
-      
-      if (withSampleData) {
-        // Replace placeholders with sample data
-        for (const field of extractedFields) {
-          const regex = new RegExp(`\\{\\{${field.replace(/\./g, '\\.')}\\}\\}`, 'g');
-          const value = sampleData[field] || `[${field}]`;
-          text = text.replace(regex, `**${value}**`);
+      const placeholderRegex = /\{\{([^}]+)\}\}/g;
+      const foundPlaceholders: string[] = [];
+      let match;
+      while ((match = placeholderRegex.exec(text)) !== null) {
+        if (!foundPlaceholders.includes(match[1])) {
+          foundPlaceholders.push(match[1]);
         }
       }
       
+      if (withSampleData) {
+        for (const placeholder of foundPlaceholders) {
+          const regex = new RegExp(`\\{\\{${placeholder.replace(/\./g, '\\.')}\\}\\}`, 'g');
+          const value = SAMPLE_DATA[placeholder] || `[${placeholder}]`;
+          text = text.replace(regex, `«${value}»`);
+        }
+      }
+      
+      const htmlContent = text
+        .split('\n')
+        .map(line => {
+          let htmlLine = line
+            .replace(/\{\{([^}]+)\}\}/g, '<span class="placeholder">{{$1}}</span>')
+            .replace(/«([^»]+)»/g, '<span class="sample-value">$1</span>');
+          return `<p>${htmlLine || '&nbsp;'}</p>`;
+        })
+        .join('');
+      
       res.json({
         text,
-        extractedFields,
+        htmlContent,
+        extractedFields: foundPlaceholders.length > 0 ? foundPlaceholders : extractedFields,
+        sections: structuredContent.sections,
         placeholderMappings: template.placeholderMappings 
-          ? JSON.parse(template.placeholderMappings) 
+          ? (typeof template.placeholderMappings === 'string' ? JSON.parse(template.placeholderMappings) : template.placeholderMappings)
           : {},
-        sampleData: withSampleData ? sampleData : undefined
+        sampleData: SAMPLE_DATA
       });
     } catch (error) {
       console.error("Error serving DOCX preview:", error);

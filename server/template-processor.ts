@@ -354,6 +354,189 @@ export const CRM_DATA_FIELDS = [
   { id: "today", label: "Dnešný dátum", category: "system" },
 ];
 
+export const SLOVAK_FIELD_PATTERNS: Array<{
+  patterns: RegExp[];
+  placeholder: string;
+  label: string;
+}> = [
+  {
+    patterns: [
+      /klientka\s*[:\-]?\s*(.+)/i,
+      /rodička\s*[:\-]?\s*(.+)/i,
+      /matka\s+dieťaťa\s*[:\-]?\s*(.+)/i,
+      /meno\s+a\s+priezvisko\s*[:\-]?\s*(.+)/i,
+      /zákazník\s*[:\-]?\s*(.+)/i,
+      /objednávateľ\s*[:\-]?\s*(.+)/i,
+    ],
+    placeholder: "customer.fullName",
+    label: "Meno zákazníka/klientky"
+  },
+  {
+    patterns: [
+      /otec\s+dieťaťa\s*[:\-]?\s*(.+)/i,
+      /otec\s*[:\-]?\s*(.+)/i,
+      /zákonný\s+zástupca\s*[\-–]\s*otec\s*[:\-]?\s*(.+)/i,
+    ],
+    placeholder: "father.fullName",
+    label: "Meno otca"
+  },
+  {
+    patterns: [
+      /matka\s*[:\-]?\s*(.+)/i,
+    ],
+    placeholder: "mother.fullName",
+    label: "Meno matky"
+  },
+  {
+    patterns: [
+      /trvalé\s+bydlisko\s*[:\-]?\s*(.+)/i,
+      /trvalý\s+pobyt\s*[:\-]?\s*(.+)/i,
+      /bydlisko\s*[:\-]?\s*(.+)/i,
+      /adresa\s+trvalého\s+pobytu\s*[:\-]?\s*(.+)/i,
+      /adresa\s*[:\-]?\s*(.+)/i,
+    ],
+    placeholder: "customer.permanentAddress",
+    label: "Trvalé bydlisko"
+  },
+  {
+    patterns: [
+      /korešpondenčná\s+adresa\s*[:\-]?\s*(.+)/i,
+      /doručovacia\s+adresa\s*[:\-]?\s*(.+)/i,
+    ],
+    placeholder: "customer.correspondenceAddress",
+    label: "Korešpondenčná adresa"
+  },
+  {
+    patterns: [
+      /dátum\s+narodenia\s*[:\-]?\s*(\d{1,2}[\.\-\/]\d{1,2}[\.\-\/]\d{2,4})/i,
+      /narodená?\s*[:\-]?\s*(\d{1,2}[\.\-\/]\d{1,2}[\.\-\/]\d{2,4})/i,
+      /nar\.\s*(\d{1,2}[\.\-\/]\d{1,2}[\.\-\/]\d{2,4})/i,
+    ],
+    placeholder: "customer.birthDate",
+    label: "Dátum narodenia"
+  },
+  {
+    patterns: [
+      /rodné\s+číslo\s*[:\-]?\s*(\d{6}\/?(\d{3,4})?)/i,
+      /r\.č\.\s*[:\-]?\s*(\d{6}\/?(\d{3,4})?)/i,
+      /RČ\s*[:\-]?\s*(\d{6}\/?(\d{3,4})?)/i,
+    ],
+    placeholder: "customer.personalId",
+    label: "Rodné číslo"
+  },
+  {
+    patterns: [
+      /telefón\s*[:\-]?\s*(\+?\d[\d\s\-]+)/i,
+      /tel\.\s*[:\-]?\s*(\+?\d[\d\s\-]+)/i,
+      /mobil\s*[:\-]?\s*(\+?\d[\d\s\-]+)/i,
+    ],
+    placeholder: "customer.phone",
+    label: "Telefón"
+  },
+  {
+    patterns: [
+      /e-?mail\s*[:\-]?\s*([\w\.\-]+@[\w\.\-]+)/i,
+    ],
+    placeholder: "customer.email",
+    label: "Email"
+  },
+  {
+    patterns: [
+      /IBAN\s*[:\-]?\s*([A-Z]{2}\d{2}[\s\d]+)/i,
+      /číslo\s+účtu\s*[:\-]?\s*(.+)/i,
+      /bankový\s+účet\s*[:\-]?\s*(.+)/i,
+    ],
+    placeholder: "customer.IBAN",
+    label: "IBAN"
+  },
+  {
+    patterns: [
+      /číslo\s+zmluvy\s*[:\-]?\s*(.+)/i,
+      /zmluva\s+č\.\s*[:\-]?\s*(.+)/i,
+      /č\.\s*zmluvy\s*[:\-]?\s*(.+)/i,
+    ],
+    placeholder: "contract.number",
+    label: "Číslo zmluvy"
+  },
+  {
+    patterns: [
+      /dátum\s+uzavretia\s*[:\-]?\s*(\d{1,2}[\.\-\/]\d{1,2}[\.\-\/]\d{2,4})/i,
+      /dňa\s*[:\-]?\s*(\d{1,2}[\.\-\/]\d{1,2}[\.\-\/]\d{2,4})/i,
+      /v\s+\w+\s+dňa\s+(\d{1,2}[\.\-\/]\d{1,2}[\.\-\/]\d{2,4})/i,
+    ],
+    placeholder: "contract.date",
+    label: "Dátum zmluvy"
+  },
+  {
+    patterns: [
+      /IČO\s*[:\-]?\s*(\d[\d\s]+)/i,
+      /identifikačné\s+číslo\s*[:\-]?\s*(\d[\d\s]+)/i,
+    ],
+    placeholder: "company.identificationNumber",
+    label: "IČO spoločnosti"
+  },
+  {
+    patterns: [
+      /DIČ\s*[:\-]?\s*(\d[\d\s]+)/i,
+    ],
+    placeholder: "company.taxIdentificationNumber",
+    label: "DIČ spoločnosti"
+  },
+  {
+    patterns: [
+      /IČ\s*DPH\s*[:\-]?\s*([A-Z]{2}\d+)/i,
+    ],
+    placeholder: "company.vatNumber",
+    label: "IČ DPH"
+  },
+];
+
+export interface DetectedField {
+  original: string;
+  placeholder: string;
+  label: string;
+  context: string;
+  confidence: number;
+}
+
+export function detectFieldsWithPatterns(text: string): DetectedField[] {
+  const detectedFields: DetectedField[] = [];
+  const seenOriginals = new Set<string>();
+  
+  const lines = text.split(/\n/);
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const context = lines.slice(Math.max(0, i - 1), Math.min(lines.length, i + 2)).join(" ");
+    
+    for (const fieldDef of SLOVAK_FIELD_PATTERNS) {
+      for (const pattern of fieldDef.patterns) {
+        const match = pattern.exec(line);
+        if (match && match[1]) {
+          const original = match[1].trim();
+          
+          if (original.length < 2 || original.length > 200) continue;
+          if (seenOriginals.has(original.toLowerCase())) continue;
+          if (/^[\d\.\-\/\s]+$/.test(original) && original.length < 5) continue;
+          
+          seenOriginals.add(original.toLowerCase());
+          detectedFields.push({
+            original,
+            placeholder: fieldDef.placeholder,
+            label: fieldDef.label,
+            context: context.substring(0, 100),
+            confidence: 0.9
+          });
+          break;
+        }
+      }
+    }
+  }
+  
+  console.log(`[DOCX] Pattern detection found ${detectedFields.length} fields`);
+  return detectedFields;
+}
+
 export async function extractDocxFullText(docxPath: string): Promise<string> {
   try {
     const content = fs.readFileSync(docxPath, "binary");
@@ -367,6 +550,35 @@ export async function extractDocxFullText(docxPath: string): Promise<string> {
     const xmlContent = documentXml.asText();
     
     const textParts: string[] = [];
+    
+    const tableRegex = /<w:tbl[^>]*>([\s\S]*?)<\/w:tbl>/g;
+    let tableMatch;
+    while ((tableMatch = tableRegex.exec(xmlContent)) !== null) {
+      const tableContent = tableMatch[1];
+      const cellRegex = /<w:tc[^>]*>([\s\S]*?)<\/w:tc>/g;
+      let cellMatch;
+      const rowTexts: string[] = [];
+      
+      while ((cellMatch = cellRegex.exec(tableContent)) !== null) {
+        const cellContent = cellMatch[1];
+        const textRegex = /<w:t[^>]*>([^<]*)<\/w:t>/g;
+        let textMatch;
+        let cellText = "";
+        
+        while ((textMatch = textRegex.exec(cellContent)) !== null) {
+          cellText += textMatch[1];
+        }
+        
+        if (cellText.trim()) {
+          rowTexts.push(cellText.trim());
+        }
+      }
+      
+      if (rowTexts.length > 0) {
+        textParts.push(rowTexts.join(": "));
+      }
+    }
+    
     const paragraphRegex = /<w:p[^>]*>([\s\S]*?)<\/w:p>/g;
     let paragraphMatch;
     
@@ -386,14 +598,138 @@ export async function extractDocxFullText(docxPath: string): Promise<string> {
       }
     }
     
-    const text = textParts.join("\n\n");
-    console.log(`[DOCX] Extracted ${text.length} characters from ${docxPath}`);
+    const text = textParts.join("\n");
+    console.log(`[DOCX] Extracted ${text.length} characters (including tables) from ${docxPath}`);
     return text;
   } catch (error) {
     console.error("[DOCX] Error extracting full text:", error);
     throw new Error(`Failed to extract DOCX text: ${error}`);
   }
 }
+
+export async function extractDocxStructuredContent(docxPath: string): Promise<{
+  text: string;
+  sections: Array<{ type: string; content: string; label?: string }>;
+}> {
+  try {
+    const content = fs.readFileSync(docxPath, "binary");
+    const zip = new PizZip(content);
+    
+    const documentXml = zip.file("word/document.xml");
+    if (!documentXml) {
+      throw new Error("No document.xml found in DOCX");
+    }
+    
+    const xmlContent = documentXml.asText();
+    const sections: Array<{ type: string; content: string; label?: string }> = [];
+    const allText: string[] = [];
+    
+    const tableRegex = /<w:tbl[^>]*>([\s\S]*?)<\/w:tbl>/g;
+    let tableMatch;
+    while ((tableMatch = tableRegex.exec(xmlContent)) !== null) {
+      const tableContent = tableMatch[1];
+      const rowRegex = /<w:tr[^>]*>([\s\S]*?)<\/w:tr>/g;
+      let rowMatch;
+      
+      while ((rowMatch = rowRegex.exec(tableContent)) !== null) {
+        const rowContent = rowMatch[1];
+        const cellRegex = /<w:tc[^>]*>([\s\S]*?)<\/w:tc>/g;
+        let cellMatch;
+        const cells: string[] = [];
+        
+        while ((cellMatch = cellRegex.exec(rowContent)) !== null) {
+          const cellContent = cellMatch[1];
+          const textRegex = /<w:t[^>]*>([^<]*)<\/w:t>/g;
+          let textMatch;
+          let cellText = "";
+          
+          while ((textMatch = textRegex.exec(cellContent)) !== null) {
+            cellText += textMatch[1];
+          }
+          
+          if (cellText.trim()) {
+            cells.push(cellText.trim());
+          }
+        }
+        
+        if (cells.length >= 2) {
+          const label = cells[0];
+          const value = cells.slice(1).join(" ");
+          sections.push({ type: "table-row", content: value, label });
+          allText.push(`${label}: ${value}`);
+        } else if (cells.length === 1) {
+          sections.push({ type: "table-cell", content: cells[0] });
+          allText.push(cells[0]);
+        }
+      }
+    }
+    
+    const paragraphRegex = /<w:p[^>]*>([\s\S]*?)<\/w:p>/g;
+    let paragraphMatch;
+    
+    while ((paragraphMatch = paragraphRegex.exec(xmlContent)) !== null) {
+      const paragraphContent = paragraphMatch[1];
+      
+      const textRegex = /<w:t[^>]*>([^<]*)<\/w:t>/g;
+      let textMatch;
+      let paragraphText = "";
+      
+      while ((textMatch = textRegex.exec(paragraphContent)) !== null) {
+        paragraphText += textMatch[1];
+      }
+      
+      if (paragraphText.trim()) {
+        sections.push({ type: "paragraph", content: paragraphText.trim() });
+        allText.push(paragraphText.trim());
+      }
+    }
+    
+    return {
+      text: allText.join("\n"),
+      sections
+    };
+  } catch (error) {
+    console.error("[DOCX] Error extracting structured content:", error);
+    throw new Error(`Failed to extract DOCX structured content: ${error}`);
+  }
+}
+
+export const SAMPLE_DATA: Record<string, string> = {
+  "customer.firstName": "Jana",
+  "customer.lastName": "Nováková",
+  "customer.fullName": "Jana Nováková",
+  "customer.email": "jana.novakova@email.sk",
+  "customer.phone": "+421 900 123 456",
+  "customer.birthDate": "15.03.1990",
+  "customer.personalId": "900315/1234",
+  "customer.permanentAddress": "Hlavná 123, 831 01 Bratislava",
+  "customer.correspondenceAddress": "Hlavná 123, 831 01 Bratislava",
+  "customer.IBAN": "SK89 1100 0000 0012 3456 7890",
+  "customer.address.street": "Hlavná 123",
+  "customer.address.city": "Bratislava",
+  "customer.address.postalCode": "831 01",
+  "customer.address.country": "Slovensko",
+  "father.fullName": "Peter Novák",
+  "father.permanentAddress": "Hlavná 123, 831 01 Bratislava",
+  "father.birthDate": "20.06.1988",
+  "father.personalId": "880620/1234",
+  "mother.fullName": "Mária Nováková",
+  "mother.permanentAddress": "Hlavná 123, 831 01 Bratislava",
+  "child.fullName": "Michal Novák",
+  "child.birthDate": "01.01.2026",
+  "child.birthPlace": "Bratislava",
+  "company.name": "Cord Blood Center, s.r.o.",
+  "company.address": "Bodenhof 4, 6014 Luzern, Švajčiarsko",
+  "company.identificationNumber": "12345678",
+  "company.taxIdentificationNumber": "2012345678",
+  "company.vatNumber": "SK2012345678",
+  "contract.number": "ZML-2026-0001",
+  "contract.date": "7. januára 2026",
+  "contract.validFrom": "7.1.2026",
+  "contract.validTo": "31.12.2046",
+  "representative.fullName": "Mgr. Martin Kováč",
+  "today": new Date().toLocaleDateString("sk-SK"),
+};
 
 export async function insertPlaceholdersIntoDocx(
   docxPath: string,

@@ -200,13 +200,16 @@ function SortableCategoryRow({
 function DocxPreviewContent({ 
   categoryId, 
   countryCode, 
-  extractedFields 
+  extractedFields,
+  showSampleData = false
 }: { 
   categoryId: number; 
   countryCode: string; 
   extractedFields: string[];
+  showSampleData?: boolean;
 }) {
   const [docxText, setDocxText] = useState<string>("");
+  const [sampleData, setSampleData] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -215,10 +218,8 @@ function DocxPreviewContent({
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch(
-          `/api/contracts/categories/${categoryId}/default-templates/${countryCode}/docx-preview`,
-          { credentials: "include" }
-        );
+        const url = `/api/contracts/categories/${categoryId}/default-templates/${countryCode}/docx-preview${showSampleData ? '?withSampleData=true' : ''}`;
+        const response = await fetch(url, { credentials: "include" });
         
         if (!response.ok) {
           throw new Error("Failed to fetch DOCX preview");
@@ -226,6 +227,7 @@ function DocxPreviewContent({
         
         const data = await response.json();
         setDocxText(data.text || "");
+        setSampleData(data.sampleData || {});
       } catch (err) {
         console.error("Error fetching DOCX preview:", err);
         setError("Nepodarilo sa načítať náhľad dokumentu");
@@ -235,7 +237,7 @@ function DocxPreviewContent({
     };
     
     fetchDocxPreview();
-  }, [categoryId, countryCode]);
+  }, [categoryId, countryCode, showSampleData]);
   
   if (isLoading) {
     return (
@@ -264,43 +266,76 @@ function DocxPreviewContent({
     );
   }
   
-  const highlightPlaceholders = (text: string) => {
-    const parts: Array<{ type: 'text' | 'placeholder'; content: string }> = [];
-    const regex = /\{\{([^}]+)\}\}/g;
-    let lastIndex = 0;
-    let match;
-    
-    while ((match = regex.exec(text)) !== null) {
-      if (match.index > lastIndex) {
-        parts.push({ type: 'text', content: text.slice(lastIndex, match.index) });
+  const renderFormattedText = (text: string) => {
+    const lines = text.split('\n');
+    return lines.map((line, lineIdx) => {
+      const parts: Array<{ type: 'text' | 'placeholder' | 'sample'; content: string; field?: string }> = [];
+      const placeholderRegex = /\{\{([^}]+)\}\}/g;
+      const sampleRegex = /«([^»]+)»/g;
+      
+      let processedLine = line;
+      let lastIndex = 0;
+      let match;
+      
+      while ((match = placeholderRegex.exec(line)) !== null) {
+        if (match.index > lastIndex) {
+          parts.push({ type: 'text', content: line.slice(lastIndex, match.index) });
+        }
+        parts.push({ type: 'placeholder', content: match[1], field: match[1] });
+        lastIndex = placeholderRegex.lastIndex;
       }
-      parts.push({ type: 'placeholder', content: match[1] });
-      lastIndex = regex.lastIndex;
-    }
-    
-    if (lastIndex < text.length) {
-      parts.push({ type: 'text', content: text.slice(lastIndex) });
-    }
-    
-    return parts;
+      
+      if (parts.length === 0) {
+        while ((match = sampleRegex.exec(line)) !== null) {
+          if (match.index > lastIndex) {
+            parts.push({ type: 'text', content: line.slice(lastIndex, match.index) });
+          }
+          parts.push({ type: 'sample', content: match[1] });
+          lastIndex = sampleRegex.lastIndex;
+        }
+      }
+      
+      if (lastIndex < line.length) {
+        parts.push({ type: 'text', content: line.slice(lastIndex) });
+      }
+      
+      if (parts.length === 0) {
+        parts.push({ type: 'text', content: line || '\u00A0' });
+      }
+      
+      return (
+        <div key={lineIdx} className="min-h-[1.5em]">
+          {parts.map((part, idx) => {
+            if (part.type === 'placeholder') {
+              return (
+                <span 
+                  key={idx} 
+                  className="inline-flex items-center px-2 py-0.5 mx-0.5 rounded-md bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 font-mono text-xs border border-amber-300 dark:border-amber-700"
+                  title={`Premenná: ${part.field}`}
+                >
+                  {`{{${part.content}}}`}
+                </span>
+              );
+            } else if (part.type === 'sample') {
+              return (
+                <span 
+                  key={idx} 
+                  className="inline-flex items-center px-2 py-0.5 mx-0.5 rounded-md bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 font-semibold border border-green-300 dark:border-green-700"
+                >
+                  {part.content}
+                </span>
+              );
+            }
+            return <span key={idx}>{part.content}</span>;
+          })}
+        </div>
+      );
+    });
   };
   
-  const parts = highlightPlaceholders(docxText);
-  
   return (
-    <div className="text-sm leading-relaxed whitespace-pre-wrap font-serif">
-      {parts.map((part, idx) => 
-        part.type === 'placeholder' ? (
-          <span 
-            key={idx} 
-            className="inline-flex items-center px-1.5 py-0.5 mx-0.5 rounded bg-primary/10 text-primary font-mono text-xs border border-primary/20"
-          >
-            {`{{${part.content}}}`}
-          </span>
-        ) : (
-          <span key={idx}>{part.content}</span>
-        )
-      )}
+    <div className="text-sm leading-relaxed font-serif p-4 bg-white dark:bg-gray-900 rounded-lg border space-y-1">
+      {renderFormattedText(docxText)}
     </div>
   );
 }
@@ -411,6 +446,7 @@ export default function ContractsPage() {
   } | null>(null);
   const [templateMappings, setTemplateMappings] = useState<Record<string, string>>({});
   const [savingMappings, setSavingMappings] = useState(false);
+  const [previewShowSampleData, setPreviewShowSampleData] = useState(false);
   
   const [contractForm, setContractForm] = useState({
     templateId: "",
@@ -1988,10 +2024,11 @@ export default function ContractsPage() {
                                     const result = await response.json();
                                     
                                     const newExtractedFields = result.replacements?.map((r: any) => r.placeholder) || result.extractedFields || [];
-                                    const autoMappings: Record<string, string> = {};
-                                    if (result.replacements) {
+                                    const autoMappings: Record<string, string> = result.suggestedMappings || {};
+                                    
+                                    if (Object.keys(autoMappings).length === 0 && result.replacements) {
                                       for (const r of result.replacements) {
-                                        autoMappings[r.placeholder] = r.placeholder;
+                                        autoMappings[r.placeholder] = r.crmField || r.placeholder;
                                       }
                                     }
                                     
@@ -2008,7 +2045,7 @@ export default function ContractsPage() {
                                     
                                     toast({
                                       title: "AI vložilo premenné",
-                                      description: `Vložených ${newExtractedFields.length} premenných - mapovania boli nastavené`
+                                      description: result.message || `Vložených ${newExtractedFields.length} premenných - mapovania boli nastavené`
                                     });
                                   } catch (error: any) {
                                     console.error("AI insert error:", error);
@@ -4148,10 +4185,13 @@ export default function ContractsPage() {
                                     
                                     if (result.replacements && result.replacements.length > 0) {
                                       const extractedFields = result.replacements.map((r: any) => `{{${r.placeholder}}}`);
-                                      const autoMappings: Record<string, string> = {};
-                                      for (const r of result.replacements) {
-                                        const templateField = `{{${r.placeholder}}}`;
-                                        autoMappings[templateField] = r.placeholder;
+                                      const autoMappings: Record<string, string> = result.suggestedMappings || {};
+                                      
+                                      if (Object.keys(autoMappings).length === 0) {
+                                        for (const r of result.replacements) {
+                                          const templateField = `{{${r.placeholder}}}`;
+                                          autoMappings[templateField] = r.crmField || r.placeholder;
+                                        }
                                       }
                                       
                                       toast({
@@ -4234,8 +4274,8 @@ export default function ContractsPage() {
                 </TabsContent>
                 
                 <TabsContent value="preview" className="space-y-4">
-                  <div className="flex items-center justify-between gap-4 p-3 bg-muted/50 rounded-md">
-                    <div className="flex items-center gap-4">
+                  <div className="flex items-center justify-between gap-4 p-3 bg-muted/50 rounded-md flex-wrap">
+                    <div className="flex items-center gap-4 flex-wrap">
                       <Badge variant={editingTemplateData.templateType === "docx" ? "default" : "secondary"}>
                         DOCX náhľad
                       </Badge>
@@ -4243,7 +4283,25 @@ export default function ContractsPage() {
                         {editingTemplateData.extractedFields.length} premenných
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-2 border rounded-md p-1">
+                        <Button
+                          variant={!previewShowSampleData ? "default" : "ghost"}
+                          size="sm"
+                          onClick={() => setPreviewShowSampleData(false)}
+                          data-testid="button-preview-placeholders"
+                        >
+                          Premenné
+                        </Button>
+                        <Button
+                          variant={previewShowSampleData ? "default" : "ghost"}
+                          size="sm"
+                          onClick={() => setPreviewShowSampleData(true)}
+                          data-testid="button-preview-sample"
+                        >
+                          Vzorové dáta
+                        </Button>
+                      </div>
                       {editingTemplateData.categoryId && editingTemplateData.countryCode && (
                         <Button
                           variant="outline"
@@ -4261,22 +4319,32 @@ export default function ContractsPage() {
                   </div>
                   
                   <div className="border rounded-md">
-                    <div className="p-3 border-b bg-muted/30 flex items-center justify-between gap-2">
-                      <h4 className="font-medium text-sm">Text dokumentu s premennými</h4>
+                    <div className="p-3 border-b bg-muted/30 flex items-center justify-between gap-2 flex-wrap">
+                      <h4 className="font-medium text-sm">
+                        {previewShowSampleData ? "Náhľad so vzorovými dátami" : "Text dokumentu s premennými"}
+                      </h4>
                       <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className="text-xs">
-                          <FileText className="h-3 w-3 mr-1" />
-                          Premenné sú zvýraznené
-                        </Badge>
+                        {previewShowSampleData ? (
+                          <Badge variant="default" className="text-xs bg-green-600">
+                            Vzorové dáta sú vyplnené
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs">
+                            <FileText className="h-3 w-3 mr-1" />
+                            Premenné sú zvýraznené
+                          </Badge>
+                        )}
                       </div>
                     </div>
                     <ScrollArea className="h-[400px]">
                       <div className="p-4">
                         {editingTemplateData.categoryId && editingTemplateData.countryCode ? (
                           <DocxPreviewContent 
+                            key={`preview-${previewShowSampleData}`}
                             categoryId={editingTemplateData.categoryId} 
                             countryCode={editingTemplateData.countryCode}
                             extractedFields={editingTemplateData.extractedFields}
+                            showSampleData={previewShowSampleData}
                           />
                         ) : (
                           <p className="text-muted-foreground text-center py-8">
@@ -4289,7 +4357,9 @@ export default function ContractsPage() {
                   
                   <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md">
                     <p className="text-sm text-blue-700 dark:text-blue-300">
-                      <strong>Tip:</strong> Premenné v tvare {"{{...}}"} sa pri generovaní zmluvy nahradia skutočnými údajmi zákazníka.
+                      <strong>Tip:</strong> {previewShowSampleData 
+                        ? "Toto je ukážka ako bude vyzerať vyplnená zmluva. Vzorové dáta slúžia len na náhľad."
+                        : "Premenné v tvare {{...}} sa pri generovaní zmluvy nahradia skutočnými údajmi zákazníka."}
                     </p>
                   </div>
                 </TabsContent>
