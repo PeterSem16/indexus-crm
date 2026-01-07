@@ -62,9 +62,12 @@ export function SuperDocEditor({
 
       if (containerRef.current) {
         containerRef.current.innerHTML = "";
+        containerRef.current.id = "superdoc-container";
+        
+        console.log("Initializing SuperDoc with file:", file.name, file.size);
         
         superDocInstance.current = new SuperDoc({
-          selector: containerRef.current,
+          selector: "#superdoc-container",
           documents: [
             {
               id: `template-${categoryId}-${countryCode}`,
@@ -73,12 +76,25 @@ export function SuperDocEditor({
             }
           ],
           documentMode: "editing",
+          onEditorCreate: () => {
+            console.log("SuperDoc editor created");
+          },
           onReady: () => {
             console.log("SuperDoc ready");
             setIsLoading(false);
             extractVariablesFromDocument();
           },
-        });
+        } as any);
+        
+        setTimeout(() => {
+          setIsLoading(prev => {
+            if (prev) {
+              console.log("SuperDoc timeout - forcing loading state off");
+              return false;
+            }
+            return prev;
+          });
+        }, 10000);
       }
     } catch (error: any) {
       console.error("Error loading document:", error);
