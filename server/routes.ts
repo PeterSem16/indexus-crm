@@ -7364,81 +7364,143 @@ Odpovedz v JSON formáte:
         return res.status(400).json({ error: "Document is too short for analysis" });
       }
       
-      // Import the AI prompt helper
-      const { getCRMFieldsForAIPrompt, CRM_FIELD_ONTOLOGY } = await import("./template-processor");
+      // Import the AI prompt helpers including section detection
+      const { getCRMFieldsForAIPrompt, CRM_FIELD_ONTOLOGY, detectDocumentSections, getSectionHeadingsForAIPrompt, getEntityForLine } = await import("./template-processor");
       
       // Get fill-field detection for pattern-based matches
       const fillFieldReplacements = detectFillFieldReplacements(fullText);
       console.log(`[Pattern] Detection found ${fillFieldReplacements.length} markers via pattern matching`);
       
+      // Detect document sections for context
+      const detectedSections = detectDocumentSections(fullText);
+      console.log(`[Sections] Detected ${detectedSections.length} sections:`, detectedSections.map(s => `${s.entity} (lines ${s.startLine}-${s.endLine})`).join(", "));
+      
       // Build CRM fields catalog for AI
       const crmFieldsCatalog = getCRMFieldsForAIPrompt();
+      const sectionHeadingsCatalog = getSectionHeadingsForAIPrompt();
       
-      // Get document sections for context
+      // Get full document text with line numbers for AI context
       const lines = fullText.split('\n');
-      const headerSection = lines.slice(0, 50).join('\n');
-      const signatureSection = lines.slice(-60).join('\n');
+      const numberedLines = lines.map((line, i) => `${i + 1}: ${line}`).join('\n');
       
-      // Build the comprehensive AI prompt for multilingual semantic analysis
-      const aiPrompt = `Si expert na analýzu právnych dokumentov pre cord blood banking spoločnosti INDEXUS. 
-Tvoja úloha je INTELIGENTNE analyzovať text zmluvy a identifikovať VŠETKY miesta, kde sa majú doplniť údaje z CRM systému.
+      // Truncate if too long, prioritizing header and signature sections
+      let documentContext: string;
+      if (numberedLines.length > 15000) {
+        const headerPart = lines.slice(0, 80).map((line, i) => `${i + 1}: ${line}`).join('\n');
+        const signaturePart = lines.slice(-80).map((line, i) => `${lines.length - 80 + i + 1}: ${line}`).join('\n');
+        documentContext = `### HLAVIČKA (riadky 1-80):\n${headerPart}\n\n### ZÁVER (posledných 80 riadkov):\n${signaturePart}`;
+      } else {
+        documentContext = numberedLines;
+      }
+      
+      // Build section context string
+      const sectionContextStr = detectedSections.length > 0
+        ? detectedSections.map(s => `- Riadky ${s.startLine + 1}-${s.endLine + 1}: ${s.entity.toUpperCase()} ("${s.headingText.substring(0, 50)}")`).join('\n')
+        : "Sekcie neboli automaticky detekované - analyzuj dokument a urči kontext.";
+      
+      // Build the TWO-PHASE AI prompt with section-first analysis
+      const aiPrompt = `Si SENIOR expert na analýzu právnych dokumentov pre cord blood banking spoločnosti INDEXUS.
+Tvoja úloha je PRESNE a KONTEXTOVO SPRÁVNE analyzovať zmluvu a priradiť polia k SPRÁVNYM osobám.
 
-## DOKUMENT NA ANALÝZU:
+## KRITICKÉ PRAVIDLO - DVOJFÁZOVÁ ANALÝZA:
 
-### HLAVIČKA DOKUMENTU (prvých 50 riadkov):
-${headerSection}
+### FÁZA 1: IDENTIFIKUJ SEKCIE DOKUMENTU
+Najprv MUSÍŠ identifikovať, ktoré časti dokumentu sa týkajú ktorej osoby:
+${sectionHeadingsCatalog}
 
-### ZÁVER / PODPISY (posledných 60 riadkov):
-${signatureSection}
+### AUTOMATICKY DETEKOVANÉ SEKCIE:
+${sectionContextStr}
+
+### FÁZA 2: MAPUJ POLIA PODĽA SEKCIE
+Keď nájdeš pole ako "trvalé bydlisko:", MUSÍŠ sa pozrieť, V KTOREJ SEKCII sa nachádza:
+- Ak je v sekcii CUSTOMER/OBJEDNÁVATEĽ → customer.permanentAddress
+- Ak je v sekcii FATHER/OTEC → father.permanentAddress  
+- Ak je v sekcii MOTHER/MATKA → mother.permanentAddress
+- Ak je v sekcii CHILD/DIEŤA → child.birthPlace
+
+## DOKUMENT S ČÍSLAMI RIADKOV:
+${documentContext}
 
 ## DOSTUPNÉ CRM PREMENNÉ:
 ${crmFieldsCatalog}
 
-## PRAVIDLÁ ANALÝZY:
+## PRAVIDLÁ MAPOVANIA:
 
-1. **POCHOP KONTEXT** - Keď vidíš "pani:", "Pani:", "klientka:", znamená to meno zákazníčky → customer.fullName
-2. **ROZPOZNAJ JAZYKY** - Dokumenty môžu byť v SK, CZ, HU, RO, IT, DE, EN. Rozpoznaj jazyk a mapuj správne.
-3. **HĽADAJ VZORY**:
-   - Text končiaci dvojbodkou a za ním bodky/podčiarknutia (napr. "Meno: ........")
-   - Prázdne miesta označené bodkami alebo podčiarknutiami
-   - Formálne polia v hlavičke a podpisovej časti
-4. **IDENTIFIKUJ OSOBY**:
-   - Zákazník/klientka/rodička = customer.*
-   - Otec dieťaťa = father.*
-   - Matka = mother.*
-   - Dieťa/novorodenec = child.*
-5. **IDENTIFIKUJ ADRESY** - "trvalé bydlisko", "bytom", "s trvalým pobytom" = customer.permanentAddress
-6. **IDENTIFIKUJ DÁTUMY** - "dátum narodenia", "nar.", "narodená" = customer.birthDate alebo child.birthDate podľa kontextu
-7. **IDENTIFIKUJ IDENTIFIKÁTORY** - "rodné číslo", "RČ", "r.č." = customer.personalId, "IČO" = company.identificationNumber
-8. **IDENTIFIKUJ ZMLUVU** - "číslo zmluvy", "zmluva č." = contract.number, "dňa", "v Bratislave dňa" = contract.date
+1. **KONTEXT JE KRÁĽ** - Pole "rodné číslo:" môže byť:
+   - customer.personalId (ak je v sekcii objednávateľa)
+   - father.personalId (ak je v sekcii otca)
+   - mother.personalId (ak je v sekcii matky)
+   
+2. **ROZPOZNAJ ŠTRUKTÚRU** - Dokumenty majú typicky tieto sekcie:
+   - Hlavička so zmluvnými stranami
+   - Údaje o rodičke/objednávateľovi
+   - Údaje o otcovi dieťaťa
+   - Údaje o dieťati (po narodení)
+   - Podpisy
+
+3. **HĽADAJ VZORY VYPLŇOVANIA**:
+   - Text s dvojbodkou a bodkami/podčiarknutiami: "Meno: ........"
+   - Prázdne polia: "_____________"
+   - Zátvorky na vyplnenie: "(doplniť)"
+
+4. **JAZYKY**: SK, CZ, HU, RO, IT, DE, EN - rozpoznaj jazyk automaticky.
 
 ## FORMÁT VÝSTUPU (JSON):
 {
   "language": "sk|cz|hu|ro|it|de|en",
-  "documentType": "stručný popis typu dokumentu",
-  "suggestions": [
+  "documentType": "typ dokumentu",
+  "sections": [
     {
-      "label": "presný text etikety z dokumentu (napr. 'pani:', 'Trvalé bydlisko:')",
-      "placeholder": "customer.fullName",
-      "context": "krátky popis kontextu kde sa nachádza",
-      "confidence": 0.95,
-      "lineHint": "prvých 50 znakov riadku pre identifikáciu"
+      "entity": "customer|father|mother|child|company",
+      "lineRange": "1-50",
+      "description": "Sekcia obsahujúca údaje o..."
     }
   ],
-  "unmatchedLabels": ["zoznam etikiet, ktoré nevedieš namapovať"],
-  "summary": "stručné zhrnutie nájdených polí"
+  "suggestions": [
+    {
+      "label": "presný text etikety (napr. 'Trvalé bydlisko:')",
+      "placeholder": "father.permanentAddress",
+      "sectionEntity": "father",
+      "lineNumber": 25,
+      "context": "V sekcii 'Údaje o otcovi dieťaťa', riadok 25",
+      "confidence": 0.95
+    }
+  ],
+  "unmatchedLabels": ["etikety bez mapovania"],
+  "summary": "zhrnutie"
 }
 
-DÔLEŽITÉ: Analyzuj dokument DÔKLADNE. Kvalita je dôležitejšia ako rýchlosť. Nájdi VŠETKY polia, ktoré sa dajú vyplniť z CRM.`;
+## PRÍKLADY SPRÁVNEHO MAPOVANIA:
 
-      console.log("[AI] Starting intelligent document analysis with GPT-4o...");
+PRÍKLAD 1 - Dokument s troma osobami:
+- Riadok 5: "Objednávateľka: pani ........" → customer.fullName (sekcia customer)
+- Riadok 10: "trvale bytom: ........" → customer.permanentAddress (stále sekcia customer)
+- Riadok 20: "Otec dieťaťa:" (začína sekcia father)
+- Riadok 22: "Meno: ........" → father.fullName (teraz sekcia father)
+- Riadok 24: "trvale bytom: ........" → father.permanentAddress (stále sekcia father)
+
+PRÍKLAD 2 - To isté pole v rôznych kontextoch:
+- "Rodné číslo:" v sekcii objednávateľky → customer.personalId
+- "Rodné číslo:" v sekcii otca → father.personalId
+- "Rodné číslo:" v sekcii dieťaťa → child.personalId
+
+DÔLEŽITÉ: Kvalita a SPRÁVNOSŤ mapovania podľa kontextu je kritická. Analyzuj STAROSTLIVO.`;
+
+      console.log("[AI] Starting intelligent TWO-PHASE document analysis with GPT-4o...");
       
       let aiSuggestions: Array<{
         label: string;
         placeholder: string;
+        sectionEntity?: string;
+        lineNumber?: number;
         context: string;
         confidence: number;
-        lineHint: string;
+      }> = [];
+      
+      let aiSections: Array<{
+        entity: string;
+        lineRange: string;
+        description: string;
       }> = [];
       
       try {
@@ -7447,7 +7509,7 @@ DÔLEŽITÉ: Analyzuj dokument DÔKLADNE. Kvalita je dôležitejšia ako rýchlo
           messages: [
             { 
               role: "system", 
-              content: "Si expert na analýzu právnych dokumentov a zmluv. Rozumieš viacerým jazykom (SK, CZ, HU, RO, IT, DE, EN). Tvoja úloha je identifikovať polia na vyplnenie v dokumentoch a navrhnúť správne CRM premenné. Odpovedaj VÝHRADNE v JSON formáte." 
+              content: "Si SENIOR expert na analýzu právnych dokumentov pre cord blood banking. Rozumieš viacerým jazykom (SK, CZ, HU, RO, IT, DE, EN). KRITICKÉ: Musíš analyzovať KONTEXT dokumentu - to isté pole (napr. 'trvalé bydlisko') patrí rôznym osobám v závislosti od sekcie dokumentu. Najprv identifikuj SEKCIE (klient, otec, matka, dieťa), potom mapuj polia podľa toho, v ktorej sekcii sa nachádzajú. Odpovedaj VÝHRADNE v JSON formáte." 
             },
             { role: "user", content: aiPrompt }
           ],
@@ -7460,17 +7522,32 @@ DÔLEŽITÉ: Analyzuj dokument DÔKLADNE. Kvalita je dôležitejšia ako rýchlo
         if (content) {
           const aiResult = JSON.parse(content);
           aiSuggestions = aiResult.suggestions || [];
-          console.log(`[AI] Analysis complete: ${aiSuggestions.length} suggestions, language: ${aiResult.language}, document: ${aiResult.documentType}`);
+          aiSections = aiResult.sections || [];
+          console.log(`[AI] Two-phase analysis complete:`);
+          console.log(`  - Language: ${aiResult.language}, Document: ${aiResult.documentType}`);
+          console.log(`  - Sections detected by AI: ${aiSections.length}`);
+          console.log(`  - Suggestions with context: ${aiSuggestions.length}`);
+          
+          // Log section details
+          for (const sec of aiSections) {
+            console.log(`    [Section] ${sec.entity}: lines ${sec.lineRange} - ${sec.description}`);
+          }
+          
+          // Log suggestions with their section context
+          for (const sug of aiSuggestions) {
+            console.log(`    [Field] "${sug.label}" → ${sug.placeholder} (section: ${sug.sectionEntity || 'unknown'}, line: ${sug.lineNumber || '?'}, conf: ${sug.confidence})`);
+          }
+          
           if (aiResult.unmatchedLabels?.length > 0) {
             console.log(`[AI] Unmatched labels: ${aiResult.unmatchedLabels.join(', ')}`);
           }
         }
       } catch (aiError) {
-        console.error("[AI] Analysis failed, falling back to pattern detection:", aiError);
+        console.error("[AI] Two-phase analysis failed, falling back to pattern detection:", aiError);
       }
       
       // Merge strategy: Pattern detection provides the actual fill markers to replace
-      // AI suggestions are used to ENHANCE/ANNOTATE the pattern results or ADD new fields
+      // AI suggestions are used to ENHANCE/ANNOTATE the pattern results with section context
       const finalReplacements: Array<{
         original: string;
         placeholder: string;
@@ -7478,37 +7555,83 @@ DÔLEŽITÉ: Analyzuj dokument DÔKLADNE. Kvalita je dôležitejšia ako rýchlo
         reason: string;
         crmField: string;
         confidence: number;
+        sectionEntity?: string;
       }> = [];
-      const usedLabels = new Set<string>();
+      const usedPatternIndices = new Set<number>();
       
-      // Build a lookup from AI suggestions by label
-      const aiSuggestionsByLabel: Record<string, typeof aiSuggestions[0]> = {};
+      // Build AI suggestion lookup by line number (most precise) and by label (fallback)
+      const aiSuggestionsByLine: Record<number, typeof aiSuggestions[0]> = {};
+      const aiSuggestionsByLabel: Record<string, typeof aiSuggestions[0][]> = {};
+      
       for (const suggestion of aiSuggestions) {
         if (suggestion.confidence >= 0.7) {
+          // Index by line number if available
+          if (suggestion.lineNumber) {
+            aiSuggestionsByLine[suggestion.lineNumber] = suggestion;
+          }
+          // Also index by normalized label (can have multiple matches)
           const normalizedLabel = suggestion.label.toLowerCase().replace(/[:\-–\s]+$/, "").trim();
-          aiSuggestionsByLabel[normalizedLabel] = suggestion;
+          if (!aiSuggestionsByLabel[normalizedLabel]) {
+            aiSuggestionsByLabel[normalizedLabel] = [];
+          }
+          aiSuggestionsByLabel[normalizedLabel].push(suggestion);
         }
       }
       
-      // First, process pattern-detected fields (these have the actual fill markers)
-      // Enhance them with AI confidence/context if available
-      for (const field of fillFieldReplacements) {
+      // Process pattern-detected fields with AI enhancement
+      for (let i = 0; i < fillFieldReplacements.length; i++) {
+        const field = fillFieldReplacements[i];
         const normalizedLabel = field.label.toLowerCase().replace(/[:\-–\s]+$/, "").trim();
-        const aiMatch = aiSuggestionsByLabel[normalizedLabel];
         
-        // Use AI's placeholder suggestion if it has higher confidence and is different
-        let placeholder = field.placeholder;
-        let confidence = 0.8;
-        let reason = `Pattern detected: "${field.label}"`;
+        // Try to match by line number first (most precise)
+        let aiMatch: typeof aiSuggestions[0] | undefined = aiSuggestionsByLine[field.lineIndex + 1]; // +1 because AI uses 1-indexed
         
-        if (aiMatch) {
-          // AI can override the placeholder if it has better understanding
-          if (aiMatch.placeholder && aiMatch.confidence > 0.8) {
-            placeholder = aiMatch.placeholder;
+        // Fallback: match by label, considering section context
+        if (!aiMatch) {
+          const labelMatches = aiSuggestionsByLabel[normalizedLabel] || [];
+          if (labelMatches.length === 1) {
+            aiMatch = labelMatches[0];
+          } else if (labelMatches.length > 1) {
+            // Multiple matches - try to find best match based on line proximity
+            const patternLine = field.lineIndex;
+            aiMatch = labelMatches.reduce((best, current) => {
+              if (!current.lineNumber) return best;
+              if (!best || !best.lineNumber) return current;
+              const currentDist = Math.abs(current.lineNumber - 1 - patternLine);
+              const bestDist = Math.abs(best.lineNumber - 1 - patternLine);
+              return currentDist < bestDist ? current : best;
+            }, labelMatches[0]);
           }
+        }
+        
+        // Determine placeholder - AI context-aware or pattern fallback
+        let placeholder = field.placeholder;
+        let confidence = 0.7;
+        let reason = `Vzorová detekcia: "${field.label}"`;
+        let sectionEntity: string | undefined;
+        
+        if (aiMatch && aiMatch.confidence >= 0.8) {
+          // AI has high confidence with section context - use its suggestion
+          placeholder = aiMatch.placeholder;
           confidence = aiMatch.confidence;
-          reason = aiMatch.context || `AI + Pattern: "${field.label}"`;
-          usedLabels.add(normalizedLabel);
+          sectionEntity = aiMatch.sectionEntity;
+          reason = aiMatch.context || `AI kontext (${sectionEntity || 'neznámy'}): "${field.label}"`;
+          usedPatternIndices.add(i);
+          console.log(`[Merge] Pattern "${field.label}" (line ${field.lineIndex + 1}) → AI: ${placeholder} (section: ${sectionEntity}, conf: ${confidence})`);
+        } else {
+          // No strong AI match - try to enhance with detected sections
+          const sectionFromDetection = getEntityForLine(detectedSections, field.lineIndex);
+          if (sectionFromDetection && field.placeholder.includes('.')) {
+            // Update placeholder entity based on section if it's a generic field
+            const fieldType = field.placeholder.split('.')[1];
+            const entityFields = ['fullName', 'firstName', 'lastName', 'birthDate', 'personalId', 'permanentAddress', 'phone', 'email'];
+            if (entityFields.includes(fieldType)) {
+              placeholder = `${sectionFromDetection}.${fieldType}`;
+              sectionEntity = sectionFromDetection;
+              reason = `Sekcia ${sectionFromDetection}: "${field.label}"`;
+              console.log(`[Merge] Pattern "${field.label}" (line ${field.lineIndex + 1}) → Section: ${placeholder} (detected section: ${sectionFromDetection})`);
+            }
+          }
         }
         
         finalReplacements.push({
@@ -7517,24 +7640,23 @@ DÔLEŽITÉ: Analyzuj dokument DÔKLADNE. Kvalita je dôležitejšia ako rýchlo
           label: field.label,
           reason: reason,
           crmField: placeholder,
-          confidence: confidence
+          confidence: confidence,
+          sectionEntity: sectionEntity
         });
       }
       
-      // Add any AI suggestions that weren't matched by pattern detection
-      // These might be fields without visible fill markers but with clear labels
-      for (const suggestion of aiSuggestions) {
-        if (suggestion.confidence >= 0.85) {
-          const normalizedLabel = suggestion.label.toLowerCase().replace(/[:\-–\s]+$/, "").trim();
-          if (!usedLabels.has(normalizedLabel)) {
-            // This AI suggestion wasn't covered by pattern detection
-            // Log it but don't add to replacements (no fill marker to replace)
-            console.log(`[AI] Additional field detected without fill marker: "${suggestion.label}" -> ${suggestion.placeholder}`);
-          }
+      // Log AI suggestions without pattern matches (informational)
+      const unmatchedAI = aiSuggestions.filter((s, i) => 
+        s.confidence >= 0.85 && !Object.values(aiSuggestionsByLine).includes(s)
+      );
+      if (unmatchedAI.length > 0) {
+        console.log(`[AI] ${unmatchedAI.length} AI suggestions without pattern matches (no fill marker to replace):`);
+        for (const s of unmatchedAI.slice(0, 5)) {
+          console.log(`  - "${s.label}" → ${s.placeholder} (section: ${s.sectionEntity})`);
         }
       }
       
-      console.log(`[AI] Final: ${finalReplacements.length} replacements (${fillFieldReplacements.length} patterns, ${aiSuggestions.length} AI annotations)`);
+      console.log(`[AI] Final: ${finalReplacements.length} replacements (${fillFieldReplacements.length} patterns enhanced with AI context)`);
       
       if (finalReplacements.length === 0) {
         return res.json({

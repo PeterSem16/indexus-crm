@@ -1148,6 +1148,171 @@ export const CRM_FIELD_ONTOLOGY: CRMFieldDefinition[] = [
   },
 ];
 
+// ============================================================================
+// SECTION HEADING DETECTION - Identify document sections and their entities
+// Used to determine context for ambiguous field labels like "trvalé bydlisko"
+// ============================================================================
+
+export interface SectionHeading {
+  entity: "customer" | "father" | "mother" | "child" | "company" | "contract" | "witness";
+  keywords: {
+    sk: string[];
+    cz: string[];
+    hu: string[];
+    ro: string[];
+    it: string[];
+    de: string[];
+    en: string[];
+  };
+}
+
+export const SECTION_HEADINGS: SectionHeading[] = [
+  {
+    entity: "customer",
+    keywords: {
+      sk: ["údaje o objednávateľovi", "údaje objednávateľa", "objednávateľ", "klient", "klientka", "zákazník", "rodička", "osobné údaje klienta", "údaje o rodičke", "údaje rodičky", "údaje o klientke", "zmluvná strana", "zhotoviteľ"],
+      cz: ["údaje o objednateli", "objednatel", "klient", "klientka", "zákazník", "rodička", "osobní údaje klienta", "smluvní strana"],
+      hu: ["megrendelő adatai", "ügyfél adatai", "megrendelő", "ügyfél", "várandós anya", "szerződő fél"],
+      ro: ["datele comanditarului", "datele clientului", "comanditar", "client", "gravidă", "parte contractantă"],
+      it: ["dati del committente", "dati del cliente", "committente", "cliente", "gestante", "parte contraente"],
+      de: ["auftraggeber daten", "kundendaten", "auftraggeber", "kunde", "schwangere", "vertragspartei"],
+      en: ["customer data", "client data", "customer", "client", "pregnant woman", "contracting party", "orderer"]
+    }
+  },
+  {
+    entity: "father",
+    keywords: {
+      sk: ["údaje o otcovi", "údaje otca", "otec dieťaťa", "otec", "manžel", "partner"],
+      cz: ["údaje o otci", "otec dítěte", "otec", "manžel", "partner"],
+      hu: ["apa adatai", "az apa adatai", "apa", "férj", "partner"],
+      ro: ["datele tatălui", "tatăl", "soț", "partener"],
+      it: ["dati del padre", "padre", "marito", "partner"],
+      de: ["daten des vaters", "vater", "ehemann", "partner"],
+      en: ["father data", "father details", "father", "husband", "partner"]
+    }
+  },
+  {
+    entity: "mother",
+    keywords: {
+      sk: ["údaje o matke", "údaje matky", "matka dieťaťa", "matka", "manželka"],
+      cz: ["údaje o matce", "matka dítěte", "matka", "manželka"],
+      hu: ["anya adatai", "az anya adatai", "anya", "feleség"],
+      ro: ["datele mamei", "mama", "soție"],
+      it: ["dati della madre", "madre", "moglie"],
+      de: ["daten der mutter", "mutter", "ehefrau"],
+      en: ["mother data", "mother details", "mother", "wife"]
+    }
+  },
+  {
+    entity: "child",
+    keywords: {
+      sk: ["údaje o dieťati", "údaje dieťaťa", "dieťa", "novorodenec", "novorodeniatko", "bábätko"],
+      cz: ["údaje o dítěti", "dítě", "novorozenec", "miminko"],
+      hu: ["gyermek adatai", "gyermek", "újszülött", "baba"],
+      ro: ["datele copilului", "copil", "nou-născut"],
+      it: ["dati del bambino", "bambino", "neonato"],
+      de: ["daten des kindes", "kind", "neugeborenes", "baby"],
+      en: ["child data", "child details", "child", "newborn", "baby"]
+    }
+  },
+  {
+    entity: "company",
+    keywords: {
+      sk: ["údaje o spoločnosti", "spoločnosť", "poskytovateľ", "dodávateľ", "zhotoviteľ"],
+      cz: ["údaje o společnosti", "společnost", "poskytovatel", "dodavatel"],
+      hu: ["cég adatai", "társaság", "szolgáltató", "szállító"],
+      ro: ["datele companiei", "companie", "furnizor"],
+      it: ["dati della società", "società", "fornitore"],
+      de: ["firmendaten", "unternehmen", "anbieter", "lieferant"],
+      en: ["company data", "company details", "company", "provider", "supplier"]
+    }
+  },
+  {
+    entity: "witness",
+    keywords: {
+      sk: ["svedok", "svedkovia", "prítomní svedkovia"],
+      cz: ["svědek", "svědci", "přítomní svědci"],
+      hu: ["tanú", "tanúk"],
+      ro: ["martor", "martori"],
+      it: ["testimone", "testimoni"],
+      de: ["zeuge", "zeugen"],
+      en: ["witness", "witnesses"]
+    }
+  }
+];
+
+// Detect sections in document text and their line ranges
+export interface DetectedSection {
+  entity: "customer" | "father" | "mother" | "child" | "company" | "contract" | "witness";
+  startLine: number;
+  endLine: number;
+  headingText: string;
+}
+
+export function detectDocumentSections(text: string): DetectedSection[] {
+  const lines = text.split('\n');
+  const sections: DetectedSection[] = [];
+  
+  // Flatten all keywords for matching
+  const keywordToEntity: Record<string, DetectedSection['entity']> = {};
+  for (const heading of SECTION_HEADINGS) {
+    for (const lang of Object.keys(heading.keywords) as Array<keyof typeof heading.keywords>) {
+      for (const kw of heading.keywords[lang]) {
+        keywordToEntity[kw.toLowerCase()] = heading.entity;
+      }
+    }
+  }
+  
+  // Find section headings
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].toLowerCase().trim();
+    if (line.length < 3) continue;
+    
+    // Check against all keywords
+    for (const [keyword, entity] of Object.entries(keywordToEntity)) {
+      if (line.includes(keyword)) {
+        sections.push({
+          entity,
+          startLine: i,
+          endLine: lines.length - 1, // Will be updated when next section is found
+          headingText: lines[i].trim()
+        });
+        break;
+      }
+    }
+  }
+  
+  // Update end lines based on next section
+  for (let i = 0; i < sections.length - 1; i++) {
+    sections[i].endLine = sections[i + 1].startLine - 1;
+  }
+  
+  return sections;
+}
+
+// Get entity for a specific line based on detected sections
+export function getEntityForLine(sections: DetectedSection[], lineIndex: number): DetectedSection['entity'] | null {
+  for (const section of sections) {
+    if (lineIndex >= section.startLine && lineIndex <= section.endLine) {
+      return section.entity;
+    }
+  }
+  return null;
+}
+
+// Generate section context for AI prompt
+export function getSectionHeadingsForAIPrompt(): string {
+  let result = "";
+  for (const heading of SECTION_HEADINGS) {
+    const examples = [
+      ...heading.keywords.sk.slice(0, 3),
+      ...heading.keywords.en.slice(0, 1)
+    ].join(", ");
+    result += `\n- ${heading.entity.toUpperCase()}: ${examples}`;
+  }
+  return result;
+}
+
 // Build a flat lookup table for fast matching
 const buildLabelLookup = (): Record<string, string> => {
   const lookup: Record<string, string> = {};
