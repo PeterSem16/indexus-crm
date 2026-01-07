@@ -49,8 +49,9 @@ export function SuperDocEditor({
       }
 
       const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      setDocxBlobUrl(url);
+      const file = new File([blob], `template_${countryCode}.docx`, {
+        type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      });
 
       if (superDocInstance.current) {
         superDocInstance.current.destroy?.();
@@ -65,7 +66,11 @@ export function SuperDocEditor({
         superDocInstance.current = new SuperDoc({
           selector: containerRef.current,
           toolbar: toolbarRef.current,
-          document: url,
+          documents: [{
+            id: `template-${categoryId}-${countryCode}`,
+            type: "docx",
+            data: file
+          }],
           documentMode: "editing",
           rulers: true,
           onReady: (event: any) => {
