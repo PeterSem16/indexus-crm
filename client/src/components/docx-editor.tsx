@@ -4,15 +4,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { 
   FileText, Eye, Plus, Trash2, Loader2, Check, RefreshCw, 
-  Search, Sparkles, Download, ToggleLeft, ToggleRight 
+  Search, Sparkles, Download, ToggleLeft, ToggleRight, BookOpen
 } from "lucide-react";
+import { VariableBrowser } from "./variable-browser";
 
 interface DocxEditorProps {
   categoryId: number;
@@ -21,44 +21,6 @@ interface DocxEditorProps {
   onSave?: () => void;
 }
 
-const CUSTOMER_FIELDS = [
-  { group: "Základné údaje", fields: [
-    { key: "customer.fullName", label: "Celé meno klienta" },
-    { key: "customer.firstName", label: "Meno" },
-    { key: "customer.lastName", label: "Priezvisko" },
-    { key: "customer.birthDate", label: "Dátum narodenia" },
-    { key: "customer.personalId", label: "Rodné číslo" },
-    { key: "customer.email", label: "Email" },
-    { key: "customer.phone", label: "Telefón" },
-  ]},
-  { group: "Adresa", fields: [
-    { key: "customer.street", label: "Ulica a číslo" },
-    { key: "customer.city", label: "Mesto" },
-    { key: "customer.postalCode", label: "PSČ" },
-    { key: "customer.country", label: "Krajina" },
-    { key: "customer.fullAddress", label: "Celá adresa" },
-  ]},
-  { group: "Partner", fields: [
-    { key: "partner.fullName", label: "Meno partnera" },
-    { key: "partner.birthDate", label: "Dátum narodenia partnera" },
-    { key: "partner.personalId", label: "Rodné číslo partnera" },
-    { key: "partner.phone", label: "Telefón partnera" },
-  ]},
-  { group: "Zmluva", fields: [
-    { key: "contract.number", label: "Číslo zmluvy" },
-    { key: "contract.date", label: "Dátum zmluvy" },
-    { key: "contract.validFrom", label: "Platnosť od" },
-    { key: "contract.validTo", label: "Platnosť do" },
-  ]},
-  { group: "Spoločnosť", fields: [
-    { key: "company.name", label: "Názov spoločnosti" },
-    { key: "company.ico", label: "IČO" },
-    { key: "company.dic", label: "DIČ" },
-    { key: "company.icDph", label: "IČ DPH" },
-    { key: "company.address", label: "Adresa spoločnosti" },
-    { key: "company.bankAccount", label: "Bankový účet" },
-  ]},
-];
 
 export function DocxEditor({ categoryId, countryCode, onClose, onSave }: DocxEditorProps) {
   const { toast } = useToast();
@@ -72,7 +34,6 @@ export function DocxEditor({ categoryId, countryCode, onClose, onSave }: DocxEdi
   const [insertDialogOpen, setInsertDialogOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [newPlaceholder, setNewPlaceholder] = useState("");
-  const [selectedCrmField, setSelectedCrmField] = useState("");
   const [inserting, setInserting] = useState(false);
   
   const loadHtmlContent = async () => {
@@ -128,8 +89,7 @@ export function DocxEditor({ categoryId, countryCode, onClose, onSave }: DocxEdi
           credentials: "include",
           body: JSON.stringify({
             searchText: searchText.trim(),
-            placeholder: newPlaceholder.trim(),
-            crmField: selectedCrmField || undefined
+            placeholder: newPlaceholder.trim()
           })
         }
       );
@@ -152,7 +112,6 @@ export function DocxEditor({ categoryId, countryCode, onClose, onSave }: DocxEdi
       setInsertDialogOpen(false);
       setSearchText("");
       setNewPlaceholder("");
-      setSelectedCrmField("");
       
       await loadHtmlContent();
       
@@ -232,49 +191,79 @@ export function DocxEditor({ categoryId, countryCode, onClose, onSave }: DocxEdi
           )}
         </div>
         
-        <div className="w-80 border-l overflow-auto">
-          <div className="p-4">
-            <h4 className="font-medium mb-3">Nájdené premenné ({extractedFields.length})</h4>
+        <div className="w-96 border-l flex flex-col overflow-hidden">
+          <Tabs defaultValue="registry" className="flex flex-col h-full">
+            <TabsList className="mx-2 mt-2 flex-shrink-0">
+              <TabsTrigger value="registry" className="flex-1" data-testid="tab-registry">
+                <BookOpen className="h-4 w-4 mr-1" />
+                Register
+              </TabsTrigger>
+              <TabsTrigger value="found" className="flex-1" data-testid="tab-found">
+                <Search className="h-4 w-4 mr-1" />
+                Nájdené ({extractedFields.length})
+              </TabsTrigger>
+            </TabsList>
             
-            {extractedFields.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Žiadne premenné neboli nájdené. Kliknite na "Pridať premennú" pre manuálne vloženie.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {extractedFields.map((field, idx) => (
-                  <div key={idx} className="p-2 bg-muted rounded-md">
-                    <Badge variant="outline" className="font-mono text-xs mb-1">
-                      {`{{${field}}}`}
-                    </Badge>
-                    {placeholderMappings[`{{${field}}}`] && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Mapované na: {placeholderMappings[`{{${field}}}`]}
-                      </p>
-                    )}
+            <TabsContent value="registry" className="flex-1 m-0 overflow-hidden">
+              <VariableBrowser
+                onInsertVariable={(key) => {
+                  setNewPlaceholder(key);
+                  setInsertDialogOpen(true);
+                }}
+                onCopyVariable={(key) => {
+                  toast({
+                    title: "Skopírované",
+                    description: `{{${key}}} bolo skopírované do schránky`
+                  });
+                }}
+              />
+            </TabsContent>
+            
+            <TabsContent value="found" className="flex-1 m-0 overflow-auto">
+              <div className="p-4">
+                <h4 className="font-medium mb-3">Nájdené premenné</h4>
+                
+                {extractedFields.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Žiadne premenné neboli nájdené. Vyberte premennú z registra pre manuálne vloženie.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {extractedFields.map((field, idx) => (
+                      <div key={idx} className="p-2 bg-muted rounded-md">
+                        <Badge variant="outline" className="font-mono text-xs mb-1">
+                          {`{{${field}}}`}
+                        </Badge>
+                        {placeholderMappings[`{{${field}}}`] && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Mapované na: {placeholderMappings[`{{${field}}}`]}
+                          </p>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
-            
-            <div className="mt-6">
-              <h4 className="font-medium mb-3">Legenda</h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="inline-block px-2 py-1 rounded text-xs" style={{ background: '#fff3cd', color: '#856404' }}>
-                    {"{{premenná}}"}
-                  </span>
-                  <span className="text-muted-foreground">Premenná v šablóne</span>
+                )}
+                
+                <div className="mt-6">
+                  <h4 className="font-medium mb-3">Legenda</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block px-2 py-1 rounded text-xs" style={{ background: '#fff3cd', color: '#856404' }}>
+                        {"{{premenná}}"}
+                      </span>
+                      <span className="text-muted-foreground">Premenná v šablóne</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block px-2 py-1 rounded text-xs" style={{ background: '#d4edda' }}>
+                        Ján Novák
+                      </span>
+                      <span className="text-muted-foreground">Vzorová hodnota</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="inline-block px-2 py-1 rounded text-xs" style={{ background: '#d4edda' }}>
-                    Ján Novák
-                  </span>
-                  <span className="text-muted-foreground">Vzorová hodnota</span>
-                </div>
               </div>
-            </div>
-          </div>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
       
@@ -311,35 +300,14 @@ export function DocxEditor({ categoryId, countryCode, onClose, onSave }: DocxEdi
                 onChange={(e) => setNewPlaceholder(e.target.value)}
                 data-testid="input-placeholder-name"
               />
-            </div>
-            
-            <div className="space-y-2">
-              <Label>Alebo vyberte z CRM polí</Label>
-              <Select value={selectedCrmField} onValueChange={(value) => {
-                setSelectedCrmField(value);
-                if (value && value !== "__none__") {
-                  setNewPlaceholder(value);
-                }
-              }}>
-                <SelectTrigger data-testid="select-crm-field">
-                  <SelectValue placeholder="Vyberte CRM pole..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">-- Vlastný názov --</SelectItem>
-                  {CUSTOMER_FIELDS.map(group => (
-                    <div key={group.group}>
-                      <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted">
-                        {group.group}
-                      </div>
-                      {group.fields.map(f => (
-                        <SelectItem key={f.key} value={f.key}>
-                          {f.label}
-                        </SelectItem>
-                      ))}
-                    </div>
-                  ))}
-                </SelectContent>
-              </Select>
+              {newPlaceholder && (
+                <Badge variant="outline" className="font-mono">
+                  {`{{${newPlaceholder}}}`}
+                </Badge>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Premennú môžete vybrať z registra v pravom paneli
+              </p>
             </div>
           </div>
           
