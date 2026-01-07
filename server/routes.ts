@@ -8443,6 +8443,71 @@ Odpovedz v JSON formáte:
     }
   });
   
+  // Upload new DOCX file directly to template (for step 3 workflow)
+  app.post("/api/contracts/categories/:categoryId/default-templates/:countryCode", requireAuth, uploadDocxMemory.single("docxFile"), async (req, res) => {
+    try {
+      const categoryId = parseInt(req.params.categoryId);
+      const countryCode = req.params.countryCode.toUpperCase();
+      
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+      
+      // Get existing template
+      let template = await storage.getCategoryDefaultTemplate(categoryId, countryCode);
+      
+      // Create directory for the template
+      const templateDir = path.join(process.cwd(), "uploads", "contract-templates", String(categoryId), countryCode);
+      if (!fs.existsSync(templateDir)) {
+        fs.mkdirSync(templateDir, { recursive: true });
+      }
+      
+      // Save the uploaded DOCX file
+      const timestamp = Date.now();
+      const docxFilename = `template-${timestamp}.docx`;
+      const docxPath = path.join(templateDir, docxFilename);
+      fs.writeFileSync(docxPath, req.file.buffer);
+      const relativeDocxPath = docxPath.replace(process.cwd() + "/", "");
+      
+      // Extract placeholders from the new DOCX
+      let extractedFields: string[] = [];
+      try {
+        const { extractDocxPlaceholders } = await import("./template-processor");
+        extractedFields = await extractDocxPlaceholders(docxPath);
+      } catch (e) {
+        console.warn("Failed to extract placeholders:", e);
+      }
+      
+      if (template) {
+        // Update existing template
+        await storage.updateCategoryDefaultTemplate(template.id, {
+          sourceDocxPath: relativeDocxPath,
+          extractedFields: JSON.stringify(extractedFields),
+        });
+      } else {
+        // Create new template
+        template = await storage.createCategoryDefaultTemplate({
+          categoryId,
+          countryCode,
+          templateType: "docx",
+          sourceDocxPath: relativeDocxPath,
+          originalDocxPath: relativeDocxPath,
+          extractedFields: JSON.stringify(extractedFields),
+        });
+      }
+      
+      res.json({ 
+        success: true, 
+        message: "Šablóna bola úspešne nahraná",
+        sourceDocxPath: relativeDocxPath,
+        extractedFields
+      });
+    } catch (error: any) {
+      console.error("Error uploading DOCX template:", error);
+      res.status(500).json({ error: error.message || "Chyba pri nahrávaní šablóny" });
+    }
+  });
+  
   // Get raw DOCX file for SuperDoc editor
   app.get("/api/contracts/categories/:categoryId/default-templates/:countryCode/docx", requireAuth, async (req, res) => {
     try {
