@@ -1432,14 +1432,18 @@ export function detectFillFieldReplacements(text: string): FillFieldReplacement[
       // Find the appropriate placeholder for this label
       const placeholder = findPlaceholderForLabel(label);
       
-      if (placeholder && !usedPlaceholders.has(placeholder)) {
-        usedPlaceholders.add(placeholder);
-        replacements.push({
-          original: fillMarker,
-          placeholder: placeholder,
-          label: label,
-          lineIndex: i
-        });
+      if (placeholder) {
+        // Create unique key combining placeholder + line to allow same field in different sections
+        const uniqueKey = `${placeholder}_line${i}`;
+        if (!usedPlaceholders.has(uniqueKey)) {
+          usedPlaceholders.add(uniqueKey);
+          replacements.push({
+            original: fillMarker,
+            placeholder: placeholder,
+            label: label,
+            lineIndex: i
+          });
+        }
       }
     }
   }
