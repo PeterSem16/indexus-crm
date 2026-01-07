@@ -8187,11 +8187,12 @@ ${crmFieldsTable}
         }
       }
       
-      // Update template
+      // Update template - set aiProcessed so reset button appears
       await storage.updateCategoryDefaultTemplate(template.id, {
         sourceDocxPath: relativePath,
         extractedFields: JSON.stringify(foundPlaceholders),
-        placeholderMappings: JSON.stringify(mappings)
+        placeholderMappings: JSON.stringify(mappings),
+        aiProcessedAt: new Date().toISOString()
       });
       
       res.json({
@@ -8199,7 +8200,8 @@ ${crmFieldsTable}
         message: `Premenná {{${placeholder}}} bola vložená`,
         placeholder,
         extractedFields: foundPlaceholders,
-        placeholderMappings: mappings
+        placeholderMappings: mappings,
+        aiProcessed: true
       });
     } catch (error) {
       console.error("Error inserting placeholder:", error);
@@ -8301,26 +8303,6 @@ ${crmFieldsTable}
     }
   });
 
-  app.delete("/api/contracts/categories/:categoryId/default-templates/:countryCode", requireAuth, async (req, res) => {
-    try {
-      const categoryId = parseInt(req.params.categoryId);
-      const template = await storage.getCategoryDefaultTemplate(categoryId, req.params.countryCode);
-      if (!template) {
-        return res.status(404).json({ error: "Default template not found" });
-      }
-      
-      // Delete the source PDF file if it exists
-      if (template.sourcePdfPath && fs.existsSync(template.sourcePdfPath)) {
-        fs.unlinkSync(template.sourcePdfPath);
-      }
-      
-      await storage.deleteCategoryDefaultTemplate(template.id);
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error deleting category default template:", error);
-      res.status(500).json({ error: "Failed to delete category default template" });
-    }
-  });
 
   // Contract Templates
   app.get("/api/contracts/templates", requireAuth, async (req, res) => {
