@@ -2855,6 +2855,89 @@ export const insertContractAuditLogSchema = createInsertSchema(contractAuditLog)
 export type InsertContractAuditLog = z.infer<typeof insertContractAuditLogSchema>;
 export type ContractAuditLog = typeof contractAuditLog.$inferSelect;
 
+// ============================================
+// VARIABLE REGISTRY SYSTEM
+// Centralized management of all template variables
+// ============================================
+
+// Variable Blocks - Categories/groups of variables (customer, mother, father, company, etc.)
+export const variableBlocks = pgTable("variable_blocks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: varchar("code", { length: 50 }).notNull().unique(), // e.g., "customer", "mother", "father", "company"
+  displayName: text("display_name").notNull(), // Slovak display name
+  displayNameEn: text("display_name_en"), // English display name
+  description: text("description"),
+  icon: varchar("icon", { length: 50 }), // lucide icon name
+  priority: integer("priority").default(0), // For ordering in UI
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertVariableBlockSchema = createInsertSchema(variableBlocks).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertVariableBlock = z.infer<typeof insertVariableBlockSchema>;
+export type VariableBlock = typeof variableBlocks.$inferSelect;
+
+// Variables - All template variables from forms across the application
+export const variables = pgTable("variables", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  blockId: varchar("block_id").notNull(), // FK to variable_blocks
+  key: varchar("key", { length: 100 }).notNull(), // e.g., "customer.fullName", "mother.birthDate"
+  label: text("label").notNull(), // Slovak label
+  labelEn: text("label_en"), // English label
+  description: text("description"),
+  dataType: varchar("data_type", { length: 20 }).notNull().default("text"), // text, date, number, boolean, email, phone, address, iban
+  sourceForm: varchar("source_form", { length: 100 }), // Which form this variable comes from
+  example: text("example"), // Example value for preview
+  isComputed: boolean("is_computed").default(false), // Whether it's derived from other fields
+  computeExpression: text("compute_expression"), // For computed fields, the expression
+  isRequired: boolean("is_required").default(false),
+  isDeprecated: boolean("is_deprecated").default(false),
+  defaultValue: text("default_value"),
+  priority: integer("priority").default(0), // For ordering within block
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertVariableSchema = createInsertSchema(variables).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertVariable = z.infer<typeof insertVariableSchema>;
+export type Variable = typeof variables.$inferSelect;
+
+// Variable Keywords - Keywords that identify which block a document section belongs to
+export const variableKeywords = pgTable("variable_keywords", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  blockId: varchar("block_id").notNull(), // FK to variable_blocks
+  keyword: varchar("keyword", { length: 100 }).notNull(), // The keyword to match
+  locale: varchar("locale", { length: 5 }).notNull().default("sk"), // sk, cs, hu, ro, it, de, en
+  weight: integer("weight").default(1), // Higher weight = stronger match
+  isExact: boolean("is_exact").default(false), // Whether to match exactly or as substring
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertVariableKeywordSchema = createInsertSchema(variableKeywords).omit({ id: true, createdAt: true });
+export type InsertVariableKeyword = z.infer<typeof insertVariableKeywordSchema>;
+export type VariableKeyword = typeof variableKeywords.$inferSelect;
+
+// Variable Block Relations
+export const variableBlocksRelations = relations(variableBlocks, ({ many }) => ({
+  variables: many(variables),
+  keywords: many(variableKeywords),
+}));
+
+export const variablesRelations = relations(variables, ({ one }) => ({
+  block: one(variableBlocks, {
+    fields: [variables.blockId],
+    references: [variableBlocks.id],
+  }),
+}));
+
+export const variableKeywordsRelations = relations(variableKeywords, ({ one }) => ({
+  block: one(variableBlocks, {
+    fields: [variableKeywords.blockId],
+    references: [variableBlocks.id],
+  }),
+}));
+
 // Contract status enum for frontend use
 export const CONTRACT_STATUSES = [
   { value: "draft", label: "Draft", color: "gray" },
