@@ -2656,6 +2656,24 @@ export const insertContractCategoryDefaultTemplateSchema = createInsertSchema(co
 export type InsertContractCategoryDefaultTemplate = z.infer<typeof insertContractCategoryDefaultTemplateSchema>;
 export type ContractCategoryDefaultTemplate = typeof contractCategoryDefaultTemplates.$inferSelect;
 
+// Contract Template Versions - version history for template changes
+export const contractTemplateVersions = pgTable("contract_template_versions", {
+  id: serial("id").primaryKey(),
+  categoryId: integer("category_id").notNull(),
+  countryCode: varchar("country_code", { length: 2 }).notNull(),
+  versionNumber: integer("version_number").notNull().default(1),
+  docxFilePath: text("docx_file_path").notNull(),
+  htmlContent: text("html_content"),
+  changeDescription: text("change_description"),
+  createdBy: varchar("created_by"),
+  createdByName: text("created_by_name"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertContractTemplateVersionSchema = createInsertSchema(contractTemplateVersions).omit({ id: true, createdAt: true });
+export type InsertContractTemplateVersion = z.infer<typeof insertContractTemplateVersionSchema>;
+export type ContractTemplateVersion = typeof contractTemplateVersions.$inferSelect;
+
 // Contract Templates - reusable contract document templates
 export const contractTemplates = pgTable("contract_templates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -2677,24 +2695,6 @@ export const contractTemplates = pgTable("contract_templates", {
 export const insertContractTemplateSchema = createInsertSchema(contractTemplates).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertContractTemplate = z.infer<typeof insertContractTemplateSchema>;
 export type ContractTemplate = typeof contractTemplates.$inferSelect;
-
-// Contract Template Versions - version history for templates
-export const contractTemplateVersions = pgTable("contract_template_versions", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  templateId: varchar("template_id").notNull(),
-  version: integer("version").notNull().default(1),
-  contentHtml: text("content_html").notNull(), // HTML content with Handlebars placeholders
-  variablesSchema: text("variables_schema"), // JSON schema for validating variables
-  changeNotes: text("change_notes"),
-  isPublished: boolean("is_published").notNull().default(false),
-  publishedAt: timestamp("published_at"),
-  publishedBy: varchar("published_by"),
-  createdAt: timestamp("created_at").notNull().default(sql`now()`),
-});
-
-export const insertContractTemplateVersionSchema = createInsertSchema(contractTemplateVersions).omit({ id: true, createdAt: true });
-export type InsertContractTemplateVersion = z.infer<typeof insertContractTemplateVersionSchema>;
-export type ContractTemplateVersion = typeof contractTemplateVersions.$inferSelect;
 
 // Contract Instances - actual contracts generated from templates
 export const contractInstances = pgTable("contract_instances", {
