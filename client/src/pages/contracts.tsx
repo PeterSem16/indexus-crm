@@ -1958,7 +1958,7 @@ export default function ContractsPage() {
                   
                   <div className="flex flex-col overflow-hidden border rounded-md">
                     <div className="p-3 border-b bg-muted/50 flex items-center justify-between gap-2 shrink-0">
-                      <h3 className="font-medium text-sm">Náhľad šablóny (PDF)</h3>
+                      <h3 className="font-medium text-sm">DOCX Editor</h3>
                       {templateForm.loadedCategoryId && (
                         <Button
                           size="sm"
@@ -1973,21 +1973,19 @@ export default function ContractsPage() {
                         </Button>
                       )}
                     </div>
-                    <div className="flex-1 bg-muted/20 overflow-hidden">
-                      {templatePreviewPdfUrl ? (
-                        <object
-                          key={templatePreviewPdfUrl}
-                          data={templatePreviewPdfUrl}
-                          type="application/pdf"
-                          className="w-full h-full"
-                        >
-                          <div className="flex items-center justify-center h-full text-muted-foreground">
-                            <p>PDF náhľad nie je dostupný</p>
-                          </div>
-                        </object>
+                    <div className="flex-1 overflow-hidden">
+                      {templateForm.loadedCategoryId ? (
+                        <DocxEditor
+                          categoryId={templateForm.loadedCategoryId}
+                          countryCode={templateForm.countryCode}
+                          onClose={() => {}}
+                          onSave={() => {
+                            handleLoadCategoryTemplate();
+                          }}
+                        />
                       ) : (
                         <div className="flex items-center justify-center h-full text-muted-foreground">
-                          <p>Načítajte šablónu pre zobrazenie náhľadu</p>
+                          <p>Načítajte šablónu pre zobrazenie editora</p>
                         </div>
                       )}
                     </div>
