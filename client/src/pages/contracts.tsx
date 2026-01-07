@@ -1987,10 +1987,19 @@ export default function ContractsPage() {
                                     
                                     const result = await response.json();
                                     
+                                    const newExtractedFields = result.replacements?.map((r: any) => r.placeholder) || result.extractedFields || [];
+                                    const autoMappings: Record<string, string> = {};
+                                    if (result.replacements) {
+                                      for (const r of result.replacements) {
+                                        autoMappings[r.placeholder] = r.placeholder;
+                                      }
+                                    }
+                                    
                                     setTemplateForm(prev => ({
                                       ...prev,
-                                      extractedFields: result.extractedFields || [],
-                                      sourceDocxPath: result.newDocxPath || prev.sourceDocxPath
+                                      extractedFields: newExtractedFields,
+                                      placeholderMappings: { ...prev.placeholderMappings, ...autoMappings },
+                                      sourceDocxPath: result.modifiedDocxPath || result.newDocxPath || prev.sourceDocxPath
                                     }));
                                     
                                     if (result.previewPdfPath) {
@@ -1999,7 +2008,7 @@ export default function ContractsPage() {
                                     
                                     toast({
                                       title: "AI vložilo premenné",
-                                      description: `Vložených ${result.extractedFields?.length || 0} premenných do dokumentu`
+                                      description: `Vložených ${newExtractedFields.length} premenných - mapovania boli nastavené`
                                     });
                                   } catch (error: any) {
                                     console.error("AI insert error:", error);
@@ -4138,14 +4147,22 @@ export default function ContractsPage() {
                                     const result = await response.json();
                                     
                                     if (result.replacements && result.replacements.length > 0) {
+                                      const extractedFields = result.replacements.map((r: any) => `{{${r.placeholder}}}`);
+                                      const autoMappings: Record<string, string> = {};
+                                      for (const r of result.replacements) {
+                                        const templateField = `{{${r.placeholder}}}`;
+                                        autoMappings[templateField] = r.placeholder;
+                                      }
+                                      
                                       toast({
                                         title: "AI vložilo premenné",
-                                        description: result.message || `Vložených ${result.replacements.length} premenných`
+                                        description: result.message || `Vložených ${result.replacements.length} premenných - mapovania boli automaticky nastavené`
                                       });
                                       
                                       setEditingTemplateData(prev => prev ? {
                                         ...prev,
-                                        extractedFields: result.replacements.map((r: any) => r.placeholder),
+                                        extractedFields: extractedFields,
+                                        mappings: autoMappings,
                                         sourcePath: result.modifiedDocxPath || prev.sourcePath
                                       } : null);
                                       

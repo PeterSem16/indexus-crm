@@ -7377,44 +7377,59 @@ Odpovedz v JSON formáte:
 | today | Dnešný dátum | 7.1.2026 |
 `;
 
-      const prompt = `Si expert na analýzu právnych dokumentov a zmlúv. Analyzuj tento dokument a identifikuj konkrétne textové hodnoty, ktoré by mali byť nahradené premennými zo systému CRM.
+      const prompt = `Si expert na analýzu právnych dokumentov a zmlúv pre cord blood banky. Analyzuj tento dokument a nájdi VŠETKY konkrétne hodnoty na nahradenie.
 
 ## TEXT DOKUMENTU:
-${fullText.substring(0, 10000)}
+${fullText.substring(0, 12000)}
 
 ## DOSTUPNÉ CRM PREMENNÉ:
 ${crmFieldsTable}
 
-## TVOJA ÚLOHA:
-1. Pozorne prečítaj celý text dokumentu
-2. Identifikuj KONKRÉTNE hodnoty (mená, adresy, dátumy, čísla), ktoré predstavujú údaje zákazníka, spoločnosti alebo zmluvy
-3. Pre KAŽDÝ výskyt takejto hodnoty urči správnu CRM premennú
+## KONTROLNÝ ZOZNAM - HĽADAJ TIETO KATEGÓRIE:
 
-## KRITICKÉ PRAVIDLÁ:
-1. **KAŽDÁ hodnota len RAZ** - Ak sa rovnaká hodnota (napr. "Jana Nováková") objaví v texte viackrát, pridaj ju do replacements len RAZ. Systém nahradí všetky výskyty automaticky.
-2. **NIKDY neopakuj rovnakú premennú za sebou** - V dokumente nemôže byť {{customer.fullName}}{{customer.fullName}}
-3. **Original musí byť PRESNÝ text** z dokumentu - skopíruj presne ako je v texte, vrátane medzier a diakritiky
-4. **Ignoruj právny text** - Nehľadaj premenné vo všeobecných právnych formuláciách
-5. **Použi LEN premenné z tabuľky** - Nevymýšľaj vlastné názvy premenných
+### 1. ZÁKAZNÍK (customer.*)
+- [ ] Celé meno zákazníka (customer.fullName) - napr. "Jana Nováková"
+- [ ] Adresa zákazníka (customer.permanentAddress) - napr. "Hlavná 123, 831 01 Bratislava"
+- [ ] Dátum narodenia (customer.birthDate) - napr. "15.03.1990"
+- [ ] Rodné číslo (customer.personalId) - napr. "900315/1234"
+- [ ] Telefón (customer.phone), Email (customer.email)
+- [ ] IBAN účet (customer.IBAN)
 
-## PRÍKLADY SPRÁVNYCH NAHRADENÍ:
-- "Jana Nováková" → customer.fullName (meno zákazníka)
-- "Hlavná 123, 831 01 Bratislava" → customer.permanentAddress (adresa)
-- "15.03.1990" → customer.birthDate (dátum narodenia)
-- "ZML-2026-0001" → contract.number (číslo zmluvy)
+### 2. RODIČIA (father.*, mother.*)
+- [ ] Meno otca (father.fullName) a jeho adresa (father.permanentAddress)
+- [ ] Meno matky (mother.fullName) a jej adresa (mother.permanentAddress)
 
-## PRÍKLADY NESPRÁVNYCH NAHRADENÍ:
-- NIE: Nahrádzať "Zmluva" alebo "zákazník" (všeobecné slová)
-- NIE: Vymýšľať premenné ako "customer.nationality" (nie je v zozname)
-- NIE: Duplikovať rovnakú hodnotu viackrát
+### 3. SPOLOČNOSŤ (company.*)
+- [ ] Názov spoločnosti (company.name) - napr. "Cord Blood Center"
+- [ ] Adresa spoločnosti (company.address)
+- [ ] IČO (company.identificationNumber), DIČ (company.taxIdentificationNumber)
 
-Odpovedz VÝLUČNE v tomto JSON formáte:
+### 4. ZMLUVA (contract.*)
+- [ ] Číslo zmluvy (contract.number) - napr. "ZML-2024-0001"
+- [ ] Dátum zmluvy/podpisu (contract.date) - napr. "1.1.2026"
+- [ ] Platnosť od/do (contract.validFrom, contract.validTo)
+
+### 5. INÉ
+- [ ] Meno zástupcu (representative.fullName)
+- [ ] Dieťa (child.fullName, child.birthDate)
+- [ ] Dnešný dátum (today)
+
+## PRAVIDLÁ:
+1. Každú UNIKÁTNU textovú hodnotu uveď len RAZ (systém nahradí všetky výskyty)
+2. Použi PRESNÝ text z dokumentu vrátane diakritiky
+3. Tá istá premenná môže byť použitá pre RÔZNE textové hodnoty (napr. meno otca aj matky môžu byť rôzne osoby)
+4. Hľadaj 10-20 polí typicky - zmluvy majú veľa údajov
+5. Ignoruj všeobecné právne frázy a nadpisy
+
+## FORMÁT ODPOVEDE (JSON):
 {
   "replacements": [
-    { "original": "Jana Nováková", "placeholder": "customer.fullName", "reason": "Celé meno zákazníka" },
-    { "original": "01.01.2026", "placeholder": "contract.date", "reason": "Dátum podpisu zmluvy" }
+    { "original": "Jana Nováková", "placeholder": "customer.fullName", "reason": "Meno zákazníka" },
+    { "original": "Peter Novák", "placeholder": "father.fullName", "reason": "Meno otca" },
+    { "original": "Mária Nováková", "placeholder": "mother.fullName", "reason": "Meno matky" },
+    { "original": "Hlavná 123, 831 01 Bratislava", "placeholder": "customer.permanentAddress", "reason": "Adresa zákazníka" }
   ],
-  "summary": "Identifikovaných X unikátnych polí na nahradenie"
+  "summary": "Identifikovaných X polí"
 }`;
 
       console.log("[AI] Analyzing document for placeholder insertion...");
@@ -7460,7 +7475,6 @@ Odpovedz VÝLUČNE v tomto JSON formáte:
       ]);
       
       const seenOriginals = new Set<string>();
-      const seenPlaceholders = new Set<string>();
       const validatedReplacements: Array<{ original: string; placeholder: string; reason: string }> = [];
       
       for (const r of aiResult.replacements) {
@@ -7476,13 +7490,8 @@ Odpovedz VÝLUČNE v tomto JSON formáte:
           continue;
         }
         
-        if (seenOriginals.has(original)) {
+        if (seenOriginals.has(original.toLowerCase())) {
           console.log(`[AI] Skipping duplicate original: "${original}"`);
-          continue;
-        }
-        
-        if (seenPlaceholders.has(placeholder)) {
-          console.log(`[AI] Skipping duplicate placeholder: ${placeholder}`);
           continue;
         }
         
@@ -7491,8 +7500,7 @@ Odpovedz VÝLUČNE v tomto JSON formáte:
           continue;
         }
         
-        seenOriginals.add(original);
-        seenPlaceholders.add(placeholder);
+        seenOriginals.add(original.toLowerCase());
         validatedReplacements.push({
           original,
           placeholder,
