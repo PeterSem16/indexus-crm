@@ -7364,190 +7364,227 @@ Odpovedz v JSON formáte:
         return res.status(400).json({ error: "Document is too short for analysis" });
       }
       
-      // Import the AI prompt helpers including section detection
-      const { getCRMFieldsForAIPrompt, CRM_FIELD_ONTOLOGY, detectDocumentSections, getSectionHeadingsForAIPrompt, getEntityForLine } = await import("./template-processor");
+      // Import section detection for context-aware mapping (NO AI - pure deterministic)
+      const { detectDocumentSections, getEntityForLine } = await import("./template-processor");
       
       // Get fill-field detection for pattern-based matches
       const fillFieldReplacements = detectFillFieldReplacements(fullText);
-      console.log(`[Pattern] Detection found ${fillFieldReplacements.length} markers via pattern matching`);
+      console.log(`[Deterministický] Detekcia našla ${fillFieldReplacements.length} markerov`);
       
       // Detect document sections for context
       const detectedSections = detectDocumentSections(fullText);
-      console.log(`[Sections] Detected ${detectedSections.length} sections:`, detectedSections.map(s => `${s.entity} (lines ${s.startLine}-${s.endLine})`).join(", "));
-      
-      // Build CRM fields catalog for AI
-      const crmFieldsCatalog = getCRMFieldsForAIPrompt();
-      const sectionHeadingsCatalog = getSectionHeadingsForAIPrompt();
-      
-      // Get full document text with line numbers for AI context
-      const lines = fullText.split('\n');
-      const numberedLines = lines.map((line, i) => `${i + 1}: ${line}`).join('\n');
-      
-      // Truncate if too long, prioritizing header and signature sections
-      let documentContext: string;
-      if (numberedLines.length > 15000) {
-        const headerPart = lines.slice(0, 80).map((line, i) => `${i + 1}: ${line}`).join('\n');
-        const signaturePart = lines.slice(-80).map((line, i) => `${lines.length - 80 + i + 1}: ${line}`).join('\n');
-        documentContext = `### HLAVIČKA (riadky 1-80):\n${headerPart}\n\n### ZÁVER (posledných 80 riadkov):\n${signaturePart}`;
-      } else {
-        documentContext = numberedLines;
+      console.log(`[Sekcie] Detekovaných ${detectedSections.length} sekcií:`);
+      for (const s of detectedSections) {
+        console.log(`  - ${s.entity.toUpperCase()}: riadky ${s.startLine + 1}-${s.endLine + 1} ("${s.headingText.substring(0, 40)}...")`);
       }
       
-      // Build section context string
-      const sectionContextStr = detectedSections.length > 0
-        ? detectedSections.map(s => `- Riadky ${s.startLine + 1}-${s.endLine + 1}: ${s.entity.toUpperCase()} ("${s.headingText.substring(0, 50)}")`).join('\n')
-        : "Sekcie neboli automaticky detekované - analyzuj dokument a urči kontext.";
+      // ============================================================================
+      // DETERMINISTICKÉ MAPOVANIE - BEZ AI, ČISTO NA ZÁKLADE PRAVIDIEL
+      // ============================================================================
       
-      // Build the TWO-PHASE AI prompt with section-first analysis
-      const aiPrompt = `Si SENIOR expert na analýzu právnych dokumentov pre cord blood banking spoločnosti INDEXUS.
-Tvoja úloha je PRESNE a KONTEXTOVO SPRÁVNE analyzovať zmluvu a priradiť polia k SPRÁVNYM osobám.
-
-## KRITICKÉ PRAVIDLO - DVOJFÁZOVÁ ANALÝZA:
-
-### FÁZA 1: IDENTIFIKUJ SEKCIE DOKUMENTU
-Najprv MUSÍŠ identifikovať, ktoré časti dokumentu sa týkajú ktorej osoby:
-${sectionHeadingsCatalog}
-
-### AUTOMATICKY DETEKOVANÉ SEKCIE:
-${sectionContextStr}
-
-### FÁZA 2: MAPUJ POLIA PODĽA SEKCIE
-Keď nájdeš pole ako "trvalé bydlisko:", MUSÍŠ sa pozrieť, V KTOREJ SEKCII sa nachádza:
-- Ak je v sekcii CUSTOMER/OBJEDNÁVATEĽ → customer.permanentAddress
-- Ak je v sekcii FATHER/OTEC → father.permanentAddress  
-- Ak je v sekcii MOTHER/MATKA → mother.permanentAddress
-- Ak je v sekcii CHILD/DIEŤA → child.birthPlace
-
-## DOKUMENT S ČÍSLAMI RIADKOV:
-${documentContext}
-
-## DOSTUPNÉ CRM PREMENNÉ:
-${crmFieldsCatalog}
-
-## PRAVIDLÁ MAPOVANIA:
-
-1. **KONTEXT JE KRÁĽ** - Pole "rodné číslo:" môže byť:
-   - customer.personalId (ak je v sekcii objednávateľa)
-   - father.personalId (ak je v sekcii otca)
-   - mother.personalId (ak je v sekcii matky)
-   
-2. **ROZPOZNAJ ŠTRUKTÚRU** - Dokumenty majú typicky tieto sekcie:
-   - Hlavička so zmluvnými stranami
-   - Údaje o rodičke/objednávateľovi
-   - Údaje o otcovi dieťaťa
-   - Údaje o dieťati (po narodení)
-   - Podpisy
-
-3. **HĽADAJ VZORY VYPLŇOVANIA**:
-   - Text s dvojbodkou a bodkami/podčiarknutiami: "Meno: ........"
-   - Prázdne polia: "_____________"
-   - Zátvorky na vyplnenie: "(doplniť)"
-
-4. **JAZYKY**: SK, CZ, HU, RO, IT, DE, EN - rozpoznaj jazyk automaticky.
-
-## FORMÁT VÝSTUPU (JSON):
-{
-  "language": "sk|cz|hu|ro|it|de|en",
-  "documentType": "typ dokumentu",
-  "sections": [
-    {
-      "entity": "customer|father|mother|child|company",
-      "lineRange": "1-50",
-      "description": "Sekcia obsahujúca údaje o..."
-    }
-  ],
-  "suggestions": [
-    {
-      "label": "presný text etikety (napr. 'Trvalé bydlisko:')",
-      "placeholder": "father.permanentAddress",
-      "sectionEntity": "father",
-      "lineNumber": 25,
-      "context": "V sekcii 'Údaje o otcovi dieťaťa', riadok 25",
-      "confidence": 0.95
-    }
-  ],
-  "unmatchedLabels": ["etikety bez mapovania"],
-  "summary": "zhrnutie"
-}
-
-## PRÍKLADY SPRÁVNEHO MAPOVANIA:
-
-PRÍKLAD 1 - Dokument s troma osobami:
-- Riadok 5: "Objednávateľka: pani ........" → customer.fullName (sekcia customer)
-- Riadok 10: "trvale bytom: ........" → customer.permanentAddress (stále sekcia customer)
-- Riadok 20: "Otec dieťaťa:" (začína sekcia father)
-- Riadok 22: "Meno: ........" → father.fullName (teraz sekcia father)
-- Riadok 24: "trvale bytom: ........" → father.permanentAddress (stále sekcia father)
-
-PRÍKLAD 2 - To isté pole v rôznych kontextoch:
-- "Rodné číslo:" v sekcii objednávateľky → customer.personalId
-- "Rodné číslo:" v sekcii otca → father.personalId
-- "Rodné číslo:" v sekcii dieťaťa → child.personalId
-
-DÔLEŽITÉ: Kvalita a SPRÁVNOSŤ mapovania podľa kontextu je kritická. Analyzuj STAROSTLIVO.`;
-
-      console.log("[AI] Starting intelligent TWO-PHASE document analysis with GPT-4o...");
+      // Polia, ktoré sa menia podľa sekcie (entity-dependent)
+      const ENTITY_DEPENDENT_FIELDS = [
+        'fullName', 'firstName', 'lastName', 'maidenName',
+        'birthDate', 'personalId', 'idCardNumber',
+        'permanentAddress', 'correspondenceAddress',
+        'phone', 'email', 'IBAN', 'birthPlace'
+      ];
       
-      let aiSuggestions: Array<{
-        label: string;
-        placeholder: string;
-        sectionEntity?: string;
-        lineNumber?: number;
-        context: string;
-        confidence: number;
-      }> = [];
-      
-      let aiSections: Array<{
-        entity: string;
-        lineRange: string;
-        description: string;
-      }> = [];
-      
-      try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { 
-              role: "system", 
-              content: "Si SENIOR expert na analýzu právnych dokumentov pre cord blood banking. Rozumieš viacerým jazykom (SK, CZ, HU, RO, IT, DE, EN). KRITICKÉ: Musíš analyzovať KONTEXT dokumentu - to isté pole (napr. 'trvalé bydlisko') patrí rôznym osobám v závislosti od sekcie dokumentu. Najprv identifikuj SEKCIE (klient, otec, matka, dieťa), potom mapuj polia podľa toho, v ktorej sekcii sa nachádzajú. Odpovedaj VÝHRADNE v JSON formáte." 
-            },
-            { role: "user", content: aiPrompt }
-          ],
-          response_format: { type: "json_object" },
-          temperature: 0.2,
-          max_tokens: 4000
-        });
+      // Mapovanie label → field type (SK, CZ, HU, RO, IT, DE, EN)
+      const LABEL_TO_FIELD_TYPE: Record<string, string> = {
+        // === MENO / NAME ===
+        // SK
+        'pani': 'fullName', 'pán': 'fullName', 'meno': 'fullName',
+        'meno a priezvisko': 'fullName', 'priezvisko': 'lastName',
+        'krstné meno': 'firstName', 'rodné meno': 'maidenName', 'rodné priezvisko': 'maidenName',
+        // CZ
+        'jméno': 'fullName', 'jméno a příjmení': 'fullName', 'příjmení': 'lastName',
+        'křestní jméno': 'firstName', 'rodné jméno': 'maidenName',
+        // HU
+        'név': 'fullName', 'teljes név': 'fullName', 'családi név': 'lastName',
+        'keresztnév': 'firstName', 'születési név': 'maidenName',
+        // RO
+        'nume': 'fullName', 'nume și prenume': 'fullName', 'prenume': 'firstName',
+        'nume de familie': 'lastName', 'nume de naștere': 'maidenName',
+        // IT
+        'nome': 'fullName', 'nome e cognome': 'fullName', 'cognome': 'lastName',
+        'nome di battesimo': 'firstName', 'nome da nubile': 'maidenName',
+        // DE
+        'name': 'fullName', 'vor- und nachname': 'fullName', 'nachname': 'lastName',
+        'vorname': 'firstName', 'geburtsname': 'maidenName',
+        // EN
+        'full name': 'fullName', 'surname': 'lastName', 'last name': 'lastName',
+        'first name': 'firstName', 'maiden name': 'maidenName',
         
-        const content = response.choices[0]?.message?.content;
-        if (content) {
-          const aiResult = JSON.parse(content);
-          aiSuggestions = aiResult.suggestions || [];
-          aiSections = aiResult.sections || [];
-          console.log(`[AI] Two-phase analysis complete:`);
-          console.log(`  - Language: ${aiResult.language}, Document: ${aiResult.documentType}`);
-          console.log(`  - Sections detected by AI: ${aiSections.length}`);
-          console.log(`  - Suggestions with context: ${aiSuggestions.length}`);
-          
-          // Log section details
-          for (const sec of aiSections) {
-            console.log(`    [Section] ${sec.entity}: lines ${sec.lineRange} - ${sec.description}`);
-          }
-          
-          // Log suggestions with their section context
-          for (const sug of aiSuggestions) {
-            console.log(`    [Field] "${sug.label}" → ${sug.placeholder} (section: ${sug.sectionEntity || 'unknown'}, line: ${sug.lineNumber || '?'}, conf: ${sug.confidence})`);
-          }
-          
-          if (aiResult.unmatchedLabels?.length > 0) {
-            console.log(`[AI] Unmatched labels: ${aiResult.unmatchedLabels.join(', ')}`);
-          }
-        }
-      } catch (aiError) {
-        console.error("[AI] Two-phase analysis failed, falling back to pattern detection:", aiError);
-      }
+        // === DÁTUM NARODENIA / BIRTH DATE ===
+        // SK
+        'dátum narodenia': 'birthDate', 'narodená': 'birthDate', 'narodený': 'birthDate',
+        'nar': 'birthDate', 'nar.': 'birthDate',
+        // CZ
+        'datum narození': 'birthDate', 'narozena': 'birthDate', 'narozen': 'birthDate',
+        // HU
+        'születési dátum': 'birthDate', 'született': 'birthDate',
+        // RO
+        'data nașterii': 'birthDate', 'născut': 'birthDate', 'născută': 'birthDate',
+        // IT
+        'data di nascita': 'birthDate', 'nato il': 'birthDate', 'nata il': 'birthDate',
+        // DE
+        'geburtsdatum': 'birthDate', 'geboren am': 'birthDate',
+        // EN
+        'date of birth': 'birthDate', 'dob': 'birthDate', 'born on': 'birthDate',
+        
+        // === RODNÉ ČÍSLO / PERSONAL ID ===
+        // SK
+        'rodné číslo': 'personalId', 'rč': 'personalId', 'r.č': 'personalId', 'r.č.': 'personalId',
+        // CZ
+        'rodné číslo': 'personalId',
+        // HU
+        'személyi szám': 'personalId', 'személyazonosító': 'personalId',
+        // RO
+        'cnp': 'personalId', 'cod numeric personal': 'personalId',
+        // IT
+        'codice fiscale': 'personalId', 'cf': 'personalId',
+        // DE
+        'personenkennzeichen': 'personalId', 'steuer-id': 'personalId',
+        // EN
+        'personal id': 'personalId', 'national id': 'personalId', 'ssn': 'personalId',
+        
+        // === ADRESA / ADDRESS ===
+        // SK
+        'trvalé bydlisko': 'permanentAddress', 'trvale bytom': 'permanentAddress',
+        'trvalý pobyt': 'permanentAddress', 'bytom': 'permanentAddress',
+        'adresa': 'permanentAddress', 's trvalým pobytom': 'permanentAddress', 'bydlisko': 'permanentAddress',
+        'korešpondenčná adresa': 'correspondenceAddress', 'doručovacia adresa': 'correspondenceAddress',
+        // CZ
+        'trvalé bydliště': 'permanentAddress', 'trvale bytem': 'permanentAddress',
+        'trvalý pobyt': 'permanentAddress', 'bytem': 'permanentAddress', 'korespondenční adresa': 'correspondenceAddress',
+        // HU
+        'állandó lakcím': 'permanentAddress', 'lakcím': 'permanentAddress',
+        'levelezési cím': 'correspondenceAddress',
+        // RO
+        'adresă': 'permanentAddress', 'domiciliu': 'permanentAddress',
+        'adresă de corespondență': 'correspondenceAddress',
+        // IT
+        'indirizzo': 'permanentAddress', 'residenza': 'permanentAddress',
+        'indirizzo di corrispondenza': 'correspondenceAddress',
+        // DE
+        'adresse': 'permanentAddress', 'wohnort': 'permanentAddress', 'wohnsitz': 'permanentAddress',
+        'postanschrift': 'correspondenceAddress',
+        // EN
+        'address': 'permanentAddress', 'permanent address': 'permanentAddress',
+        'mailing address': 'correspondenceAddress', 'correspondence address': 'correspondenceAddress',
+        
+        // === KONTAKT / CONTACT ===
+        // SK/CZ
+        'telefón': 'phone', 'tel': 'phone', 'tel.': 'phone', 'mobil': 'phone',
+        'email': 'email', 'e-mail': 'email',
+        // HU
+        'telefonszám': 'phone', 'telefon': 'phone',
+        // RO
+        'telefon': 'phone', 'nr. telefon': 'phone',
+        // IT
+        'telefono': 'phone', 'cellulare': 'phone',
+        // DE
+        'telefon': 'phone', 'handy': 'phone', 'mobilnummer': 'phone',
+        // EN
+        'phone': 'phone', 'mobile': 'phone', 'phone number': 'phone',
+        
+        // === BANKOVÉ ÚDAJE / BANK ===
+        'iban': 'IBAN', 'číslo účtu': 'IBAN', 'bankový účet': 'IBAN',
+        'číslo účtu': 'IBAN', 'bankovní účet': 'IBAN', // CZ
+        'bankszámlaszám': 'IBAN', 'számlaszám': 'IBAN', // HU
+        'cont bancar': 'IBAN', 'cont iban': 'IBAN', // RO
+        'conto bancario': 'IBAN', 'conto corrente': 'IBAN', // IT
+        'kontonummer': 'IBAN', 'bankverbindung': 'IBAN', // DE
+        'bank account': 'IBAN', 'account number': 'IBAN', // EN
+        
+        // === OBČIANSKY PREUKAZ / ID CARD ===
+        // SK
+        'číslo op': 'idCardNumber', 'číslo občianskeho preukazu': 'idCardNumber', 'číslo dokladu': 'idCardNumber',
+        // CZ
+        'číslo op': 'idCardNumber', 'číslo občanského průkazu': 'idCardNumber',
+        // HU
+        'személyi igazolvány szám': 'idCardNumber', 'ig. szám': 'idCardNumber',
+        // RO
+        'seria și numărul ci': 'idCardNumber', 'buletin': 'idCardNumber',
+        // IT
+        'carta d\'identità': 'idCardNumber', 'numero documento': 'idCardNumber',
+        // DE
+        'personalausweis-nr': 'idCardNumber', 'ausweisnummer': 'idCardNumber',
+        // EN
+        'id card number': 'idCardNumber', 'document number': 'idCardNumber',
+        
+        // === MIESTO NARODENIA / BIRTH PLACE ===
+        'miesto narodenia': 'birthPlace', 'místo narození': 'birthPlace', // SK/CZ
+        'születési hely': 'birthPlace', // HU
+        'locul nașterii': 'birthPlace', // RO
+        'luogo di nascita': 'birthPlace', // IT
+        'geburtsort': 'birthPlace', // DE
+        'place of birth': 'birthPlace', // EN
+      };
       
-      // Merge strategy: Pattern detection provides the actual fill markers to replace
-      // AI suggestions are used to ENHANCE/ANNOTATE the pattern results with section context
+      // Špeciálne polia (nie entity-dependent) - multilingual
+      const SPECIAL_LABELS: Record<string, string> = {
+        // === ZMLUVA / CONTRACT ===
+        // SK
+        'číslo zmluvy': 'contract.number', 'zmluva č': 'contract.number', 'zmluva č.': 'contract.number',
+        'dátum zmluvy': 'contract.date', 'dátum uzavretia': 'contract.date', 'dňa': 'contract.date',
+        'miesto uzavretia': 'contract.signaturePlace', 'miesto podpisu': 'contract.signaturePlace',
+        'celková suma': 'contract.totalAmount', 'suma': 'contract.totalAmount',
+        // CZ
+        'číslo smlouvy': 'contract.number', 'smlouva č': 'contract.number', 'smlouva č.': 'contract.number',
+        'datum smlouvy': 'contract.date', 'datum uzavření': 'contract.date',
+        'místo podpisu': 'contract.signaturePlace',
+        // HU
+        'szerződésszám': 'contract.number', 'szerződés száma': 'contract.number',
+        'szerződés dátuma': 'contract.date', 'aláírás helye': 'contract.signaturePlace',
+        // RO
+        'număr contract': 'contract.number', 'contract nr': 'contract.number',
+        'data contractului': 'contract.date', 'locul semnării': 'contract.signaturePlace',
+        // IT
+        'numero contratto': 'contract.number', 'contratto n': 'contract.number',
+        'data contratto': 'contract.date', 'luogo di firma': 'contract.signaturePlace',
+        // DE
+        'vertragsnummer': 'contract.number', 'vertrag nr': 'contract.number',
+        'vertragsdatum': 'contract.date', 'unterschriftsort': 'contract.signaturePlace',
+        // EN
+        'contract number': 'contract.number', 'contract no': 'contract.number',
+        'contract date': 'contract.date', 'signature place': 'contract.signaturePlace',
+        
+        // === SPOLOČNOSŤ / COMPANY ===
+        // SK
+        'ičo': 'company.identificationNumber', 'identifikačné číslo': 'company.identificationNumber',
+        'dič': 'company.taxIdentificationNumber', 'ič dph': 'company.vatNumber',
+        'názov spoločnosti': 'company.name', 'obchodné meno': 'company.name',
+        'sídlo': 'company.address', 'sídlo spoločnosti': 'company.address',
+        'konateľ': 'company.representativeName', 'zástupca': 'company.representativeName',
+        'register': 'company.registrationNumber', 'obchodný register': 'company.registrationNumber',
+        // CZ
+        'ič': 'company.identificationNumber', 'identifikační číslo': 'company.identificationNumber',
+        'dič': 'company.taxIdentificationNumber', 'název společnosti': 'company.name',
+        'jednatel': 'company.representativeName',
+        // HU
+        'cégjegyzékszám': 'company.identificationNumber', 'adószám': 'company.taxIdentificationNumber',
+        'cégnév': 'company.name', 'székhely': 'company.address', 'képviselő': 'company.representativeName',
+        // RO
+        'cui': 'company.identificationNumber', 'cif': 'company.taxIdentificationNumber',
+        'denumire societate': 'company.name', 'sediu': 'company.address',
+        'reprezentant': 'company.representativeName',
+        // IT
+        'p.iva': 'company.taxIdentificationNumber', 'partita iva': 'company.taxIdentificationNumber',
+        'ragione sociale': 'company.name', 'sede legale': 'company.address',
+        'rappresentante': 'company.representativeName',
+        // DE
+        'handelsregisternummer': 'company.identificationNumber', 'steuernummer': 'company.taxIdentificationNumber',
+        'firmenname': 'company.name', 'geschäftssitz': 'company.address',
+        'geschäftsführer': 'company.representativeName',
+        // EN
+        'company id': 'company.identificationNumber', 'tax id': 'company.taxIdentificationNumber',
+        'vat number': 'company.vatNumber', 'company name': 'company.name',
+        'registered office': 'company.address', 'representative': 'company.representativeName',
+      };
+      
+      // Spracuj pattern-detected polia s kontextom sekcie
       const finalReplacements: Array<{
         original: string;
         placeholder: string;
@@ -7557,106 +7594,79 @@ DÔLEŽITÉ: Kvalita a SPRÁVNOSŤ mapovania podľa kontextu je kritická. Analy
         confidence: number;
         sectionEntity?: string;
       }> = [];
-      const usedPatternIndices = new Set<number>();
       
-      // Build AI suggestion lookup by line number (most precise) and by label (fallback)
-      const aiSuggestionsByLine: Record<number, typeof aiSuggestions[0]> = {};
-      const aiSuggestionsByLabel: Record<string, typeof aiSuggestions[0][]> = {};
-      
-      for (const suggestion of aiSuggestions) {
-        if (suggestion.confidence >= 0.7) {
-          // Index by line number if available
-          if (suggestion.lineNumber) {
-            aiSuggestionsByLine[suggestion.lineNumber] = suggestion;
-          }
-          // Also index by normalized label (can have multiple matches)
-          const normalizedLabel = suggestion.label.toLowerCase().replace(/[:\-–\s]+$/, "").trim();
-          if (!aiSuggestionsByLabel[normalizedLabel]) {
-            aiSuggestionsByLabel[normalizedLabel] = [];
-          }
-          aiSuggestionsByLabel[normalizedLabel].push(suggestion);
-        }
-      }
-      
-      // Process pattern-detected fields with AI enhancement
-      for (let i = 0; i < fillFieldReplacements.length; i++) {
-        const field = fillFieldReplacements[i];
+      for (const field of fillFieldReplacements) {
         const normalizedLabel = field.label.toLowerCase().replace(/[:\-–\s]+$/, "").trim();
         
-        // Try to match by line number first (most precise)
-        let aiMatch: typeof aiSuggestions[0] | undefined = aiSuggestionsByLine[field.lineIndex + 1]; // +1 because AI uses 1-indexed
+        // Skús nájsť sekciu pre tento riadok
+        const sectionEntity = getEntityForLine(detectedSections, field.lineIndex);
         
-        // Fallback: match by label, considering section context
-        if (!aiMatch) {
-          const labelMatches = aiSuggestionsByLabel[normalizedLabel] || [];
-          if (labelMatches.length === 1) {
-            aiMatch = labelMatches[0];
-          } else if (labelMatches.length > 1) {
-            // Multiple matches - try to find best match based on line proximity
-            const patternLine = field.lineIndex;
-            aiMatch = labelMatches.reduce((best, current) => {
-              if (!current.lineNumber) return best;
-              if (!best || !best.lineNumber) return current;
-              const currentDist = Math.abs(current.lineNumber - 1 - patternLine);
-              const bestDist = Math.abs(best.lineNumber - 1 - patternLine);
-              return currentDist < bestDist ? current : best;
-            }, labelMatches[0]);
+        // Určí placeholder
+        let placeholder = field.placeholder;
+        let confidence = 0.9;
+        let reason = "";
+        
+        // Najprv skontroluj špeciálne polia (nie entity-dependent)
+        if (SPECIAL_LABELS[normalizedLabel]) {
+          placeholder = SPECIAL_LABELS[normalizedLabel];
+          reason = `Špeciálne pole: "${field.label}"`;
+          console.log(`[Rule] "${field.label}" → ${placeholder} (špeciálne pole)`);
+        }
+        // Potom skontroluj entity-dependent polia podľa labelu
+        else if (LABEL_TO_FIELD_TYPE[normalizedLabel]) {
+          const fieldType = LABEL_TO_FIELD_TYPE[normalizedLabel];
+          
+          if (sectionEntity && ENTITY_DEPENDENT_FIELDS.includes(fieldType)) {
+            // Máme sekciu - použijeme entitu sekcie
+            placeholder = `${sectionEntity}.${fieldType}`;
+            reason = `Sekcia ${sectionEntity}: "${field.label}"`;
+            console.log(`[Rule] "${field.label}" (line ${field.lineIndex + 1}) → ${placeholder} (sekcia: ${sectionEntity})`);
+          } else {
+            // Nemáme sekciu - defaultne customer
+            placeholder = `customer.${fieldType}`;
+            reason = `Predvolený zákazník: "${field.label}"`;
+            console.log(`[Rule] "${field.label}" (line ${field.lineIndex + 1}) → ${placeholder} (bez sekcie, default customer)`);
           }
         }
-        
-        // Determine placeholder - AI context-aware or pattern fallback
-        let placeholder = field.placeholder;
-        let confidence = 0.7;
-        let reason = `Vzorová detekcia: "${field.label}"`;
-        let sectionEntity: string | undefined;
-        
-        if (aiMatch && aiMatch.confidence >= 0.8) {
-          // AI has high confidence with section context - use its suggestion
-          placeholder = aiMatch.placeholder;
-          confidence = aiMatch.confidence;
-          sectionEntity = aiMatch.sectionEntity;
-          reason = aiMatch.context || `AI kontext (${sectionEntity || 'neznámy'}): "${field.label}"`;
-          usedPatternIndices.add(i);
-          console.log(`[Merge] Pattern "${field.label}" (line ${field.lineIndex + 1}) → AI: ${placeholder} (section: ${sectionEntity}, conf: ${confidence})`);
-        } else {
-          // No strong AI match - try to enhance with detected sections
-          const sectionFromDetection = getEntityForLine(detectedSections, field.lineIndex);
-          if (sectionFromDetection && field.placeholder.includes('.')) {
-            // Update placeholder entity based on section if it's a generic field
-            const fieldType = field.placeholder.split('.')[1];
-            const entityFields = ['fullName', 'firstName', 'lastName', 'birthDate', 'personalId', 'permanentAddress', 'phone', 'email'];
-            if (entityFields.includes(fieldType)) {
-              placeholder = `${sectionFromDetection}.${fieldType}`;
-              sectionEntity = sectionFromDetection;
-              reason = `Sekcia ${sectionFromDetection}: "${field.label}"`;
-              console.log(`[Merge] Pattern "${field.label}" (line ${field.lineIndex + 1}) → Section: ${placeholder} (detected section: ${sectionFromDetection})`);
-            }
+        // Skúsme extrahovať field type z pôvodného placeholdera (customer.permanentAddress → permanentAddress)
+        else if (field.placeholder && field.placeholder.includes('.')) {
+          const parts = field.placeholder.split('.');
+          const detectedEntity = parts[0];
+          const fieldType = parts.slice(1).join('.');
+          
+          // Ak máme sekciu a ide o entity-dependent pole, prepíšeme entitu
+          if (sectionEntity && ENTITY_DEPENDENT_FIELDS.includes(fieldType)) {
+            placeholder = `${sectionEntity}.${fieldType}`;
+            reason = `Sekcia ${sectionEntity}: "${field.label}" (prepísané z ${detectedEntity})`;
+            console.log(`[Rule] "${field.label}" (line ${field.lineIndex + 1}) → ${placeholder} (prepísané z ${field.placeholder})`);
+          } else if (sectionEntity) {
+            // Máme sekciu ale pole nie je v ENTITY_DEPENDENT_FIELDS - skúsme ho aj tak prepísať
+            placeholder = `${sectionEntity}.${fieldType}`;
+            reason = `Sekcia ${sectionEntity}: "${field.label}"`;
+            console.log(`[Rule] "${field.label}" (line ${field.lineIndex + 1}) → ${placeholder} (sekcia: ${sectionEntity})`);
+          } else {
+            reason = `Vzorová detekcia: "${field.label}"`;
+            console.log(`[Rule] "${field.label}" (line ${field.lineIndex + 1}) → ${placeholder} (pôvodný, bez sekcie)`);
           }
+        }
+        // Ak nemáme presné mapovanie a placeholder nemá bodku
+        else {
+          reason = `Vzorová detekcia: "${field.label}"`;
+          console.log(`[Rule] "${field.label}" (line ${field.lineIndex + 1}) → ${placeholder} (pôvodný)`);
         }
         
         finalReplacements.push({
-          original: field.original,  // CRITICAL: Keep the actual fill marker (dots/underscores)
+          original: field.original,
           placeholder: placeholder,
           label: field.label,
           reason: reason,
           crmField: placeholder,
           confidence: confidence,
-          sectionEntity: sectionEntity
+          sectionEntity: sectionEntity || undefined
         });
       }
       
-      // Log AI suggestions without pattern matches (informational)
-      const unmatchedAI = aiSuggestions.filter((s, i) => 
-        s.confidence >= 0.85 && !Object.values(aiSuggestionsByLine).includes(s)
-      );
-      if (unmatchedAI.length > 0) {
-        console.log(`[AI] ${unmatchedAI.length} AI suggestions without pattern matches (no fill marker to replace):`);
-        for (const s of unmatchedAI.slice(0, 5)) {
-          console.log(`  - "${s.label}" → ${s.placeholder} (section: ${s.sectionEntity})`);
-        }
-      }
-      
-      console.log(`[AI] Final: ${finalReplacements.length} replacements (${fillFieldReplacements.length} patterns enhanced with AI context)`);
+      console.log(`[Deterministický] Výsledok: ${finalReplacements.length} náhrad`);
       
       if (finalReplacements.length === 0) {
         return res.json({
@@ -7695,25 +7705,27 @@ DÔLEŽITÉ: Kvalita a SPRÁVNOSŤ mapovania podľa kontextu je kritická. Analy
         suggestedMappings[`{{${r.placeholder}}}`] = r.crmField;
       }
       
+      // Počítaj sekciové vs. predvolené mapovanie
+      const sectionMappedCount = finalReplacements.filter(r => r.sectionEntity).length;
+      const defaultMappedCount = finalReplacements.length - sectionMappedCount;
+      
       await storage.updateCategoryDefaultTemplate(template.id, {
         sourceDocxPath: relativeDocxPath,
         previewPdfPath: previewPdfPath ? relativePreviewPath : template.previewPdfPath,
         extractedFields: JSON.stringify(finalReplacements.map(r => r.placeholder)),
         placeholderMappings: JSON.stringify(suggestedMappings),
         conversionMetadata: JSON.stringify({
-          aiProcessedAt: new Date().toISOString(),
+          processedAt: new Date().toISOString(),
           replacementsCount: finalReplacements.length,
-          summary: `Nájdených ${finalReplacements.length} polí na vyplnenie`
+          sectionMapped: sectionMappedCount,
+          defaultMapped: defaultMappedCount,
+          summary: `Nájdených ${finalReplacements.length} polí (${sectionMappedCount} podľa sekcie)`
         })
       });
       
-      // Count AI-enhanced vs pure pattern detections
-      const aiEnhancedCount = finalReplacements.filter(r => r.reason && r.reason.includes('AI')).length;
-      const purePatternCount = finalReplacements.length - aiEnhancedCount;
-      
       res.json({
         success: true,
-        message: `Nájdených ${finalReplacements.length} polí (${aiEnhancedCount} AI vylepšené, ${purePatternCount} vzorová detekcia)`,
+        message: `Nájdených ${finalReplacements.length} polí (${sectionMappedCount} podľa sekcie, ${defaultMappedCount} predvolené)`,
         replacements: finalReplacements,
         suggestedMappings,
         modifiedDocxPath: relativeDocxPath,
@@ -7722,12 +7734,12 @@ DÔLEŽITÉ: Kvalita a SPRÁVNOSŤ mapovania podľa kontextu je kritická. Analy
         sampleData: SAMPLE_DATA
       });
     } catch (error) {
-      console.error("AI placeholder insertion error:", error);
-      res.status(500).json({ error: "AI placeholder insertion failed: " + (error as Error).message });
+      console.error("Placeholder insertion error:", error);
+      res.status(500).json({ error: "Vkladanie placeholderov zlyhalo: " + (error as Error).message });
     }
   });
   
-  // Reset template to original state (before AI modifications)
+  // Reset template to original state (before modifications)
   app.post("/api/contracts/categories/:categoryId/default-templates/:countryCode/reset", requireAuth, async (req, res) => {
     try {
       const categoryId = parseInt(req.params.categoryId);
