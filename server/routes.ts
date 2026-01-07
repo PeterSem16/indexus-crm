@@ -7421,21 +7421,22 @@ Odpovedz v JSON formáte:
       if (!fs.existsSync(previewDir)) {
         fs.mkdirSync(previewDir, { recursive: true });
       }
-      const previewFilename = `preview-ai-${Date.now()}.pdf`;
-      const previewPath = path.join(previewDir, previewFilename);
       
+      let previewPdfPath: string | null = null;
       try {
-        await convertDocxToPdf(outputPath, previewPath);
+        previewPdfPath = await convertDocxToPdf(outputPath, previewDir);
       } catch (pdfError) {
         console.warn("[AI] PDF preview generation failed:", pdfError);
       }
       
       const relativeDocxPath = `uploads/contract-pdfs/${outputFilename}`;
-      const relativePreviewPath = `uploads/contract-previews/${categoryId}/${countryCode.toUpperCase()}/${previewFilename}`;
+      const relativePreviewPath = previewPdfPath 
+        ? `uploads/contract-previews/${categoryId}/${countryCode.toUpperCase()}/${path.basename(previewPdfPath)}`
+        : null;
       
       await storage.updateCategoryDefaultTemplate(template.id, {
         sourceDocxPath: relativeDocxPath,
-        previewPdfPath: fs.existsSync(previewPath) ? relativePreviewPath : template.previewPdfPath,
+        previewPdfPath: previewPdfPath ? relativePreviewPath : template.previewPdfPath,
         extractedFields: JSON.stringify(aiResult.replacements.map((r: any) => r.placeholder)),
         placeholderMappings: JSON.stringify(
           aiResult.replacements.reduce((acc: any, r: any) => {
@@ -7455,7 +7456,8 @@ Odpovedz v JSON formáte:
         message: aiResult.summary || `Vložených ${aiResult.replacements.length} premenných`,
         replacements: aiResult.replacements,
         modifiedDocxPath: relativeDocxPath,
-        previewPdfPath: fs.existsSync(previewPath) ? relativePreviewPath : null
+        previewPdfPath: relativePreviewPath,
+        extractedFields: aiResult.replacements.map((r: any) => r.placeholder)
       });
     } catch (error) {
       console.error("AI placeholder insertion error:", error);
