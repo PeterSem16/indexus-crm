@@ -2037,6 +2037,20 @@ export default function ContractsPage() {
                           <Eye className="h-4 w-4 mr-1" />
                           Náhľad
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => {
+                            if (templateForm.loadedCategoryId) {
+                              window.open(`/api/contracts/categories/${templateForm.loadedCategoryId}/default-templates/${templateForm.countryCode}/preview?withSampleData=true&t=${Date.now()}`, '_blank');
+                            }
+                          }}
+                          disabled={!templateForm.loadedCategoryId}
+                          data-testid="button-preview-sample-data"
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          S dátami
+                        </Button>
                       </div>
                     </div>
                     <div className="flex-1 overflow-hidden p-2">
