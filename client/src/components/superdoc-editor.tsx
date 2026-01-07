@@ -10,7 +10,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import "@harbour-enterprises/superdoc/style.css";
+
 
 interface SuperDocEditorProps {
   categoryId: number;
@@ -79,91 +79,21 @@ export function SuperDocEditor({
   }, [categoryId, countryCode]);
 
   const loadDocument = useCallback(async () => {
+    console.log("loadDocument called for category:", categoryId, "country:", countryCode);
     setIsLoading(true);
     
-    const isCrossOriginIsolated = (self as any).crossOriginIsolated === true;
-    const isInIframe = window.self !== window.top;
-    
-    console.log("Cross-origin isolated:", isCrossOriginIsolated, "In iframe:", isInIframe);
-    
-    if (!isCrossOriginIsolated || isInIframe) {
-      console.log("Using HTML fallback (cross-origin isolated:", isCrossOriginIsolated, ", iframe:", isInIframe, ")");
+    try {
+      console.log("Using HTML fallback mode");
       setUseFallback(true);
       await loadHtmlFallback();
       await extractVariablesFromDocument();
-      setIsLoading(false);
-      return;
-    }
-    
-    try {
-      const response = await fetch(
-        `/api/contracts/categories/${categoryId}/default-templates/${countryCode}/docx`,
-        { credentials: "include" }
-      );
-
-      if (!response.ok) {
-        throw new Error("Nepodarilo sa načítať DOCX súbor");
-      }
-
-      const blob = await response.blob();
-      const file = new File([blob], `template_${countryCode}.docx`, {
-        type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-      });
-
-      if (superDocInstance.current) {
-        superDocInstance.current.destroy?.();
-        superDocInstance.current = null;
-      }
-
-      const { SuperDoc } = await import("@harbour-enterprises/superdoc");
-
-      if (containerRef.current) {
-        containerRef.current.innerHTML = "";
-        containerRef.current.id = "superdoc-container";
-        
-        console.log("Initializing SuperDoc with file:", file.name, file.size);
-        
-        superDocInstance.current = new SuperDoc({
-          selector: "#superdoc-container",
-          documents: [
-            {
-              id: `template-${categoryId}-${countryCode}`,
-              type: "docx",
-              data: file,
-            }
-          ],
-          documentMode: "editing",
-          onEditorCreate: () => {
-            console.log("SuperDoc editor created");
-          },
-          onReady: () => {
-            console.log("SuperDoc ready");
-            setIsLoading(false);
-            extractVariablesFromDocument();
-          },
-        } as any);
-        
-        setTimeout(() => {
-          setIsLoading(prev => {
-            if (prev) {
-              console.log("SuperDoc timeout - falling back to HTML editor");
-              setUseFallback(true);
-              loadHtmlFallback();
-              extractVariablesFromDocument();
-              return false;
-            }
-            return prev;
-          });
-        }, 8000);
-      }
     } catch (error: any) {
       console.error("Error loading document:", error);
-      setUseFallback(true);
-      await loadHtmlFallback();
-      await extractVariablesFromDocument();
+      setHtmlContent("<p>Chyba pri načítaní dokumentu.</p>");
+    } finally {
       setIsLoading(false);
     }
-  }, [categoryId, countryCode, toast, loadHtmlFallback, extractVariablesFromDocument]);
+  }, [categoryId, countryCode, loadHtmlFallback, extractVariablesFromDocument]);
 
   useEffect(() => {
     loadDocument();
