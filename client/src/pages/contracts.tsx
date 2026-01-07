@@ -1028,13 +1028,24 @@ export default function ContractsPage() {
       
       const template = await response.json();
       
+      // Parse placeholderMappings if it's a string
+      let mappings = template.placeholderMappings || {};
+      if (typeof mappings === 'string') {
+        try {
+          mappings = JSON.parse(mappings);
+        } catch (e) {
+          console.error('Failed to parse placeholderMappings:', e);
+          mappings = {};
+        }
+      }
+      
       setTemplateForm(prev => ({
         ...prev,
         loadedFromCategory: true,
         loadedCategoryId: category.id,
         sourceDocxPath: template.sourceDocxPath || "",
         extractedFields: template.extractedFields || [],
-        placeholderMappings: template.placeholderMappings || {}
+        placeholderMappings: mappings
       }));
       
       setTemplatePreviewPdfUrl(`/api/contracts/categories/${category.id}/default-templates/${templateForm.countryCode}/preview?t=${Date.now()}`);
