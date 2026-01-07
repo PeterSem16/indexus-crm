@@ -7377,57 +7377,78 @@ Odpovedz v JSON formáte:
 | today | Dnešný dátum | 7.1.2026 |
 `;
 
-      const prompt = `Si expert na analýzu právnych dokumentov a zmlúv pre cord blood banky. Analyzuj tento dokument a nájdi VŠETKY konkrétne hodnoty na nahradenie.
+      const docText = fullText.substring(0, 40000);
+      
+      const prompt = `Si expert na analýzu právnych dokumentov a zmlúv pre cord blood banky. Analyzuj CELÝ dokument a nájdi VŠETKY konkrétne hodnoty (mená, adresy, dátumy, čísla) na nahradenie.
 
 ## TEXT DOKUMENTU:
-${fullText.substring(0, 12000)}
+${docText}
 
 ## DOSTUPNÉ CRM PREMENNÉ:
 ${crmFieldsTable}
 
 ## KONTROLNÝ ZOZNAM - HĽADAJ TIETO KATEGÓRIE:
 
-### 1. ZÁKAZNÍK (customer.*)
-- [ ] Celé meno zákazníka (customer.fullName) - napr. "Jana Nováková"
-- [ ] Adresa zákazníka (customer.permanentAddress) - napr. "Hlavná 123, 831 01 Bratislava"
-- [ ] Dátum narodenia (customer.birthDate) - napr. "15.03.1990"
-- [ ] Rodné číslo (customer.personalId) - napr. "900315/1234"
+### 1. ZÁKAZNÍK / KLIENTKA / MATKA DIEŤAŤA (customer.*)
+Hľadaj údaje označené ako: "Klientka", "Zákazník", "Objednávateľ", "Matka dieťaťa", "Rodička"
+- [ ] Celé meno (customer.fullName) - napr. "Jana Nováková", "Mária Horváthová"
+- [ ] Adresa/Bydlisko (customer.permanentAddress) - napr. "Hlavná 123, 831 01 Bratislava"
+- [ ] Korešpondenčná adresa (customer.correspondenceAddress)
+- [ ] Dátum narodenia (customer.birthDate) - napr. "15.03.1990", "15. marca 1990"
+- [ ] Rodné číslo (customer.personalId) - napr. "900315/1234", "9003151234"
 - [ ] Telefón (customer.phone), Email (customer.email)
-- [ ] IBAN účet (customer.IBAN)
+- [ ] IBAN/Číslo účtu (customer.IBAN)
 
-### 2. RODIČIA (father.*, mother.*)
-- [ ] Meno otca (father.fullName) a jeho adresa (father.permanentAddress)
-- [ ] Meno matky (mother.fullName) a jej adresa (mother.permanentAddress)
+### 2. OTEC DIEŤAŤA (father.*)
+Hľadaj údaje označené ako: "Otec", "Otec dieťaťa", "Zákonný zástupca - otec"
+- [ ] Meno otca (father.fullName) - napr. "Peter Novák", "Ján Horváth"
+- [ ] Adresa otca (father.permanentAddress)
+- [ ] Dátum narodenia otca (father.birthDate)
+- [ ] Rodné číslo otca (father.personalId)
 
-### 3. SPOLOČNOSŤ (company.*)
-- [ ] Názov spoločnosti (company.name) - napr. "Cord Blood Center"
+### 3. MATKA DIEŤAŤA - ak je iná osoba než zákazník (mother.*)
+Hľadaj údaje označené ako: "Matka", "Matka dieťaťa"
+- [ ] Meno matky (mother.fullName)
+- [ ] Adresa matky (mother.permanentAddress)
+
+### 4. SPOLOČNOSŤ / POSKYTOVATEĽ (company.*)
+Hľadaj údaje označené ako: "Poskytovateľ", "Dodávateľ", "Spoločnosť", "Cord Blood Center"
+- [ ] Názov spoločnosti (company.name) - napr. "Cord Blood Center, s.r.o."
 - [ ] Adresa spoločnosti (company.address)
-- [ ] IČO (company.identificationNumber), DIČ (company.taxIdentificationNumber)
+- [ ] IČO (company.identificationNumber)
+- [ ] DIČ (company.taxIdentificationNumber)
+- [ ] IČ DPH (company.vatNumber)
 
-### 4. ZMLUVA (contract.*)
-- [ ] Číslo zmluvy (contract.number) - napr. "ZML-2024-0001"
-- [ ] Dátum zmluvy/podpisu (contract.date) - napr. "1.1.2026"
-- [ ] Platnosť od/do (contract.validFrom, contract.validTo)
+### 5. ZMLUVA (contract.*)
+Hľadaj údaje: číslo zmluvy, dátum uzavretia, platnosť
+- [ ] Číslo zmluvy (contract.number) - napr. "ZML-2024-0001", "SK-12345"
+- [ ] Dátum zmluvy/podpisu (contract.date) - napr. "1.1.2026", "1. januára 2026"
 
-### 5. INÉ
-- [ ] Meno zástupcu (representative.fullName)
-- [ ] Dieťa (child.fullName, child.birthDate)
-- [ ] Dnešný dátum (today)
+### 6. DIEŤA (child.*)
+Hľadaj údaje označené ako: "Dieťa", "Novorodenec"
+- [ ] Meno dieťaťa (child.fullName)
+- [ ] Dátum narodenia dieťaťa (child.birthDate)
+- [ ] Miesto narodenia (child.birthPlace)
 
-## PRAVIDLÁ:
-1. Každú UNIKÁTNU textovú hodnotu uveď len RAZ (systém nahradí všetky výskyty)
-2. Použi PRESNÝ text z dokumentu vrátane diakritiky
-3. Tá istá premenná môže byť použitá pre RÔZNE textové hodnoty (napr. meno otca aj matky môžu byť rôzne osoby)
-4. Hľadaj 10-20 polí typicky - zmluvy majú veľa údajov
-5. Ignoruj všeobecné právne frázy a nadpisy
+### 7. ZÁSTUPCA (representative.*)
+- [ ] Meno zástupcu/splnomocnenca (representative.fullName)
+
+## KRITICKÉ PRAVIDLÁ:
+1. Analyzuj CELÝ dokument - údaje môžu byť na konci!
+2. Každú UNIKÁTNU textovú hodnotu uveď len RAZ
+3. Použi PRESNÝ text z dokumentu vrátane diakritiky a formátovania
+4. Hľadaj minimálne 8-15 polí - zmluvy obsahujú veľa osobných údajov
+5. NEZABUDNI na otca, dieťa a ďalšie osoby v dokumente
+6. Ignoruj všeobecné právne frázy, nadpisy a čísla článkov
 
 ## FORMÁT ODPOVEDE (JSON):
 {
   "replacements": [
-    { "original": "Jana Nováková", "placeholder": "customer.fullName", "reason": "Meno zákazníka" },
-    { "original": "Peter Novák", "placeholder": "father.fullName", "reason": "Meno otca" },
-    { "original": "Mária Nováková", "placeholder": "mother.fullName", "reason": "Meno matky" },
-    { "original": "Hlavná 123, 831 01 Bratislava", "placeholder": "customer.permanentAddress", "reason": "Adresa zákazníka" }
+    { "original": "Jana Nováková", "placeholder": "customer.fullName", "reason": "Meno klientky/zákazníka" },
+    { "original": "Peter Novák", "placeholder": "father.fullName", "reason": "Meno otca dieťaťa" },
+    { "original": "Hlavná 123, 831 01 Bratislava", "placeholder": "customer.permanentAddress", "reason": "Adresa klientky" },
+    { "original": "15.03.1990", "placeholder": "customer.birthDate", "reason": "Dátum narodenia klientky" },
+    { "original": "900315/1234", "placeholder": "customer.personalId", "reason": "Rodné číslo klientky" }
   ],
   "summary": "Identifikovaných X polí"
 }`;
