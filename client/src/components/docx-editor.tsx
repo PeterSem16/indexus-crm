@@ -37,6 +37,7 @@ export function DocxEditor({ categoryId, countryCode, onClose, onSave }: DocxEdi
   const [inserting, setInserting] = useState(false);
   
   const loadHtmlContent = async () => {
+    console.log("[DocxEditor] Loading HTML content...");
     setLoading(true);
     try {
       const response = await fetch(
@@ -49,10 +50,31 @@ export function DocxEditor({ categoryId, countryCode, onClose, onSave }: DocxEdi
       }
       
       const data = await response.json();
-      setHtmlContent(data.html);
+      console.log("[DocxEditor] Received data, HTML length:", data.html?.length || 0);
+      
+      // Limit HTML size to prevent browser crash from huge base64 images
+      let safeHtml = data.html || "";
+      if (safeHtml.length > 500000) {
+        console.warn("[DocxEditor] HTML too large, stripping base64 images");
+        safeHtml = safeHtml.replace(/data:image\/[^;]+;base64,[^"']+/g, "data:image/png;base64,placeholder");
+      }
+      
+      setHtmlContent(safeHtml);
       setExtractedFields(data.extractedFields || []);
-      setPlaceholderMappings(data.placeholderMappings || {});
+      
+      // Parse placeholderMappings if it's a string
+      let mappings = data.placeholderMappings || {};
+      if (typeof mappings === 'string') {
+        try {
+          mappings = JSON.parse(mappings);
+        } catch (e) {
+          console.error('[DocxEditor] Failed to parse placeholderMappings:', e);
+          mappings = {};
+        }
+      }
+      setPlaceholderMappings(mappings);
       setSampleData(data.sampleData || {});
+      console.log("[DocxEditor] State updated successfully");
     } catch (error) {
       console.error("Error loading DOCX:", error);
       toast({
@@ -182,6 +204,10 @@ export function DocxEditor({ categoryId, countryCode, onClose, onSave }: DocxEdi
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : !htmlContent ? (
+            <div className="flex items-center justify-center h-full text-muted-foreground">
+              <p>Žiadny obsah na zobrazenie</p>
             </div>
           ) : (
             <div 
