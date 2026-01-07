@@ -1732,12 +1732,20 @@ export async function insertPlaceholdersIntoDocx(
     const usedLabels = new Set<string>();
     let replacementCount = 0;
     
+    console.log(`[DOCX Insert] Processing ${sortedReplacements.length} replacements...`);
+    
     // Process replacements in line order
-    for (const { original, placeholder, label } of sortedReplacements) {
-      if (!original || !placeholder) continue;
+    for (const { original, placeholder, label, lineIndex } of sortedReplacements) {
+      if (!original || !placeholder) {
+        console.log(`[DOCX Insert] Skipping empty replacement`);
+        continue;
+      }
+      
+      console.log(`[DOCX Insert] Processing: label="${label}" placeholder="${placeholder}" line=${lineIndex}`);
       
       // Escape the original for regex
       const escapedMarker = original.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      let matched = false;
       
       // If we have a label, try to match label + marker pattern FIRST
       if (label) {
@@ -1745,7 +1753,7 @@ export async function insertPlaceholdersIntoDocx(
         
         // Skip if we already processed this exact label
         if (usedLabels.has(normalizedLabel)) {
-          console.log(`[DOCX] Skipping duplicate label "${label}" for ${placeholder}`);
+          console.log(`[DOCX Insert] Skipping duplicate label "${label}" for ${placeholder}`);
           continue;
         }
         
@@ -1762,7 +1770,8 @@ export async function insertPlaceholdersIntoDocx(
           xmlContent = xmlContent.replace(labelWithMarkerRegex, `$1{{${placeholder}}}`);
           usedLabels.add(normalizedLabel);
           replacementCount++;
-          console.log(`[DOCX] Replaced "${original.substring(0, 15)}..." after label "${label}" with {{${placeholder}}}`);
+          matched = true;
+          console.log(`[DOCX Insert] SUCCESS: Replaced "${original.substring(0, 15)}..." after label "${label}" with {{${placeholder}}}`);
           continue;
         }
         
@@ -1787,21 +1796,38 @@ export async function insertPlaceholdersIntoDocx(
                 xmlContent = xmlContent.replace(fullPattern, `$1{{${placeholder}}}`);
                 usedLabels.add(normalizedLabel);
                 replacementCount++;
-                console.log(`[DOCX] Replaced dots after separate label "${label}" with {{${placeholder}}}`);
+                matched = true;
+                console.log(`[DOCX Insert] SUCCESS: Replaced dots after separate label "${label}" with {{${placeholder}}}`);
                 continue;
               }
             }
           }
         }
-      }
-      
-      // Only use fallback if no label was provided
-      if (!label) {
+        
+        // If label-specific matching failed, try simple marker replacement as fallback
+        if (!matched) {
+          console.log(`[DOCX Insert] Label pattern failed for "${label}", trying simple marker...`);
+          const simpleMarkerRegex = new RegExp(escapedMarker);
+          if (simpleMarkerRegex.test(xmlContent)) {
+            xmlContent = xmlContent.replace(simpleMarkerRegex, `{{${placeholder}}}`);
+            usedLabels.add(normalizedLabel);
+            replacementCount++;
+            matched = true;
+            console.log(`[DOCX Insert] SUCCESS: Replaced marker with {{${placeholder}}} (simple fallback)`);
+          } else {
+            console.log(`[DOCX Insert] FAILED: Could not find marker "${original.substring(0, 20)}..." in XML`);
+          }
+        }
+      } else {
+        // No label provided - try simple replacement
         const simpleMarkerRegex = new RegExp(escapedMarker);
         if (simpleMarkerRegex.test(xmlContent)) {
           xmlContent = xmlContent.replace(simpleMarkerRegex, `{{${placeholder}}}`);
           replacementCount++;
-          console.log(`[DOCX] Replaced "${original.substring(0, 20)}..." with {{${placeholder}}} (no label)`);
+          matched = true;
+          console.log(`[DOCX Insert] SUCCESS: Replaced "${original.substring(0, 20)}..." with {{${placeholder}}} (no label)`);
+        } else {
+          console.log(`[DOCX Insert] FAILED: Could not find marker without label in XML`);
         }
       }
     }
