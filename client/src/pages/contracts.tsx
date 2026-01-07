@@ -1848,8 +1848,78 @@ export default function ContractsPage() {
                     <ScrollArea className="flex-1">
                       <div className="p-2 space-y-2">
                         {templateForm.extractedFields.length === 0 ? (
-                          <div className="text-center text-muted-foreground p-4">
-                            <p className="text-sm">Žiadne premenné v šablóne</p>
+                          <div className="text-center text-muted-foreground p-6 space-y-4">
+                            <FileText className="h-10 w-10 mx-auto text-muted-foreground/50" />
+                            <div className="space-y-2">
+                              <p className="text-sm font-medium">Žiadne premenné v šablóne</p>
+                              <p className="text-xs text-muted-foreground">
+                                Šablóna neobsahuje premenné {"{{...}}"}.
+                              </p>
+                            </div>
+                            {templateForm.loadedFromCategory && templateForm.loadedCategoryId && (
+                              <Button
+                                size="sm"
+                                onClick={async () => {
+                                  setIsAiInsertingPlaceholders(true);
+                                  try {
+                                    const response = await fetch("/api/contracts/ai-insert-placeholders", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      credentials: "include",
+                                      body: JSON.stringify({
+                                        categoryId: templateForm.loadedCategoryId,
+                                        countryCode: templateForm.countryCode
+                                      })
+                                    });
+                                    
+                                    if (!response.ok) {
+                                      const error = await response.json();
+                                      throw new Error(error.error || "AI insertion failed");
+                                    }
+                                    
+                                    const result = await response.json();
+                                    
+                                    setTemplateForm(prev => ({
+                                      ...prev,
+                                      extractedFields: result.extractedFields || [],
+                                      sourceDocxPath: result.newDocxPath || prev.sourceDocxPath
+                                    }));
+                                    
+                                    if (result.previewPdfPath) {
+                                      setTemplatePreviewPdfUrl(`/api/contracts/categories/${templateForm.loadedCategoryId}/default-templates/${templateForm.countryCode}/preview?t=${Date.now()}`);
+                                    }
+                                    
+                                    toast({
+                                      title: "AI vložilo premenné",
+                                      description: `Vložených ${result.extractedFields?.length || 0} premenných do dokumentu`
+                                    });
+                                  } catch (error: any) {
+                                    console.error("AI insert error:", error);
+                                    toast({
+                                      title: "Chyba pri AI vkladaní",
+                                      description: error.message,
+                                      variant: "destructive"
+                                    });
+                                  } finally {
+                                    setIsAiInsertingPlaceholders(false);
+                                  }
+                                }}
+                                disabled={isAiInsertingPlaceholders}
+                                data-testid="button-ai-insert-new-template"
+                              >
+                                {isAiInsertingPlaceholders ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                                    AI analyzuje...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Sparkles className="h-4 w-4 mr-1" />
+                                    AI vložiť premenné
+                                  </>
+                                )}
+                              </Button>
+                            )}
                           </div>
                         ) : (
                           templateForm.extractedFields.map((field: any) => {
