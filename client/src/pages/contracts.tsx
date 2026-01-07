@@ -23,7 +23,7 @@ import {
   FileSignature, Download, Copy, RefreshCw, AlertCircle, Filter,
   ChevronRight, Settings, PenTool, Mail, Phone, Shield, 
   CheckCircle, Loader2, Edit, Pencil, GripVertical, Globe, ExternalLink,
-  Sparkles, ArrowRight
+  Sparkles, ArrowRight, Maximize2, Minimize2
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -437,6 +437,9 @@ export default function ContractsPage() {
   const [isTemplateEditorOpen, setIsTemplateEditorOpen] = useState(false);
   const [isTemplateEditorLoading, setIsTemplateEditorLoading] = useState(false);
   const [isAiInsertingPlaceholders, setIsAiInsertingPlaceholders] = useState(false);
+  const [isEditorMaximized, setIsEditorMaximized] = useState(false);
+  const [editorFontSize, setEditorFontSize] = useState(14);
+  const [variableStyle, setVariableStyle] = useState<"bold" | "highlight" | "brackets">("brackets");
   const [isResettingTemplate, setIsResettingTemplate] = useState(false);
   const [editingTemplateCountry, setEditingTemplateCountry] = useState("");
   const [editingTemplateData, setEditingTemplateData] = useState<{
@@ -1932,6 +1935,7 @@ export default function ContractsPage() {
                 </div>
               ) : (
                 <div className="flex-1 grid grid-cols-3 gap-4 overflow-hidden min-h-0">
+                  {!isEditorMaximized && (
                   <div className="flex flex-col overflow-hidden border rounded-md">
                     <div className="p-3 border-b bg-muted/50 flex items-center justify-between gap-2 shrink-0">
                       <h3 className="font-medium text-sm">Premenné</h3>
@@ -1964,11 +1968,32 @@ export default function ContractsPage() {
                       />
                     </div>
                   </div>
+                  )}
                   
-                  <div className="flex flex-col overflow-hidden border rounded-md">
-                    <div className="p-3 border-b bg-muted/50 flex items-center justify-between gap-2 shrink-0">
+                  <div className={`flex flex-col overflow-hidden border rounded-md ${isEditorMaximized ? 'col-span-3' : ''}`}>
+                    <div className="p-3 border-b bg-muted/50 flex items-center justify-between gap-2 shrink-0 flex-wrap">
                       <h3 className="font-medium text-sm">Editor dokumentu</h3>
-                      <div className="flex gap-1">
+                      <div className="flex gap-1 flex-wrap">
+                        <Select value={String(editorFontSize)} onValueChange={(v) => setEditorFontSize(Number(v))}>
+                          <SelectTrigger className="h-8 w-16 text-xs" data-testid="select-font-size">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="12">12px</SelectItem>
+                            <SelectItem value="14">14px</SelectItem>
+                            <SelectItem value="16">16px</SelectItem>
+                            <SelectItem value="18">18px</SelectItem>
+                            <SelectItem value="20">20px</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setIsEditorMaximized(!isEditorMaximized)}
+                          data-testid="button-maximize-editor"
+                        >
+                          {isEditorMaximized ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                        </Button>
                         <Button
                           size="sm"
                           variant="outline"
@@ -2040,9 +2065,31 @@ export default function ContractsPage() {
                         <Button
                           size="sm"
                           variant="secondary"
-                          onClick={() => {
+                          onClick={async () => {
                             if (templateForm.loadedCategoryId) {
-                              window.open(`/api/contracts/categories/${templateForm.loadedCategoryId}/default-templates/${templateForm.countryCode}/preview?withSampleData=true&t=${Date.now()}`, '_blank');
+                              const response = await fetch(`/api/contracts/categories/${templateForm.loadedCategoryId}/default-templates/${templateForm.countryCode}/docx-html?withSampleData=true`, {
+                                credentials: "include"
+                              });
+                              if (response.ok) {
+                                const data = await response.json();
+                                const newWindow = window.open('', '_blank');
+                                if (newWindow) {
+                                  newWindow.document.write(`
+                                    <!DOCTYPE html>
+                                    <html>
+                                    <head>
+                                      <title>Náhľad so vzorovými dátami</title>
+                                      <style>
+                                        body { font-family: 'Times New Roman', serif; padding: 40px; max-width: 800px; margin: 0 auto; }
+                                        .sample-value { background: #d4edda; padding: 2px 4px; border-radius: 3px; color: #155724; }
+                                      </style>
+                                    </head>
+                                    <body>${data.html}</body>
+                                    </html>
+                                  `);
+                                  newWindow.document.close();
+                                }
+                              }
                             }
                           }}
                           disabled={!templateForm.loadedCategoryId}
@@ -2053,10 +2100,11 @@ export default function ContractsPage() {
                         </Button>
                       </div>
                     </div>
-                    <div className="flex-1 overflow-hidden p-2">
+                    <div className={`flex-1 overflow-hidden p-2 ${isEditorMaximized ? 'min-h-[400px]' : ''}`}>
                       <textarea
                         id="template-text-editor"
-                        className="w-full h-full resize-none border rounded-md p-3 text-sm font-mono bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="w-full h-full resize-none border rounded-md p-3 font-mono bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                        style={{ fontSize: `${editorFontSize}px` }}
                         value={templateForm.contentHtml || ""}
                         onChange={(e) => setTemplateForm(prev => ({ ...prev, contentHtml: e.target.value }))}
                         placeholder="Kliknite na 'Načítať' pre načítanie textu dokumentu, potom vkladajte premenné kliknutím na ne vľavo..."
@@ -2070,6 +2118,7 @@ export default function ContractsPage() {
                     </div>
                   </div>
                   
+                  {!isEditorMaximized && (
                   <div className="flex flex-col overflow-hidden border rounded-md">
                     <div className="p-3 border-b bg-muted/50 flex items-center justify-between gap-2 shrink-0">
                       <h3 className="font-medium text-sm">
@@ -2243,6 +2292,7 @@ export default function ContractsPage() {
                       </div>
                     </ScrollArea>
                   </div>
+                  )}
                 </div>
               )}
               
