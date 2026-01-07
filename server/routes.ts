@@ -8721,8 +8721,33 @@ Odpovedz v JSON formáte:
       const { countryCode } = req.params;
       const user = req.session.user!;
       
+      // Get the current template to find the source DOCX path
+      const template = await storage.getCategoryDefaultTemplate(categoryId, countryCode);
+      if (!template || !template.sourceDocxPath) {
+        return res.status(404).json({ error: "Template or source DOCX not found" });
+      }
+      
+      // Create immutable version copy of the DOCX file
+      const fs = await import('fs').then(m => m.promises);
+      const path = await import('path');
+      
+      const sourceDocxPath = path.join(process.cwd(), template.sourceDocxPath);
+      const nextVersionNumber = await storage.getLatestVersionNumber(categoryId, countryCode) + 1;
+      
+      // Create versioned file path: uploads/contract_versions/category_country_v1.docx
+      const versionsDir = path.join(process.cwd(), 'uploads', 'contract_versions');
+      await fs.mkdir(versionsDir, { recursive: true });
+      
+      const versionedFileName = `category_${categoryId}_${countryCode}_v${nextVersionNumber}.docx`;
+      const versionedFilePath = path.join(versionsDir, versionedFileName);
+      const relativeVersionPath = `uploads/contract_versions/${versionedFileName}`;
+      
+      // Copy the current DOCX to the versioned location
+      await fs.copyFile(sourceDocxPath, versionedFilePath);
+      
       const data = insertContractTemplateVersionSchema.parse({
         ...req.body,
+        docxFilePath: relativeVersionPath,
         categoryId,
         countryCode,
         createdBy: user.id,

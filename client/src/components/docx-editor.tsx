@@ -56,7 +56,7 @@ export function DocxEditor({ categoryId, countryCode, onClose, onSave }: DocxEdi
   });
   
   const saveVersionMutation = useMutation({
-    mutationFn: async (data: { docxFilePath: string; htmlContent?: string; changeDescription?: string }) => {
+    mutationFn: async (data: { htmlContent?: string; changeDescription?: string }) => {
       return apiRequest('POST', `/api/contract-categories/${categoryId}/countries/${countryCode}/versions`, data);
     },
     onSuccess: () => {
@@ -88,12 +88,7 @@ export function DocxEditor({ categoryId, countryCode, onClose, onSave }: DocxEdi
   const handleSaveVersion = async () => {
     setSavingVersion(true);
     try {
-      const templateResponse = await fetch(`/api/contracts/categories/${categoryId}/default-templates/${countryCode}`, { credentials: 'include' });
-      if (!templateResponse.ok) throw new Error('Failed to get template');
-      const template = await templateResponse.json();
-      
       await saveVersionMutation.mutateAsync({
-        docxFilePath: template.sourceDocxPath || '',
         htmlContent: htmlContent,
         changeDescription: versionDescription || undefined
       });
