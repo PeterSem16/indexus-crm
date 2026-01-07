@@ -50,6 +50,7 @@ import { ContractTemplateEditor, DEFAULT_CONTRACT_TEMPLATE } from "@/components/
 import { DocxEditor } from "@/components/docx-editor";
 import { VariableBrowser } from "@/components/variable-browser";
 import { DocxVariableEditor } from "@/components/docx-variable-editor";
+import { SuperDocEditor } from "@/components/superdoc-editor";
 import { DefaultEditor, BtnBold, BtnItalic, BtnUnderline, BtnNumberedList, BtnBulletList, Separator as EditorSeparator, Toolbar, Editor, BtnStyles } from "react-simple-wysiwyg";
 
 type TabType = "templates" | "contracts";
@@ -2137,7 +2138,7 @@ export default function ContractsPage() {
                 </div>
               ) : (
                 <div className="flex-1 overflow-hidden min-h-0">
-                  <DocxVariableEditor
+                  <SuperDocEditor
                     categoryId={templateForm.loadedCategoryId!}
                     countryCode={templateForm.countryCode}
                     onSave={() => {

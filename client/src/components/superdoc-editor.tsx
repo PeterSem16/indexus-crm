@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Save, Download, Upload, History, Sparkles, Variable, FileText } from "lucide-react";
+import { Loader2, Save, Download, Sparkles, Variable, RefreshCw } from "lucide-react";
 import { VariableBrowser } from "./variable-browser";
-import { VersionHistoryPanel } from "./version-history-panel";
 import {
   Dialog,
   DialogContent,
@@ -32,7 +31,6 @@ export function SuperDocEditor({
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isVariableBrowserOpen, setIsVariableBrowserOpen] = useState(false);
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isAiInserting, setIsAiInserting] = useState(false);
   const [extractedVariables, setExtractedVariables] = useState<string[]>([]);
   const [docxBlobUrl, setDocxBlobUrl] = useState<string | null>(null);
@@ -65,12 +63,10 @@ export function SuperDocEditor({
         containerRef.current.innerHTML = "";
         
         superDocInstance.current = new SuperDoc({
-          selector: containerRef.current,
-          toolbar: toolbarRef.current || undefined,
+          selector: "#superdoc-container",
+          toolbar: "#superdoc-toolbar",
           document: url,
           documentMode: "editing",
-          pagination: true,
-          rulers: true,
           onReady: (event: any) => {
             console.log("SuperDoc ready", event);
             extractVariablesFromDocument();
@@ -78,7 +74,7 @@ export function SuperDocEditor({
           onEditorCreate: (event: any) => {
             console.log("SuperDoc editor created", event);
           },
-        });
+        } as any);
       }
     } catch (error: any) {
       console.error("Error loading document:", error);
@@ -317,20 +313,21 @@ export function SuperDocEditor({
           )}
           <Button
             size="sm"
-            variant="ghost"
-            onClick={() => setIsHistoryOpen(true)}
-            data-testid="button-version-history"
+            variant="outline"
+            onClick={loadDocument}
+            data-testid="button-reload-doc"
           >
-            <History className="h-4 w-4 mr-1" />
-            História
+            <RefreshCw className="h-4 w-4 mr-1" />
+            Obnoviť
           </Button>
         </div>
       </div>
 
-      <div ref={toolbarRef} className="superdoc-toolbar shrink-0" />
+      <div id="superdoc-toolbar" ref={toolbarRef} className="superdoc-toolbar shrink-0" />
 
       <div className="flex-1 overflow-auto bg-gray-100 dark:bg-gray-900">
         <div
+          id="superdoc-container"
           ref={containerRef}
           className="superdoc-container min-h-full"
           style={{ height: "100%" }}
@@ -347,25 +344,7 @@ export function SuperDocEditor({
           </DialogHeader>
           <div className="flex-1 overflow-hidden">
             <VariableBrowser
-              onSelect={handleInsertVariable}
-              onClose={() => setIsVariableBrowserOpen(false)}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle>História verzií</DialogTitle>
-            <DialogDescription>
-              Prehliadajte a obnovujte predchádzajúce verzie dokumentu
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex-1 overflow-hidden">
-            <VersionHistoryPanel
-              categoryId={categoryId}
-              countryCode={countryCode}
+              onInsertVariable={handleInsertVariable}
             />
           </div>
         </DialogContent>
