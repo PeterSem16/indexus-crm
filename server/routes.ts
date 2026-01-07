@@ -43,6 +43,7 @@ import {
   CRM_DATA_FIELDS,
 } from "./template-processor";
 import { convertPdfToDocx, isConverterAvailable } from "./pdf-to-docx-converter";
+import mammoth from "mammoth";
 
 // Global uploads directory
 const uploadsDir = path.join(process.cwd(), "uploads");
@@ -7740,6 +7741,46 @@ ${crmFieldsTable}
     }
   });
   
+  // Delete category default template
+  app.delete("/api/contracts/categories/:categoryId/default-templates/:countryCode", requireAuth, async (req, res) => {
+    try {
+      const categoryId = parseInt(req.params.categoryId);
+      const countryCode = req.params.countryCode.toUpperCase();
+      
+      const template = await storage.getCategoryDefaultTemplate(categoryId, countryCode);
+      if (!template) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+      
+      // Delete associated files
+      const filesToDelete = [
+        template.sourceDocxPath,
+        template.originalDocxPath,
+        template.previewPdfPath,
+        template.sourcePdfPath
+      ].filter(Boolean);
+      
+      for (const filePath of filesToDelete) {
+        try {
+          const fullPath = path.join(process.cwd(), filePath as string);
+          if (fs.existsSync(fullPath)) {
+            await fs.promises.unlink(fullPath);
+          }
+        } catch (e) {
+          console.warn(`Failed to delete file: ${filePath}`, e);
+        }
+      }
+      
+      // Delete template record
+      await storage.deleteCategoryDefaultTemplate(template.id);
+      
+      res.json({ success: true, message: "Šablóna bola vymazaná" });
+    } catch (error) {
+      console.error("Template delete error:", error);
+      res.status(500).json({ error: "Delete failed: " + (error as Error).message });
+    }
+  });
+  
   // Download template file (DOCX or PDF)
   app.get("/api/contracts/template-file/:filePath(*)", requireAuth, async (req, res) => {
     try {
@@ -7971,6 +8012,198 @@ ${crmFieldsTable}
     } catch (error) {
       console.error("Error serving DOCX preview:", error);
       res.status(500).json({ error: "Failed to get DOCX preview" });
+    }
+  });
+  
+  // Get DOCX as formatted HTML using mammoth (preserves styling)
+  app.get("/api/contracts/categories/:categoryId/default-templates/:countryCode/docx-html", requireAuth, async (req, res) => {
+    try {
+      const categoryId = parseInt(req.params.categoryId);
+      const countryCode = req.params.countryCode.toUpperCase();
+      const withSampleData = req.query.withSampleData === "true";
+      
+      const template = await storage.getCategoryDefaultTemplate(categoryId, countryCode);
+      
+      if (!template) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+      
+      if (!template.sourceDocxPath) {
+        return res.status(404).json({ error: "DOCX template not found" });
+      }
+      
+      const fullPath = path.join(process.cwd(), template.sourceDocxPath);
+      
+      if (!fs.existsSync(fullPath)) {
+        return res.status(404).json({ error: "DOCX file not found" });
+      }
+      
+      // Convert DOCX to HTML using mammoth
+      const result = await mammoth.convertToHtml({ path: fullPath }, {
+        styleMap: [
+          "p[style-name='Heading 1'] => h1:fresh",
+          "p[style-name='Heading 2'] => h2:fresh",
+          "p[style-name='Heading 3'] => h3:fresh",
+          "b => strong",
+          "i => em",
+          "u => u"
+        ]
+      });
+      
+      let html = result.value;
+      
+      // Get sample data and placeholders
+      const { SAMPLE_DATA } = await import("./template-processor");
+      
+      // Find all placeholders in the HTML
+      const placeholderRegex = /\{\{([^}]+)\}\}/g;
+      const foundPlaceholders: string[] = [];
+      let match;
+      while ((match = placeholderRegex.exec(html)) !== null) {
+        if (!foundPlaceholders.includes(match[1])) {
+          foundPlaceholders.push(match[1]);
+        }
+      }
+      
+      if (withSampleData) {
+        // Replace placeholders with sample data
+        for (const placeholder of foundPlaceholders) {
+          const regex = new RegExp(`\\{\\{${placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\}\\}`, 'g');
+          const value = SAMPLE_DATA[placeholder] || `[${placeholder}]`;
+          html = html.replace(regex, `<span class="sample-value" style="background: #d4edda; padding: 2px 4px; border-radius: 3px;">${value}</span>`);
+        }
+      } else {
+        // Highlight placeholders
+        html = html.replace(/\{\{([^}]+)\}\}/g, '<span class="placeholder" style="background: #fff3cd; padding: 2px 4px; border-radius: 3px; font-weight: bold; color: #856404;">{{$1}}</span>');
+      }
+      
+      // Add CSS for styling
+      const styledHtml = `
+        <style>
+          .docx-content { font-family: 'Times New Roman', serif; line-height: 1.5; }
+          .docx-content p { margin: 0.5em 0; }
+          .docx-content table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+          .docx-content td, .docx-content th { border: 1px solid #ddd; padding: 8px; }
+          .docx-content h1 { font-size: 1.5em; font-weight: bold; margin: 1em 0 0.5em; }
+          .docx-content h2 { font-size: 1.3em; font-weight: bold; margin: 1em 0 0.5em; }
+          .docx-content h3 { font-size: 1.1em; font-weight: bold; margin: 1em 0 0.5em; }
+          .placeholder { cursor: pointer; }
+          .placeholder:hover { background: #ffc107 !important; }
+        </style>
+        <div class="docx-content">${html}</div>
+      `;
+      
+      res.json({
+        html: styledHtml,
+        rawHtml: html,
+        extractedFields: foundPlaceholders,
+        messages: result.messages,
+        sampleData: SAMPLE_DATA,
+        placeholderMappings: template.placeholderMappings 
+          ? (typeof template.placeholderMappings === 'string' ? JSON.parse(template.placeholderMappings) : template.placeholderMappings)
+          : {}
+      });
+    } catch (error) {
+      console.error("Error converting DOCX to HTML:", error);
+      res.status(500).json({ error: "Failed to convert DOCX to HTML" });
+    }
+  });
+  
+  // Insert placeholder manually at a specific text position in DOCX
+  app.post("/api/contracts/categories/:categoryId/default-templates/:countryCode/insert-placeholder", requireAuth, async (req, res) => {
+    try {
+      const categoryId = parseInt(req.params.categoryId);
+      const countryCode = req.params.countryCode.toUpperCase();
+      const { searchText, placeholder, crmField } = req.body;
+      
+      if (!searchText || !placeholder) {
+        return res.status(400).json({ error: "searchText and placeholder are required" });
+      }
+      
+      const template = await storage.getCategoryDefaultTemplate(categoryId, countryCode);
+      
+      if (!template || !template.sourceDocxPath) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+      
+      const fullPath = path.join(process.cwd(), template.sourceDocxPath);
+      
+      if (!fs.existsSync(fullPath)) {
+        return res.status(404).json({ error: "DOCX file not found" });
+      }
+      
+      // Read and modify DOCX
+      const PizZip = (await import("pizzip")).default;
+      const Docxtemplater = (await import("docxtemplater")).default;
+      
+      const content = fs.readFileSync(fullPath);
+      const zip = new PizZip(content);
+      const doc = new Docxtemplater(zip, {
+        paragraphLoop: true,
+        linebreaks: true,
+        delimiters: { start: "{{", end: "}}" }
+      });
+      
+      // Get document XML
+      const docXml = zip.files["word/document.xml"].asText();
+      
+      // Replace search text with placeholder
+      const placeholderText = `{{${placeholder}}}`;
+      const newDocXml = docXml.replace(new RegExp(searchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), placeholderText);
+      
+      if (newDocXml === docXml) {
+        return res.status(400).json({ error: `Text "${searchText}" nebol nájdený v dokumente` });
+      }
+      
+      // Update the document
+      zip.file("word/document.xml", newDocXml);
+      
+      // Save modified DOCX
+      const modifiedDir = path.join(process.cwd(), "uploads", "contract-templates", `${categoryId}`, countryCode);
+      await fs.promises.mkdir(modifiedDir, { recursive: true });
+      const modifiedPath = path.join(modifiedDir, `modified-${Date.now()}.docx`);
+      
+      const out = zip.generate({ type: "nodebuffer" });
+      fs.writeFileSync(modifiedPath, out);
+      
+      const relativePath = modifiedPath.replace(process.cwd() + "/", "");
+      
+      // Update mappings
+      let mappings = template.placeholderMappings 
+        ? (typeof template.placeholderMappings === 'string' ? JSON.parse(template.placeholderMappings) : template.placeholderMappings)
+        : {};
+      if (crmField) {
+        mappings[`{{${placeholder}}}`] = crmField;
+      }
+      
+      // Extract new placeholders
+      const placeholderRegex = /\{\{([^}]+)\}\}/g;
+      const foundPlaceholders: string[] = [];
+      let match;
+      while ((match = placeholderRegex.exec(newDocXml)) !== null) {
+        const ph = match[1].trim();
+        if (!foundPlaceholders.includes(ph) && !ph.includes('<') && !ph.includes('>')) {
+          foundPlaceholders.push(ph);
+        }
+      }
+      
+      // Update template
+      await storage.updateCategoryDefaultTemplate(template.id, {
+        sourceDocxPath: relativePath,
+        extractedFields: JSON.stringify(foundPlaceholders),
+        placeholderMappings: JSON.stringify(mappings)
+      });
+      
+      res.json({
+        success: true,
+        message: `Premenná {{${placeholder}}} bola vložená`,
+        placeholder,
+        extractedFields: foundPlaceholders,
+        placeholderMappings: mappings
+      });
+    } catch (error) {
+      console.error("Error inserting placeholder:", error);
+      res.status(500).json({ error: "Failed to insert placeholder: " + (error as Error).message });
     }
   });
 

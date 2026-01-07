@@ -47,6 +47,7 @@ import type {
   ContractTemplate, ContractInstance, Customer, BillingDetails, ContractCategory
 } from "@shared/schema";
 import { ContractTemplateEditor, DEFAULT_CONTRACT_TEMPLATE } from "@/components/contract-template-editor";
+import { DocxEditor } from "@/components/docx-editor";
 
 type TabType = "templates" | "contracts";
 type TemplateSubTab = "list" | "categories";
@@ -444,6 +445,8 @@ export default function ContractsPage() {
     sourcePath: string;
     categoryId: number;
     countryCode: string;
+    aiProcessed?: boolean;
+    originalDocxPath?: string;
   } | null>(null);
   const [templateMappings, setTemplateMappings] = useState<Record<string, string>>({});
   const [savingMappings, setSavingMappings] = useState(false);
@@ -1238,7 +1241,18 @@ export default function ContractsPage() {
           mappings = {};
         }
         
-        console.log('[Template Editor] Loaded template:', { templateType: template.templateType, extractedFields, mappings });
+        // Check if AI has processed this template
+        let aiProcessed = false;
+        if (template.conversionMetadata) {
+          try {
+            const meta = typeof template.conversionMetadata === 'string' 
+              ? JSON.parse(template.conversionMetadata) 
+              : template.conversionMetadata;
+            aiProcessed = !!meta.aiProcessedAt;
+          } catch (e) {}
+        }
+        
+        console.log('[Template Editor] Loaded template:', { templateType: template.templateType, extractedFields, mappings, aiProcessed });
         
         setEditingTemplateData({
           templateType: template.templateType || "pdf_form",
@@ -1246,7 +1260,9 @@ export default function ContractsPage() {
           placeholderMappings: mappings,
           sourcePath: template.sourceDocxPath || template.sourcePdfPath || "",
           categoryId: selectedCategory!.id,
-          countryCode: countryCode
+          countryCode: countryCode,
+          aiProcessed: aiProcessed,
+          originalDocxPath: template.originalDocxPath || undefined
         });
         setTemplateMappings(mappings);
         setIsTemplateEditorLoading(false);
@@ -2792,15 +2808,49 @@ export default function ContractsPage() {
                                 </label>
                                 
                                 {hasTemplate && !isConverting && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleEditCategoryTemplate(selectedCategory.id, country.code)}
-                                    data-testid={`button-edit-template-${country.code}`}
-                                    title="Upraviť mapovanie"
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleEditCategoryTemplate(selectedCategory.id, country.code)}
+                                      data-testid={`button-edit-template-${country.code}`}
+                                      title="Upraviť mapovanie"
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={async () => {
+                                        if (!confirm(`Naozaj chcete vymazať šablónu pre ${country.name}?`)) return;
+                                        try {
+                                          const response = await fetch(`/api/contracts/categories/${selectedCategory.id}/default-templates/${country.code}`, {
+                                            method: "DELETE",
+                                            credentials: "include"
+                                          });
+                                          if (!response.ok) throw new Error("Delete failed");
+                                          setCategoryDefaultTemplates(prev => {
+                                            const newState = { ...prev };
+                                            delete newState[country.code];
+                                            return newState;
+                                          });
+                                          setCategoryPdfUploads(prev => ({
+                                            ...prev,
+                                            [country.code]: { file: null, uploading: false, uploaded: false }
+                                          }));
+                                          toast({ title: "Šablóna vymazaná" });
+                                          queryClient.invalidateQueries({ queryKey: ["/api/contracts/categories"] });
+                                        } catch (error) {
+                                          toast({ title: "Chyba pri mazaní", variant: "destructive" });
+                                        }
+                                      }}
+                                      data-testid={`button-delete-template-${country.code}`}
+                                      title="Vymazať šablónu"
+                                      className="text-destructive hover:text-destructive"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </>
                                 )}
                               </div>
                             </div>
@@ -4025,17 +4075,39 @@ export default function ContractsPage() {
                 <p className="text-muted-foreground">Načítavam šablónu...</p>
               </div>
             ) : editingTemplateData ? (
-              <Tabs defaultValue="mapping" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-4">
+              <Tabs defaultValue="editor" className="w-full">
+                <TabsList className="grid w-full grid-cols-3 mb-4">
+                  <TabsTrigger value="editor" data-testid="tab-template-editor">
+                    <FileText className="h-4 w-4 mr-2" />
+                    DOCX Editor
+                  </TabsTrigger>
                   <TabsTrigger value="mapping" data-testid="tab-template-mapping">
                     <Settings className="h-4 w-4 mr-2" />
                     Mapovanie polí
                   </TabsTrigger>
                   <TabsTrigger value="preview" data-testid="tab-template-preview">
                     <Eye className="h-4 w-4 mr-2" />
-                    Náhľad s ukážkovými údajmi
+                    Náhľad
                   </TabsTrigger>
                 </TabsList>
+                
+                <TabsContent value="editor" className="h-[60vh]">
+                  {editingTemplateData.templateType === "docx" && editingTemplateData.categoryId && editingTemplateData.countryCode ? (
+                    <DocxEditor
+                      categoryId={editingTemplateData.categoryId}
+                      countryCode={editingTemplateData.countryCode}
+                      onClose={() => setIsTemplateEditorOpen(false)}
+                      onSave={() => {
+                        queryClient.invalidateQueries({ queryKey: ["/api/contracts/categories"] });
+                      }}
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                      <FileText className="h-12 w-12 mb-4 opacity-50" />
+                      <p>DOCX editor je dostupný len pre DOCX šablóny</p>
+                    </div>
+                  )}
+                </TabsContent>
                 
                 <TabsContent value="mapping" className="space-y-4">
                   <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-md">
@@ -4203,9 +4275,11 @@ export default function ContractsPage() {
                                       setEditingTemplateData(prev => prev ? {
                                         ...prev,
                                         extractedFields: extractedFields,
-                                        mappings: autoMappings,
-                                        sourcePath: result.modifiedDocxPath || prev.sourcePath
+                                        placeholderMappings: autoMappings,
+                                        sourcePath: result.modifiedDocxPath || prev.sourcePath,
+                                        aiProcessed: true
                                       } : null);
+                                      setTemplateMappings(autoMappings);
                                       
                                       queryClient.invalidateQueries({ queryKey: ["/api/contracts/categories"] });
                                     } else {
@@ -4242,63 +4316,67 @@ export default function ContractsPage() {
                                 )}
                               </Button>
                               
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={async () => {
-                                  setIsResettingTemplate(true);
-                                  try {
-                                    const response = await fetch(`/api/contracts/categories/${editingTemplateData.categoryId}/default-templates/${editingTemplateData.countryCode}/reset`, {
-                                      method: "POST",
-                                      credentials: "include"
-                                    });
-                                    
-                                    if (!response.ok) {
-                                      const error = await response.json();
-                                      throw new Error(error.error || "Reset failed");
+                              {editingTemplateData.aiProcessed && editingTemplateData.originalDocxPath && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={async () => {
+                                    setIsResettingTemplate(true);
+                                    try {
+                                      const response = await fetch(`/api/contracts/categories/${editingTemplateData.categoryId}/default-templates/${editingTemplateData.countryCode}/reset`, {
+                                        method: "POST",
+                                        credentials: "include"
+                                      });
+                                      
+                                      if (!response.ok) {
+                                        const error = await response.json();
+                                        throw new Error(error.error || "Reset failed");
+                                      }
+                                      
+                                      const result = await response.json();
+                                      
+                                      toast({
+                                        title: "Šablóna resetovaná",
+                                        description: result.message
+                                      });
+                                      
+                                      setEditingTemplateData(prev => prev ? {
+                                        ...prev,
+                                        extractedFields: result.extractedFields || [],
+                                        placeholderMappings: {},
+                                        sourcePath: result.sourceDocxPath || prev.sourcePath,
+                                        aiProcessed: false
+                                      } : null);
+                                      setTemplateMappings({});
+                                      
+                                      queryClient.invalidateQueries({ queryKey: ["/api/contracts/categories"] });
+                                    } catch (error) {
+                                      console.error("Reset error:", error);
+                                      toast({
+                                        title: "Chyba pri resete",
+                                        description: (error as Error).message,
+                                        variant: "destructive"
+                                      });
+                                    } finally {
+                                      setIsResettingTemplate(false);
                                     }
-                                    
-                                    const result = await response.json();
-                                    
-                                    toast({
-                                      title: "Šablóna resetovaná",
-                                      description: result.message
-                                    });
-                                    
-                                    setEditingTemplateData(prev => prev ? {
-                                      ...prev,
-                                      extractedFields: result.extractedFields || [],
-                                      mappings: {},
-                                      sourcePath: result.sourceDocxPath || prev.sourcePath
-                                    } : null);
-                                    
-                                    queryClient.invalidateQueries({ queryKey: ["/api/contracts/categories"] });
-                                  } catch (error) {
-                                    console.error("Reset error:", error);
-                                    toast({
-                                      title: "Chyba pri resete",
-                                      description: (error as Error).message,
-                                      variant: "destructive"
-                                    });
-                                  } finally {
-                                    setIsResettingTemplate(false);
-                                  }
-                                }}
-                                disabled={isResettingTemplate}
-                                data-testid="button-reset-template"
-                              >
-                                {isResettingTemplate ? (
-                                  <>
-                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                    Resetujem...
-                                  </>
-                                ) : (
-                                  <>
-                                    <RefreshCw className="h-4 w-4 mr-2" />
-                                    Resetovať na pôvodný stav
-                                  </>
-                                )}
-                              </Button>
+                                  }}
+                                  disabled={isResettingTemplate}
+                                  data-testid="button-reset-template"
+                                >
+                                  {isResettingTemplate ? (
+                                    <>
+                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                      Resetujem...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <RefreshCw className="h-4 w-4 mr-2" />
+                                      Resetovať na pôvodný stav
+                                    </>
+                                  )}
+                                </Button>
+                              )}
                               
                               <div className="relative my-2">
                                 <div className="absolute inset-0 flex items-center">
