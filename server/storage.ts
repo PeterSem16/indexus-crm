@@ -554,13 +554,12 @@ export interface IStorage {
   updateContractTemplate(id: string, data: Partial<InsertContractTemplate>): Promise<ContractTemplate | undefined>;
   deleteContractTemplate(id: string): Promise<boolean>;
 
-  // Contract Template Versions
-  getContractTemplateVersions(templateId: string): Promise<ContractTemplateVersion[]>;
-  getContractTemplateVersion(id: string): Promise<ContractTemplateVersion | undefined>;
-  getLatestPublishedVersion(templateId: string): Promise<ContractTemplateVersion | undefined>;
-  createContractTemplateVersion(data: InsertContractTemplateVersion): Promise<ContractTemplateVersion>;
-  updateContractTemplateVersion(id: string, data: Partial<InsertContractTemplateVersion>): Promise<ContractTemplateVersion | undefined>;
-  publishContractTemplateVersion(id: string, publishedBy: string): Promise<ContractTemplateVersion | undefined>;
+  // Contract Template Versions (per category/country)
+  getTemplateVersions(categoryId: number, countryCode: string): Promise<ContractTemplateVersion[]>;
+  getTemplateVersion(id: number): Promise<ContractTemplateVersion | undefined>;
+  getTemplateVersionByNumber(categoryId: number, countryCode: string, versionNumber: number): Promise<ContractTemplateVersion | undefined>;
+  createTemplateVersion(data: InsertContractTemplateVersion): Promise<ContractTemplateVersion>;
+  getLatestVersionNumber(categoryId: number, countryCode: string): Promise<number>;
 
   // Contract Instances
   getAllContractInstances(): Promise<ContractInstance[]>;
@@ -3299,50 +3298,43 @@ export class DatabaseStorage implements IStorage {
     return result.length > 0;
   }
 
-  // Contract Template Versions
-  async getContractTemplateVersions(templateId: string): Promise<ContractTemplateVersion[]> {
+  // Contract Template Versions (per category/country)
+  async getTemplateVersions(categoryId: number, countryCode: string): Promise<ContractTemplateVersion[]> {
     return db.select().from(contractTemplateVersions)
-      .where(eq(contractTemplateVersions.templateId, templateId))
-      .orderBy(desc(contractTemplateVersions.version));
+      .where(and(
+        eq(contractTemplateVersions.categoryId, categoryId),
+        eq(contractTemplateVersions.countryCode, countryCode)
+      ))
+      .orderBy(desc(contractTemplateVersions.versionNumber));
   }
 
-  async getContractTemplateVersion(id: string): Promise<ContractTemplateVersion | undefined> {
+  async getTemplateVersion(id: number): Promise<ContractTemplateVersion | undefined> {
     const [version] = await db.select().from(contractTemplateVersions).where(eq(contractTemplateVersions.id, id));
     return version || undefined;
   }
 
-  async getLatestPublishedVersion(templateId: string): Promise<ContractTemplateVersion | undefined> {
+  async getTemplateVersionByNumber(categoryId: number, countryCode: string, versionNumber: number): Promise<ContractTemplateVersion | undefined> {
     const [version] = await db.select().from(contractTemplateVersions)
       .where(and(
-        eq(contractTemplateVersions.templateId, templateId),
-        eq(contractTemplateVersions.isPublished, true)
+        eq(contractTemplateVersions.categoryId, categoryId),
+        eq(contractTemplateVersions.countryCode, countryCode),
+        eq(contractTemplateVersions.versionNumber, versionNumber)
       ))
-      .orderBy(desc(contractTemplateVersions.version))
       .limit(1);
     return version || undefined;
   }
 
-  async createContractTemplateVersion(data: InsertContractTemplateVersion): Promise<ContractTemplateVersion> {
-    const versions = await this.getContractTemplateVersions(data.templateId);
-    const nextVersion = versions.length > 0 ? Math.max(...versions.map(v => v.version)) + 1 : 1;
-    const [version] = await db.insert(contractTemplateVersions).values({ ...data, version: nextVersion }).returning();
+  async getLatestVersionNumber(categoryId: number, countryCode: string): Promise<number> {
+    const versions = await this.getTemplateVersions(categoryId, countryCode);
+    if (versions.length === 0) return 0;
+    return Math.max(...versions.map(v => v.versionNumber));
+  }
+
+  async createTemplateVersion(data: InsertContractTemplateVersion): Promise<ContractTemplateVersion> {
+    const latestVersion = await this.getLatestVersionNumber(data.categoryId, data.countryCode);
+    const nextVersion = latestVersion + 1;
+    const [version] = await db.insert(contractTemplateVersions).values({ ...data, versionNumber: nextVersion }).returning();
     return version;
-  }
-
-  async updateContractTemplateVersion(id: string, data: Partial<InsertContractTemplateVersion>): Promise<ContractTemplateVersion | undefined> {
-    const [version] = await db.update(contractTemplateVersions)
-      .set(data)
-      .where(eq(contractTemplateVersions.id, id))
-      .returning();
-    return version || undefined;
-  }
-
-  async publishContractTemplateVersion(id: string, publishedBy: string): Promise<ContractTemplateVersion | undefined> {
-    const [version] = await db.update(contractTemplateVersions)
-      .set({ isPublished: true, publishedAt: sql`now()`, publishedBy })
-      .where(eq(contractTemplateVersions.id, id))
-      .returning();
-    return version || undefined;
   }
 
   // Contract Instances

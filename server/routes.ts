@@ -8686,10 +8686,12 @@ Odpovedz v JSON formáte:
     }
   });
 
-  // Contract Template Versions
-  app.get("/api/contracts/templates/:templateId/versions", requireAuth, async (req, res) => {
+  // Contract Template Versions (per category/country)
+  app.get("/api/contract-categories/:categoryId/countries/:countryCode/versions", requireAuth, async (req, res) => {
     try {
-      const versions = await storage.getContractTemplateVersions(req.params.templateId);
+      const categoryId = parseInt(req.params.categoryId);
+      const { countryCode } = req.params;
+      const versions = await storage.getTemplateVersions(categoryId, countryCode);
       res.json(versions);
     } catch (error) {
       console.error("Error fetching template versions:", error);
@@ -8697,13 +8699,36 @@ Odpovedz v JSON formáte:
     }
   });
 
-  app.post("/api/contracts/templates/:templateId/versions", requireAuth, async (req, res) => {
+  app.get("/api/contract-categories/:categoryId/countries/:countryCode/versions/:versionNumber", requireAuth, async (req, res) => {
     try {
+      const categoryId = parseInt(req.params.categoryId);
+      const { countryCode } = req.params;
+      const versionNumber = parseInt(req.params.versionNumber);
+      const version = await storage.getTemplateVersionByNumber(categoryId, countryCode, versionNumber);
+      if (!version) {
+        return res.status(404).json({ error: "Version not found" });
+      }
+      res.json(version);
+    } catch (error) {
+      console.error("Error fetching template version:", error);
+      res.status(500).json({ error: "Failed to fetch template version" });
+    }
+  });
+
+  app.post("/api/contract-categories/:categoryId/countries/:countryCode/versions", requireAuth, async (req, res) => {
+    try {
+      const categoryId = parseInt(req.params.categoryId);
+      const { countryCode } = req.params;
+      const user = req.session.user!;
+      
       const data = insertContractTemplateVersionSchema.parse({
         ...req.body,
-        templateId: req.params.templateId
+        categoryId,
+        countryCode,
+        createdBy: user.id,
+        createdByName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username
       });
-      const version = await storage.createContractTemplateVersion(data);
+      const version = await storage.createTemplateVersion(data);
       res.status(201).json(version);
     } catch (error) {
       console.error("Error creating template version:", error);
@@ -8711,18 +8736,48 @@ Odpovedz v JSON formáte:
     }
   });
 
-  app.post("/api/contracts/templates/:templateId/versions/:versionId/publish", requireAuth, async (req, res) => {
+  app.post("/api/contract-categories/:categoryId/countries/:countryCode/versions/:versionId/revert", requireAuth, async (req, res) => {
     try {
-      const version = await storage.publishContractTemplateVersion(req.params.versionId, req.session.user!.id);
+      const versionId = parseInt(req.params.versionId);
+      const version = await storage.getTemplateVersion(versionId);
       if (!version) {
         return res.status(404).json({ error: "Version not found" });
       }
       
-      await storage.updateContractTemplate(req.params.templateId, { status: "published" });
-      res.json(version);
+      // Get the category template and update it with the version's content
+      const template = await storage.getCategoryDefaultTemplate(version.categoryId, version.countryCode);
+      if (!template) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+      
+      // Copy the versioned DOCX file to be the active template
+      const fs = await import('fs').then(m => m.promises);
+      const path = await import('path');
+      
+      // Check if the versioned file exists
+      if (version.docxFilePath) {
+        const versionedFilePath = path.join(process.cwd(), version.docxFilePath);
+        if (await fs.access(versionedFilePath).then(() => true).catch(() => false)) {
+          // Copy to the current template location
+          const currentDocxPath = template.sourceDocxPath;
+          if (currentDocxPath) {
+            const destPath = path.join(process.cwd(), currentDocxPath);
+            await fs.copyFile(versionedFilePath, destPath);
+          }
+        }
+      }
+      
+      // Update template htmlContent if version has it
+      if (version.htmlContent) {
+        await storage.updateCategoryDefaultTemplate(template.id, {
+          htmlContent: version.htmlContent
+        });
+      }
+      
+      res.json({ success: true, message: "Reverted to version " + version.versionNumber, version });
     } catch (error) {
-      console.error("Error publishing template version:", error);
-      res.status(500).json({ error: "Failed to publish template version" });
+      console.error("Error reverting template version:", error);
+      res.status(500).json({ error: "Failed to revert template version" });
     }
   });
 
