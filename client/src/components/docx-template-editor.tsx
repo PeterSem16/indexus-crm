@@ -68,6 +68,7 @@ export function DocxTemplateEditor({
   const [isCreatingVersion, setIsCreatingVersion] = useState(false);
   const [revertVersion, setRevertVersion] = useState<TemplateVersion | null>(null);
   const [isReverting, setIsReverting] = useState(false);
+  const [previewKey, setPreviewKey] = useState(Date.now());
   const { toast } = useToast();
 
   const extractVariablesFromDocument = useCallback(async () => {
@@ -213,6 +214,7 @@ export function DocxTemplateEditor({
       });
 
       onSave?.();
+      setPreviewKey(Date.now());
       await loadDocument();
     } catch (error: any) {
       toast({
@@ -561,14 +563,14 @@ export function DocxTemplateEditor({
               <div>
                 <h3 className="font-medium">Náhľad DOCX šablóny</h3>
                 <p className="text-sm text-muted-foreground">
-                  Aktuálny obsah nahraného DOCX dokumentu
+                  PDF náhľad nahraného DOCX dokumentu
                 </p>
               </div>
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={loadDocument}
+                  onClick={() => setPreviewKey(Date.now())}
                   data-testid="button-refresh-preview"
                 >
                   <RefreshCw className="h-4 w-4 mr-1" />
@@ -586,19 +588,15 @@ export function DocxTemplateEditor({
               </div>
             </div>
             
-            <ScrollArea className="h-[500px] rounded-md border">
-              {htmlContent ? (
-                <div 
-                  className="bg-white dark:bg-gray-800 p-6 prose dark:prose-invert max-w-none"
-                  dangerouslySetInnerHTML={{ __html: htmlContent }}
-                />
-              ) : (
-                <div className="flex items-center justify-center h-64 text-muted-foreground">
-                  <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                  Načítavam náhľad...
-                </div>
-              )}
-            </ScrollArea>
+            <div className="rounded-md border overflow-hidden bg-gray-100 dark:bg-gray-900" style={{ height: "500px" }}>
+              <iframe
+                key={previewKey}
+                src={`/api/contracts/categories/${categoryId}/default-templates/${countryCode}/preview-pdf?t=${previewKey}`}
+                className="w-full h-full"
+                title="DOCX Preview"
+                data-testid="iframe-docx-preview"
+              />
+            </div>
           </TabsContent>
 
           <TabsContent value="history" className="mt-4 flex-1 overflow-auto">
