@@ -1814,9 +1814,9 @@ export default function ContractsPage() {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="flex-1 overflow-hidden">
-            <div className="grid gap-4 py-4 h-full">
-              <div className="grid grid-cols-5 gap-4">
+          <div className="flex-1 overflow-hidden flex flex-col">
+            <div className="flex flex-col gap-4 py-4 h-full">
+              <div className="grid grid-cols-5 gap-4 shrink-0">
                 <div className="space-y-2">
                   <Label htmlFor="template-name">1. Názov šablóny</Label>
                   <Input
@@ -1906,10 +1906,10 @@ export default function ContractsPage() {
                 </div>
               </div>
               
-              <Separator />
+              <Separator className="shrink-0" />
               
               {!templateForm.loadedFromCategory ? (
-                <div className="flex-1 flex items-center justify-center">
+                <div className="flex-1 flex items-center justify-center min-h-0">
                   <div className="text-center text-muted-foreground p-8">
                     <FileText className="h-16 w-16 mx-auto mb-4 opacity-30" />
                     <p className="text-lg font-medium mb-2">Vyberte kategóriu a krajinu</p>
@@ -1917,7 +1917,7 @@ export default function ContractsPage() {
                   </div>
                 </div>
               ) : (
-                <div className="flex-1 grid grid-cols-3 gap-4 overflow-hidden">
+                <div className="flex-1 grid grid-cols-3 gap-4 overflow-hidden min-h-0">
                   <div className="flex flex-col overflow-hidden border rounded-md">
                     <div className="p-3 border-b bg-muted/50 flex items-center justify-between gap-2 shrink-0">
                       <h3 className="font-medium text-sm">Dostupné CRM polia</h3>
