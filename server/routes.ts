@@ -9776,6 +9776,64 @@ Odpovedz v JSON formáte:
     }
   });
 
+  // Analyze text for variable suggestions
+  app.post("/api/variables/analyze", requireAuth, async (req, res) => {
+    try {
+      const { text, placeholder } = req.body;
+      
+      if (!text && !placeholder) {
+        return res.status(400).json({ error: "Either text or placeholder is required" });
+      }
+      
+      if (text && typeof text !== "string") {
+        return res.status(400).json({ error: "text must be a string" });
+      }
+      
+      if (placeholder && typeof placeholder !== "string") {
+        return res.status(400).json({ error: "placeholder must be a string" });
+      }
+      
+      const { variableRegistry } = await import("./variable-registry-service");
+      
+      if (text && text.trim()) {
+        const analysis = await variableRegistry.analyzeText(text);
+        res.json(analysis);
+      } else if (placeholder && placeholder.trim()) {
+        const mapping = await variableRegistry.mapPlaceholderToVariable(placeholder, "");
+        res.json({
+          variable: mapping.variable,
+          confidence: mapping.confidence,
+          method: mapping.method
+        });
+      } else {
+        res.status(400).json({ error: "Text or placeholder cannot be empty" });
+      }
+    } catch (error) {
+      console.error("Error analyzing text:", error);
+      res.status(500).json({ error: "Failed to analyze text" });
+    }
+  });
+
+  // Get variable suggestions for context
+  app.post("/api/variables/suggest", requireAuth, async (req, res) => {
+    try {
+      const { contextText, limit = 10 } = req.body;
+      
+      if (contextText !== undefined && typeof contextText !== "string") {
+        return res.status(400).json({ error: "contextText must be a string" });
+      }
+      
+      const parsedLimit = typeof limit === "number" ? Math.min(Math.max(1, limit), 50) : 10;
+      
+      const { variableRegistry } = await import("./variable-registry-service");
+      const suggestions = await variableRegistry.suggestVariablesForContext(contextText || "", parsedLimit);
+      res.json(suggestions);
+    } catch (error) {
+      console.error("Error getting variable suggestions:", error);
+      res.status(500).json({ error: "Failed to get suggestions" });
+    }
+  });
+
   return httpServer;
 }
 

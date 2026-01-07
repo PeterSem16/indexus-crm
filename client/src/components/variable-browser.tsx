@@ -144,11 +144,26 @@ export function VariableBrowser({
     setExpandedBlocks(newExpanded);
   };
 
-  const handleCopy = (variableKey: string) => {
+  const handleCopy = async (variableKey: string) => {
     const placeholder = `{{${variableKey}}}`;
-    navigator.clipboard.writeText(placeholder);
-    if (onCopyVariable) {
-      onCopyVariable(variableKey);
+    try {
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        await navigator.clipboard.writeText(placeholder);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = placeholder;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      if (onCopyVariable) {
+        onCopyVariable(variableKey);
+      }
+    } catch (err) {
+      console.error('Failed to copy to clipboard:', err);
     }
   };
 
