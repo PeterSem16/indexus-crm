@@ -504,9 +504,32 @@ export function detectFieldsWithPatterns(text: string): DetectedField[] {
   const seenOriginals = new Set<string>();
   
   const lines = text.split(/\n/);
+  const totalLines = lines.length;
+  
+  const HEADER_SIZE = 40;
+  const SIGNATURE_SIZE = 50;
+  
+  const fillFieldRegex = /[\.]{3,}|[_]{3,}|[\…]{2,}|:\s*$/;
+  
+  const isInAllowedSection = (lineIndex: number, line: string): boolean => {
+    if (lineIndex < HEADER_SIZE) return true;
+    if (lineIndex >= totalLines - SIGNATURE_SIZE) return true;
+    if (fillFieldRegex.test(line)) return true;
+    
+    const prevLine = lineIndex > 0 ? lines[lineIndex - 1] : "";
+    const nextLine = lineIndex < totalLines - 1 ? lines[lineIndex + 1] : "";
+    if (fillFieldRegex.test(prevLine) || fillFieldRegex.test(nextLine)) return true;
+    
+    return false;
+  };
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    
+    if (!isInAllowedSection(i, line)) {
+      continue;
+    }
+    
     const context = lines.slice(Math.max(0, i - 1), Math.min(lines.length, i + 2)).join(" ");
     
     for (const fieldDef of SLOVAK_FIELD_PATTERNS) {
@@ -533,7 +556,7 @@ export function detectFieldsWithPatterns(text: string): DetectedField[] {
     }
   }
   
-  console.log(`[DOCX] Pattern detection found ${detectedFields.length} fields`);
+  console.log(`[DOCX] Pattern detection found ${detectedFields.length} fields (header: first ${HEADER_SIZE}, signature: last ${SIGNATURE_SIZE})`);
   return detectedFields;
 }
 

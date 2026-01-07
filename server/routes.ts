@@ -7391,80 +7391,74 @@ Odpovedz v JSON formáte:
 | today | Dnešný dátum | 7.1.2026 |
 `;
 
-      const docText = fullText.substring(0, 40000);
+      const lines = fullText.split('\n');
+      const totalLines = lines.length;
       
-      const prompt = `Si expert na analýzu právnych dokumentov a zmlúv pre cord blood banky. Analyzuj CELÝ dokument a nájdi VŠETKY konkrétne hodnoty (mená, adresy, dátumy, čísla) na nahradenie.
+      const headerLines = lines.slice(0, Math.min(40, totalLines));
+      const signatureLines = lines.slice(Math.max(0, totalLines - 50));
+      
+      const fillFieldLines: string[] = [];
+      const fillFieldRegex = /[\.]{3,}|[_]{3,}|[\…]{2,}|:\s*$/;
+      
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (fillFieldRegex.test(line)) {
+          const contextStart = Math.max(0, i - 1);
+          const contextEnd = Math.min(lines.length, i + 2);
+          fillFieldLines.push(...lines.slice(contextStart, contextEnd));
+        }
+      }
+      
+      const headerSection = headerLines.join('\n');
+      const signatureSection = signatureLines.join('\n');
+      const fillFieldSection = [...new Set(fillFieldLines)].join('\n');
+      
+      console.log(`[AI] Document sections: header=${headerLines.length} lines, signature=${signatureLines.length} lines, fill-fields=${fillFieldLines.length} lines`);
+      
+      const prompt = `Si expert na analýzu právnych dokumentov pre cord blood banky. Tvoja úloha je KONZERVATÍVNE identifikovať len polia, ktoré sú JASNE OZNAČENÉ PRE VYPLNENIE.
 
-## TEXT DOKUMENTU:
-${docText}
+## ZAMERANIE - Hľadaj len v týchto sekciách:
+
+### HLAVIČKA DOKUMENTU (prvých 40 riadkov):
+${headerSection}
+
+### ZÁVER / PODPISY (posledných 50 riadkov):
+${signatureSection}
+
+### RIADKY S VYPLŇOVACÍMI ZNAKMI (............, _______, atď.):
+${fillFieldSection}
 
 ## DOSTUPNÉ CRM PREMENNÉ:
 ${crmFieldsTable}
 
-## KONTROLNÝ ZOZNAM - HĽADAJ TIETO KATEGÓRIE:
+## KRITICKÉ PRAVIDLÁ - VEĽMI DÔLEŽITÉ:
 
-### 1. ZÁKAZNÍK / KLIENTKA / MATKA DIEŤAŤA (customer.*)
-Hľadaj údaje označené ako: "Klientka", "Zákazník", "Objednávateľ", "Matka dieťaťa", "Rodička"
-- [ ] Celé meno (customer.fullName) - napr. "Jana Nováková", "Mária Horváthová"
-- [ ] Adresa/Bydlisko (customer.permanentAddress) - napr. "Hlavná 123, 831 01 Bratislava"
-- [ ] Korešpondenčná adresa (customer.correspondenceAddress)
-- [ ] Dátum narodenia (customer.birthDate) - napr. "15.03.1990", "15. marca 1990"
-- [ ] Rodné číslo (customer.personalId) - napr. "900315/1234", "9003151234"
-- [ ] Telefón (customer.phone), Email (customer.email)
-- [ ] IBAN/Číslo účtu (customer.IBAN)
+1. **NAHRÁDZAJ LEN KONKRÉTNE HODNOTY** - mená osôb, adresy, dátumy, rodné čísla
+2. **IGNORUJ NÁZVY POLÍ** - "Klientka:", "Otec:", "Trvalé bydlisko:" sú len návesti, NIE hodnoty na nahradenie
+3. **HĽADAJ VIZUÁLNE OZNAČENIA** - polia označené bodkami (....), podčiarknutím (____) alebo dvojbodkou na konci
+4. **NESAHAJ DO STREDU DOKUMENTU** - text článkov zmluvy NIE JE NA NAHRADENIE
+5. **BUĎ KONZERVATÍVNY** - ak si nie si istý, NEZAHRŇ pole
+6. **MAX 10-15 POLÍ** - zmluva má len niekoľko kľúčových polí na vyplnenie
 
-### 2. OTEC DIEŤAŤA (father.*)
-Hľadaj údaje označené ako: "Otec", "Otec dieťaťa", "Zákonný zástupca - otec"
-- [ ] Meno otca (father.fullName) - napr. "Peter Novák", "Ján Horváth"
-- [ ] Adresa otca (father.permanentAddress)
-- [ ] Dátum narodenia otca (father.birthDate)
-- [ ] Rodné číslo otca (father.personalId)
+## ČO NAHRADIŤ:
+- Skutočné mená osôb (nie "Meno a priezvisko")
+- Skutočné adresy (nie "Adresa trvalého pobytu")
+- Skutočné dátumy (nie "Dátum narodenia")
+- Skutočné čísla (rodné číslo, IČO, atď.)
 
-### 3. MATKA DIEŤAŤA - ak je iná osoba než zákazník (mother.*)
-Hľadaj údaje označené ako: "Matka", "Matka dieťaťa"
-- [ ] Meno matky (mother.fullName)
-- [ ] Adresa matky (mother.permanentAddress)
-
-### 4. SPOLOČNOSŤ / POSKYTOVATEĽ (company.*)
-Hľadaj údaje označené ako: "Poskytovateľ", "Dodávateľ", "Spoločnosť", "Cord Blood Center"
-- [ ] Názov spoločnosti (company.name) - napr. "Cord Blood Center, s.r.o."
-- [ ] Adresa spoločnosti (company.address)
-- [ ] IČO (company.identificationNumber)
-- [ ] DIČ (company.taxIdentificationNumber)
-- [ ] IČ DPH (company.vatNumber)
-
-### 5. ZMLUVA (contract.*)
-Hľadaj údaje: číslo zmluvy, dátum uzavretia, platnosť
-- [ ] Číslo zmluvy (contract.number) - napr. "ZML-2024-0001", "SK-12345"
-- [ ] Dátum zmluvy/podpisu (contract.date) - napr. "1.1.2026", "1. januára 2026"
-
-### 6. DIEŤA (child.*)
-Hľadaj údaje označené ako: "Dieťa", "Novorodenec"
-- [ ] Meno dieťaťa (child.fullName)
-- [ ] Dátum narodenia dieťaťa (child.birthDate)
-- [ ] Miesto narodenia (child.birthPlace)
-
-### 7. ZÁSTUPCA (representative.*)
-- [ ] Meno zástupcu/splnomocnenca (representative.fullName)
-
-## KRITICKÉ PRAVIDLÁ:
-1. Analyzuj CELÝ dokument - údaje môžu byť na konci!
-2. Každú UNIKÁTNU textovú hodnotu uveď len RAZ
-3. Použi PRESNÝ text z dokumentu vrátane diakritiky a formátovania
-4. Hľadaj minimálne 8-15 polí - zmluvy obsahujú veľa osobných údajov
-5. NEZABUDNI na otca, dieťa a ďalšie osoby v dokumente
-6. Ignoruj všeobecné právne frázy, nadpisy a čísla článkov
+## ČO NENAHRÁDZAŤ:
+- Názvy polí a návesti ("Klientka:", "Otec dieťaťa:")
+- Text článkov zmluvy a právne formulácie
+- Nadpisy a čísla článkov
+- Obecné pokyny a vysvetlenia
 
 ## FORMÁT ODPOVEDE (JSON):
 {
   "replacements": [
-    { "original": "Jana Nováková", "placeholder": "customer.fullName", "reason": "Meno klientky/zákazníka" },
-    { "original": "Peter Novák", "placeholder": "father.fullName", "reason": "Meno otca dieťaťa" },
-    { "original": "Hlavná 123, 831 01 Bratislava", "placeholder": "customer.permanentAddress", "reason": "Adresa klientky" },
-    { "original": "15.03.1990", "placeholder": "customer.birthDate", "reason": "Dátum narodenia klientky" },
-    { "original": "900315/1234", "placeholder": "customer.personalId", "reason": "Rodné číslo klientky" }
+    { "original": "Jana Nováková", "placeholder": "customer.fullName", "reason": "Konkrétne meno pri hlavičke dokumentu" },
+    { "original": "15.03.1990", "placeholder": "customer.birthDate", "reason": "Dátum pri riadku s bodkami" }
   ],
-  "summary": "Identifikovaných X polí"
+  "summary": "Identifikovaných X polí z hlavičky a podpisovej časti"
 }`;
 
       console.log("[AI] Analyzing document for placeholder insertion...");
@@ -7512,6 +7506,24 @@ Hľadaj údaje označené ako: "Dieťa", "Novorodenec"
       const seenOriginals = new Set<string>();
       const validatedReplacements: Array<{ original: string; placeholder: string; reason: string }> = [];
       
+      const labelPatterns = [
+        /^(klientka|zákazník|objednávateľ|rodička|matka|otec|dieťa|spoločnosť|poskytovateľ)$/i,
+        /^(meno|priezvisko|adresa|bydlisko|telefón|email|dátum|číslo)$/i,
+        /^(trvalé bydlisko|rodné číslo|dátum narodenia|meno a priezvisko)$/i,
+        /^(zákonný zástupca|zmluva|podpis|číslo zmluvy)$/i,
+      ];
+      
+      const isLabelNotValue = (text: string): boolean => {
+        const trimmed = text.trim().toLowerCase();
+        if (trimmed.endsWith(':')) return true;
+        for (const pattern of labelPatterns) {
+          if (pattern.test(trimmed)) return true;
+        }
+        return false;
+      };
+      
+      const headerAndSignatureText = (headerSection + '\n' + signatureSection + '\n' + fillFieldSection).toLowerCase();
+      
       for (const r of aiResult.replacements) {
         if (!r.original || !r.placeholder) continue;
         
@@ -7532,6 +7544,16 @@ Hľadaj údaje označené ako: "Dieťa", "Novorodenec"
         
         if (original.includes("{{") || original.includes("}}")) {
           console.log(`[AI] Skipping already-templated text: "${original}"`);
+          continue;
+        }
+        
+        if (isLabelNotValue(original)) {
+          console.log(`[AI] Skipping label (not value): "${original}"`);
+          continue;
+        }
+        
+        if (!headerAndSignatureText.includes(original.toLowerCase())) {
+          console.log(`[AI] Skipping text not in allowed sections: "${original}"`);
           continue;
         }
         
