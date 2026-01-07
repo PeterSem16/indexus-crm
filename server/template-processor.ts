@@ -358,12 +358,35 @@ export async function extractDocxFullText(docxPath: string): Promise<string> {
   try {
     const content = fs.readFileSync(docxPath, "binary");
     const zip = new PizZip(content);
-    const doc = new Docxtemplater(zip, {
-      paragraphLoop: true,
-      linebreaks: true,
-    });
     
-    const text = doc.getFullText();
+    const documentXml = zip.file("word/document.xml");
+    if (!documentXml) {
+      throw new Error("No document.xml found in DOCX");
+    }
+    
+    const xmlContent = documentXml.asText();
+    
+    const textParts: string[] = [];
+    const paragraphRegex = /<w:p[^>]*>([\s\S]*?)<\/w:p>/g;
+    let paragraphMatch;
+    
+    while ((paragraphMatch = paragraphRegex.exec(xmlContent)) !== null) {
+      const paragraphContent = paragraphMatch[1];
+      
+      const textRegex = /<w:t[^>]*>([^<]*)<\/w:t>/g;
+      let textMatch;
+      let paragraphText = "";
+      
+      while ((textMatch = textRegex.exec(paragraphContent)) !== null) {
+        paragraphText += textMatch[1];
+      }
+      
+      if (paragraphText.trim()) {
+        textParts.push(paragraphText);
+      }
+    }
+    
+    const text = textParts.join("\n\n");
     console.log(`[DOCX] Extracted ${text.length} characters from ${docxPath}`);
     return text;
   } catch (error) {

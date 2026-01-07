@@ -4275,39 +4275,6 @@ export default function ContractsPage() {
                       <strong>Tip:</strong> Premenné v tvare {"{{...}}"} sa pri generovaní zmluvy nahradia skutočnými údajmi zákazníka.
                     </p>
                   </div>
-                  
-                  {/* PDF Preview */}
-                  {editingTemplateData.categoryId && editingTemplateData.countryCode && (
-                    <div className="border rounded-md overflow-hidden">
-                      <div className="bg-muted/50 px-4 py-2 border-b flex items-center justify-between gap-2">
-                        <h4 className="font-medium">Náhľad šablóny (PDF)</h4>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            window.open(`/api/contracts/categories/${editingTemplateData.categoryId}/templates/${editingTemplateData.countryCode}/preview`, '_blank');
-                          }}
-                          data-testid="button-open-pdf-preview"
-                        >
-                          <ExternalLink className="h-4 w-4 mr-1" />
-                          Otvoriť v novom okne
-                        </Button>
-                      </div>
-                      <object
-                        key={`pdf-${editingTemplateData.categoryId}-${editingTemplateData.countryCode}`}
-                        data={`/api/contracts/categories/${editingTemplateData.categoryId}/templates/${editingTemplateData.countryCode}/preview`}
-                        type="application/pdf"
-                        className="w-full h-[600px]"
-                        data-testid="pdf-preview-object"
-                      >
-                        <div className="flex flex-col items-center justify-center h-[400px] bg-muted/30 text-muted-foreground">
-                          <FileText className="h-12 w-12 mb-4" />
-                          <p className="text-sm">PDF náhľad nie je k dispozícii</p>
-                          <p className="text-xs mt-1">Nahrajte DOCX šablónu pre zobrazenie náhľadu</p>
-                        </div>
-                      </object>
-                    </div>
-                  )}
                 </TabsContent>
               </Tabs>
             ) : (
