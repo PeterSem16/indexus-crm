@@ -2098,13 +2098,13 @@ export default function ContractsPage() {
                                   )}
                                 </div>
                                 <Select
-                                  value={mappedTo || ""}
+                                  value={mappedTo || "_none_"}
                                   onValueChange={(value) => {
                                     setTemplateForm(prev => ({
                                       ...prev,
                                       placeholderMappings: {
                                         ...prev.placeholderMappings,
-                                        [fieldName]: value
+                                        [fieldName]: value === "_none_" ? "" : value
                                       }
                                     }));
                                   }}
@@ -2113,7 +2113,7 @@ export default function ContractsPage() {
                                     <SelectValue placeholder="Vybrať CRM pole..." />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="">-- Bez mapovania --</SelectItem>
+                                    <SelectItem value="_none_">-- Bez mapovania --</SelectItem>
                                     <SelectItem value="firstName">Meno</SelectItem>
                                     <SelectItem value="lastName">Priezvisko</SelectItem>
                                     <SelectItem value="email">Email</SelectItem>
