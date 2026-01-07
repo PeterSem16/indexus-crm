@@ -7236,9 +7236,11 @@ export async function registerRoutes(
         conversionError,
         conversionMetadata,
         sourceDocxPath: docxPath,
+        originalDocxPath: docxPath,
         previewPdfPath: previewPdfPath,
         sourcePdfPath: null, // Not used in DOCX-only workflow
         htmlContent: null, // Legacy field - not used
+        placeholderMappings: null,
       };
 
       let result;
@@ -7658,6 +7660,83 @@ ${crmFieldsTable}
     } catch (error) {
       console.error("AI placeholder insertion error:", error);
       res.status(500).json({ error: "AI placeholder insertion failed: " + (error as Error).message });
+    }
+  });
+  
+  // Reset template to original state (before AI modifications)
+  app.post("/api/contracts/categories/:categoryId/default-templates/:countryCode/reset", requireAuth, async (req, res) => {
+    try {
+      const categoryId = parseInt(req.params.categoryId);
+      const countryCode = req.params.countryCode.toUpperCase();
+      
+      const template = await storage.getCategoryDefaultTemplate(categoryId, countryCode);
+      if (!template) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+      
+      if (!template.originalDocxPath) {
+        return res.status(400).json({ error: "Pôvodný súbor nie je k dispozícii. Nahrajte šablónu znova." });
+      }
+      
+      const originalFullPath = path.join(process.cwd(), template.originalDocxPath);
+      if (!fs.existsSync(originalFullPath)) {
+        return res.status(400).json({ error: "Pôvodný súbor neexistuje. Nahrajte šablónu znova." });
+      }
+      
+      // Copy original back to source path (create new timestamped file)
+      const resetDir = path.join(process.cwd(), "uploads", "contract-templates", `${categoryId}`, countryCode);
+      await fs.promises.mkdir(resetDir, { recursive: true });
+      const resetDocxPath = path.join(resetDir, `reset-${Date.now()}.docx`);
+      await fs.promises.copyFile(originalFullPath, resetDocxPath);
+      const relativeResetPath = resetDocxPath.replace(process.cwd() + "/", "");
+      
+      // Re-extract placeholders from original (should be empty or minimal)
+      let extractedFields: any[] = [];
+      try {
+        extractedFields = await extractDocxPlaceholders(originalFullPath);
+      } catch (e) {
+        extractedFields = [];
+      }
+      
+      // Regenerate PDF preview from original
+      let previewPdfPath: string | null = null;
+      try {
+        const previewDir = path.join(process.cwd(), "uploads", "contract-previews", `${categoryId}`, countryCode);
+        await fs.promises.mkdir(previewDir, { recursive: true });
+        const tempPdfPath = await convertDocxToPdf(originalFullPath, path.dirname(originalFullPath));
+        if (tempPdfPath && fs.existsSync(tempPdfPath)) {
+          const permanentPdfPath = path.join(previewDir, `preview-reset-${Date.now()}.pdf`);
+          await fs.promises.copyFile(tempPdfPath, permanentPdfPath);
+          try { await fs.promises.unlink(tempPdfPath); } catch (e) {}
+          previewPdfPath = permanentPdfPath.replace(process.cwd() + "/", "");
+        }
+      } catch (e) {
+        console.warn("Reset preview generation failed:", e);
+      }
+      
+      // Update template - clear AI modifications
+      await storage.updateCategoryDefaultTemplate(template.id, {
+        sourceDocxPath: relativeResetPath,
+        previewPdfPath: previewPdfPath || template.previewPdfPath,
+        extractedFields: JSON.stringify(extractedFields),
+        placeholderMappings: null,
+        conversionMetadata: JSON.stringify({
+          resetAt: new Date().toISOString(),
+          resetFrom: template.sourceDocxPath,
+          originalFile: template.originalDocxPath
+        })
+      });
+      
+      res.json({
+        success: true,
+        message: "Šablóna bola resetovaná na pôvodný stav",
+        sourceDocxPath: relativeResetPath,
+        previewPdfPath,
+        extractedFields
+      });
+    } catch (error) {
+      console.error("Template reset error:", error);
+      res.status(500).json({ error: "Reset failed: " + (error as Error).message });
     }
   });
   

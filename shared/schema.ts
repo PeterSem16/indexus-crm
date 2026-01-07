@@ -2637,7 +2637,8 @@ export const contractCategoryDefaultTemplates = pgTable("contract_category_defau
   templateType: varchar("template_type", { length: 20 }).notNull().default("pdf_form"), // pdf_form, docx
   templateId: varchar("template_id"), // FK to contract_templates (optional - if linked to existing template)
   sourcePdfPath: text("source_pdf_path"), // Path to uploaded source PDF (for pdf_form type)
-  sourceDocxPath: text("source_docx_path"), // Path to uploaded source DOCX (for docx type)
+  sourceDocxPath: text("source_docx_path"), // Path to uploaded source DOCX (for docx type) - may be modified by AI
+  originalDocxPath: text("original_docx_path"), // Path to original unmodified DOCX (backup for reset)
   previewPdfPath: text("preview_pdf_path"), // Path to generated PDF preview (from DOCX)
   extractedFields: text("extracted_fields"), // JSON array of field/placeholder names found in template
   placeholderMappings: text("placeholder_mappings"), // JSON mapping of template fields to CRM data fields

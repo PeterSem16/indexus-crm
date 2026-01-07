@@ -435,6 +435,7 @@ export default function ContractsPage() {
   const [isTemplateEditorOpen, setIsTemplateEditorOpen] = useState(false);
   const [isTemplateEditorLoading, setIsTemplateEditorLoading] = useState(false);
   const [isAiInsertingPlaceholders, setIsAiInsertingPlaceholders] = useState(false);
+  const [isResettingTemplate, setIsResettingTemplate] = useState(false);
   const [editingTemplateCountry, setEditingTemplateCountry] = useState("");
   const [editingTemplateData, setEditingTemplateData] = useState<{
     templateType: string;
@@ -4237,6 +4238,64 @@ export default function ContractsPage() {
                                   <>
                                     <Sparkles className="h-4 w-4 mr-2" />
                                     AI vložiť premenné automaticky
+                                  </>
+                                )}
+                              </Button>
+                              
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={async () => {
+                                  setIsResettingTemplate(true);
+                                  try {
+                                    const response = await fetch(`/api/contracts/categories/${editingTemplateData.categoryId}/default-templates/${editingTemplateData.countryCode}/reset`, {
+                                      method: "POST",
+                                      credentials: "include"
+                                    });
+                                    
+                                    if (!response.ok) {
+                                      const error = await response.json();
+                                      throw new Error(error.error || "Reset failed");
+                                    }
+                                    
+                                    const result = await response.json();
+                                    
+                                    toast({
+                                      title: "Šablóna resetovaná",
+                                      description: result.message
+                                    });
+                                    
+                                    setEditingTemplateData(prev => prev ? {
+                                      ...prev,
+                                      extractedFields: result.extractedFields || [],
+                                      mappings: {},
+                                      sourcePath: result.sourceDocxPath || prev.sourcePath
+                                    } : null);
+                                    
+                                    queryClient.invalidateQueries({ queryKey: ["/api/contracts/categories"] });
+                                  } catch (error) {
+                                    console.error("Reset error:", error);
+                                    toast({
+                                      title: "Chyba pri resete",
+                                      description: (error as Error).message,
+                                      variant: "destructive"
+                                    });
+                                  } finally {
+                                    setIsResettingTemplate(false);
+                                  }
+                                }}
+                                disabled={isResettingTemplate}
+                                data-testid="button-reset-template"
+                              >
+                                {isResettingTemplate ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    Resetujem...
+                                  </>
+                                ) : (
+                                  <>
+                                    <RefreshCw className="h-4 w-4 mr-2" />
+                                    Resetovať na pôvodný stav
                                   </>
                                 )}
                               </Button>
