@@ -85,11 +85,12 @@ import {
   type VariableBlock, type InsertVariableBlock,
   type Variable, type InsertVariable,
   type VariableKeyword, type InsertVariableKeyword,
-  pipelines, pipelineStages, deals, dealActivities,
+  pipelines, pipelineStages, deals, dealActivities, dealProducts,
   type Pipeline, type InsertPipeline,
   type PipelineStage, type InsertPipelineStage,
   type Deal, type InsertDeal,
-  type DealActivity, type InsertDealActivity
+  type DealActivity, type InsertDealActivity,
+  type DealProduct, type InsertDealProduct
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, inArray, sql, desc, and, or, asc } from "drizzle-orm";
@@ -665,6 +666,15 @@ export interface IStorage {
   updateDealActivity(id: string, data: Partial<InsertDealActivity>): Promise<DealActivity | undefined>;
   deleteDealActivity(id: string): Promise<boolean>;
   completeDealActivity(id: string): Promise<DealActivity | undefined>;
+
+  // Sales Pipeline - Deal Products
+  getDealProducts(dealId: string): Promise<DealProduct[]>;
+  addDealProduct(data: InsertDealProduct): Promise<DealProduct>;
+  removeDealProduct(id: string): Promise<boolean>;
+
+  // Sales Pipeline - Automations
+  createDealFromCampaign(campaignId: string, contactId: string, customerId: string): Promise<Deal | undefined>;
+  handleDealWon(dealId: string): Promise<{ contractId?: string; invoiceId?: string } | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3818,6 +3828,136 @@ export class DatabaseStorage implements IStorage {
       .where(eq(dealActivities.id, id))
       .returning();
     return activity || undefined;
+  }
+
+  // Sales Pipeline - Deal Products
+  async getDealProducts(dealId: string): Promise<DealProduct[]> {
+    return db.select().from(dealProducts)
+      .where(eq(dealProducts.dealId, dealId))
+      .orderBy(desc(dealProducts.createdAt));
+  }
+
+  async addDealProduct(data: InsertDealProduct): Promise<DealProduct> {
+    const [product] = await db.insert(dealProducts).values(data).returning();
+    return product;
+  }
+
+  async removeDealProduct(id: string): Promise<boolean> {
+    const result = await db.delete(dealProducts).where(eq(dealProducts.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Sales Pipeline - Automations
+  async createDealFromCampaign(campaignId: string, contactId: string, customerId: string): Promise<Deal | undefined> {
+    const campaign = await this.getCampaign(campaignId);
+    if (!campaign) return undefined;
+
+    const customer = await this.getCustomer(customerId);
+    if (!customer) return undefined;
+
+    const allPipelines = await this.getAllPipelines();
+    if (allPipelines.length === 0) return undefined;
+
+    const pipeline = allPipelines[0];
+    const stages = await this.getPipelineStages(pipeline.id);
+    if (stages.length === 0) return undefined;
+
+    const firstStage = stages.sort((a, b) => a.order - b.order)[0];
+
+    const dealData: InsertDeal = {
+      id: crypto.randomUUID(),
+      title: `${customer.firstName} ${customer.lastName} - ${campaign.name}`,
+      pipelineId: pipeline.id,
+      stageId: firstStage.id,
+      customerId: customerId,
+      campaignId: campaignId,
+      source: "campaign",
+      status: "open",
+      countryCode: customer.country,
+      assignedUserId: campaign.createdBy,
+    };
+
+    return this.createDeal(dealData);
+  }
+
+  async handleDealWon(dealId: string): Promise<{ contractId?: string; invoiceId?: string } | undefined> {
+    const deal = await this.getDeal(dealId);
+    if (!deal || deal.status !== "won") return undefined;
+
+    const result: { contractId?: string; invoiceId?: string } = {};
+
+    if (deal.customerId) {
+      const customer = await this.getCustomer(deal.customerId);
+      if (customer) {
+        const billingDetailsList = await db.select().from(billingDetails)
+          .where(eq(billingDetails.countryCode, deal.countryCode || customer.country))
+          .limit(1);
+
+        if (billingDetailsList.length > 0) {
+          const billingDetail = billingDetailsList[0];
+          
+          const templates = await db.select().from(contractTemplates).limit(1);
+          
+          if (templates.length > 0) {
+            const template = templates[0];
+            const contractNumber = `ZML-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`;
+            
+            const [contract] = await db.insert(contractInstances).values({
+              contractNumber,
+              templateId: template.id,
+              customerId: deal.customerId,
+              billingDetailsId: billingDetail.id,
+              status: "draft",
+            }).returning();
+            
+            result.contractId = contract.id;
+
+            await db.update(deals)
+              .set({ contractInstanceId: contract.id })
+              .where(eq(deals.id, dealId));
+          }
+        }
+      }
+    }
+
+    const dealProductsList = await this.getDealProducts(dealId);
+    if (dealProductsList.length > 0 && deal.customerId) {
+      const invoiceNumber = `FA-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`;
+      const totalAmount = dealProductsList.reduce((sum, dp) => {
+        const price = parseFloat(dp.unitPrice || "0");
+        return sum + (price * dp.quantity);
+      }, 0);
+
+      const [invoice] = await db.insert(invoices).values({
+        invoiceNumber,
+        customerId: deal.customerId,
+        totalAmount: String(totalAmount * 1.2),
+        currency: deal.currency || "EUR",
+        status: "generated",
+        dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+        vatRate: "20",
+        vatAmount: String(totalAmount * 0.2),
+        subtotal: String(totalAmount),
+      }).returning();
+
+      result.invoiceId = invoice.id;
+
+      for (const dp of dealProductsList) {
+        const productData = await db.select().from(products).where(eq(products.id, dp.productId)).limit(1);
+        if (productData.length > 0) {
+          await db.insert(invoiceItems).values({
+            invoiceId: invoice.id,
+            productId: dp.productId,
+            description: productData[0].name,
+            quantity: dp.quantity,
+            unitPrice: dp.unitPrice || "0",
+            lineTotal: String(parseFloat(dp.unitPrice || "0") * dp.quantity),
+          });
+        }
+      }
+    }
+
+    return result;
   }
 }
 

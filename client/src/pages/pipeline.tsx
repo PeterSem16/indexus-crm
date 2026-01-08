@@ -48,7 +48,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { type Deal, type PipelineStage, type Pipeline, type Customer, type Campaign, type User, type DealActivity, DEAL_SOURCES, COUNTRIES, DEAL_ACTIVITY_TYPES } from "@shared/schema";
+import { type Deal, type PipelineStage, type Pipeline, type Customer, type Campaign, type User, type DealActivity, type Product, type DealProduct, DEAL_SOURCES, COUNTRIES, DEAL_ACTIVITY_TYPES } from "@shared/schema";
 import {
   Sheet,
   SheetContent,
@@ -220,6 +220,199 @@ function StageColumn({ stage, onAddDeal, customers, users, onSelectDeal }: Stage
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+interface DealProductsSectionProps {
+  dealId: string;
+  dealStatus: string | null;
+  onProcessWon: () => void;
+  isProcessing: boolean;
+}
+
+function DealProductsSection({ dealId, dealStatus, onProcessWon, isProcessing }: DealProductsSectionProps) {
+  const { toast } = useToast();
+  const [isAddingProduct, setIsAddingProduct] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState<string>("");
+  const [quantity, setQuantity] = useState("1");
+  const [unitPrice, setUnitPrice] = useState("");
+
+  const { data: dealProductsData = [], refetch: refetchDealProducts } = useQuery<DealProduct[]>({
+    queryKey: ["/api/deals", dealId, "products"],
+  });
+
+  const { data: allProducts = [] } = useQuery<Product[]>({
+    queryKey: ["/api/products"],
+  });
+
+  const addProductMutation = useMutation({
+    mutationFn: async (data: { productId: string; quantity: number; unitPrice: string }) => {
+      return apiRequest("POST", `/api/deals/${dealId}/products`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/deals", dealId, "products"] });
+      refetchDealProducts();
+      setIsAddingProduct(false);
+      setSelectedProductId("");
+      setQuantity("1");
+      setUnitPrice("");
+      toast({ title: "Produkt pridaný" });
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa pridať produkt", variant: "destructive" });
+    },
+  });
+
+  const removeProductMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/deal-products/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/deals", dealId, "products"] });
+      refetchDealProducts();
+      toast({ title: "Produkt odstránený" });
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa odstrániť produkt", variant: "destructive" });
+    },
+  });
+
+  const handleAddProduct = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!selectedProductId) {
+      toast({ title: "Chyba", description: "Vyberte produkt", variant: "destructive" });
+      return;
+    }
+
+    addProductMutation.mutate({ 
+      productId: selectedProductId, 
+      quantity: parseInt(quantity) || 1, 
+      unitPrice: unitPrice || "0" 
+    });
+  };
+
+  const totalValue = dealProductsData.reduce((sum, dp) => {
+    const price = parseFloat(dp.unitPrice || "0");
+    return sum + (price * dp.quantity);
+  }, 0);
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="font-medium flex items-center gap-2">
+          <FileText className="h-4 w-4" />
+          Produkty
+        </h4>
+        <Button 
+          size="sm" 
+          variant="outline"
+          onClick={() => setIsAddingProduct(!isAddingProduct)}
+          data-testid="button-add-product"
+        >
+          <Plus className="h-3 w-3 mr-1" />
+          Pridať
+        </Button>
+      </div>
+
+      {isAddingProduct && (
+        <form onSubmit={handleAddProduct} className="p-3 bg-muted/50 rounded-md mb-3 space-y-3">
+          <div>
+            <Label htmlFor="productId">Produkt</Label>
+            <Select value={selectedProductId} onValueChange={setSelectedProductId}>
+              <SelectTrigger data-testid="select-product">
+                <SelectValue placeholder="Vyberte produkt" />
+              </SelectTrigger>
+              <SelectContent>
+                {allProducts.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label htmlFor="quantity">Množstvo</Label>
+              <Input 
+                type="number" 
+                value={quantity} 
+                onChange={(e) => setQuantity(e.target.value)} 
+                min="1" 
+                data-testid="input-quantity" 
+              />
+            </div>
+            <div>
+              <Label htmlFor="unitPrice">Cena/ks</Label>
+              <Input 
+                type="number" 
+                step="0.01" 
+                value={unitPrice} 
+                onChange={(e) => setUnitPrice(e.target.value)} 
+                placeholder="0.00" 
+                data-testid="input-unit-price" 
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" size="sm" onClick={() => setIsAddingProduct(false)}>
+              Zrušiť
+            </Button>
+            <Button type="submit" size="sm" disabled={addProductMutation.isPending}>
+              {addProductMutation.isPending && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+              Pridať
+            </Button>
+          </div>
+        </form>
+      )}
+
+      {dealProductsData.length === 0 ? (
+        <p className="text-sm text-muted-foreground text-center py-4">
+          Žiadne produkty
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {dealProductsData.map((dp) => {
+            const product = allProducts.find(p => p.id === dp.productId);
+            return (
+              <div key={dp.id} className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
+                <div>
+                  <p className="text-sm font-medium">{product?.name || "Neznámy produkt"}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {dp.quantity}x · {dp.unitPrice ? `${parseFloat(dp.unitPrice).toFixed(2)} EUR` : "-"}
+                  </p>
+                </div>
+                <Button 
+                  size="icon" 
+                  variant="ghost"
+                  onClick={() => removeProductMutation.mutate(dp.id)}
+                  disabled={removeProductMutation.isPending}
+                  data-testid={`button-remove-product-${dp.id}`}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            );
+          })}
+          <div className="flex justify-between pt-2 border-t text-sm">
+            <span className="font-medium">Celkom:</span>
+            <span className="font-medium">{totalValue.toFixed(2)} EUR</span>
+          </div>
+        </div>
+      )}
+
+      {dealStatus === "won" && dealProductsData.length > 0 && (
+        <div className="mt-4 pt-4 border-t">
+          <Button 
+            onClick={onProcessWon}
+            disabled={isProcessing}
+            className="w-full"
+            data-testid="button-process-won"
+          >
+            {isProcessing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            Vytvoriť zmluvu a faktúru
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -570,6 +763,25 @@ export default function PipelinePage() {
     },
     onError: () => {
       toast({ title: "Chyba", description: "Nepodarilo sa odstrániť pipeline", variant: "destructive" });
+    },
+  });
+
+  const processWonMutation = useMutation({
+    mutationFn: async (dealId: string) => {
+      return apiRequest("POST", `/api/deals/${dealId}/process-won`);
+    },
+    onSuccess: (data, dealId) => {
+      refetchKanban();
+      queryClient.invalidateQueries({ queryKey: ["/api/deals", dealId, "products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      toast({ 
+        title: "Obchod spracovaný", 
+        description: `${data.contractId ? "Zmluva vytvorená. " : ""}${data.invoiceId ? "Faktúra vytvorená." : ""}` 
+      });
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa spracovať obchod", variant: "destructive" });
     },
   });
 
@@ -1055,6 +1267,15 @@ export default function PipelinePage() {
                   <p className="text-sm whitespace-pre-wrap">{selectedDeal.notes}</p>
                 </div>
               )}
+
+              <Separator />
+
+              <DealProductsSection 
+                dealId={selectedDeal.id} 
+                dealStatus={selectedDeal.status}
+                onProcessWon={() => processWonMutation.mutate(selectedDeal.id)}
+                isProcessing={processWonMutation.isPending}
+              />
 
               <Separator />
 

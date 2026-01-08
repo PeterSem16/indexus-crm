@@ -3138,6 +3138,7 @@ export const dealsRelations = relations(deals, ({ one, many }) => ({
     references: [users.id],
   }),
   activities: many(dealActivities),
+  products: many(dealProducts),
 }));
 
 export const dealActivitiesRelations = relations(dealActivities, ({ one }) => ({
@@ -3175,3 +3176,29 @@ export const DEAL_SOURCES = [
   { value: "event", label: "Akcia/Event" },
   { value: "other", label: "Iné" },
 ] as const;
+
+// Deal Products - products linked to a deal
+export const dealProducts = pgTable("deal_products", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  dealId: varchar("deal_id").references(() => deals.id, { onDelete: "cascade" }).notNull(),
+  productId: varchar("product_id").references(() => products.id).notNull(),
+  quantity: integer("quantity").default(1).notNull(),
+  unitPrice: decimal("unit_price", { precision: 15, scale: 2 }),
+  discount: decimal("discount", { precision: 5, scale: 2 }).default("0"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertDealProductSchema = createInsertSchema(dealProducts).omit({ id: true, createdAt: true });
+export type InsertDealProduct = z.infer<typeof insertDealProductSchema>;
+export type DealProduct = typeof dealProducts.$inferSelect;
+
+export const dealProductsRelations = relations(dealProducts, ({ one }) => ({
+  deal: one(deals, {
+    fields: [dealProducts.dealId],
+    references: [deals.id],
+  }),
+  product: one(products, {
+    fields: [dealProducts.productId],
+    references: [products.id],
+  }),
+}));

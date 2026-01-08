@@ -11043,6 +11043,75 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
     }
   });
 
+  // Deal Products
+  app.get("/api/deals/:dealId/products", requireAuth, async (req, res) => {
+    try {
+      const products = await storage.getDealProducts(req.params.dealId);
+      res.json(products);
+    } catch (error) {
+      console.error("Error fetching deal products:", error);
+      res.status(500).json({ error: "Failed to fetch deal products" });
+    }
+  });
+
+  app.post("/api/deals/:dealId/products", requireAuth, async (req, res) => {
+    try {
+      const product = await storage.addDealProduct({
+        ...req.body,
+        dealId: req.params.dealId,
+      });
+      res.status(201).json(product);
+    } catch (error) {
+      console.error("Error adding deal product:", error);
+      res.status(500).json({ error: "Failed to add deal product" });
+    }
+  });
+
+  app.delete("/api/deal-products/:id", requireAuth, async (req, res) => {
+    try {
+      const success = await storage.removeDealProduct(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Deal product not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error removing deal product:", error);
+      res.status(500).json({ error: "Failed to remove deal product" });
+    }
+  });
+
+  // Automation: Create deal from campaign
+  app.post("/api/campaigns/:campaignId/create-deal", requireAuth, async (req, res) => {
+    try {
+      const { contactId, customerId } = req.body;
+      if (!customerId) {
+        return res.status(400).json({ error: "Customer ID is required" });
+      }
+      const deal = await storage.createDealFromCampaign(req.params.campaignId, contactId, customerId);
+      if (!deal) {
+        return res.status(400).json({ error: "Failed to create deal - missing pipeline or stages" });
+      }
+      res.status(201).json(deal);
+    } catch (error) {
+      console.error("Error creating deal from campaign:", error);
+      res.status(500).json({ error: "Failed to create deal from campaign" });
+    }
+  });
+
+  // Automation: Handle deal won (create contract + invoice)
+  app.post("/api/deals/:dealId/process-won", requireAuth, async (req, res) => {
+    try {
+      const result = await storage.handleDealWon(req.params.dealId);
+      if (!result) {
+        return res.status(400).json({ error: "Deal not found or not in won status" });
+      }
+      res.json(result);
+    } catch (error) {
+      console.error("Error processing won deal:", error);
+      res.status(500).json({ error: "Failed to process won deal" });
+    }
+  });
+
   return httpServer;
 }
 
