@@ -10914,10 +10914,12 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
   app.post("/api/deals/:dealId/activities", requireAuth, async (req, res) => {
     try {
       const id = `activity_${Date.now()}`;
+      const { dueAt, ...rest } = req.body;
       const activity = await storage.createDealActivity({
-        ...req.body,
+        ...rest,
         id,
         dealId: req.params.dealId,
+        dueAt: dueAt ? new Date(dueAt) : null,
       });
       res.status(201).json(activity);
     } catch (error) {
