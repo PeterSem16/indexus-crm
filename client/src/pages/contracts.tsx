@@ -23,7 +23,7 @@ import {
   FileSignature, Download, Copy, RefreshCw, AlertCircle, Filter,
   ChevronRight, Settings, PenTool, Mail, Phone, Shield, 
   CheckCircle, Loader2, Edit, Pencil, GripVertical, Globe, ExternalLink,
-  Sparkles, ArrowRight, Maximize2, Minimize2, History, Save, User, RotateCcw
+  Sparkles, ArrowRight, Maximize2, Minimize2
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -199,205 +199,6 @@ function SortableCategoryRow({
         </div>
       </TableCell>
     </TableRow>
-  );
-}
-
-function VersionHistoryPanel({ 
-  categoryId, 
-  countryCode 
-}: { 
-  categoryId: number; 
-  countryCode: string;
-}) {
-  const { toast } = useToast();
-  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
-  const [versionDescription, setVersionDescription] = useState("");
-  const [savingVersion, setSavingVersion] = useState(false);
-  
-  const { data: versions = [], isLoading, refetch } = useQuery<{
-    id: number;
-    versionNumber: number;
-    changeDescription: string | null;
-    createdBy: string | null;
-    createdAt: string;
-  }[]>({
-    queryKey: ['/api/contract-categories', categoryId, 'countries', countryCode, 'versions'],
-    queryFn: async () => {
-      const res = await fetch(`/api/contract-categories/${categoryId}/countries/${countryCode}/versions`, { credentials: 'include' });
-      if (!res.ok) throw new Error('Failed to load versions');
-      return res.json();
-    }
-  });
-  
-  const handleSaveVersion = async () => {
-    setSavingVersion(true);
-    try {
-      const res = await fetch(`/api/contract-categories/${categoryId}/countries/${countryCode}/versions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ changeDescription: versionDescription || undefined })
-      });
-      if (!res.ok) throw new Error('Failed to save version');
-      toast({ title: "Verzia uložená", description: "Nová verzia šablóny bola vytvorená" });
-      refetch();
-      setSaveDialogOpen(false);
-      setVersionDescription("");
-    } catch (error) {
-      toast({ title: "Chyba", description: "Nepodarilo sa uložiť verziu", variant: "destructive" });
-    } finally {
-      setSavingVersion(false);
-    }
-  };
-  
-  const handleRevert = async (versionId: number) => {
-    if (!confirm("Naozaj chcete obnoviť túto verziu? Aktuálna šablóna bude prepísaná.")) return;
-    try {
-      const res = await fetch(`/api/contract-categories/${categoryId}/countries/${countryCode}/versions/${versionId}/revert`, {
-        method: 'POST',
-        credentials: 'include'
-      });
-      if (!res.ok) throw new Error('Failed to revert');
-      toast({ title: "Verzia obnovená", description: "Šablóna bola vrátená na vybranú verziu" });
-      refetch();
-    } catch (error) {
-      toast({ title: "Chyba", description: "Nepodarilo sa obnoviť verziu", variant: "destructive" });
-    }
-  };
-  
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('sk-SK', { 
-      day: '2-digit', 
-      month: '2-digit', 
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-  
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4 p-3 bg-muted/50 rounded-md flex-wrap">
-        <div className="flex items-center gap-2">
-          <History className="h-5 w-5 text-muted-foreground" />
-          <span className="font-medium">História verzií</span>
-          <Badge variant="secondary">{versions.length} verzií</Badge>
-        </div>
-        <Button onClick={() => setSaveDialogOpen(true)} data-testid="button-save-new-version">
-          <Save className="h-4 w-4 mr-2" />
-          Uložiť novú verziu
-        </Button>
-      </div>
-      
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      ) : versions.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <History className="h-12 w-12 text-muted-foreground mb-4 opacity-50" />
-          <p className="font-medium">Žiadne uložené verzie</p>
-          <p className="text-sm text-muted-foreground mt-1">
-            Kliknite na "Uložiť novú verziu" pre vytvorenie zálohy aktuálnej šablóny
-          </p>
-        </div>
-      ) : (
-        <ScrollArea className="h-[400px]">
-          <div className="space-y-2 pr-4">
-            {versions.map((version, idx) => (
-              <Card key={version.id} className={idx === 0 ? "border-primary" : ""}>
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant={idx === 0 ? "default" : "outline"}>
-                          v{version.versionNumber}
-                        </Badge>
-                        {idx === 0 && (
-                          <Badge variant="secondary" className="text-xs">
-                            Aktuálna
-                          </Badge>
-                        )}
-                        <span className="text-sm text-muted-foreground">
-                          {formatDate(version.createdAt)}
-                        </span>
-                      </div>
-                      {version.changeDescription && (
-                        <p className="mt-2 text-sm">{version.changeDescription}</p>
-                      )}
-                      {version.createdBy && (
-                        <p className="mt-1 text-xs text-muted-foreground flex items-center gap-1">
-                          <User className="h-3 w-3" />
-                          {version.createdBy}
-                        </p>
-                      )}
-                    </div>
-                    {idx > 0 && (
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handleRevert(version.id)}
-                        data-testid={`button-revert-version-${version.id}`}
-                      >
-                        <RotateCcw className="h-4 w-4 mr-1" />
-                        Obnoviť
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </ScrollArea>
-      )}
-      
-      <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md">
-        <p className="text-sm text-blue-700 dark:text-blue-300">
-          <strong>Tip:</strong> Uložte verziu pred veľkými zmenami. Obnovením verzie prepíšete aktuálnu šablónu uloženou verziou.
-        </p>
-      </div>
-      
-      <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Uložiť novú verziu</DialogTitle>
-            <DialogDescription>
-              Vytvorte zálohu aktuálnej šablóny. Popis je voliteľný.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="version-description">Popis zmien (voliteľný)</Label>
-              <Textarea
-                id="version-description"
-                placeholder="Napr. Pridané nové polia pre rodičov..."
-                value={versionDescription}
-                onChange={(e) => setVersionDescription(e.target.value)}
-                data-testid="input-version-description"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSaveDialogOpen(false)}>
-              Zrušiť
-            </Button>
-            <Button onClick={handleSaveVersion} disabled={savingVersion} data-testid="button-confirm-save-version">
-              {savingVersion ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Ukladám...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  Uložiť verziu
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
   );
 }
 
@@ -640,7 +441,6 @@ export default function ContractsPage() {
   const [isTemplateEditorLoading, setIsTemplateEditorLoading] = useState(false);
   const [isAiInsertingPlaceholders, setIsAiInsertingPlaceholders] = useState(false);
   const [isEditorMaximized, setIsEditorMaximized] = useState(false);
-  const [isHistoryPanelOpen, setIsHistoryPanelOpen] = useState(false);
   const [editorFontSize, setEditorFontSize] = useState(14);
   const [variableStyle, setVariableStyle] = useState<"bold" | "highlight" | "brackets">("brackets");
   const [isResettingTemplate, setIsResettingTemplate] = useState(false);
@@ -661,7 +461,6 @@ export default function ContractsPage() {
   
   const [contractForm, setContractForm] = useState({
     categoryId: "",
-    templateVersionId: "",
     customerId: "",
     billingDetailsId: "",
     currency: "EUR",
@@ -1337,7 +1136,6 @@ export default function ContractsPage() {
   const resetContractForm = () => {
     setContractForm({
       categoryId: "",
-      templateVersionId: "",
       customerId: "",
       billingDetailsId: "",
       currency: "EUR",
@@ -3050,7 +2848,7 @@ export default function ContractsPage() {
                   <Label>Typ zmluvy (kategória)</Label>
                   <Select
                     value={contractForm.categoryId}
-                    onValueChange={(value) => setContractForm({ ...contractForm, categoryId: value, templateVersionId: "" })}
+                    onValueChange={(value) => setContractForm({ ...contractForm, categoryId: value })}
                   >
                     <SelectTrigger data-testid="select-contract-category">
                       <SelectValue placeholder="Vyberte typ zmluvy" />
@@ -3798,7 +3596,7 @@ export default function ContractsPage() {
               </div>
             ) : editingTemplateData ? (
               <Tabs defaultValue="editor" className="w-full">
-                <TabsList className="grid w-full grid-cols-4 mb-4">
+                <TabsList className="grid w-full grid-cols-3 mb-4">
                   <TabsTrigger value="editor" data-testid="tab-template-editor">
                     <FileText className="h-4 w-4 mr-2" />
                     DOCX Editor
@@ -3810,10 +3608,6 @@ export default function ContractsPage() {
                   <TabsTrigger value="preview" data-testid="tab-template-preview">
                     <Eye className="h-4 w-4 mr-2" />
                     Náhľad
-                  </TabsTrigger>
-                  <TabsTrigger value="history" data-testid="tab-template-history">
-                    <History className="h-4 w-4 mr-2" />
-                    História
                   </TabsTrigger>
                 </TabsList>
                 
@@ -4227,19 +4021,6 @@ export default function ContractsPage() {
                   </div>
                 </TabsContent>
                 
-                <TabsContent value="history" className="space-y-4">
-                  {editingTemplateData.categoryId && editingTemplateData.countryCode ? (
-                    <VersionHistoryPanel 
-                      categoryId={editingTemplateData.categoryId}
-                      countryCode={editingTemplateData.countryCode}
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center py-12">
-                      <History className="h-12 w-12 text-muted-foreground mb-4 opacity-50" />
-                      <p className="text-muted-foreground">História nie je dostupná</p>
-                    </div>
-                  )}
-                </TabsContent>
               </Tabs>
             ) : (
               <div className="flex flex-col items-center justify-center py-12">
