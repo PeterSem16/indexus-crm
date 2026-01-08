@@ -9039,6 +9039,8 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       const categoryId = parseInt(req.params.categoryId);
       const { countryCode } = req.params;
       const versions = await storage.getTemplateVersions(categoryId, countryCode);
+      console.log("[Versions API] categoryId:", categoryId, "countryCode:", countryCode);
+      console.log("[Versions API] Found versions:", versions.length, "with isDefault:", versions.map(v => ({ id: v.id, vn: v.versionNumber, isDefault: v.isDefault })));
       res.json(versions);
     } catch (error) {
       console.error("Error fetching template versions:", error);
