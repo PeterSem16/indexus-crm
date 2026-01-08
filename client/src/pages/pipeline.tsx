@@ -231,6 +231,9 @@ export default function PipelinePage() {
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isNewActivityOpen, setIsNewActivityOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isEditDealOpen, setIsEditDealOpen] = useState(false);
+  const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -241,7 +244,7 @@ export default function PipelinePage() {
     useSensor(KeyboardSensor)
   );
 
-  const { data: pipelines, isLoading: pipelinesLoading } = useQuery<Pipeline[]>({
+  const { data: pipelines, isLoading: pipelinesLoading, refetch: refetchPipelines } = useQuery<Pipeline[]>({
     queryKey: ["/api/pipelines"],
   });
 
@@ -251,7 +254,7 @@ export default function PipelinePage() {
     }
   }, [pipelines, activePipelineId]);
 
-  const { data: kanbanData, isLoading: kanbanLoading } = useQuery<KanbanData>({
+  const { data: kanbanData, isLoading: kanbanLoading, refetch: refetchKanban } = useQuery<KanbanData>({
     queryKey: ["/api/pipelines", activePipelineId, "kanban"],
     enabled: !!activePipelineId,
   });
@@ -298,6 +301,63 @@ export default function PipelinePage() {
     },
     onError: () => {
       toast({ title: "Chyba", description: "Nepodarilo sa dokončiť aktivitu", variant: "destructive" });
+    },
+  });
+
+  const updateDealMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<Deal> }) => {
+      return apiRequest("PATCH", `/api/deals/${id}`, data);
+    },
+    onSuccess: () => {
+      refetchKanban();
+      setIsEditDealOpen(false);
+      setEditingDeal(null);
+      toast({ title: "Príležitosť aktualizovaná" });
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa aktualizovať príležitosť", variant: "destructive" });
+    },
+  });
+
+  const deleteDealMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/deals/${id}`);
+    },
+    onSuccess: () => {
+      refetchKanban();
+      setIsDetailOpen(false);
+      setSelectedDeal(null);
+      toast({ title: "Príležitosť odstránená" });
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa odstrániť príležitosť", variant: "destructive" });
+    },
+  });
+
+  const createPipelineMutation = useMutation({
+    mutationFn: async (data: { name: string; description?: string; countryCodes: string[] }) => {
+      return apiRequest("POST", "/api/pipelines", data);
+    },
+    onSuccess: () => {
+      refetchPipelines();
+      toast({ title: "Pipeline vytvorený" });
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa vytvoriť pipeline", variant: "destructive" });
+    },
+  });
+
+  const deletePipelineMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/pipelines/${id}`);
+    },
+    onSuccess: () => {
+      refetchPipelines();
+      setActivePipelineId(null);
+      toast({ title: "Pipeline odstránený" });
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa odstrániť pipeline", variant: "destructive" });
     },
   });
 
@@ -494,7 +554,12 @@ export default function PipelinePage() {
 
         <div className="flex-1" />
 
-        <Button variant="outline" size="sm" data-testid="button-pipeline-settings">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => setIsSettingsOpen(true)}
+          data-testid="button-pipeline-settings"
+        >
           <Settings className="h-4 w-4 mr-1" />
           Nastavenia
         </Button>
@@ -658,7 +723,37 @@ export default function PipelinePage() {
       <Sheet open={isDetailOpen} onOpenChange={setIsDetailOpen}>
         <SheetContent className="w-[500px] sm:max-w-[500px] overflow-y-auto">
           <SheetHeader className="pb-4 border-b">
-            <SheetTitle className="text-lg">{selectedDeal?.title}</SheetTitle>
+            <div className="flex items-center justify-between gap-2">
+              <SheetTitle className="text-lg">{selectedDeal?.title}</SheetTitle>
+              <div className="flex items-center gap-1">
+                <Button 
+                  size="icon" 
+                  variant="ghost"
+                  onClick={() => {
+                    if (selectedDeal) {
+                      setEditingDeal(selectedDeal);
+                      setIsEditDealOpen(true);
+                    }
+                  }}
+                  data-testid="button-edit-deal"
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+                <Button 
+                  size="icon" 
+                  variant="ghost"
+                  onClick={() => {
+                    if (selectedDeal && confirm("Naozaj chcete odstrániť túto príležitosť?")) {
+                      deleteDealMutation.mutate(selectedDeal.id);
+                    }
+                  }}
+                  disabled={deleteDealMutation.isPending}
+                  data-testid="button-delete-deal"
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
+            </div>
           </SheetHeader>
           
           {selectedDeal && (
@@ -966,6 +1061,180 @@ export default function PipelinePage() {
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Settings Dialog */}
+      <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Nastavenia Pipeline</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6">
+            <div>
+              <h4 className="font-medium mb-3">Existujúce predajné procesy</h4>
+              <div className="space-y-2">
+                {pipelines.map((pipeline) => (
+                  <div key={pipeline.id} className="flex items-center justify-between p-3 border rounded-md">
+                    <div>
+                      <p className="font-medium">{pipeline.name}</p>
+                      {pipeline.description && (
+                        <p className="text-sm text-muted-foreground">{pipeline.description}</p>
+                      )}
+                      <div className="flex gap-1 mt-1 flex-wrap">
+                        {pipeline.countryCodes?.map((c: string) => (
+                          <Badge key={c} variant="secondary" className="text-xs">{c}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {pipeline.isDefault && (
+                        <Badge variant="outline">Predvolený</Badge>
+                      )}
+                      {!pipeline.isDefault && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => {
+                            if (confirm(`Naozaj chcete odstrániť pipeline "${pipeline.name}"?`)) {
+                              deletePipelineMutation.mutate(pipeline.id);
+                            }
+                          }}
+                          disabled={deletePipelineMutation.isPending}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <Separator />
+
+            <div>
+              <h4 className="font-medium mb-3">Vytvoriť nový predajný proces</h4>
+              <form 
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.currentTarget);
+                  createPipelineMutation.mutate({
+                    name: formData.get("pipelineName") as string,
+                    description: formData.get("pipelineDescription") as string || undefined,
+                    countryCodes: ["SK"],
+                  });
+                  (e.target as HTMLFormElement).reset();
+                }}
+                className="space-y-3"
+              >
+                <div>
+                  <Label htmlFor="pipelineName">Názov *</Label>
+                  <Input 
+                    id="pipelineName" 
+                    name="pipelineName" 
+                    placeholder="Napr. VIP Zákazníci" 
+                    required
+                    data-testid="input-pipeline-name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="pipelineDescription">Popis</Label>
+                  <Input 
+                    id="pipelineDescription" 
+                    name="pipelineDescription" 
+                    placeholder="Voliteľný popis..."
+                    data-testid="input-pipeline-description"
+                  />
+                </div>
+                <Button type="submit" disabled={createPipelineMutation.isPending}>
+                  {createPipelineMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Vytvoriť pipeline
+                </Button>
+              </form>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Deal Dialog */}
+      <Dialog open={isEditDealOpen} onOpenChange={(open) => { setIsEditDealOpen(open); if (!open) setEditingDeal(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Upraviť príležitosť</DialogTitle>
+          </DialogHeader>
+          {editingDeal && (
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                updateDealMutation.mutate({
+                  id: editingDeal.id,
+                  data: {
+                    title: formData.get("editTitle") as string,
+                    value: formData.get("editValue") as string || "0",
+                    probability: parseInt(formData.get("editProbability") as string) || 0,
+                    notes: formData.get("editNotes") as string || null,
+                  },
+                });
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <Label htmlFor="editTitle">Názov *</Label>
+                <Input 
+                  id="editTitle" 
+                  name="editTitle" 
+                  defaultValue={editingDeal.title}
+                  required
+                  data-testid="input-edit-deal-title"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="editValue">Hodnota (EUR)</Label>
+                  <Input 
+                    id="editValue" 
+                    name="editValue" 
+                    type="number"
+                    step="0.01"
+                    defaultValue={editingDeal.value || "0"}
+                    data-testid="input-edit-deal-value"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="editProbability">Pravdepodobnosť (%)</Label>
+                  <Input 
+                    id="editProbability" 
+                    name="editProbability" 
+                    type="number"
+                    min="0"
+                    max="100"
+                    defaultValue={editingDeal.probability || 0}
+                    data-testid="input-edit-deal-probability"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="editNotes">Poznámky</Label>
+                <Textarea 
+                  id="editNotes" 
+                  name="editNotes" 
+                  defaultValue={editingDeal.notes || ""}
+                  data-testid="input-edit-deal-notes"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => { setIsEditDealOpen(false); setEditingDeal(null); }}>
+                  Zrušiť
+                </Button>
+                <Button type="submit" disabled={updateDealMutation.isPending}>
+                  {updateDealMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Uložiť
+                </Button>
+              </div>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
     </div>
