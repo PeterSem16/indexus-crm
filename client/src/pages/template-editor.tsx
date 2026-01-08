@@ -161,6 +161,14 @@ export default function TemplateEditor({ categoryId: categoryIdStr, countryCode 
     }
   }, [categoryId, countryCode, loadDocument]);
 
+  // Refresh versions when switching to history tab
+  useEffect(() => {
+    if (activeTab === "history" && categoryId > 0) {
+      console.log("[TemplateEditor] Tab changed to history, refreshing versions...");
+      loadVersions();
+    }
+  }, [activeTab, categoryId, countryCode, loadVersions]);
+
   const handleDownload = async () => {
     try {
       const response = await fetch(
@@ -508,12 +516,7 @@ export default function TemplateEditor({ categoryId: categoryIdStr, countryCode 
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(value) => {
-        setActiveTab(value);
-        if (value === "history") {
-          loadVersions();
-        }
-      }} className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="workflow" data-testid="tab-workflow">
             <FileText className="h-4 w-4 mr-2" />
