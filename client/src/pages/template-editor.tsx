@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Download, Upload, ArrowLeft, History, FileText, Check, RotateCcw, Sparkles, Variable, RefreshCw, Clock, User } from "lucide-react";
+import { Loader2, Download, Upload, ArrowLeft, History, FileText, Check, RotateCcw, Sparkles, Variable, RefreshCw, Clock, User, Star } from "lucide-react";
 import { VariableBrowser } from "@/components/variable-browser";
 import {
   Dialog,
@@ -38,6 +38,7 @@ interface TemplateVersion {
   changeDescription: string | null;
   createdBy: string | null;
   createdByName: string | null;
+  isDefault: boolean;
   createdAt: string;
 }
 
@@ -66,6 +67,7 @@ export default function TemplateEditor({ categoryId: categoryIdStr, countryCode 
   const [isCreatingVersion, setIsCreatingVersion] = useState(false);
   const [revertVersion, setRevertVersion] = useState<TemplateVersion | null>(null);
   const [isReverting, setIsReverting] = useState(false);
+  const [isSettingDefault, setIsSettingDefault] = useState<number | null>(null);
   const { toast } = useToast();
 
   const extractVariablesFromDocument = useCallback(async () => {
@@ -324,6 +326,40 @@ export default function TemplateEditor({ categoryId: categoryIdStr, countryCode 
       });
     } finally {
       setIsReverting(false);
+    }
+  };
+
+  const handleSetDefault = async (version: TemplateVersion) => {
+    setIsSettingDefault(version.id);
+    try {
+      const response = await fetch(
+        `/api/contract-categories/${categoryId}/countries/${countryCode}/versions/${version.id}/set-default`,
+        {
+          method: "POST",
+          credentials: "include",
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Nastavenie predvolenej verzie zlyhalo");
+      }
+
+      toast({
+        title: "Predvolená verzia nastavená",
+        description: `Verzia ${version.versionNumber} bola nastavená ako predvolená.`,
+      });
+
+      await loadVersions();
+      await loadDocument();
+    } catch (error: any) {
+      toast({
+        title: "Chyba pri nastavení predvolenej verzie",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSettingDefault(null);
     }
   };
 
@@ -664,12 +700,18 @@ export default function TemplateEditor({ categoryId: categoryIdStr, countryCode 
                     {versions.map((version) => (
                       <div
                         key={version.id}
-                        className="flex items-start justify-between gap-4 p-4 rounded-lg border bg-card"
+                        className={`flex items-start justify-between gap-4 p-4 rounded-lg border bg-card ${version.isDefault ? 'border-primary' : ''}`}
                         data-testid={`version-item-${version.id}`}
                       >
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
                             <Badge variant="secondary">v{version.versionNumber}</Badge>
+                            {version.isDefault && (
+                              <Badge variant="default" className="flex items-center gap-1">
+                                <Star className="h-3 w-3" />
+                                Predvolená
+                              </Badge>
+                            )}
                             <span className="text-sm text-muted-foreground flex items-center gap-1">
                               <Clock className="h-3 w-3" />
                               {formatDate(version.createdAt)}
@@ -685,15 +727,35 @@ export default function TemplateEditor({ categoryId: categoryIdStr, countryCode 
                             </p>
                           )}
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setRevertVersion(version)}
-                          data-testid={`button-revert-${version.id}`}
-                        >
-                          <RotateCcw className="h-4 w-4 mr-1" />
-                          Obnoviť
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          {!version.isDefault && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleSetDefault(version)}
+                              disabled={isSettingDefault === version.id}
+                              data-testid={`button-set-default-${version.id}`}
+                            >
+                              {isSettingDefault === version.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <>
+                                  <Star className="h-4 w-4 mr-1" />
+                                  Nastaviť
+                                </>
+                              )}
+                            </Button>
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setRevertVersion(version)}
+                            data-testid={`button-revert-${version.id}`}
+                          >
+                            <RotateCcw className="h-4 w-4 mr-1" />
+                            Obnoviť
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>

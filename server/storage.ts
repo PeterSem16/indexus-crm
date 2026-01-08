@@ -561,6 +561,8 @@ export interface IStorage {
   getTemplateVersionByNumber(categoryId: number, countryCode: string, versionNumber: number): Promise<ContractTemplateVersion | undefined>;
   createTemplateVersion(data: InsertContractTemplateVersion): Promise<ContractTemplateVersion>;
   getLatestVersionNumber(categoryId: number, countryCode: string): Promise<number>;
+  clearDefaultVersions(categoryId: number, countryCode: string): Promise<void>;
+  setVersionAsDefault(versionId: number): Promise<void>;
 
   // Contract Instances
   getAllContractInstances(): Promise<ContractInstance[]>;
@@ -3342,6 +3344,21 @@ export class DatabaseStorage implements IStorage {
     const nextVersion = latestVersion + 1;
     const [version] = await db.insert(contractTemplateVersions).values({ ...data, versionNumber: nextVersion }).returning();
     return version;
+  }
+
+  async clearDefaultVersions(categoryId: number, countryCode: string): Promise<void> {
+    await db.update(contractTemplateVersions)
+      .set({ isDefault: false })
+      .where(and(
+        eq(contractTemplateVersions.categoryId, categoryId),
+        eq(contractTemplateVersions.countryCode, countryCode)
+      ));
+  }
+
+  async setVersionAsDefault(versionId: number): Promise<void> {
+    await db.update(contractTemplateVersions)
+      .set({ isDefault: true })
+      .where(eq(contractTemplateVersions.id, versionId));
   }
 
   // Contract Instances

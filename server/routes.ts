@@ -9108,6 +9108,53 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
     }
   });
 
+  // Set a version as the default for a category/country
+  app.post("/api/contract-categories/:categoryId/countries/:countryCode/versions/:versionId/set-default", requireAuth, async (req, res) => {
+    try {
+      const categoryId = parseInt(req.params.categoryId);
+      const countryCode = req.params.countryCode;
+      const versionId = parseInt(req.params.versionId);
+      
+      const version = await storage.getTemplateVersion(versionId);
+      if (!version) {
+        return res.status(404).json({ error: "Verzia nebola nájdená" });
+      }
+      
+      // Clear all other defaults for this category/country
+      await storage.clearDefaultVersions(categoryId, countryCode);
+      
+      // Set this version as default
+      await storage.setVersionAsDefault(versionId);
+      
+      // Also update the category default template with this version's content
+      const template = await storage.getCategoryDefaultTemplate(categoryId, countryCode);
+      if (template && version.htmlContent) {
+        await storage.updateCategoryDefaultTemplate(template.id, {
+          htmlContent: version.htmlContent
+        });
+      }
+      
+      // If version has DOCX, copy it to the current template location
+      if (template && version.docxFilePath) {
+        const fs = await import('fs').then(m => m.promises);
+        const path = await import('path');
+        
+        const versionedFilePath = path.join(process.cwd(), version.docxFilePath);
+        const fileExists = await fs.access(versionedFilePath).then(() => true).catch(() => false);
+        
+        if (fileExists && template.sourceDocxPath) {
+          const destPath = path.join(process.cwd(), template.sourceDocxPath);
+          await fs.copyFile(versionedFilePath, destPath);
+        }
+      }
+      
+      res.json({ success: true, message: "Verzia nastavená ako predvolená", version });
+    } catch (error) {
+      console.error("Error setting default version:", error);
+      res.status(500).json({ error: "Nepodarilo sa nastaviť predvolenú verziu" });
+    }
+  });
+
   app.post("/api/contract-categories/:categoryId/countries/:countryCode/versions/:versionId/revert", requireAuth, async (req, res) => {
     try {
       const versionId = parseInt(req.params.versionId);
@@ -9385,7 +9432,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
     }
   });
 
-  // Contract Rendering with Handlebars
+  // Contract Rendering - supports DOCX templates with variable substitution
   app.post("/api/contracts/:id/render", requireAuth, async (req, res) => {
     try {
       const contract = await storage.getContractInstance(req.params.id);
@@ -9399,13 +9446,22 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         return res.status(404).json({ error: "Contract template not found" });
       }
       
-      // Use htmlContent from category default template (not contentHtml which is on contract_templates)
-      if (!categoryDefaultTemplate.htmlContent) {
-        return res.status(400).json({ error: "Šablóna nemá HTML obsah. Najprv nahrajte a spracujte DOCX šablónu." });
+      // Check if we have DOCX template for DOCX-based rendering
+      const hasDocxTemplate = categoryDefaultTemplate.sourceDocxPath && 
+        fs.existsSync(path.join(process.cwd(), categoryDefaultTemplate.sourceDocxPath));
+      
+      // Check for HTML content (legacy)
+      const hasHtmlContent = !!categoryDefaultTemplate.htmlContent;
+      
+      if (!hasDocxTemplate && !hasHtmlContent) {
+        return res.status(400).json({ 
+          error: "Šablóna nie je k dispozícii. Najprv nahrajte DOCX šablónu.",
+          requiresUpload: true
+        });
       }
       
       // Use categoryDefaultTemplate for rendering - map htmlContent to contentHtml for compatibility
-      const contractTemplate = { ...categoryDefaultTemplate, contentHtml: categoryDefaultTemplate.htmlContent };
+      const contractTemplate = { ...categoryDefaultTemplate, contentHtml: categoryDefaultTemplate.htmlContent || "" };
       
       const [customer, products] = await Promise.all([
         storage.getCustomer(contract.customerId),
@@ -9429,6 +9485,16 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       if (!billingDetails) {
         const allBillingDetails = await storage.getAllBillingDetails();
         billingDetails = allBillingDetails[0] || null;
+      }
+      
+      // If we only have DOCX template (no HTML), indicate PDF-based preview
+      if (hasDocxTemplate && !hasHtmlContent) {
+        return res.json({
+          html: null,
+          docxBased: true,
+          message: "Táto šablóna je DOCX. Zobrazte náhľad PDF kliknutím na tlačidlo PDF.",
+          pdfUrl: `/api/contracts/${contract.id}/pdf`
+        });
       }
       
       const template = Handlebars.compile(contractTemplate.contentHtml);
@@ -9543,7 +9609,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
     }
   });
 
-  // Generate PDF for a contract (regenerate from current data)
+  // Generate PDF for a contract - uses DOCX template with variable substitution
   app.get("/api/contracts/:id/pdf", requireAuth, async (req, res) => {
     try {
       const contract = await storage.getContractInstance(req.params.id);
@@ -9557,13 +9623,22 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         return res.status(404).json({ error: "Contract template not found" });
       }
       
-      // Use htmlContent from category default template (not contentHtml which is on contract_templates)
-      if (!categoryDefaultTemplate.htmlContent) {
-        return res.status(400).json({ error: "Šablóna nemá HTML obsah. Najprv nahrajte a spracujte DOCX šablónu." });
+      // Check if we have DOCX template for DOCX-based PDF generation
+      const hasDocxTemplate = categoryDefaultTemplate.sourceDocxPath && 
+        fs.existsSync(path.join(process.cwd(), categoryDefaultTemplate.sourceDocxPath));
+      
+      // Check for HTML content (legacy)
+      const hasHtmlContent = !!categoryDefaultTemplate.htmlContent;
+      
+      if (!hasDocxTemplate && !hasHtmlContent) {
+        return res.status(400).json({ 
+          error: "Šablóna nie je k dispozícii. Najprv nahrajte DOCX šablónu.",
+          requiresUpload: true
+        });
       }
       
       // Use categoryDefaultTemplate for rendering - map htmlContent to contentHtml for compatibility
-      const contractTemplate = { ...categoryDefaultTemplate, contentHtml: categoryDefaultTemplate.htmlContent };
+      const contractTemplate = { ...categoryDefaultTemplate, contentHtml: categoryDefaultTemplate.htmlContent || "" };
       
       const [customer, products, participants] = await Promise.all([
         storage.getCustomer(contract.customerId),
@@ -9590,6 +9665,103 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       
       // Find father participant or use data from potential case
       const fatherParticipant = participants.find(p => p.participantType === "guarantor" || p.role === "father");
+      
+      // If we have DOCX template, use DOCX-based PDF generation (preferred)
+      if (hasDocxTemplate && categoryDefaultTemplate.sourceDocxPath) {
+        const docxPath = path.join(process.cwd(), categoryDefaultTemplate.sourceDocxPath);
+        
+        // Format date helper
+        const formatDate = (date: Date | string | null | undefined): string => {
+          if (!date) return "";
+          const d = new Date(date);
+          if (isNaN(d.getTime())) return "";
+          return d.toLocaleDateString("sk-SK");
+        };
+        
+        // Build nested context for docxtemplater (uses {{category.field}} format)
+        const docxData = {
+          customer: {
+            fullName: `${customer?.firstName || ""} ${customer?.lastName || ""}`.trim(),
+            firstName: customer?.firstName || "",
+            lastName: customer?.lastName || "",
+            email: customer?.email || "",
+            phone: customer?.phone || "",
+            address: customer?.address || "",
+            city: customer?.city || "",
+            postalCode: customer?.postalCode || "",
+            dateOfBirth: formatDate(customer?.dateOfBirth),
+            birthNumber: customer?.nationalId || "",
+            correspondenceAddress: customer?.address || "",
+          },
+          mother: {
+            permanentAddress: customer?.address || "",
+            birthDate: formatDate(customer?.dateOfBirth),
+          },
+          father: {
+            fullName: potentialCase?.fatherFirstName && potentialCase?.fatherLastName
+              ? `${potentialCase.fatherFirstName} ${potentialCase.fatherLastName}`.trim()
+              : fatherParticipant?.fullName || "",
+            firstName: potentialCase?.fatherFirstName || "",
+            lastName: potentialCase?.fatherLastName || "",
+            email: potentialCase?.fatherEmail || "",
+            phone: potentialCase?.fatherPhone || potentialCase?.fatherMobile || "",
+            permanentAddress: potentialCase?.fatherStreet || "",
+          },
+          billing: {
+            companyName: billingDetails?.companyName || "Cord Blood Center AG",
+            ico: billingDetails?.ico || "",
+            dic: billingDetails?.dic || "",
+            vatNumber: billingDetails?.vatNumber || "",
+            address: billingDetails?.address || billingDetails?.residencyStreet || "",
+            city: billingDetails?.city || billingDetails?.residencyCity || "",
+            postalCode: billingDetails?.postalCode || billingDetails?.residencyPostalCode || "",
+            iban: billingDetails?.bankIban || "",
+            swift: billingDetails?.bankSwift || "",
+            bankName: billingDetails?.bankName || "",
+            email: billingDetails?.email || "",
+            phone: billingDetails?.phone || "",
+          },
+          contract: {
+            number: contract.contractNumber,
+            date: new Date().toLocaleDateString("sk-SK"),
+            currency: contract.currency || "EUR",
+          },
+        };
+        
+        try {
+          const outputDir = path.join(process.cwd(), "uploads", "generated-contracts");
+          await fs.promises.mkdir(outputDir, { recursive: true });
+          
+          const result = await generateContractFromTemplate(
+            "docx",
+            docxPath,
+            docxData,
+            outputDir,
+            contract.id
+          );
+          
+          // Update contract with PDF path
+          const relativePdfPath = result.pdfPath.replace(process.cwd() + "/", "");
+          await storage.updateContractInstance(contract.id, { pdfPath: relativePdfPath });
+          
+          // Send PDF file
+          const pdfBuffer = await fs.promises.readFile(result.pdfPath);
+          res.setHeader("Content-Type", "application/pdf");
+          res.setHeader("Content-Disposition", `attachment; filename="zmluva-${contract.contractNumber}.pdf"`);
+          res.setHeader("Content-Length", pdfBuffer.length);
+          return res.send(pdfBuffer);
+        } catch (docxError: any) {
+          console.error("[PDF] DOCX-based generation failed:", docxError);
+          // If DOCX generation fails but we have HTML, try HTML fallback
+          if (!hasHtmlContent) {
+            return res.status(500).json({ 
+              error: "Generovanie PDF zlyhalo: " + (docxError.message || "Neznáma chyba")
+            });
+          }
+          // Fall through to HTML-based generation
+          console.log("[PDF] Falling back to HTML-based generation");
+        }
+      }
       
       // Calculate totals from products
       let totalNet = 0;

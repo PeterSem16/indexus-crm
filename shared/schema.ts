@@ -2667,6 +2667,7 @@ export const contractTemplateVersions = pgTable("contract_template_versions", {
   changeDescription: text("change_description"),
   createdBy: varchar("created_by"),
   createdByName: text("created_by_name"),
+  isDefault: boolean("is_default").notNull().default(false),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 

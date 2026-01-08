@@ -218,7 +218,7 @@ export async function extractDocxPlaceholders(docxPath: string): Promise<Templat
 
 export async function fillDocxTemplate(
   docxPath: string,
-  data: Record<string, string | number | boolean>,
+  data: Record<string, any>,
   outputPath: string
 ): Promise<string> {
   try {
@@ -309,7 +309,7 @@ export async function convertDocxToPdf(docxPath: string, outputDir: string): Pro
 export async function generateContractFromTemplate(
   templateType: "pdf_form" | "docx",
   sourcePath: string,
-  data: Record<string, string | number | boolean>,
+  data: Record<string, any>,
   outputDir: string,
   contractId: string
 ): Promise<{ pdfPath: string; intermediateDocxPath?: string }> {
