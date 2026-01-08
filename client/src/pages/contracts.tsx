@@ -1960,7 +1960,6 @@ export default function ContractsPage() {
                       <TableHead>Číslo zmluvy</TableHead>
                       <TableHead>Klient</TableHead>
                       <TableHead>Stav</TableHead>
-                      <TableHead>Suma</TableHead>
                       <TableHead>Vytvorená</TableHead>
                       <TableHead className="text-right">Akcie</TableHead>
                     </TableRow>
@@ -1968,13 +1967,13 @@ export default function ContractsPage() {
                   <TableBody>
                     {contractsLoading ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                           Načítavam...
                         </TableCell>
                       </TableRow>
                     ) : filteredContracts.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                           Žiadne zmluvy
                         </TableCell>
                       </TableRow>
@@ -1984,9 +1983,6 @@ export default function ContractsPage() {
                           <TableCell className="font-medium">{contract.contractNumber}</TableCell>
                           <TableCell>{getCustomerName(contract.customerId)}</TableCell>
                           <TableCell>{getStatusBadge(contract.status)}</TableCell>
-                          <TableCell>
-                            {contract.totalGrossAmount} {contract.currency}
-                          </TableCell>
                           <TableCell>
                             {contract.createdAt && format(new Date(contract.createdAt), "d.M.yyyy", { locale: sk })}
                           </TableCell>
@@ -3075,26 +3071,6 @@ export default function ContractsPage() {
                   </Select>
                 </div>
                 
-                {contractForm.categoryId && (
-                  <div className="space-y-2">
-                    <Label>Verzia šablóny</Label>
-                    <Select
-                      value={contractForm.templateVersionId}
-                      onValueChange={(value) => setContractForm({ ...contractForm, templateVersionId: value })}
-                    >
-                      <SelectTrigger data-testid="select-contract-version">
-                        <SelectValue placeholder="Aktuálna verzia (najnovšia)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="current">Aktuálna verzia (najnovšia)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">
-                      Môžete vybrať konkrétnu verziu šablóny alebo použiť najnovšiu
-                    </p>
-                  </div>
-                )}
-                
                 <Separator className="my-2" />
                 
                 <div className="space-y-2">
@@ -3180,10 +3156,6 @@ export default function ContractsPage() {
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Typ zmluvy:</span>
                       <span className="font-medium">{categories.find(c => String(c.id) === contractForm.categoryId)?.label}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Verzia:</span>
-                      <span>{contractForm.templateVersionId === "current" || !contractForm.templateVersionId ? "Aktuálna (najnovšia)" : contractForm.templateVersionId}</span>
                     </div>
                     <Separator className="my-2" />
                     <div className="flex justify-between">
@@ -3355,12 +3327,6 @@ export default function ContractsPage() {
                   <span className="text-sm text-muted-foreground">Fakturačná spoločnosť:</span>
                   <div className="mt-1 font-medium">
                     {billingDetails.find(b => b.id === selectedContract.billingDetailsId)?.companyName || "Nevybraná"}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-sm text-muted-foreground">Suma:</span>
-                  <div className="mt-1 font-medium">
-                    {selectedContract.totalGrossAmount || "0"} {selectedContract.currency}
                   </div>
                 </div>
               </div>

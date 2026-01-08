@@ -9399,12 +9399,13 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         return res.status(404).json({ error: "Contract template not found" });
       }
       
-      if (!categoryDefaultTemplate.contentHtml) {
-        return res.status(400).json({ error: "Template has no content. Please edit the template first." });
+      // Use htmlContent from category default template (not contentHtml which is on contract_templates)
+      if (!categoryDefaultTemplate.htmlContent) {
+        return res.status(400).json({ error: "Šablóna nemá HTML obsah. Najprv nahrajte a spracujte DOCX šablónu." });
       }
       
-      // Use categoryDefaultTemplate for rendering
-      const contractTemplate = categoryDefaultTemplate;
+      // Use categoryDefaultTemplate for rendering - map htmlContent to contentHtml for compatibility
+      const contractTemplate = { ...categoryDefaultTemplate, contentHtml: categoryDefaultTemplate.htmlContent };
       
       const [customer, products] = await Promise.all([
         storage.getCustomer(contract.customerId),
@@ -9556,12 +9557,13 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         return res.status(404).json({ error: "Contract template not found" });
       }
       
-      if (!categoryDefaultTemplate.contentHtml) {
-        return res.status(400).json({ error: "Template has no content. Please edit the template first." });
+      // Use htmlContent from category default template (not contentHtml which is on contract_templates)
+      if (!categoryDefaultTemplate.htmlContent) {
+        return res.status(400).json({ error: "Šablóna nemá HTML obsah. Najprv nahrajte a spracujte DOCX šablónu." });
       }
       
-      // Use categoryDefaultTemplate for rendering
-      const contractTemplate = categoryDefaultTemplate;
+      // Use categoryDefaultTemplate for rendering - map htmlContent to contentHtml for compatibility
+      const contractTemplate = { ...categoryDefaultTemplate, contentHtml: categoryDefaultTemplate.htmlContent };
       
       const [customer, products, participants] = await Promise.all([
         storage.getCustomer(contract.customerId),
