@@ -274,7 +274,7 @@ export default function PipelinePage() {
   });
 
   const createActivityMutation = useMutation({
-    mutationFn: async (data: { type: string; title: string; notes?: string; dueDate?: string }) => {
+    mutationFn: async (data: { type: string; subject: string; description?: string; dueAt?: string }) => {
       if (!selectedDeal) throw new Error("No deal selected");
       return apiRequest("POST", `/api/deals/${selectedDeal.id}/activities`, data);
     },
@@ -428,9 +428,9 @@ export default function PipelinePage() {
     
     createActivityMutation.mutate({
       type: formData.get("type") as string,
-      title: formData.get("title") as string,
-      notes: formData.get("notes") as string || undefined,
-      dueDate: formData.get("dueDate") as string || undefined,
+      subject: formData.get("subject") as string,
+      description: formData.get("description") as string || undefined,
+      dueAt: formData.get("dueAt") as string || undefined,
     });
   };
 
@@ -768,14 +768,14 @@ export default function PipelinePage() {
                                 </Badge>
                               )}
                             </div>
-                            <p className="font-medium text-sm">{activity.title}</p>
-                            {activity.notes && (
-                              <p className="text-xs text-muted-foreground mt-1">{activity.notes}</p>
+                            <p className="font-medium text-sm">{activity.subject}</p>
+                            {activity.description && (
+                              <p className="text-xs text-muted-foreground mt-1">{activity.description}</p>
                             )}
-                            {activity.dueDate && (
+                            {activity.dueAt && (
                               <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                                 <Clock className="h-3 w-3" />
-                                {format(new Date(activity.dueDate), "d. M. yyyy HH:mm", { locale: sk })}
+                                {format(new Date(activity.dueAt), "d. M. yyyy HH:mm", { locale: sk })}
                               </p>
                             )}
                           </div>
@@ -822,33 +822,33 @@ export default function PipelinePage() {
             </div>
 
             <div>
-              <Label htmlFor="activity-title">Názov *</Label>
+              <Label htmlFor="activity-subject">Predmet *</Label>
               <Input 
-                id="activity-title" 
-                name="title" 
+                id="activity-subject" 
+                name="subject" 
                 placeholder="Napr. Zavolať zákazníkovi" 
                 required
-                data-testid="input-activity-title"
+                data-testid="input-activity-subject"
               />
             </div>
 
             <div>
-              <Label htmlFor="activity-dueDate">Termín</Label>
+              <Label htmlFor="activity-dueAt">Termín</Label>
               <Input 
-                id="activity-dueDate" 
-                name="dueDate" 
+                id="activity-dueAt" 
+                name="dueAt" 
                 type="datetime-local"
-                data-testid="input-activity-dueDate"
+                data-testid="input-activity-dueAt"
               />
             </div>
 
             <div>
-              <Label htmlFor="activity-notes">Poznámky</Label>
+              <Label htmlFor="activity-description">Popis</Label>
               <Textarea 
-                id="activity-notes" 
-                name="notes" 
+                id="activity-description" 
+                name="description" 
                 placeholder="Dodatočné informácie..."
-                data-testid="input-activity-notes"
+                data-testid="input-activity-description"
               />
             </div>
 
