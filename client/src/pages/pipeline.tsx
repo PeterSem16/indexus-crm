@@ -18,7 +18,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Plus, GripVertical, User as UserIcon, Calendar, DollarSign, Phone, Mail, FileText, Loader2, Settings, MoreHorizontal, Trash2, Edit, Clock, CheckCircle2, MessageSquare, X, Activity, Bell, BarChart3, TrendingUp, ArrowRight, HelpCircle, ChevronRight, Users, LayoutGrid, List, Archive, Coins } from "lucide-react";
+import { Plus, GripVertical, User as UserIcon, Calendar, DollarSign, Phone, Mail, FileText, Loader2, Settings, MoreHorizontal, Trash2, Edit, Clock, CheckCircle2, MessageSquare, X, Activity, Bell, BarChart3, TrendingUp, ArrowRight, HelpCircle, ChevronRight, Users, LayoutGrid, List, Archive, Coins, Globe, UserPlus, Megaphone, Share2, Building, Link2, Star, Facebook, Linkedin } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Progress } from "@/components/ui/progress";
@@ -148,6 +148,34 @@ function DealCard({ deal, isDragging, customers, users, onSelect, onScheduleActi
     }
   };
 
+  const getSourceIcon = (source: string | null) => {
+    switch (source) {
+      case "web": return <Globe className="h-3 w-3" />;
+      case "referral": return <UserPlus className="h-3 w-3" />;
+      case "campaign": return <Megaphone className="h-3 w-3" />;
+      case "partner": return <Building className="h-3 w-3" />;
+      case "social": return <Share2 className="h-3 w-3" />;
+      case "direct": return <Link2 className="h-3 w-3" />;
+      case "cold_call": return <Phone className="h-3 w-3" />;
+      case "event": return <Star className="h-3 w-3" />;
+      default: return <HelpCircle className="h-3 w-3" />;
+    }
+  };
+
+  const getSourceLabel = (source: string | null) => {
+    switch (source) {
+      case "web": return "Web";
+      case "referral": return "Odporúčanie";
+      case "campaign": return "Kampaň";
+      case "partner": return "Partner";
+      case "social": return "Sociálne siete";
+      case "direct": return "Priamy";
+      case "cold_call": return "Cold call";
+      case "event": return "Event";
+      default: return source || "Neznámy";
+    }
+  };
+
   const formatDueDate = (date: Date | string) => {
     const d = new Date(date);
     const now = new Date();
@@ -250,8 +278,12 @@ function DealCard({ deal, isDragging, customers, users, onSelect, onScheduleActi
       
       <div className="space-y-1.5 text-xs text-muted-foreground">
         {customer && (
-          <div className="flex items-center gap-1">
-            <UserIcon className="h-3 w-3" />
+          <div className="flex items-center gap-2">
+            <Avatar className="h-5 w-5">
+              <AvatarFallback className="text-[10px] bg-blue-100 text-blue-700">
+                {customer.firstName?.charAt(0)}{customer.lastName?.charAt(0)}
+              </AvatarFallback>
+            </Avatar>
             <span className="truncate">{customer.firstName} {customer.lastName}</span>
           </div>
         )}
@@ -265,11 +297,27 @@ function DealCard({ deal, isDragging, customers, users, onSelect, onScheduleActi
           </div>
         )}
 
-        {deal.probability !== null && deal.probability !== undefined && deal.probability > 0 && (
-          <Badge variant="outline" className="text-xs">
-            {deal.probability}%
-          </Badge>
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          {deal.probability !== null && deal.probability !== undefined && deal.probability > 0 && (
+            <Badge variant="outline" className="text-xs">
+              {deal.probability}%
+            </Badge>
+          )}
+
+          {deal.source && (
+            <Badge variant="secondary" className="text-xs gap-1">
+              {getSourceIcon(deal.source)}
+              {getSourceLabel(deal.source)}
+            </Badge>
+          )}
+
+          {deal.campaignId && (
+            <Badge variant="secondary" className="text-xs gap-1">
+              <Megaphone className="h-3 w-3" />
+              Kampaň
+            </Badge>
+          )}
+        </div>
         
         {deal.expectedCloseDate && (
           <div className="flex items-center gap-1">
@@ -279,10 +327,12 @@ function DealCard({ deal, isDragging, customers, users, onSelect, onScheduleActi
         )}
 
         {assignedUser && (
-          <div className="flex items-center gap-1 pt-1 border-t">
-            <div className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-medium">
-              {assignedUser.fullName?.charAt(0) || assignedUser.username.charAt(0).toUpperCase()}
-            </div>
+          <div className="flex items-center gap-2 pt-1 border-t">
+            <Avatar className="h-5 w-5">
+              <AvatarFallback className="text-[10px] bg-green-100 text-green-700">
+                {assignedUser.fullName?.charAt(0) || assignedUser.username.charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
             <span className="truncate">{assignedUser.fullName || assignedUser.username}</span>
           </div>
         )}
