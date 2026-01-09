@@ -52,7 +52,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { type Deal, type PipelineStage, type Pipeline, type Customer, type Campaign, type User, type DealActivity, type Product, type DealProduct, type BillingDetails, type AutomationRule, DEAL_SOURCES, COUNTRIES, DEAL_ACTIVITY_TYPES, AUTOMATION_TRIGGER_TYPES, AUTOMATION_ACTION_TYPES } from "@shared/schema";
+import { type Deal, type PipelineStage, type Pipeline, type Customer, type Campaign, type User, type DealActivity, type Product, type DealProduct, type BillingDetails, type AutomationRule, DEAL_SOURCES, COUNTRIES, DEAL_ACTIVITY_TYPES, AUTOMATION_TRIGGER_TYPES, AUTOMATION_ACTION_TYPES, CUSTOMER_TRACKED_FIELDS } from "@shared/schema";
 import {
   Sheet,
   SheetContent,
@@ -1231,6 +1231,67 @@ function AutomationsView({ pipelineId, stages, users }: AutomationsViewProps) {
               </div>
             )}
 
+            {formData.triggerType === "customer_updated" && (
+              <div className="space-y-3">
+                <div>
+                  <Label>Sledované polia zákazníka</Label>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Vyberte ktoré polia pri zmene spustia automatizáciu
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border rounded-md p-3">
+                    {CUSTOMER_TRACKED_FIELDS.map((field) => {
+                      const trackedFields = formData.triggerConfig.trackedFields || [];
+                      const isChecked = trackedFields.includes(field.value);
+                      return (
+                        <label key={field.value} className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-1 rounded">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              const newFields = e.target.checked
+                                ? [...trackedFields, field.value]
+                                : trackedFields.filter((f: string) => f !== field.value);
+                              setFormData({
+                                ...formData,
+                                triggerConfig: { ...formData.triggerConfig, trackedFields: newFields }
+                              });
+                            }}
+                            className="h-4 w-4"
+                            data-testid={`checkbox-field-${field.value}`}
+                          />
+                          <span className="text-sm">{field.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <div className="flex gap-2 mt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setFormData({
+                        ...formData,
+                        triggerConfig: { ...formData.triggerConfig, trackedFields: CUSTOMER_TRACKED_FIELDS.map(f => f.value) }
+                      })}
+                    >
+                      Vybrať všetko
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setFormData({
+                        ...formData,
+                        triggerConfig: { ...formData.triggerConfig, trackedFields: [] }
+                      })}
+                    >
+                      Zrušiť výber
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div>
               <Label>Akcia</Label>
               <Select
@@ -1416,6 +1477,47 @@ function AutomationsView({ pipelineId, stages, users }: AutomationsViewProps) {
                     })}
                     placeholder="Zadajte novú hodnotu"
                   />
+                </div>
+              </div>
+            )}
+
+            {formData.actionType === "create_deal" && (
+              <div className="space-y-3">
+                <div>
+                  <Label>Cieľová fáza pre nový deal</Label>
+                  <Select
+                    value={formData.actionConfig.dealStageId || ""}
+                    onValueChange={(val) => setFormData({
+                      ...formData,
+                      actionConfig: { ...formData.actionConfig, dealStageId: val }
+                    })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Vyberte fázu (napr. Lead)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {stages.map((stage) => (
+                        <SelectItem key={stage.id} value={stage.id}>{stage.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Fáza do ktorej sa vytvorí nový deal pri konverzii zákazníka
+                  </p>
+                </div>
+                <div>
+                  <Label>Názov dealu (šablóna)</Label>
+                  <Input
+                    value={formData.actionConfig.dealTitle || "{customer_name} - Konverzia"}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      actionConfig: { ...formData.actionConfig, dealTitle: e.target.value }
+                    })}
+                    placeholder="{customer_name} - Konverzia"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Použite {"{customer_name}"} pre meno zákazníka
+                  </p>
                 </div>
               </div>
             )}
