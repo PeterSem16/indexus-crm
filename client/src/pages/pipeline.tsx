@@ -18,7 +18,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Plus, GripVertical, User as UserIcon, Calendar, DollarSign, Phone, Mail, FileText, Loader2, Settings, MoreHorizontal, Trash2, Edit, Clock, CheckCircle2, MessageSquare, X, Activity, Bell, BarChart3, TrendingUp, ArrowRight, HelpCircle, ChevronRight, Users, LayoutGrid, List, Archive, Coins, Globe, UserPlus, Megaphone, Share2, Building, Link2, Star, Facebook, Linkedin, Zap, Play, Pause } from "lucide-react";
+import { Plus, GripVertical, User as UserIcon, Calendar, DollarSign, Phone, Mail, FileText, Loader2, Settings, MoreHorizontal, Trash2, Edit, Clock, CheckCircle2, MessageSquare, X, Activity, Bell, BarChart3, TrendingUp, ArrowRight, HelpCircle, ChevronRight, Users, LayoutGrid, List, Archive, Coins, Globe, UserPlus, Megaphone, Share2, Building, Link2, Star, Facebook, Linkedin, Zap, Play, Pause, Briefcase } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Progress } from "@/components/ui/progress";
@@ -848,11 +848,29 @@ interface AutomationsViewProps {
   users: User[];
 }
 
+const AUTOMATION_CATEGORIES = [
+  { value: "all", label: "Všetky", icon: "List" },
+  { value: "deal", label: "Deal", icon: "Briefcase" },
+  { value: "lead", label: "Lead", icon: "UserPlus" },
+  { value: "customer", label: "Zákazník", icon: "Users" },
+  { value: "activity", label: "Aktivita", icon: "Calendar" },
+  { value: "email", label: "Email", icon: "Mail" },
+  { value: "notification", label: "Notifikácie", icon: "Bell" },
+] as const;
+
+const AUTOMATION_TABS = [
+  { value: "templates", label: "Šablóny" },
+  { value: "automations", label: "Automatizácie" },
+  { value: "history", label: "História" },
+] as const;
+
 function AutomationsView({ pipelineId, stages, users }: AutomationsViewProps) {
   const { toast } = useToast();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<AutomationRule | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; rule: AutomationRule | null }>({ open: false, rule: null });
+  const [activeTab, setActiveTab] = useState<string>("automations");
+  const [activeCategory, setActiveCategory] = useState<string>("all");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -1012,8 +1030,173 @@ function AutomationsView({ pipelineId, stages, users }: AutomationsViewProps) {
     );
   }
 
+  // Filter automations by category
+  const getCategoryForRule = (rule: AutomationRule): string => {
+    if (rule.triggerType === "customer_updated") return "customer";
+    if (rule.triggerType === "deal_created" || rule.triggerType === "stage_changed" || rule.triggerType === "deal_won" || rule.triggerType === "deal_lost") return "deal";
+    if (rule.triggerType === "activity_completed") return "activity";
+    if (rule.actionType === "send_email") return "email";
+    return "deal";
+  };
+
+  const filteredAutomations = activeCategory === "all" 
+    ? automations 
+    : automations.filter(a => getCategoryForRule(a) === activeCategory);
+
   return (
     <div className="flex-1 overflow-auto p-4">
+      {/* Tabs */}
+      <div className="border-b mb-4">
+        <div className="flex gap-6">
+          {AUTOMATION_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              onClick={() => setActiveTab(tab.value)}
+              className={`pb-3 text-sm font-medium transition-colors relative ${
+                activeTab === tab.value 
+                  ? "text-primary" 
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              data-testid={`tab-${tab.value}`}
+            >
+              {tab.label}
+              {activeTab === tab.value && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Categories */}
+      <div className="flex items-center gap-1 mb-6 flex-wrap">
+        {AUTOMATION_CATEGORIES.map((cat) => (
+          <Button
+            key={cat.value}
+            variant={activeCategory === cat.value ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setActiveCategory(cat.value)}
+            className="gap-1.5"
+            data-testid={`category-${cat.value}`}
+          >
+            {cat.icon === "List" && <List className="h-3.5 w-3.5" />}
+            {cat.icon === "Briefcase" && <Briefcase className="h-3.5 w-3.5" />}
+            {cat.icon === "UserPlus" && <UserPlus className="h-3.5 w-3.5" />}
+            {cat.icon === "Users" && <Users className="h-3.5 w-3.5" />}
+            {cat.icon === "Calendar" && <Calendar className="h-3.5 w-3.5" />}
+            {cat.icon === "Mail" && <Mail className="h-3.5 w-3.5" />}
+            {cat.icon === "Bell" && <Bell className="h-3.5 w-3.5" />}
+            {cat.label}
+          </Button>
+        ))}
+      </div>
+
+      {activeTab === "templates" && (
+        <Card className="py-12">
+          <CardContent className="text-center">
+            <FileText className="h-12 w-12 mx-auto mb-4 opacity-30" />
+            <h3 className="text-lg font-medium mb-2">Šablóny automatizácií</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Predpripravené šablóny pre rýchle nastavenie automatizácií
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl mx-auto mt-6">
+              <Card className="hover-elevate cursor-pointer" onClick={() => {
+                setFormData({
+                  name: "Kvalifikácia leadu",
+                  description: "Keď sa zmení lead score, konvertuj zákazníka do dealu",
+                  triggerType: "customer_updated",
+                  triggerConfig: { trackedFields: ["leadScore", "status"] },
+                  actionType: "create_deal",
+                  actionConfig: {},
+                });
+                setActiveTab("automations");
+                handleOpenCreate();
+              }}>
+                <CardContent className="p-4 text-center">
+                  <UserPlus className="h-8 w-8 mx-auto mb-2 text-primary" />
+                  <h4 className="font-medium text-sm">Kvalifikácia leadu</h4>
+                  <p className="text-xs text-muted-foreground mt-1">Konverzia zákazníka do dealu</p>
+                </CardContent>
+              </Card>
+              <Card className="hover-elevate cursor-pointer" onClick={() => {
+                setFormData({
+                  name: "Uvítací email",
+                  description: "Pri vytvorení nového dealu odošli uvítací email",
+                  triggerType: "deal_created",
+                  triggerConfig: {},
+                  actionType: "send_email",
+                  actionConfig: { emailSubject: "Vitajte!", emailBody: "Ďakujeme za váš záujem." },
+                });
+                setActiveTab("automations");
+                handleOpenCreate();
+              }}>
+                <CardContent className="p-4 text-center">
+                  <Mail className="h-8 w-8 mx-auto mb-2 text-primary" />
+                  <h4 className="font-medium text-sm">Uvítací email</h4>
+                  <p className="text-xs text-muted-foreground mt-1">Automatický email pre nové dealy</p>
+                </CardContent>
+              </Card>
+              <Card className="hover-elevate cursor-pointer" onClick={() => {
+                setFormData({
+                  name: "Follow-up aktivita",
+                  description: "Vytvor follow-up úlohu pri zmene fázy",
+                  triggerType: "stage_changed",
+                  triggerConfig: {},
+                  actionType: "create_activity",
+                  actionConfig: { activityType: "task", activitySubject: "Follow-up", activityDueDays: 3 },
+                });
+                setActiveTab("automations");
+                handleOpenCreate();
+              }}>
+                <CardContent className="p-4 text-center">
+                  <Calendar className="h-8 w-8 mx-auto mb-2 text-primary" />
+                  <h4 className="font-medium text-sm">Follow-up aktivita</h4>
+                  <p className="text-xs text-muted-foreground mt-1">Automatická úloha pri zmene fázy</p>
+                </CardContent>
+              </Card>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === "history" && (
+        <Card className="py-12">
+          <CardContent className="text-center">
+            <Clock className="h-12 w-12 mx-auto mb-4 opacity-30" />
+            <h3 className="text-lg font-medium mb-2">História vykonania</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Prehľad vykonaných automatizácií
+            </p>
+            <div className="max-w-2xl mx-auto mt-6">
+              {automations.filter(a => a.executionCount && a.executionCount > 0).length === 0 ? (
+                <p className="text-muted-foreground">Zatiaľ neboli vykonané žiadne automatizácie</p>
+              ) : (
+                <div className="space-y-2">
+                  {automations.filter(a => a.executionCount && a.executionCount > 0).map((rule) => (
+                    <div key={rule.id} className="flex items-center justify-between p-3 border rounded-lg text-left">
+                      <div>
+                        <p className="font-medium text-sm">{rule.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {getTriggerLabel(rule.triggerType)} → {getActionLabel(rule.actionType)}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium">{rule.executionCount}x</p>
+                        <p className="text-xs text-muted-foreground">
+                          {rule.lastExecutedAt && new Date(rule.lastExecutedAt).toLocaleDateString("sk-SK")}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === "automations" && (
+        <>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-lg font-semibold">Automatizácie pipeline</h2>
@@ -1025,7 +1208,7 @@ function AutomationsView({ pipelineId, stages, users }: AutomationsViewProps) {
         </Button>
       </div>
 
-      {automations.length === 0 ? (
+      {filteredAutomations.length === 0 ? (
         <Card className="py-12">
           <CardContent className="text-center">
             <Zap className="h-12 w-12 mx-auto mb-4 opacity-30" />
@@ -1041,7 +1224,7 @@ function AutomationsView({ pipelineId, stages, users }: AutomationsViewProps) {
         </Card>
       ) : (
         <div className="grid gap-4">
-          {automations.map((rule) => (
+          {filteredAutomations.map((rule) => (
             <Card key={rule.id} className={`transition-opacity ${!rule.isActive ? 'opacity-60' : ''}`}>
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-4">
@@ -1109,6 +1292,8 @@ function AutomationsView({ pipelineId, stages, users }: AutomationsViewProps) {
             </Card>
           ))}
         </div>
+      )}
+      </>
       )}
 
       {/* Create/Edit Dialog */}
