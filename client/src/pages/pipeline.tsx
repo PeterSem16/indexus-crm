@@ -59,6 +59,9 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { HelpCircle } from "lucide-react";
 import { format } from "date-fns";
 import { sk } from "date-fns/locale";
 
@@ -176,9 +179,11 @@ interface StageColumnProps {
   customers: Customer[];
   users: User[];
   onSelectDeal: (deal: Deal) => void;
+  onEditStage: (stage: PipelineStage) => void;
+  onDeleteStage: (stageId: string) => void;
 }
 
-function StageColumn({ stage, onAddDeal, customers, users, onSelectDeal }: StageColumnProps) {
+function StageColumn({ stage, onAddDeal, customers, users, onSelectDeal, onEditStage, onDeleteStage }: StageColumnProps) {
   const totalValue = stage.deals.reduce((sum, deal) => {
     return sum + (deal.value ? parseFloat(deal.value) : 0);
   }, 0);
@@ -192,20 +197,55 @@ function StageColumn({ stage, onAddDeal, customers, users, onSelectDeal }: Stage
         className="p-3 border-b flex items-center justify-between"
         style={{ borderTopColor: stage.color || "#3b82f6", borderTopWidth: "3px" }}
       >
-        <div>
-          <h3 className="font-medium text-sm">{stage.name}</h3>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1">
+            <h3 className="font-medium text-sm truncate">{stage.name}</h3>
+            {stage.probability !== null && stage.probability !== undefined && stage.probability > 0 && (
+              <Badge variant="secondary" className="text-[10px] px-1">{stage.probability}%</Badge>
+            )}
+          </div>
           <div className="text-xs text-muted-foreground mt-0.5">
             {stage.deals.length} príležitostí · {new Intl.NumberFormat("sk-SK", { style: "currency", currency: "EUR" }).format(totalValue)}
           </div>
         </div>
-        <Button 
-          size="icon" 
-          variant="ghost" 
-          onClick={() => onAddDeal(stage.id)}
-          data-testid={`button-add-deal-${stage.id}`}
-        >
-          <Plus className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-1">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="icon" variant="ghost" className="h-7 w-7" data-testid={`button-stage-menu-${stage.id}`}>
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onEditStage(stage)} data-testid={`menu-edit-stage-${stage.id}`}>
+                <Edit className="h-4 w-4 mr-2" />
+                Upraviť fázu
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => {
+                  if (stage.deals.length > 0) {
+                    alert("Fáza obsahuje príležitosti a nemôže byť odstránená.");
+                  } else if (confirm(`Naozaj chcete odstrániť fázu "${stage.name}"?`)) {
+                    onDeleteStage(stage.id);
+                  }
+                }}
+                className="text-destructive"
+                data-testid={`menu-delete-stage-${stage.id}`}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Odstrániť fázu
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button 
+            size="icon" 
+            variant="ghost" 
+            className="h-7 w-7"
+            onClick={() => onAddDeal(stage.id)}
+            data-testid={`button-add-deal-${stage.id}`}
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
       
       <div className="p-2 flex-1 overflow-y-auto max-h-[calc(100vh-280px)]">
@@ -644,6 +684,15 @@ export default function PipelinePage() {
   const [editingPipeline, setEditingPipeline] = useState<Pipeline | null>(null);
   const [editPipelineCountries, setEditPipelineCountries] = useState<string[]>([]);
   const [newPipelineCountries, setNewPipelineCountries] = useState<string[]>(["SK"]);
+  const [isStageDialogOpen, setIsStageDialogOpen] = useState(false);
+  const [editingStage, setEditingStage] = useState<PipelineStage | null>(null);
+  const [stageFormData, setStageFormData] = useState({
+    name: "",
+    probability: 0,
+    rottingDays: null as number | null,
+    rottingEnabled: false,
+    color: "#3b82f6",
+  });
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -817,6 +866,94 @@ export default function PipelinePage() {
       toast({ title: "Chyba", description: "Nepodarilo sa vytvoriť pipeline", variant: "destructive" });
     },
   });
+
+  const createStageMutation = useMutation({
+    mutationFn: async (data: { name: string; probability?: number; rottingDays?: number | null; color?: string }) => {
+      if (!activePipelineId) throw new Error("No pipeline selected");
+      return apiRequest("POST", `/api/pipelines/${activePipelineId}/stages`, data);
+    },
+    onSuccess: () => {
+      refetchKanban();
+      setIsStageDialogOpen(false);
+      resetStageForm();
+      toast({ title: "Fáza vytvorená" });
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa vytvoriť fázu", variant: "destructive" });
+    },
+  });
+
+  const updateStageMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: { name?: string; probability?: number; rottingDays?: number | null; color?: string } }) => {
+      return apiRequest("PATCH", `/api/stages/${id}`, data);
+    },
+    onSuccess: () => {
+      refetchKanban();
+      setIsStageDialogOpen(false);
+      setEditingStage(null);
+      resetStageForm();
+      toast({ title: "Fáza aktualizovaná" });
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa aktualizovať fázu", variant: "destructive" });
+    },
+  });
+
+  const deleteStageMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/stages/${id}`);
+    },
+    onSuccess: () => {
+      refetchKanban();
+      toast({ title: "Fáza odstránená" });
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa odstrániť fázu. Fáza môže obsahovať príležitosti.", variant: "destructive" });
+    },
+  });
+
+  const resetStageForm = () => {
+    setStageFormData({
+      name: "",
+      probability: 0,
+      rottingDays: null,
+      rottingEnabled: false,
+      color: "#3b82f6",
+    });
+  };
+
+  const openEditStage = (stage: PipelineStage) => {
+    setEditingStage(stage);
+    setStageFormData({
+      name: stage.name,
+      probability: stage.probability || 0,
+      rottingDays: stage.rottingDays || null,
+      rottingEnabled: !!stage.rottingDays,
+      color: stage.color || "#3b82f6",
+    });
+    setIsStageDialogOpen(true);
+  };
+
+  const openNewStage = () => {
+    setEditingStage(null);
+    resetStageForm();
+    setIsStageDialogOpen(true);
+  };
+
+  const handleStageSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const data = {
+      name: stageFormData.name,
+      probability: stageFormData.probability,
+      rottingDays: stageFormData.rottingEnabled ? stageFormData.rottingDays : null,
+      color: stageFormData.color,
+    };
+    if (editingStage) {
+      updateStageMutation.mutate({ id: editingStage.id, data });
+    } else {
+      createStageMutation.mutate(data);
+    }
+  };
 
   const createDealMutation = useMutation({
     mutationFn: async (data: { 
@@ -1054,8 +1191,21 @@ export default function PipelinePage() {
                       customers={customers}
                       users={users}
                       onSelectDeal={handleSelectDeal}
+                      onEditStage={openEditStage}
+                      onDeleteStage={(id) => deleteStageMutation.mutate(id)}
                     />
                   ))}
+                  <div className="flex flex-col min-w-[200px] items-center justify-start pt-4">
+                    <Button 
+                      variant="outline" 
+                      onClick={openNewStage}
+                      className="gap-2"
+                      data-testid="button-add-stage"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Pridať fázu
+                    </Button>
+                  </div>
                 </div>
 
                 <DragOverlay>
@@ -1723,6 +1873,119 @@ export default function PipelinePage() {
               </form>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Stage Create/Edit Dialog */}
+      <Dialog open={isStageDialogOpen} onOpenChange={(open) => { if (!open) { setIsStageDialogOpen(false); setEditingStage(null); resetStageForm(); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingStage ? "Upraviť fázu" : "Nová fáza"}</DialogTitle>
+            <DialogDescription>
+              {editingStage ? "Upravte nastavenia fázy" : "Pridajte novú fázu do predajného procesu"}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleStageSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="stageName">Názov *</Label>
+              <Input 
+                id="stageName"
+                value={stageFormData.name}
+                onChange={(e) => setStageFormData({ ...stageFormData, name: e.target.value })}
+                placeholder="Napr. Kvalifikácia"
+                required
+                data-testid="input-stage-name"
+              />
+            </div>
+            
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Label htmlFor="stageProbability">Pravdepodobnosť výhry (%)</Label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-[300px]">
+                    <p>Predvolená pravdepodobnosť výhry pre príležitosti v tejto fáze. Používa sa na projekciu budúcich príjmov.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <Input 
+                id="stageProbability"
+                type="number"
+                min="0"
+                max="100"
+                value={stageFormData.probability}
+                onChange={(e) => setStageFormData({ ...stageFormData, probability: parseInt(e.target.value) || 0 })}
+                data-testid="input-stage-probability"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="rottingEnabled"
+                  checked={stageFormData.rottingEnabled}
+                  onCheckedChange={(checked) => setStageFormData({ ...stageFormData, rottingEnabled: checked, rottingDays: checked ? (stageFormData.rottingDays || 14) : null })}
+                  data-testid="switch-rotting-enabled"
+                />
+                <Label htmlFor="rottingEnabled" className="flex items-center gap-2">
+                  Rotting upozornenia
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-[300px]">
+                      <p>Funkcia rotting vás upozorní na neaktívne príležitosti ich sfarbením na červeno. Nastavte počet dní po ktorých sa príležitosť považuje za "hnilobnú".</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </Label>
+              </div>
+              {stageFormData.rottingEnabled && (
+                <div>
+                  <Label htmlFor="rottingDays">Počet dní do rotting</Label>
+                  <Input 
+                    id="rottingDays"
+                    type="number"
+                    min="1"
+                    value={stageFormData.rottingDays || ""}
+                    onChange={(e) => setStageFormData({ ...stageFormData, rottingDays: parseInt(e.target.value) || null })}
+                    placeholder="14"
+                    data-testid="input-rotting-days"
+                  />
+                </div>
+              )}
+            </div>
+            
+            <div>
+              <Label htmlFor="stageColor">Farba</Label>
+              <div className="flex gap-2 mt-1">
+                {["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#84cc16"].map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    className={`w-8 h-8 rounded-full border-2 ${stageFormData.color === color ? 'border-foreground' : 'border-transparent'}`}
+                    style={{ backgroundColor: color }}
+                    onClick={() => setStageFormData({ ...stageFormData, color })}
+                    data-testid={`button-color-${color}`}
+                  />
+                ))}
+              </div>
+            </div>
+            
+            <div className="flex gap-2 justify-end pt-2">
+              <Button type="button" variant="outline" onClick={() => { setIsStageDialogOpen(false); setEditingStage(null); resetStageForm(); }}>
+                Zrušiť
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={createStageMutation.isPending || updateStageMutation.isPending || !stageFormData.name}
+              >
+                {(createStageMutation.isPending || updateStageMutation.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                {editingStage ? "Uložiť" : "Vytvoriť"}
+              </Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
 

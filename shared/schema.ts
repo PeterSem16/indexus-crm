@@ -3031,6 +3031,7 @@ export const pipelineStages = pgTable("pipeline_stages", {
   color: varchar("color", { length: 50 }).default("#3b82f6"),
   order: integer("order").notNull().default(0),
   probability: integer("probability").default(0), // Default win probability for deals in this stage (0-100)
+  rottingDays: integer("rotting_days"), // Number of days after which a deal in this stage is considered "rotting" (null = disabled)
   isWonStage: boolean("is_won_stage").default(false),
   isLostStage: boolean("is_lost_stage").default(false),
   createdAt: timestamp("created_at").defaultNow(),
