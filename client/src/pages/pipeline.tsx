@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { 
   DndContext, 
@@ -28,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useCountryFilter } from "@/contexts/country-filter-context";
 import {
   Dialog,
   DialogContent,
@@ -842,6 +843,7 @@ function PipelineReports({ stages, pipeline }: PipelineReportsProps) {
 
 export default function PipelinePage() {
   const { toast } = useToast();
+  const { selectedCountries } = useCountryFilter();
   const [activePipelineId, setActivePipelineId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"kanban" | "list" | "forecast" | "archive" | "reports">("kanban");
   const [isNewDealOpen, setIsNewDealOpen] = useState(false);
@@ -877,12 +879,32 @@ export default function PipelinePage() {
     useSensor(KeyboardSensor)
   );
 
-  const { data: pipelines, isLoading: pipelinesLoading, refetch: refetchPipelines } = useQuery<Pipeline[]>({
+  const { data: allPipelines, isLoading: pipelinesLoading, refetch: refetchPipelines } = useQuery<Pipeline[]>({
     queryKey: ["/api/pipelines"],
   });
 
+  // Filter pipelines based on selected countries
+  const pipelines = useMemo(() => {
+    if (!allPipelines) return [];
+    if (selectedCountries.length === 0) return allPipelines;
+    
+    return allPipelines.filter(pipeline => {
+      // If pipeline has no country codes, show it to everyone
+      if (!pipeline.countryCodes || pipeline.countryCodes.length === 0) return true;
+      // Check if any of the pipeline's countries match selected countries
+      return pipeline.countryCodes.some(code => selectedCountries.includes(code as any));
+    });
+  }, [allPipelines, selectedCountries]);
+
   useEffect(() => {
     if (pipelines && pipelines.length > 0 && !activePipelineId) {
+      setActivePipelineId(pipelines[0].id);
+    }
+  }, [pipelines, activePipelineId]);
+
+  // Reset active pipeline if it's no longer in filtered list
+  useEffect(() => {
+    if (activePipelineId && pipelines.length > 0 && !pipelines.find(p => p.id === activePipelineId)) {
       setActivePipelineId(pipelines[0].id);
     }
   }, [pipelines, activePipelineId]);
