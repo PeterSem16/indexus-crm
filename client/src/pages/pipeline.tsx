@@ -50,7 +50,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { type Deal, type PipelineStage, type Pipeline, type Customer, type Campaign, type User, type DealActivity, type Product, type DealProduct, DEAL_SOURCES, COUNTRIES, DEAL_ACTIVITY_TYPES } from "@shared/schema";
+import { type Deal, type PipelineStage, type Pipeline, type Customer, type Campaign, type User, type DealActivity, type Product, type DealProduct, type BillingDetails, DEAL_SOURCES, COUNTRIES, DEAL_ACTIVITY_TYPES } from "@shared/schema";
 import {
   Sheet,
   SheetContent,
@@ -62,6 +62,11 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -207,13 +212,12 @@ function StageColumn({ stage, onAddDeal, customers, users, onSelectDeal, onEditS
   return (
     <div 
       ref={setNodeRef}
-      className={`flex flex-col min-w-[280px] max-w-[280px] rounded-lg transition-colors ${isOver ? 'ring-2 ring-primary' : ''}`}
-      style={{ backgroundColor: `${stageColor}15` }}
+      className={`flex flex-col min-w-[280px] max-w-[280px] rounded-lg transition-colors bg-muted/30 ${isOver ? 'ring-2 ring-primary bg-primary/5' : ''}`}
       data-testid={`stage-column-${stage.id}`}
     >
       <div 
         className="p-3 border-b flex items-center justify-between"
-        style={{ borderTopColor: stageColor, borderTopWidth: "3px", borderBottomColor: `${stageColor}30` }}
+        style={{ borderTopColor: stageColor, borderTopWidth: "3px" }}
       >
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1">
@@ -739,6 +743,10 @@ export default function PipelinePage() {
     queryKey: ["/api/campaigns"],
   });
 
+  const { data: billingDetails = [] } = useQuery<BillingDetails[]>({
+    queryKey: ["/api/billing-details"],
+  });
+
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
   });
@@ -973,13 +981,15 @@ export default function PipelinePage() {
       title: string; 
       stageId: string; 
       pipelineId: string; 
-      value?: string; 
+      value?: string;
+      currency?: string;
       source?: string; 
       notes?: string;
       customerId?: string;
       campaignId?: string;
       assignedUserId?: string;
       probability?: number;
+      expectedCloseDate?: string;
     }) => {
       return apiRequest("POST", "/api/deals", data);
     },
@@ -1050,19 +1060,21 @@ export default function PipelinePage() {
     
     if (!newDealStageId || !activePipelineId) return;
 
-    const probabilityStr = formData.get("probability") as string;
-    const probability = probabilityStr ? parseInt(probabilityStr, 10) : undefined;
+    const stage = kanbanData?.stages.find(s => s.id === newDealStageId);
+    const probability = stage?.probability || 0;
 
     createDealMutation.mutate({
       title: formData.get("title") as string,
       stageId: newDealStageId,
       pipelineId: activePipelineId,
       value: formData.get("value") as string || undefined,
+      currency: formData.get("currency") as string || "EUR",
       source: formData.get("source") as string || undefined,
       notes: formData.get("notes") as string || undefined,
       customerId: formData.get("customerId") as string || undefined,
       campaignId: formData.get("campaignId") as string || undefined,
       assignedUserId: formData.get("assignedUserId") as string || undefined,
+      expectedCloseDate: formData.get("expectedCloseDate") as string || undefined,
       probability,
     });
   };
@@ -1145,6 +1157,20 @@ export default function PipelinePage() {
             ))}
           </SelectContent>
         </Select>
+
+        <Button 
+          onClick={() => {
+            if (kanbanData?.stages[0]) {
+              setNewDealStageId(kanbanData.stages[0].id);
+              setIsNewDealOpen(true);
+            }
+          }}
+          disabled={!kanbanData?.stages[0]}
+          data-testid="button-add-first-deal"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Pridať príležitosť
+        </Button>
 
         <div className="flex-1" />
 
@@ -1239,9 +1265,12 @@ export default function PipelinePage() {
       </Tabs>
 
       <Dialog open={isNewDealOpen} onOpenChange={setIsNewDealOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Nová príležitosť</DialogTitle>
+            <DialogDescription>
+              Vyplňte údaje o novej obchodnej príležitosti
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreateDeal} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
             <div>
@@ -1256,7 +1285,7 @@ export default function PipelinePage() {
             </div>
 
             <div>
-              <Label htmlFor="customerId">Zákazník</Label>
+              <Label htmlFor="customerId">Kontaktná osoba</Label>
               <Select name="customerId">
                 <SelectTrigger data-testid="select-deal-customer">
                   <SelectValue placeholder="Vyberte zákazníka" />
@@ -1271,7 +1300,7 @@ export default function PipelinePage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="value">Hodnota (EUR)</Label>
+                <Label htmlFor="value">Hodnota</Label>
                 <Input 
                   id="value" 
                   name="value" 
@@ -1281,23 +1310,62 @@ export default function PipelinePage() {
                   data-testid="input-deal-value"
                 />
               </div>
-
               <div>
-                <Label htmlFor="probability">Pravdepodobnosť (%)</Label>
-                <Input 
-                  id="probability" 
-                  name="probability" 
-                  type="number" 
-                  min="0"
-                  max="100"
-                  placeholder="0"
-                  data-testid="input-deal-probability"
-                />
+                <Label htmlFor="currency">Mena</Label>
+                <Select name="currency" defaultValue="EUR">
+                  <SelectTrigger data-testid="select-deal-currency">
+                    <SelectValue placeholder="EUR" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="EUR">Euro (EUR)</SelectItem>
+                    <SelectItem value="CZK">Koruna (CZK)</SelectItem>
+                    <SelectItem value="HUF">Forint (HUF)</SelectItem>
+                    <SelectItem value="RON">Leu (RON)</SelectItem>
+                    <SelectItem value="USD">Dolár (USD)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
             <div>
-              <Label htmlFor="assignedUserId">Pridelený obchodník</Label>
+              <Label>Fáza pipeline</Label>
+              {kanbanData && (
+                <div className="flex mt-1 gap-0.5">
+                  {kanbanData.stages.map((stage, index) => (
+                    <button
+                      key={stage.id}
+                      type="button"
+                      onClick={() => setNewDealStageId(stage.id)}
+                      className={`flex-1 h-6 rounded transition-colors ${newDealStageId === stage.id ? 'ring-2 ring-primary ring-offset-1' : ''}`}
+                      style={{
+                        backgroundColor: stage.color || '#3b82f6',
+                        opacity: newDealStageId === stage.id ? 1 : 0.4,
+                      }}
+                      title={stage.name}
+                      data-testid={`stage-selector-${stage.id}`}
+                    />
+                  ))}
+                </div>
+              )}
+              {kanbanData && newDealStageId && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {kanbanData.stages.find(s => s.id === newDealStageId)?.name}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor="expectedCloseDate">Očakávaný dátum uzavretia</Label>
+              <Input 
+                id="expectedCloseDate" 
+                name="expectedCloseDate" 
+                type="date"
+                data-testid="input-deal-expected-close"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="assignedUserId">Vlastník</Label>
               <Select name="assignedUserId">
                 <SelectTrigger data-testid="select-deal-user">
                   <SelectValue placeholder="Vyberte obchodníka" />
@@ -1305,20 +1373,6 @@ export default function PipelinePage() {
                 <SelectContent>
                   {users.map((u) => (
                     <SelectItem key={u.id} value={u.id}>{u.fullName || u.username}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="campaignId">Kampaň</Label>
-              <Select name="campaignId">
-                <SelectTrigger data-testid="select-deal-campaign">
-                  <SelectValue placeholder="Vyberte kampaň" />
-                </SelectTrigger>
-                <SelectContent>
-                  {campaigns.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1333,6 +1387,20 @@ export default function PipelinePage() {
                 <SelectContent>
                   {DEAL_SOURCES.map((s) => (
                     <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="campaignId">Kampaň</Label>
+              <Select name="campaignId">
+                <SelectTrigger data-testid="select-deal-campaign">
+                  <SelectValue placeholder="Vyberte kampaň" />
+                </SelectTrigger>
+                <SelectContent>
+                  {campaigns.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1354,7 +1422,7 @@ export default function PipelinePage() {
               </Button>
               <Button type="submit" disabled={createDealMutation.isPending} data-testid="button-create-deal">
                 {createDealMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Vytvoriť
+                Vytvoriť príležitosť
               </Button>
             </div>
           </form>
