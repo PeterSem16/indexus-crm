@@ -180,7 +180,7 @@ interface StageColumnProps {
   users: User[];
   onSelectDeal: (deal: Deal) => void;
   onEditStage: (stage: PipelineStage) => void;
-  onDeleteStage: (stageId: string) => void;
+  onDeleteStage: (stage: StageWithDeals) => void;
 }
 
 function StageColumn({ stage, onAddDeal, customers, users, onSelectDeal, onEditStage, onDeleteStage }: StageColumnProps) {
@@ -221,13 +221,7 @@ function StageColumn({ stage, onAddDeal, customers, users, onSelectDeal, onEditS
                 Upraviť fázu
               </DropdownMenuItem>
               <DropdownMenuItem 
-                onClick={() => {
-                  if (stage.deals.length > 0) {
-                    alert("Fáza obsahuje príležitosti a nemôže byť odstránená.");
-                  } else if (confirm(`Naozaj chcete odstrániť fázu "${stage.name}"?`)) {
-                    onDeleteStage(stage.id);
-                  }
-                }}
+                onClick={() => onDeleteStage(stage)}
                 className="text-destructive"
                 data-testid={`menu-delete-stage-${stage.id}`}
               >
@@ -693,6 +687,7 @@ export default function PipelinePage() {
     rottingEnabled: false,
     color: "#3b82f6",
   });
+  const [deleteStageConfirm, setDeleteStageConfirm] = useState<{ open: boolean; stage: PipelineStage | null; hasDeals: boolean }>({ open: false, stage: null, hasDeals: false });
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -1192,20 +1187,22 @@ export default function PipelinePage() {
                       users={users}
                       onSelectDeal={handleSelectDeal}
                       onEditStage={openEditStage}
-                      onDeleteStage={(id) => deleteStageMutation.mutate(id)}
+                      onDeleteStage={(stage) => setDeleteStageConfirm({ open: true, stage, hasDeals: stage.deals.length > 0 })}
                     />
                   ))}
-                  <div className="flex flex-col min-w-[200px] items-center justify-start pt-4">
-                    <Button 
-                      variant="outline" 
-                      onClick={openNewStage}
-                      className="gap-2"
-                      data-testid="button-add-stage"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Pridať fázu
-                    </Button>
-                  </div>
+                  {activePipelineId && (
+                    <div className="flex flex-col min-w-[200px] items-center justify-start pt-4">
+                      <Button 
+                        variant="outline" 
+                        onClick={openNewStage}
+                        className="gap-2"
+                        data-testid="button-add-stage"
+                      >
+                        <Plus className="h-4 w-4" />
+                        Pridať fázu
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
                 <DragOverlay>
@@ -1875,6 +1872,39 @@ export default function PipelinePage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Stage Confirmation Dialog */}
+      <AlertDialog open={deleteStageConfirm.open} onOpenChange={(open) => !open && setDeleteStageConfirm({ open: false, stage: null, hasDeals: false })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {deleteStageConfirm.hasDeals ? "Nie je možné odstrániť fázu" : "Odstrániť fázu?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteStageConfirm.hasDeals 
+                ? `Fáza "${deleteStageConfirm.stage?.name}" obsahuje príležitosti a nemôže byť odstránená. Najprv presuňte alebo odstráňte príležitosti.`
+                : `Naozaj chcete odstrániť fázu "${deleteStageConfirm.stage?.name}"? Táto akcia je nevratná.`
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Zrušiť</AlertDialogCancel>
+            {!deleteStageConfirm.hasDeals && (
+              <AlertDialogAction 
+                onClick={() => {
+                  if (deleteStageConfirm.stage) {
+                    deleteStageMutation.mutate(deleteStageConfirm.stage.id);
+                  }
+                  setDeleteStageConfirm({ open: false, stage: null, hasDeals: false });
+                }}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Odstrániť
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Stage Create/Edit Dialog */}
       <Dialog open={isStageDialogOpen} onOpenChange={(open) => { if (!open) { setIsStageDialogOpen(false); setEditingStage(null); resetStageForm(); } }}>
