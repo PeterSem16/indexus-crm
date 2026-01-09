@@ -1506,8 +1506,8 @@ function AutomationsView({ pipelineId, stages, users }: AutomationsViewProps) {
           resetForm();
         }
       }}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl max-h-[90vh] sm:max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>{editingRule ? "Upraviť automatizáciu" : "Nová automatizácia"}</DialogTitle>
             <DialogDescription>
               {wizardStep === 1 && "Krok 1: Vyberte čo spustí automatizáciu"}
@@ -1517,11 +1517,11 @@ function AutomationsView({ pipelineId, stages, users }: AutomationsViewProps) {
           </DialogHeader>
 
           {/* Wizard Step Indicator */}
-          <div className="flex items-center justify-center gap-2 py-4">
+          <div className="flex items-center justify-center gap-2 py-3 flex-shrink-0">
             {[1, 2, 3].map((step) => (
               <div key={step} className="flex items-center">
                 <div 
-                  className={`flex items-center justify-center w-10 h-10 rounded-full border-2 font-semibold transition-all ${
+                  className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 font-semibold transition-all text-sm sm:text-base ${
                     wizardStep === step 
                       ? "bg-primary text-primary-foreground border-primary" 
                       : wizardStep > step 
@@ -1529,25 +1529,25 @@ function AutomationsView({ pipelineId, stages, users }: AutomationsViewProps) {
                         : "bg-muted text-muted-foreground border-muted-foreground/30"
                   }`}
                 >
-                  {wizardStep > step ? <CheckCircle2 className="h-5 w-5" /> : step}
+                  {wizardStep > step ? <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5" /> : step}
                 </div>
                 {step < 3 && (
-                  <div className={`w-16 h-1 mx-2 rounded ${wizardStep > step ? "bg-primary/50" : "bg-muted"}`} />
+                  <div className={`w-8 sm:w-16 h-1 mx-1 sm:mx-2 rounded ${wizardStep > step ? "bg-primary/50" : "bg-muted"}`} />
                 )}
               </div>
             ))}
           </div>
-          <div className="flex justify-center gap-8 text-xs text-muted-foreground mb-4">
+          <div className="flex justify-center gap-4 sm:gap-8 text-xs text-muted-foreground mb-3 flex-shrink-0">
             <span className={wizardStep === 1 ? "text-primary font-medium" : ""}>Spúšťač</span>
             <span className={wizardStep === 2 ? "text-primary font-medium" : ""}>Akcia</span>
             <span className={wizardStep === 3 ? "text-primary font-medium" : ""}>Súhrn</span>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto pr-1">
             {/* STEP 1: Trigger */}
             {wizardStep === 1 && (
-              <div className="space-y-4 min-h-[300px]">
-                <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {AUTOMATION_TRIGGER_TYPES.map((trigger) => (
                     <Card
                       key={trigger.value}
@@ -1799,8 +1799,8 @@ function AutomationsView({ pipelineId, stages, users }: AutomationsViewProps) {
 
             {/* STEP 2: Action */}
             {wizardStep === 2 && (
-              <div className="space-y-4 min-h-[300px]">
-                <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {AUTOMATION_ACTION_TYPES.map((action) => (
                     <Card
                       key={action.value}
@@ -2066,7 +2066,7 @@ function AutomationsView({ pipelineId, stages, users }: AutomationsViewProps) {
 
             {/* STEP 3: Summary */}
             {wizardStep === 3 && (
-              <div className="space-y-4 min-h-[300px]">
+              <div className="space-y-4">
                 <div className="space-y-4">
                   <div>
                     <Label>Názov automatizácie</Label>
