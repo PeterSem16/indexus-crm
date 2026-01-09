@@ -1317,6 +1317,70 @@ function AutomationsView({ pipelineId, stages, users }: AutomationsViewProps) {
               </div>
             )}
 
+            {formData.actionType === "send_email" && (
+              <div className="space-y-3">
+                <div>
+                  <Label>Predmet emailu</Label>
+                  <Input
+                    value={formData.actionConfig.emailSubject || ""}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      actionConfig: { ...formData.actionConfig, emailSubject: e.target.value }
+                    })}
+                    placeholder="Predmet emailovej správy"
+                  />
+                </div>
+                <div>
+                  <Label>Obsah emailu</Label>
+                  <Textarea
+                    value={formData.actionConfig.emailBody || ""}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      actionConfig: { ...formData.actionConfig, emailBody: e.target.value }
+                    })}
+                    placeholder="Text emailovej správy. Môžete použiť {deal_name}, {customer_name} pre personalizáciu."
+                    rows={4}
+                  />
+                </div>
+              </div>
+            )}
+
+            {formData.actionType === "update_deal" && (
+              <div className="space-y-3">
+                <div>
+                  <Label>Pole na aktualizáciu</Label>
+                  <Select
+                    value={formData.actionConfig.updateField || ""}
+                    onValueChange={(val) => setFormData({
+                      ...formData,
+                      actionConfig: { ...formData.actionConfig, updateField: val }
+                    })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Vyberte pole" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="priority">Priorita</SelectItem>
+                      <SelectItem value="status">Stav</SelectItem>
+                      <SelectItem value="probability">Pravdepodobnosť (%)</SelectItem>
+                      <SelectItem value="tags">Značky</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Nová hodnota</Label>
+                  <Input
+                    value={formData.actionConfig.updateValue || ""}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      actionConfig: { ...formData.actionConfig, updateValue: e.target.value }
+                    })}
+                    placeholder="Zadajte novú hodnotu"
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="flex justify-end gap-2 pt-4">
               <Button
                 type="button"
