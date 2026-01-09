@@ -3,11 +3,12 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { 
   DndContext, 
   DragOverlay, 
-  closestCorners, 
+  pointerWithin, 
   KeyboardSensor, 
   PointerSensor, 
   useSensor, 
   useSensors,
+  useDroppable,
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
@@ -193,13 +194,18 @@ interface StageColumnProps {
 }
 
 function StageColumn({ stage, onAddDeal, customers, users, onSelectDeal, onEditStage, onDeleteStage }: StageColumnProps) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: stage.id,
+  });
+
   const totalValue = stage.deals.reduce((sum, deal) => {
     return sum + (deal.value ? parseFloat(deal.value) : 0);
   }, 0);
 
   return (
     <div 
-      className="flex flex-col min-w-[280px] max-w-[280px] bg-muted/30 rounded-lg"
+      ref={setNodeRef}
+      className={`flex flex-col min-w-[280px] max-w-[280px] rounded-lg transition-colors ${isOver ? 'bg-primary/10 ring-2 ring-primary/30' : 'bg-muted/30'}`}
       data-testid={`stage-column-${stage.id}`}
     >
       <div 
@@ -1182,7 +1188,7 @@ export default function PipelinePage() {
             <div className="flex-1 overflow-x-auto p-4 h-full">
               <DndContext
                 sensors={sensors}
-                collisionDetection={closestCorners}
+                collisionDetection={pointerWithin}
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
               >
