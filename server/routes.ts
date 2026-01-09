@@ -11408,7 +11408,7 @@ async function triggerAutomations(
     if (!stage) return;
 
     // Get all active automation rules for this pipeline
-    const rules = await storage.getAutomationRulesByPipeline(stage.pipelineId);
+    const rules = await storage.getAutomationRules(stage.pipelineId);
     const activeRules = rules.filter(r => r.isActive && r.triggerType === triggerType);
 
     for (const rule of activeRules) {
@@ -11451,7 +11451,7 @@ async function triggerCustomerAutomations(
     const pipelines = await storage.getAllPipelines();
     
     for (const pipeline of pipelines) {
-      const rules = await storage.getAutomationRulesByPipeline(pipeline.id);
+      const rules = await storage.getAutomationRules(pipeline.id);
       const customerRules = rules.filter(r => r.isActive && r.triggerType === "customer_updated");
       
       for (const rule of customerRules) {
