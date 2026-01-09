@@ -793,7 +793,7 @@ function PipelineReports({ stages, pipeline }: PipelineReportsProps) {
 export default function PipelinePage() {
   const { toast } = useToast();
   const [activePipelineId, setActivePipelineId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"kanban" | "list" | "forecast" | "archive">("kanban");
+  const [viewMode, setViewMode] = useState<"kanban" | "list" | "forecast" | "archive" | "reports">("kanban");
   const [isNewDealOpen, setIsNewDealOpen] = useState(false);
   const [newDealStageId, setNewDealStageId] = useState<string | null>(null);
   const [activeDealId, setActiveDealId] = useState<string | null>(null);
@@ -1272,6 +1272,9 @@ export default function PipelinePage() {
           <ToggleGroupItem value="archive" aria-label="Archív" data-testid="view-archive" className="px-3">
             <Archive className="h-4 w-4" />
           </ToggleGroupItem>
+          <ToggleGroupItem value="reports" aria-label="Reporty" data-testid="view-reports" className="px-3">
+            <BarChart3 className="h-4 w-4" />
+          </ToggleGroupItem>
         </ToggleGroup>
 
         <Button 
@@ -1506,6 +1509,14 @@ export default function PipelinePage() {
               <h3 className="text-lg font-medium mb-2">Archív príležitostí</h3>
               <p className="text-sm">Tu sa zobrazia uzavreté a zrušené príležitosti</p>
             </div>
+          </div>
+        )}
+
+        {viewMode === "reports" && (
+          <div className="flex-1 overflow-auto p-4">
+            {kanbanData && (
+              <PipelineReports stages={kanbanData.stages} pipeline={kanbanData.pipeline} />
+            )}
           </div>
         )}
       </div>
