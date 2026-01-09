@@ -1048,6 +1048,9 @@ export async function registerRoutes(
       const partialSchema = insertCustomerSchema.partial();
       const validatedData = partialSchema.parse(req.body);
       
+      // Get old customer data for comparison
+      const oldCustomer = await storage.getCustomer(req.params.id);
+      
       const customer = await storage.updateCustomer(req.params.id, validatedData);
       if (!customer) {
         return res.status(404).json({ error: "Customer not found" });
@@ -1062,6 +1065,12 @@ export async function registerRoutes(
         `${customer.firstName} ${customer.lastName}`,
         { changes: Object.keys(validatedData) },
         req.ip
+      );
+      
+      // Trigger customer_updated automations
+      const changedFields = Object.keys(validatedData);
+      triggerCustomerAutomations(customer, changedFields, oldCustomer, req.session?.user?.id).catch(err => 
+        console.error("Customer automation trigger error:", err)
       );
       
       res.json(customer);
@@ -11427,5 +11436,97 @@ async function triggerAutomations(
     }
   } catch (error) {
     console.error("Error triggering automations:", error);
+  }
+}
+
+// Trigger automations for customer updates
+async function triggerCustomerAutomations(
+  customer: any,
+  changedFields: string[],
+  oldCustomer: any,
+  userId?: string
+): Promise<void> {
+  try {
+    // Get all pipelines and their automation rules
+    const pipelines = await storage.getAllPipelines();
+    
+    for (const pipeline of pipelines) {
+      const rules = await storage.getAutomationRulesByPipeline(pipeline.id);
+      const customerRules = rules.filter(r => r.isActive && r.triggerType === "customer_updated");
+      
+      for (const rule of customerRules) {
+        const triggerConfig = rule.triggerConfig || {};
+        const trackedFields = triggerConfig.trackedFields || [];
+        
+        // Check if any tracked field was changed
+        const matchingFields = changedFields.filter(f => trackedFields.includes(f));
+        
+        if (matchingFields.length > 0) {
+          console.log(`[Automation] Customer rule "${rule.name}" triggered by fields: ${matchingFields.join(", ")}`);
+          
+          // Execute the action with customer context
+          await executeCustomerAutomationAction(rule, customer, pipeline, userId);
+          await storage.updateAutomationRule(rule.id, {
+            executionCount: (rule.executionCount || 0) + 1,
+            lastExecutedAt: new Date(),
+          });
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error triggering customer automations:", error);
+  }
+}
+
+// Execute automation action for customer-triggered automations
+async function executeCustomerAutomationAction(
+  rule: any,
+  customer: any,
+  pipeline: any,
+  userId?: string
+): Promise<{ action: string; details: string }> {
+  const actionConfig = rule.actionConfig || {};
+  
+  switch (rule.actionType) {
+    case "create_deal": {
+      const stageId = actionConfig.dealStageId;
+      if (!stageId) {
+        return { action: "create_deal", details: "Chýba cieľová fáza pre deal" };
+      }
+      
+      // Get stage to find pipelineId
+      const stage = await storage.getPipelineStage(stageId);
+      if (!stage) {
+        return { action: "create_deal", details: "Fáza nebola nájdená" };
+      }
+      
+      // Create deal title from template
+      let dealTitle = actionConfig.dealTitle || "{customer_name} - Konverzia";
+      dealTitle = dealTitle.replace("{customer_name}", `${customer.firstName} ${customer.lastName}`);
+      
+      const dealId = `deal_${Date.now()}`;
+      await storage.createDeal({
+        id: dealId,
+        title: dealTitle,
+        pipelineId: stage.pipelineId,
+        stageId: stageId,
+        customerId: customer.id,
+        countryCode: customer.country || "SK",
+        source: "automation",
+        assignedUserId: userId,
+      });
+      
+      return { 
+        action: "create_deal", 
+        details: `Vytvorený deal "${dealTitle}" pre zákazníka ${customer.firstName} ${customer.lastName}` 
+      };
+    }
+    
+    case "add_note": {
+      return { action: "add_note", details: "Poznámka pridaná (vyžaduje existujúci deal)" };
+    }
+    
+    default:
+      return { action: rule.actionType, details: "Akcia nie je podporovaná pre zákazníkov" };
   }
 }
