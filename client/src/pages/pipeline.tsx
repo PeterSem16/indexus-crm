@@ -1506,7 +1506,7 @@ function AutomationsView({ pipelineId, stages, users }: AutomationsViewProps) {
           resetForm();
         }
       }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] sm:max-h-[85vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-4xl w-[95vw] max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader className="flex-shrink-0">
             <DialogTitle>{editingRule ? "Upraviť automatizáciu" : "Nová automatizácia"}</DialogTitle>
             <DialogDescription>
@@ -1982,7 +1982,7 @@ function AutomationsView({ pipelineId, stages, users }: AutomationsViewProps) {
                 )}
 
                 {formData.actionType === "send_email" && (
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     <div>
                       <Label>Predmet emailu</Label>
                       <Input
@@ -1992,19 +1992,212 @@ function AutomationsView({ pipelineId, stages, users }: AutomationsViewProps) {
                           actionConfig: { ...formData.actionConfig, emailSubject: e.target.value }
                         })}
                         placeholder="Predmet emailovej správy"
+                        data-testid="input-email-subject"
                       />
                     </div>
-                    <div>
-                      <Label>Obsah emailu</Label>
-                      <Textarea
-                        value={formData.actionConfig.emailBody || ""}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          actionConfig: { ...formData.actionConfig, emailBody: e.target.value }
-                        })}
-                        placeholder="Text emailovej správy. Môžete použiť {deal_name}, {customer_name} pre personalizáciu."
-                        rows={4}
-                      />
+                    
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label>Obsah emailu</Label>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">Formát:</span>
+                          <div className="flex rounded-md border overflow-hidden">
+                            <button
+                              type="button"
+                              className={`px-3 py-1 text-xs font-medium transition-colors ${
+                                !formData.actionConfig.isHtml 
+                                  ? "bg-primary text-primary-foreground" 
+                                  : "bg-muted hover:bg-muted/80"
+                              }`}
+                              onClick={() => setFormData({
+                                ...formData,
+                                actionConfig: { ...formData.actionConfig, isHtml: false }
+                              })}
+                              data-testid="button-email-text-mode"
+                            >
+                              Text
+                            </button>
+                            <button
+                              type="button"
+                              className={`px-3 py-1 text-xs font-medium transition-colors ${
+                                formData.actionConfig.isHtml 
+                                  ? "bg-primary text-primary-foreground" 
+                                  : "bg-muted hover:bg-muted/80"
+                              }`}
+                              onClick={() => setFormData({
+                                ...formData,
+                                actionConfig: { ...formData.actionConfig, isHtml: true }
+                              })}
+                              data-testid="button-email-html-mode"
+                            >
+                              HTML
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {!formData.actionConfig.isHtml ? (
+                        <Textarea
+                          value={formData.actionConfig.emailBody || ""}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            actionConfig: { ...formData.actionConfig, emailBody: e.target.value }
+                          })}
+                          placeholder="Text emailovej správy. Môžete použiť {deal_name}, {customer_name} pre personalizáciu."
+                          rows={6}
+                          data-testid="textarea-email-body"
+                        />
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const template = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
+  <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+    <!-- Header s logom -->
+    <div style="background: linear-gradient(135deg, #6b2c3e 0%, #8b3a50 100%); padding: 30px 40px; text-align: center;">
+      <img src="https://via.placeholder.com/180x50/ffffff/6b2c3e?text=INDEXUS" alt="INDEXUS" style="max-width: 180px; height: auto;">
+      <h1 style="color: #ffffff; margin: 20px 0 0 0; font-size: 24px; font-weight: 600;">Vitajte v INDEXUS</h1>
+    </div>
+    
+    <!-- Hlavný obsah -->
+    <div style="padding: 40px;">
+      <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+        Vážený/á <strong>{customer_name}</strong>,
+      </p>
+      <p style="color: #555555; font-size: 15px; line-height: 1.7; margin: 0 0 25px 0;">
+        Ďakujeme za váš záujem o naše služby. Sme radi, že môžeme byť súčasťou vašej cesty k lepšej starostlivosti o budúcnosť vašej rodiny.
+      </p>
+      
+      <!-- Feature box -->
+      <div style="background-color: #faf5f7; border-left: 4px solid #6b2c3e; padding: 20px; margin: 25px 0; border-radius: 0 8px 8px 0;">
+        <h3 style="color: #6b2c3e; margin: 0 0 10px 0; font-size: 16px;">Vaša objednávka: {deal_name}</h3>
+        <p style="color: #666666; margin: 0; font-size: 14px; line-height: 1.5;">
+          Náš tím spracováva vašu požiadavku a čoskoro vás budeme kontaktovať s ďalšími informáciami.
+        </p>
+      </div>
+      
+      <!-- Výhody sekcia -->
+      <h3 style="color: #333333; font-size: 18px; margin: 30px 0 20px 0;">Prečo si vybrať INDEXUS?</h3>
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 15px; vertical-align: top; width: 33%;">
+            <div style="text-align: center;">
+              <div style="width: 50px; height: 50px; background-color: #6b2c3e; border-radius: 50%; margin: 0 auto 10px auto; display: flex; align-items: center; justify-content: center;">
+                <span style="color: white; font-size: 20px;">✓</span>
+              </div>
+              <h4 style="color: #333; margin: 0 0 5px 0; font-size: 14px;">Bezpečnosť</h4>
+              <p style="color: #666; margin: 0; font-size: 12px;">Najvyššie štandardy</p>
+            </div>
+          </td>
+          <td style="padding: 15px; vertical-align: top; width: 33%;">
+            <div style="text-align: center;">
+              <div style="width: 50px; height: 50px; background-color: #6b2c3e; border-radius: 50%; margin: 0 auto 10px auto; display: flex; align-items: center; justify-content: center;">
+                <span style="color: white; font-size: 20px;">★</span>
+              </div>
+              <h4 style="color: #333; margin: 0 0 5px 0; font-size: 14px;">Kvalita</h4>
+              <p style="color: #666; margin: 0; font-size: 12px;">Certifikované procesy</p>
+            </div>
+          </td>
+          <td style="padding: 15px; vertical-align: top; width: 33%;">
+            <div style="text-align: center;">
+              <div style="width: 50px; height: 50px; background-color: #6b2c3e; border-radius: 50%; margin: 0 auto 10px auto; display: flex; align-items: center; justify-content: center;">
+                <span style="color: white; font-size: 20px;">♥</span>
+              </div>
+              <h4 style="color: #333; margin: 0 0 5px 0; font-size: 14px;">Starostlivosť</h4>
+              <p style="color: #666; margin: 0; font-size: 12px;">24/7 podpora</p>
+            </div>
+          </td>
+        </tr>
+      </table>
+      
+      <!-- CTA tlačidlo -->
+      <div style="text-align: center; margin: 35px 0;">
+        <a href="#" style="display: inline-block; background: linear-gradient(135deg, #6b2c3e 0%, #8b3a50 100%); color: #ffffff; text-decoration: none; padding: 14px 40px; border-radius: 25px; font-weight: 600; font-size: 15px; box-shadow: 0 4px 15px rgba(107, 44, 62, 0.3);">
+          Zobraziť detaily
+        </a>
+      </div>
+    </div>
+    
+    <!-- Footer -->
+    <div style="background-color: #f8f8f8; padding: 30px 40px; border-top: 1px solid #eeeeee;">
+      <table style="width: 100%;">
+        <tr>
+          <td style="vertical-align: top;">
+            <p style="color: #888888; font-size: 13px; margin: 0 0 10px 0;">
+              <strong>INDEXUS s.r.o.</strong><br>
+              Hlavná 123, 831 01 Bratislava<br>
+              Tel: +421 2 1234 5678
+            </p>
+          </td>
+          <td style="text-align: right; vertical-align: top;">
+            <a href="#" style="display: inline-block; margin: 0 5px;"><img src="https://via.placeholder.com/32x32/6b2c3e/ffffff?text=f" alt="Facebook" style="width: 32px; height: 32px; border-radius: 50%;"></a>
+            <a href="#" style="display: inline-block; margin: 0 5px;"><img src="https://via.placeholder.com/32x32/6b2c3e/ffffff?text=in" alt="LinkedIn" style="width: 32px; height: 32px; border-radius: 50%;"></a>
+            <a href="#" style="display: inline-block; margin: 0 5px;"><img src="https://via.placeholder.com/32x32/6b2c3e/ffffff?text=ig" alt="Instagram" style="width: 32px; height: 32px; border-radius: 50%;"></a>
+          </td>
+        </tr>
+      </table>
+      <p style="color: #aaaaaa; font-size: 11px; margin: 20px 0 0 0; text-align: center;">
+        © 2024 INDEXUS. Všetky práva vyhradené.<br>
+        <a href="#" style="color: #888888;">Odhlásiť sa z odberu</a> | <a href="#" style="color: #888888;">Zásady ochrany osobných údajov</a>
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+                                setFormData({
+                                  ...formData,
+                                  actionConfig: { 
+                                    ...formData.actionConfig, 
+                                    emailBody: template,
+                                    emailSubject: formData.actionConfig.emailSubject || "Vitajte v INDEXUS - {customer_name}"
+                                  }
+                                });
+                              }}
+                              data-testid="button-load-template"
+                            >
+                              <FileText className="h-4 w-4 mr-1" />
+                              Načítať šablónu
+                            </Button>
+                            <div className="text-xs text-muted-foreground flex items-center gap-1">
+                              <span>Premenné:</span>
+                              <code className="bg-muted px-1.5 py-0.5 rounded">{"{customer_name}"}</code>
+                              <code className="bg-muted px-1.5 py-0.5 rounded">{"{deal_name}"}</code>
+                            </div>
+                          </div>
+                          <Textarea
+                            value={formData.actionConfig.emailBody || ""}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              actionConfig: { ...formData.actionConfig, emailBody: e.target.value }
+                            })}
+                            placeholder="<!DOCTYPE html><html>..."
+                            rows={12}
+                            className="font-mono text-sm"
+                            data-testid="textarea-email-html"
+                          />
+                          {formData.actionConfig.emailBody && (
+                            <div className="border rounded-lg overflow-hidden">
+                              <div className="bg-muted px-3 py-2 border-b flex items-center justify-between">
+                                <span className="text-xs font-medium">Náhľad emailu</span>
+                              </div>
+                              <div 
+                                className="bg-white p-4 max-h-[300px] overflow-y-auto"
+                                dangerouslySetInnerHTML={{ __html: formData.actionConfig.emailBody }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
