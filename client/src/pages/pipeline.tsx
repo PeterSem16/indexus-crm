@@ -1082,6 +1082,7 @@ function AutomationsView({ pipelineId, stages, users }: AutomationsViewProps) {
       actionType: rule.actionType,
       actionConfig: rule.actionConfig || {},
     });
+    setWizardStep(1);
     setEditingRule(rule);
   };
 
@@ -1903,33 +1904,31 @@ function AutomationsView({ pipelineId, stages, users }: AutomationsViewProps) {
             {/* STEP 3: Action Type Selection */}
             {wizardStep === 3 && (
               <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-1">
                   {AUTOMATION_ACTION_TYPES.map((action) => (
-                    <Card
+                    <div
                       key={action.value}
-                      className={`cursor-pointer hover-elevate transition-all ${
+                      className={`cursor-pointer transition-all rounded-lg border bg-card p-4 flex items-center gap-3 ${
                         formData.actionType === action.value 
-                          ? "ring-2 ring-primary bg-primary/5" 
-                          : ""
+                          ? "border-primary border-2 bg-primary/5" 
+                          : "border-border hover:border-primary/50"
                       }`}
                       onClick={() => setFormData({ ...formData, actionType: action.value, actionConfig: {} })}
                       data-testid={`action-card-${action.value}`}
                     >
-                      <CardContent className="p-4 flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${formData.actionType === action.value ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
-                          {action.value === "create_activity" && <Calendar className="h-5 w-5" />}
-                          {action.value === "assign_owner" && <UserIcon className="h-5 w-5" />}
-                          {action.value === "move_stage" && <ArrowRight className="h-5 w-5" />}
-                          {action.value === "add_note" && <FileText className="h-5 w-5" />}
-                          {action.value === "send_email" && <Mail className="h-5 w-5" />}
-                          {action.value === "update_deal" && <Edit className="h-5 w-5" />}
-                          {action.value === "create_deal" && <Plus className="h-5 w-5" />}
-                        </div>
-                        <div>
-                          <p className="font-medium text-sm">{action.label}</p>
-                        </div>
-                      </CardContent>
-                    </Card>
+                      <div className={`p-2 rounded-lg ${formData.actionType === action.value ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                        {action.value === "create_activity" && <Calendar className="h-5 w-5" />}
+                        {action.value === "assign_owner" && <UserIcon className="h-5 w-5" />}
+                        {action.value === "move_stage" && <ArrowRight className="h-5 w-5" />}
+                        {action.value === "add_note" && <FileText className="h-5 w-5" />}
+                        {action.value === "send_email" && <Mail className="h-5 w-5" />}
+                        {action.value === "update_deal" && <Edit className="h-5 w-5" />}
+                        {action.value === "create_deal" && <Plus className="h-5 w-5" />}
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">{action.label}</p>
+                      </div>
+                    </div>
                   ))}
                 </div>
 
