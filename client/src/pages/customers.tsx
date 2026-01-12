@@ -2040,26 +2040,33 @@ function CustomerDetailsContent({
                       Sociálne siete
                     </h4>
                     <div className="space-y-2">
-                      {webSearchResults.results.profiles.map((profile: any, idx: number) => (
-                        <div key={idx} className="p-3 rounded-lg border bg-card flex items-start justify-between gap-3">
-                          <div className="flex items-start gap-3">
-                            {getPlatformIcon(profile.platform)}
-                            <div>
-                              <p className="font-medium text-sm">{profile.platform}</p>
-                              <p className="text-xs text-muted-foreground">{profile.description}</p>
+                      {webSearchResults.results.profiles.map((profile: any, idx: number) => {
+                        const hasUrl = profile.url && profile.url !== "Not found" && profile.url !== "null" && !profile.url.includes("Not found");
+                        return (
+                          <div key={idx} className="p-3 rounded-lg border bg-card flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-3">
+                              {getPlatformIcon(profile.platform)}
+                              <div>
+                                <p className="font-medium text-sm">{profile.platform}</p>
+                                <p className="text-xs text-muted-foreground">{profile.description}</p>
+                              </div>
                             </div>
+                            {hasUrl ? (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => window.open(profile.url, "_blank")}
+                              >
+                                <ExternalLink className="h-4 w-4" />
+                              </Button>
+                            ) : (
+                              <Badge variant="outline" className="text-xs">
+                                Nenájdené
+                              </Badge>
+                            )}
                           </div>
-                          {profile.url && profile.url !== "Not found" && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => window.open(profile.url, "_blank")}
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -2071,24 +2078,36 @@ function CustomerDetailsContent({
                       Profesionálne informácie
                     </h4>
                     <div className="p-3 rounded-lg border bg-card space-y-2">
-                      {webSearchResults.results.professional.company && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-muted-foreground">Spoločnosť:</span>
-                          <span className="text-sm font-medium">{webSearchResults.results.professional.company}</span>
-                        </div>
-                      )}
-                      {webSearchResults.results.professional.position && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-muted-foreground">Pozícia:</span>
-                          <span className="text-sm font-medium">{webSearchResults.results.professional.position}</span>
-                        </div>
-                      )}
-                      {webSearchResults.results.professional.industry && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-muted-foreground">Odvetvie:</span>
-                          <span className="text-sm font-medium">{webSearchResults.results.professional.industry}</span>
-                        </div>
-                      )}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm text-muted-foreground">Spoločnosť:</span>
+                        <span className="text-sm font-medium">
+                          {webSearchResults.results.professional.company && 
+                           webSearchResults.results.professional.company !== "Not found" && 
+                           webSearchResults.results.professional.company !== "null" 
+                            ? webSearchResults.results.professional.company 
+                            : <Badge variant="outline" className="text-xs">Nenájdené</Badge>}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm text-muted-foreground">Pozícia:</span>
+                        <span className="text-sm font-medium">
+                          {webSearchResults.results.professional.position && 
+                           webSearchResults.results.professional.position !== "Not found" && 
+                           webSearchResults.results.professional.position !== "null" 
+                            ? webSearchResults.results.professional.position 
+                            : <Badge variant="outline" className="text-xs">Nenájdené</Badge>}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm text-muted-foreground">Odvetvie:</span>
+                        <span className="text-sm font-medium">
+                          {webSearchResults.results.professional.industry && 
+                           webSearchResults.results.professional.industry !== "Not found" && 
+                           webSearchResults.results.professional.industry !== "null" 
+                            ? webSearchResults.results.professional.industry 
+                            : <Badge variant="outline" className="text-xs">Nenájdené</Badge>}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 )}
