@@ -874,17 +874,17 @@ function EmailPaymentBreakdownItem({
   }
 }
 
-// Timeline action types for filtering with colors
+// Timeline action types for filtering with vibrant colors
 const TIMELINE_ACTION_TYPES = [
-  { value: "all", label: "Všetky", icon: ListChecks, activeClass: "bg-slate-100 dark:bg-slate-800 border-slate-400 dark:border-slate-500 ring-2 ring-slate-400 dark:ring-slate-500 ring-offset-1", textColor: "text-slate-700 dark:text-slate-300" },
-  { value: "update", label: "Zmeny údajov", icon: Pencil, activeClass: "bg-blue-100 dark:bg-blue-900 border-blue-400 dark:border-blue-500 ring-2 ring-blue-400 dark:ring-blue-500 ring-offset-1", textColor: "text-blue-700 dark:text-blue-300" },
-  { value: "document", label: "Dokumenty", icon: FileText, activeClass: "bg-emerald-100 dark:bg-emerald-900 border-emerald-400 dark:border-emerald-500 ring-2 ring-emerald-400 dark:ring-emerald-500 ring-offset-1", textColor: "text-emerald-700 dark:text-emerald-300" },
-  { value: "note", label: "Poznámky", icon: MessageSquare, activeClass: "bg-yellow-100 dark:bg-yellow-900 border-yellow-400 dark:border-yellow-500 ring-2 ring-yellow-400 dark:ring-yellow-500 ring-offset-1", textColor: "text-yellow-700 dark:text-yellow-300" },
-  { value: "message", label: "Správy", icon: Mail, activeClass: "bg-purple-100 dark:bg-purple-900 border-purple-400 dark:border-purple-500 ring-2 ring-purple-400 dark:ring-purple-500 ring-offset-1", textColor: "text-purple-700 dark:text-purple-300" },
-  { value: "status", label: "Zmeny stavu", icon: RefreshCw, activeClass: "bg-orange-100 dark:bg-orange-900 border-orange-400 dark:border-orange-500 ring-2 ring-orange-400 dark:ring-orange-500 ring-offset-1", textColor: "text-orange-700 dark:text-orange-300" },
-  { value: "product", label: "Produkty", icon: Package, activeClass: "bg-indigo-100 dark:bg-indigo-900 border-indigo-400 dark:border-indigo-500 ring-2 ring-indigo-400 dark:ring-indigo-500 ring-offset-1", textColor: "text-indigo-700 dark:text-indigo-300" },
-  { value: "pipeline", label: "Pipeline", icon: ArrowRight, activeClass: "bg-cyan-100 dark:bg-cyan-900 border-cyan-400 dark:border-cyan-500 ring-2 ring-cyan-400 dark:ring-cyan-500 ring-offset-1", textColor: "text-cyan-700 dark:text-cyan-300" },
-  { value: "consent", label: "Súhlasy", icon: Shield, activeClass: "bg-green-100 dark:bg-green-900 border-green-400 dark:border-green-500 ring-2 ring-green-400 dark:ring-green-500 ring-offset-1", textColor: "text-green-700 dark:text-green-300" },
+  { value: "all", label: "Všetky", icon: ListChecks, activeClass: "bg-gradient-to-br from-slate-500 to-slate-600 border-slate-600 shadow-lg shadow-slate-500/25", textColor: "text-white", inactiveClass: "bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-sm", inactiveTextColor: "text-slate-600 dark:text-slate-400" },
+  { value: "update", label: "Údaje", icon: Pencil, activeClass: "bg-gradient-to-br from-blue-500 to-blue-600 border-blue-600 shadow-lg shadow-blue-500/25", textColor: "text-white", inactiveClass: "bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 hover:border-blue-400 dark:hover:border-blue-600 hover:shadow-sm", inactiveTextColor: "text-blue-600 dark:text-blue-400" },
+  { value: "document", label: "Dokumenty", icon: FileText, activeClass: "bg-gradient-to-br from-emerald-500 to-emerald-600 border-emerald-600 shadow-lg shadow-emerald-500/25", textColor: "text-white", inactiveClass: "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 hover:border-emerald-400 dark:hover:border-emerald-600 hover:shadow-sm", inactiveTextColor: "text-emerald-600 dark:text-emerald-400" },
+  { value: "note", label: "Poznámky", icon: MessageSquare, activeClass: "bg-gradient-to-br from-amber-500 to-amber-600 border-amber-600 shadow-lg shadow-amber-500/25", textColor: "text-white", inactiveClass: "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 hover:border-amber-400 dark:hover:border-amber-600 hover:shadow-sm", inactiveTextColor: "text-amber-600 dark:text-amber-400" },
+  { value: "message", label: "Správy", icon: Mail, activeClass: "bg-gradient-to-br from-purple-500 to-purple-600 border-purple-600 shadow-lg shadow-purple-500/25", textColor: "text-white", inactiveClass: "bg-purple-50 dark:bg-purple-950/30 border-purple-200 dark:border-purple-800 hover:border-purple-400 dark:hover:border-purple-600 hover:shadow-sm", inactiveTextColor: "text-purple-600 dark:text-purple-400" },
+  { value: "status", label: "Stavy", icon: RefreshCw, activeClass: "bg-gradient-to-br from-orange-500 to-orange-600 border-orange-600 shadow-lg shadow-orange-500/25", textColor: "text-white", inactiveClass: "bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800 hover:border-orange-400 dark:hover:border-orange-600 hover:shadow-sm", inactiveTextColor: "text-orange-600 dark:text-orange-400" },
+  { value: "product", label: "Produkty", icon: Package, activeClass: "bg-gradient-to-br from-indigo-500 to-indigo-600 border-indigo-600 shadow-lg shadow-indigo-500/25", textColor: "text-white", inactiveClass: "bg-indigo-50 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800 hover:border-indigo-400 dark:hover:border-indigo-600 hover:shadow-sm", inactiveTextColor: "text-indigo-600 dark:text-indigo-400" },
+  { value: "pipeline", label: "Pipeline", icon: ArrowRight, activeClass: "bg-gradient-to-br from-cyan-500 to-cyan-600 border-cyan-600 shadow-lg shadow-cyan-500/25", textColor: "text-white", inactiveClass: "bg-cyan-50 dark:bg-cyan-950/30 border-cyan-200 dark:border-cyan-800 hover:border-cyan-400 dark:hover:border-cyan-600 hover:shadow-sm", inactiveTextColor: "text-cyan-600 dark:text-cyan-400" },
+  { value: "consent", label: "Súhlasy", icon: Shield, activeClass: "bg-gradient-to-br from-teal-500 to-teal-600 border-teal-600 shadow-lg shadow-teal-500/25", textColor: "text-white", inactiveClass: "bg-teal-50 dark:bg-teal-950/30 border-teal-200 dark:border-teal-800 hover:border-teal-400 dark:hover:border-teal-600 hover:shadow-sm", inactiveTextColor: "text-teal-600 dark:text-teal-400" },
 ] as const;
 
 // Field label translations for displaying changes
@@ -1094,7 +1094,7 @@ function CustomerHistoryTimeline({
         icon = MessageSquare;
         color = "text-yellow-500";
         type = "note";
-      } else if (log.action === "pipeline_move") {
+      } else if (log.action === "pipeline_move" || log.action === "stage_changed" || log.entityType === "pipeline") {
         icon = ArrowRight;
         color = "text-cyan-500";
         type = "pipeline";
@@ -1113,13 +1113,14 @@ function CustomerHistoryTimeline({
         remove_product: "Odobratie produktu",
         create_note: "Pridanie poznámky",
         pipeline_move: "Presun v pipeline",
+        stage_changed: "Presun v pipeline",
         consent_granted: "Udelenie súhlasu",
         consent_revoked: "Odvolanie súhlasu",
       };
 
       // Build enriched description based on action type
       let enrichedDescription = log.entityName || customerName;
-      if (log.action === "pipeline_move" && details) {
+      if ((log.action === "pipeline_move" || log.action === "stage_changed") && details) {
         const fromStage = details.fromStageId ? getStageName(details.fromStageId) : "—";
         const toStage = details.toStageId ? getStageName(details.toStageId) : "—";
         enrichedDescription = `${fromStage} → ${toStage}`;
@@ -1403,20 +1404,19 @@ function CustomerHistoryTimeline({
           const count = eventCounts[type.value] || 0;
           const isActive = filterType === type.value;
           const TypeIcon = type.icon;
+          const buttonClass = isActive ? type.activeClass : type.inactiveClass;
+          const iconTextClass = isActive ? type.textColor : type.inactiveTextColor;
+          const labelClass = isActive ? "text-white/90" : type.inactiveTextColor;
           return (
             <button
               key={type.value}
               onClick={() => setFilterType(type.value)}
-              className={`p-2.5 rounded-lg border-2 transition-all cursor-pointer text-center ring-offset-background ${
-                isActive 
-                  ? type.activeClass
-                  : "bg-card border-border hover:bg-muted/50"
-              }`}
+              className={`p-2.5 rounded-xl border transition-all duration-200 cursor-pointer text-center ${buttonClass}`}
               data-testid={`button-filter-${type.value}`}
             >
-              <TypeIcon className={`h-4 w-4 mx-auto mb-1 ${isActive ? type.textColor : 'text-muted-foreground'}`} />
-              <p className={`text-lg font-bold ${isActive ? type.textColor : ''}`}>{count}</p>
-              <p className={`text-[10px] leading-tight ${isActive ? type.textColor : 'text-muted-foreground'}`}>{type.label}</p>
+              <TypeIcon className={`h-4 w-4 mx-auto mb-1 ${iconTextClass}`} />
+              <p className={`text-lg font-bold ${iconTextClass}`}>{count}</p>
+              <p className={`text-[10px] leading-tight font-medium ${labelClass}`}>{type.label}</p>
             </button>
           );
         })}

@@ -11222,6 +11222,24 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         return res.status(404).json({ error: "Deal not found" });
       }
       
+      // Log activity for pipeline stage change (linked to customer if exists)
+      if (deal.customerId) {
+        await storage.logActivity({
+          id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          userId: req.session?.user?.id || "system",
+          entityType: "pipeline",
+          entityId: deal.id,
+          customerId: deal.customerId,
+          action: "stage_changed",
+          details: {
+            dealTitle: deal.title,
+            fromStageId: oldDeal?.stageId,
+            toStageId: stageId,
+            pipelineId: deal.pipelineId,
+          },
+        });
+      }
+      
       // Trigger automations for stage_changed
       triggerAutomations("stage_changed", deal, req.session?.user?.id, {
         fromStageId: oldDeal?.stageId,
