@@ -10056,7 +10056,7 @@ function EmailRouterTab() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsRuleDialogOpen(false)}>Zrušiť</Button>
+            <Button variant="outline" onClick={() => setIsRuleDialogOpen(false)} data-testid="button-cancel-rule">Zrušiť</Button>
             <Button 
               onClick={handleSaveRule} 
               disabled={!ruleName || createRuleMutation.isPending || updateRuleMutation.isPending}
@@ -10115,7 +10115,7 @@ function EmailRouterTab() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsTagDialogOpen(false)}>Zrušiť</Button>
+            <Button variant="outline" onClick={() => setIsTagDialogOpen(false)} data-testid="button-cancel-tag">Zrušiť</Button>
             <Button 
               onClick={handleSaveTag} 
               disabled={!tagName || createTagMutation.isPending || updateTagMutation.isPending}

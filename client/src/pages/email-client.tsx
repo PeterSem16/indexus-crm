@@ -510,9 +510,20 @@ export default function EmailClientPage() {
                                   <div className="text-xs text-muted-foreground truncate mt-1">
                                     {email.bodyPreview}
                                   </div>
-                                  {email.hasAttachments && (
-                                    <Paperclip className="h-3 w-3 text-muted-foreground inline mt-1" />
-                                  )}
+                                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                    {email.hasAttachments && <Paperclip className="h-3 w-3 text-muted-foreground" />}
+                                    {email.importance === "high" && (
+                                      <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">
+                                        <Star className="h-2.5 w-2.5 mr-0.5" />
+                                        Vysoká
+                                      </Badge>
+                                    )}
+                                    {email.importance === "low" && (
+                                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 opacity-60">
+                                        Nízka
+                                      </Badge>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             </button>
@@ -635,9 +646,19 @@ export default function EmailClientPage() {
                           <p className="text-xs text-muted-foreground truncate mt-1">
                             {email.bodyPreview}
                           </p>
-                          <div className="flex items-center gap-2 mt-1">
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
                             {email.hasAttachments && <Paperclip className="h-3 w-3 text-muted-foreground" />}
-                            {email.importance === "high" && <Star className="h-3 w-3 text-yellow-500" />}
+                            {email.importance === "high" && (
+                              <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">
+                                <Star className="h-2.5 w-2.5 mr-0.5" />
+                                Vysoká
+                              </Badge>
+                            )}
+                            {email.importance === "low" && (
+                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 opacity-60">
+                                Nízka
+                              </Badge>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -660,7 +681,18 @@ export default function EmailClientPage() {
               <div className="flex flex-col h-full">
                 <div className="p-4 border-b space-y-2">
                   <div className="flex items-start justify-between gap-4">
-                    <h2 className="text-lg font-semibold">{emailDetail.subject || "(Bez predmetu)"}</h2>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h2 className="text-lg font-semibold">{emailDetail.subject || "(Bez predmetu)"}</h2>
+                      {emailDetail.importance === "high" && (
+                        <Badge variant="destructive" className="text-xs">
+                          <Star className="h-3 w-3 mr-1" />
+                          Vysoká dôležitosť
+                        </Badge>
+                      )}
+                      {emailDetail.importance === "low" && (
+                        <Badge variant="secondary" className="text-xs opacity-60">Nízka dôležitosť</Badge>
+                      )}
+                    </div>
                     <div className="flex items-center gap-1 shrink-0">
                       <Button variant="ghost" size="icon" onClick={() => { setReplyMode("reply"); setComposeData({ ...composeData, body: "" }); }} data-testid="button-reply">
                         <Reply className="h-4 w-4" />
