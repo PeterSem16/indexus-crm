@@ -125,6 +125,8 @@ const LEGAL_BASIS_VALUES = [
 ] as const;
 
 function DocumentsTab({ customerId }: { customerId: string }) {
+  const [typeFilter, setTypeFilter] = useState<"all" | "contract" | "invoice">("all");
+  
   const { data: documents = [], isLoading } = useQuery<CustomerDocument[]>({
     queryKey: ["/api/customers", customerId, "documents"],
     queryFn: async () => {
@@ -135,6 +137,10 @@ function DocumentsTab({ customerId }: { customerId: string }) {
     refetchInterval: 10000, // Auto-refresh every 10 seconds
     refetchOnWindowFocus: true,
   });
+
+  const filteredDocuments = typeFilter === "all" 
+    ? documents 
+    : documents.filter(doc => doc.type === typeFilter);
 
   const getStatusBadgeVariant = (type: string, status: string) => {
     if (type === "contract") {
@@ -198,7 +204,7 @@ function DocumentsTab({ customerId }: { customerId: string }) {
   }
 
   // Group documents by month/year
-  const groupedDocuments = documents.reduce((groups, doc) => {
+  const groupedDocuments = filteredDocuments.reduce((groups, doc) => {
     const date = new Date(doc.createdAt);
     const key = format(date, "MMMM yyyy", { locale: sk });
     if (!groups[key]) {
@@ -210,9 +216,40 @@ function DocumentsTab({ customerId }: { customerId: string }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 mb-4">
-        <FileText className="h-5 w-5" />
-        <h4 className="font-semibold">Dokumenty ({documents.length})</h4>
+      <div className="flex items-center justify-between gap-4 mb-4">
+        <div className="flex items-center gap-2">
+          <FileText className="h-5 w-5" />
+          <h4 className="font-semibold">Dokumenty ({filteredDocuments.length})</h4>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <Button
+            variant={typeFilter === "all" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setTypeFilter("all")}
+            data-testid="filter-docs-all"
+          >
+            Všetky
+          </Button>
+          <Button
+            variant={typeFilter === "contract" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setTypeFilter("contract")}
+            data-testid="filter-docs-contracts"
+          >
+            <FileText className="h-4 w-4 mr-1" />
+            Zmluvy
+          </Button>
+          <Button
+            variant={typeFilter === "invoice" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setTypeFilter("invoice")}
+            data-testid="filter-docs-invoices"
+          >
+            <FileText className="h-4 w-4 mr-1" />
+            Faktúry
+          </Button>
+        </div>
       </div>
 
       <div className="relative">
@@ -1591,74 +1628,6 @@ function CustomerDetailsContent({
             )}
           </div>
 
-          <Separator />
-
-          <div className="space-y-4">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <h4 className="font-semibold flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                {t.customers.details?.invoices || "Invoices"}
-              </h4>
-              <Button
-                size="sm"
-                onClick={() => setIsManualInvoiceOpen(true)}
-                data-testid="button-create-invoice"
-              >
-                <Calculator className="h-4 w-4 mr-2" />
-                {t.customers.details?.createInvoice || "Create Invoice"}
-              </Button>
-            </div>
-
-            {invoicesLoading ? (
-              <p className="text-sm text-muted-foreground">{t.customers.details?.loadingInvoices || "Loading invoices..."}</p>
-            ) : customerInvoices.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t.customers.details?.noInvoices || "No invoices generated yet."}</p>
-            ) : (
-              <div className="space-y-2">
-                {(() => {
-                  const uniqueCompanies = Array.from(new Set(customerInvoices.map(inv => inv.billingCompanyName).filter(Boolean))) as string[];
-                  const companyColors = [
-                    'border-l-4 border-l-blue-500',
-                    'border-l-4 border-l-emerald-500',
-                    'border-l-4 border-l-amber-500',
-                    'border-l-4 border-l-purple-500',
-                    'border-l-4 border-l-rose-500',
-                    'border-l-4 border-l-cyan-500',
-                  ];
-                  const getCompanyColor = (companyName: string | null) => {
-                    if (!companyName || uniqueCompanies.length <= 1) return '';
-                    const index = uniqueCompanies.indexOf(companyName);
-                    return companyColors[index % companyColors.length];
-                  };
-                  
-                  return customerInvoices.map((inv) => (
-                    <div 
-                      key={inv.id} 
-                      className={`flex items-center justify-between p-2 rounded-md bg-muted/50 ${getCompanyColor(inv.billingCompanyName)}`}
-                    >
-                      <div>
-                        <p className="font-medium text-sm">{inv.invoiceNumber}</p>
-                        {inv.billingCompanyName && (
-                          <p className="text-xs font-medium text-foreground/70">{inv.billingCompanyName}</p>
-                        )}
-                        <p className="text-xs text-muted-foreground">
-                          {format(new Date(inv.generatedAt), "dd.MM.yyyy")} - {parseFloat(inv.totalAmount).toFixed(2)} {inv.currency}
-                        </p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDownloadPdf(inv.id, inv.invoiceNumber)}
-                        data-testid={`button-download-invoice-${inv.id}`}
-                      >
-                        <Download className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ));
-                })()}
-              </div>
-            )}
-          </div>
         </TabsContent>
 
         {customer.clientStatus === "acquired" && (
@@ -1834,22 +1803,61 @@ function CustomerDetailsContent({
 
           <Separator />
 
-          <div className="space-y-3">
-            {notesLoading ? (
-              <p className="text-sm text-muted-foreground">{t.customers.details?.loadingNotes || "Loading notes..."}</p>
-            ) : customerNotes.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t.customers.details?.noNotes || "No notes yet."}</p>
-            ) : (
-              customerNotes.map((note) => (
-                <div key={note.id} className="p-3 rounded-lg bg-muted/50 space-y-1">
-                  <p className="text-sm">{note.content}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {format(new Date(note.createdAt), "MMM dd, yyyy HH:mm")}
-                  </p>
-                </div>
-              ))
-            )}
-          </div>
+          {notesLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : customerNotes.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <MessageSquare className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p className="font-medium">{t.customers.details?.noNotes || "Žiadne poznámky"}</p>
+            </div>
+          ) : (
+            <div className="relative">
+              <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
+              
+              <div className="space-y-6">
+                {(() => {
+                  const groupedNotes = customerNotes.reduce((groups, note) => {
+                    const date = new Date(note.createdAt);
+                    const key = format(date, "MMMM yyyy", { locale: sk });
+                    if (!groups[key]) groups[key] = [];
+                    groups[key].push(note);
+                    return groups;
+                  }, {} as Record<string, typeof customerNotes>);
+                  
+                  return Object.entries(groupedNotes).map(([monthYear, notes]) => (
+                    <div key={monthYear}>
+                      <div className="relative pl-10 mb-3">
+                        <div className="absolute left-1.5 w-5 h-5 rounded-full bg-muted border-2 border-border flex items-center justify-center">
+                          <Calendar className="h-3 w-3 text-muted-foreground" />
+                        </div>
+                        <h5 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
+                          {monthYear}
+                        </h5>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        {notes.map((note) => (
+                          <div key={note.id} className="relative pl-10">
+                            <div className="absolute left-2.5 w-3 h-3 rounded-full border-2 bg-amber-500 border-amber-500" />
+                            
+                            <div className="border rounded-lg p-4 bg-card">
+                              <p className="text-sm">{note.content}</p>
+                              <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                                <Clock className="h-3.5 w-3.5" />
+                                {format(new Date(note.createdAt), "d.M.yyyy HH:mm")}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="documents" className="space-y-6 mt-4">
@@ -1861,51 +1869,89 @@ function CustomerDetailsContent({
         </TabsContent>
 
         <TabsContent value="history" className="space-y-4 mt-4">
-          <div className="space-y-3">
-            {activityLoading ? (
-              <p className="text-sm text-muted-foreground">{t.common?.loading || "Loading activity..."}</p>
-            ) : activityLogs.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t.activity?.noActivity || "No activity recorded yet."}</p>
-            ) : (
-              activityLogs.map((log) => {
-                const details = parseDetails(log.details);
-                return (
-                  <div key={log.id} className="border rounded-lg p-4 bg-card" data-testid={`activity-log-${log.id}`}>
-                    <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 mt-0.5 p-2 rounded-full bg-muted">
-                        {getActionIcon(log.action)}
+          {activityLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : activityLogs.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <History className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p className="font-medium">{t.activity?.noActivity || "Žiadna aktivita"}</p>
+            </div>
+          ) : (
+            <div className="relative">
+              <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
+              
+              <div className="space-y-6">
+                {(() => {
+                  const groupedLogs = activityLogs.reduce((groups, log) => {
+                    const date = new Date(log.createdAt);
+                    const key = format(date, "MMMM yyyy", { locale: sk });
+                    if (!groups[key]) groups[key] = [];
+                    groups[key].push(log);
+                    return groups;
+                  }, {} as Record<string, typeof activityLogs>);
+                  
+                  return Object.entries(groupedLogs).map(([monthYear, logs]) => (
+                    <div key={monthYear}>
+                      <div className="relative pl-10 mb-3">
+                        <div className="absolute left-1.5 w-5 h-5 rounded-full bg-muted border-2 border-border flex items-center justify-center">
+                          <Calendar className="h-3 w-3 text-muted-foreground" />
+                        </div>
+                        <h5 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
+                          {monthYear}
+                        </h5>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2 flex-wrap">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-sm">
-                              {getActionLabel(log.action)}
-                            </span>
-                            <Badge variant="outline" className="text-xs">
-                              {log.entityType || "customer"}
-                            </Badge>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <UserCircle className="h-3.5 w-3.5" />
-                            <span>{getUserName(log.userId)}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-3.5 w-3.5" />
-                            <span>{format(new Date(log.createdAt), "dd.MM.yyyy HH:mm:ss")}</span>
-                          </div>
-                        </div>
-                        
-                        {renderFieldChanges(details, log.action)}
+                      
+                      <div className="space-y-4">
+                        {logs.map((log) => {
+                          const details = parseDetails(log.details);
+                          return (
+                            <div key={log.id} className="relative pl-10">
+                              <div className="absolute left-2.5 w-3 h-3 rounded-full border-2 bg-emerald-500 border-emerald-500" />
+                              
+                              <div className="border rounded-lg p-4 bg-card" data-testid={`activity-log-${log.id}`}>
+                                <div className="flex items-start gap-3">
+                                  <div className="flex-shrink-0 mt-0.5 p-2 rounded-full bg-muted">
+                                    {getActionIcon(log.action)}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-medium text-sm">
+                                          {getActionLabel(log.action)}
+                                        </span>
+                                        <Badge variant="outline" className="text-xs">
+                                          {log.entityType || "customer"}
+                                        </Badge>
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                                      <div className="flex items-center gap-1">
+                                        <UserCircle className="h-3.5 w-3.5" />
+                                        <span>{getUserName(log.userId)}</span>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <Clock className="h-3.5 w-3.5" />
+                                        <span>{format(new Date(log.createdAt), "d.M.yyyy HH:mm:ss")}</span>
+                                      </div>
+                                    </div>
+                                    
+                                    {renderFieldChanges(details, log.action)}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
+                  ));
+                })()}
+              </div>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
