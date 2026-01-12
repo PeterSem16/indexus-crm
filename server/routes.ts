@@ -2095,7 +2095,7 @@ export async function registerRoutes(
       const invoices = await storage.getInvoicesByCustomer(customerId);
       
       // Get all users for creator lookup
-      const users = await storage.getUsers();
+      const users = await storage.getAllUsers();
       const userMap = new Map(users.map(u => [u.id, u]));
       
       // Transform contracts to document format
