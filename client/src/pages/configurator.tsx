@@ -29,7 +29,8 @@ import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/contexts/auth-context";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import type { ServiceConfiguration, ServiceInstance, InvoiceTemplate, InvoiceLayout, Product, Role, RoleModulePermission, RoleFieldPermission, Department, BillingDetails, NumberRange, ExchangeRate } from "@shared/schema";
+import type { ServiceConfiguration, ServiceInstance, InvoiceTemplate, InvoiceLayout, Product, Role, RoleModulePermission, RoleFieldPermission, Department, BillingDetails, NumberRange, ExchangeRate, EmailRoutingRule, EmailTag } from "@shared/schema";
+import { EMAIL_PRIORITIES, EMAIL_IMPORTANCE, EMAIL_CONDITION_TYPES, EMAIL_ACTION_TYPES } from "@shared/schema";
 import { CRM_MODULES, DEPARTMENTS, type ModuleDefinition, type FieldPermission, type ModuleAccess } from "@shared/permissions-config";
 import { Building2, User, Mail, Phone } from "lucide-react";
 import { DepartmentTree } from "@/components/department-tree";
@@ -9474,6 +9475,664 @@ function InflationTab() {
   );
 }
 
+// ============================================
+// EMAIL ROUTER TAB
+// ============================================
+
+const CONDITION_OPERATORS = [
+  { value: "equals", label: "Rovná sa" },
+  { value: "contains", label: "Obsahuje" },
+  { value: "starts_with", label: "Začína na" },
+  { value: "ends_with", label: "Končí na" },
+  { value: "regex", label: "Regex" },
+] as const;
+
+function EmailRouterTab() {
+  const { toast } = useToast();
+  const [selectedRule, setSelectedRule] = useState<EmailRoutingRule | null>(null);
+  const [isRuleDialogOpen, setIsRuleDialogOpen] = useState(false);
+  const [isTagDialogOpen, setIsTagDialogOpen] = useState(false);
+  const [editingTag, setEditingTag] = useState<EmailTag | null>(null);
+  const [activeSubTab, setActiveSubTab] = useState<"rules" | "tags">("rules");
+
+  // Rule form state
+  const [ruleName, setRuleName] = useState("");
+  const [ruleDescription, setRuleDescription] = useState("");
+  const [rulePriority, setRulePriority] = useState(0);
+  const [ruleMatchMode, setRuleMatchMode] = useState<"all" | "any">("all");
+  const [ruleStopProcessing, setRuleStopProcessing] = useState(false);
+  const [ruleConditions, setRuleConditions] = useState<{type: string; operator: string; value: string}[]>([]);
+  const [ruleActions, setRuleActions] = useState<{type: string; value: string}[]>([]);
+
+  // Tag form state
+  const [tagName, setTagName] = useState("");
+  const [tagColor, setTagColor] = useState("#6B7280");
+  const [tagDescription, setTagDescription] = useState("");
+
+  const { data: rules = [], isLoading: rulesLoading } = useQuery<EmailRoutingRule[]>({
+    queryKey: ["/api/email-routing-rules"],
+  });
+
+  const { data: tags = [], isLoading: tagsLoading } = useQuery<EmailTag[]>({
+    queryKey: ["/api/email-tags"],
+  });
+
+  const createRuleMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", "/api/email-routing-rules", data);
+      if (!res.ok) throw new Error("Failed to create rule");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/email-routing-rules"] });
+      toast({ title: "Pravidlo bolo vytvorené" });
+      setIsRuleDialogOpen(false);
+      resetRuleForm();
+    },
+    onError: () => {
+      toast({ title: "Nepodarilo sa vytvoriť pravidlo", variant: "destructive" });
+    },
+  });
+
+  const updateRuleMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const res = await apiRequest("PATCH", `/api/email-routing-rules/${id}`, data);
+      if (!res.ok) throw new Error("Failed to update rule");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/email-routing-rules"] });
+      toast({ title: "Pravidlo bolo aktualizované" });
+      setIsRuleDialogOpen(false);
+      resetRuleForm();
+    },
+    onError: () => {
+      toast({ title: "Nepodarilo sa aktualizovať pravidlo", variant: "destructive" });
+    },
+  });
+
+  const deleteRuleMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/email-routing-rules/${id}`);
+      if (!res.ok) throw new Error("Failed to delete rule");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/email-routing-rules"] });
+      toast({ title: "Pravidlo bolo vymazané" });
+    },
+    onError: () => {
+      toast({ title: "Nepodarilo sa vymazať pravidlo", variant: "destructive" });
+    },
+  });
+
+  const toggleRuleMutation = useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      const res = await apiRequest("POST", `/api/email-routing-rules/${id}/toggle`, { isActive });
+      if (!res.ok) throw new Error("Failed to toggle rule");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/email-routing-rules"] });
+    },
+  });
+
+  const createTagMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", "/api/email-tags", data);
+      if (!res.ok) throw new Error("Failed to create tag");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/email-tags"] });
+      toast({ title: "Tag bol vytvorený" });
+      setIsTagDialogOpen(false);
+      resetTagForm();
+    },
+    onError: () => {
+      toast({ title: "Nepodarilo sa vytvoriť tag", variant: "destructive" });
+    },
+  });
+
+  const updateTagMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const res = await apiRequest("PATCH", `/api/email-tags/${id}`, data);
+      if (!res.ok) throw new Error("Failed to update tag");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/email-tags"] });
+      toast({ title: "Tag bol aktualizovaný" });
+      setIsTagDialogOpen(false);
+      resetTagForm();
+    },
+    onError: () => {
+      toast({ title: "Nepodarilo sa aktualizovať tag", variant: "destructive" });
+    },
+  });
+
+  const deleteTagMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/email-tags/${id}`);
+      if (!res.ok) throw new Error("Failed to delete tag");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/email-tags"] });
+      toast({ title: "Tag bol vymazaný" });
+    },
+    onError: () => {
+      toast({ title: "Nepodarilo sa vymazať tag", variant: "destructive" });
+    },
+  });
+
+  const resetRuleForm = () => {
+    setSelectedRule(null);
+    setRuleName("");
+    setRuleDescription("");
+    setRulePriority(0);
+    setRuleMatchMode("all");
+    setRuleStopProcessing(false);
+    setRuleConditions([]);
+    setRuleActions([]);
+  };
+
+  const resetTagForm = () => {
+    setEditingTag(null);
+    setTagName("");
+    setTagColor("#6B7280");
+    setTagDescription("");
+  };
+
+  const openRuleDialog = (rule?: EmailRoutingRule) => {
+    if (rule) {
+      setSelectedRule(rule);
+      setRuleName(rule.name);
+      setRuleDescription(rule.description || "");
+      setRulePriority(rule.priority);
+      setRuleMatchMode(rule.matchMode as "all" | "any");
+      setRuleStopProcessing(rule.stopProcessing);
+      setRuleConditions((rule.conditions as any[]) || []);
+      setRuleActions((rule.actions as any[]) || []);
+    } else {
+      resetRuleForm();
+    }
+    setIsRuleDialogOpen(true);
+  };
+
+  const openTagDialog = (tag?: EmailTag) => {
+    if (tag) {
+      setEditingTag(tag);
+      setTagName(tag.name);
+      setTagColor(tag.color);
+      setTagDescription(tag.description || "");
+    } else {
+      resetTagForm();
+    }
+    setIsTagDialogOpen(true);
+  };
+
+  const handleSaveRule = () => {
+    const data = {
+      name: ruleName,
+      description: ruleDescription,
+      priority: rulePriority,
+      matchMode: ruleMatchMode,
+      stopProcessing: ruleStopProcessing,
+      conditions: ruleConditions,
+      actions: ruleActions,
+      isActive: true,
+    };
+    if (selectedRule) {
+      updateRuleMutation.mutate({ id: selectedRule.id, data });
+    } else {
+      createRuleMutation.mutate(data);
+    }
+  };
+
+  const handleSaveTag = () => {
+    const data = { name: tagName, color: tagColor, description: tagDescription };
+    if (editingTag) {
+      updateTagMutation.mutate({ id: editingTag.id, data });
+    } else {
+      createTagMutation.mutate(data);
+    }
+  };
+
+  const addCondition = () => {
+    setRuleConditions([...ruleConditions, { type: "sender_email", operator: "contains", value: "" }]);
+  };
+
+  const removeCondition = (index: number) => {
+    setRuleConditions(ruleConditions.filter((_, i) => i !== index));
+  };
+
+  const updateCondition = (index: number, field: string, value: string) => {
+    const updated = [...ruleConditions];
+    (updated[index] as any)[field] = value;
+    setRuleConditions(updated);
+  };
+
+  const addAction = () => {
+    setRuleActions([...ruleActions, { type: "set_priority", value: "normal" }]);
+  };
+
+  const removeAction = (index: number) => {
+    setRuleActions(ruleActions.filter((_, i) => i !== index));
+  };
+
+  const updateAction = (index: number, field: string, value: string) => {
+    const updated = [...ruleActions];
+    (updated[index] as any)[field] = value;
+    setRuleActions(updated);
+  };
+
+  return (
+    <div className="space-y-4">
+      <Tabs value={activeSubTab} onValueChange={(v) => setActiveSubTab(v as "rules" | "tags")}>
+        <TabsList>
+          <TabsTrigger value="rules" data-testid="subtab-rules">
+            <Settings className="h-4 w-4 mr-2" />
+            Pravidlá routera
+          </TabsTrigger>
+          <TabsTrigger value="tags" data-testid="subtab-tags">
+            <Palette className="h-4 w-4 mr-2" />
+            Email tagy
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="rules" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <p className="text-sm text-muted-foreground">
+              Pravidlá sa aplikujú na prichádzajúce emaily podľa priority (vyššie číslo = vyššia priorita)
+            </p>
+            <Button onClick={() => openRuleDialog()} data-testid="button-add-rule">
+              <Plus className="h-4 w-4 mr-2" />
+              Pridať pravidlo
+            </Button>
+          </div>
+
+          {rulesLoading ? (
+            <div className="flex items-center justify-center p-8">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+          ) : rules.length === 0 ? (
+            <div className="text-center p-8 text-muted-foreground">
+              Zatiaľ nie sú definované žiadne pravidlá
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {rules.map((rule) => (
+                <Card key={rule.id} className={`${!rule.isActive ? 'opacity-50' : ''}`}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <Switch
+                          checked={rule.isActive}
+                          onCheckedChange={(checked) => toggleRuleMutation.mutate({ id: rule.id, isActive: checked })}
+                          data-testid={`switch-rule-${rule.id}`}
+                        />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{rule.name}</span>
+                            <Badge variant="outline">Priorita: {rule.priority}</Badge>
+                            <Badge variant="secondary">{rule.matchMode === "all" ? "Všetky podmienky" : "Ľubovoľná podmienka"}</Badge>
+                          </div>
+                          {rule.description && (
+                            <p className="text-sm text-muted-foreground">{rule.description}</p>
+                          )}
+                          <div className="flex gap-2 mt-1">
+                            <span className="text-xs text-muted-foreground">
+                              {(rule.conditions as any[])?.length || 0} podmienok,{" "}
+                              {(rule.actions as any[])?.length || 0} akcií
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button size="icon" variant="ghost" onClick={() => openRuleDialog(rule)} data-testid={`button-edit-rule-${rule.id}`}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={() => deleteRuleMutation.mutate(rule.id)} data-testid={`button-delete-rule-${rule.id}`}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="tags" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <p className="text-sm text-muted-foreground">
+              Vlastné tagy pre kategorizáciu a filtrovanie emailov
+            </p>
+            <Button onClick={() => openTagDialog()} data-testid="button-add-tag">
+              <Plus className="h-4 w-4 mr-2" />
+              Pridať tag
+            </Button>
+          </div>
+
+          {tagsLoading ? (
+            <div className="flex items-center justify-center p-8">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+          ) : tags.length === 0 ? (
+            <div className="text-center p-8 text-muted-foreground">
+              Zatiaľ nie sú definované žiadne tagy
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {tags.map((tag) => (
+                <Badge
+                  key={tag.id}
+                  style={{ backgroundColor: tag.color, color: "#fff" }}
+                  className="px-3 py-1.5 cursor-pointer hover-elevate"
+                  onClick={() => openTagDialog(tag)}
+                  data-testid={`tag-${tag.id}`}
+                >
+                  {tag.name}
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-4 w-4 ml-2 p-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteTagMutation.mutate(tag.id);
+                    }}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </Badge>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      {/* Rule Dialog */}
+      <Dialog open={isRuleDialogOpen} onOpenChange={setIsRuleDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{selectedRule ? "Upraviť pravidlo" : "Nové pravidlo"}</DialogTitle>
+            <DialogDescription>
+              Definujte podmienky a akcie pre spracovanie prichádzajúcich emailov
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Názov pravidla</Label>
+                <Input
+                  value={ruleName}
+                  onChange={(e) => setRuleName(e.target.value)}
+                  placeholder="Napr. Emaily od zákazníkov"
+                  data-testid="input-rule-name"
+                />
+              </div>
+              <div>
+                <Label>Priorita (vyššia = skôr)</Label>
+                <Input
+                  type="number"
+                  value={rulePriority}
+                  onChange={(e) => setRulePriority(parseInt(e.target.value) || 0)}
+                  data-testid="input-rule-priority"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label>Popis</Label>
+              <Textarea
+                value={ruleDescription}
+                onChange={(e) => setRuleDescription(e.target.value)}
+                placeholder="Voliteľný popis pravidla"
+                data-testid="input-rule-description"
+              />
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Label>Režim zhody:</Label>
+                <Select value={ruleMatchMode} onValueChange={(v) => setRuleMatchMode(v as "all" | "any")}>
+                  <SelectTrigger className="w-[200px]" data-testid="select-match-mode">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Všetky podmienky (AND)</SelectItem>
+                    <SelectItem value="any">Ľubovoľná podmienka (OR)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={ruleStopProcessing}
+                  onCheckedChange={setRuleStopProcessing}
+                  data-testid="switch-stop-processing"
+                />
+                <Label>Zastaviť po tomto pravidle</Label>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Conditions */}
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <Label className="text-base font-semibold">Podmienky</Label>
+                <Button size="sm" variant="outline" onClick={addCondition} data-testid="button-add-condition">
+                  <Plus className="h-4 w-4 mr-1" />
+                  Pridať podmienku
+                </Button>
+              </div>
+
+              {ruleConditions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Žiadne podmienky - pravidlo sa aplikuje na všetky emaily</p>
+              ) : (
+                <div className="space-y-2">
+                  {ruleConditions.map((condition, index) => (
+                    <div key={index} className="flex items-center gap-2 p-2 rounded-md border">
+                      <Select value={condition.type} onValueChange={(v) => updateCondition(index, "type", v)}>
+                        <SelectTrigger className="w-[180px]" data-testid={`select-condition-type-${index}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {EMAIL_CONDITION_TYPES.map((type) => (
+                            <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={condition.operator} onValueChange={(v) => updateCondition(index, "operator", v)}>
+                        <SelectTrigger className="w-[140px]" data-testid={`select-condition-operator-${index}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CONDITION_OPERATORS.map((op) => (
+                            <SelectItem key={op.value} value={op.value}>{op.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        value={condition.value}
+                        onChange={(e) => updateCondition(index, "value", e.target.value)}
+                        placeholder="Hodnota"
+                        className="flex-1"
+                        data-testid={`input-condition-value-${index}`}
+                      />
+                      <Button size="icon" variant="ghost" onClick={() => removeCondition(index)}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <Separator />
+
+            {/* Actions */}
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <Label className="text-base font-semibold">Akcie</Label>
+                <Button size="sm" variant="outline" onClick={addAction} data-testid="button-add-action">
+                  <Plus className="h-4 w-4 mr-1" />
+                  Pridať akciu
+                </Button>
+              </div>
+
+              {ruleActions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Žiadne akcie - pridajte aspoň jednu akciu</p>
+              ) : (
+                <div className="space-y-2">
+                  {ruleActions.map((action, index) => (
+                    <div key={index} className="flex items-center gap-2 p-2 rounded-md border">
+                      <Select value={action.type} onValueChange={(v) => updateAction(index, "type", v)}>
+                        <SelectTrigger className="w-[200px]" data-testid={`select-action-type-${index}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {EMAIL_ACTION_TYPES.map((type) => (
+                            <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {action.type === "set_priority" && (
+                        <Select value={action.value} onValueChange={(v) => updateAction(index, "value", v)}>
+                          <SelectTrigger className="w-[150px]" data-testid={`select-action-value-${index}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {EMAIL_PRIORITIES.map((p) => (
+                              <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                      {action.type === "set_importance" && (
+                        <Select value={action.value} onValueChange={(v) => updateAction(index, "value", v)}>
+                          <SelectTrigger className="w-[150px]" data-testid={`select-action-value-${index}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {EMAIL_IMPORTANCE.map((i) => (
+                              <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                      {action.type === "add_tag" && (
+                        <Select value={action.value} onValueChange={(v) => updateAction(index, "value", v)}>
+                          <SelectTrigger className="w-[150px]" data-testid={`select-action-value-${index}`}>
+                            <SelectValue placeholder="Vyberte tag" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {tags.map((tag) => (
+                              <SelectItem key={tag.id} value={tag.name}>{tag.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                      {(action.type === "create_notification" || action.type === "auto_reply") && (
+                        <Input
+                          value={action.value}
+                          onChange={(e) => updateAction(index, "value", e.target.value)}
+                          placeholder={action.type === "create_notification" ? "Text notifikácie" : "Text odpovede"}
+                          className="flex-1"
+                          data-testid={`input-action-value-${index}`}
+                        />
+                      )}
+                      <Button size="icon" variant="ghost" onClick={() => removeAction(index)}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsRuleDialogOpen(false)}>Zrušiť</Button>
+            <Button 
+              onClick={handleSaveRule} 
+              disabled={!ruleName || createRuleMutation.isPending || updateRuleMutation.isPending}
+              data-testid="button-save-rule"
+            >
+              {(createRuleMutation.isPending || updateRuleMutation.isPending) && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Uložiť
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Tag Dialog */}
+      <Dialog open={isTagDialogOpen} onOpenChange={setIsTagDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingTag ? "Upraviť tag" : "Nový tag"}</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label>Názov tagu</Label>
+              <Input
+                value={tagName}
+                onChange={(e) => setTagName(e.target.value)}
+                placeholder="Napr. Urgentné"
+                data-testid="input-tag-name"
+              />
+            </div>
+            <div>
+              <Label>Farba</Label>
+              <div className="flex gap-2 mt-1">
+                <Input
+                  type="color"
+                  value={tagColor}
+                  onChange={(e) => setTagColor(e.target.value)}
+                  className="w-16 h-10 p-1"
+                  data-testid="input-tag-color"
+                />
+                <Badge style={{ backgroundColor: tagColor, color: "#fff" }} className="px-4">
+                  {tagName || "Náhľad"}
+                </Badge>
+              </div>
+            </div>
+            <div>
+              <Label>Popis</Label>
+              <Input
+                value={tagDescription}
+                onChange={(e) => setTagDescription(e.target.value)}
+                placeholder="Voliteľný popis"
+                data-testid="input-tag-description"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsTagDialogOpen(false)}>Zrušiť</Button>
+            <Button 
+              onClick={handleSaveTag} 
+              disabled={!tagName || createTagMutation.isPending || updateTagMutation.isPending}
+              data-testid="button-save-tag"
+            >
+              {(createTagMutation.isPending || updateTagMutation.isPending) && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Uložiť
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 const roleFormSchema = z.object({
   name: z.string().min(1, "Role name is required"),
   description: z.string().optional(),
@@ -11956,7 +12615,7 @@ export default function ConfiguratorPage() {
       />
       
       <Tabs defaultValue="products" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-6 max-w-5xl">
+        <TabsList className="grid w-full grid-cols-7 max-w-6xl">
           <TabsTrigger value="products" className="flex items-center gap-2" data-testid="tab-products">
             <Package className="h-4 w-4" />
             {t.products.title}
@@ -11976,6 +12635,10 @@ export default function ConfiguratorPage() {
           <TabsTrigger value="rates-inflation" className="flex items-center gap-2" data-testid="tab-rates-inflation">
             <DollarSign className="h-4 w-4" />
             {t.konfigurator.exchangeRatesAndInflation || "Kurzy & Inflácie"}
+          </TabsTrigger>
+          <TabsTrigger value="email-router" className="flex items-center gap-2" data-testid="tab-email-router">
+            <Mail className="h-4 w-4" />
+            Email Router
           </TabsTrigger>
           <TabsTrigger value="permissions" className="flex items-center gap-2" data-testid="tab-permissions">
             <Shield className="h-4 w-4" />
@@ -12073,6 +12736,18 @@ export default function ConfiguratorPage() {
                   <InflationTab />
                 </TabsContent>
               </Tabs>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="email-router">
+          <Card>
+            <CardHeader>
+              <CardTitle>Email Router</CardTitle>
+              <CardDescription>Konfigurácia pravidiel pre spracovanie prichádzajúcich emailov</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <EmailRouterTab />
             </CardContent>
           </Card>
         </TabsContent>
