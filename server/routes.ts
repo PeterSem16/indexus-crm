@@ -706,6 +706,7 @@ function cleanupTempImages(imagePaths: string[]): void {
 declare module "express-session" {
   interface SessionData {
     user: SafeUser;
+    pendingMs365UserId?: string;
   }
 }
 
@@ -939,6 +940,18 @@ export async function registerRoutes(
     try {
       const { username, password } = loginSchema.parse(req.body);
       
+      // First check if user exists and what auth method they use
+      const userByUsername = await storage.getUserByUsername(username);
+      
+      if (userByUsername && (userByUsername as any).authMethod === "ms365") {
+        // User needs to login via MS365 - return special response
+        return res.status(200).json({ 
+          requireMs365: true, 
+          message: "Tento účet vyžaduje prihlásenie cez Microsoft 365",
+          userId: userByUsername.id
+        });
+      }
+      
       const user = await storage.validatePassword(username, password);
       if (!user) {
         return res.status(401).json({ error: "Invalid username or password" });
@@ -961,6 +974,142 @@ export async function registerRoutes(
       }
       console.error("Login error:", error);
       res.status(500).json({ error: "Login failed" });
+    }
+  });
+
+  // MS365 login endpoint for users with authMethod = ms365
+  app.post("/api/auth/login-ms365", async (req, res) => {
+    try {
+      const { username } = req.body;
+      
+      const user = await storage.getUserByUsername(username);
+      if (!user) {
+        return res.status(404).json({ error: "Používateľ neexistuje" });
+      }
+      
+      if ((user as any).authMethod !== "ms365") {
+        return res.status(400).json({ error: "Tento účet nevyžaduje Microsoft 365 prihlásenie" });
+      }
+      
+      // Store the user ID in session for the MS365 callback to use
+      req.session.pendingMs365UserId = user.id;
+      
+      // Generate MS365 auth URL
+      const clientId = process.env.MS365_CLIENT_ID;
+      const tenantId = process.env.MS365_TENANT_ID;
+      
+      if (!clientId || !tenantId) {
+        return res.status(500).json({ error: "Microsoft 365 nie je nakonfigurovaný" });
+      }
+      
+      const redirectUri = `${req.protocol}://${req.get("host")}/api/auth/microsoft/login-callback`;
+      const scopes = ["openid", "profile", "email", "User.Read"];
+      
+      const authUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?` +
+        `client_id=${clientId}&` +
+        `response_type=code&` +
+        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+        `scope=${encodeURIComponent(scopes.join(" "))}&` +
+        `response_mode=query&` +
+        `state=login`;
+      
+      res.json({ authUrl });
+    } catch (error) {
+      console.error("MS365 login error:", error);
+      res.status(500).json({ error: "Chyba pri príprave prihlásenia cez Microsoft 365" });
+    }
+  });
+
+  // MS365 login callback - handles authentication for users with authMethod = ms365
+  app.get("/api/auth/microsoft/login-callback", async (req, res) => {
+    try {
+      const { code, error: authError, error_description } = req.query;
+      
+      if (authError) {
+        console.error("MS365 auth error:", authError, error_description);
+        return res.redirect("/?error=ms365_auth_failed");
+      }
+      
+      if (!code || typeof code !== "string") {
+        return res.redirect("/?error=missing_code");
+      }
+      
+      const pendingUserId = req.session.pendingMs365UserId;
+      if (!pendingUserId) {
+        return res.redirect("/?error=session_expired");
+      }
+      
+      // Exchange code for token
+      const clientId = process.env.MS365_CLIENT_ID!;
+      const clientSecret = process.env.MS365_CLIENT_SECRET!;
+      const tenantId = process.env.MS365_TENANT_ID!;
+      const redirectUri = `${req.protocol}://${req.get("host")}/api/auth/microsoft/login-callback`;
+      
+      const tokenResponse = await fetch(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          client_id: clientId,
+          client_secret: clientSecret,
+          code,
+          redirect_uri: redirectUri,
+          grant_type: "authorization_code",
+          scope: "openid profile email User.Read",
+        }),
+      });
+      
+      if (!tokenResponse.ok) {
+        const errorText = await tokenResponse.text();
+        console.error("Token exchange failed:", errorText);
+        return res.redirect("/?error=token_exchange_failed");
+      }
+      
+      const tokens = await tokenResponse.json();
+      
+      // Get user info from Microsoft Graph
+      const graphResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
+        headers: { Authorization: `Bearer ${tokens.access_token}` },
+      });
+      
+      if (!graphResponse.ok) {
+        console.error("Graph API failed");
+        return res.redirect("/?error=graph_api_failed");
+      }
+      
+      const msUser = await graphResponse.json();
+      
+      // Verify the MS365 email matches the user's email
+      const user = await storage.getUser(pendingUserId);
+      if (!user) {
+        return res.redirect("/?error=user_not_found");
+      }
+      
+      if (!user.isActive) {
+        return res.redirect("/?error=account_deactivated");
+      }
+      
+      // Verify email matches (case insensitive)
+      const msEmail = (msUser.mail || msUser.userPrincipalName || "").toLowerCase();
+      const userEmail = user.email.toLowerCase();
+      
+      if (msEmail !== userEmail && !msEmail.includes(userEmail.split("@")[0])) {
+        console.error(`Email mismatch: MS365=${msEmail}, CRM=${userEmail}`);
+        return res.redirect("/?error=email_mismatch");
+      }
+      
+      // Login successful - set session
+      const { passwordHash, ...safeUser } = user;
+      req.session.user = safeUser;
+      delete req.session.pendingMs365UserId;
+      
+      // Log login activity
+      await logActivity(user.id, "login", "user", user.id, user.fullName, JSON.stringify({ method: "ms365" }), req.ip);
+      
+      // Redirect to main app
+      res.redirect("/");
+    } catch (error) {
+      console.error("MS365 login callback error:", error);
+      res.redirect("/?error=login_failed");
     }
   });
 

@@ -3,10 +3,18 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { SafeUser } from "@shared/schema";
 
+interface LoginResult {
+  user?: SafeUser;
+  requireMs365?: boolean;
+  message?: string;
+  userId?: string;
+}
+
 interface AuthContextType {
   user: SafeUser | null;
   isLoading: boolean;
-  login: (username: string, password: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<LoginResult>;
+  loginWithMs365: (username: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -29,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [data]);
 
   const loginMutation = useMutation({
-    mutationFn: async ({ username, password }: { username: string; password: string }) => {
+    mutationFn: async ({ username, password }: { username: string; password: string }): Promise<LoginResult> => {
       try {
         const res = await apiRequest("POST", "/api/auth/login", { username, password });
         return res.json();
@@ -39,8 +47,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     },
     onSuccess: (data) => {
-      setUser(data.user);
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      if (data.user) {
+        setUser(data.user);
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      }
+    },
+  });
+
+  const ms365LoginMutation = useMutation({
+    mutationFn: async (username: string) => {
+      const res = await apiRequest("POST", "/api/auth/login-ms365", { username });
+      return res.json();
     },
   });
 
@@ -54,8 +71,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   });
 
-  const login = async (username: string, password: string) => {
-    await loginMutation.mutateAsync({ username, password });
+  const login = async (username: string, password: string): Promise<LoginResult> => {
+    const result = await loginMutation.mutateAsync({ username, password });
+    return result;
+  };
+
+  const loginWithMs365 = async (username: string) => {
+    const result = await ms365LoginMutation.mutateAsync(username);
+    if (result.authUrl) {
+      window.location.href = result.authUrl;
+    }
   };
 
   const logout = async () => {
@@ -63,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, loginWithMs365, logout }}>
       {children}
     </AuthContext.Provider>
   );

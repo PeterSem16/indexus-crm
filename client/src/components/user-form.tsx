@@ -47,6 +47,7 @@ const createUserFormSchema = z.object({
   sipExtension: z.string().optional(),
   sipPassword: z.string().optional(),
   sipDisplayName: z.string().optional(),
+  authMethod: z.enum(["local", "ms365"]).optional(),
 });
 
 const updateUserFormSchema = z.object({
@@ -62,6 +63,7 @@ const updateUserFormSchema = z.object({
   sipExtension: z.string().optional(),
   sipPassword: z.string().optional(),
   sipDisplayName: z.string().optional(),
+  authMethod: z.enum(["local", "ms365"]).optional(),
 });
 
 export type UserFormData = z.infer<typeof createUserFormSchema>;
@@ -123,6 +125,7 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
       sipEnabled: (initialData as any)?.sipEnabled ?? false,
       sipExtension: (initialData as any)?.sipExtension || "",
       sipPassword: (initialData as any)?.sipPassword || "",
+      authMethod: (initialData as any)?.authMethod || "local",
       sipDisplayName: (initialData as any)?.sipDisplayName || "",
     },
   });
@@ -452,6 +455,35 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
           )}
         />
       )}
+
+      {/* Authentication Method Selection */}
+      <FormField
+        control={form.control}
+        name="authMethod"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Spôsob prihlásenia</FormLabel>
+            <Select 
+              onValueChange={field.onChange} 
+              value={field.value || "local"}
+            >
+              <FormControl>
+                <SelectTrigger data-testid="select-auth-method">
+                  <SelectValue placeholder="Vyberte spôsob prihlásenia" />
+                </SelectTrigger>
+              </FormControl>
+              <SelectContent>
+                <SelectItem value="local">Lokálne (meno a heslo)</SelectItem>
+                <SelectItem value="ms365">Microsoft 365</SelectItem>
+              </SelectContent>
+            </Select>
+            <FormDescription>
+              Pri Microsoft 365 sa používateľ prihlasuje cez svoje firemné Microsoft konto.
+            </FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
     </div>
   );
 

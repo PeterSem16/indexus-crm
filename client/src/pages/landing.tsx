@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,37 +7,91 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { Heart, Shield, Globe, Users, Lock, ArrowRight } from "lucide-react";
+import { SiMicrosoft } from "react-icons/si";
 
 export default function LandingPage() {
   const [, setLocation] = useLocation();
-  const { login } = useAuth();
+  const { login, loginWithMs365 } = useAuth();
   const { toast } = useToast();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [requireMs365, setRequireMs365] = useState(false);
+  const [ms365Message, setMs365Message] = useState("");
+
+  // Check for MS365 auth errors in URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get("error");
+    if (error) {
+      const errorMessages: Record<string, string> = {
+        ms365_auth_failed: "Prihlásenie cez Microsoft 365 zlyhalo",
+        missing_code: "Chýba autorizačný kód",
+        session_expired: "Relácia vypršala, skúste znova",
+        token_exchange_failed: "Chyba pri získavaní tokenu",
+        graph_api_failed: "Chyba pri komunikácii s Microsoft",
+        user_not_found: "Používateľ nebol nájdený",
+        account_deactivated: "Účet je deaktivovaný",
+        email_mismatch: "Email v Microsoft účte sa nezhoduje s CRM účtom",
+        login_failed: "Prihlásenie zlyhalo",
+      };
+      toast({
+        title: "Chyba prihlásenia",
+        description: errorMessages[error] || "Neznáma chyba",
+        variant: "destructive",
+      });
+      // Clean URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [toast]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username || !password) {
       toast({
-        title: "Error",
-        description: "Please enter username and password",
+        title: "Chyba",
+        description: "Zadajte používateľské meno a heslo",
         variant: "destructive",
       });
       return;
     }
 
     setIsLoading(true);
+    setRequireMs365(false);
     try {
-      await login(username, password);
-      setLocation("/");
+      const result = await login(username, password);
+      
+      if (result.requireMs365) {
+        // User needs to login via MS365
+        setRequireMs365(true);
+        setMs365Message(result.message || "Tento účet vyžaduje prihlásenie cez Microsoft 365");
+        return;
+      }
+      
+      if (result.user) {
+        setLocation("/");
+      }
     } catch (error: any) {
       toast({
-        title: "Login Failed",
-        description: error.message || "Invalid credentials",
+        title: "Prihlásenie zlyhalo",
+        description: error.message || "Neplatné prihlasovacie údaje",
         variant: "destructive",
       });
     } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleMs365Login = async () => {
+    setIsLoading(true);
+    try {
+      await loginWithMs365(username);
+    } catch (error: any) {
+      toast({
+        title: "Chyba",
+        description: error.message || "Nepodarilo sa pripojiť k Microsoft 365",
+        variant: "destructive",
+      });
       setIsLoading(false);
     }
   };
@@ -156,9 +210,29 @@ export default function LandingPage() {
                       disabled={isLoading}
                       data-testid="button-login"
                     >
-                      {isLoading ? "Signing in..." : "Sign In"}
+                      {isLoading ? "Prihlasujem..." : "Prihlásiť sa"}
                       {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
                     </Button>
+
+                    {/* MS365 Login Section */}
+                    {requireMs365 && (
+                      <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+                        <p className="text-sm text-blue-700 dark:text-blue-300 mb-3">
+                          {ms365Message}
+                        </p>
+                        <Button 
+                          type="button"
+                          variant="outline"
+                          className="w-full border-blue-300 hover:bg-blue-100 dark:border-blue-700 dark:hover:bg-blue-900"
+                          onClick={handleMs365Login}
+                          disabled={isLoading}
+                          data-testid="button-login-ms365"
+                        >
+                          <SiMicrosoft className="mr-2 h-4 w-4" />
+                          Prihlásiť sa cez Microsoft 365
+                        </Button>
+                      </div>
+                    )}
                   </form>
                 </CardContent>
               </Card>

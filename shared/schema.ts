@@ -160,6 +160,7 @@ export const users = pgTable("users", {
   sipDisplayName: text("sip_display_name").default(""),
   jiraAccountId: text("jira_account_id"),
   jiraDisplayName: text("jira_display_name"),
+  authMethod: text("auth_method").notNull().default("local"), // 'local' or 'ms365'
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
