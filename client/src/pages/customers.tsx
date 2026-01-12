@@ -101,6 +101,7 @@ interface CustomerDocument {
   validFrom?: string | null;
   validTo?: string | null;
   dueDate?: string | null;
+  cancellationReason?: string | null;
 }
 
 const CONSENT_TYPE_VALUES = [
@@ -262,6 +263,13 @@ function DocumentsTab({ customerId }: { customerId: string }) {
                         </span>
                       )}
                     </div>
+                    
+                    {doc.type === "contract" && doc.status === "cancelled" && doc.cancellationReason && (
+                      <div className="mt-2 p-2 bg-destructive/10 border border-destructive/20 rounded text-sm">
+                        <span className="text-destructive font-medium">Dôvod zrušenia: </span>
+                        <span className="text-muted-foreground">{doc.cancellationReason}</span>
+                      </div>
+                    )}
                   </div>
                   
                   {doc.pdfPath && (

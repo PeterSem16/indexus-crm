@@ -1474,9 +1474,17 @@ export default function ContractsPage() {
     !selectedCountry || t.countryCode === selectedCountry
   );
 
+  const [contractSearchTerm, setContractSearchTerm] = useState("");
+  const [contractStatusFilter, setContractStatusFilter] = useState<string>("all");
+
   const filteredContracts = contracts.filter(c => {
     const customer = customers.find(cust => cust.id === c.customerId);
-    return !selectedCountry || customer?.country === selectedCountry;
+    const matchesCountry = !selectedCountry || customer?.country === selectedCountry;
+    const matchesSearch = !contractSearchTerm || 
+      c.contractNumber?.toLowerCase().includes(contractSearchTerm.toLowerCase()) ||
+      (customer && `${customer.firstName} ${customer.lastName}`.toLowerCase().includes(contractSearchTerm.toLowerCase()));
+    const matchesStatus = contractStatusFilter === "all" || c.status === contractStatusFilter;
+    return matchesCountry && matchesSearch && matchesStatus;
   });
 
   const getCustomerName = (customerId: string) => {
@@ -1750,6 +1758,45 @@ export default function ContractsPage() {
           </TabsContent>
 
           <TabsContent value="contracts" className="mt-0">
+            <div className="flex items-center gap-4 mb-4 flex-wrap">
+              <div className="flex-1 min-w-[200px] max-w-sm">
+                <Input
+                  placeholder="Hľadať podľa čísla alebo klienta..."
+                  value={contractSearchTerm}
+                  onChange={(e) => setContractSearchTerm(e.target.value)}
+                  data-testid="input-contract-search"
+                />
+              </div>
+              <Select value={contractStatusFilter} onValueChange={setContractStatusFilter}>
+                <SelectTrigger className="w-[180px]" data-testid="select-contract-status-filter">
+                  <SelectValue placeholder="Všetky stavy" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Všetky stavy</SelectItem>
+                  <SelectItem value="draft">Koncept</SelectItem>
+                  <SelectItem value="sent">Odoslaná</SelectItem>
+                  <SelectItem value="pending_signature">Čaká na podpis</SelectItem>
+                  <SelectItem value="signed">Podpísaná</SelectItem>
+                  <SelectItem value="completed">Dokončená</SelectItem>
+                  <SelectItem value="cancelled">Zrušená</SelectItem>
+                  <SelectItem value="expired">Expirovaná</SelectItem>
+                </SelectContent>
+              </Select>
+              {(contractSearchTerm || contractStatusFilter !== "all") && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setContractSearchTerm("");
+                    setContractStatusFilter("all");
+                  }}
+                  data-testid="button-clear-contract-filters"
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Zrušiť filtre
+                </Button>
+              )}
+            </div>
             <Card>
               <CardContent className="p-0">
                 <Table>
@@ -1758,6 +1805,7 @@ export default function ContractsPage() {
                       <TableHead>Číslo zmluvy</TableHead>
                       <TableHead>Klient</TableHead>
                       <TableHead>Stav</TableHead>
+                      <TableHead>Dôvod zrušenia</TableHead>
                       <TableHead>Vytvorená</TableHead>
                       <TableHead className="text-right">Akcie</TableHead>
                     </TableRow>
@@ -1765,13 +1813,13 @@ export default function ContractsPage() {
                   <TableBody>
                     {contractsLoading ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                           Načítavam...
                         </TableCell>
                       </TableRow>
                     ) : filteredContracts.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                           Žiadne zmluvy
                         </TableCell>
                       </TableRow>
@@ -1781,6 +1829,15 @@ export default function ContractsPage() {
                           <TableCell className="font-medium">{contract.contractNumber}</TableCell>
                           <TableCell>{getCustomerName(contract.customerId)}</TableCell>
                           <TableCell>{getStatusBadge(contract.status)}</TableCell>
+                          <TableCell className="max-w-[200px]">
+                            {contract.status === "cancelled" && contract.cancellationReason ? (
+                              <span className="text-sm text-destructive truncate block" title={contract.cancellationReason}>
+                                {contract.cancellationReason}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
                           <TableCell>
                             {contract.createdAt && format(new Date(contract.createdAt), "d.M.yyyy", { locale: sk })}
                           </TableCell>

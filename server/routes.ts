@@ -2110,6 +2110,7 @@ export async function registerRoutes(
         pdfPath: c.pdfPath,
         totalAmount: c.totalGrossAmount,
         currency: c.currency,
+        cancellationReason: c.cancellationReason,
         validFrom: c.validFrom,
         validTo: c.validTo,
       }));
