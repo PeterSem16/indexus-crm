@@ -2401,6 +2401,424 @@ export async function registerRoutes(
     }
   });
 
+  // =====================================
+  // EMAIL CLIENT API
+  // =====================================
+
+  // Get mail folders
+  app.get("/api/users/:userId/ms365-folders", requireAuth, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const mailboxEmail = req.query.mailbox as string | undefined;
+      
+      const ms365Connection = await storage.getUserMs365Connection(userId);
+      if (!ms365Connection || !ms365Connection.isConnected) {
+        return res.json({ connected: false, folders: [] });
+      }
+      
+      const { decryptTokenSafe } = await import("./lib/token-crypto");
+      const { getValidAccessToken, getMailFolders } = await import("./lib/ms365");
+      
+      let accessToken: string;
+      let refreshToken: string | null;
+      
+      try {
+        accessToken = decryptTokenSafe(ms365Connection.accessToken);
+        refreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+      } catch {
+        return res.json({ connected: false, folders: [] });
+      }
+      
+      const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, refreshToken);
+      if (!tokenResult?.accessToken) {
+        return res.json({ connected: false, folders: [], requiresReauth: true });
+      }
+      
+      const folders = await getMailFolders(tokenResult.accessToken, mailboxEmail === "personal" ? undefined : mailboxEmail);
+      res.json({ connected: true, folders });
+    } catch (error) {
+      console.error("Error fetching mail folders:", error);
+      res.status(500).json({ error: "Failed to fetch mail folders" });
+    }
+  });
+
+  // Get emails from folder
+  app.get("/api/users/:userId/ms365-folder-messages/:folderId", requireAuth, async (req, res) => {
+    try {
+      const { userId, folderId } = req.params;
+      const mailboxEmail = req.query.mailbox as string | undefined;
+      const top = parseInt(req.query.top as string) || 50;
+      const skip = parseInt(req.query.skip as string) || 0;
+      
+      const ms365Connection = await storage.getUserMs365Connection(userId);
+      if (!ms365Connection || !ms365Connection.isConnected) {
+        return res.json({ connected: false, emails: [], totalCount: 0 });
+      }
+      
+      const { decryptTokenSafe } = await import("./lib/token-crypto");
+      const { getValidAccessToken, getMailFolderMessages } = await import("./lib/ms365");
+      
+      let accessToken: string;
+      let refreshToken: string | null;
+      
+      try {
+        accessToken = decryptTokenSafe(ms365Connection.accessToken);
+        refreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+      } catch {
+        return res.json({ connected: false, emails: [], totalCount: 0 });
+      }
+      
+      const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, refreshToken);
+      if (!tokenResult?.accessToken) {
+        return res.json({ connected: false, emails: [], totalCount: 0, requiresReauth: true });
+      }
+      
+      const result = await getMailFolderMessages(
+        tokenResult.accessToken, 
+        folderId, 
+        mailboxEmail === "personal" ? undefined : mailboxEmail,
+        top,
+        skip
+      );
+      res.json({ connected: true, ...result });
+    } catch (error) {
+      console.error("Error fetching folder messages:", error);
+      res.status(500).json({ error: "Failed to fetch folder messages" });
+    }
+  });
+
+  // Get single email detail
+  app.get("/api/users/:userId/ms365-email/:emailId", requireAuth, async (req, res) => {
+    try {
+      const { userId, emailId } = req.params;
+      const mailboxEmail = req.query.mailbox as string | undefined;
+      
+      const ms365Connection = await storage.getUserMs365Connection(userId);
+      if (!ms365Connection || !ms365Connection.isConnected) {
+        return res.status(400).json({ error: "MS365 not connected" });
+      }
+      
+      const { decryptTokenSafe } = await import("./lib/token-crypto");
+      const { getValidAccessToken, getEmailById, markEmailAsRead } = await import("./lib/ms365");
+      
+      let accessToken: string;
+      let refreshToken: string | null;
+      
+      try {
+        accessToken = decryptTokenSafe(ms365Connection.accessToken);
+        refreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+      } catch {
+        return res.status(400).json({ error: "Token decryption failed" });
+      }
+      
+      const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, refreshToken);
+      if (!tokenResult?.accessToken) {
+        return res.status(401).json({ error: "Token expired", requiresReauth: true });
+      }
+      
+      const email = await getEmailById(
+        tokenResult.accessToken, 
+        emailId, 
+        mailboxEmail === "personal" ? undefined : mailboxEmail
+      );
+      
+      if (!email) {
+        return res.status(404).json({ error: "Email not found" });
+      }
+      
+      // Mark as read automatically
+      if (!email.isRead) {
+        await markEmailAsRead(tokenResult.accessToken, emailId, true, mailboxEmail === "personal" ? undefined : mailboxEmail);
+      }
+      
+      res.json(email);
+    } catch (error) {
+      console.error("Error fetching email:", error);
+      res.status(500).json({ error: "Failed to fetch email" });
+    }
+  });
+
+  // Send email with signature
+  app.post("/api/users/:userId/ms365-send-email", requireAuth, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { to, cc, bcc, subject, body, isHtml, mailboxEmail } = req.body;
+      
+      if (!to || !Array.isArray(to) || to.length === 0) {
+        return res.status(400).json({ error: "Recipient is required" });
+      }
+      
+      const ms365Connection = await storage.getUserMs365Connection(userId);
+      if (!ms365Connection || !ms365Connection.isConnected) {
+        return res.status(400).json({ error: "MS365 not connected" });
+      }
+      
+      const { decryptTokenSafe } = await import("./lib/token-crypto");
+      const { getValidAccessToken, sendEmailWithSignature } = await import("./lib/ms365");
+      
+      let accessToken: string;
+      let refreshToken: string | null;
+      
+      try {
+        accessToken = decryptTokenSafe(ms365Connection.accessToken);
+        refreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+      } catch {
+        return res.status(400).json({ error: "Token decryption failed" });
+      }
+      
+      const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, refreshToken);
+      if (!tokenResult?.accessToken) {
+        return res.status(401).json({ error: "Token expired", requiresReauth: true });
+      }
+      
+      // Get signature for this mailbox
+      const signatureMailbox = mailboxEmail || "personal";
+      const signature = await storage.getEmailSignature(userId, signatureMailbox);
+      const signatureHtml = signature?.isActive ? signature.htmlContent : "";
+      
+      const success = await sendEmailWithSignature(
+        tokenResult.accessToken,
+        to,
+        subject || "",
+        body || "",
+        signatureHtml,
+        isHtml !== false,
+        cc || [],
+        bcc || [],
+        mailboxEmail === "personal" ? undefined : mailboxEmail
+      );
+      
+      if (success) {
+        res.json({ success: true, message: "Email sent successfully" });
+      } else {
+        res.status(500).json({ error: "Failed to send email" });
+      }
+    } catch (error) {
+      console.error("Error sending email:", error);
+      res.status(500).json({ error: "Failed to send email" });
+    }
+  });
+
+  // Reply to email
+  app.post("/api/users/:userId/ms365-reply/:emailId", requireAuth, async (req, res) => {
+    try {
+      const { userId, emailId } = req.params;
+      const { body, isHtml, replyAll, mailboxEmail } = req.body;
+      
+      const ms365Connection = await storage.getUserMs365Connection(userId);
+      if (!ms365Connection || !ms365Connection.isConnected) {
+        return res.status(400).json({ error: "MS365 not connected" });
+      }
+      
+      const { decryptTokenSafe } = await import("./lib/token-crypto");
+      const { getValidAccessToken, replyToEmail } = await import("./lib/ms365");
+      
+      let accessToken: string;
+      let refreshToken: string | null;
+      
+      try {
+        accessToken = decryptTokenSafe(ms365Connection.accessToken);
+        refreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+      } catch {
+        return res.status(400).json({ error: "Token decryption failed" });
+      }
+      
+      const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, refreshToken);
+      if (!tokenResult?.accessToken) {
+        return res.status(401).json({ error: "Token expired", requiresReauth: true });
+      }
+      
+      // Get signature
+      const signatureMailbox = mailboxEmail || "personal";
+      const signature = await storage.getEmailSignature(userId, signatureMailbox);
+      const signatureHtml = signature?.isActive ? signature.htmlContent : "";
+      
+      const success = await replyToEmail(
+        tokenResult.accessToken,
+        emailId,
+        body || "",
+        signatureHtml,
+        isHtml !== false,
+        replyAll === true,
+        mailboxEmail === "personal" ? undefined : mailboxEmail
+      );
+      
+      if (success) {
+        res.json({ success: true, message: "Reply sent successfully" });
+      } else {
+        res.status(500).json({ error: "Failed to send reply" });
+      }
+    } catch (error) {
+      console.error("Error replying to email:", error);
+      res.status(500).json({ error: "Failed to send reply" });
+    }
+  });
+
+  // Forward email
+  app.post("/api/users/:userId/ms365-forward/:emailId", requireAuth, async (req, res) => {
+    try {
+      const { userId, emailId } = req.params;
+      const { to, body, isHtml, mailboxEmail } = req.body;
+      
+      if (!to || !Array.isArray(to) || to.length === 0) {
+        return res.status(400).json({ error: "Recipient is required" });
+      }
+      
+      const ms365Connection = await storage.getUserMs365Connection(userId);
+      if (!ms365Connection || !ms365Connection.isConnected) {
+        return res.status(400).json({ error: "MS365 not connected" });
+      }
+      
+      const { decryptTokenSafe } = await import("./lib/token-crypto");
+      const { getValidAccessToken, forwardEmail } = await import("./lib/ms365");
+      
+      let accessToken: string;
+      let refreshToken: string | null;
+      
+      try {
+        accessToken = decryptTokenSafe(ms365Connection.accessToken);
+        refreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+      } catch {
+        return res.status(400).json({ error: "Token decryption failed" });
+      }
+      
+      const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, refreshToken);
+      if (!tokenResult?.accessToken) {
+        return res.status(401).json({ error: "Token expired", requiresReauth: true });
+      }
+      
+      // Get signature
+      const signatureMailbox = mailboxEmail || "personal";
+      const signature = await storage.getEmailSignature(userId, signatureMailbox);
+      const signatureHtml = signature?.isActive ? signature.htmlContent : "";
+      
+      const success = await forwardEmail(
+        tokenResult.accessToken,
+        emailId,
+        to,
+        body || "",
+        signatureHtml,
+        isHtml !== false,
+        mailboxEmail === "personal" ? undefined : mailboxEmail
+      );
+      
+      if (success) {
+        res.json({ success: true, message: "Email forwarded successfully" });
+      } else {
+        res.status(500).json({ error: "Failed to forward email" });
+      }
+    } catch (error) {
+      console.error("Error forwarding email:", error);
+      res.status(500).json({ error: "Failed to forward email" });
+    }
+  });
+
+  // Delete email
+  app.delete("/api/users/:userId/ms365-email/:emailId", requireAuth, async (req, res) => {
+    try {
+      const { userId, emailId } = req.params;
+      const mailboxEmail = req.query.mailbox as string | undefined;
+      
+      const ms365Connection = await storage.getUserMs365Connection(userId);
+      if (!ms365Connection || !ms365Connection.isConnected) {
+        return res.status(400).json({ error: "MS365 not connected" });
+      }
+      
+      const { decryptTokenSafe } = await import("./lib/token-crypto");
+      const { getValidAccessToken, deleteEmail } = await import("./lib/ms365");
+      
+      let accessToken: string;
+      let refreshToken: string | null;
+      
+      try {
+        accessToken = decryptTokenSafe(ms365Connection.accessToken);
+        refreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+      } catch {
+        return res.status(400).json({ error: "Token decryption failed" });
+      }
+      
+      const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, refreshToken);
+      if (!tokenResult?.accessToken) {
+        return res.status(401).json({ error: "Token expired", requiresReauth: true });
+      }
+      
+      const success = await deleteEmail(
+        tokenResult.accessToken,
+        emailId,
+        mailboxEmail === "personal" ? undefined : mailboxEmail
+      );
+      
+      if (success) {
+        res.json({ success: true, message: "Email deleted" });
+      } else {
+        res.status(500).json({ error: "Failed to delete email" });
+      }
+    } catch (error) {
+      console.error("Error deleting email:", error);
+      res.status(500).json({ error: "Failed to delete email" });
+    }
+  });
+
+  // =====================================
+  // EMAIL SIGNATURES API
+  // =====================================
+
+  // Get all signatures for user
+  app.get("/api/users/:userId/email-signatures", requireAuth, async (req, res) => {
+    try {
+      const signatures = await storage.getEmailSignatures(req.params.userId);
+      res.json(signatures);
+    } catch (error) {
+      console.error("Error fetching email signatures:", error);
+      res.status(500).json({ error: "Failed to fetch email signatures" });
+    }
+  });
+
+  // Get signature for specific mailbox
+  app.get("/api/users/:userId/email-signatures/:mailboxEmail", requireAuth, async (req, res) => {
+    try {
+      const signature = await storage.getEmailSignature(req.params.userId, req.params.mailboxEmail);
+      res.json(signature || { htmlContent: "", isActive: false });
+    } catch (error) {
+      console.error("Error fetching email signature:", error);
+      res.status(500).json({ error: "Failed to fetch email signature" });
+    }
+  });
+
+  // Create/Update signature
+  app.put("/api/users/:userId/email-signatures/:mailboxEmail", requireAuth, async (req, res) => {
+    try {
+      const { userId, mailboxEmail } = req.params;
+      const { htmlContent, isActive } = req.body;
+      
+      const signature = await storage.upsertEmailSignature({
+        userId,
+        mailboxEmail,
+        htmlContent: htmlContent || "",
+        isActive: isActive !== false,
+      });
+      
+      res.json(signature);
+    } catch (error) {
+      console.error("Error saving email signature:", error);
+      res.status(500).json({ error: "Failed to save email signature" });
+    }
+  });
+
+  // Delete signature
+  app.delete("/api/users/:userId/email-signatures/:mailboxEmail", requireAuth, async (req, res) => {
+    try {
+      const deleted = await storage.deleteEmailSignature(req.params.userId, req.params.mailboxEmail);
+      if (!deleted) {
+        return res.status(404).json({ error: "Signature not found" });
+      }
+      res.json({ message: "Signature deleted" });
+    } catch (error) {
+      console.error("Error deleting email signature:", error);
+      res.status(500).json({ error: "Failed to delete email signature" });
+    }
+  });
+
   // Tasks API (protected)
   app.get("/api/tasks", requireAuth, async (req, res) => {
     try {

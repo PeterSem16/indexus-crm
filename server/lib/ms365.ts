@@ -513,4 +513,234 @@ export function getLogoutUrl(): string {
   return `https://login.microsoftonline.com/${MS365_CONFIG.tenantId}/oauth2/v2.0/logout?post_logout_redirect_uri=${encodeURIComponent(MS365_CONFIG.postLogoutRedirectUri)}`;
 }
 
+/**
+ * Get mail folders (inbox, sent, drafts, etc.)
+ */
+export async function getMailFolders(accessToken: string, mailboxEmail?: string): Promise<any[]> {
+  const client = createGraphClient(accessToken);
+  const basePath = mailboxEmail ? `/users/${mailboxEmail}` : '/me';
+  
+  try {
+    const result = await client.api(`${basePath}/mailFolders`)
+      .select('id,displayName,parentFolderId,childFolderCount,unreadItemCount,totalItemCount')
+      .top(50)
+      .get();
+    return result.value || [];
+  } catch (error) {
+    console.error(`[MS365] Error getting mail folders:`, error);
+    return [];
+  }
+}
+
+/**
+ * Get emails from a specific folder
+ */
+export async function getMailFolderMessages(
+  accessToken: string,
+  folderId: string,
+  mailboxEmail?: string,
+  top: number = 50,
+  skip: number = 0
+): Promise<{ emails: any[]; totalCount: number }> {
+  const client = createGraphClient(accessToken);
+  const basePath = mailboxEmail ? `/users/${mailboxEmail}` : '/me';
+  
+  try {
+    const countResult = await client.api(`${basePath}/mailFolders/${folderId}/messages/$count`).get();
+    
+    const result = await client.api(`${basePath}/mailFolders/${folderId}/messages`)
+      .select('id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,isRead,bodyPreview,hasAttachments,importance,flag')
+      .orderby('receivedDateTime desc')
+      .top(top)
+      .skip(skip)
+      .get();
+    
+    return { emails: result.value || [], totalCount: countResult || 0 };
+  } catch (error) {
+    console.error(`[MS365] Error getting folder messages:`, error);
+    return { emails: [], totalCount: 0 };
+  }
+}
+
+/**
+ * Get single email with full body
+ */
+export async function getEmailById(
+  accessToken: string,
+  emailId: string,
+  mailboxEmail?: string
+): Promise<any | null> {
+  const client = createGraphClient(accessToken);
+  const basePath = mailboxEmail ? `/users/${mailboxEmail}` : '/me';
+  
+  try {
+    const result = await client.api(`${basePath}/messages/${emailId}`)
+      .select('id,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,body,bodyPreview,hasAttachments,importance,flag,conversationId,internetMessageId')
+      .get();
+    return result;
+  } catch (error) {
+    console.error(`[MS365] Error getting email by ID:`, error);
+    return null;
+  }
+}
+
+/**
+ * Mark email as read/unread
+ */
+export async function markEmailAsRead(
+  accessToken: string,
+  emailId: string,
+  isRead: boolean = true,
+  mailboxEmail?: string
+): Promise<boolean> {
+  const client = createGraphClient(accessToken);
+  const basePath = mailboxEmail ? `/users/${mailboxEmail}` : '/me';
+  
+  try {
+    await client.api(`${basePath}/messages/${emailId}`)
+      .update({ isRead });
+    return true;
+  } catch (error) {
+    console.error(`[MS365] Error marking email as read:`, error);
+    return false;
+  }
+}
+
+/**
+ * Send email with optional HTML signature
+ */
+export async function sendEmailWithSignature(
+  accessToken: string,
+  to: string[],
+  subject: string,
+  body: string,
+  signature: string = '',
+  isHtml: boolean = true,
+  cc: string[] = [],
+  bcc: string[] = [],
+  mailboxEmail?: string
+): Promise<boolean> {
+  const client = createGraphClient(accessToken);
+  const basePath = mailboxEmail ? `/users/${mailboxEmail}` : '/me';
+  
+  let finalBody = body;
+  if (signature && isHtml) {
+    finalBody = `${body}<br/><br/>--<br/>${signature}`;
+  } else if (signature) {
+    finalBody = `${body}\n\n--\n${signature}`;
+  }
+  
+  const message = {
+    subject,
+    body: {
+      contentType: isHtml ? 'HTML' : 'Text',
+      content: finalBody,
+    },
+    toRecipients: to.map(email => ({ emailAddress: { address: email } })),
+    ccRecipients: cc.map(email => ({ emailAddress: { address: email } })),
+    bccRecipients: bcc.map(email => ({ emailAddress: { address: email } })),
+  };
+  
+  try {
+    await client.api(`${basePath}/sendMail`).post({ message, saveToSentItems: true });
+    return true;
+  } catch (error) {
+    console.error('[MS365] Error sending email with signature:', error);
+    return false;
+  }
+}
+
+/**
+ * Reply to an email
+ */
+export async function replyToEmail(
+  accessToken: string,
+  emailId: string,
+  body: string,
+  signature: string = '',
+  isHtml: boolean = true,
+  replyAll: boolean = false,
+  mailboxEmail?: string
+): Promise<boolean> {
+  const client = createGraphClient(accessToken);
+  const basePath = mailboxEmail ? `/users/${mailboxEmail}` : '/me';
+  
+  let finalBody = body;
+  if (signature && isHtml) {
+    finalBody = `${body}<br/><br/>--<br/>${signature}`;
+  } else if (signature) {
+    finalBody = `${body}\n\n--\n${signature}`;
+  }
+  
+  const reply = {
+    message: {},
+    comment: finalBody,
+  };
+  
+  try {
+    const endpoint = replyAll ? 'replyAll' : 'reply';
+    await client.api(`${basePath}/messages/${emailId}/${endpoint}`).post(reply);
+    return true;
+  } catch (error) {
+    console.error('[MS365] Error replying to email:', error);
+    return false;
+  }
+}
+
+/**
+ * Forward an email
+ */
+export async function forwardEmail(
+  accessToken: string,
+  emailId: string,
+  to: string[],
+  body: string,
+  signature: string = '',
+  isHtml: boolean = true,
+  mailboxEmail?: string
+): Promise<boolean> {
+  const client = createGraphClient(accessToken);
+  const basePath = mailboxEmail ? `/users/${mailboxEmail}` : '/me';
+  
+  let finalBody = body;
+  if (signature && isHtml) {
+    finalBody = `${body}<br/><br/>--<br/>${signature}`;
+  } else if (signature) {
+    finalBody = `${body}\n\n--\n${signature}`;
+  }
+  
+  const forward = {
+    toRecipients: to.map(email => ({ emailAddress: { address: email } })),
+    comment: finalBody,
+  };
+  
+  try {
+    await client.api(`${basePath}/messages/${emailId}/forward`).post(forward);
+    return true;
+  } catch (error) {
+    console.error('[MS365] Error forwarding email:', error);
+    return false;
+  }
+}
+
+/**
+ * Delete email (move to deleted items)
+ */
+export async function deleteEmail(
+  accessToken: string,
+  emailId: string,
+  mailboxEmail?: string
+): Promise<boolean> {
+  const client = createGraphClient(accessToken);
+  const basePath = mailboxEmail ? `/users/${mailboxEmail}` : '/me';
+  
+  try {
+    await client.api(`${basePath}/messages/${emailId}`).delete();
+    return true;
+  } catch (error) {
+    console.error('[MS365] Error deleting email:', error);
+    return false;
+  }
+}
+
 export { MS365_CONFIG, GRAPH_SCOPES };
