@@ -3101,11 +3101,11 @@ export async function registerRoutes(
       // Log activity
       await logActivity(
         req.session.user!.id,
-        "create_note",
+        "note_added",
         "customer",
         customer.id,
         `${customer.firstName} ${customer.lastName}`,
-        { noteId: note.id },
+        { noteId: note.id, content },
         req.ip
       );
 

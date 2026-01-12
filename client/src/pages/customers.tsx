@@ -1742,6 +1742,17 @@ function CustomerDetailsContent({
         return <Mail className="h-4 w-4 text-sky-600" />;
       case "send_sms":
         return <MessageSquare className="h-4 w-4 text-teal-600" />;
+      case "note_added":
+      case "add_note":
+      case "create_note":
+        return <FileEdit className="h-4 w-4 text-amber-600" />;
+      case "pipeline_move":
+      case "stage_changed":
+        return <ArrowRight className="h-4 w-4 text-cyan-600" />;
+      case "campaign_joined":
+        return <LogIn className="h-4 w-4 text-purple-600" />;
+      case "campaign_left":
+        return <LogOut className="h-4 w-4 text-purple-600" />;
       default:
         return <AlertCircle className="h-4 w-4 text-gray-500" />;
     }
@@ -1763,6 +1774,9 @@ function CustomerDetailsContent({
       stage_changed: "Presun v pipeline",
       campaign_joined: "Pridanie do kampane",
       campaign_left: "Odstránenie z kampane",
+      note_added: "Poznámka pridaná",
+      add_note: "Poznámka pridaná",
+      create_note: "Poznámka pridaná",
     };
     return labels[action] || action.replace(/_/g, " ");
   };
@@ -1799,9 +1813,19 @@ function CustomerDetailsContent({
     if (action === "campaign_joined" || action === "campaign_left") {
       const campaignName = (details.campaignName as string) || "Kampaň";
       return (
-        <p className="mt-1 text-sm text-muted-foreground">
-          {action === "campaign_joined" ? "Pridaný do" : "Odstránený z"}: <strong>{campaignName}</strong>
-        </p>
+        <div className="mt-2 p-2 rounded-md bg-purple-50 dark:bg-purple-950/50 border border-purple-200 dark:border-purple-800 text-sm">
+          <span className="text-muted-foreground">{action === "campaign_joined" ? "Pridaný do:" : "Odstránený z:"}</span>{" "}
+          <strong>{campaignName}</strong>
+        </div>
+      );
+    }
+
+    if (action === "note_added" || action === "add_note" || action === "create_note") {
+      const noteContent = (details.content as string) || (details.noteContent as string) || "";
+      return (
+        <div className="mt-2 p-2 rounded-md bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 text-sm">
+          <p className="text-foreground whitespace-pre-wrap">{noteContent || "—"}</p>
+        </div>
       );
     }
     
