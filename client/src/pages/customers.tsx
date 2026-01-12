@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, Phone, PhoneCall, Baby, Copy, ListChecks, FileEdit, UserCircle, Clock, PlusCircle, RefreshCw, XCircle, LogIn, LogOut, AlertCircle, CheckCircle2, ArrowRight, Shield, CreditCard, Loader2, Calendar, Globe, Linkedin, Facebook, Twitter, Instagram, Building2, ExternalLink, Sparkles, FileSignature, Receipt } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, Phone, PhoneCall, Baby, Copy, ListChecks, FileEdit, UserCircle, Clock, PlusCircle, RefreshCw, XCircle, LogIn, LogOut, AlertCircle, CheckCircle2, ArrowRight, Shield, CreditCard, Loader2, Calendar, Globe, Linkedin, Facebook, Twitter, Instagram, Building2, ExternalLink, Sparkles, FileSignature, Receipt, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -886,6 +886,7 @@ const TIMELINE_ACTION_TYPES = [
   { value: "product", label: "Produkty", icon: Package, activeClass: "bg-gradient-to-br from-indigo-500 to-indigo-600 border-indigo-600 shadow-lg shadow-indigo-500/25", textColor: "text-white", inactiveClass: "bg-indigo-50 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800 hover:border-indigo-400 dark:hover:border-indigo-600 hover:shadow-sm", inactiveTextColor: "text-indigo-600 dark:text-indigo-400" },
   { value: "pipeline", label: "Pipeline", icon: ArrowRight, activeClass: "bg-gradient-to-br from-cyan-500 to-cyan-600 border-cyan-600 shadow-lg shadow-cyan-500/25", textColor: "text-white", inactiveClass: "bg-cyan-50 dark:bg-cyan-950/30 border-cyan-200 dark:border-cyan-800 hover:border-cyan-400 dark:hover:border-cyan-600 hover:shadow-sm", inactiveTextColor: "text-cyan-600 dark:text-cyan-400" },
   { value: "consent", label: "Súhlasy", icon: Shield, activeClass: "bg-gradient-to-br from-teal-500 to-teal-600 border-teal-600 shadow-lg shadow-teal-500/25", textColor: "text-white", inactiveClass: "bg-teal-50 dark:bg-teal-950/30 border-teal-200 dark:border-teal-800 hover:border-teal-400 dark:hover:border-teal-600 hover:shadow-sm", inactiveTextColor: "text-teal-600 dark:text-teal-400" },
+  { value: "campaign", label: "Kampane", icon: Target, activeClass: "bg-gradient-to-br from-violet-500 to-violet-600 border-violet-600 shadow-lg shadow-violet-500/25", textColor: "text-white", inactiveClass: "bg-violet-50 dark:bg-violet-950/30 border-violet-200 dark:border-violet-800 hover:border-violet-400 dark:hover:border-violet-600 hover:shadow-sm", inactiveTextColor: "text-violet-600 dark:text-violet-400" },
 ] as const;
 
 // Field label translations for displaying changes
@@ -1104,6 +1105,14 @@ function CustomerHistoryTimeline({
         icon = Shield;
         color = log.action === "consent_granted" ? "text-green-500" : "text-red-500";
         type = "consent";
+      } else if (log.action === "campaign_joined" || log.action === "campaign_left" || log.action === "campaign_status_changed" || log.action === "campaign_note_added") {
+        icon = Target;
+        color = "text-violet-500";
+        type = "campaign";
+      } else if (log.action === "note_added" || log.action === "add_note") {
+        icon = MessageSquare;
+        color = "text-amber-500";
+        type = "note";
       }
 
       const actionLabels: Record<string, string> = {
@@ -1118,6 +1127,12 @@ function CustomerHistoryTimeline({
         stage_changed: "Presun v pipeline",
         consent_granted: "Udelenie súhlasu",
         consent_revoked: "Odvolanie súhlasu",
+        campaign_joined: "Pridanie do kampane",
+        campaign_left: "Odstránenie z kampane",
+        campaign_status_changed: "Zmena statusu v kampani",
+        campaign_note_added: "Poznámka ku kampani",
+        note_added: "Pridanie poznámky",
+        add_note: "Pridanie poznámky",
       };
 
       // Build enriched description based on action type
@@ -1130,6 +1145,17 @@ function CustomerHistoryTimeline({
         enrichedDescription = getProductName(details.productId);
       } else if ((log.action === "consent_granted" || log.action === "consent_revoked") && details?.consentType) {
         enrichedDescription = details.consentType;
+      } else if (log.action === "campaign_joined" || log.action === "campaign_left") {
+        enrichedDescription = details?.campaignName || "Kampaň";
+      } else if (log.action === "campaign_status_changed" && details) {
+        const campaignName = details.campaignName || "Kampaň";
+        const prevStatus = details.previousStatus || "—";
+        const newStatus = details.newStatus || "—";
+        enrichedDescription = `${campaignName}: ${prevStatus} → ${newStatus}`;
+      } else if (log.action === "campaign_note_added" && details) {
+        enrichedDescription = details.campaignName || "Kampaň";
+      } else if ((log.action === "note_added" || log.action === "add_note") && details?.content) {
+        enrichedDescription = details.content.substring(0, 50) + (details.content.length > 50 ? "..." : "");
       }
 
       events.push({
@@ -1376,32 +1402,34 @@ function CustomerHistoryTimeline({
 
   return (
     <div className="space-y-4">
-      {/* Search and Sort Controls */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Hľadať v histórii..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-            data-testid="input-timeline-search"
-          />
+      {/* Sticky Header with Search, Sort and Filter Tiles */}
+      <div className="sticky top-0 z-50 bg-background pb-4 space-y-3">
+        {/* Search and Sort Controls */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Hľadať v histórii..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+              data-testid="input-timeline-search"
+            />
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setSortOrder(sortOrder === "desc" ? "asc" : "desc")}
+            className="gap-2"
+            data-testid="button-timeline-sort"
+          >
+            <Clock className="h-4 w-4" />
+            {sortOrder === "desc" ? "Najnovšie" : "Najstaršie"}
+          </Button>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setSortOrder(sortOrder === "desc" ? "asc" : "desc")}
-          className="gap-2"
-          data-testid="button-timeline-sort"
-        >
-          <Clock className="h-4 w-4" />
-          {sortOrder === "desc" ? "Najnovšie" : "Najstaršie"}
-        </Button>
-      </div>
 
-      {/* Filter Tiles */}
-      <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-2">
+        {/* Filter Tiles */}
+        <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-10 gap-2">
         {TIMELINE_ACTION_TYPES.map((type) => {
           const count = eventCounts[type.value] || 0;
           const isActive = filterType === type.value;
@@ -1422,6 +1450,7 @@ function CustomerHistoryTimeline({
             </button>
           );
         })}
+        </div>
       </div>
 
       {/* Timeline */}
