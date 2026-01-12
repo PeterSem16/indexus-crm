@@ -1746,21 +1746,24 @@ export async function registerRoutes(
       }
       
       // Determine which mailbox to use
+      // mailboxId = null means use personal mailbox (explicit choice from frontend)
+      // mailboxId = undefined means use default mailbox behavior
+      // mailboxId = string means use specific shared mailbox
       let sharedMailboxEmail: string | null = null;
       
-      if (mailboxId) {
-        // Specific mailbox requested
+      if (mailboxId === null) {
+        // Explicit personal mailbox - do not use shared mailbox
+        sharedMailboxEmail = null;
+      } else if (mailboxId) {
+        // Specific shared mailbox requested
         const mailbox = await storage.getUserMs365SharedMailbox(mailboxId);
         if (!mailbox || mailbox.userId !== userId) {
           return res.status(400).json({ error: "Invalid mailbox" });
         }
         sharedMailboxEmail = mailbox.email;
       } else {
-        // Use default mailbox
-        const defaultMailbox = await storage.getDefaultUserMs365SharedMailbox(userId);
-        if (defaultMailbox) {
-          sharedMailboxEmail = defaultMailbox.email;
-        }
+        // mailboxId is undefined - use personal mailbox by default (safest choice)
+        sharedMailboxEmail = null;
       }
       
       const toArray = Array.isArray(to) ? to : [to];
