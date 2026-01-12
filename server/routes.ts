@@ -1789,9 +1789,25 @@ export async function registerRoutes(
         await sendEmail(tokenResult.accessToken, toArray, subject, body, isHtml !== false);
         res.json({ message: "Email sent successfully from your mailbox", from: ms365Connection.email });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error sending MS365 email from mailbox:", error);
-      res.status(500).json({ error: "Failed to send email" });
+      
+      // Check for specific Graph API errors and provide better messages
+      if (error.code === 'ErrorSendAsDenied') {
+        return res.status(403).json({ 
+          error: "Nemáte oprávnenie odosielať emaily z tejto zdieľanej schránky. Požiadajte administrátora Exchange o nastavenie oprávnenia 'Send As' alebo 'Send on Behalf'.",
+          code: 'SEND_AS_DENIED'
+        });
+      }
+      
+      if (error.code === 'ErrorItemNotFound' || error.statusCode === 404) {
+        return res.status(404).json({ 
+          error: "Schránka nebola nájdená. Skontrolujte emailovú adresu zdieľanej schránky.",
+          code: 'MAILBOX_NOT_FOUND'
+        });
+      }
+      
+      res.status(500).json({ error: "Nepodarilo sa odoslať email. Skúste to znova." });
     }
   });
   
@@ -2107,7 +2123,8 @@ export async function registerRoutes(
       const sharedEmails = sharedMailboxes.filter(m => m.isActive).map(m => m.email);
       
       const counts = await getAllMailboxUnreadCounts(tokenResult.accessToken, sharedEmails);
-      const totalUnread = counts.reduce((sum, c) => sum + c.unreadCount, 0);
+      // Only sum accessible mailboxes with positive counts
+      const totalUnread = counts.reduce((sum, c) => sum + (c.accessible && c.unreadCount > 0 ? c.unreadCount : 0), 0);
       
       res.json({ 
         connected: true, 

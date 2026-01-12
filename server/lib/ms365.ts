@@ -387,9 +387,11 @@ export async function getContacts(accessToken: string, top: number = 50): Promis
  * @param accessToken - Access token
  * @param mailboxEmail - Optional shared mailbox email. If not provided, uses user's own mailbox.
  */
-export async function getUnreadEmailCount(accessToken: string, mailboxEmail?: string): Promise<number> {
+export async function getUnreadEmailCount(accessToken: string, mailboxEmail?: string): Promise<{ count: number; accessible: boolean }> {
   const client = createGraphClient(accessToken);
   
+  // For shared mailboxes, we need to use a different approach
+  // Using /me/mailFolders with shared mailbox requires Full Access delegation in Exchange
   const basePath = mailboxEmail ? `/users/${mailboxEmail}` : '/me';
   
   try {
@@ -397,10 +399,15 @@ export async function getUnreadEmailCount(accessToken: string, mailboxEmail?: st
       .select('unreadItemCount')
       .get();
     
-    return result.unreadItemCount || 0;
-  } catch (error) {
+    return { count: result.unreadItemCount || 0, accessible: true };
+  } catch (error: any) {
+    // Check if this is a permission/access error for shared mailbox
+    if (mailboxEmail && (error.code === 'ErrorItemNotFound' || error.code === 'ErrorAccessDenied' || error.statusCode === 404 || error.statusCode === 403)) {
+      console.warn(`[MS365] No access to shared mailbox ${mailboxEmail} - user may need Full Access delegation`);
+      return { count: -1, accessible: false };
+    }
     console.error(`[MS365] Error getting unread count for ${mailboxEmail || 'me'}:`, error);
-    return 0;
+    return { count: 0, accessible: true };
   }
 }
 
@@ -445,17 +452,17 @@ export async function getRecentEmails(
 export async function getAllMailboxUnreadCounts(
   accessToken: string, 
   sharedMailboxEmails: string[]
-): Promise<{ mailbox: string; unreadCount: number }[]> {
-  const results: { mailbox: string; unreadCount: number }[] = [];
+): Promise<{ mailbox: string; unreadCount: number; accessible: boolean }[]> {
+  const results: { mailbox: string; unreadCount: number; accessible: boolean }[] = [];
   
   // Get user's own mailbox count
-  const personalCount = await getUnreadEmailCount(accessToken);
-  results.push({ mailbox: 'personal', unreadCount: personalCount });
+  const personalResult = await getUnreadEmailCount(accessToken);
+  results.push({ mailbox: 'personal', unreadCount: personalResult.count, accessible: personalResult.accessible });
   
   // Get shared mailbox counts
   for (const email of sharedMailboxEmails) {
-    const count = await getUnreadEmailCount(accessToken, email);
-    results.push({ mailbox: email, unreadCount: count });
+    const sharedResult = await getUnreadEmailCount(accessToken, email);
+    results.push({ mailbox: email, unreadCount: sharedResult.count, accessible: sharedResult.accessible });
   }
   
   return results;
