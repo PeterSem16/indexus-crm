@@ -87,6 +87,22 @@ interface CustomerConsent {
   updatedAt: string | null;
 }
 
+interface CustomerDocument {
+  id: string;
+  type: "contract" | "invoice";
+  number: string;
+  status: string;
+  createdAt: string;
+  createdBy: string | null;
+  createdByName: string | null;
+  pdfPath: string | null;
+  totalAmount: string | null;
+  currency: string;
+  validFrom?: string | null;
+  validTo?: string | null;
+  dueDate?: string | null;
+}
+
 const CONSENT_TYPE_VALUES = [
   "marketing_email",
   "marketing_sms",
@@ -105,6 +121,169 @@ const LEGAL_BASIS_VALUES = [
   "public_task",
   "legitimate_interests",
 ] as const;
+
+function DocumentsTab({ customerId }: { customerId: string }) {
+  const { data: documents = [], isLoading } = useQuery<CustomerDocument[]>({
+    queryKey: ["/api/customers", customerId, "documents"],
+    queryFn: async () => {
+      const res = await fetch(`/api/customers/${customerId}/documents`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch documents");
+      return res.json();
+    },
+  });
+
+  const getStatusBadgeVariant = (type: string, status: string) => {
+    if (type === "contract") {
+      switch (status) {
+        case "signed": case "completed": return "default";
+        case "sent": case "pending_signature": return "secondary";
+        case "draft": return "outline";
+        case "cancelled": case "expired": return "destructive";
+        default: return "outline";
+      }
+    } else {
+      switch (status) {
+        case "paid": return "default";
+        case "sent": return "secondary";
+        case "generated": return "outline";
+        case "overdue": return "destructive";
+        default: return "outline";
+      }
+    }
+  };
+
+  const getStatusLabel = (type: string, status: string) => {
+    if (type === "contract") {
+      switch (status) {
+        case "draft": return "Koncept";
+        case "sent": return "Odoslaná";
+        case "pending_signature": return "Čaká na podpis";
+        case "signed": return "Podpísaná";
+        case "completed": return "Dokončená";
+        case "cancelled": return "Zrušená";
+        case "expired": return "Expirovaná";
+        default: return status;
+      }
+    } else {
+      switch (status) {
+        case "generated": return "Vygenerovaná";
+        case "sent": return "Odoslaná";
+        case "paid": return "Uhradená";
+        case "overdue": return "Po splatnosti";
+        default: return status;
+      }
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (documents.length === 0) {
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
+        <p className="font-medium">Žiadne dokumenty</p>
+        <p className="text-sm">Klient zatiaľ nemá žiadne zmluvy ani faktúry.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 mb-4">
+        <FileText className="h-5 w-5" />
+        <h4 className="font-semibold">Dokumenty ({documents.length})</h4>
+      </div>
+
+      <div className="relative">
+        <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
+        
+        <div className="space-y-4">
+          {documents.map((doc, index) => (
+            <div key={doc.id} className="relative pl-10">
+              <div className={`absolute left-2.5 w-3 h-3 rounded-full border-2 ${
+                doc.type === "contract" ? "bg-primary border-primary" : "bg-blue-500 border-blue-500"
+              }`} />
+              
+              <div className="border rounded-lg p-4 bg-card">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      {doc.type === "contract" ? (
+                        <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30">
+                          Zmluva
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-600 border-blue-500/30">
+                          Faktúra
+                        </Badge>
+                      )}
+                      <Badge variant={getStatusBadgeVariant(doc.type, doc.status) as any}>
+                        {getStatusLabel(doc.type, doc.status)}
+                      </Badge>
+                    </div>
+                    
+                    <p className="font-medium">{doc.number}</p>
+                    
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3.5 w-3.5" />
+                        {format(new Date(doc.createdAt), "d.M.yyyy HH:mm")}
+                      </span>
+                      
+                      {doc.createdByName && (
+                        <span className="flex items-center gap-1">
+                          <UserCircle className="h-3.5 w-3.5" />
+                          {doc.createdByName}
+                        </span>
+                      )}
+                      
+                      {doc.totalAmount && (
+                        <span className="font-medium text-foreground">
+                          {parseFloat(doc.totalAmount).toLocaleString("sk-SK", { minimumFractionDigits: 2 })} {doc.currency}
+                        </span>
+                      )}
+                      
+                      {doc.type === "contract" && doc.validFrom && (
+                        <span>
+                          Platnosť: {format(new Date(doc.validFrom), "d.M.yyyy")}
+                          {doc.validTo && ` - ${format(new Date(doc.validTo), "d.M.yyyy")}`}
+                        </span>
+                      )}
+                      
+                      {doc.type === "invoice" && doc.dueDate && (
+                        <span>
+                          Splatnosť: {format(new Date(doc.dueDate), "d.M.yyyy")}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {doc.pdfPath && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open(doc.pdfPath!, "_blank")}
+                      data-testid={`button-download-${doc.type}-${doc.id}`}
+                    >
+                      <Download className="h-4 w-4 mr-1" />
+                      PDF
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function GdprTab({ customerId }: { customerId: string }) {
   const { t } = useI18n();
@@ -1180,7 +1359,7 @@ function CustomerDetailsContent({
       <Separator />
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className={`grid w-full ${customer.clientStatus === "acquired" ? "grid-cols-6" : "grid-cols-5"}`}>
+        <TabsList className={`grid w-full ${customer.clientStatus === "acquired" ? "grid-cols-7" : "grid-cols-6"}`}>
           <TabsTrigger value="overview" data-testid="tab-overview">
             <Package className="h-4 w-4 mr-2" />
             {t.customers.tabs.overview}
@@ -1191,6 +1370,10 @@ function CustomerDetailsContent({
               {t.customers.tabs.case}
             </TabsTrigger>
           )}
+          <TabsTrigger value="documents" data-testid="tab-documents">
+            <FileText className="h-4 w-4 mr-2" />
+            Dokumenty
+          </TabsTrigger>
           <TabsTrigger value="communicate" data-testid="tab-communicate">
             <Mail className="h-4 w-4 mr-2" />
             {t.customers.tabs.contact}
@@ -1630,6 +1813,10 @@ function CustomerDetailsContent({
               ))
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="documents" className="space-y-6 mt-4">
+          <DocumentsTab customerId={customer.id} />
         </TabsContent>
 
         <TabsContent value="gdpr" className="space-y-6 mt-4">

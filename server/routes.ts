@@ -2083,6 +2083,66 @@ export async function registerRoutes(
     }
   });
 
+  // Get all documents (contracts + invoices) for a customer with creator info
+  app.get("/api/customers/:customerId/documents", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.params.customerId;
+      
+      // Get contracts
+      const contracts = await storage.getContractInstancesByCustomer(customerId);
+      
+      // Get invoices
+      const invoices = await storage.getInvoicesByCustomer(customerId);
+      
+      // Get all users for creator lookup
+      const users = await storage.getUsers();
+      const userMap = new Map(users.map(u => [u.id, u]));
+      
+      // Transform contracts to document format
+      const contractDocs = contracts.map(c => ({
+        id: c.id,
+        type: "contract" as const,
+        number: c.contractNumber,
+        status: c.status,
+        createdAt: c.createdAt,
+        createdBy: c.createdBy,
+        createdByName: c.createdBy ? userMap.get(c.createdBy)?.fullName || userMap.get(c.createdBy)?.username : null,
+        pdfPath: c.pdfPath,
+        totalAmount: c.totalGrossAmount,
+        currency: c.currency,
+        validFrom: c.validFrom,
+        validTo: c.validTo,
+      }));
+      
+      // Transform invoices to document format
+      const invoiceDocs = invoices.map(i => ({
+        id: i.id,
+        type: "invoice" as const,
+        number: i.invoiceNumber,
+        status: i.status,
+        createdAt: i.generatedAt,
+        createdBy: null, // invoices don't have createdBy field
+        createdByName: null,
+        pdfPath: i.pdfPath,
+        totalAmount: i.totalAmount,
+        currency: i.currency,
+        dueDate: i.dueDate,
+      }));
+      
+      // Combine and sort by date (newest first)
+      const documents = [...contractDocs, ...invoiceDocs].sort((a, b) => {
+        const dateA = new Date(a.createdAt).getTime();
+        const dateB = new Date(b.createdAt).getTime();
+        return dateB - dateA;
+      });
+      
+      res.json(documents);
+    } catch (error) {
+      console.error("Error fetching customer documents:", error);
+      res.status(500).json({ error: "Failed to fetch customer documents" });
+    }
+  });
+
   // Generate invoice for a single customer
   app.post("/api/customers/:customerId/invoices/generate", requireAuth, async (req, res) => {
     try {
