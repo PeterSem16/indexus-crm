@@ -1483,9 +1483,9 @@ function CustomerHistoryTimeline({
                                 <div className="mt-2 p-2 rounded-md bg-cyan-50 dark:bg-cyan-950/50 border border-cyan-200 dark:border-cyan-800 text-xs">
                                   <div className="flex items-center gap-2">
                                     <span className="text-muted-foreground">Presun:</span>
-                                    <Badge variant="outline" className="bg-background">{event.details.fromStageId ? getStageName(event.details.fromStageId) : "—"}</Badge>
+                                    <Badge variant="outline" className="bg-background">{event.details.fromStageName || (event.details.fromStageId ? getStageName(event.details.fromStageId) : "—")}</Badge>
                                     <ArrowRight className="h-3 w-3 text-cyan-500" />
-                                    <Badge className="bg-cyan-600 text-white">{event.details.toStageId ? getStageName(event.details.toStageId) : "—"}</Badge>
+                                    <Badge className="bg-cyan-600 text-white">{event.details.toStageName || (event.details.toStageId ? getStageName(event.details.toStageId) : "—")}</Badge>
                                   </div>
                                 </div>
                               )}

@@ -7,7 +7,7 @@ import {
   ArrowLeft, Users, Settings, BarChart3, FileText, 
   Play, Pause, CheckCircle, Clock, Phone, User, Calendar,
   RefreshCw, Download, Filter, MoreHorizontal, Trash2, CheckCheck,
-  Copy, Save, ScrollText
+  Copy, Save, ScrollText, History, ArrowRight, Mail, MessageSquare, FileEdit, Package, Shield
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -30,6 +30,7 @@ import { ScriptBuilder } from "@/components/script-builder";
 import { ScriptRunner } from "@/components/script-runner";
 import { format } from "date-fns";
 import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -268,6 +269,28 @@ export default function CampaignDetailPage() {
     queryKey: ["/api/campaigns", campaignId, "stats"],
     enabled: !!campaignId,
   });
+
+  const selectedCustomerId = selectedContact?.customerId;
+  
+  const { data: contactActivityLogs = [] } = useQuery<Array<{
+    id: string;
+    action: string;
+    entityName: string | null;
+    details: any;
+    createdAt: string;
+  }>>({
+    queryKey: ["/api/customers", selectedCustomerId, "activity-logs"],
+    enabled: !!selectedCustomerId,
+  });
+
+  const { data: pipelineStages = [] } = useQuery<Array<{ id: string; name: string }>>({
+    queryKey: ["/api/pipeline-stages"],
+  });
+
+  const getStageName = (stageId: string) => {
+    const stage = pipelineStages.find(s => s.id === stageId);
+    return stage?.name || stageId;
+  };
 
   const generateContactsMutation = useMutation({
     mutationFn: async () => {
@@ -1317,6 +1340,71 @@ Príklad:
                     <SelectItem value="failed">Failed</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <Separator />
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <History className="h-4 w-4 text-muted-foreground" />
+                  <label className="text-sm font-medium">História zákazníka</label>
+                </div>
+                <ScrollArea className="h-48 rounded-md border p-2">
+                  {contactActivityLogs.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">Žiadna história</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {contactActivityLogs.slice(0, 10).map((log) => {
+                        const details = log.details || {};
+                        const getActionLabel = (action: string) => {
+                          const labels: Record<string, string> = {
+                            create: "Vytvorenie",
+                            update: "Úprava",
+                            delete: "Zmazanie",
+                            pipeline_move: "Presun v pipeline",
+                            stage_changed: "Presun v pipeline",
+                            campaign_joined: "Pridaný do kampane",
+                            campaign_left: "Odstránený z kampane",
+                            email_sent: "Email odoslaný",
+                            sms_sent: "SMS odoslaná",
+                            note_added: "Poznámka pridaná",
+                          };
+                          return labels[action] || action;
+                        };
+                        
+                        const getActionIcon = (action: string) => {
+                          if (action === "pipeline_move" || action === "stage_changed") return ArrowRight;
+                          if (action === "campaign_joined" || action === "campaign_left") return Users;
+                          if (action === "email_sent") return Mail;
+                          if (action === "sms_sent") return MessageSquare;
+                          if (action === "note_added") return FileEdit;
+                          if (action === "update") return FileEdit;
+                          return Clock;
+                        };
+                        
+                        const Icon = getActionIcon(log.action);
+                        
+                        return (
+                          <div key={log.id} className="flex items-start gap-2 text-xs p-2 rounded bg-muted/50">
+                            <Icon className="h-3.5 w-3.5 mt-0.5 text-muted-foreground shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium">{getActionLabel(log.action)}</p>
+                              {(log.action === "pipeline_move" || log.action === "stage_changed") && (
+                                <div className="flex items-center gap-1 mt-1">
+                                  <Badge variant="outline" className="text-[10px] px-1 py-0">{details.fromStageName || (details.fromStageId ? getStageName(details.fromStageId) : "—")}</Badge>
+                                  <ArrowRight className="h-2.5 w-2.5" />
+                                  <Badge className="text-[10px] px-1 py-0 bg-cyan-600 text-white">{details.toStageName || (details.toStageId ? getStageName(details.toStageId) : "—")}</Badge>
+                                </div>
+                              )}
+                              {log.action === "campaign_joined" && details.campaignName && (
+                                <p className="text-muted-foreground">{details.campaignName}</p>
+                              )}
+                              <p className="text-muted-foreground">{format(new Date(log.createdAt), "dd.MM.yyyy HH:mm")}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </ScrollArea>
               </div>
             </div>
           )}
