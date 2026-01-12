@@ -38,14 +38,10 @@ const msalConfig: Configuration = {
 };
 
 // Scopes for Microsoft Graph API
-// Note: Files.Read requires admin consent, so we exclude it
+// Using .default scope to use all permissions already configured in Azure AD
+// This automatically uses whatever permissions were granted during admin consent
 const GRAPH_SCOPES = [
-  'User.Read',
-  'Mail.Read',
-  'Mail.Send',
-  'Calendars.Read',
-  'Calendars.ReadWrite',
-  'Contacts.Read',
+  'https://graph.microsoft.com/.default',
   'offline_access',
 ];
 
