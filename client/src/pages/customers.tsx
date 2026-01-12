@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, Phone, PhoneCall, Baby, Copy, ListChecks, FileEdit, UserCircle, Clock, PlusCircle, RefreshCw, XCircle, LogIn, LogOut, AlertCircle, CheckCircle2, ArrowRight, Shield, CreditCard, Loader2, Calendar } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, Phone, PhoneCall, Baby, Copy, ListChecks, FileEdit, UserCircle, Clock, PlusCircle, RefreshCw, XCircle, LogIn, LogOut, AlertCircle, CheckCircle2, ArrowRight, Shield, CreditCard, Loader2, Calendar, Globe, Linkedin, Facebook, Twitter, Instagram, Building2, ExternalLink, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -903,6 +903,9 @@ function CustomerDetailsContent({
   const [isEmailSending, setIsEmailSending] = useState(false);
   const [editingProductAssignment, setEditingProductAssignment] = useState<any>(null);
   const [editBillsetId, setEditBillsetId] = useState<string>("");
+  const [isWebSearchOpen, setIsWebSearchOpen] = useState(false);
+  const [webSearchResults, setWebSearchResults] = useState<any>(null);
+  const [isWebSearchLoading, setIsWebSearchLoading] = useState(false);
 
   const { data: products = [] } = useQuery<Product[]>({
     queryKey: ["/api/products"],
@@ -1235,6 +1238,28 @@ function CustomerDetailsContent({
     createNoteMutation.mutate(newNoteContent.trim());
   };
 
+  const handleWebSearch = async () => {
+    setIsWebSearchLoading(true);
+    setWebSearchResults(null);
+    try {
+      const response = await apiRequest("POST", `/api/customers/${customer.id}/web-search`, {});
+      setWebSearchResults(response);
+    } catch (error) {
+      toast({ title: "Nepodarilo sa vyhľadať informácie", variant: "destructive" });
+    } finally {
+      setIsWebSearchLoading(false);
+    }
+  };
+
+  const getPlatformIcon = (platform: string) => {
+    const p = platform.toLowerCase();
+    if (p.includes("linkedin")) return <Linkedin className="h-4 w-4 text-blue-600" />;
+    if (p.includes("facebook")) return <Facebook className="h-4 w-4 text-blue-500" />;
+    if (p.includes("twitter") || p.includes("x")) return <Twitter className="h-4 w-4" />;
+    if (p.includes("instagram")) return <Instagram className="h-4 w-4 text-pink-500" />;
+    return <Globe className="h-4 w-4" />;
+  };
+
   const handleSendEmail = () => {
     if (!emailSubject.trim() || !emailContent.trim()) {
       toast({ title: "Please enter subject and message", variant: "destructive" });
@@ -1365,6 +1390,20 @@ function CustomerDetailsContent({
             >
               <Copy className="h-3 w-3 mr-1" />
               {t.customers.fields.clientId}
+            </Badge>
+            <Badge
+              variant="secondary"
+              className="cursor-pointer hover-elevate"
+              onClick={() => {
+                setIsWebSearchOpen(true);
+                if (!webSearchResults) {
+                  handleWebSearch();
+                }
+              }}
+              data-testid="button-web-search"
+            >
+              <Sparkles className="h-3 w-3 mr-1" />
+              AI Vyhľadávanie
             </Badge>
             {customer.internalId && (
               <div className="flex items-center gap-1">
@@ -1963,6 +2002,171 @@ function CustomerDetailsContent({
           {t.customers.details?.editCustomer || "Edit Customer"}
         </Button>
       </div>
+
+      <Sheet open={isWebSearchOpen} onOpenChange={setIsWebSearchOpen}>
+        <SheetContent className="w-[400px] sm:w-[540px] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              AI Vyhľadávanie - {customer.firstName} {customer.lastName}
+            </SheetTitle>
+            <SheetDescription>
+              Informácie nájdené na webe a sociálnych sieťach
+            </SheetDescription>
+          </SheetHeader>
+          
+          <div className="mt-6 space-y-6">
+            {isWebSearchLoading ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+                <p className="text-sm text-muted-foreground">Vyhľadávam informácie...</p>
+              </div>
+            ) : webSearchResults?.results ? (
+              <>
+                {webSearchResults.results.summary && (
+                  <div className="p-4 rounded-lg bg-muted/50 border">
+                    <h4 className="font-medium mb-2 flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      Zhrnutie
+                    </h4>
+                    <p className="text-sm text-muted-foreground">{webSearchResults.results.summary}</p>
+                  </div>
+                )}
+
+                {webSearchResults.results.profiles && webSearchResults.results.profiles.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="font-medium flex items-center gap-2">
+                      <Globe className="h-4 w-4" />
+                      Sociálne siete
+                    </h4>
+                    <div className="space-y-2">
+                      {webSearchResults.results.profiles.map((profile: any, idx: number) => (
+                        <div key={idx} className="p-3 rounded-lg border bg-card flex items-start justify-between gap-3">
+                          <div className="flex items-start gap-3">
+                            {getPlatformIcon(profile.platform)}
+                            <div>
+                              <p className="font-medium text-sm">{profile.platform}</p>
+                              <p className="text-xs text-muted-foreground">{profile.description}</p>
+                            </div>
+                          </div>
+                          {profile.url && profile.url !== "Not found" && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => window.open(profile.url, "_blank")}
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {webSearchResults.results.professional && (
+                  <div className="space-y-3">
+                    <h4 className="font-medium flex items-center gap-2">
+                      <Building2 className="h-4 w-4" />
+                      Profesionálne informácie
+                    </h4>
+                    <div className="p-3 rounded-lg border bg-card space-y-2">
+                      {webSearchResults.results.professional.company && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">Spoločnosť:</span>
+                          <span className="text-sm font-medium">{webSearchResults.results.professional.company}</span>
+                        </div>
+                      )}
+                      {webSearchResults.results.professional.position && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">Pozícia:</span>
+                          <span className="text-sm font-medium">{webSearchResults.results.professional.position}</span>
+                        </div>
+                      )}
+                      {webSearchResults.results.professional.industry && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">Odvetvie:</span>
+                          <span className="text-sm font-medium">{webSearchResults.results.professional.industry}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {webSearchResults.results.mentions && webSearchResults.results.mentions.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="font-medium flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      Zmienky na webe
+                    </h4>
+                    <div className="space-y-2">
+                      {webSearchResults.results.mentions.map((mention: any, idx: number) => (
+                        <div key={idx} className="p-3 rounded-lg border bg-card flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-medium text-sm">{mention.source}</p>
+                            <p className="text-xs text-muted-foreground">{mention.description}</p>
+                          </div>
+                          {mention.url && mention.url !== "Not found" && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => window.open(mention.url, "_blank")}
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {webSearchResults.results.confidence && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>Spoľahlivosť:</span>
+                    <Badge variant={webSearchResults.results.confidence === "high" ? "default" : webSearchResults.results.confidence === "medium" ? "secondary" : "outline"}>
+                      {webSearchResults.results.confidence === "high" ? "Vysoká" : webSearchResults.results.confidence === "medium" ? "Stredná" : "Nízka"}
+                    </Badge>
+                  </div>
+                )}
+
+                {webSearchResults.results.disclaimer && (
+                  <p className="text-xs text-muted-foreground italic">{webSearchResults.results.disclaimer}</p>
+                )}
+
+                <div className="pt-4 border-t">
+                  <Button
+                    variant="outline"
+                    onClick={handleWebSearch}
+                    disabled={isWebSearchLoading}
+                    className="w-full"
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${isWebSearchLoading ? "animate-spin" : ""}`} />
+                    Vyhľadať znova
+                  </Button>
+                </div>
+
+                <p className="text-xs text-muted-foreground text-center">
+                  Vyhľadané: {webSearchResults.searchedAt ? format(new Date(webSearchResults.searchedAt), "d.M.yyyy HH:mm") : "-"}
+                </p>
+              </>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                <Globe className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p className="font-medium">Žiadne výsledky</p>
+                <Button
+                  variant="outline"
+                  onClick={handleWebSearch}
+                  className="mt-4"
+                >
+                  <Search className="h-4 w-4 mr-2" />
+                  Spustiť vyhľadávanie
+                </Button>
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <Dialog open={isManualInvoiceOpen} onOpenChange={setIsManualInvoiceOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">

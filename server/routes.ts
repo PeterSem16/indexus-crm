@@ -2154,6 +2154,105 @@ export async function registerRoutes(
     }
   });
 
+  // AI-powered customer web search
+  app.post("/api/customers/:customerId/web-search", requireAuth, async (req, res) => {
+    try {
+      const customer = await storage.getCustomer(req.params.customerId);
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+
+      const fullName = `${customer.firstName} ${customer.lastName}`;
+      const searchContext = {
+        name: fullName,
+        email: customer.email,
+        phone: customer.phone,
+        city: customer.city,
+        country: customer.country,
+      };
+
+      const prompt = `You are a research assistant helping to find publicly available information about a person.
+
+Search for information about this person:
+- Full Name: ${fullName}
+- Email: ${customer.email || 'Not provided'}
+- Phone: ${customer.phone || 'Not provided'}
+- City: ${customer.city || 'Not provided'}
+- Country: ${customer.country || 'Not provided'}
+
+Please search for:
+1. Social media profiles (LinkedIn, Facebook, Twitter/X, Instagram)
+2. Professional information (company, job title, industry)
+3. Public records or mentions
+4. Any relevant news or articles
+
+Return results in this exact JSON format:
+{
+  "summary": "Brief summary of findings",
+  "profiles": [
+    {
+      "platform": "LinkedIn/Facebook/Twitter/Instagram/Other",
+      "url": "URL if found",
+      "description": "What was found"
+    }
+  ],
+  "professional": {
+    "company": "Company name if found",
+    "position": "Job title if found",
+    "industry": "Industry if found"
+  },
+  "mentions": [
+    {
+      "source": "Source name",
+      "url": "URL",
+      "description": "Brief description"
+    }
+  ],
+  "confidence": "high/medium/low",
+  "disclaimer": "Note about data accuracy"
+}
+
+If you cannot find specific information, indicate that clearly. Only include real, verifiable information. Do not make up URLs or profiles.`;
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: "You are a research assistant that helps find publicly available information about people. Always return valid JSON. Be honest about what you can and cannot find. Never fabricate URLs or profiles."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.3,
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        return res.status(500).json({ error: "No response from AI" });
+      }
+
+      try {
+        const results = JSON.parse(content);
+        res.json({
+          success: true,
+          results,
+          searchedAt: new Date().toISOString(),
+          searchedBy: req.session.user?.fullName || req.session.user?.username,
+        });
+      } catch (parseError) {
+        console.error("Failed to parse AI response:", parseError);
+        res.status(500).json({ error: "Failed to parse AI response" });
+      }
+    } catch (error) {
+      console.error("Error in customer web search:", error);
+      res.status(500).json({ error: "Failed to search customer information" });
+    }
+  });
+
   // Invoices API (protected)
   app.get("/api/invoices", requireAuth, async (req, res) => {
     try {
