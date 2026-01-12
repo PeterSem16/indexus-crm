@@ -563,6 +563,40 @@ export async function getMailFolderMessages(
 }
 
 /**
+ * Search emails across mailbox using Graph $search with KQL
+ */
+export async function searchEmails(
+  accessToken: string,
+  searchQuery: string,
+  mailboxEmail?: string,
+  top: number = 50
+): Promise<{ emails: any[]; totalCount: number }> {
+  const client = createGraphClient(accessToken);
+  const basePath = mailboxEmail ? `/users/${mailboxEmail}` : '/me';
+  
+  const sanitizedQuery = searchQuery
+    .replace(/["\\\n\r\t]/g, ' ')
+    .trim();
+  
+  if (!sanitizedQuery) {
+    return { emails: [], totalCount: 0 };
+  }
+  
+  try {
+    const searchResult = await client.api(`${basePath}/messages`)
+      .search(`"${sanitizedQuery}"`)
+      .select('id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,isRead,bodyPreview,hasAttachments,importance,flag,parentFolderId')
+      .top(top)
+      .get();
+    
+    return { emails: searchResult.value || [], totalCount: searchResult.value?.length || 0 };
+  } catch (error) {
+    console.error(`[MS365] Error searching emails:`, error);
+    return { emails: [], totalCount: 0 };
+  }
+}
+
+/**
  * Get single email with full body
  */
 export async function getEmailById(

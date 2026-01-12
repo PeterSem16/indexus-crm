@@ -49,6 +49,7 @@ import {
   ChevronRight,
   Settings,
   User,
+  Search,
 } from "lucide-react";
 import Editor from "react-simple-wysiwyg";
 
@@ -120,6 +121,10 @@ export default function EmailClientPage() {
 
   const [signatureHtml, setSignatureHtml] = useState("");
   const [signatureActive, setSignatureActive] = useState(true);
+  
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchMailbox, setSearchMailbox] = useState<string>("all");
 
   const { data: mailboxes = [], isLoading: mailboxesLoading } = useQuery<Mailbox[]>({
     queryKey: ["/api/users", user?.id, "ms365-available-mailboxes"],
@@ -150,6 +155,49 @@ export default function EmailClientPage() {
     queryFn: () => fetch(`/api/users/${user?.id}/email-signatures/${selectedMailbox}`).then(r => r.json()),
     enabled: !!user?.id && !!selectedMailbox,
   });
+
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+  
+  const { data: searchResults, isLoading: searchLoading, refetch: refetchSearch } = useQuery<{ emails: EmailMessage[]; mailbox: string }[]>({
+    queryKey: ["/api/users", user?.id, "ms365-search-emails", debouncedSearchQuery, searchMailbox],
+    queryFn: async () => {
+      if (!debouncedSearchQuery || debouncedSearchQuery.trim().length < 2) return [];
+      
+      const mailboxesToSearch = searchMailbox === "all" 
+        ? mailboxes.map(m => m.type === "personal" ? "personal" : m.email)
+        : [searchMailbox];
+      
+      const results: { emails: EmailMessage[]; mailbox: string }[] = [];
+      for (const mbx of mailboxesToSearch) {
+        try {
+          const response = await fetch(`/api/users/${user?.id}/ms365-search-emails?q=${encodeURIComponent(debouncedSearchQuery)}&mailbox=${mbx}&top=50`);
+          const data = await response.json();
+          results.push({ 
+            emails: data.emails || [], 
+            mailbox: mbx === "personal" ? (mailboxes.find(m => m.type === "personal")?.email || "Osobná schránka") : mbx 
+          });
+        } catch {
+          results.push({ emails: [], mailbox: mbx });
+        }
+      }
+      return results;
+    },
+    enabled: !!user?.id && isSearching && !!debouncedSearchQuery && debouncedSearchQuery.trim().length >= 2,
+  });
+
+  const handleSearch = () => {
+    if (searchQuery.trim().length >= 2) {
+      setDebouncedSearchQuery(searchQuery.trim());
+      setIsSearching(true);
+      setSelectedEmail(null);
+    }
+  };
+
+  const clearSearch = () => {
+    setSearchQuery("");
+    setDebouncedSearchQuery("");
+    setIsSearching(false);
+  };
 
   const sendEmailMutation = useMutation({
     mutationFn: async (data: { to: string[]; cc?: string[]; bcc?: string[]; subject: string; body: string; mailboxEmail: string }) => {
@@ -355,7 +403,142 @@ export default function EmailClientPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-12 gap-4 h-[calc(100vh-220px)]">
+      {/* Search bar */}
+      <Card className="p-3">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-1">
+            <Search className="h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Hľadať v emailoch (predmet, odosielateľ, obsah)..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              className="flex-1"
+              data-testid="input-search"
+            />
+          </div>
+          <Select value={searchMailbox} onValueChange={setSearchMailbox}>
+            <SelectTrigger className="w-48" data-testid="select-search-mailbox">
+              <SelectValue placeholder="Schránka" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Všetky schránky</SelectItem>
+              {mailboxes.map((mb) => (
+                <SelectItem key={mb.id} value={mb.type === "personal" ? "personal" : mb.email}>
+                  {mb.displayName || mb.email}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button onClick={handleSearch} disabled={searchQuery.trim().length < 2} data-testid="button-search">
+            <Search className="h-4 w-4 mr-2" />
+            Hľadať
+          </Button>
+          {isSearching && (
+            <Button variant="outline" onClick={clearSearch} data-testid="button-clear-search">
+              <X className="h-4 w-4 mr-2" />
+              Zrušiť
+            </Button>
+          )}
+        </div>
+      </Card>
+
+      {/* Search results */}
+      {isSearching ? (
+        <Card className="h-[calc(100vh-320px)]">
+          <CardHeader className="py-3 flex flex-row items-center justify-between">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Search className="h-4 w-4" />
+              Výsledky vyhľadávania: "{searchQuery}"
+            </CardTitle>
+            {searchLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+          </CardHeader>
+          <CardContent className="p-0">
+            <ScrollArea className="h-[calc(100vh-420px)]">
+              {searchLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                  <span className="ml-2">Vyhľadávam...</span>
+                </div>
+              ) : searchResults && searchResults.length > 0 ? (
+                <div className="divide-y">
+                  {searchResults.map((result, idx) => (
+                    <div key={idx}>
+                      {result.emails.length > 0 && (
+                        <>
+                          <div className="px-4 py-2 bg-muted/50 text-sm font-medium flex items-center gap-2">
+                            <Mail className="h-4 w-4" />
+                            {result.mailbox}
+                            <Badge variant="secondary" className="text-xs">{result.emails.length}</Badge>
+                          </div>
+                          {result.emails.map((email) => (
+                            <button
+                              key={email.id}
+                              onClick={() => {
+                                const mbx = mailboxes.find(m => 
+                                  m.email === result.mailbox || 
+                                  (m.type === "personal" && result.mailbox === (mailboxes.find(x => x.type === "personal")?.email || "Osobná schránka"))
+                                );
+                                if (mbx) {
+                                  setSelectedMailbox(mbx.type === "personal" ? "personal" : mbx.email);
+                                }
+                                setSelectedEmail(email);
+                              }}
+                              className={`w-full text-left px-4 py-3 transition-colors hover-elevate ${
+                                !email.isRead ? "bg-primary/5" : ""
+                              } ${selectedEmail?.id === email.id ? "bg-primary/10" : ""}`}
+                              data-testid={`search-result-${email.id}`}
+                            >
+                              <div className="flex items-start gap-3">
+                                {email.isRead ? (
+                                  <MailOpen className="h-4 w-4 mt-1 text-muted-foreground" />
+                                ) : (
+                                  <Mail className="h-4 w-4 mt-1 text-primary" />
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between gap-2 mb-1">
+                                    <span className={`text-sm truncate ${!email.isRead ? "font-semibold" : ""}`}>
+                                      {email.from?.emailAddress?.name || email.from?.emailAddress?.address}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                      {format(new Date(email.receivedDateTime), "dd.MM.yyyy HH:mm")}
+                                    </span>
+                                  </div>
+                                  <div className={`text-sm truncate ${!email.isRead ? "font-medium" : ""}`}>
+                                    {email.subject || "(bez predmetu)"}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground truncate mt-1">
+                                    {email.bodyPreview}
+                                  </div>
+                                  {email.hasAttachments && (
+                                    <Paperclip className="h-3 w-3 text-muted-foreground inline mt-1" />
+                                  )}
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </>
+                      )}
+                    </div>
+                  ))}
+                  {searchResults.every(r => r.emails.length === 0) && (
+                    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                      <Search className="h-8 w-8 mb-2" />
+                      <span>Žiadne výsledky pre "{searchQuery}"</span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                  <Search className="h-8 w-8 mb-2" />
+                  <span>Žiadne výsledky</span>
+                </div>
+              )}
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-12 gap-4 h-[calc(100vh-280px)]">
         {/* Folders panel */}
         <Card className="col-span-2">
           <CardHeader className="py-3">
@@ -571,6 +754,7 @@ export default function EmailClientPage() {
           </CardContent>
         </Card>
       </div>
+      )}
 
       {/* Compose Dialog */}
       <Dialog open={composeOpen} onOpenChange={setComposeOpen}>

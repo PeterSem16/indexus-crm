@@ -2487,6 +2487,62 @@ export async function registerRoutes(
     }
   });
 
+  // Search emails across mailbox
+  app.get("/api/users/:userId/ms365-search-emails", requireAuth, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const query = req.query.q as string;
+      const mailboxEmail = req.query.mailbox as string | undefined;
+      const top = parseInt(req.query.top as string) || 50;
+      
+      if (!query || query.trim().length < 2) {
+        return res.json({ connected: true, emails: [], totalCount: 0 });
+      }
+      
+      const ms365Connection = await storage.getUserMs365Connection(userId);
+      if (!ms365Connection || !ms365Connection.isConnected) {
+        return res.json({ connected: false, emails: [], totalCount: 0 });
+      }
+      
+      const { decryptTokenSafe, encryptTokenSafe } = await import("./lib/token-crypto");
+      const { getValidAccessToken, searchEmails } = await import("./lib/ms365");
+      
+      let accessToken: string;
+      let refreshToken: string | null;
+      
+      try {
+        accessToken = decryptTokenSafe(ms365Connection.accessToken);
+        refreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+      } catch {
+        return res.json({ connected: false, emails: [], totalCount: 0 });
+      }
+      
+      const tokenResult = await getValidAccessToken(accessToken, ms365Connection.tokenExpiresAt, refreshToken);
+      if (!tokenResult?.accessToken) {
+        return res.json({ connected: false, emails: [], totalCount: 0, requiresReauth: true });
+      }
+      
+      if (tokenResult.refreshed && tokenResult.refreshToken) {
+        await storage.updateUserMs365ConnectionTokens(userId, {
+          accessToken: encryptTokenSafe(tokenResult.accessToken),
+          refreshToken: encryptTokenSafe(tokenResult.refreshToken),
+          tokenExpiresAt: tokenResult.expiresOn || new Date(Date.now() + 3600 * 1000),
+        });
+      }
+      
+      const result = await searchEmails(
+        tokenResult.accessToken, 
+        query.trim(),
+        mailboxEmail === "personal" ? undefined : mailboxEmail,
+        top
+      );
+      res.json({ connected: true, ...result });
+    } catch (error) {
+      console.error("Error searching emails:", error);
+      res.status(500).json({ error: "Failed to search emails" });
+    }
+  });
+
   // Get single email detail
   app.get("/api/users/:userId/ms365-email/:emailId", requireAuth, async (req, res) => {
     try {
