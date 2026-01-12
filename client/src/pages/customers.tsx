@@ -1354,23 +1354,18 @@ function CustomerDetailsContent({
           </h3>
           <p className="text-muted-foreground">{customer.email}</p>
           <div className="flex flex-wrap items-center gap-4 mt-2 text-sm">
-            <div className="flex items-center gap-1">
-              <span className="text-muted-foreground">{t.customers.fields.clientId}:</span>
-              <span className="font-mono text-xs">{customer.id}</span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6"
-                onClick={() => {
-                  navigator.clipboard.writeText(customer.id);
-                  toast({ title: t.customers.fields.copiedToClipboard });
-                }}
-                data-testid="button-copy-detail-client-id"
-              >
-                <Copy className="h-3 w-3" />
-              </Button>
-            </div>
+            <Badge
+              variant="outline"
+              className="cursor-pointer hover-elevate"
+              onClick={() => {
+                navigator.clipboard.writeText(customer.id);
+                toast({ title: t.customers.fields.copiedToClipboard });
+              }}
+              data-testid="button-copy-detail-client-id"
+            >
+              <Copy className="h-3 w-3 mr-1" />
+              {t.customers.fields.clientId}
+            </Badge>
             {customer.internalId && (
               <div className="flex items-center gap-1">
                 <span className="text-muted-foreground">{t.customers.fields.internalId}:</span>
