@@ -949,6 +949,7 @@ function CustomerHistoryTimeline({
   // Fetch all data sources
   const { data: activityLogs = [], isLoading: logsLoading } = useQuery<any[]>({
     queryKey: ["/api/customers", customerId, "activity-logs"],
+    refetchInterval: 10000,
   });
 
   const { data: documents = [], isLoading: docsLoading } = useQuery<any[]>({
@@ -1682,6 +1683,7 @@ function CustomerDetailsContent({
       if (!res.ok) throw new Error("Failed to fetch activity logs");
       return res.json();
     },
+    refetchInterval: 10000,
   });
 
   const { data: allUsers = [] } = useQuery<Array<{ id: string; username: string; firstName?: string; lastName?: string }>>({
@@ -1692,6 +1694,20 @@ function CustomerDetailsContent({
       return res.json();
     },
   });
+
+  const { data: pipelineStages = [] } = useQuery<Array<{ id: string; name: string }>>({
+    queryKey: ["/api/pipeline-stages"],
+    queryFn: async () => {
+      const res = await fetch("/api/pipeline-stages", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const getStageName = (stageId: string) => {
+    const stage = pipelineStages.find(s => s.id === stageId);
+    return stage?.name || stageId;
+  };
 
   const getUserName = (userId: string) => {
     const user = allUsers.find(u => u.id === userId);
@@ -1743,6 +1759,10 @@ function CustomerDetailsContent({
       generate_invoice: t.activity?.generatedInvoice || "Generated invoice",
       send_email: t.activity?.sentEmail || "Sent email",
       send_sms: t.activity?.sentSms || "Sent SMS",
+      pipeline_move: "Presun v pipeline",
+      stage_changed: "Presun v pipeline",
+      campaign_joined: "Pridanie do kampane",
+      campaign_left: "Odstránenie z kampane",
     };
     return labels[action] || action.replace(/_/g, " ");
   };
@@ -1759,6 +1779,31 @@ function CustomerDetailsContent({
 
   const renderFieldChanges = (details: Record<string, unknown> | null, action: string) => {
     if (!details) return null;
+    
+    if (action === "pipeline_move" || action === "stage_changed") {
+      const fromStage = (details.fromStageName as string) || (details.fromStageId ? getStageName(details.fromStageId as string) : "—");
+      const toStage = (details.toStageName as string) || (details.toStageId ? getStageName(details.toStageId as string) : "—");
+      const dealTitle = details.dealTitle as string;
+      return (
+        <div className="mt-2 p-2 bg-muted rounded-md">
+          <p className="text-sm font-medium">{dealTitle}</p>
+          <div className="flex items-center gap-2 mt-1 text-xs">
+            <Badge variant="outline" className="bg-background">{fromStage}</Badge>
+            <ArrowRight className="h-3 w-3 text-muted-foreground" />
+            <Badge className="bg-cyan-600 text-white">{toStage}</Badge>
+          </div>
+        </div>
+      );
+    }
+    
+    if (action === "campaign_joined" || action === "campaign_left") {
+      const campaignName = (details.campaignName as string) || "Kampaň";
+      return (
+        <p className="mt-1 text-sm text-muted-foreground">
+          {action === "campaign_joined" ? "Pridaný do" : "Odstránený z"}: <strong>{campaignName}</strong>
+        </p>
+      );
+    }
     
     if (action === "update" && details.changes && Array.isArray(details.changes)) {
       const changedFields = details.changes

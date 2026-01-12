@@ -6021,6 +6021,18 @@ export async function registerRoutes(
         req.ip
       );
       
+      // Log campaign_joined for each customer
+      for (const customer of customers) {
+        await logActivity(
+          req.session.user!.id,
+          "campaign_joined",
+          "customer",
+          customer.id,
+          `${customer.firstName} ${customer.lastName}`,
+          { campaignId: campaign.id, campaignName: campaign.name }
+        );
+      }
+      
       res.json({ count: contacts.length });
     } catch (error) {
       console.error("Failed to generate campaign contacts:", error);
