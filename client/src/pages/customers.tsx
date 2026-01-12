@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, Phone, PhoneCall, Baby, Copy, ListChecks, FileEdit, UserCircle, Clock, PlusCircle, RefreshCw, XCircle, LogIn, LogOut, AlertCircle, CheckCircle2, ArrowRight, Shield, CreditCard, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, Phone, PhoneCall, Baby, Copy, ListChecks, FileEdit, UserCircle, Clock, PlusCircle, RefreshCw, XCircle, LogIn, LogOut, AlertCircle, CheckCircle2, ArrowRight, Shield, CreditCard, Loader2, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -58,6 +58,7 @@ import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
+import { sk } from "date-fns/locale";
 
 type CustomerProductWithProduct = CustomerProduct & { product: Product; billsetName?: string };
 
@@ -196,6 +197,17 @@ function DocumentsTab({ customerId }: { customerId: string }) {
     );
   }
 
+  // Group documents by month/year
+  const groupedDocuments = documents.reduce((groups, doc) => {
+    const date = new Date(doc.createdAt);
+    const key = format(date, "MMMM yyyy", { locale: sk });
+    if (!groups[key]) {
+      groups[key] = [];
+    }
+    groups[key].push(doc);
+    return groups;
+  }, {} as Record<string, CustomerDocument[]>);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 mb-4">
@@ -206,86 +218,101 @@ function DocumentsTab({ customerId }: { customerId: string }) {
       <div className="relative">
         <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
         
-        <div className="space-y-4">
-          {documents.map((doc, index) => (
-            <div key={doc.id} className="relative pl-10">
-              <div className={`absolute left-2.5 w-3 h-3 rounded-full border-2 ${
-                doc.type === "contract" ? "bg-primary border-primary" : "bg-blue-500 border-blue-500"
-              }`} />
-              
-              <div className="border rounded-lg p-4 bg-card">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      {doc.type === "contract" ? (
-                        <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30">
-                          Zmluva
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-600 border-blue-500/30">
-                          Faktúra
-                        </Badge>
-                      )}
-                      <Badge variant={getStatusBadgeVariant(doc.type, doc.status) as any}>
-                        {getStatusLabel(doc.type, doc.status)}
-                      </Badge>
-                    </div>
-                    
-                    <p className="font-medium">{doc.number}</p>
-                    
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3.5 w-3.5" />
-                        {format(new Date(doc.createdAt), "d.M.yyyy HH:mm")}
-                      </span>
-                      
-                      {doc.createdByName && (
-                        <span className="flex items-center gap-1">
-                          <UserCircle className="h-3.5 w-3.5" />
-                          {doc.createdByName}
-                        </span>
-                      )}
-                      
-                      {doc.totalAmount && (
-                        <span className="font-medium text-foreground">
-                          {parseFloat(doc.totalAmount).toLocaleString("sk-SK", { minimumFractionDigits: 2 })} {doc.currency}
-                        </span>
-                      )}
-                      
-                      {doc.type === "contract" && doc.validFrom && (
-                        <span>
-                          Platnosť: {format(new Date(doc.validFrom), "d.M.yyyy")}
-                          {doc.validTo && ` - ${format(new Date(doc.validTo), "d.M.yyyy")}`}
-                        </span>
-                      )}
-                      
-                      {doc.type === "invoice" && doc.dueDate && (
-                        <span>
-                          Splatnosť: {format(new Date(doc.dueDate), "d.M.yyyy")}
-                        </span>
-                      )}
-                    </div>
-                    
-                    {doc.type === "contract" && doc.status === "cancelled" && doc.cancellationReason && (
-                      <div className="mt-2 p-2 bg-destructive/10 border border-destructive/20 rounded text-sm">
-                        <span className="text-destructive font-medium">Dôvod zrušenia: </span>
-                        <span className="text-muted-foreground">{doc.cancellationReason}</span>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {doc.pdfPath && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => window.open(doc.pdfPath!, "_blank")}
-                      data-testid={`button-download-${doc.type}-${doc.id}`}
-                    >
-                      <Download className="h-4 w-4 mr-1" />
-                      PDF
-                    </Button>
-                  )}
+        <div className="space-y-6">
+          {Object.entries(groupedDocuments).map(([monthYear, docs]) => (
+            <div key={monthYear}>
+              <div className="relative pl-10 mb-3">
+                <div className="absolute left-1.5 w-5 h-5 rounded-full bg-muted border-2 border-border flex items-center justify-center">
+                  <Calendar className="h-3 w-3 text-muted-foreground" />
                 </div>
+                <h5 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
+                  {monthYear}
+                </h5>
+              </div>
+              
+              <div className="space-y-4">
+                {docs.map((doc) => (
+                  <div key={doc.id} className="relative pl-10">
+                    <div className={`absolute left-2.5 w-3 h-3 rounded-full border-2 ${
+                      doc.type === "contract" ? "bg-primary border-primary" : "bg-blue-500 border-blue-500"
+                    }`} />
+                    
+                    <div className="border rounded-lg p-4 bg-card">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            {doc.type === "contract" ? (
+                              <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30">
+                                Zmluva
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-600 border-blue-500/30">
+                                Faktúra
+                              </Badge>
+                            )}
+                            <Badge variant={getStatusBadgeVariant(doc.type, doc.status) as any}>
+                              {getStatusLabel(doc.type, doc.status)}
+                            </Badge>
+                          </div>
+                          
+                          <p className="font-medium">{doc.number}</p>
+                          
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3.5 w-3.5" />
+                              {format(new Date(doc.createdAt), "d.M.yyyy HH:mm")}
+                            </span>
+                            
+                            {doc.createdByName && (
+                              <span className="flex items-center gap-1">
+                                <UserCircle className="h-3.5 w-3.5" />
+                                {doc.createdByName}
+                              </span>
+                            )}
+                            
+                            {doc.totalAmount && (
+                              <span className="font-medium text-foreground">
+                                {parseFloat(doc.totalAmount).toLocaleString("sk-SK", { minimumFractionDigits: 2 })} {doc.currency}
+                              </span>
+                            )}
+                            
+                            {doc.type === "contract" && doc.validFrom && (
+                              <span>
+                                Platnosť: {format(new Date(doc.validFrom), "d.M.yyyy")}
+                                {doc.validTo && ` - ${format(new Date(doc.validTo), "d.M.yyyy")}`}
+                              </span>
+                            )}
+                            
+                            {doc.type === "invoice" && doc.dueDate && (
+                              <span>
+                                Splatnosť: {format(new Date(doc.dueDate), "d.M.yyyy")}
+                              </span>
+                            )}
+                          </div>
+                          
+                          {doc.type === "contract" && doc.status === "cancelled" && doc.cancellationReason && (
+                            <div className="mt-2 p-2 bg-destructive/10 border border-destructive/20 rounded text-sm">
+                              <span className="text-destructive font-medium">Dôvod zrušenia: </span>
+                              <span className="text-muted-foreground">{doc.cancellationReason}</span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {doc.pdfPath && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(doc.pdfPath!, "_blank")}
+                            data-testid={`button-download-${doc.type}-${doc.id}`}
+                          >
+                            <Download className="h-4 w-4 mr-1" />
+                            PDF
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           ))}
