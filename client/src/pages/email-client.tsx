@@ -1216,6 +1216,12 @@ export default function EmailClientPage() {
                     <p className="text-muted-foreground text-xs mt-1">
                       {format(new Date(emailDetail.receivedDateTime), "d. MMMM yyyy, HH:mm")}
                     </p>
+                    {emailDetail.linkedCustomer?.id && (
+                      <Link href={`/customers/${emailDetail.linkedCustomer.id}`} className="text-xs text-primary hover:underline mt-2 inline-flex items-center gap-1">
+                        <User className="h-3 w-3" />
+                        Priradený zákazník: {emailDetail.linkedCustomer.firstName} {emailDetail.linkedCustomer.lastName}
+                      </Link>
+                    )}
                   </div>
                   
                   {/* AI Analysis Alert */}
