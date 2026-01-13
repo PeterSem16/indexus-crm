@@ -726,16 +726,22 @@ export const TASK_STATUSES = [
 // Communication messages - tracks emails and SMS sent to customers
 export const communicationMessages = pgTable("communication_messages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  customerId: varchar("customer_id").notNull(),
-  userId: varchar("user_id").notNull(), // who sent the message
+  customerId: varchar("customer_id"),
+  userId: varchar("user_id"), // who sent the message
   type: text("type").notNull(), // email, sms
+  direction: text("direction").notNull().default("outbound"), // outbound, inbound
   subject: text("subject"), // for emails
   content: text("content").notNull(),
   recipientEmail: text("recipient_email"),
   recipientPhone: text("recipient_phone"),
-  status: text("status").notNull().default("pending"), // pending, sent, failed
+  senderPhone: text("sender_phone"), // for incoming SMS
+  status: text("status").notNull().default("pending"), // pending, sent, delivered, failed
+  externalId: text("external_id"), // BulkGate sms_id or email provider id
+  provider: text("provider"), // bulkgate, sendgrid, etc.
+  deliveryStatus: text("delivery_status"), // delivery report status
   errorMessage: text("error_message"),
   sentAt: timestamp("sent_at"),
+  deliveredAt: timestamp("delivered_at"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 

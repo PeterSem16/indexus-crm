@@ -5627,51 +5627,42 @@ export async function registerRoutes(
         customerId: req.params.customerId,
         userId: user.id,
         type: "sms",
+        direction: "outbound",
         content,
         recipientPhone: customer.phone,
         status: "pending",
+        provider: "bulkgate",
       });
 
-      // Try to send SMS via Twilio or fallback to simulation
-      const twilioSid = process.env.TWILIO_ACCOUNT_SID;
-      const twilioToken = process.env.TWILIO_AUTH_TOKEN;
-      const twilioPhone = process.env.TWILIO_PHONE_NUMBER;
+      // Try to send SMS via BulkGate or fallback to simulation
+      const { sendTransactionalSms, isBulkGateConfigured } = await import("./lib/bulkgate");
       
-      if (twilioSid && twilioToken && twilioPhone) {
+      if (isBulkGateConfigured()) {
         try {
-          const response = await fetch(
-            `https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`,
-            {
-              method: "POST",
-              headers: {
-                "Authorization": "Basic " + Buffer.from(`${twilioSid}:${twilioToken}`).toString("base64"),
-                "Content-Type": "application/x-www-form-urlencoded",
-              },
-              body: new URLSearchParams({
-                To: customer.phone,
-                From: twilioPhone,
-                Body: content,
-              }),
-            }
-          );
+          const result = await sendTransactionalSms({
+            number: customer.phone,
+            text: content,
+            country: customer.country || undefined,
+            tag: `customer-${customer.id}`,
+          });
 
-          if (response.ok) {
+          if (result.success) {
             await storage.updateCommunicationMessage(message.id, {
               status: "sent",
               sentAt: new Date(),
+              externalId: result.smsId,
             });
             
             await logActivity(user.id, "send_sms", "communication", message.id, 
               `SMS to ${customer.firstName} ${customer.lastName}`);
             
-            return res.json({ ...message, status: "sent", sentAt: new Date() });
+            return res.json({ ...message, status: "sent", sentAt: new Date(), smsId: result.smsId });
           } else {
-            const errorData = await response.json();
             await storage.updateCommunicationMessage(message.id, {
               status: "failed",
-              errorMessage: errorData.message || "Twilio error",
+              errorMessage: result.error || "BulkGate error",
             });
-            return res.status(500).json({ error: "Failed to send SMS", details: errorData.message });
+            return res.status(500).json({ error: "Failed to send SMS", details: result.error });
           }
         } catch (smsError: any) {
           await storage.updateCommunicationMessage(message.id, {
@@ -5706,6 +5697,175 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching communication messages:", error);
       res.status(500).json({ error: "Failed to fetch messages" });
+    }
+  });
+
+  // ========== BULKGATE SMS GATEWAY ==========
+  
+  // Get BulkGate status
+  app.get("/api/bulkgate/status", requireAuth, async (req, res) => {
+    try {
+      const { getBulkGateStatus, getCredit } = await import("./lib/bulkgate");
+      const status = getBulkGateStatus();
+      
+      if (status.configured) {
+        const creditResult = await getCredit();
+        return res.json({
+          ...status,
+          credit: creditResult.success ? creditResult.credit : null,
+          currency: creditResult.success ? creditResult.currency : null,
+          creditError: creditResult.success ? null : creditResult.error,
+        });
+      }
+      
+      res.json(status);
+    } catch (error) {
+      console.error("Error getting BulkGate status:", error);
+      res.status(500).json({ error: "Failed to get BulkGate status" });
+    }
+  });
+  
+  // Send SMS via BulkGate (direct, without customer)
+  app.post("/api/bulkgate/send", requireAuth, async (req, res) => {
+    try {
+      const { number, text, country, senderId, senderIdValue, tag } = req.body;
+      
+      if (!number || !text) {
+        return res.status(400).json({ error: "Missing required fields: number, text" });
+      }
+      
+      const { sendTransactionalSms, isBulkGateConfigured } = await import("./lib/bulkgate");
+      
+      if (!isBulkGateConfigured()) {
+        return res.status(400).json({ error: "BulkGate nie je nakonfigurovaný" });
+      }
+      
+      const user = req.session.user!;
+      
+      // Create message record
+      const message = await storage.createCommunicationMessage({
+        userId: user.id,
+        type: "sms",
+        direction: "outbound",
+        content: text,
+        recipientPhone: number,
+        status: "pending",
+        provider: "bulkgate",
+      });
+      
+      const result = await sendTransactionalSms({
+        number,
+        text,
+        country,
+        senderId,
+        senderIdValue,
+        tag,
+      });
+      
+      if (result.success) {
+        await storage.updateCommunicationMessage(message.id, {
+          status: "sent",
+          sentAt: new Date(),
+          externalId: result.smsId,
+        });
+        
+        await logActivity(user.id, "send_sms", "communication", message.id, `SMS to ${number}`);
+        
+        return res.json({
+          success: true,
+          messageId: message.id,
+          smsId: result.smsId,
+          partIds: result.partIds,
+        });
+      } else {
+        await storage.updateCommunicationMessage(message.id, {
+          status: "failed",
+          errorMessage: result.error,
+        });
+        
+        return res.status(500).json({ error: result.error });
+      }
+    } catch (error) {
+      console.error("Error sending SMS via BulkGate:", error);
+      res.status(500).json({ error: "Failed to send SMS" });
+    }
+  });
+  
+  // BulkGate webhook callback (delivery reports + incoming SMS)
+  app.post("/api/auth/bulkgate/callback", async (req, res) => {
+    try {
+      console.log("[BulkGate Webhook] Received:", JSON.stringify(req.body));
+      
+      const { parseWebhook } = await import("./lib/bulkgate");
+      const webhookData = parseWebhook(req.body);
+      
+      if (webhookData.type === "delivery_report") {
+        // Update message status based on delivery report
+        if (webhookData.smsId) {
+          const messages = await storage.getAllCommunicationMessages(1000);
+          const message = messages.find(m => m.externalId === webhookData.smsId);
+          
+          if (message) {
+            await storage.updateCommunicationMessage(message.id, {
+              deliveryStatus: webhookData.status,
+              deliveredAt: webhookData.status === "delivered" ? new Date() : undefined,
+              status: webhookData.status === "delivered" ? "delivered" : 
+                      webhookData.status === "failed" ? "failed" : message.status,
+            });
+            console.log(`[BulkGate Webhook] Updated message ${message.id} with status: ${webhookData.status}`);
+          }
+        }
+      } else if (webhookData.type === "inbox") {
+        // Store incoming SMS
+        const incomingMessage = await storage.createCommunicationMessage({
+          type: "sms",
+          direction: "inbound",
+          content: webhookData.text || "",
+          senderPhone: webhookData.number,
+          status: "received",
+          provider: "bulkgate",
+        });
+        
+        console.log(`[BulkGate Webhook] Stored incoming SMS from ${webhookData.number}: ${incomingMessage.id}`);
+        
+        // Try to link to customer by phone number
+        if (webhookData.number) {
+          const customers = await storage.findCustomersByPhone(webhookData.number);
+          if (customers.length > 0) {
+            await storage.updateCommunicationMessage(incomingMessage.id, {
+              customerId: customers[0].id,
+            });
+            console.log(`[BulkGate Webhook] Linked incoming SMS to customer ${customers[0].firstName} ${customers[0].lastName}`);
+          }
+        }
+      }
+      
+      // Always respond with 200 OK to acknowledge webhook
+      res.status(200).json({ received: true });
+    } catch (error) {
+      console.error("[BulkGate Webhook] Error processing webhook:", error);
+      // Still return 200 to prevent webhook retries
+      res.status(200).json({ received: true, error: "Processing error" });
+    }
+  });
+  
+  // Get all SMS messages (both sent and received)
+  app.get("/api/sms-messages", requireAuth, async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const direction = req.query.direction as string | undefined;
+      
+      const messages = await storage.getAllCommunicationMessages(limit);
+      const smsMessages = messages.filter(m => {
+        if (m.type !== "sms") return false;
+        if (direction && m.direction !== direction) return false;
+        return true;
+      });
+      
+      res.json(smsMessages);
+    } catch (error) {
+      console.error("Error fetching SMS messages:", error);
+      res.status(500).json({ error: "Failed to fetch SMS messages" });
     }
   });
 

@@ -129,6 +129,7 @@ export interface IStorage {
   getAllCustomers(): Promise<Customer[]>;
   getCustomersByCountry(countryCodes: string[]): Promise<Customer[]>;
   findCustomersByEmail(email: string): Promise<Customer[]>; // Search by email or email2
+  findCustomersByPhone(phone: string): Promise<Customer[]>; // Search by phone, mobile, or mobile2
   createCustomer(customer: InsertCustomer): Promise<Customer>;
   updateCustomer(id: string, customer: Partial<InsertCustomer>): Promise<Customer | undefined>;
   deleteCustomer(id: string): Promise<boolean>;
@@ -841,6 +842,26 @@ export class DatabaseStorage implements IStorage {
           sql`LOWER(${customers.email2}) = ${normalizedEmail}`
         )
       );
+  }
+  
+  async findCustomersByPhone(phone: string): Promise<Customer[]> {
+    // Normalize phone - remove spaces, dashes, and common prefixes
+    const normalizedPhone = phone.replace(/[\s\-\(\)]/g, "").trim();
+    const shortPhone = normalizedPhone.replace(/^\+?421/, "").replace(/^\+?420/, "").replace(/^00/, "");
+    
+    const allCustomers = await db.select().from(customers);
+    return allCustomers.filter(c => {
+      const normalize = (p: string | null | undefined) => {
+        if (!p) return "";
+        const cleaned = p.replace(/[\s\-\(\)]/g, "").trim();
+        const short = cleaned.replace(/^\+?421/, "").replace(/^\+?420/, "").replace(/^00/, "");
+        return short;
+      };
+      
+      return normalize(c.phone) === shortPhone || 
+             normalize(c.mobile) === shortPhone || 
+             normalize(c.mobile2) === shortPhone;
+    });
   }
 
   async createCustomer(insertCustomer: InsertCustomer): Promise<Customer> {
