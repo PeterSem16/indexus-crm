@@ -9503,6 +9503,13 @@ function EmailRouterTab() {
   const [ruleStopProcessing, setRuleStopProcessing] = useState(false);
   const [ruleAutoAssignCustomer, setRuleAutoAssignCustomer] = useState(true);
   const [ruleEnableAiAnalysis, setRuleEnableAiAnalysis] = useState(false);
+  const [ruleAiPipelineActions, setRuleAiPipelineActions] = useState<{
+    onAngryTone?: { enabled: boolean; stageId: string };
+    onRudeExpressions?: { enabled: boolean; stageId: string };
+    onWantsToCancel?: { enabled: boolean; stageId: string };
+    onWantsConsent?: { enabled: boolean; stageId: string };
+    onDoesNotAcceptContract?: { enabled: boolean; stageId: string };
+  }>({});
   const [ruleConditions, setRuleConditions] = useState<{type: string; operator: string; value: string}[]>([]);
   const [ruleActions, setRuleActions] = useState<{type: string; value: string}[]>([]);
 
@@ -9517,6 +9524,16 @@ function EmailRouterTab() {
 
   const { data: tags = [], isLoading: tagsLoading } = useQuery<EmailTag[]>({
     queryKey: ["/api/email-tags"],
+  });
+
+  // Fetch all pipeline stages for AI automation
+  const { data: allPipelineStages = [] } = useQuery<{ id: string; name: string; pipelineId: string; pipeline?: { name: string } }[]>({
+    queryKey: ["/api/pipeline-stages"],
+    queryFn: async () => {
+      const res = await fetch("/api/pipeline-stages", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
   });
 
   const createRuleMutation = useMutation({
@@ -9637,6 +9654,7 @@ function EmailRouterTab() {
     setRuleStopProcessing(false);
     setRuleAutoAssignCustomer(true);
     setRuleEnableAiAnalysis(false);
+    setRuleAiPipelineActions({});
     setRuleConditions([]);
     setRuleActions([]);
   };
@@ -9658,6 +9676,7 @@ function EmailRouterTab() {
       setRuleStopProcessing(rule.stopProcessing);
       setRuleAutoAssignCustomer(rule.autoAssignCustomer ?? true);
       setRuleEnableAiAnalysis(rule.enableAiAnalysis ?? false);
+      setRuleAiPipelineActions((rule.aiPipelineActions as any) || {});
       setRuleConditions((rule.conditions as any[]) || []);
       setRuleActions((rule.actions as any[]) || []);
     } else {
@@ -9687,6 +9706,7 @@ function EmailRouterTab() {
       stopProcessing: ruleStopProcessing,
       autoAssignCustomer: ruleAutoAssignCustomer,
       enableAiAnalysis: ruleEnableAiAnalysis,
+      aiPipelineActions: Object.keys(ruleAiPipelineActions).length > 0 ? ruleAiPipelineActions : null,
       conditions: ruleConditions,
       actions: ruleActions,
       isActive: true,
@@ -9954,12 +9974,204 @@ function EmailRouterTab() {
                   <div className="space-y-1">
                     <Label className="font-medium">AI analýza obsahu</Label>
                     <p className="text-xs text-muted-foreground">
-                      Detekcia nahnevaného tónu a nevhodných slov pomocou AI
+                      Detekcia nahnevaného tónu, hrubých výrazov a zámerov zákazníka pomocou AI
                     </p>
                   </div>
                 </div>
               </div>
             </div>
+
+            {/* AI Pipeline Automation - only show when AI analysis is enabled */}
+            {ruleEnableAiAnalysis && (
+              <>
+                <Separator />
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-base font-semibold">Pipeline automatizácia</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Automaticky presunúť zákazníka do konkrétnej fázy pipeline na základe AI analýzy emailu
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    {/* Angry Tone */}
+                    <div className="flex items-center gap-3 p-3 rounded-lg border bg-card">
+                      <Switch
+                        checked={ruleAiPipelineActions.onAngryTone?.enabled || false}
+                        onCheckedChange={(checked) => setRuleAiPipelineActions(prev => ({
+                          ...prev,
+                          onAngryTone: { enabled: checked, stageId: prev.onAngryTone?.stageId || "" }
+                        }))}
+                        data-testid="switch-pipeline-angry-tone"
+                      />
+                      <div className="flex-1 space-y-2">
+                        <Label className="font-medium">Nahnevaný tón</Label>
+                        {ruleAiPipelineActions.onAngryTone?.enabled && (
+                          <Select 
+                            value={ruleAiPipelineActions.onAngryTone?.stageId || ""} 
+                            onValueChange={(v) => setRuleAiPipelineActions(prev => ({
+                              ...prev,
+                              onAngryTone: { enabled: true, stageId: v }
+                            }))}
+                          >
+                            <SelectTrigger className="w-full" data-testid="select-pipeline-angry-stage">
+                              <SelectValue placeholder="Vybrať fázu pipeline..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {allPipelineStages.map(stage => (
+                                <SelectItem key={stage.id} value={stage.id}>
+                                  {stage.pipeline?.name ? `${stage.pipeline.name} → ` : ""}{stage.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Rude Expressions */}
+                    <div className="flex items-center gap-3 p-3 rounded-lg border bg-card">
+                      <Switch
+                        checked={ruleAiPipelineActions.onRudeExpressions?.enabled || false}
+                        onCheckedChange={(checked) => setRuleAiPipelineActions(prev => ({
+                          ...prev,
+                          onRudeExpressions: { enabled: checked, stageId: prev.onRudeExpressions?.stageId || "" }
+                        }))}
+                        data-testid="switch-pipeline-rude-expressions"
+                      />
+                      <div className="flex-1 space-y-2">
+                        <Label className="font-medium">Hrubé výrazy</Label>
+                        {ruleAiPipelineActions.onRudeExpressions?.enabled && (
+                          <Select 
+                            value={ruleAiPipelineActions.onRudeExpressions?.stageId || ""} 
+                            onValueChange={(v) => setRuleAiPipelineActions(prev => ({
+                              ...prev,
+                              onRudeExpressions: { enabled: true, stageId: v }
+                            }))}
+                          >
+                            <SelectTrigger className="w-full" data-testid="select-pipeline-rude-stage">
+                              <SelectValue placeholder="Vybrať fázu pipeline..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {allPipelineStages.map(stage => (
+                                <SelectItem key={stage.id} value={stage.id}>
+                                  {stage.pipeline?.name ? `${stage.pipeline.name} → ` : ""}{stage.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Wants to Cancel */}
+                    <div className="flex items-center gap-3 p-3 rounded-lg border bg-card">
+                      <Switch
+                        checked={ruleAiPipelineActions.onWantsToCancel?.enabled || false}
+                        onCheckedChange={(checked) => setRuleAiPipelineActions(prev => ({
+                          ...prev,
+                          onWantsToCancel: { enabled: checked, stageId: prev.onWantsToCancel?.stageId || "" }
+                        }))}
+                        data-testid="switch-pipeline-wants-cancel"
+                      />
+                      <div className="flex-1 space-y-2">
+                        <Label className="font-medium">Chce zrušiť zmluvu</Label>
+                        {ruleAiPipelineActions.onWantsToCancel?.enabled && (
+                          <Select 
+                            value={ruleAiPipelineActions.onWantsToCancel?.stageId || ""} 
+                            onValueChange={(v) => setRuleAiPipelineActions(prev => ({
+                              ...prev,
+                              onWantsToCancel: { enabled: true, stageId: v }
+                            }))}
+                          >
+                            <SelectTrigger className="w-full" data-testid="select-pipeline-cancel-stage">
+                              <SelectValue placeholder="Vybrať fázu pipeline..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {allPipelineStages.map(stage => (
+                                <SelectItem key={stage.id} value={stage.id}>
+                                  {stage.pipeline?.name ? `${stage.pipeline.name} → ` : ""}{stage.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Wants Consent */}
+                    <div className="flex items-center gap-3 p-3 rounded-lg border bg-card">
+                      <Switch
+                        checked={ruleAiPipelineActions.onWantsConsent?.enabled || false}
+                        onCheckedChange={(checked) => setRuleAiPipelineActions(prev => ({
+                          ...prev,
+                          onWantsConsent: { enabled: checked, stageId: prev.onWantsConsent?.stageId || "" }
+                        }))}
+                        data-testid="switch-pipeline-wants-consent"
+                      />
+                      <div className="flex-1 space-y-2">
+                        <Label className="font-medium">Chce dať súhlas</Label>
+                        {ruleAiPipelineActions.onWantsConsent?.enabled && (
+                          <Select 
+                            value={ruleAiPipelineActions.onWantsConsent?.stageId || ""} 
+                            onValueChange={(v) => setRuleAiPipelineActions(prev => ({
+                              ...prev,
+                              onWantsConsent: { enabled: true, stageId: v }
+                            }))}
+                          >
+                            <SelectTrigger className="w-full" data-testid="select-pipeline-consent-stage">
+                              <SelectValue placeholder="Vybrať fázu pipeline..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {allPipelineStages.map(stage => (
+                                <SelectItem key={stage.id} value={stage.id}>
+                                  {stage.pipeline?.name ? `${stage.pipeline.name} → ` : ""}{stage.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Does Not Accept Contract */}
+                    <div className="flex items-center gap-3 p-3 rounded-lg border bg-card">
+                      <Switch
+                        checked={ruleAiPipelineActions.onDoesNotAcceptContract?.enabled || false}
+                        onCheckedChange={(checked) => setRuleAiPipelineActions(prev => ({
+                          ...prev,
+                          onDoesNotAcceptContract: { enabled: checked, stageId: prev.onDoesNotAcceptContract?.stageId || "" }
+                        }))}
+                        data-testid="switch-pipeline-not-accept"
+                      />
+                      <div className="flex-1 space-y-2">
+                        <Label className="font-medium">Neakceptuje zmluvu</Label>
+                        {ruleAiPipelineActions.onDoesNotAcceptContract?.enabled && (
+                          <Select 
+                            value={ruleAiPipelineActions.onDoesNotAcceptContract?.stageId || ""} 
+                            onValueChange={(v) => setRuleAiPipelineActions(prev => ({
+                              ...prev,
+                              onDoesNotAcceptContract: { enabled: true, stageId: v }
+                            }))}
+                          >
+                            <SelectTrigger className="w-full" data-testid="select-pipeline-not-accept-stage">
+                              <SelectValue placeholder="Vybrať fázu pipeline..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {allPipelineStages.map(stage => (
+                                <SelectItem key={stage.id} value={stage.id}>
+                                  {stage.pipeline?.name ? `${stage.pipeline.name} → ` : ""}{stage.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
 
             <Separator />
 
