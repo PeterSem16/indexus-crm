@@ -976,6 +976,7 @@ function CustomerHistoryTimeline({
 
   const { data: messages = [], isLoading: messagesLoading } = useQuery<any[]>({
     queryKey: ["/api/customers", customerId, "messages"],
+    refetchInterval: 10000, // Auto-refresh every 10 seconds for new SMS/emails
   });
 
   const { data: users = [] } = useQuery<any[]>({
@@ -2225,6 +2226,7 @@ function CustomerDetailsContent({
       if (!res.ok) throw new Error("Failed to fetch messages");
       return res.json();
     },
+    refetchInterval: 10000, // Auto-refresh every 10 seconds for new SMS/emails
   });
 
   const addProductMutation = useMutation({
