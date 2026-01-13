@@ -1241,22 +1241,37 @@ function CustomerHistoryTimeline({
 
     // Add messages (grouped under email filter)
     messages.forEach((msg: any) => {
+      const isInbound = msg.direction === "inbound";
+      const isSms = msg.type === "sms";
+      
+      let title = msg.type === "email" ? "Email" : "SMS";
+      if (isSms) {
+        title = isInbound ? "Prijatá SMS" : "Odoslaná SMS";
+      } else if (msg.type === "email") {
+        title = isInbound ? "Prijatý email" : "Odoslaný email";
+      }
+      
       events.push({
         id: `msg-${msg.id}`,
         type: "email",
-        action: msg.type,
-        title: msg.type === "email" ? "Email" : "SMS",
+        action: isSms ? (isInbound ? "sms_received" : "sms_sent") : msg.type,
+        title,
         description: msg.subject || msg.content?.substring(0, 50),
         details: { 
           subject: msg.subject, 
           content: msg.content,
           recipient: msg.recipientEmail || msg.recipientPhone,
+          sender: msg.senderPhone,
+          direction: msg.direction,
           status: msg.status,
+          messageId: msg.id,
         },
         createdAt: msg.sentAt || msg.createdAt,
         userId: msg.userId,
-        icon: msg.type === "email" ? Mail : Phone,
-        color: msg.type === "email" ? "text-sky-500" : "text-green-400",
+        icon: isSms ? (isInbound ? ArrowDownLeft : ArrowUpRight) : (isInbound ? MailOpen : Mail),
+        color: isSms 
+          ? (isInbound ? "text-cyan-500" : "text-emerald-500") 
+          : (isInbound ? "text-green-500" : "text-sky-500"),
       });
     });
 
