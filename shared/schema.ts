@@ -3491,6 +3491,15 @@ export const emailRoutingRules = pgTable("email_routing_rules", {
   // AI content analysis - analyze incoming emails for sentiment and inappropriate content
   enableAiAnalysis: boolean("enable_ai_analysis").notNull().default(false),
   
+  // AI-triggered pipeline automation - move customer to specific stage based on AI analysis
+  aiPipelineActions: jsonb("ai_pipeline_actions").$type<{
+    onAngryTone?: { enabled: boolean; stageId: string };
+    onRudeExpressions?: { enabled: boolean; stageId: string };
+    onWantsToCancel?: { enabled: boolean; stageId: string };
+    onWantsConsent?: { enabled: boolean; stageId: string };
+    onDoesNotAcceptContract?: { enabled: boolean; stageId: string };
+  }>(),
+  
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
@@ -3548,6 +3557,18 @@ export const emailMetadata = pgTable("email_metadata", {
   aiAlertLevel: text("ai_alert_level"), // none, warning, critical
   aiAnalysisNote: text("ai_analysis_note"), // Explanation from AI
   aiAnalyzedAt: timestamp("ai_analyzed_at"),
+  
+  // Extended AI characteristics
+  aiHasAngryTone: boolean("ai_has_angry_tone").notNull().default(false),
+  aiHasRudeExpressions: boolean("ai_has_rude_expressions").notNull().default(false),
+  aiWantsToCancel: boolean("ai_wants_to_cancel").notNull().default(false), // Chce zrušiť zmluvu
+  aiWantsConsent: boolean("ai_wants_consent").notNull().default(false), // Chce urobiť súhlas
+  aiDoesNotAcceptContract: boolean("ai_does_not_accept_contract").notNull().default(false), // Neakceptuje zmluvu
+  
+  // Pipeline automation result
+  aiPipelineActionTaken: boolean("ai_pipeline_action_taken").notNull().default(false),
+  aiPipelineStageId: varchar("ai_pipeline_stage_id"), // Stage ID where customer was moved
+  aiPipelineActionReason: text("ai_pipeline_action_reason"), // Reason for the move
   
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
