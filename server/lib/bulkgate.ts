@@ -3,8 +3,15 @@
  * Simple API implementation for sending and receiving SMS messages
  */
 
+import { db } from "../db";
+import { gsmSenderConfigs } from "@shared/schema";
+import { eq } from "drizzle-orm";
+
 const BULKGATE_API_URL = "https://portal.bulkgate.com/api/1.0/simple/transactional";
 const BULKGATE_PROMOTIONAL_URL = "https://portal.bulkgate.com/api/1.0/simple/promotional";
+
+// Sender types that don't need a value - BulkGate generates the number automatically
+const SENDER_TYPES_WITHOUT_VALUE = ["gSystem", "gShort", "gPush"];
 
 interface BulkGateSendResult {
   success: boolean;
@@ -20,10 +27,39 @@ interface BulkGateSendOptions {
   text: string;
   country?: string;
   unicode?: boolean;
-  senderId?: "gSystem" | "gShort" | "gText" | "gOwn" | "gProfile";
-  senderIdValue?: string;
+  senderId?: "gSystem" | "gShort" | "gText" | "gOwn" | "gProfile" | "gMobile" | "gPush";
+  senderIdValue?: string | null;
   schedule?: string;
   tag?: string;
+}
+
+/**
+ * Get sender configuration for a specific country from database
+ */
+export async function getSenderConfigForCountry(countryCode: string): Promise<{
+  senderId: string;
+  senderIdValue: string | null;
+} | null> {
+  try {
+    const [config] = await db
+      .select()
+      .from(gsmSenderConfigs)
+      .where(eq(gsmSenderConfigs.countryCode, countryCode))
+      .limit(1);
+    
+    if (config && config.isActive) {
+      return {
+        senderId: config.senderIdType,
+        senderIdValue: SENDER_TYPES_WITHOUT_VALUE.includes(config.senderIdType) 
+          ? null 
+          : config.senderIdValue,
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error(`[BulkGate] Error fetching sender config for ${countryCode}:`, error);
+    return null;
+  }
 }
 
 /**
@@ -48,6 +84,7 @@ export function isBulkGateConfigured(): boolean {
 
 /**
  * Send transactional SMS (notifications only)
+ * Uses per-country sender configuration from database if available
  */
 export async function sendTransactionalSms(options: BulkGateSendOptions): Promise<BulkGateSendResult> {
   const config = getConfig();
@@ -61,20 +98,38 @@ export async function sendTransactionalSms(options: BulkGateSendOptions): Promis
   }
 
   try {
-    const payload = {
+    // Get sender configuration from database if country is provided
+    let senderId = options.senderId || "gSystem";
+    let senderIdValue: string | null = options.senderIdValue ?? null;
+    
+    if (options.country) {
+      const countryConfig = await getSenderConfigForCountry(options.country);
+      if (countryConfig) {
+        senderId = countryConfig.senderId as any;
+        senderIdValue = countryConfig.senderIdValue;
+        console.log(`[BulkGate] Using country config for ${options.country}: sender_id=${senderId}, value=${senderIdValue || '(none)'}`);
+      }
+    }
+    
+    // Build payload - only include sender_id_value if needed for this sender type
+    const payload: Record<string, any> = {
       application_id: config.applicationId,
       application_token: config.applicationToken,
       number: options.number.replace(/\s+/g, ""),
       text: options.text,
       country: options.country || null,
       unicode: options.unicode ? "yes" : "no",
-      sender_id: options.senderId || "gText",
-      sender_id_value: options.senderIdValue || config.senderId,
+      sender_id: senderId,
       schedule: options.schedule || null,
       tag: options.tag || null,
     };
+    
+    // Only add sender_id_value if this sender type requires it
+    if (!SENDER_TYPES_WITHOUT_VALUE.includes(senderId) && senderIdValue) {
+      payload.sender_id_value = senderIdValue;
+    }
 
-    console.log(`[BulkGate] Sending SMS to ${options.number} from ${config.senderId}`);
+    console.log(`[BulkGate] Sending SMS to ${options.number} with sender_id=${senderId}${senderIdValue ? `, value=${senderIdValue}` : ''}`);
 
     const response = await fetch(BULKGATE_API_URL, {
       method: "POST",
@@ -115,6 +170,7 @@ export async function sendTransactionalSms(options: BulkGateSendOptions): Promis
 
 /**
  * Send promotional SMS (marketing)
+ * Uses per-country sender configuration from database if available
  */
 export async function sendPromotionalSms(options: BulkGateSendOptions): Promise<BulkGateSendResult> {
   const config = getConfig();
@@ -128,20 +184,38 @@ export async function sendPromotionalSms(options: BulkGateSendOptions): Promise<
   }
 
   try {
-    const payload = {
+    // Get sender configuration from database if country is provided
+    let senderId = options.senderId || "gSystem";
+    let senderIdValue: string | null = options.senderIdValue ?? null;
+    
+    if (options.country) {
+      const countryConfig = await getSenderConfigForCountry(options.country);
+      if (countryConfig) {
+        senderId = countryConfig.senderId as any;
+        senderIdValue = countryConfig.senderIdValue;
+        console.log(`[BulkGate] Using country config for ${options.country}: sender_id=${senderId}, value=${senderIdValue || '(none)'}`);
+      }
+    }
+    
+    // Build payload - only include sender_id_value if needed for this sender type
+    const payload: Record<string, any> = {
       application_id: config.applicationId,
       application_token: config.applicationToken,
       number: options.number.replace(/\s+/g, ""),
       text: options.text,
       country: options.country || null,
       unicode: options.unicode ? "yes" : "no",
-      sender_id: options.senderId || "gText",
-      sender_id_value: options.senderIdValue || config.senderId,
+      sender_id: senderId,
       schedule: options.schedule || null,
       tag: options.tag || null,
     };
+    
+    // Only add sender_id_value if this sender type requires it
+    if (!SENDER_TYPES_WITHOUT_VALUE.includes(senderId) && senderIdValue) {
+      payload.sender_id_value = senderIdValue;
+    }
 
-    console.log(`[BulkGate] Sending promotional SMS to ${options.number} from ${config.senderId}`);
+    console.log(`[BulkGate] Sending promotional SMS to ${options.number} with sender_id=${senderId}${senderIdValue ? `, value=${senderIdValue}` : ''}`);
 
     const response = await fetch(BULKGATE_PROMOTIONAL_URL, {
       method: "POST",
