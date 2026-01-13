@@ -9492,7 +9492,6 @@ const GSM_COUNTRIES = [
 
 function GsmSenderTab() {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
   // Query for GSM configs
   const { data: gsmConfigs = [], isLoading: configsLoading } = useQuery<GsmSenderConfig[]>({
