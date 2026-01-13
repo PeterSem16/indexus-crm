@@ -2838,12 +2838,23 @@ export async function registerRoutes(
                   
                   if (pipelineAction) {
                     try {
-                      // Move customer to the designated pipeline stage
-                      await storage.updateCustomer(linkedCustomer.id, { pipelineStageId: pipelineAction.stageId });
-                      metadataData.aiPipelineActionTaken = true;
-                      metadataData.aiPipelineStageId = pipelineAction.stageId;
-                      metadataData.aiPipelineActionReason = pipelineAction.reason;
-                      console.log(`[EmailRouter] Pipeline automation: Moved customer ${linkedCustomer.id} to stage ${pipelineAction.stageId} - ${pipelineAction.reason}`);
+                      // Find deals for this customer and move them to the designated stage
+                      const customerDeals = await storage.getDealsByCustomer(linkedCustomer.id);
+                      if (customerDeals.length > 0) {
+                        // Move all open deals for this customer to the new stage
+                        for (const deal of customerDeals) {
+                          if (deal.status === "open") {
+                            await storage.moveDealToStage(deal.id, pipelineAction.stageId);
+                            console.log(`[EmailRouter] Pipeline automation: Moved deal ${deal.id} to stage ${pipelineAction.stageId}`);
+                          }
+                        }
+                        metadataData.aiPipelineActionTaken = true;
+                        metadataData.aiPipelineStageId = pipelineAction.stageId;
+                        metadataData.aiPipelineActionReason = pipelineAction.reason;
+                        console.log(`[EmailRouter] Pipeline automation: Moved ${customerDeals.filter(d => d.status === "open").length} deal(s) for customer ${linkedCustomer.id} - ${pipelineAction.reason}`);
+                      } else {
+                        console.log(`[EmailRouter] Pipeline automation: No deals found for customer ${linkedCustomer.id}, skipping stage move`);
+                      }
                     } catch (pipelineError) {
                       console.error("[EmailRouter] Pipeline automation error:", pipelineError);
                     }

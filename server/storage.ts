@@ -667,6 +667,7 @@ export interface IStorage {
   getAllDeals(): Promise<Deal[]>;
   getDealsByPipeline(pipelineId: string): Promise<Deal[]>;
   getDealsByStage(stageId: string): Promise<Deal[]>;
+  getDealsByCustomer(customerId: string): Promise<Deal[]>;
   getDeal(id: string): Promise<Deal | undefined>;
   createDeal(data: InsertDeal): Promise<Deal>;
   updateDeal(id: string, data: Partial<InsertDeal>): Promise<Deal | undefined>;
@@ -3874,6 +3875,12 @@ export class DatabaseStorage implements IStorage {
   async getDealsByStage(stageId: string): Promise<Deal[]> {
     return db.select().from(deals)
       .where(eq(deals.stageId, stageId))
+      .orderBy(desc(deals.createdAt));
+  }
+
+  async getDealsByCustomer(customerId: string): Promise<Deal[]> {
+    return db.select().from(deals)
+      .where(eq(deals.customerId, customerId))
       .orderBy(desc(deals.createdAt));
   }
 
