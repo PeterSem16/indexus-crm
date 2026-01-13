@@ -17,7 +17,8 @@ import {
   CheckSquare,
   FileSignature,
   Kanban,
-  Mail
+  Mail,
+  Network
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/contexts/permissions-context";
@@ -84,7 +85,7 @@ export function AppSidebar() {
 
   const toolsNavItems = [
     { title: t.nav.tasks, url: "/tasks", icon: CheckSquare, testId: "tasks", moduleKey: "tasks" },
-    { title: "Email", url: "/email", icon: Mail, testId: "email", moduleKey: "email" },
+    { title: "NEXUS", url: "/email", icon: Network, testId: "nexus", moduleKey: "email" },
   ];
 
   const visibleMainItems = mainNavItems.filter(item => canAccessModule(item.moduleKey));

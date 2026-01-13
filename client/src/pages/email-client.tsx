@@ -364,35 +364,6 @@ export default function EmailClientPage() {
     enabled: !!user?.id && !!selectedEmail?.id,
   });
 
-  // Sync email folders to folderSettings when loaded from Outlook
-  useEffect(() => {
-    if (folders.length > 0) {
-      let needsUpdate = false;
-      const updatedSettings = [...folderSettings];
-      
-      folders.forEach((folder, idx) => {
-        const folderId = `email-${folder.id}`;
-        if (!folderSettings.find(fs => fs.id === folderId)) {
-          needsUpdate = true;
-          updatedSettings.push({
-            id: folderId,
-            type: "email" as const,
-            displayName: folder.displayName,
-            visible: true,
-            order: 50 + idx,
-            icon: folder.displayName,
-            color: "default",
-          });
-        }
-      });
-      
-      if (needsUpdate) {
-        setFolderSettings(updatedSettings);
-        localStorage.setItem("nexus-folder-settings", JSON.stringify(updatedSettings));
-      }
-    }
-  }, [folders]);
-
   const { data: signatureData } = useQuery<EmailSignature>({
     queryKey: ["/api/users", user?.id, "email-signatures", selectedMailbox],
     queryFn: () => fetch(`/api/users/${user?.id}/email-signatures/${selectedMailbox}`).then(r => r.json()),
@@ -522,6 +493,35 @@ export default function EmailClientPage() {
   const emails = messagesData?.emails || [];
   const totalCount = messagesData?.totalCount || 0;
   const totalPages = Math.ceil(totalCount / pageSize);
+  
+  // Sync email folders to folderSettings when loaded from Outlook
+  useEffect(() => {
+    if (folders.length > 0) {
+      let needsUpdate = false;
+      const updatedSettings = [...folderSettings];
+      
+      folders.forEach((folder, idx) => {
+        const folderId = `email-${folder.id}`;
+        if (!folderSettings.find(fs => fs.id === folderId)) {
+          needsUpdate = true;
+          updatedSettings.push({
+            id: folderId,
+            type: "email" as const,
+            displayName: folder.displayName,
+            visible: true,
+            order: 50 + idx,
+            icon: folder.displayName,
+            color: "default",
+          });
+        }
+      });
+      
+      if (needsUpdate) {
+        setFolderSettings(updatedSettings);
+        localStorage.setItem("nexus-folder-settings", JSON.stringify(updatedSettings));
+      }
+    }
+  }, [folders, folderSettings]);
   
   const visibleColumns = columns.filter(c => c.visible).sort((a, b) => a.order - b.order);
   
