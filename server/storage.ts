@@ -102,7 +102,10 @@ import {
   type EmailMetadata, type InsertEmailMetadata,
   type CustomerEmailNotification, type InsertCustomerEmailNotification,
   gsmSenderConfigs, type GsmSenderConfig, type InsertGsmSenderConfig,
-  countrySystemSettings, type CountrySystemSettings, type InsertCountrySystemSettings
+  countrySystemSettings, type CountrySystemSettings, type InsertCountrySystemSettings,
+  notifications, notificationRules,
+  type Notification, type InsertNotification,
+  type NotificationRule, type InsertNotificationRule
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, inArray, sql, desc, and, or, asc } from "drizzle-orm";
@@ -759,6 +762,27 @@ export interface IStorage {
   createCustomerEmailNotification(data: InsertCustomerEmailNotification): Promise<CustomerEmailNotification>;
   markCustomerEmailNotificationRead(id: string, userId: string): Promise<CustomerEmailNotification | undefined>;
   getUnreadCustomerEmailNotificationsCount(customerId: string): Promise<number>;
+
+  // Notifications
+  getNotifications(userId: string, options?: { limit?: number; includeRead?: boolean; includeDismissed?: boolean }): Promise<Notification[]>;
+  getNotification(id: string): Promise<Notification | undefined>;
+  createNotification(data: InsertNotification): Promise<Notification>;
+  markNotificationRead(id: string): Promise<Notification | undefined>;
+  markAllNotificationsRead(userId: string): Promise<number>;
+  dismissNotification(id: string): Promise<Notification | undefined>;
+  dismissAllNotifications(userId: string): Promise<number>;
+  getUnreadNotificationsCount(userId: string): Promise<number>;
+  deleteNotification(id: string): Promise<boolean>;
+  deleteOldNotifications(olderThanDays: number): Promise<number>;
+
+  // Notification Rules
+  getNotificationRules(): Promise<NotificationRule[]>;
+  getNotificationRule(id: string): Promise<NotificationRule | undefined>;
+  getActiveNotificationRulesByTrigger(triggerType: string): Promise<NotificationRule[]>;
+  createNotificationRule(data: InsertNotificationRule): Promise<NotificationRule>;
+  updateNotificationRule(id: string, data: Partial<InsertNotificationRule>): Promise<NotificationRule | undefined>;
+  deleteNotificationRule(id: string): Promise<boolean>;
+  toggleNotificationRule(id: string, isActive: boolean): Promise<NotificationRule | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -4496,6 +4520,146 @@ export class DatabaseStorage implements IStorage {
         eq(customerEmailNotifications.isRead, false)
       ));
     return result[0]?.count || 0;
+  }
+
+  // Notifications
+  async getNotifications(userId: string, options?: { limit?: number; includeRead?: boolean; includeDismissed?: boolean }): Promise<Notification[]> {
+    const conditions = [eq(notifications.userId, userId)];
+    
+    if (!options?.includeRead) {
+      conditions.push(eq(notifications.isRead, false));
+    }
+    if (!options?.includeDismissed) {
+      conditions.push(eq(notifications.isDismissed, false));
+    }
+    
+    let query = db.select().from(notifications)
+      .where(and(...conditions))
+      .orderBy(desc(notifications.createdAt));
+    
+    if (options?.limit) {
+      query = query.limit(options.limit) as typeof query;
+    }
+    
+    return query;
+  }
+
+  async getNotification(id: string): Promise<Notification | undefined> {
+    const [notification] = await db.select().from(notifications).where(eq(notifications.id, id));
+    return notification || undefined;
+  }
+
+  async createNotification(data: InsertNotification): Promise<Notification> {
+    const [notification] = await db.insert(notifications).values(data).returning();
+    return notification;
+  }
+
+  async markNotificationRead(id: string): Promise<Notification | undefined> {
+    const [notification] = await db.update(notifications)
+      .set({ isRead: true, readAt: new Date() })
+      .where(eq(notifications.id, id))
+      .returning();
+    return notification || undefined;
+  }
+
+  async markAllNotificationsRead(userId: string): Promise<number> {
+    const result = await db.update(notifications)
+      .set({ isRead: true, readAt: new Date() })
+      .where(and(
+        eq(notifications.userId, userId),
+        eq(notifications.isRead, false)
+      ))
+      .returning();
+    return result.length;
+  }
+
+  async dismissNotification(id: string): Promise<Notification | undefined> {
+    const [notification] = await db.update(notifications)
+      .set({ isDismissed: true, dismissedAt: new Date() })
+      .where(eq(notifications.id, id))
+      .returning();
+    return notification || undefined;
+  }
+
+  async dismissAllNotifications(userId: string): Promise<number> {
+    const result = await db.update(notifications)
+      .set({ isDismissed: true, dismissedAt: new Date() })
+      .where(and(
+        eq(notifications.userId, userId),
+        eq(notifications.isDismissed, false)
+      ))
+      .returning();
+    return result.length;
+  }
+
+  async getUnreadNotificationsCount(userId: string): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)::int` })
+      .from(notifications)
+      .where(and(
+        eq(notifications.userId, userId),
+        eq(notifications.isRead, false),
+        eq(notifications.isDismissed, false)
+      ));
+    return result[0]?.count || 0;
+  }
+
+  async deleteNotification(id: string): Promise<boolean> {
+    const result = await db.delete(notifications).where(eq(notifications.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async deleteOldNotifications(olderThanDays: number): Promise<number> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
+    
+    const result = await db.delete(notifications)
+      .where(sql`${notifications.createdAt} < ${cutoffDate}`)
+      .returning();
+    return result.length;
+  }
+
+  // Notification Rules
+  async getNotificationRules(): Promise<NotificationRule[]> {
+    return db.select().from(notificationRules).orderBy(desc(notificationRules.createdAt));
+  }
+
+  async getNotificationRule(id: string): Promise<NotificationRule | undefined> {
+    const [rule] = await db.select().from(notificationRules).where(eq(notificationRules.id, id));
+    return rule || undefined;
+  }
+
+  async getActiveNotificationRulesByTrigger(triggerType: string): Promise<NotificationRule[]> {
+    return db.select().from(notificationRules)
+      .where(and(
+        eq(notificationRules.triggerType, triggerType),
+        eq(notificationRules.isActive, true)
+      ));
+  }
+
+  async createNotificationRule(data: InsertNotificationRule): Promise<NotificationRule> {
+    const [rule] = await db.insert(notificationRules).values(data).returning();
+    return rule;
+  }
+
+  async updateNotificationRule(id: string, data: Partial<InsertNotificationRule>): Promise<NotificationRule | undefined> {
+    const [rule] = await db.update(notificationRules)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(notificationRules.id, id))
+      .returning();
+    return rule || undefined;
+  }
+
+  async deleteNotificationRule(id: string): Promise<boolean> {
+    const result = await db.delete(notificationRules).where(eq(notificationRules.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async toggleNotificationRule(id: string, isActive: boolean): Promise<NotificationRule | undefined> {
+    const [rule] = await db.update(notificationRules)
+      .set({ isActive, updatedAt: new Date() })
+      .where(eq(notificationRules.id, id))
+      .returning();
+    return rule || undefined;
   }
 }
 

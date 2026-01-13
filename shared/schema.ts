@@ -3712,3 +3712,129 @@ export const insertCountrySystemSettingsSchema = createInsertSchema(countrySyste
 });
 export type InsertCountrySystemSettings = z.infer<typeof insertCountrySystemSettingsSchema>;
 export type CountrySystemSettings = typeof countrySystemSettings.$inferSelect;
+
+// ==================== NOTIFICATION CENTER ====================
+// Real-time notifications for users
+
+// Notification types
+export const NOTIFICATION_TYPES = [
+  { value: "new_email", label: "Nový email", icon: "mail" },
+  { value: "new_sms", label: "Nová SMS odpoveď", icon: "message-square" },
+  { value: "new_customer", label: "Nový zákazník", icon: "user-plus" },
+  { value: "status_change", label: "Zmena statusu", icon: "refresh-cw" },
+  { value: "sentiment_alert", label: "Sentiment alert", icon: "alert-triangle" },
+  { value: "task_assigned", label: "Priradená úloha", icon: "clipboard" },
+  { value: "task_due", label: "Úloha - termín", icon: "clock" },
+  { value: "task_completed", label: "Úloha dokončená", icon: "check-circle" },
+  { value: "mention", label: "Zmienka", icon: "at-sign" },
+  { value: "system", label: "Systémové", icon: "info" },
+] as const;
+
+export type NotificationType = typeof NOTIFICATION_TYPES[number]["value"];
+
+// Priority levels
+export const NOTIFICATION_PRIORITIES = [
+  { value: "low", label: "Nízka", color: "gray" },
+  { value: "normal", label: "Normálna", color: "blue" },
+  { value: "high", label: "Vysoká", color: "orange" },
+  { value: "urgent", label: "Urgentná", color: "red" },
+] as const;
+
+export type NotificationPriority = typeof NOTIFICATION_PRIORITIES[number]["value"];
+
+// Notifications table
+export const notifications = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  
+  // Notification content
+  type: varchar("type", { length: 50 }).notNull(), // new_email, new_sms, new_customer, status_change, sentiment_alert, task_assigned, etc.
+  title: varchar("title", { length: 255 }).notNull(),
+  message: text("message"),
+  priority: varchar("priority", { length: 20 }).notNull().default("normal"), // low, normal, high, urgent
+  
+  // Related entity (for navigation)
+  entityType: varchar("entity_type", { length: 50 }), // customer, email, sms, task, campaign
+  entityId: varchar("entity_id"),
+  
+  // Metadata
+  metadata: jsonb("metadata"), // Additional data like customer name, sender, etc.
+  countryCode: varchar("country_code", { length: 10 }),
+  
+  // Status
+  isRead: boolean("is_read").notNull().default(false),
+  readAt: timestamp("read_at"),
+  isDismissed: boolean("is_dismissed").notNull().default(false),
+  dismissedAt: timestamp("dismissed_at"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type Notification = typeof notifications.$inferSelect;
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  user: one(users, {
+    fields: [notifications.userId],
+    references: [users.id],
+  }),
+}));
+
+// Notification rules - automated alerts
+export const notificationRules = pgTable("notification_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Rule name and description
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  
+  // Trigger conditions
+  triggerType: varchar("trigger_type", { length: 50 }).notNull(), // new_email, new_sms, new_customer, status_change, sentiment_negative, task_overdue
+  triggerConditions: jsonb("trigger_conditions"), // JSON with specific conditions like { countryCode: "SK", status: "active" }
+  
+  // Filter by country (null = all countries)
+  countryCodes: text("country_codes").array(), // List of country codes this rule applies to
+  
+  // Target users (who receives notifications)
+  targetType: varchar("target_type", { length: 50 }).notNull(), // all, role, specific_users, assignee
+  targetRoles: text("target_roles").array(), // For role-based targeting
+  targetUserIds: text("target_user_ids").array(), // For specific user targeting
+  
+  // Notification settings
+  notificationTitle: varchar("notification_title", { length: 255 }).notNull(),
+  notificationMessage: text("notification_message"),
+  priority: varchar("priority", { length: 20 }).notNull().default("normal"),
+  
+  // Channels
+  sendPush: boolean("send_push").notNull().default(true), // In-app notification
+  sendEmail: boolean("send_email").notNull().default(false), // Email notification
+  sendSms: boolean("send_sms").notNull().default(false), // SMS notification
+  
+  // Status
+  isActive: boolean("is_active").notNull().default(true),
+  
+  // Metadata
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertNotificationRuleSchema = createInsertSchema(notificationRules).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertNotificationRule = z.infer<typeof insertNotificationRuleSchema>;
+export type NotificationRule = typeof notificationRules.$inferSelect;
+
+export const notificationRulesRelations = relations(notificationRules, ({ one }) => ({
+  creator: one(users, {
+    fields: [notificationRules.createdBy],
+    references: [users.id],
+  }),
+}));
