@@ -544,7 +544,7 @@ export async function getMailFolders(accessToken: string, mailboxEmail?: string,
     
     try {
       const childResult = await client.api(`${basePath}/mailFolders/${parentId}/childFolders`)
-        .select('id,displayName,parentFolderId,childFolderCount,unreadItemCount,totalItemCount,wellKnownName')
+        .select('id,displayName,parentFolderId,childFolderCount,unreadItemCount,totalItemCount')
         .top(50)
         .get();
       
@@ -572,7 +572,7 @@ export async function getMailFolders(accessToken: string, mailboxEmail?: string,
   
   try {
     const result = await client.api(`${basePath}/mailFolders`)
-      .select('id,displayName,parentFolderId,childFolderCount,unreadItemCount,totalItemCount,wellKnownName')
+      .select('id,displayName,parentFolderId,childFolderCount,unreadItemCount,totalItemCount')
       .top(100)
       .get();
     
