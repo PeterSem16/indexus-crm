@@ -53,12 +53,18 @@ const uploadsDir = path.join(process.cwd(), "uploads");
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// AI-powered email content analysis for sentiment and inappropriate content detection
+// AI-powered email content analysis for sentiment, characteristics, and intent detection
 interface EmailAnalysisResult {
   sentiment: "positive" | "neutral" | "negative" | "angry";
   hasInappropriateContent: boolean;
   alertLevel: "none" | "warning" | "critical";
   note: string;
+  // Extended characteristics
+  hasAngryTone: boolean;
+  hasRudeExpressions: boolean;
+  wantsToCancel: boolean; // Chce zrušiť zmluvu
+  wantsConsent: boolean; // Chce urobiť súhlas
+  doesNotAcceptContract: boolean; // Neakceptuje zmluvu
 }
 
 async function analyzeEmailContent(content: string, subject: string): Promise<EmailAnalysisResult | null> {
@@ -76,16 +82,24 @@ async function analyzeEmailContent(content: string, subject: string): Promise<Em
       messages: [
         {
           role: "system",
-          content: `You are an email sentiment analyzer for a customer service system. Analyze emails for:
-1. Sentiment: positive, neutral, negative, or angry (frustrated/upset customer)
-2. Inappropriate content: profanity, threats, harassment, offensive language
-3. Alert level: none (normal email), warning (upset customer needs attention), critical (very angry or inappropriate content)
+          content: `You are an email analyzer for a cord blood banking CRM system. Analyze customer emails for sentiment and intent.
 
-Respond ONLY with valid JSON in this format:
-{"sentiment":"neutral","hasInappropriateContent":false,"alertLevel":"none","note":"Brief explanation in Slovak language"}
+Analyze for these characteristics:
+1. sentiment: "positive", "neutral", "negative", or "angry" (frustrated/upset customer)
+2. hasInappropriateContent: true if email contains profanity, threats, harassment, or offensive language
+3. hasAngryTone: true if the customer sounds angry, frustrated, upset or uses aggressive language
+4. hasRudeExpressions: true if email contains rude, vulgar, or impolite expressions
+5. wantsToCancel: true if customer expresses intent to cancel/terminate their contract or service ("chcem zrušiť", "ukončiť zmluvu", "vypovedať", "nechcem pokračovať")
+6. wantsConsent: true if customer wants to give consent or sign/approve something ("súhlasím", "chcem podpísať", "dávam súhlas", "akceptujem")
+7. doesNotAcceptContract: true if customer explicitly refuses or rejects a contract/agreement ("neakceptujem", "nesúhlasím", "odmietam", "nechcem podpísať")
+8. alertLevel: "none" (normal), "warning" (needs attention), "critical" (urgent/inappropriate)
+9. note: Brief explanation in Slovak language
 
-Common Slovak anger indicators: "nespokojný", "sťažujem", "hanba", "katastrofa", "nekompetentní", "reklamácia", "okamžite", "právnik"
-Common Slovak profanity: check for vulgar words and offensive expressions`
+Respond ONLY with valid JSON:
+{"sentiment":"neutral","hasInappropriateContent":false,"hasAngryTone":false,"hasRudeExpressions":false,"wantsToCancel":false,"wantsConsent":false,"doesNotAcceptContract":false,"alertLevel":"none","note":"Stručné vysvetlenie"}
+
+Slovak anger indicators: "nahnevaný", "nespokojný", "sťažujem", "hanba", "katastrofa", "nekompetentní", "okamžite", "právnik"
+Slovak profanity: check for vulgar words like "sakra", "do riti", "kurva" and similar`
         },
         {
           role: "user",
@@ -93,7 +107,7 @@ Common Slovak profanity: check for vulgar words and offensive expressions`
         }
       ],
       temperature: 0.1,
-      max_tokens: 200,
+      max_tokens: 300,
     });
 
     let resultText = response.choices[0]?.message?.content?.trim();
@@ -111,6 +125,11 @@ Common Slovak profanity: check for vulgar words and offensive expressions`
       hasInappropriateContent: parsed.hasInappropriateContent === true,
       alertLevel: parsed.alertLevel || "none",
       note: parsed.note || "",
+      hasAngryTone: parsed.hasAngryTone === true,
+      hasRudeExpressions: parsed.hasRudeExpressions === true,
+      wantsToCancel: parsed.wantsToCancel === true,
+      wantsConsent: parsed.wantsConsent === true,
+      doesNotAcceptContract: parsed.doesNotAcceptContract === true,
     };
   } catch (error) {
     console.error("[AI Analysis] Error analyzing email:", error);
@@ -2771,9 +2790,9 @@ export async function registerRoutes(
             const analysisResult = await analyzeEmailContent(emailContent, email.subject || "");
             
             if (analysisResult) {
-              // Store AI analysis in email metadata
+              // Store AI analysis in email metadata with extended characteristics
               const existingMetadata = await storage.getEmailMetadataByMessageId(emailId, actualMailbox);
-              const metadataData = {
+              const metadataData: any = {
                 messageId: emailId,
                 mailboxEmail: actualMailbox,
                 aiAnalyzed: true,
@@ -2782,16 +2801,64 @@ export async function registerRoutes(
                 aiAlertLevel: analysisResult.alertLevel,
                 aiAnalysisNote: analysisResult.note,
                 aiAnalyzedAt: new Date(),
+                // Extended AI characteristics
+                aiHasAngryTone: analysisResult.hasAngryTone,
+                aiHasRudeExpressions: analysisResult.hasRudeExpressions,
+                aiWantsToCancel: analysisResult.wantsToCancel,
+                aiWantsConsent: analysisResult.wantsConsent,
+                aiDoesNotAcceptContract: analysisResult.doesNotAcceptContract,
               };
+              
+              // Pipeline automation - move customer to specific stage based on AI analysis
+              if (linkedCustomer) {
+                const ruleWithPipeline = activeRules.find(r => r.aiPipelineActions);
+                if (ruleWithPipeline && ruleWithPipeline.aiPipelineActions) {
+                  const actions = ruleWithPipeline.aiPipelineActions as {
+                    onAngryTone?: { enabled: boolean; stageId: string };
+                    onRudeExpressions?: { enabled: boolean; stageId: string };
+                    onWantsToCancel?: { enabled: boolean; stageId: string };
+                    onWantsConsent?: { enabled: boolean; stageId: string };
+                    onDoesNotAcceptContract?: { enabled: boolean; stageId: string };
+                  };
+                  
+                  let pipelineAction: { stageId: string; reason: string } | null = null;
+                  
+                  // Check each trigger in priority order (most critical first)
+                  if (analysisResult.wantsToCancel && actions.onWantsToCancel?.enabled && actions.onWantsToCancel.stageId) {
+                    pipelineAction = { stageId: actions.onWantsToCancel.stageId, reason: "Zákazník chce zrušiť zmluvu" };
+                  } else if (analysisResult.hasRudeExpressions && actions.onRudeExpressions?.enabled && actions.onRudeExpressions.stageId) {
+                    pipelineAction = { stageId: actions.onRudeExpressions.stageId, reason: "Email obsahuje hrubé výrazy" };
+                  } else if (analysisResult.hasAngryTone && actions.onAngryTone?.enabled && actions.onAngryTone.stageId) {
+                    pipelineAction = { stageId: actions.onAngryTone.stageId, reason: "Zákazník je nahnevaný" };
+                  } else if (analysisResult.doesNotAcceptContract && actions.onDoesNotAcceptContract?.enabled && actions.onDoesNotAcceptContract.stageId) {
+                    pipelineAction = { stageId: actions.onDoesNotAcceptContract.stageId, reason: "Zákazník neakceptuje zmluvu" };
+                  } else if (analysisResult.wantsConsent && actions.onWantsConsent?.enabled && actions.onWantsConsent.stageId) {
+                    pipelineAction = { stageId: actions.onWantsConsent.stageId, reason: "Zákazník chce dať súhlas" };
+                  }
+                  
+                  if (pipelineAction) {
+                    try {
+                      // Move customer to the designated pipeline stage
+                      await storage.updateCustomer(linkedCustomer.id, { pipelineStageId: pipelineAction.stageId });
+                      metadataData.aiPipelineActionTaken = true;
+                      metadataData.aiPipelineStageId = pipelineAction.stageId;
+                      metadataData.aiPipelineActionReason = pipelineAction.reason;
+                      console.log(`[EmailRouter] Pipeline automation: Moved customer ${linkedCustomer.id} to stage ${pipelineAction.stageId} - ${pipelineAction.reason}`);
+                    } catch (pipelineError) {
+                      console.error("[EmailRouter] Pipeline automation error:", pipelineError);
+                    }
+                  }
+                }
+              }
               
               if (existingMetadata) {
                 await storage.updateEmailMetadata(existingMetadata.id, metadataData);
               } else {
-                await storage.createEmailMetadata(metadataData as any);
+                await storage.createEmailMetadata(metadataData);
               }
               
               aiAnalysisResult = analysisResult;
-              console.log(`[EmailRouter] AI analyzed email ${emailId}: sentiment=${analysisResult.sentiment}, alert=${analysisResult.alertLevel}`);
+              console.log(`[EmailRouter] AI analyzed email ${emailId}: sentiment=${analysisResult.sentiment}, alert=${analysisResult.alertLevel}, angry=${analysisResult.hasAngryTone}, rude=${analysisResult.hasRudeExpressions}, wantsCancel=${analysisResult.wantsToCancel}`);
             }
           } catch (aiError) {
             console.error("[EmailRouter] AI analysis error:", aiError);
@@ -2814,6 +2881,14 @@ export async function registerRoutes(
               hasInappropriateContent: metadata.aiHasInappropriateContent,
               alertLevel: metadata.aiAlertLevel as any,
               note: metadata.aiAnalysisNote || "",
+              hasAngryTone: metadata.aiHasAngryTone || false,
+              hasRudeExpressions: metadata.aiHasRudeExpressions || false,
+              wantsToCancel: metadata.aiWantsToCancel || false,
+              wantsConsent: metadata.aiWantsConsent || false,
+              doesNotAcceptContract: metadata.aiDoesNotAcceptContract || false,
+              pipelineActionTaken: metadata.aiPipelineActionTaken || false,
+              pipelineStageId: metadata.aiPipelineStageId || null,
+              pipelineActionReason: metadata.aiPipelineActionReason || null,
             };
           }
         }
