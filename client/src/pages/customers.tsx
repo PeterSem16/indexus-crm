@@ -890,13 +890,12 @@ const TIMELINE_ACTION_TYPES = [
   { value: "update", label: "Údaje", icon: Pencil, activeClass: "bg-gradient-to-br from-blue-500 to-blue-600 border-blue-600 shadow-lg shadow-blue-500/25", textColor: "text-white", inactiveClass: "bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 hover:border-blue-400 dark:hover:border-blue-600 hover:shadow-sm", inactiveTextColor: "text-blue-600 dark:text-blue-400" },
   { value: "document", label: "Dokumenty", icon: FileText, activeClass: "bg-gradient-to-br from-emerald-500 to-emerald-600 border-emerald-600 shadow-lg shadow-emerald-500/25", textColor: "text-white", inactiveClass: "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 hover:border-emerald-400 dark:hover:border-emerald-600 hover:shadow-sm", inactiveTextColor: "text-emerald-600 dark:text-emerald-400" },
   { value: "note", label: "Poznámky", icon: MessageSquare, activeClass: "bg-gradient-to-br from-amber-500 to-amber-600 border-amber-600 shadow-lg shadow-amber-500/25", textColor: "text-white", inactiveClass: "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 hover:border-amber-400 dark:hover:border-amber-600 hover:shadow-sm", inactiveTextColor: "text-amber-600 dark:text-amber-400" },
-  { value: "message", label: "Správy", icon: Mail, activeClass: "bg-gradient-to-br from-purple-500 to-purple-600 border-purple-600 shadow-lg shadow-purple-500/25", textColor: "text-white", inactiveClass: "bg-purple-50 dark:bg-purple-950/30 border-purple-200 dark:border-purple-800 hover:border-purple-400 dark:hover:border-purple-600 hover:shadow-sm", inactiveTextColor: "text-purple-600 dark:text-purple-400" },
+  { value: "email", label: "Emaily", icon: Mail, activeClass: "bg-gradient-to-br from-sky-500 to-sky-600 border-sky-600 shadow-lg shadow-sky-500/25", textColor: "text-white", inactiveClass: "bg-sky-50 dark:bg-sky-950/30 border-sky-200 dark:border-sky-800 hover:border-sky-400 dark:hover:border-sky-600 hover:shadow-sm", inactiveTextColor: "text-sky-600 dark:text-sky-400" },
   { value: "status", label: "Stavy", icon: RefreshCw, activeClass: "bg-gradient-to-br from-orange-500 to-orange-600 border-orange-600 shadow-lg shadow-orange-500/25", textColor: "text-white", inactiveClass: "bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800 hover:border-orange-400 dark:hover:border-orange-600 hover:shadow-sm", inactiveTextColor: "text-orange-600 dark:text-orange-400" },
   { value: "product", label: "Produkty", icon: Package, activeClass: "bg-gradient-to-br from-indigo-500 to-indigo-600 border-indigo-600 shadow-lg shadow-indigo-500/25", textColor: "text-white", inactiveClass: "bg-indigo-50 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800 hover:border-indigo-400 dark:hover:border-indigo-600 hover:shadow-sm", inactiveTextColor: "text-indigo-600 dark:text-indigo-400" },
   { value: "pipeline", label: "Pipeline", icon: ArrowRight, activeClass: "bg-gradient-to-br from-cyan-500 to-cyan-600 border-cyan-600 shadow-lg shadow-cyan-500/25", textColor: "text-white", inactiveClass: "bg-cyan-50 dark:bg-cyan-950/30 border-cyan-200 dark:border-cyan-800 hover:border-cyan-400 dark:hover:border-cyan-600 hover:shadow-sm", inactiveTextColor: "text-cyan-600 dark:text-cyan-400" },
   { value: "consent", label: "Súhlasy", icon: Shield, activeClass: "bg-gradient-to-br from-teal-500 to-teal-600 border-teal-600 shadow-lg shadow-teal-500/25", textColor: "text-white", inactiveClass: "bg-teal-50 dark:bg-teal-950/30 border-teal-200 dark:border-teal-800 hover:border-teal-400 dark:hover:border-teal-600 hover:shadow-sm", inactiveTextColor: "text-teal-600 dark:text-teal-400" },
   { value: "campaign", label: "Kampane", icon: Target, activeClass: "bg-gradient-to-br from-violet-500 to-violet-600 border-violet-600 shadow-lg shadow-violet-500/25", textColor: "text-white", inactiveClass: "bg-violet-50 dark:bg-violet-950/30 border-violet-200 dark:border-violet-800 hover:border-violet-400 dark:hover:border-violet-600 hover:shadow-sm", inactiveTextColor: "text-violet-600 dark:text-violet-400" },
-  { value: "email", label: "Emaily", icon: MailOpen, activeClass: "bg-gradient-to-br from-sky-500 to-sky-600 border-sky-600 shadow-lg shadow-sky-500/25", textColor: "text-white", inactiveClass: "bg-sky-50 dark:bg-sky-950/30 border-sky-200 dark:border-sky-800 hover:border-sky-400 dark:hover:border-sky-600 hover:shadow-sm", inactiveTextColor: "text-sky-600 dark:text-sky-400" },
 ] as const;
 
 // Field label translations for displaying changes
@@ -1240,11 +1239,11 @@ function CustomerHistoryTimeline({
       }
     });
 
-    // Add messages
+    // Add messages (grouped under email filter)
     messages.forEach((msg: any) => {
       events.push({
         id: `msg-${msg.id}`,
-        type: "message",
+        type: "email",
         action: msg.type,
         title: msg.type === "email" ? "Email" : "SMS",
         description: msg.subject || msg.content?.substring(0, 50),
@@ -1257,7 +1256,7 @@ function CustomerHistoryTimeline({
         createdAt: msg.sentAt || msg.createdAt,
         userId: msg.userId,
         icon: msg.type === "email" ? Mail : Phone,
-        color: msg.type === "email" ? "text-blue-400" : "text-green-400",
+        color: msg.type === "email" ? "text-sky-500" : "text-green-400",
       });
     });
 
