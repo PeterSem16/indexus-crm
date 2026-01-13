@@ -2705,9 +2705,13 @@ export async function registerRoutes(
         const receivedDateTime = email.receivedDateTime ? new Date(email.receivedDateTime) : new Date();
         const actualMailbox = mailboxEmail === "personal" ? ms365Connection.email : mailboxEmail;
         
+        console.log(`[EmailRouter] Processing email ${emailId} from ${senderEmail}, mailbox=${actualMailbox}`);
+        
         // Check if there's a routing rule that enables auto-assign customer
         const routingRules = await storage.getAllEmailRoutingRules();
         const activeRules = routingRules.filter(r => r.isActive);
+        
+        console.log(`[EmailRouter] Found ${activeRules.length} active routing rules`);
         
         // Check if any active rule has autoAssignCustomer enabled (default is true)
         // If no rules exist, default to auto-assign enabled
@@ -2715,6 +2719,8 @@ export async function registerRoutes(
         
         // Check if AI analysis is enabled in any active rule
         const shouldAnalyzeWithAI = activeRules.some(r => r.enableAiAnalysis === true);
+        
+        console.log(`[EmailRouter] shouldAutoAssign=${shouldAutoAssign}, shouldAnalyzeWithAI=${shouldAnalyzeWithAI}`);
         
         if (senderEmail && actualMailbox && shouldAutoAssign) {
           // Search for customer by sender email
