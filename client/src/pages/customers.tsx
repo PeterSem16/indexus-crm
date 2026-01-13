@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, MailOpen, Phone, PhoneCall, Baby, Copy, ListChecks, FileEdit, UserCircle, Clock, PlusCircle, RefreshCw, XCircle, LogIn, LogOut, AlertCircle, CheckCircle2, ArrowRight, Shield, CreditCard, Loader2, Calendar, Globe, Linkedin, Facebook, Twitter, Instagram, Building2, ExternalLink, Sparkles, FileSignature, Receipt, Target, ArrowDownLeft, ArrowUpRight } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, MailOpen, Phone, PhoneCall, Baby, Copy, ListChecks, FileEdit, UserCircle, Clock, PlusCircle, RefreshCw, XCircle, LogIn, LogOut, AlertCircle, CheckCircle2, ArrowRight, Shield, CreditCard, Loader2, Calendar, Globe, Linkedin, Facebook, Twitter, Instagram, Building2, ExternalLink, Sparkles, FileSignature, Receipt, Target, ArrowDownLeft, ArrowUpRight, PenSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -2926,16 +2926,59 @@ function CustomerDetailsContent({
               <div className="space-y-3">
                 {communicationMessages.map((msg) => (
                   <div key={msg.id} className="p-3 rounded-lg bg-muted/50 space-y-1" data-testid={`message-item-${msg.id}`}>
-                    <div className="flex items-center gap-2">
-                      {msg.type === "email" ? (
-                        <Mail className="h-4 w-4 text-primary" />
-                      ) : (
-                        <Phone className="h-4 w-4 text-primary" />
-                      )}
-                      <span className="text-sm font-medium capitalize" data-testid={`message-type-${msg.id}`}>{msg.type}</span>
-                      <Badge variant={msg.status === "sent" ? "default" : msg.status === "failed" ? "destructive" : "secondary"} className="text-xs" data-testid={`message-status-${msg.id}`}>
-                        {msg.status}
-                      </Badge>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {msg.type === "email" ? (
+                          <Mail className="h-4 w-4 text-primary" />
+                        ) : msg.type === "sms" ? (
+                          <MessageSquare className="h-4 w-4 text-cyan-600" />
+                        ) : (
+                          <Phone className="h-4 w-4 text-primary" />
+                        )}
+                        <span className="text-sm font-medium capitalize" data-testid={`message-type-${msg.id}`}>
+                          {msg.type === "sms" ? "SMS" : msg.type}
+                        </span>
+                        {(msg as any).direction && (
+                          <Badge variant="outline" className={`text-xs ${(msg as any).direction === "inbound" ? "text-cyan-600 border-cyan-400" : "text-emerald-600 border-emerald-400"}`}>
+                            {(msg as any).direction === "inbound" ? "Prijatá" : "Odoslaná"}
+                          </Badge>
+                        )}
+                        <Badge variant={msg.status === "sent" ? "default" : msg.status === "failed" ? "destructive" : "secondary"} className="text-xs" data-testid={`message-status-${msg.id}`}>
+                          {msg.status}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => {
+                            // View message detail - open in dialog or navigate to NEXUS
+                            toast({
+                              title: msg.type === "sms" ? "SMS správa" : "Email správa",
+                              description: msg.content?.substring(0, 100) + (msg.content && msg.content.length > 100 ? "..." : ""),
+                            });
+                          }}
+                          data-testid={`button-view-message-${msg.id}`}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        {msg.type === "email" && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => {
+                              // Open compose with prefilled reply
+                              setEmailSubject(`Re: ${msg.subject || ""}`);
+                              setEmailContent("");
+                            }}
+                            data-testid={`button-reply-message-${msg.id}`}
+                          >
+                            <PenSquare className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                     {msg.subject && <p className="text-sm font-medium" data-testid={`message-subject-${msg.id}`}>{msg.subject}</p>}
                     <p className="text-sm text-muted-foreground line-clamp-2" data-testid={`message-content-${msg.id}`}>{msg.content}</p>

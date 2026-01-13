@@ -34,6 +34,7 @@ function getConfig() {
     applicationId: process.env.BULKGATE_APPLICATION_ID,
     applicationToken: process.env.BULKGATE_APPLICATION_TOKEN,
     webhookUrl: process.env.BULKGATE_WEBHOOK_URL,
+    senderId: process.env.BULKGATE_SENDER_ID || "CBC",
   };
 }
 
@@ -67,13 +68,13 @@ export async function sendTransactionalSms(options: BulkGateSendOptions): Promis
       text: options.text,
       country: options.country || null,
       unicode: options.unicode ? "yes" : "no",
-      sender_id: options.senderId || "gSystem",
-      sender_id_value: options.senderIdValue || null,
+      sender_id: options.senderId || "gText",
+      sender_id_value: options.senderIdValue || config.senderId,
       schedule: options.schedule || null,
       tag: options.tag || null,
     };
 
-    console.log(`[BulkGate] Sending SMS to ${options.number}`);
+    console.log(`[BulkGate] Sending SMS to ${options.number} from ${config.senderId}`);
 
     const response = await fetch(BULKGATE_API_URL, {
       method: "POST",
@@ -134,13 +135,13 @@ export async function sendPromotionalSms(options: BulkGateSendOptions): Promise<
       text: options.text,
       country: options.country || null,
       unicode: options.unicode ? "yes" : "no",
-      sender_id: options.senderId || "gSystem",
-      sender_id_value: options.senderIdValue || null,
+      sender_id: options.senderId || "gText",
+      sender_id_value: options.senderIdValue || config.senderId,
       schedule: options.schedule || null,
       tag: options.tag || null,
     };
 
-    console.log(`[BulkGate] Sending promotional SMS to ${options.number}`);
+    console.log(`[BulkGate] Sending promotional SMS to ${options.number} from ${config.senderId}`);
 
     const response = await fetch(BULKGATE_PROMOTIONAL_URL, {
       method: "POST",

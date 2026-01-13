@@ -177,7 +177,7 @@ interface ColumnConfig {
 
 interface FolderConfig {
   id: string;
-  type: "email" | "task" | "chat" | "system";
+  type: "email" | "task" | "chat" | "sms" | "system";
   displayName: string;
   visible: boolean;
   order: number;
@@ -185,9 +185,29 @@ interface FolderConfig {
   color?: string;
 }
 
+interface SmsMessage {
+  id: string;
+  customerId?: string;
+  recipientPhone: string;
+  senderPhone?: string;
+  content: string;
+  type: "sms";
+  direction: "outbound" | "inbound";
+  status?: string;
+  deliveryStatus?: string;
+  sentAt?: string;
+  deliveredAt?: string;
+  createdAt: string;
+  customer?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  };
+}
+
 type UnifiedMessage = {
   id: string;
-  type: "email" | "task" | "chat";
+  type: "email" | "task" | "chat" | "sms";
   title: string;
   preview: string;
   timestamp: string;
@@ -196,7 +216,8 @@ type UnifiedMessage = {
   status?: string;
   from?: string;
   hasAttachments?: boolean;
-  originalData: EmailMessage | Task | ChatConversation;
+  direction?: "inbound" | "outbound";
+  originalData: EmailMessage | Task | ChatConversation | SmsMessage;
 };
 
 const defaultColumns: ColumnConfig[] = [
@@ -216,6 +237,7 @@ const systemFolders: FolderConfig[] = [
 ];
 
 const defaultVirtualFolders: FolderConfig[] = [
+  { id: "sms", type: "sms", displayName: "SMS správy", visible: true, order: 99, icon: "sms", color: "cyan" },
   { id: "tasks", type: "task", displayName: "Úlohy", visible: true, order: 100, icon: "tasks", color: "emerald" },
   { id: "chats", type: "chat", displayName: "Interné chaty", visible: true, order: 101, icon: "chat", color: "violet" },
 ];
@@ -229,12 +251,14 @@ const folderIcons: Record<string, React.ReactNode> = {
   mail: <Mail className="h-4 w-4" />,
   tasks: <ListTodo className="h-4 w-4" />,
   chat: <MessagesSquare className="h-4 w-4" />,
+  sms: <MessageSquare className="h-4 w-4" />,
 };
 
 const typeColors = {
   email: { bg: "bg-slate-100 dark:bg-slate-800", text: "text-slate-700 dark:text-slate-300", border: "border-slate-300 dark:border-slate-700" },
   task: { bg: "bg-emerald-50 dark:bg-emerald-950/30", text: "text-emerald-700 dark:text-emerald-300", border: "border-emerald-400" },
   chat: { bg: "bg-violet-50 dark:bg-violet-950/30", text: "text-violet-700 dark:text-violet-300", border: "border-violet-400" },
+  sms: { bg: "bg-cyan-50 dark:bg-cyan-950/30", text: "text-cyan-700 dark:text-cyan-300", border: "border-cyan-400" },
 };
 
 const priorityIcons: Record<string, React.ReactNode> = {
@@ -258,10 +282,11 @@ export default function EmailClientPage() {
   
   const [selectedMailbox, setSelectedMailbox] = useState<string>("personal");
   const [selectedFolderId, setSelectedFolderId] = useState<string>("all");
-  const [selectedFolderType, setSelectedFolderType] = useState<"email" | "task" | "chat" | "system" | "all">("all");
+  const [selectedFolderType, setSelectedFolderType] = useState<"email" | "task" | "chat" | "sms" | "system" | "all">("all");
   const [selectedEmail, setSelectedEmail] = useState<EmailMessage | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedChat, setSelectedChat] = useState<ChatConversation | null>(null);
+  const [selectedSms, setSelectedSms] = useState<SmsMessage | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
   const [replyMode, setReplyMode] = useState<"reply" | "replyAll" | "forward" | null>(null);
   const [signatureDialogOpen, setSignatureDialogOpen] = useState(false);
@@ -355,6 +380,13 @@ export default function EmailClientPage() {
       }
       return Array.from(conversations.values());
     },
+    enabled: !!user?.id,
+  });
+
+  // SMS messages query
+  const { data: smsData, isLoading: smsLoading, refetch: refetchSms } = useQuery<SmsMessage[]>({
+    queryKey: ["/api/sms-messages"],
+    queryFn: () => fetch("/api/sms-messages").then(r => r.json()),
     enabled: !!user?.id,
   });
 
@@ -527,7 +559,7 @@ export default function EmailClientPage() {
   
   // Merge email folders into folder settings dynamically
   const mergedFolderSettings: FolderConfig[] = [
-    ...folderSettings.filter(f => f.type === "system" || f.type === "task" || f.type === "chat"),
+    ...folderSettings.filter(f => f.type === "system" || f.type === "sms" || f.type === "task" || f.type === "chat"),
     ...folders.map((f, idx) => {
       const existing = folderSettings.find(fs => fs.id === `email-${f.id}`);
       return existing || {
@@ -610,6 +642,31 @@ export default function EmailClientPage() {
         timestamp: chat.lastMessageAt,
         isUnread: isChatUnread,
         originalData: chat,
+      });
+    }
+  }
+  
+  // Add SMS messages
+  if ((isAllFilter || isUnreadFilter || selectedFolderId === "sms" || selectedFolderType === "sms") && smsData) {
+    for (const sms of smsData) {
+      const isSmsUnread = sms.direction === "inbound" && sms.deliveryStatus !== "read";
+      // Skip read sms when "unread" filter is active
+      if (isUnreadFilter && !isSmsUnread) continue;
+      
+      const customerName = sms.customer 
+        ? `${sms.customer.firstName} ${sms.customer.lastName}` 
+        : (sms.direction === "inbound" ? sms.senderPhone : sms.recipientPhone) || "Neznámy";
+      
+      unifiedMessages.push({
+        id: `sms-${sms.id}`,
+        type: "sms",
+        title: sms.direction === "inbound" ? `SMS od ${customerName}` : `SMS pre ${customerName}`,
+        preview: sms.content || "",
+        timestamp: sms.sentAt || sms.createdAt,
+        isUnread: isSmsUnread,
+        direction: sms.direction,
+        from: customerName,
+        originalData: sms,
       });
     }
   }
@@ -713,6 +770,7 @@ export default function EmailClientPage() {
     setSelectedEmail(null);
     setSelectedTask(null);
     setSelectedChat(null);
+    setSelectedSms(null);
     
     if (msg.type === "email") {
       setSelectedEmail(msg.originalData as EmailMessage);
@@ -720,10 +778,12 @@ export default function EmailClientPage() {
       setSelectedTask(msg.originalData as Task);
     } else if (msg.type === "chat") {
       setSelectedChat(msg.originalData as ChatConversation);
+    } else if (msg.type === "sms") {
+      setSelectedSms(msg.originalData as SmsMessage);
     }
   };
   
-  const selectFolder = (folder: FolderConfig | MailFolder, type: "email" | "task" | "chat" | "system") => {
+  const selectFolder = (folder: FolderConfig | MailFolder, type: "email" | "task" | "chat" | "sms" | "system") => {
     setSelectedEmail(null);
     setSelectedTask(null);
     setSelectedChat(null);
@@ -776,11 +836,12 @@ export default function EmailClientPage() {
     );
   }
 
-  const getTypeIcon = (type: "email" | "task" | "chat") => {
+  const getTypeIcon = (type: "email" | "task" | "chat" | "sms") => {
     switch (type) {
       case "email": return <Mail className="h-4 w-4" />;
       case "task": return <ListTodo className="h-4 w-4" />;
       case "chat": return <MessagesSquare className="h-4 w-4" />;
+      case "sms": return <MessageSquare className="h-4 w-4" />;
     }
   };
 
@@ -839,7 +900,7 @@ export default function EmailClientPage() {
             </DropdownMenuContent>
           </DropdownMenu>
           
-          <Button variant="outline" size="icon" onClick={() => { refetchFolders(); refetchMessages(); refetchTasks(); refetchChats(); }} data-testid="button-refresh">
+          <Button variant="outline" size="icon" onClick={() => { refetchFolders(); refetchMessages(); refetchTasks(); refetchChats(); refetchSms(); }} data-testid="button-refresh">
             <RefreshCw className="h-4 w-4" />
           </Button>
           <Button variant="outline" size="icon" onClick={openSignatureEditor} data-testid="button-signature">
@@ -940,20 +1001,23 @@ export default function EmailClientPage() {
                   </>
                 )}
                 
-                {/* Virtual folders (Tasks, Chats) */}
-                {visibleFolders.filter(f => f.type === "task" || f.type === "chat").map((folder) => (
+                {/* Virtual folders (SMS, Tasks, Chats) */}
+                {visibleFolders.filter(f => f.type === "sms" || f.type === "task" || f.type === "chat").map((folder) => (
                   <button
                     key={folder.id}
-                    onClick={() => selectFolder(folder, folder.type as "task" | "chat")}
+                    onClick={() => selectFolder(folder, folder.type as "sms" | "task" | "chat")}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors hover-elevate ${
                       selectedFolderId === folder.id ? "bg-primary text-primary-foreground" : ""
-                    } ${folder.type === "task" ? "border-l-2 border-l-emerald-500" : folder.type === "chat" ? "border-l-2 border-l-violet-500" : ""}`}
+                    } ${folder.type === "sms" ? "border-l-2 border-l-cyan-500" : folder.type === "task" ? "border-l-2 border-l-emerald-500" : folder.type === "chat" ? "border-l-2 border-l-violet-500" : ""}`}
                     data-testid={`folder-${folder.id}`}
                   >
                     <div className="flex items-center gap-2">
-                      {folder.type === "task" ? <ListTodo className="h-4 w-4 text-emerald-600" /> : <MessagesSquare className="h-4 w-4 text-violet-600" />}
+                      {folder.type === "sms" ? <MessageSquare className="h-4 w-4 text-cyan-600" /> : folder.type === "task" ? <ListTodo className="h-4 w-4 text-emerald-600" /> : <MessagesSquare className="h-4 w-4 text-violet-600" />}
                       <span className="truncate">{folder.displayName}</span>
                     </div>
+                    {folder.type === "sms" && (smsData?.filter(s => s.direction === "inbound" && s.deliveryStatus !== "read")?.length || 0) > 0 ? (
+                      <Badge className="text-xs bg-cyan-500">{smsData?.filter(s => s.direction === "inbound" && s.deliveryStatus !== "read")?.length || 0}</Badge>
+                    ) : null}
                     {folder.type === "task" && (tasksData?.filter(t => t.status === "pending")?.length || 0) > 0 ? (
                       <Badge className="text-xs bg-emerald-500">{tasksData?.filter(t => t.status === "pending")?.length || 0}</Badge>
                     ) : null}
@@ -974,6 +1038,7 @@ export default function EmailClientPage() {
               Správy
               <div className="flex items-center gap-1">
                 <Badge variant="outline" className="text-xs bg-slate-100 dark:bg-slate-800"><Mail className="h-3 w-3 mr-1" />{emails.length}</Badge>
+                <Badge variant="outline" className="text-xs bg-cyan-50 dark:bg-cyan-950/30 text-cyan-700"><MessageSquare className="h-3 w-3 mr-1" />{smsData?.length || 0}</Badge>
                 <Badge variant="outline" className="text-xs bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700"><ListTodo className="h-3 w-3 mr-1" />{tasksData?.length || 0}</Badge>
                 <Badge variant="outline" className="text-xs bg-violet-50 dark:bg-violet-950/30 text-violet-700"><MessagesSquare className="h-3 w-3 mr-1" />{chatsData?.length || 0}</Badge>
               </div>
@@ -991,7 +1056,7 @@ export default function EmailClientPage() {
             )}
           </CardHeader>
           <CardContent className="p-0">
-            {(messagesLoading || tasksLoading || chatsLoading) ? (
+            {(messagesLoading || tasksLoading || chatsLoading || smsLoading) ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-5 w-5 animate-spin" />
               </div>
@@ -1269,6 +1334,66 @@ export default function EmailClientPage() {
                   <div className="p-4">
                     <p className="text-sm text-muted-foreground">Posledná správa:</p>
                     <p className="text-sm mt-1">{selectedChat.lastMessage}</p>
+                  </div>
+                </ScrollArea>
+              </div>
+            ) : selectedSms ? (
+              <div className="flex flex-col h-full">
+                <div className="p-4 border-b space-y-2">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge className={`${typeColors.sms.bg} ${typeColors.sms.text}`}>
+                        <MessageSquare className="h-3 w-3 mr-1" />
+                        {selectedSms.direction === "inbound" ? "Prijatá SMS" : "Odoslaná SMS"}
+                      </Badge>
+                      <h2 className="text-lg font-semibold">
+                        {selectedSms.customer 
+                          ? `${selectedSms.customer.firstName} ${selectedSms.customer.lastName}` 
+                          : (selectedSms.direction === "inbound" ? selectedSms.senderPhone : selectedSms.recipientPhone)}
+                      </h2>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {selectedSms.direction === "inbound" ? (
+                        <Badge variant="outline" className="gap-1 text-cyan-600 border-cyan-400">
+                          <ArrowRight className="h-3 w-3 rotate-180" />
+                          Prijatá
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="gap-1 text-emerald-600 border-emerald-400">
+                          <ArrowRight className="h-3 w-3" />
+                          Odoslaná
+                        </Badge>
+                      )}
+                      {selectedSms.deliveryStatus && (
+                        <Badge variant="outline" className="text-xs">
+                          {selectedSms.deliveryStatus}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-sm">
+                    <p>
+                      <span className="text-muted-foreground">
+                        {selectedSms.direction === "inbound" ? "Od:" : "Pre:"}
+                      </span>{" "}
+                      {selectedSms.direction === "inbound" ? selectedSms.senderPhone : selectedSms.recipientPhone}
+                    </p>
+                    <p className="text-muted-foreground text-xs mt-1">
+                      {format(new Date(selectedSms.sentAt || selectedSms.createdAt), "d. MMMM yyyy, HH:mm")}
+                    </p>
+                    {selectedSms.customer && (
+                      <Link href={`/customers/${selectedSms.customer.id}`} className="text-xs text-primary hover:underline mt-2 inline-flex items-center gap-1">
+                        <User className="h-3 w-3" />
+                        Zobraziť zákazníka: {selectedSms.customer.firstName} {selectedSms.customer.lastName}
+                      </Link>
+                    )}
+                  </div>
+                </div>
+                <ScrollArea className="flex-1">
+                  <div className="p-4">
+                    <div className={`p-4 rounded-lg ${selectedSms.direction === "inbound" ? "bg-cyan-50 dark:bg-cyan-950/30" : "bg-slate-50 dark:bg-slate-900"}`}>
+                      <p className="text-sm whitespace-pre-wrap">{selectedSms.content}</p>
+                    </div>
                   </div>
                 </ScrollArea>
               </div>

@@ -5862,7 +5862,25 @@ export async function registerRoutes(
         return true;
       });
       
-      res.json(smsMessages);
+      // Enrich with customer data
+      const enrichedMessages = await Promise.all(smsMessages.map(async (msg) => {
+        if (msg.customerId) {
+          const customer = await storage.getCustomer(msg.customerId);
+          if (customer) {
+            return {
+              ...msg,
+              customer: {
+                id: customer.id,
+                firstName: customer.firstName,
+                lastName: customer.lastName,
+              },
+            };
+          }
+        }
+        return msg;
+      }));
+      
+      res.json(enrichedMessages);
     } catch (error) {
       console.error("Error fetching SMS messages:", error);
       res.status(500).json({ error: "Failed to fetch SMS messages" });
