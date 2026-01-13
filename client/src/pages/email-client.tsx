@@ -99,6 +99,12 @@ interface MailFolder {
   unreadItemCount: number;
   totalItemCount: number;
   wellKnownName?: string;
+  childFolderCount?: number;
+  hasChildren?: boolean;
+  isChildFolder?: boolean;
+  parentFolderId?: string;
+  parentDisplayName?: string;
+  depth?: number;
 }
 
 interface EmailMessage {
@@ -997,23 +1003,56 @@ export default function EmailClientPage() {
                     {visibleFolders.filter(f => f.type === "email").map((folderConfig) => {
                       const originalFolder = folders.find(f => `email-${f.id}` === folderConfig.id);
                       if (!originalFolder) return null;
+                      
+                      // Get child folders for this parent
+                      const childFolders = folders.filter(cf => cf.isChildFolder && cf.parentFolderId === originalFolder.id);
+                      const visibleChildren = childFolders.filter(cf => {
+                        const cfId = `email-${cf.id}`;
+                        const saved = folderSettings.find(fs => fs.id === cfId);
+                        return saved ? saved.visible : true;
+                      });
+                      
                       return (
-                        <button
-                          key={folderConfig.id}
-                          onClick={() => selectFolder(originalFolder, "email")}
-                          className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors hover-elevate ${
-                            selectedFolderId === originalFolder.id && selectedFolderType === "email" ? "bg-primary text-primary-foreground" : ""
-                          }`}
-                          data-testid={`folder-${originalFolder.displayName.toLowerCase().replace(/\s/g, "-")}`}
-                        >
-                          <div className="flex items-center gap-2">
-                            {folderIcons[originalFolder.displayName] || <Mail className="h-4 w-4" />}
-                            <span className="truncate">{originalFolder.displayName}</span>
-                          </div>
-                          {originalFolder.unreadItemCount > 0 && (
-                            <Badge variant="destructive" className="text-xs">{originalFolder.unreadItemCount}</Badge>
-                          )}
-                        </button>
+                        <div key={folderConfig.id}>
+                          <button
+                            onClick={() => selectFolder(originalFolder, "email")}
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors hover-elevate ${
+                              selectedFolderId === originalFolder.id && selectedFolderType === "email" ? "bg-primary text-primary-foreground" : ""
+                            }`}
+                            data-testid={`folder-${originalFolder.displayName.toLowerCase().replace(/\s/g, "-")}`}
+                          >
+                            <div className="flex items-center gap-2">
+                              {folderIcons[originalFolder.displayName] || <Mail className="h-4 w-4" />}
+                              <span className="truncate">{originalFolder.displayName}</span>
+                              {originalFolder.hasChildren && visibleChildren.length > 0 && (
+                                <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                              )}
+                            </div>
+                            {originalFolder.unreadItemCount > 0 && (
+                              <Badge variant="destructive" className="text-xs">{originalFolder.unreadItemCount}</Badge>
+                            )}
+                          </button>
+                          
+                          {/* Child folders with indentation */}
+                          {visibleChildren.map((childFolder) => (
+                            <button
+                              key={`email-${childFolder.id}`}
+                              onClick={() => selectFolder(childFolder, "email")}
+                              className={`w-full flex items-center justify-between pl-8 pr-3 py-1.5 rounded-md text-sm transition-colors hover-elevate ${
+                                selectedFolderId === childFolder.id && selectedFolderType === "email" ? "bg-primary text-primary-foreground" : ""
+                              }`}
+                              data-testid={`folder-child-${childFolder.displayName.toLowerCase().replace(/\s/g, "-")}`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <Mail className="h-3.5 w-3.5 opacity-60" />
+                                <span className="truncate text-xs">{childFolder.displayName}</span>
+                              </div>
+                              {childFolder.unreadItemCount > 0 && (
+                                <Badge variant="secondary" className="text-[10px] h-4 px-1">{childFolder.unreadItemCount}</Badge>
+                              )}
+                            </button>
+                          ))}
+                        </div>
                       );
                     })}
                   </>
@@ -1637,102 +1676,254 @@ export default function EmailClientPage() {
 
       {/* Folder Settings Dialog */}
       <Dialog open={folderSettingsOpen} onOpenChange={setFolderSettingsOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Settings className="h-5 w-5" />
               Nastavenie zložiek
             </DialogTitle>
             <DialogDescription>
-              Skryte alebo zobrazte zložky a zmeňte ich poradie
+              Vyberte, ktoré zložky chcete zobraziť v ľavom paneli
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2 max-h-96 overflow-auto">
-            {mergedFolderSettings.sort((a, b) => a.order - b.order).map((folder, idx) => {
-              const isVisible = folderSettings.find(fs => fs.id === folder.id)?.visible ?? folder.visible;
-              return (
-                <div 
-                  key={folder.id} 
-                  className={`flex items-center justify-between p-3 rounded-md border ${isVisible ? "bg-background" : "bg-muted/50 opacity-60"}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
-                    <div className={`p-1.5 rounded ${
-                      folder.type === "task" ? typeColors.task.bg : 
-                      folder.type === "chat" ? typeColors.chat.bg : 
-                      folder.type === "email" ? "bg-slate-100 dark:bg-slate-800" :
-                      "bg-muted"
-                    }`}>
-                      {folder.type === "task" ? <ListTodo className="h-4 w-4 text-emerald-600" /> : 
-                       folder.type === "chat" ? <MessagesSquare className="h-4 w-4 text-violet-600" /> :
-                       folder.type === "email" ? <Mail className="h-4 w-4 text-slate-600" /> :
-                       folderIcons[folder.icon || "inbox"]}
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium">{folder.displayName}</span>
-                      {folder.type === "email" && (
-                        <span className="text-xs text-muted-foreground">Email</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-7 w-7"
-                      disabled={idx === 0}
-                      onClick={() => {
-                        if (!folderSettings.find(fs => fs.id === folder.id)) {
-                          const newSettings = [...folderSettings, folder];
-                          setFolderSettings(newSettings);
-                          localStorage.setItem("nexus-folder-settings", JSON.stringify(newSettings));
-                        }
-                        moveFolderOrder(folder.id, "up");
-                      }}
-                    >
-                      <ChevronUp className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-7 w-7"
-                      disabled={idx === mergedFolderSettings.length - 1}
-                      onClick={() => {
-                        if (!folderSettings.find(fs => fs.id === folder.id)) {
-                          const newSettings = [...folderSettings, folder];
-                          setFolderSettings(newSettings);
-                          localStorage.setItem("nexus-folder-settings", JSON.stringify(newSettings));
-                        }
-                        moveFolderOrder(folder.id, "down");
-                      }}
-                    >
-                      <ChevronDown className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-7 w-7"
-                      onClick={() => {
-                        if (!folderSettings.find(fs => fs.id === folder.id)) {
-                          const newSettings = [...folderSettings, { ...folder, visible: false }];
-                          setFolderSettings(newSettings);
-                          localStorage.setItem("nexus-folder-settings", JSON.stringify(newSettings));
-                        } else {
-                          toggleFolderVisibility(folder.id);
-                        }
-                      }}
-                    >
-                      {isVisible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                    </Button>
-                  </div>
+          
+          <ScrollArea className="flex-1 pr-4">
+            <div className="space-y-4">
+              {/* System Folders Section */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 pb-1 border-b">
+                  <Inbox className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-semibold text-primary">Systémové zložky</span>
                 </div>
-              );
-            })}
-          </div>
-          <DialogFooter>
+                {mergedFolderSettings.filter(f => f.type === "system").sort((a, b) => a.order - b.order).map((folder) => {
+                  const isVisible = folderSettings.find(fs => fs.id === folder.id)?.visible ?? folder.visible;
+                  return (
+                    <div 
+                      key={folder.id} 
+                      className={`flex items-center justify-between p-2.5 rounded-md border transition-colors ${isVisible ? "bg-background border-border" : "bg-muted/30 opacity-50 border-transparent"}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="p-1.5 rounded bg-primary/10">
+                          {folderIcons[folder.icon || "inbox"] || <Inbox className="h-4 w-4 text-primary" />}
+                        </div>
+                        <span className="text-sm font-medium">{folder.displayName}</span>
+                      </div>
+                      <Button 
+                        variant={isVisible ? "default" : "outline"} 
+                        size="sm"
+                        className="h-7 px-2"
+                        onClick={() => {
+                          if (!folderSettings.find(fs => fs.id === folder.id)) {
+                            const newSettings = [...folderSettings, { ...folder, visible: !isVisible }];
+                            setFolderSettings(newSettings);
+                            localStorage.setItem("nexus-folder-settings", JSON.stringify(newSettings));
+                          } else {
+                            toggleFolderVisibility(folder.id);
+                          }
+                        }}
+                      >
+                        {isVisible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+              
+              {/* Email Folders Section */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between pb-1 border-b">
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Email zložky (Microsoft 365)</span>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-6 px-2 text-xs"
+                    onClick={() => refetchFolders()}
+                    disabled={foldersLoading}
+                  >
+                    <RefreshCw className={`h-3 w-3 mr-1 ${foldersLoading ? "animate-spin" : ""}`} />
+                    Obnoviť
+                  </Button>
+                </div>
+                {foldersLoading ? (
+                  <div className="flex items-center justify-center py-4 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Načítavam zložky...
+                  </div>
+                ) : folders.length === 0 ? (
+                  <div className="flex items-center justify-center py-4 text-muted-foreground text-sm">
+                    Žiadne email zložky
+                  </div>
+                ) : (
+                  <>
+                    {/* Parent folders first */}
+                    {folders.filter(f => !f.isChildFolder).map((folder) => {
+                      const folderId = `email-${folder.id}`;
+                      const isVisible = folderSettings.find(fs => fs.id === folderId)?.visible ?? true;
+                      const childFolders = folders.filter(cf => cf.isChildFolder && cf.parentFolderId === folder.id);
+                      
+                      return (
+                        <div key={folder.id}>
+                          <div 
+                            className={`flex items-center justify-between p-2.5 rounded-md border transition-colors ${isVisible ? "bg-background border-border" : "bg-muted/30 opacity-50 border-transparent"}`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="p-1.5 rounded bg-slate-100 dark:bg-slate-800">
+                                {folderIcons[folder.displayName] || <Mail className="h-4 w-4 text-slate-600 dark:text-slate-400" />}
+                              </div>
+                              <div className="flex flex-col">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-medium">{folder.displayName}</span>
+                                  {folder.hasChildren && (
+                                    <Badge variant="outline" className="text-[10px] h-4 px-1">
+                                      {folder.childFolderCount} podpriečinkov
+                                    </Badge>
+                                  )}
+                                </div>
+                                <span className="text-xs text-muted-foreground">
+                                  {folder.unreadItemCount > 0 ? `${folder.unreadItemCount} neprečítaných` : `${folder.totalItemCount} správ`}
+                                </span>
+                              </div>
+                            </div>
+                            <Button 
+                              variant={isVisible ? "default" : "outline"} 
+                              size="sm"
+                              className="h-7 px-2"
+                              onClick={() => {
+                                if (!folderSettings.find(fs => fs.id === folderId)) {
+                                  const newSettings = [...folderSettings, { 
+                                    id: folderId, 
+                                    type: "email" as const, 
+                                    displayName: folder.displayName, 
+                                    visible: false, 
+                                    order: 50, 
+                                    icon: folder.displayName, 
+                                    color: "default" 
+                                  }];
+                                  setFolderSettings(newSettings);
+                                  localStorage.setItem("nexus-folder-settings", JSON.stringify(newSettings));
+                                } else {
+                                  toggleFolderVisibility(folderId);
+                                }
+                              }}
+                            >
+                              {isVisible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                            </Button>
+                          </div>
+                          
+                          {/* Child folders with indentation */}
+                          {childFolders.map((childFolder) => {
+                            const childFolderId = `email-${childFolder.id}`;
+                            const isChildVisible = folderSettings.find(fs => fs.id === childFolderId)?.visible ?? true;
+                            return (
+                              <div 
+                                key={childFolder.id}
+                                className={`flex items-center justify-between p-2.5 rounded-md border transition-colors ml-6 mt-1 ${isChildVisible ? "bg-background border-border" : "bg-muted/30 opacity-50 border-transparent"}`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className="p-1.5 rounded bg-slate-50 dark:bg-slate-900">
+                                    <Mail className="h-3.5 w-3.5 text-slate-500 dark:text-slate-500" />
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <span className="text-sm">{childFolder.displayName}</span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {childFolder.unreadItemCount > 0 ? `${childFolder.unreadItemCount} neprečítaných` : `${childFolder.totalItemCount} správ`}
+                                    </span>
+                                  </div>
+                                </div>
+                                <Button 
+                                  variant={isChildVisible ? "default" : "outline"} 
+                                  size="sm"
+                                  className="h-7 px-2"
+                                  onClick={() => {
+                                    if (!folderSettings.find(fs => fs.id === childFolderId)) {
+                                      const newSettings = [...folderSettings, { 
+                                        id: childFolderId, 
+                                        type: "email" as const, 
+                                        displayName: childFolder.displayName, 
+                                        visible: false, 
+                                        order: 60, 
+                                        icon: childFolder.displayName, 
+                                        color: "default" 
+                                      }];
+                                      setFolderSettings(newSettings);
+                                      localStorage.setItem("nexus-folder-settings", JSON.stringify(newSettings));
+                                    } else {
+                                      toggleFolderVisibility(childFolderId);
+                                    }
+                                  }}
+                                >
+                                  {isChildVisible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                                </Button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+              </div>
+              
+              {/* Virtual Folders Section */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 pb-1 border-b">
+                  <Network className="h-4 w-4 text-violet-600" />
+                  <span className="text-sm font-semibold text-violet-700 dark:text-violet-300">Virtuálne zložky</span>
+                </div>
+                {mergedFolderSettings.filter(f => f.type === "sms" || f.type === "task" || f.type === "chat").sort((a, b) => a.order - b.order).map((folder) => {
+                  const isVisible = folderSettings.find(fs => fs.id === folder.id)?.visible ?? folder.visible;
+                  const getTypeInfo = () => {
+                    if (folder.type === "sms") return { icon: <MessageSquare className="h-4 w-4 text-cyan-600" />, bg: "bg-cyan-100 dark:bg-cyan-950/50", desc: "SMS správy cez BulkGate" };
+                    if (folder.type === "task") return { icon: <ListTodo className="h-4 w-4 text-emerald-600" />, bg: "bg-emerald-100 dark:bg-emerald-950/50", desc: "Interné úlohy" };
+                    if (folder.type === "chat") return { icon: <MessagesSquare className="h-4 w-4 text-violet-600" />, bg: "bg-violet-100 dark:bg-violet-950/50", desc: "Tímová komunikácia" };
+                    return { icon: <Circle className="h-4 w-4" />, bg: "bg-muted", desc: "" };
+                  };
+                  const typeInfo = getTypeInfo();
+                  return (
+                    <div 
+                      key={folder.id} 
+                      className={`flex items-center justify-between p-2.5 rounded-md border transition-colors ${isVisible ? "bg-background border-border" : "bg-muted/30 opacity-50 border-transparent"}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`p-1.5 rounded ${typeInfo.bg}`}>
+                          {typeInfo.icon}
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium">{folder.displayName}</span>
+                          <span className="text-xs text-muted-foreground">{typeInfo.desc}</span>
+                        </div>
+                      </div>
+                      <Button 
+                        variant={isVisible ? "default" : "outline"} 
+                        size="sm"
+                        className="h-7 px-2"
+                        onClick={() => {
+                          if (!folderSettings.find(fs => fs.id === folder.id)) {
+                            const newSettings = [...folderSettings, { ...folder, visible: !isVisible }];
+                            setFolderSettings(newSettings);
+                            localStorage.setItem("nexus-folder-settings", JSON.stringify(newSettings));
+                          } else {
+                            toggleFolderVisibility(folder.id);
+                          }
+                        }}
+                      >
+                        {isVisible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </ScrollArea>
+          
+          <DialogFooter className="mt-4 pt-4 border-t">
             <Button variant="outline" onClick={() => {
               setFolderSettings([...systemFolders, ...defaultVirtualFolders]);
               localStorage.setItem("nexus-folder-settings", JSON.stringify([...systemFolders, ...defaultVirtualFolders]));
+              toast({ title: "Obnovené", description: "Nastavenia zložiek boli obnovené na predvolené" });
             }}>
               Obnoviť predvolené
             </Button>

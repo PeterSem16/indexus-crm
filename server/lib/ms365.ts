@@ -532,18 +532,74 @@ export async function getInboxFolderId(accessToken: string, mailboxEmail?: strin
 }
 
 /**
- * Get mail folders (inbox, sent, drafts, etc.)
+ * Get mail folders (inbox, sent, drafts, etc.) - includes child folders recursively up to specified depth
  */
-export async function getMailFolders(accessToken: string, mailboxEmail?: string): Promise<any[]> {
+export async function getMailFolders(accessToken: string, mailboxEmail?: string, includeChildren: boolean = true, maxDepth: number = 3): Promise<any[]> {
   const client = createGraphClient(accessToken);
   const basePath = mailboxEmail ? `/users/${mailboxEmail}` : '/me';
+  
+  // Recursive function to fetch child folders
+  async function fetchChildFolders(parentId: string, parentDisplayName: string, depth: number): Promise<any[]> {
+    if (depth > maxDepth) return [];
+    
+    try {
+      const childResult = await client.api(`${basePath}/mailFolders/${parentId}/childFolders`)
+        .select('id,displayName,parentFolderId,childFolderCount,unreadItemCount,totalItemCount,wellKnownName')
+        .top(50)
+        .get();
+      
+      const children = (childResult.value || []).map((child: any) => ({
+        ...child,
+        isChildFolder: true,
+        parentDisplayName: parentDisplayName,
+        depth: depth,
+        hasChildren: child.childFolderCount > 0,
+      }));
+      
+      // Recursively fetch grandchildren
+      const grandchildrenPromises = children
+        .filter((c: any) => c.childFolderCount > 0)
+        .map((child: any) => fetchChildFolders(child.id, child.displayName, depth + 1));
+      
+      const grandchildren = (await Promise.all(grandchildrenPromises)).flat();
+      
+      return [...children, ...grandchildren];
+    } catch (err) {
+      console.warn(`[MS365] Could not fetch child folders for ${parentDisplayName}`);
+      return [];
+    }
+  }
   
   try {
     const result = await client.api(`${basePath}/mailFolders`)
       .select('id,displayName,parentFolderId,childFolderCount,unreadItemCount,totalItemCount,wellKnownName')
-      .top(50)
+      .top(100)
       .get();
-    return result.value || [];
+    
+    const folders = result.value || [];
+    
+    // If includeChildren is true, fetch child folders recursively
+    if (includeChildren) {
+      const foldersWithChildren = folders.filter((f: any) => f.childFolderCount > 0);
+      
+      const childFolderPromises = foldersWithChildren.map(async (parent: any) => 
+        fetchChildFolders(parent.id, parent.displayName, 1)
+      );
+      
+      const allChildFolders = (await Promise.all(childFolderPromises)).flat();
+      
+      // Mark parent folders and combine
+      const markedFolders = folders.map((f: any) => ({
+        ...f,
+        hasChildren: f.childFolderCount > 0,
+        isChildFolder: false,
+        depth: 0,
+      }));
+      
+      return [...markedFolders, ...allChildFolders];
+    }
+    
+    return folders;
   } catch (error) {
     console.error(`[MS365] Error getting mail folders:`, error);
     return [];
