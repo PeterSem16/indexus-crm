@@ -29,10 +29,10 @@ import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/contexts/auth-context";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import type { ServiceConfiguration, ServiceInstance, InvoiceTemplate, InvoiceLayout, Product, Role, RoleModulePermission, RoleFieldPermission, Department, BillingDetails, NumberRange, ExchangeRate, EmailRoutingRule, EmailTag } from "@shared/schema";
-import { EMAIL_PRIORITIES, EMAIL_IMPORTANCE, EMAIL_CONDITION_TYPES, EMAIL_ACTION_TYPES } from "@shared/schema";
+import type { ServiceConfiguration, ServiceInstance, InvoiceTemplate, InvoiceLayout, Product, Role, RoleModulePermission, RoleFieldPermission, Department, BillingDetails, NumberRange, ExchangeRate, EmailRoutingRule, EmailTag, GsmSenderConfig } from "@shared/schema";
+import { EMAIL_PRIORITIES, EMAIL_IMPORTANCE, EMAIL_CONDITION_TYPES, EMAIL_ACTION_TYPES, GSM_SENDER_ID_TYPES } from "@shared/schema";
 import { CRM_MODULES, DEPARTMENTS, type ModuleDefinition, type FieldPermission, type ModuleAccess } from "@shared/permissions-config";
-import { Building2, User, Mail, Phone } from "lucide-react";
+import { Building2, User, Mail, Phone, Smartphone, RefreshCw, Wallet } from "lucide-react";
 import { DepartmentTree } from "@/components/department-tree";
 
 const serviceFormSchema = z.object({
@@ -9476,6 +9476,266 @@ function InflationTab() {
 }
 
 // ============================================
+// GSM SENDER TAB
+// ============================================
+
+function GsmSenderTab() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Query for GSM configs
+  const { data: gsmConfigs = [], isLoading: configsLoading } = useQuery<GsmSenderConfig[]>({
+    queryKey: ["/api/config/gsm-sender-configs"],
+  });
+
+  // Query for BulkGate credit
+  const { data: creditInfo, isLoading: creditLoading, refetch: refetchCredit } = useQuery<{ success: boolean; credit?: number; currency?: string; error?: string }>({
+    queryKey: ["/api/integrations/bulkgate/credit"],
+    staleTime: 60000,
+  });
+
+  // Upsert mutation
+  const upsertMutation = useMutation({
+    mutationFn: async (data: { countryCode: string; senderIdType: string; senderIdValue?: string }) => {
+      const res = await apiRequest("POST", "/api/config/gsm-sender-configs", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/config/gsm-sender-configs"] });
+      toast({ title: "Konfigurácia uložená" });
+    },
+    onError: () => {
+      toast({ title: "Chyba pri ukladaní", variant: "destructive" });
+    },
+  });
+
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/config/gsm-sender-configs/${id}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/config/gsm-sender-configs"] });
+      toast({ title: "Konfigurácia odstránená" });
+    },
+    onError: () => {
+      toast({ title: "Chyba pri odstraňovaní", variant: "destructive" });
+    },
+  });
+
+  // Local state for editing
+  const [editingCountry, setEditingCountry] = useState<string | null>(null);
+  const [formData, setFormData] = useState<{ senderIdType: string; senderIdValue: string }>({
+    senderIdType: "gText",
+    senderIdValue: "",
+  });
+
+  const handleEdit = (config: GsmSenderConfig) => {
+    setEditingCountry(config.countryCode);
+    setFormData({
+      senderIdType: config.senderIdType,
+      senderIdValue: config.senderIdValue || "",
+    });
+  };
+
+  const handleSave = (countryCode: string) => {
+    upsertMutation.mutate({
+      countryCode,
+      senderIdType: formData.senderIdType,
+      senderIdValue: formData.senderIdValue || undefined,
+    });
+    setEditingCountry(null);
+  };
+
+  const handleAddCountry = (countryCode: string) => {
+    setEditingCountry(countryCode);
+    setFormData({ senderIdType: "gText", senderIdValue: "CBC" });
+  };
+
+  const getConfigForCountry = (countryCode: string) => 
+    gsmConfigs.find(c => c.countryCode === countryCode);
+
+  // Check if sender type needs a value
+  const needsValue = (type: string) => ["gText", "gOwn", "gProfile"].includes(type);
+
+  return (
+    <div className="space-y-6">
+      {/* BulkGate Credit Section */}
+      <div className="p-4 border rounded-lg bg-card">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Wallet className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <h3 className="font-medium">BulkGate Kredit</h3>
+              {creditLoading ? (
+                <p className="text-sm text-muted-foreground">Načítavam...</p>
+              ) : creditInfo?.success ? (
+                <p className="text-lg font-semibold text-primary">
+                  {creditInfo.credit?.toFixed(2)} {creditInfo.currency}
+                </p>
+              ) : (
+                <p className="text-sm text-destructive">{creditInfo?.error || "Chyba pripojenia"}</p>
+              )}
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetchCredit()}
+            disabled={creditLoading}
+            data-testid="button-refresh-credit"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${creditLoading ? 'animate-spin' : ''}`} />
+            Obnoviť
+          </Button>
+        </div>
+      </div>
+
+      {/* Country Sender Configurations */}
+      <div>
+        <h3 className="font-medium mb-4">Konfigurácia odosielateľa podľa krajiny</h3>
+        <p className="text-sm text-muted-foreground mb-4">
+          Nastavte typ SMS odosielateľa pre každú krajinu. Táto konfigurácia sa použije pri odosielaní SMS zákazníkom z danej krajiny.
+        </p>
+
+        {configsLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin" />
+          </div>
+        ) : (
+          <div className="border rounded-lg overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-medium">Krajina</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">Typ odosielateľa</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">Hodnota</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium">Akcie</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {COUNTRIES.map((country) => {
+                  const config = getConfigForCountry(country.code);
+                  const isEditing = editingCountry === country.code;
+
+                  return (
+                    <tr key={country.code} className="hover-elevate">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">{country.flag}</span>
+                          <span className="font-medium">{country.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        {isEditing ? (
+                          <Select
+                            value={formData.senderIdType}
+                            onValueChange={(value) => setFormData(prev => ({ ...prev, senderIdType: value }))}
+                          >
+                            <SelectTrigger className="w-48" data-testid={`select-sender-type-${country.code}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {GSM_SENDER_ID_TYPES.map((type) => (
+                                <SelectItem key={type.value} value={type.value}>
+                                  {type.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : config ? (
+                          <span className="text-sm">
+                            {GSM_SENDER_ID_TYPES.find(t => t.value === config.senderIdType)?.label || config.senderIdType}
+                          </span>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">Nenastavené</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {isEditing ? (
+                          needsValue(formData.senderIdType) ? (
+                            <Input
+                              value={formData.senderIdValue}
+                              onChange={(e) => setFormData(prev => ({ ...prev, senderIdValue: e.target.value }))}
+                              placeholder={formData.senderIdType === "gText" ? "CBC" : formData.senderIdType === "gProfile" ? "ID profilu" : "Telefónne číslo"}
+                              className="w-40"
+                              data-testid={`input-sender-value-${country.code}`}
+                            />
+                          ) : (
+                            <span className="text-sm text-muted-foreground">—</span>
+                          )
+                        ) : config?.senderIdValue ? (
+                          <span className="text-sm font-mono">{config.senderIdValue}</span>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {isEditing ? (
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => handleSave(country.code)}
+                              disabled={upsertMutation.isPending || (needsValue(formData.senderIdType) && !formData.senderIdValue.trim())}
+                              data-testid={`button-save-${country.code}`}
+                            >
+                              {upsertMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setEditingCountry(null)}
+                              data-testid={`button-cancel-${country.code}`}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : config ? (
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => handleEdit(config)}
+                              data-testid={`button-edit-${country.code}`}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => deleteMutation.mutate(config.id)}
+                              disabled={deleteMutation.isPending}
+                              data-testid={`button-delete-${country.code}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleAddCountry(country.code)}
+                            data-testid={`button-add-${country.code}`}
+                          >
+                            <Plus className="h-4 w-4 mr-1" />
+                            Nastaviť
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================
 // EMAIL ROUTER TAB
 // ============================================
 
@@ -12928,7 +13188,7 @@ export default function ConfiguratorPage() {
           </TabsTrigger>
           <TabsTrigger value="email-router" className="flex items-center gap-2" data-testid="tab-email-router">
             <Mail className="h-4 w-4" />
-            Email Router
+            Email & GSM Router
           </TabsTrigger>
           <TabsTrigger value="permissions" className="flex items-center gap-2" data-testid="tab-permissions">
             <Shield className="h-4 w-4" />
@@ -13033,11 +13293,28 @@ export default function ConfiguratorPage() {
         <TabsContent value="email-router">
           <Card>
             <CardHeader>
-              <CardTitle>Email Router</CardTitle>
-              <CardDescription>Konfigurácia pravidiel pre spracovanie prichádzajúcich emailov</CardDescription>
+              <CardTitle>Email & GSM Router</CardTitle>
+              <CardDescription>Konfigurácia pravidiel pre spracovanie emailov a SMS správ</CardDescription>
             </CardHeader>
             <CardContent>
-              <EmailRouterTab />
+              <Tabs defaultValue="email" className="space-y-4">
+                <TabsList>
+                  <TabsTrigger value="email" data-testid="subtab-email">
+                    <Mail className="h-4 w-4 mr-2" />
+                    Email
+                  </TabsTrigger>
+                  <TabsTrigger value="gsm" data-testid="subtab-gsm">
+                    <Smartphone className="h-4 w-4 mr-2" />
+                    GSM
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="email">
+                  <EmailRouterTab />
+                </TabsContent>
+                <TabsContent value="gsm">
+                  <GsmSenderTab />
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
         </TabsContent>

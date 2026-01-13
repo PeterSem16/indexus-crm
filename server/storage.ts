@@ -100,7 +100,8 @@ import {
   type EmailRoutingRule, type InsertEmailRoutingRule,
   type EmailTag, type InsertEmailTag,
   type EmailMetadata, type InsertEmailMetadata,
-  type CustomerEmailNotification, type InsertCustomerEmailNotification
+  type CustomerEmailNotification, type InsertCustomerEmailNotification,
+  gsmSenderConfigs, type GsmSenderConfig, type InsertGsmSenderConfig
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, inArray, sql, desc, and, or, asc } from "drizzle-orm";
@@ -287,6 +288,12 @@ export interface IStorage {
   updateCommunicationMessage(id: string, data: Partial<CommunicationMessage>): Promise<CommunicationMessage | undefined>;
   getCommunicationMessagesByCustomer(customerId: string): Promise<CommunicationMessage[]>;
   getAllCommunicationMessages(limit?: number): Promise<CommunicationMessage[]>;
+
+  // GSM Sender Configs
+  getAllGsmSenderConfigs(): Promise<GsmSenderConfig[]>;
+  getGsmSenderConfigByCountry(countryCode: string): Promise<GsmSenderConfig | undefined>;
+  upsertGsmSenderConfig(data: InsertGsmSenderConfig): Promise<GsmSenderConfig>;
+  deleteGsmSenderConfig(id: string): Promise<boolean>;
 
   // Complaint Types
   getAllComplaintTypes(): Promise<ComplaintType[]>;
@@ -1713,6 +1720,35 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(communicationMessages)
       .orderBy(desc(communicationMessages.createdAt))
       .limit(limit);
+  }
+
+  // GSM Sender Configs
+  async getAllGsmSenderConfigs(): Promise<GsmSenderConfig[]> {
+    return db.select().from(gsmSenderConfigs).orderBy(gsmSenderConfigs.countryCode);
+  }
+
+  async getGsmSenderConfigByCountry(countryCode: string): Promise<GsmSenderConfig | undefined> {
+    const [config] = await db.select().from(gsmSenderConfigs)
+      .where(eq(gsmSenderConfigs.countryCode, countryCode));
+    return config || undefined;
+  }
+
+  async upsertGsmSenderConfig(data: InsertGsmSenderConfig): Promise<GsmSenderConfig> {
+    const existing = await this.getGsmSenderConfigByCountry(data.countryCode);
+    if (existing) {
+      const [updated] = await db.update(gsmSenderConfigs)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(gsmSenderConfigs.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(gsmSenderConfigs).values(data).returning();
+    return created;
+  }
+
+  async deleteGsmSenderConfig(id: string): Promise<boolean> {
+    const result = await db.delete(gsmSenderConfigs).where(eq(gsmSenderConfigs.id, id)).returning();
+    return result.length > 0;
   }
 
   // Complaint Types

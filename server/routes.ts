@@ -18,6 +18,7 @@ import {
   insertInstanceVatRateSchema,
   insertContractTemplateSchema, insertContractTemplateVersionSchema, insertContractInstanceSchema,
   insertContractInstanceProductSchema, insertContractParticipantSchema, insertContractSignatureRequestSchema,
+  insertGsmSenderConfigSchema,
   type SafeUser, type Customer, type Product, type BillingDetails, type ActivityLog, type LeadScoringCriteria,
   type ServiceConfiguration, type InvoiceTemplate, type InvoiceLayout, type Role,
   type Campaign, type CampaignContact, type ContractInstance
@@ -5884,6 +5885,62 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching SMS messages:", error);
       res.status(500).json({ error: "Failed to fetch SMS messages" });
+    }
+  });
+
+  // ========== GSM SENDER CONFIGURATION ==========
+
+  // Get BulkGate credit
+  app.get("/api/integrations/bulkgate/credit", requireAuth, async (req, res) => {
+    try {
+      const { getCredit } = await import("./lib/bulkgate");
+      const result = await getCredit();
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching BulkGate credit:", error);
+      res.status(500).json({ success: false, error: "Failed to fetch credit" });
+    }
+  });
+
+  // Get all GSM sender configs
+  app.get("/api/config/gsm-sender-configs", requireAuth, async (req, res) => {
+    try {
+      const configs = await storage.getAllGsmSenderConfigs();
+      res.json(configs);
+    } catch (error) {
+      console.error("Error fetching GSM sender configs:", error);
+      res.status(500).json({ error: "Failed to fetch GSM sender configs" });
+    }
+  });
+
+  // Upsert GSM sender config (create or update by country)
+  app.post("/api/config/gsm-sender-configs", requireAuth, async (req, res) => {
+    try {
+      const parsed = insertGsmSenderConfigSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid data", details: parsed.error.issues });
+      }
+      const config = await storage.upsertGsmSenderConfig(parsed.data);
+      await logActivity(req.session.user!.id, "upsert", "gsm_sender_config", config.id, config.countryCode);
+      res.json(config);
+    } catch (error) {
+      console.error("Error upserting GSM sender config:", error);
+      res.status(500).json({ error: "Failed to save GSM sender config" });
+    }
+  });
+
+  // Delete GSM sender config
+  app.delete("/api/config/gsm-sender-configs/:id", requireAuth, async (req, res) => {
+    try {
+      const deleted = await storage.deleteGsmSenderConfig(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Config not found" });
+      }
+      await logActivity(req.session.user!.id, "delete", "gsm_sender_config", req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting GSM sender config:", error);
+      res.status(500).json({ error: "Failed to delete GSM sender config" });
     }
   });
 

@@ -3633,3 +3633,37 @@ export const customerEmailNotificationsRelations = relations(customerEmailNotifi
     references: [users.id],
   }),
 }));
+
+// ==================== GSM SENDER CONFIGURATION ====================
+
+// Sender ID types for BulkGate
+export const GSM_SENDER_ID_TYPES = [
+  { value: "gSystem", label: "Systémové číslo" },
+  { value: "gShort", label: "Short Code" },
+  { value: "gText", label: "Textový odosielateľ" },
+  { value: "gMobile", label: "Mobile Connect" },
+  { value: "gPush", label: "Mobile Connect Push" },
+  { value: "gOwn", label: "Vlastné číslo (vyžaduje overenie)" },
+  { value: "gProfile", label: "BulkGate Profil ID" },
+] as const;
+
+export type GsmSenderIdType = typeof GSM_SENDER_ID_TYPES[number]["value"];
+
+// GSM sender configuration per country
+export const gsmSenderConfigs = pgTable("gsm_sender_configs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  countryCode: varchar("country_code", { length: 10 }).notNull().unique(),
+  senderIdType: varchar("sender_id_type", { length: 20 }).notNull(), // gSystem, gShort, gText, gMobile, gPush, gOwn, gProfile
+  senderIdValue: varchar("sender_id_value", { length: 50 }), // Text value for gText, profile ID for gProfile, phone for gOwn
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertGsmSenderConfigSchema = createInsertSchema(gsmSenderConfigs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertGsmSenderConfig = z.infer<typeof insertGsmSenderConfigSchema>;
+export type GsmSenderConfig = typeof gsmSenderConfigs.$inferSelect;
