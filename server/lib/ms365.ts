@@ -514,6 +514,24 @@ export function getLogoutUrl(): string {
 }
 
 /**
+ * Get inbox folder ID reliably using Graph API well-known folder path
+ */
+export async function getInboxFolderId(accessToken: string, mailboxEmail?: string): Promise<string | null> {
+  const client = createGraphClient(accessToken);
+  const basePath = mailboxEmail ? `/users/${mailboxEmail}` : '/me';
+  
+  try {
+    const result = await client.api(`${basePath}/mailFolders/inbox`)
+      .select('id')
+      .get();
+    return result?.id || null;
+  } catch (error) {
+    console.error(`[MS365] Error getting inbox folder ID:`, error);
+    return null;
+  }
+}
+
+/**
  * Get mail folders (inbox, sent, drafts, etc.)
  */
 export async function getMailFolders(accessToken: string, mailboxEmail?: string): Promise<any[]> {
@@ -522,7 +540,7 @@ export async function getMailFolders(accessToken: string, mailboxEmail?: string)
   
   try {
     const result = await client.api(`${basePath}/mailFolders`)
-      .select('id,displayName,parentFolderId,childFolderCount,unreadItemCount,totalItemCount')
+      .select('id,displayName,parentFolderId,childFolderCount,unreadItemCount,totalItemCount,wellKnownName')
       .top(50)
       .get();
     return result.value || [];

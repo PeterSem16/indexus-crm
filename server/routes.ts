@@ -2551,7 +2551,7 @@ export async function registerRoutes(
       }
       
       const { decryptTokenSafe } = await import("./lib/token-crypto");
-      const { getValidAccessToken, getMailFolders } = await import("./lib/ms365");
+      const { getValidAccessToken, getMailFolders, getInboxFolderId } = await import("./lib/ms365");
       
       let accessToken: string;
       let refreshToken: string | null;
@@ -2568,8 +2568,19 @@ export async function registerRoutes(
         return res.json({ connected: false, folders: [], requiresReauth: true });
       }
       
-      const folders = await getMailFolders(tokenResult.accessToken, mailboxEmail === "personal" ? undefined : mailboxEmail);
-      res.json({ connected: true, folders });
+      const actualMailbox = mailboxEmail === "personal" ? undefined : mailboxEmail;
+      
+      // Fetch folders and inbox ID in parallel
+      const [folders, inboxId] = await Promise.all([
+        getMailFolders(tokenResult.accessToken, actualMailbox),
+        getInboxFolderId(tokenResult.accessToken, actualMailbox)
+      ]);
+      
+      res.json({ 
+        connected: true, 
+        folders,
+        inboxId
+      });
     } catch (error) {
       console.error("Error fetching mail folders:", error);
       res.status(500).json({ error: "Failed to fetch mail folders" });
