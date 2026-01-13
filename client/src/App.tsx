@@ -18,7 +18,7 @@ import { QuickCreate } from "@/components/quick-create";
 import { EmailNotifications } from "@/components/email-notifications";
 import { ChatProvider } from "@/contexts/chat-context";
 import { ChatContainer } from "@/components/chat-container";
-import { NotificationBell } from "@/components/notification-center";
+import { NotificationBell, NotificationCenterPage } from "@/components/notification-center";
 import Dashboard from "@/pages/dashboard";
 import UsersPage from "@/pages/users";
 import CustomersPage from "@/pages/customers";
@@ -147,6 +147,7 @@ function AuthenticatedApp() {
                     <Route path="/configurator" component={ConfiguratorPage} />
                     <Route path="/ms365" component={MS365IntegrationPage} />
                     <Route path="/email" component={EmailClientPage} />
+                    <Route path="/notifications" component={NotificationCenterPage} />
                     <Route path="/login">
                       <Redirect to="/" />
                     </Route>

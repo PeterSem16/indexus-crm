@@ -6253,7 +6253,14 @@ export async function registerRoutes(
   // Create notification rule
   app.post("/api/notification-rules", requireAuth, async (req, res) => {
     try {
-      const ruleData = { ...req.body, createdBy: req.session.user!.id };
+      const ruleData = { 
+        ...req.body, 
+        createdBy: req.session.user!.id,
+        triggerConditions: req.body.triggerConditions || null,
+        countryCodes: req.body.countryCodes?.length ? req.body.countryCodes : null,
+        targetRoles: req.body.targetRoles?.length ? req.body.targetRoles : null,
+        targetUserIds: req.body.targetUserIds?.length ? req.body.targetUserIds : null,
+      };
       const rule = await storage.createNotificationRule(ruleData);
       await logActivity(req.session.user!.id, "create", "notification_rule", rule.id, rule.name);
       res.status(201).json(rule);
@@ -6266,7 +6273,14 @@ export async function registerRoutes(
   // Update notification rule
   app.put("/api/notification-rules/:id", requireAuth, async (req, res) => {
     try {
-      const rule = await storage.updateNotificationRule(req.params.id, req.body);
+      const updateData = {
+        ...req.body,
+        triggerConditions: req.body.triggerConditions || null,
+        countryCodes: req.body.countryCodes?.length ? req.body.countryCodes : null,
+        targetRoles: req.body.targetRoles?.length ? req.body.targetRoles : null,
+        targetUserIds: req.body.targetUserIds?.length ? req.body.targetUserIds : null,
+      };
+      const rule = await storage.updateNotificationRule(req.params.id, updateData);
       if (!rule) {
         return res.status(404).json({ error: "Notification rule not found" });
       }
