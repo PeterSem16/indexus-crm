@@ -42,6 +42,7 @@ import {
   Forward,
   Loader2,
   AlertCircle,
+  AlertTriangle,
   PenSquare,
   X,
   Paperclip,
@@ -52,6 +53,8 @@ import {
   User,
   Search,
   UserCheck,
+  Flame,
+  ShieldAlert,
 } from "lucide-react";
 import Editor from "react-simple-wysiwyg";
 
@@ -91,6 +94,13 @@ interface EmailSignature {
   mailboxEmail: string;
   htmlContent: string;
   isActive: boolean;
+}
+
+interface AiAnalysis {
+  sentiment: "positive" | "neutral" | "negative" | "angry";
+  hasInappropriateContent: boolean;
+  alertLevel: "none" | "warning" | "critical";
+  note: string;
 }
 
 const folderIcons: Record<string, React.ReactNode> = {
@@ -739,6 +749,64 @@ export default function EmailClientPage() {
                         ({emailDetail.linkedCustomer.email})
                       </span>
                     </Link>
+                  )}
+                  
+                  {/* AI Content Analysis Alert */}
+                  {(emailDetail as any).aiAnalysis && (emailDetail as any).aiAnalysis.alertLevel !== "none" && (
+                    <div 
+                      className={`flex items-start gap-3 mt-2 p-3 rounded-md border ${
+                        (emailDetail as any).aiAnalysis.alertLevel === "critical" 
+                          ? "bg-red-50 dark:bg-red-950 border-red-300 dark:border-red-800" 
+                          : "bg-amber-50 dark:bg-amber-950 border-amber-300 dark:border-amber-800"
+                      }`}
+                      data-testid="ai-analysis-alert"
+                    >
+                      {(emailDetail as any).aiAnalysis.alertLevel === "critical" ? (
+                        <ShieldAlert className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                      ) : (
+                        <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`text-sm font-semibold ${
+                            (emailDetail as any).aiAnalysis.alertLevel === "critical"
+                              ? "text-red-700 dark:text-red-300"
+                              : "text-amber-700 dark:text-amber-300"
+                          }`}>
+                            {(emailDetail as any).aiAnalysis.alertLevel === "critical" ? "Kritické upozornenie" : "Upozornenie"}
+                          </span>
+                          <Badge 
+                            variant="outline" 
+                            className={`text-xs ${
+                              (emailDetail as any).aiAnalysis.sentiment === "angry" 
+                                ? "border-red-400 text-red-600 dark:text-red-400"
+                                : (emailDetail as any).aiAnalysis.sentiment === "negative"
+                                ? "border-amber-400 text-amber-600 dark:text-amber-400"
+                                : ""
+                            }`}
+                          >
+                            {(emailDetail as any).aiAnalysis.sentiment === "angry" && (
+                              <><Flame className="h-3 w-3 mr-1" />Nahnevaný tón</>
+                            )}
+                            {(emailDetail as any).aiAnalysis.sentiment === "negative" && "Negatívny tón"}
+                          </Badge>
+                          {(emailDetail as any).aiAnalysis.hasInappropriateContent && (
+                            <Badge variant="destructive" className="text-xs">
+                              Nevhodný obsah
+                            </Badge>
+                          )}
+                        </div>
+                        {(emailDetail as any).aiAnalysis.note && (
+                          <p className={`text-sm mt-1 ${
+                            (emailDetail as any).aiAnalysis.alertLevel === "critical"
+                              ? "text-red-600 dark:text-red-400"
+                              : "text-amber-600 dark:text-amber-400"
+                          }`}>
+                            {(emailDetail as any).aiAnalysis.note}
+                          </p>
+                        )}
+                      </div>
+                    </div>
                   )}
                 </div>
                 
