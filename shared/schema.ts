@@ -3678,3 +3678,37 @@ export const insertGsmSenderConfigSchema = createInsertSchema(gsmSenderConfigs).
 });
 export type InsertGsmSenderConfig = z.infer<typeof insertGsmSenderConfigSchema>;
 export type GsmSenderConfig = typeof gsmSenderConfigs.$inferSelect;
+
+// ==================== COUNTRY SYSTEM SETTINGS ====================
+// System settings per country for automated emails and SMS alerts
+
+export const countrySystemSettings = pgTable("country_system_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  countryCode: varchar("country_code", { length: 10 }).notNull().unique(),
+  
+  // System email configuration (MS365 account for automated emails/alerts)
+  systemEmailEnabled: boolean("system_email_enabled").notNull().default(false),
+  systemEmailAddress: varchar("system_email_address", { length: 255 }), // MS365 email address
+  systemEmailDisplayName: varchar("system_email_display_name", { length: 100 }), // Display name for outgoing emails
+  systemEmailUserId: varchar("system_email_user_id", { length: 255 }), // MS365 user ID if needed
+  
+  // System SMS configuration (BulkGate method for automated SMS/alerts)
+  systemSmsEnabled: boolean("system_sms_enabled").notNull().default(false),
+  systemSmsSenderType: varchar("system_sms_sender_type", { length: 20 }), // gSystem, gShort, gText, gMobile, gPush, gOwn, gProfile
+  systemSmsSenderValue: varchar("system_sms_sender_value", { length: 50 }), // Value based on sender type
+  
+  // Additional settings
+  alertsEnabled: boolean("alerts_enabled").notNull().default(true),
+  notificationsEnabled: boolean("notifications_enabled").notNull().default(true),
+  
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertCountrySystemSettingsSchema = createInsertSchema(countrySystemSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertCountrySystemSettings = z.infer<typeof insertCountrySystemSettingsSchema>;
+export type CountrySystemSettings = typeof countrySystemSettings.$inferSelect;
