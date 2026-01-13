@@ -7,8 +7,11 @@ import { sk } from "date-fns/locale";
 import { 
   Bell, Mail, MessageSquare, UserPlus, RefreshCw, AlertTriangle, 
   Clipboard, Clock, CheckCircle, AtSign, Info, X, Check, CheckCheck,
-  Filter, Trash2, Plus, Edit, Power, Settings, ChevronRight
+  Filter, Trash2, Plus, Edit, Power, Settings, ChevronRight, ChevronLeft,
+  Users, User, Shield
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import type { Role, User as UserType } from "@shared/schema";
 import {
   Popover,
   PopoverContent,
@@ -337,10 +340,18 @@ export function NotificationBell() {
   );
 }
 
+const WIZARD_STEPS = [
+  { id: 1, title: "Základné info", description: "Názov a popis pravidla" },
+  { id: 2, title: "Spúšťač", description: "Kedy sa má notifikácia odoslať" },
+  { id: 3, title: "Cieľová skupina", description: "Komu sa má notifikácia odoslať" },
+  { id: 4, title: "Obsah a doručenie", description: "Text notifikácie a kanály" },
+];
+
 export function NotificationRulesManager() {
   const { toast } = useToast();
   const [showDialog, setShowDialog] = useState(false);
   const [editingRule, setEditingRule] = useState<NotificationRule | null>(null);
+  const [wizardStep, setWizardStep] = useState(1);
   
   const [formData, setFormData] = useState({
     name: "",
@@ -364,6 +375,14 @@ export function NotificationRulesManager() {
     queryKey: ["/api/notification-rules"],
   });
 
+  const { data: roles = [] } = useQuery<Role[]>({
+    queryKey: ["/api/roles"],
+  });
+
+  const { data: users = [] } = useQuery<UserType[]>({
+    queryKey: ["/api/users"],
+  });
+
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
       return apiRequest("POST", "/api/notification-rules", data);
@@ -371,8 +390,7 @@ export function NotificationRulesManager() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/notification-rules"] });
       toast({ title: "Pravidlo vytvorené" });
-      setShowDialog(false);
-      resetForm();
+      handleCloseDialog();
     },
     onError: () => {
       toast({ title: "Chyba pri vytváraní pravidla", variant: "destructive" });
@@ -386,9 +404,7 @@ export function NotificationRulesManager() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/notification-rules"] });
       toast({ title: "Pravidlo aktualizované" });
-      setShowDialog(false);
-      setEditingRule(null);
-      resetForm();
+      handleCloseDialog();
     },
     onError: () => {
       toast({ title: "Chyba pri aktualizácii pravidla", variant: "destructive" });
@@ -438,6 +454,13 @@ export function NotificationRulesManager() {
       sendSms: false,
       isActive: true,
     });
+    setWizardStep(1);
+  };
+
+  const handleCloseDialog = () => {
+    setShowDialog(false);
+    setEditingRule(null);
+    resetForm();
   };
 
   const openEditDialog = (rule: NotificationRule) => {
@@ -459,6 +482,7 @@ export function NotificationRulesManager() {
       sendSms: rule.sendSms,
       isActive: rule.isActive,
     });
+    setWizardStep(1);
     setShowDialog(true);
   };
 
@@ -475,12 +499,347 @@ export function NotificationRulesManager() {
     }
   };
 
+  const canGoNext = () => {
+    switch (wizardStep) {
+      case 1: return formData.name.length > 0;
+      case 2: return formData.triggerType.length > 0;
+      case 3: 
+        if (formData.targetType === "role") return formData.targetRoles.length > 0;
+        if (formData.targetType === "specific_users") return formData.targetUserIds.length > 0;
+        if (formData.targetType === "assignee") return formData.targetUserIds.length === 1;
+        return true;
+      case 4: return formData.notificationTitle.length > 0;
+      default: return true;
+    }
+  };
+
+  const toggleRoleSelection = (roleId: string) => {
+    const current = formData.targetRoles;
+    if (current.includes(roleId)) {
+      setFormData({ ...formData, targetRoles: current.filter(r => r !== roleId) });
+    } else {
+      setFormData({ ...formData, targetRoles: [...current, roleId] });
+    }
+  };
+
+  const toggleUserSelection = (userId: string) => {
+    const current = formData.targetUserIds;
+    if (formData.targetType === "assignee") {
+      setFormData({ ...formData, targetUserIds: current.includes(userId) ? [] : [userId] });
+    } else {
+      if (current.includes(userId)) {
+        setFormData({ ...formData, targetUserIds: current.filter(u => u !== userId) });
+      } else {
+        setFormData({ ...formData, targetUserIds: [...current, userId] });
+      }
+    }
+  };
+
   const getTriggerLabel = (value: string) => {
     return TRIGGER_TYPES.find(t => t.value === value)?.label || value;
   };
 
   const getTargetLabel = (value: string) => {
     return TARGET_TYPES.find(t => t.value === value)?.label || value;
+  };
+
+  const renderWizardStep = () => {
+    switch (wizardStep) {
+      case 1:
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Názov pravidla *</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="Napr.: Upozornenie na nový email"
+                data-testid="input-rule-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Popis</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Voliteľný popis pravidla..."
+                data-testid="input-rule-description"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="priority">Priorita</Label>
+              <Select value={formData.priority} onValueChange={(v) => setFormData({ ...formData, priority: v })}>
+                <SelectTrigger data-testid="select-priority">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PRIORITY_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        );
+
+      case 2:
+        return (
+          <div className="space-y-4">
+            <Label>Vyberte spúšťač notifikácie</Label>
+            <div className="grid grid-cols-1 gap-2">
+              {TRIGGER_TYPES.map((trigger) => {
+                const Icon = trigger.icon;
+                const isSelected = formData.triggerType === trigger.value;
+                return (
+                  <div
+                    key={trigger.value}
+                    className={cn(
+                      "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors hover-elevate",
+                      isSelected ? "border-primary bg-primary/5" : "border-border"
+                    )}
+                    onClick={() => setFormData({ ...formData, triggerType: trigger.value })}
+                    data-testid={`trigger-${trigger.value}`}
+                  >
+                    <div className={cn(
+                      "w-10 h-10 rounded-full flex items-center justify-center",
+                      isSelected ? "bg-primary text-primary-foreground" : "bg-muted"
+                    )}>
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium">{trigger.label}</p>
+                    </div>
+                    {isSelected && <Check className="h-5 w-5 text-primary" />}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+
+      case 3:
+        return (
+          <div className="space-y-4">
+            <Label>Vyberte cieľovú skupinu</Label>
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              {TARGET_TYPES.map((target) => {
+                const isSelected = formData.targetType === target.value;
+                const Icon = target.value === "all" ? Users : target.value === "role" ? Shield : target.value === "assignee" ? User : Users;
+                return (
+                  <div
+                    key={target.value}
+                    className={cn(
+                      "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors hover-elevate",
+                      isSelected ? "border-primary bg-primary/5" : "border-border"
+                    )}
+                    onClick={() => setFormData({ 
+                      ...formData, 
+                      targetType: target.value,
+                      targetRoles: [],
+                      targetUserIds: []
+                    })}
+                    data-testid={`target-${target.value}`}
+                  >
+                    <Icon className={cn("h-5 w-5", isSelected && "text-primary")} />
+                    <span className={cn("text-sm font-medium", isSelected && "text-primary")}>{target.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {formData.targetType === "role" && (
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground">Vyberte role (môžete vybrať viacero)</Label>
+                <ScrollArea className="h-[200px] border rounded-lg p-2">
+                  <div className="space-y-2">
+                    {roles.map((role) => (
+                      <div
+                        key={role.id}
+                        className={cn(
+                          "flex items-center gap-3 p-2 rounded-md cursor-pointer hover-elevate",
+                          formData.targetRoles.includes(role.id) && "bg-primary/10"
+                        )}
+                        onClick={() => toggleRoleSelection(role.id)}
+                        data-testid={`role-${role.id}`}
+                      >
+                        <Checkbox 
+                          checked={formData.targetRoles.includes(role.id)} 
+                          onCheckedChange={() => toggleRoleSelection(role.id)}
+                        />
+                        <Shield className="h-4 w-4 text-muted-foreground" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{role.name}</p>
+                          {role.description && (
+                            <p className="text-xs text-muted-foreground">{role.description}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {roles.length === 0 && (
+                      <p className="text-sm text-muted-foreground p-4 text-center">Žiadne role</p>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+            )}
+
+            {formData.targetType === "specific_users" && (
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground">Vyberte používateľov (môžete vybrať viacero)</Label>
+                <ScrollArea className="h-[200px] border rounded-lg p-2">
+                  <div className="space-y-2">
+                    {users.map((user) => (
+                      <div
+                        key={user.id}
+                        className={cn(
+                          "flex items-center gap-3 p-2 rounded-md cursor-pointer hover-elevate",
+                          formData.targetUserIds.includes(user.id) && "bg-primary/10"
+                        )}
+                        onClick={() => toggleUserSelection(user.id)}
+                        data-testid={`user-${user.id}`}
+                      >
+                        <Checkbox 
+                          checked={formData.targetUserIds.includes(user.id)} 
+                          onCheckedChange={() => toggleUserSelection(user.id)}
+                        />
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{user.fullName}</p>
+                          <p className="text-xs text-muted-foreground">{user.email}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {users.length === 0 && (
+                      <p className="text-sm text-muted-foreground p-4 text-center">Žiadni používatelia</p>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+            )}
+
+            {formData.targetType === "assignee" && (
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground">Vyberte jedného priradeného používateľa</Label>
+                <ScrollArea className="h-[200px] border rounded-lg p-2">
+                  <div className="space-y-2">
+                    {users.map((user) => {
+                      const isSelected = formData.targetUserIds.includes(user.id);
+                      return (
+                        <div
+                          key={user.id}
+                          className={cn(
+                            "flex items-center gap-3 p-2 rounded-md cursor-pointer hover-elevate",
+                            isSelected && "bg-primary/10 border border-primary"
+                          )}
+                          onClick={() => toggleUserSelection(user.id)}
+                          data-testid={`assignee-${user.id}`}
+                        >
+                          <div className={cn(
+                            "w-5 h-5 rounded-full border-2 flex items-center justify-center",
+                            isSelected ? "border-primary bg-primary" : "border-muted-foreground"
+                          )}>
+                            {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
+                          </div>
+                          <User className="h-4 w-4 text-muted-foreground" />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">{user.fullName}</p>
+                            <p className="text-xs text-muted-foreground">{user.email}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {users.length === 0 && (
+                      <p className="text-sm text-muted-foreground p-4 text-center">Žiadni používatelia</p>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+            )}
+          </div>
+        );
+
+      case 4:
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="notificationTitle">Titulok notifikácie *</Label>
+              <Input
+                id="notificationTitle"
+                value={formData.notificationTitle}
+                onChange={(e) => setFormData({ ...formData, notificationTitle: e.target.value })}
+                placeholder="Napr.: Nový email od zákazníka"
+                data-testid="input-notification-title"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="notificationMessage">Text notifikácie</Label>
+              <Textarea
+                id="notificationMessage"
+                value={formData.notificationMessage}
+                onChange={(e) => setFormData({ ...formData, notificationMessage: e.target.value })}
+                placeholder="Voliteľný text správy..."
+                data-testid="input-notification-message"
+              />
+            </div>
+            
+            <Separator />
+            
+            <div className="space-y-4">
+              <Label>Kanály doručenia</Label>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 rounded-lg border">
+                  <div className="flex items-center gap-3">
+                    <Bell className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                      <p className="font-medium">Push notifikácia</p>
+                      <p className="text-xs text-muted-foreground">Zobrazí sa v aplikácii</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={formData.sendPush}
+                    onCheckedChange={(v) => setFormData({ ...formData, sendPush: v })}
+                    data-testid="switch-send-push"
+                  />
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-lg border">
+                  <div className="flex items-center gap-3">
+                    <Mail className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                      <p className="font-medium">Email</p>
+                      <p className="text-xs text-muted-foreground">Odošle sa na email používateľa</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={formData.sendEmail}
+                    onCheckedChange={(v) => setFormData({ ...formData, sendEmail: v })}
+                    data-testid="switch-send-email"
+                  />
+                </div>
+                <div className="flex items-center justify-between p-3 rounded-lg border">
+                  <div className="flex items-center gap-3">
+                    <MessageSquare className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                      <p className="font-medium">SMS</p>
+                      <p className="text-xs text-muted-foreground">Odošle sa na telefónne číslo</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={formData.sendSms}
+                    onCheckedChange={(v) => setFormData({ ...formData, sendSms: v })}
+                    data-testid="switch-send-sms"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
+    }
   };
 
   return (
@@ -586,157 +945,89 @@ export function NotificationRulesManager() {
         </div>
       )}
 
-      <Dialog open={showDialog} onOpenChange={setShowDialog}>
+      <Dialog open={showDialog} onOpenChange={(open) => {
+        if (!open) handleCloseDialog();
+        else setShowDialog(open);
+      }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{editingRule ? "Upraviť pravidlo" : "Nové notifikačné pravidlo"}</DialogTitle>
             <DialogDescription>
-              Nastavte, kedy a komu sa má odosielať notifikácia
+              Krok {wizardStep} z {WIZARD_STEPS.length}: {WIZARD_STEPS[wizardStep - 1]?.description}
             </DialogDescription>
           </DialogHeader>
-          
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Názov pravidla</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Napr.: Upozornenie na nový email"
-                  data-testid="input-rule-name"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="priority">Priorita</Label>
-                <Select value={formData.priority} onValueChange={(v) => setFormData({ ...formData, priority: v })}>
-                  <SelectTrigger data-testid="select-priority">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PRIORITY_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="description">Popis</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Voliteľný popis pravidla..."
-                data-testid="input-rule-description"
-              />
-            </div>
-            
-            <Separator />
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Spúšťač (kedy)</Label>
-                <Select value={formData.triggerType} onValueChange={(v) => setFormData({ ...formData, triggerType: v })}>
-                  <SelectTrigger data-testid="select-trigger-type">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TRIGGER_TYPES.map((trigger) => (
-                      <SelectItem key={trigger.value} value={trigger.value}>
-                        <div className="flex items-center gap-2">
-                          <trigger.icon className="h-4 w-4" />
-                          {trigger.label}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Cieľová skupina (komu)</Label>
-                <Select value={formData.targetType} onValueChange={(v) => setFormData({ ...formData, targetType: v })}>
-                  <SelectTrigger data-testid="select-target-type">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TARGET_TYPES.map((target) => (
-                      <SelectItem key={target.value} value={target.value}>{target.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            
-            <Separator />
-            
-            <div className="space-y-2">
-              <Label htmlFor="notificationTitle">Titulok notifikácie</Label>
-              <Input
-                id="notificationTitle"
-                value={formData.notificationTitle}
-                onChange={(e) => setFormData({ ...formData, notificationTitle: e.target.value })}
-                placeholder="Napr.: Nový email od zákazníka"
-                data-testid="input-notification-title"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="notificationMessage">Text notifikácie</Label>
-              <Textarea
-                id="notificationMessage"
-                value={formData.notificationMessage}
-                onChange={(e) => setFormData({ ...formData, notificationMessage: e.target.value })}
-                placeholder="Voliteľný text správy..."
-                data-testid="input-notification-message"
-              />
-            </div>
-            
-            <Separator />
-            
-            <div className="space-y-4">
-              <Label>Kanály doručenia</Label>
-              <div className="flex flex-wrap gap-6">
-                <div className="flex items-center gap-2">
-                  <Switch
-                    checked={formData.sendPush}
-                    onCheckedChange={(v) => setFormData({ ...formData, sendPush: v })}
-                    data-testid="switch-send-push"
-                  />
-                  <Label>Push notifikácia (v aplikácii)</Label>
+
+          <div className="flex items-center justify-center gap-2 py-2">
+            {WIZARD_STEPS.map((step) => (
+              <div key={step.id} className="flex items-center gap-2">
+                <div
+                  className={cn(
+                    "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors cursor-pointer",
+                    wizardStep === step.id 
+                      ? "bg-primary text-primary-foreground" 
+                      : wizardStep > step.id 
+                        ? "bg-primary/20 text-primary"
+                        : "bg-muted text-muted-foreground"
+                  )}
+                  onClick={() => {
+                    if (step.id <= wizardStep || (step.id === wizardStep + 1 && canGoNext())) {
+                      setWizardStep(step.id);
+                    }
+                  }}
+                  data-testid={`wizard-step-${step.id}`}
+                >
+                  {wizardStep > step.id ? <Check className="h-4 w-4" /> : step.id}
                 </div>
-                <div className="flex items-center gap-2">
-                  <Switch
-                    checked={formData.sendEmail}
-                    onCheckedChange={(v) => setFormData({ ...formData, sendEmail: v })}
-                    data-testid="switch-send-email"
-                  />
-                  <Label>Email</Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Switch
-                    checked={formData.sendSms}
-                    onCheckedChange={(v) => setFormData({ ...formData, sendSms: v })}
-                    data-testid="switch-send-sms"
-                  />
-                  <Label>SMS</Label>
-                </div>
+                {step.id < WIZARD_STEPS.length && (
+                  <div className={cn(
+                    "w-8 h-0.5",
+                    wizardStep > step.id ? "bg-primary" : "bg-muted"
+                  )} />
+                )}
               </div>
-            </div>
+            ))}
           </div>
           
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDialog(false)} data-testid="button-cancel-rule">
-              Zrušiť
-            </Button>
-            <Button 
-              onClick={handleSubmit} 
-              disabled={createMutation.isPending || updateMutation.isPending}
-              data-testid="button-save-rule"
-            >
-              {editingRule ? "Uložiť zmeny" : "Vytvoriť pravidlo"}
-            </Button>
+          <div className="py-4 min-h-[300px]">
+            {renderWizardStep()}
+          </div>
+          
+          <DialogFooter className="flex items-center justify-between sm:justify-between">
+            <div>
+              {wizardStep > 1 && (
+                <Button 
+                  variant="outline" 
+                  onClick={() => setWizardStep(wizardStep - 1)}
+                  data-testid="button-wizard-back"
+                >
+                  <ChevronLeft className="h-4 w-4 mr-2" />
+                  Späť
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleCloseDialog} data-testid="button-cancel-rule">
+                Zrušiť
+              </Button>
+              {wizardStep < WIZARD_STEPS.length ? (
+                <Button 
+                  onClick={() => setWizardStep(wizardStep + 1)}
+                  disabled={!canGoNext()}
+                  data-testid="button-wizard-next"
+                >
+                  Ďalej
+                  <ChevronRight className="h-4 w-4 ml-2" />
+                </Button>
+              ) : (
+                <Button 
+                  onClick={handleSubmit} 
+                  disabled={createMutation.isPending || updateMutation.isPending || !canGoNext()}
+                  data-testid="button-save-rule"
+                >
+                  {editingRule ? "Uložiť zmeny" : "Vytvoriť pravidlo"}
+                </Button>
+              )}
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
