@@ -357,6 +357,16 @@ export default function EmailClientPage() {
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [localPage, setLocalPage] = useState(0);
   const localPageSize = 25;
+  
+  // Left panel visibility
+  const [isLeftPanelHidden, setIsLeftPanelHidden] = useState(() => {
+    const saved = localStorage.getItem("nexus-left-panel-hidden");
+    return saved === "true";
+  });
+  
+  useEffect(() => {
+    localStorage.setItem("nexus-left-panel-hidden", String(isLeftPanelHidden));
+  }, [isLeftPanelHidden]);
 
   const { data: mailboxes = [], isLoading: mailboxesLoading } = useQuery<Mailbox[]>({
     queryKey: ["/api/users", user?.id, "ms365-available-mailboxes"],
@@ -1024,14 +1034,42 @@ export default function EmailClientPage() {
       </Card>
 
       {/* Main content */}
-      <div className="grid grid-cols-12 gap-4 h-[calc(100vh-280px)]">
-        {/* Folders panel */}
-        <Card className="col-span-2">
-          <CardHeader className="py-3 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-medium">Zložky</CardTitle>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setFolderSettingsOpen(true)} data-testid="button-folder-settings">
-              <Settings className="h-4 w-4" />
+      <div className="grid grid-cols-12 gap-4 h-[calc(100vh-280px)] transition-all duration-300">
+        {/* Toggle button when left panel is hidden */}
+        {isLeftPanelHidden && (
+          <div className="col-span-1 flex flex-col items-center pt-2">
+            <Button 
+              variant="outline" 
+              size="icon" 
+              className="h-8 w-8"
+              onClick={() => setIsLeftPanelHidden(false)}
+              data-testid="button-show-left-panel"
+              title="Zobraziť zložky"
+            >
+              <ChevronRight className="h-4 w-4" />
             </Button>
+          </div>
+        )}
+        
+        {/* Folders panel */}
+        <Card className={`transition-all duration-300 ${isLeftPanelHidden ? "hidden" : "col-span-2"}`}>
+          <CardHeader className="py-3 flex flex-row items-center justify-between gap-1">
+            <CardTitle className="text-sm font-medium">Zložky</CardTitle>
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setFolderSettingsOpen(true)} data-testid="button-folder-settings">
+                <Settings className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-7 w-7"
+                onClick={() => setIsLeftPanelHidden(true)}
+                data-testid="button-hide-left-panel"
+                title="Skryť zložky"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             <ScrollArea className="h-[calc(100vh-340px)]">
@@ -1148,7 +1186,7 @@ export default function EmailClientPage() {
         </Card>
 
         {/* Unified message list */}
-        <Card className="col-span-4">
+        <Card className={`transition-all duration-300 ${isLeftPanelHidden ? "col-span-5" : "col-span-4"}`}>
           <CardHeader className="py-2 px-3 space-y-2">
             <div className="flex items-center justify-between gap-2">
               <CardTitle className="text-sm font-medium">
@@ -1365,7 +1403,7 @@ export default function EmailClientPage() {
         </Card>
 
         {/* Detail panel */}
-        <Card className="col-span-6">
+        <Card className={`transition-all duration-300 ${isLeftPanelHidden ? "col-span-6" : "col-span-6"}`}>
           <CardContent className="p-0 h-full">
             {detailLoading ? (
               <div className="flex items-center justify-center h-full">
