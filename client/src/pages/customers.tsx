@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, Phone, PhoneCall, Baby, Copy, ListChecks, FileEdit, UserCircle, Clock, PlusCircle, RefreshCw, XCircle, LogIn, LogOut, AlertCircle, CheckCircle2, ArrowRight, Shield, CreditCard, Loader2, Calendar, Globe, Linkedin, Facebook, Twitter, Instagram, Building2, ExternalLink, Sparkles, FileSignature, Receipt, Target } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, MailOpen, Phone, PhoneCall, Baby, Copy, ListChecks, FileEdit, UserCircle, Clock, PlusCircle, RefreshCw, XCircle, LogIn, LogOut, AlertCircle, CheckCircle2, ArrowRight, Shield, CreditCard, Loader2, Calendar, Globe, Linkedin, Facebook, Twitter, Instagram, Building2, ExternalLink, Sparkles, FileSignature, Receipt, Target, ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -56,7 +56,7 @@ interface AvailableMailbox {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCountryFlag, getCountryName } from "@/lib/countries";
-import type { Customer, Product, CustomerProduct, Invoice, BillingDetails, CustomerNote, ActivityLog, CommunicationMessage, CustomerPotentialCase, MarketProductInstance } from "@shared/schema";
+import type { Customer, Product, CustomerProduct, Invoice, BillingDetails, CustomerNote, ActivityLog, CommunicationMessage, CustomerPotentialCase, MarketProductInstance, CustomerEmailNotification } from "@shared/schema";
 import {
   Select,
   SelectContent,
@@ -1888,6 +1888,17 @@ function CustomerDetailsContent({
     refetchInterval: 10000,
   });
 
+  // Customer email history - inbound and outbound emails
+  const { data: customerEmails = [], isLoading: emailsLoading, isError: emailsError } = useQuery<CustomerEmailNotification[]>({
+    queryKey: ["/api/customers", customer.id, "emails"],
+    queryFn: async () => {
+      const res = await fetch(`/api/customers/${customer.id}/emails`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch customer emails");
+      return res.json();
+    },
+    refetchInterval: 30000,
+  });
+
   const { data: allUsers = [] } = useQuery<Array<{ id: string; username: string; firstName?: string; lastName?: string }>>({
     queryKey: ["/api/users"],
     queryFn: async () => {
@@ -2995,16 +3006,115 @@ function CustomerDetailsContent({
         </TabsContent>
 
         <TabsContent value="history" className="space-y-4 mt-4">
+          {/* Email History Section */}
+          {emailsLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : emailsError ? (
+            <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-md text-sm text-red-700 dark:text-red-300">
+              <AlertCircle className="h-4 w-4" />
+              <span>Nepodarilo sa načítať emailovú históriu</span>
+            </div>
+          ) : customerEmails.length > 0 && (
+            <div className="space-y-4 mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <Mail className="h-5 w-5 text-primary" />
+                <h4 className="font-semibold">Emailová komunikácia ({customerEmails.length})</h4>
+              </div>
+              <div className="relative">
+                <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-blue-200 dark:bg-blue-800" />
+                <div className="space-y-3">
+                  {customerEmails.slice(0, 10).map((email) => (
+                    <div key={email.id} className="relative pl-10">
+                      <div className={`absolute left-2.5 w-3 h-3 rounded-full border-2 ${
+                        email.direction === "outbound" 
+                          ? "bg-blue-500 border-blue-500" 
+                          : "bg-green-500 border-green-500"
+                      }`} />
+                      
+                      <div className={`border rounded-lg p-4 bg-card ${
+                        email.direction === "outbound" 
+                          ? "border-l-4 border-l-blue-500" 
+                          : "border-l-4 border-l-green-500"
+                      }`} data-testid={`email-history-${email.id}`}>
+                        <div className="flex items-start gap-3">
+                          <div className={`flex-shrink-0 mt-0.5 p-2 rounded-full ${
+                            email.direction === "outbound" 
+                              ? "bg-blue-100 dark:bg-blue-900" 
+                              : "bg-green-100 dark:bg-green-900"
+                          }`}>
+                            {email.direction === "outbound" ? (
+                              <ArrowUpRight className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                            ) : (
+                              <ArrowDownLeft className="h-4 w-4 text-green-600 dark:text-green-400" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-sm">
+                                  {email.direction === "outbound" ? "Odoslaný email" : "Prijatý email"}
+                                </span>
+                                <Badge variant={email.direction === "outbound" ? "default" : "secondary"} className="text-xs">
+                                  {email.direction === "outbound" ? "odchádzajúci" : "prichádzajúci"}
+                                </Badge>
+                              </div>
+                            </div>
+                            
+                            <p className="text-sm font-medium mt-1">{email.subject}</p>
+                            
+                            <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground flex-wrap">
+                              <div className="flex items-center gap-1">
+                                {email.direction === "outbound" ? (
+                                  <>
+                                    <span>Komu:</span>
+                                    <span>{email.recipientEmail || email.senderEmail}</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span>Od:</span>
+                                    <span>{email.senderName || email.senderEmail}</span>
+                                  </>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Clock className="h-3.5 w-3.5" />
+                                <span>{format(new Date(email.receivedAt), "d.M.yyyy HH:mm")}</span>
+                              </div>
+                            </div>
+                            
+                            {email.bodyPreview && (
+                              <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
+                                {email.bodyPreview}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {customerEmails.length > 10 && (
+                <p className="text-sm text-muted-foreground text-center">
+                  ... a ďalších {customerEmails.length - 10} emailov
+                </p>
+              )}
+            </div>
+          )}
+          
+          {/* Activity Logs Section */}
           {activityLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          ) : activityLogs.length === 0 ? (
+          ) : activityLogs.length === 0 && customerEmails.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <History className="h-12 w-12 mx-auto mb-3 opacity-50" />
               <p className="font-medium">{t.activity?.noActivity || "Žiadna aktivita"}</p>
             </div>
-          ) : (
+          ) : activityLogs.length > 0 && (
             <div className="relative">
               <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
               
@@ -4018,10 +4128,41 @@ export default function CustomersPage() {
   const [viewingCustomer, setViewingCustomer] = useState<Customer | null>(null);
   const [deletingCustomer, setDeletingCustomer] = useState<Customer | null>(null);
   const [potentialCaseCustomer, setPotentialCaseCustomer] = useState<Customer | null>(null);
+  const [pendingViewCustomerId, setPendingViewCustomerId] = useState<string | null>(null);
 
   const { data: allCustomers = [], isLoading } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
   });
+
+  // Handle URL parameter for viewing customer detail (from email-client link)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const viewId = urlParams.get("view");
+    if (viewId) {
+      setPendingViewCustomerId(viewId);
+      // Clean URL
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
+  // Open customer view when data is loaded (from deep-link or email client)
+  useEffect(() => {
+    if (pendingViewCustomerId && allCustomers.length > 0 && !isLoading) {
+      // Search in ALL customers, not filtered list - so country filter doesn't block navigation
+      const customer = allCustomers.find(c => c.id === pendingViewCustomerId);
+      if (customer) {
+        setViewingCustomer(customer);
+      } else {
+        // Customer not found - show feedback
+        toast({
+          title: "Zákazník nenájdený",
+          description: "Požadovaný zákazník nebol nájdený v systéme.",
+          variant: "destructive"
+        });
+      }
+      setPendingViewCustomerId(null);
+    }
+  }, [pendingViewCustomerId, allCustomers, isLoading, toast]);
 
   const customers = allCustomers.filter(c => 
     selectedCountries.includes(c.country as any)

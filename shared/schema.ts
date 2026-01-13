@@ -3562,6 +3562,9 @@ export const customerEmailNotifications = pgTable("customer_email_notifications"
   subject: text("subject").notNull(),
   senderEmail: text("sender_email").notNull(),
   senderName: text("sender_name"),
+  recipientEmail: text("recipient_email"), // For outbound emails
+  direction: text("direction").notNull().default("inbound"), // "inbound" or "outbound"
+  bodyPreview: text("body_preview"), // Short preview of email body
   receivedAt: timestamp("received_at").notNull(),
   priority: text("priority").default("normal"),
   isRead: boolean("is_read").notNull().default(false),

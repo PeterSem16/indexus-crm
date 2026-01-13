@@ -1592,6 +1592,17 @@ export async function registerRoutes(
     }
   });
 
+  // Customer Email History - get all inbound/outbound emails linked to customer
+  app.get("/api/customers/:id/emails", requireAuth, async (req, res) => {
+    try {
+      const emails = await storage.getCustomerEmailNotifications(req.params.id);
+      res.json(emails);
+    } catch (error) {
+      console.error("Error fetching customer emails:", error);
+      res.status(500).json({ error: "Failed to fetch customer emails" });
+    }
+  });
+
   // ============================================
   // Microsoft 365 / Entra ID Integration API
   // ============================================
@@ -2659,6 +2670,8 @@ export async function registerRoutes(
                 subject: email.subject || "(bez predmetu)",
                 senderEmail: senderEmail,
                 senderName: email.from?.emailAddress?.name || senderEmail,
+                direction: "inbound",
+                bodyPreview: email.bodyPreview ? email.bodyPreview.replace(/<[^>]*>/g, '').replace(/&[a-z]+;/gi, ' ').replace(/\s+/g, ' ').trim().substring(0, 300) : undefined,
                 receivedAt: receivedDateTime,
                 priority: email.importance === "high" ? "high" : "normal",
                 isRead: false
@@ -2730,6 +2743,35 @@ export async function registerRoutes(
       );
       
       if (success) {
+        // Log outbound email to customer history for each recipient AND each matching customer
+        try {
+          const actualMailbox = mailboxEmail === "personal" ? ms365Connection.email : mailboxEmail;
+          const sanitizedBodyPreview = body ? body.replace(/<[^>]*>/g, '').replace(/&[a-z]+;/gi, ' ').replace(/\s+/g, ' ').trim().substring(0, 300) : undefined;
+          
+          for (const recipientEmail of to) {
+            const matchingCustomers = await storage.findCustomersByEmail(recipientEmail);
+            // Log for ALL matching customers (e.g., mother and partner sharing same email)
+            for (const customer of matchingCustomers) {
+              await storage.createCustomerEmailNotification({
+                customerId: customer.id,
+                messageId: `outbound-${Date.now()}-${customer.id}-${Math.random().toString(36).substr(2, 9)}`,
+                mailboxEmail: actualMailbox || "",
+                subject: subject || "(bez predmetu)",
+                senderEmail: actualMailbox || "",
+                recipientEmail: recipientEmail,
+                direction: "outbound",
+                bodyPreview: sanitizedBodyPreview,
+                receivedAt: new Date(),
+                priority: "normal",
+                isRead: true
+              });
+              console.log(`[EmailRouter] Logged outbound email to customer ${customer.firstName} ${customer.lastName} (${customer.email})`);
+            }
+          }
+        } catch (linkError) {
+          console.error("[EmailRouter] Error logging outbound email to customer:", linkError);
+        }
+        
         res.json({ success: true, message: "Email sent successfully" });
       } else {
         res.status(500).json({ error: "Failed to send email" });
