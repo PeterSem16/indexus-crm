@@ -3485,6 +3485,12 @@ export const emailRoutingRules = pgTable("email_routing_rules", {
   // Mailbox filter - apply to specific mailboxes or all
   mailboxFilter: text("mailbox_filter").array().default(sql`ARRAY[]::text[]`), // Empty = all mailboxes
   
+  // Auto-assign emails to customer history when sender matches customer email
+  autoAssignCustomer: boolean("auto_assign_customer").notNull().default(true),
+  
+  // AI content analysis - analyze incoming emails for sentiment and inappropriate content
+  enableAiAnalysis: boolean("enable_ai_analysis").notNull().default(false),
+  
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
@@ -3534,6 +3540,15 @@ export const emailMetadata = pgTable("email_metadata", {
   customerId: varchar("customer_id").references(() => customers.id), // Linked customer if any
   isProcessed: boolean("is_processed").notNull().default(false),
   processedAt: timestamp("processed_at"),
+  
+  // AI content analysis results
+  aiAnalyzed: boolean("ai_analyzed").notNull().default(false),
+  aiSentiment: text("ai_sentiment"), // positive, neutral, negative, angry
+  aiHasInappropriateContent: boolean("ai_has_inappropriate_content").notNull().default(false),
+  aiAlertLevel: text("ai_alert_level"), // none, warning, critical
+  aiAnalysisNote: text("ai_analysis_note"), // Explanation from AI
+  aiAnalyzedAt: timestamp("ai_analyzed_at"),
+  
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
