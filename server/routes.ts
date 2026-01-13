@@ -46,6 +46,7 @@ import {
 import { convertPdfToDocx, isConverterAvailable } from "./pdf-to-docx-converter";
 import mammoth from "mammoth";
 import { PDFDocument as PDFLibDocument, rgb, degrees, StandardFonts } from "pdf-lib";
+import { notificationService } from "./lib/notification-service";
 
 // Global uploads directory
 const uploadsDir = path.join(process.cwd(), "uploads");
@@ -1040,6 +1041,9 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  // Initialize WebSocket notification service
+  notificationService.initialize(httpServer);
+
   // Session middleware
   app.use(
     session({
@@ -6120,6 +6124,188 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting country system settings:", error);
       res.status(500).json({ error: "Failed to delete country system settings" });
+    }
+  });
+
+  // ========== NOTIFICATIONS ==========
+
+  // Get notifications for current user
+  app.get("/api/notifications", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user!.id;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const includeRead = req.query.includeRead === "true";
+      const includeDismissed = req.query.includeDismissed === "true";
+      
+      const notificationsList = await storage.getNotifications(userId, { limit, includeRead, includeDismissed });
+      res.json(notificationsList);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ error: "Failed to fetch notifications" });
+    }
+  });
+
+  // Get unread notifications count
+  app.get("/api/notifications/unread-count", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user!.id;
+      const count = await storage.getUnreadNotificationsCount(userId);
+      res.json({ count });
+    } catch (error) {
+      console.error("Error fetching unread count:", error);
+      res.status(500).json({ error: "Failed to fetch unread count" });
+    }
+  });
+
+  // Mark notification as read
+  app.patch("/api/notifications/:id/read", requireAuth, async (req, res) => {
+    try {
+      const notification = await storage.markNotificationRead(req.params.id);
+      if (!notification) {
+        return res.status(404).json({ error: "Notification not found" });
+      }
+      res.json(notification);
+    } catch (error) {
+      console.error("Error marking notification read:", error);
+      res.status(500).json({ error: "Failed to mark notification read" });
+    }
+  });
+
+  // Mark all notifications as read
+  app.patch("/api/notifications/mark-all-read", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user!.id;
+      const count = await storage.markAllNotificationsRead(userId);
+      res.json({ count });
+    } catch (error) {
+      console.error("Error marking all notifications read:", error);
+      res.status(500).json({ error: "Failed to mark all notifications read" });
+    }
+  });
+
+  // Dismiss notification
+  app.patch("/api/notifications/:id/dismiss", requireAuth, async (req, res) => {
+    try {
+      const notification = await storage.dismissNotification(req.params.id);
+      if (!notification) {
+        return res.status(404).json({ error: "Notification not found" });
+      }
+      res.json(notification);
+    } catch (error) {
+      console.error("Error dismissing notification:", error);
+      res.status(500).json({ error: "Failed to dismiss notification" });
+    }
+  });
+
+  // Dismiss all notifications
+  app.patch("/api/notifications/dismiss-all", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user!.id;
+      const count = await storage.dismissAllNotifications(userId);
+      res.json({ count });
+    } catch (error) {
+      console.error("Error dismissing all notifications:", error);
+      res.status(500).json({ error: "Failed to dismiss all notifications" });
+    }
+  });
+
+  // Delete notification
+  app.delete("/api/notifications/:id", requireAuth, async (req, res) => {
+    try {
+      const deleted = await storage.deleteNotification(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Notification not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+      res.status(500).json({ error: "Failed to delete notification" });
+    }
+  });
+
+  // ========== NOTIFICATION RULES ==========
+
+  // Get all notification rules
+  app.get("/api/notification-rules", requireAuth, async (req, res) => {
+    try {
+      const rules = await storage.getNotificationRules();
+      res.json(rules);
+    } catch (error) {
+      console.error("Error fetching notification rules:", error);
+      res.status(500).json({ error: "Failed to fetch notification rules" });
+    }
+  });
+
+  // Get notification rule by ID
+  app.get("/api/notification-rules/:id", requireAuth, async (req, res) => {
+    try {
+      const rule = await storage.getNotificationRule(req.params.id);
+      if (!rule) {
+        return res.status(404).json({ error: "Notification rule not found" });
+      }
+      res.json(rule);
+    } catch (error) {
+      console.error("Error fetching notification rule:", error);
+      res.status(500).json({ error: "Failed to fetch notification rule" });
+    }
+  });
+
+  // Create notification rule
+  app.post("/api/notification-rules", requireAuth, async (req, res) => {
+    try {
+      const ruleData = { ...req.body, createdBy: req.session.user!.id };
+      const rule = await storage.createNotificationRule(ruleData);
+      await logActivity(req.session.user!.id, "create", "notification_rule", rule.id, rule.name);
+      res.status(201).json(rule);
+    } catch (error) {
+      console.error("Error creating notification rule:", error);
+      res.status(500).json({ error: "Failed to create notification rule" });
+    }
+  });
+
+  // Update notification rule
+  app.put("/api/notification-rules/:id", requireAuth, async (req, res) => {
+    try {
+      const rule = await storage.updateNotificationRule(req.params.id, req.body);
+      if (!rule) {
+        return res.status(404).json({ error: "Notification rule not found" });
+      }
+      await logActivity(req.session.user!.id, "update", "notification_rule", rule.id, rule.name);
+      res.json(rule);
+    } catch (error) {
+      console.error("Error updating notification rule:", error);
+      res.status(500).json({ error: "Failed to update notification rule" });
+    }
+  });
+
+  // Toggle notification rule
+  app.patch("/api/notification-rules/:id/toggle", requireAuth, async (req, res) => {
+    try {
+      const { isActive } = req.body;
+      const rule = await storage.toggleNotificationRule(req.params.id, isActive);
+      if (!rule) {
+        return res.status(404).json({ error: "Notification rule not found" });
+      }
+      await logActivity(req.session.user!.id, "toggle", "notification_rule", rule.id, rule.name);
+      res.json(rule);
+    } catch (error) {
+      console.error("Error toggling notification rule:", error);
+      res.status(500).json({ error: "Failed to toggle notification rule" });
+    }
+  });
+
+  // Delete notification rule
+  app.delete("/api/notification-rules/:id", requireAuth, async (req, res) => {
+    try {
+      const deleted = await storage.deleteNotificationRule(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Notification rule not found" });
+      }
+      await logActivity(req.session.user!.id, "delete", "notification_rule", req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting notification rule:", error);
+      res.status(500).json({ error: "Failed to delete notification rule" });
     }
   });
 
