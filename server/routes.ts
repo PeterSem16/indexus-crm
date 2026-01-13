@@ -96,8 +96,13 @@ Common Slovak profanity: check for vulgar words and offensive expressions`
       max_tokens: 200,
     });
 
-    const resultText = response.choices[0]?.message?.content?.trim();
+    let resultText = response.choices[0]?.message?.content?.trim();
     if (!resultText) return null;
+
+    // Strip markdown code block if present (OpenAI sometimes wraps JSON in ```json...```)
+    if (resultText.startsWith("```")) {
+      resultText = resultText.replace(/^```(?:json)?\s*\n?/, "").replace(/\n?```\s*$/, "");
+    }
 
     // Parse JSON response
     const parsed = JSON.parse(resultText);
