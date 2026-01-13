@@ -9698,6 +9698,41 @@ function EmailRouterTab() {
   };
 
   const handleSaveRule = () => {
+    // Validate pipeline actions - if enabled, must have a stage selected
+    if (ruleEnableAiAnalysis) {
+      const invalidTriggers: string[] = [];
+      const triggerLabels: Record<string, string> = {
+        onAngryTone: "Nahnevaný tón",
+        onRudeExpressions: "Hrubé výrazy",
+        onWantsToCancel: "Chce zrušiť zmluvu",
+        onWantsConsent: "Chce dať súhlas",
+        onDoesNotAcceptContract: "Neakceptuje zmluvu",
+      };
+      
+      for (const [key, config] of Object.entries(ruleAiPipelineActions)) {
+        if (config?.enabled && !config?.stageId) {
+          invalidTriggers.push(triggerLabels[key] || key);
+        }
+      }
+      
+      if (invalidTriggers.length > 0) {
+        toast({ 
+          title: "Chýba výber fázy pipeline", 
+          description: `Prosím vyberte fázu pre: ${invalidTriggers.join(", ")}`,
+          variant: "destructive" 
+        });
+        return;
+      }
+    }
+
+    // Clean up aiPipelineActions - only include enabled triggers with valid stageId
+    const cleanedAiPipelineActions: typeof ruleAiPipelineActions = {};
+    for (const [key, config] of Object.entries(ruleAiPipelineActions)) {
+      if (config?.enabled && config?.stageId) {
+        (cleanedAiPipelineActions as any)[key] = config;
+      }
+    }
+
     const data = {
       name: ruleName,
       description: ruleDescription,
@@ -9706,7 +9741,7 @@ function EmailRouterTab() {
       stopProcessing: ruleStopProcessing,
       autoAssignCustomer: ruleAutoAssignCustomer,
       enableAiAnalysis: ruleEnableAiAnalysis,
-      aiPipelineActions: Object.keys(ruleAiPipelineActions).length > 0 ? ruleAiPipelineActions : null,
+      aiPipelineActions: Object.keys(cleanedAiPipelineActions).length > 0 ? cleanedAiPipelineActions : null,
       conditions: ruleConditions,
       actions: ruleActions,
       isActive: true,

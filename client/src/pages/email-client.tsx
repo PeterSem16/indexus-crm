@@ -795,6 +795,32 @@ export default function EmailClientPage() {
                               Nevhodný obsah
                             </Badge>
                           )}
+                          {(emailDetail as any).aiAnalysis.hasAngryTone && (
+                            <Badge variant="outline" className="text-xs border-orange-400 text-orange-600 dark:text-orange-400">
+                              <Flame className="h-3 w-3 mr-1" />
+                              Nahnevaný tón
+                            </Badge>
+                          )}
+                          {(emailDetail as any).aiAnalysis.hasRudeExpressions && (
+                            <Badge variant="destructive" className="text-xs">
+                              Hrubé výrazy
+                            </Badge>
+                          )}
+                          {(emailDetail as any).aiAnalysis.wantsToCancel && (
+                            <Badge variant="outline" className="text-xs border-red-500 text-red-600 dark:text-red-400">
+                              Chce zrušiť zmluvu
+                            </Badge>
+                          )}
+                          {(emailDetail as any).aiAnalysis.wantsConsent && (
+                            <Badge variant="outline" className="text-xs border-green-500 text-green-600 dark:text-green-400">
+                              Chce dať súhlas
+                            </Badge>
+                          )}
+                          {(emailDetail as any).aiAnalysis.doesNotAcceptContract && (
+                            <Badge variant="outline" className="text-xs border-amber-500 text-amber-600 dark:text-amber-400">
+                              Neakceptuje zmluvu
+                            </Badge>
+                          )}
                         </div>
                         {(emailDetail as any).aiAnalysis.note && (
                           <p className={`text-sm mt-1 ${
