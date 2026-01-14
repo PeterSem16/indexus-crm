@@ -37,7 +37,7 @@ export function useNotifications() {
   const reconnectAttempts = useRef(0);
 
   const { data: notifications = [], isLoading, refetch } = useQuery<Notification[]>({
-    queryKey: ["/api/notifications", { includeRead: true, includeDismissed: false, limit: 100 }],
+    queryKey: ["/api/notifications?includeRead=true&includeDismissed=false&limit=100"],
     enabled: !!user,
   });
 

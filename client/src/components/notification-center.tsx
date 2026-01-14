@@ -51,6 +51,7 @@ const NOTIFICATION_ICONS: Record<string, any> = {
   new_customer: UserPlus,
   status_change: RefreshCw,
   sentiment_alert: AlertTriangle,
+  sentiment_negative: AlertTriangle,
   task_assigned: Clipboard,
   task_due: Clock,
   task_completed: CheckCircle,
