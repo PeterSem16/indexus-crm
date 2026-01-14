@@ -71,17 +71,24 @@ export function useNotifications() {
       ws.onmessage = (event) => {
         try {
           const message: WebSocketMessage = JSON.parse(event.data);
+          console.log("[Notifications] Received message:", message.type);
 
           switch (message.type) {
+            case "connected":
+              // Refresh notifications and count on connect
+              queryClient.invalidateQueries({ queryKey: ["/api/notifications?includeRead=true&includeDismissed=false&limit=100"] });
+              queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
+              break;
             case "notification":
-              queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+              queryClient.invalidateQueries({ queryKey: ["/api/notifications?includeRead=true&includeDismissed=false&limit=100"] });
+              queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
               break;
             case "unreadCount":
               setUnreadCount(message.count || 0);
               break;
             case "allRead":
               setUnreadCount(0);
-              queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+              queryClient.invalidateQueries({ queryKey: ["/api/notifications?includeRead=true&includeDismissed=false&limit=100"] });
               break;
           }
         } catch (error) {
@@ -128,7 +135,7 @@ export function useNotifications() {
   const markAsReadMutation = useMutation({
     mutationFn: (id: string) => apiRequest("PATCH", `/api/notifications/${id}/read`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications?includeRead=true&includeDismissed=false&limit=100"] });
       queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
     },
   });
@@ -137,7 +144,7 @@ export function useNotifications() {
     mutationFn: () => apiRequest("PATCH", "/api/notifications/mark-all-read"),
     onSuccess: () => {
       setUnreadCount(0);
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications?includeRead=true&includeDismissed=false&limit=100"] });
       queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
     },
   });
@@ -145,14 +152,14 @@ export function useNotifications() {
   const dismissMutation = useMutation({
     mutationFn: (id: string) => apiRequest("PATCH", `/api/notifications/${id}/dismiss`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications?includeRead=true&includeDismissed=false&limit=100"] });
     },
   });
 
   const dismissAllMutation = useMutation({
     mutationFn: () => apiRequest("PATCH", "/api/notifications/dismiss-all"),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications?includeRead=true&includeDismissed=false&limit=100"] });
     },
   });
 
