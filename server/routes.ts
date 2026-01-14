@@ -1766,25 +1766,12 @@ export async function registerRoutes(
   // Microsoft 365 / Entra ID Integration API
   // ============================================
   
-  // Store PKCE verifiers temporarily (in production, use Redis or session)
-  const ms365PkceStore = new Map<string, { codeVerifier: string; createdAt: Date }>();
-  
-  // Store for system MS365 PKCE verifiers with country code
-  const systemMs365PkceStore = new Map<string, { codeVerifier: string; countryCode: string; userId: string; createdAt: Date }>();
-  
-  // Cleanup old PKCE codes (older than 10 minutes)
+  // PKCE store is now persisted to database (see storage.savePkceEntry/getPkceEntry)
+  // Cleanup old PKCE codes (older than 10 minutes) - runs every minute
   setInterval(() => {
-    const now = Date.now();
-    for (const [state, data] of Array.from(ms365PkceStore.entries())) {
-      if (now - data.createdAt.getTime() > 10 * 60 * 1000) {
-        ms365PkceStore.delete(state);
-      }
-    }
-    for (const [state, data] of Array.from(systemMs365PkceStore.entries())) {
-      if (now - data.createdAt.getTime() > 10 * 60 * 1000) {
-        systemMs365PkceStore.delete(state);
-      }
-    }
+    storage.cleanupExpiredPkceEntries().catch(err => 
+      console.error("Error cleaning up expired PKCE entries:", err)
+    );
   }, 60000);
   
   // Get MS365 configuration status
@@ -1810,11 +1797,12 @@ export async function registerRoutes(
       
       // Check if admin consent is requested
       const useAdminConsent = req.query.admin_consent === 'true';
+      const userId = req.session.user!.id;
       
       const { url, codeVerifier, state } = await getAuthorizationUrl(undefined, useAdminConsent);
       
-      // Store PKCE verifier
-      ms365PkceStore.set(state, { codeVerifier, createdAt: new Date() });
+      // Store PKCE verifier in database (persisted across server restarts)
+      await storage.savePkceEntry(state, codeVerifier, 'user', userId);
       
       // Also store in session for security
       (req.session as any).ms365State = state;
@@ -1842,18 +1830,26 @@ export async function registerRoutes(
       
       const stateStr = String(state);
       
-      // Check if this is a system connection (state starts with "system:")
-      const systemPkceData = systemMs365PkceStore.get(stateStr);
-      if (systemPkceData) {
+      // Get PKCE data from database (persisted across server restarts)
+      const pkceData = await storage.getPkceEntry(stateStr);
+      
+      if (!pkceData) {
+        console.error("MS365 auth error: PKCE entry not found or expired for state:", stateStr);
+        return res.redirect("/?ms365_error=Session%20expired%20-%20please%20try%20again");
+      }
+      
+      // Check if this is a system connection
+      if (pkceData.type === 'system' && pkceData.countryCode) {
         // Handle system email connection
         const { acquireTokenByCode, getUserProfile } = await import("./lib/ms365");
         const { encryptTokenWithMarker } = await import("./lib/token-crypto");
         
-        const tokenResult = await acquireTokenByCode(String(code), systemPkceData.codeVerifier);
-        systemMs365PkceStore.delete(stateStr);
+        const tokenResult = await acquireTokenByCode(String(code), pkceData.codeVerifier);
+        await storage.deletePkceEntry(stateStr);
         
         const profile = await getUserProfile(tokenResult.accessToken);
-        const { countryCode, userId } = systemPkceData;
+        const countryCode = pkceData.countryCode;
+        const userId = pkceData.userId;
         
         const existing = await storage.getSystemMs365Connection(countryCode);
         const connectionData = {
@@ -1886,19 +1882,14 @@ export async function registerRoutes(
         return res.redirect("/?ms365_error=Invalid%20session%20state%20-%20please%20try%20again");
       }
       
-      // Retrieve PKCE verifier
-      const pkceData = ms365PkceStore.get(stateStr);
-      if (!pkceData) {
-        return res.redirect("/?ms365_error=Invalid%20or%20expired%20state");
-      }
-      
+      // PKCE verifier already retrieved from database above
       const { acquireTokenByCode, getUserProfile } = await import("./lib/ms365");
       
       // Exchange code for tokens
       const tokenResult = await acquireTokenByCode(String(code), pkceData.codeVerifier);
       
       // Clean up PKCE store and session state
-      ms365PkceStore.delete(stateStr);
+      await storage.deletePkceEntry(stateStr);
       delete (req.session as any).ms365State;
       
       // Get user profile from Microsoft Graph
@@ -6299,13 +6290,8 @@ export async function registerRoutes(
       // Generate auth URL with system email state prefix
       const { url, codeVerifier, state } = await getAuthorizationUrl(`system:${countryCode}`, false);
       
-      // Store PKCE verifier in shared store for callback to retrieve
-      systemMs365PkceStore.set(state, {
-        codeVerifier,
-        countryCode,
-        userId,
-        createdAt: new Date()
-      });
+      // Store PKCE verifier in database (persisted across server restarts)
+      await storage.savePkceEntry(state, codeVerifier, 'system', userId, countryCode);
       
       res.json({ authUrl: url });
     } catch (error) {

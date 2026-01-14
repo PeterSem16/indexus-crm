@@ -3738,6 +3738,19 @@ export const insertSystemMs365ConnectionSchema = createInsertSchema(systemMs365C
 export type InsertSystemMs365Connection = z.infer<typeof insertSystemMs365ConnectionSchema>;
 export type SystemMs365Connection = typeof systemMs365Connections.$inferSelect;
 
+// MS365 PKCE Store - persisted to database to survive server restarts
+export const ms365PkceStore = pgTable("ms365_pkce_store", {
+  state: varchar("state", { length: 255 }).primaryKey(),
+  codeVerifier: text("code_verifier").notNull(),
+  type: varchar("type", { length: 20 }).notNull(), // 'user' or 'system'
+  countryCode: varchar("country_code", { length: 10 }), // For system connections
+  userId: varchar("user_id").references(() => users.id), // User who initiated
+  expiresAt: timestamp("expires_at").notNull(), // Auto-expire after 10 minutes
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export type Ms365PkceStoreEntry = typeof ms365PkceStore.$inferSelect;
+
 // ==================== NOTIFICATION CENTER ====================
 // Real-time notifications for users
 

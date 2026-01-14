@@ -104,6 +104,7 @@ import {
   gsmSenderConfigs, type GsmSenderConfig, type InsertGsmSenderConfig,
   countrySystemSettings, type CountrySystemSettings, type InsertCountrySystemSettings,
   systemMs365Connections, type SystemMs365Connection, type InsertSystemMs365Connection,
+  ms365PkceStore,
   notifications, notificationRules,
   type Notification, type InsertNotification,
   type NotificationRule, type InsertNotificationRule
@@ -312,6 +313,12 @@ export interface IStorage {
   createSystemMs365Connection(data: InsertSystemMs365Connection): Promise<SystemMs365Connection>;
   updateSystemMs365Connection(countryCode: string, data: Partial<InsertSystemMs365Connection>): Promise<SystemMs365Connection | undefined>;
   deleteSystemMs365Connection(countryCode: string): Promise<boolean>;
+
+  // MS365 PKCE Store (persisted for server restart resilience)
+  savePkceEntry(state: string, codeVerifier: string, type: 'user' | 'system', userId: string, countryCode?: string): Promise<void>;
+  getPkceEntry(state: string): Promise<{ codeVerifier: string; type: string; countryCode: string | null; userId: string | null } | undefined>;
+  deletePkceEntry(state: string): Promise<void>;
+  cleanupExpiredPkceEntries(): Promise<void>;
 
   // Complaint Types
   getAllComplaintTypes(): Promise<ComplaintType[]>;
@@ -1846,6 +1853,45 @@ export class DatabaseStorage implements IStorage {
   async deleteSystemMs365Connection(countryCode: string): Promise<boolean> {
     const result = await db.delete(systemMs365Connections).where(eq(systemMs365Connections.countryCode, countryCode)).returning();
     return result.length > 0;
+  }
+
+  // MS365 PKCE Store (persisted for server restart resilience)
+  async savePkceEntry(state: string, codeVerifier: string, type: 'user' | 'system', userId: string, countryCode?: string): Promise<void> {
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    await db.insert(ms365PkceStore).values({
+      state,
+      codeVerifier,
+      type,
+      userId,
+      countryCode: countryCode || null,
+      expiresAt,
+    }).onConflictDoUpdate({
+      target: ms365PkceStore.state,
+      set: { codeVerifier, type, userId, countryCode: countryCode || null, expiresAt }
+    });
+  }
+
+  async getPkceEntry(state: string): Promise<{ codeVerifier: string; type: string; countryCode: string | null; userId: string | null } | undefined> {
+    const [entry] = await db.select().from(ms365PkceStore)
+      .where(and(
+        eq(ms365PkceStore.state, state),
+        sql`${ms365PkceStore.expiresAt} > NOW()`
+      ));
+    if (!entry) return undefined;
+    return {
+      codeVerifier: entry.codeVerifier,
+      type: entry.type,
+      countryCode: entry.countryCode,
+      userId: entry.userId,
+    };
+  }
+
+  async deletePkceEntry(state: string): Promise<void> {
+    await db.delete(ms365PkceStore).where(eq(ms365PkceStore.state, state));
+  }
+
+  async cleanupExpiredPkceEntries(): Promise<void> {
+    await db.delete(ms365PkceStore).where(sql`${ms365PkceStore.expiresAt} < NOW()`);
   }
 
   // Complaint Types
