@@ -1829,9 +1829,11 @@ export async function registerRoutes(
       }
       
       const stateStr = String(state);
+      console.log("[MS365 Callback] Processing state:", stateStr);
       
       // Get PKCE data from database (persisted across server restarts)
       const pkceData = await storage.getPkceEntry(stateStr);
+      console.log("[MS365 Callback] PKCE data found:", pkceData ? `type=${pkceData.type}, countryCode=${pkceData.countryCode}` : "null");
       
       if (!pkceData) {
         console.error("MS365 auth error: PKCE entry not found or expired for state:", stateStr);
