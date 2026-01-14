@@ -235,16 +235,32 @@ export async function syncTaskToJira(task: {
 export async function checkJiraConnection(): Promise<{ connected: boolean; error?: string; siteUrl?: string }> {
   try {
     const creds = await getAccessToken();
+    
+    // Check if credentials exist
     if (creds.useBasicAuth) {
-      if (creds.email && creds.apiToken && creds.hostName) {
-        return { connected: true, siteUrl: creds.hostName };
+      if (!creds.email || !creds.apiToken || !creds.hostName) {
+        return { connected: false, error: 'Missing credentials' };
       }
     } else {
-      if (creds.accessToken && creds.hostName) {
-        return { connected: true, siteUrl: creds.hostName };
+      if (!creds.accessToken || !creds.hostName) {
+        return { connected: false, error: 'Missing credentials' };
       }
     }
-    return { connected: false, error: 'Missing credentials' };
+    
+    // Actually verify the connection by calling Jira API
+    try {
+      const client = await getJiraClient();
+      const myself = await client.myself.getCurrentUser();
+      console.log('[Jira] Connection verified - logged in as:', myself.displayName);
+      return { connected: true, siteUrl: creds.hostName };
+    } catch (apiError: any) {
+      console.error('[Jira] API verification failed:', apiError.message);
+      return { 
+        connected: false, 
+        error: `Authentication failed: ${apiError.message}. Check JIRA_EMAIL and JIRA_API_TOKEN.`,
+        siteUrl: creds.hostName
+      };
+    }
   } catch (error: any) {
     return { connected: false, error: error.message };
   }
