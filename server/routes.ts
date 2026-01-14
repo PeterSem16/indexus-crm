@@ -10215,6 +10215,16 @@ export async function registerRoutes(
   });
 
   // Jira Integration API
+  app.get("/api/jira/status", requireAuth, async (req, res) => {
+    try {
+      const { checkJiraConnection } = await import("./jira");
+      const status = await checkJiraConnection();
+      res.json(status);
+    } catch (error: any) {
+      res.json({ connected: false, error: error.message });
+    }
+  });
+
   app.get("/api/jira/projects", requireAuth, async (req, res) => {
     try {
       const { getJiraProjects } = await import("./jira");

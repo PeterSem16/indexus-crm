@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Phone, User, Shield, MapPin, Camera, Loader2, Link2, RefreshCw, Mail, Star, Trash2, Plus, CheckCircle, XCircle } from "lucide-react";
+import { Phone, User, Shield, MapPin, Camera, Loader2, Link2, RefreshCw, Mail, Star, Trash2, Plus, CheckCircle, CheckCircle2, XCircle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
@@ -95,8 +95,19 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
     avatarUrls?: { "48x48"?: string };
   }
   
+  interface JiraStatus {
+    connected: boolean;
+    error?: string;
+    siteUrl?: string;
+  }
+
+  const { data: jiraStatus, isLoading: jiraStatusLoading } = useQuery<JiraStatus>({
+    queryKey: ["/api/jira/status"],
+  });
+
   const { data: jiraUsers = [], isLoading: jiraUsersLoading, refetch: refetchJiraUsers } = useQuery<JiraUser[]>({
     queryKey: ["/api/jira/users"],
+    enabled: jiraStatus?.connected === true,
   });
   
   const [selectedJiraUser, setSelectedJiraUser] = useState<string>((initialData as any)?.jiraAccountId || "");
@@ -1006,90 +1017,135 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
     );
   };
 
-  const renderJiraTab = () => (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 text-muted-foreground mb-4">
-        <Link2 className="h-4 w-4" />
-        <span className="text-sm">Prepojenie Jira účtu umožní synchronizáciu úloh s Jirou</span>
-      </div>
-      
-      {jiraUsersLoading ? (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+  const renderJiraTab = () => {
+    if (jiraStatusLoading) {
+      return (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground p-4">
           <Loader2 className="h-4 w-4 animate-spin" />
-          Načítavanie Jira používateľov...
+          Kontrola Jira pripojenia...
         </div>
-      ) : jiraUsers.length === 0 ? (
-        <div className="p-4 rounded-md bg-muted space-y-3">
-          <p className="text-sm text-muted-foreground">
-            Nepodarilo sa načítať Jira používateľov. Toto môže byť spôsobené:
-          </p>
-          <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
-            <li>Vypršaním prístupového tokenu (vyžaduje opätovné pripojenie)</li>
-            <li>Chýbajúcimi oprávneniami v Jira</li>
-            <li>Neaktívnou Jira integráciou</li>
-          </ul>
-          <Button 
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => refetchJiraUsers()}
-            data-testid="button-refresh-jira"
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Skúsiť znova
-          </Button>
-        </div>
-      ) : (
+      );
+    }
+
+    if (!jiraStatus?.connected) {
+      return (
         <div className="space-y-4">
-          <div>
-            <FormLabel>Jira účet</FormLabel>
-            <Select 
-              value={selectedJiraUser} 
-              onValueChange={setSelectedJiraUser}
-            >
-              <SelectTrigger data-testid="select-jira-user">
-                <SelectValue placeholder="Vyberte Jira používateľa" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">Žiadny</SelectItem>
-                {jiraUsers.map((jUser) => (
-                  <SelectItem key={jUser.accountId} value={jUser.accountId}>
-                    <div className="flex items-center gap-2">
-                      {jUser.avatarUrls?.["48x48"] && (
-                        <img 
-                          src={jUser.avatarUrls["48x48"]} 
-                          alt="" 
-                          className="h-5 w-5 rounded-full"
-                        />
-                      )}
-                      <span>{jUser.displayName}</span>
-                      {jUser.emailAddress && (
-                        <span className="text-muted-foreground text-xs">({jUser.emailAddress})</span>
-                      )}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground mt-1">
-              Po prepojení budú úlohy pridelené tomuto používateľovi automaticky synchronizované s jeho Jira účtom
-            </p>
+          <div className="flex items-center gap-2 text-muted-foreground mb-4">
+            <Link2 className="h-4 w-4" />
+            <span className="text-sm">Prepojenie Jira účtu umožní synchronizáciu úloh s Jirou</span>
           </div>
           
-          {selectedJiraUser && (
-            <div className="p-3 rounded-md bg-green-50 dark:bg-green-900/20 text-sm">
-              <div className="flex items-center gap-2">
-                <Link2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-                <span className="text-green-700 dark:text-green-300">
-                  Prepojené s Jira účtom: {jiraUsers.find(j => j.accountId === selectedJiraUser)?.displayName}
-                </span>
-              </div>
+          <div className="p-4 rounded-md bg-amber-50 dark:bg-amber-900/20 space-y-3">
+            <div className="flex items-center gap-2">
+              <XCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              <p className="font-medium text-amber-700 dark:text-amber-300">Jira nie je pripojená</p>
             </div>
-          )}
+            <p className="text-sm text-muted-foreground">
+              Jira integrácia nie je nakonfigurovaná v tomto prostredí. Pre pripojenie Jiry:
+            </p>
+            <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
+              <li>Kontaktujte administrátora pre nastavenie Jira konektora</li>
+              <li>Po pripojení sa tu zobrazia Jira používatelia na prepojenie</li>
+            </ul>
+            {jiraStatus?.error && (
+              <p className="text-xs text-muted-foreground mt-2 font-mono bg-muted p-2 rounded">
+                {jiraStatus.error}
+              </p>
+            )}
+          </div>
         </div>
-      )}
-    </div>
-  );
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 text-muted-foreground mb-4">
+          <Link2 className="h-4 w-4" />
+          <span className="text-sm">Prepojenie Jira účtu umožní synchronizáciu úloh s Jirou</span>
+        </div>
+
+        <div className="p-3 rounded-md bg-green-50 dark:bg-green-900/20 text-sm mb-4">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+            <span className="text-green-700 dark:text-green-300">
+              Jira pripojená: {jiraStatus.siteUrl}
+            </span>
+          </div>
+        </div>
+        
+        {jiraUsersLoading ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Načítavanie Jira používateľov...
+          </div>
+        ) : jiraUsers.length === 0 ? (
+          <div className="p-4 rounded-md bg-muted space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Nepodarilo sa načítať Jira používateľov.
+            </p>
+            <Button 
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => refetchJiraUsers()}
+              data-testid="button-refresh-jira"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Skúsiť znova
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div>
+              <FormLabel>Jira účet</FormLabel>
+              <Select 
+                value={selectedJiraUser} 
+                onValueChange={setSelectedJiraUser}
+              >
+                <SelectTrigger data-testid="select-jira-user">
+                  <SelectValue placeholder="Vyberte Jira používateľa" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Žiadny</SelectItem>
+                  {jiraUsers.map((jUser) => (
+                    <SelectItem key={jUser.accountId} value={jUser.accountId}>
+                      <div className="flex items-center gap-2">
+                        {jUser.avatarUrls?.["48x48"] && (
+                          <img 
+                            src={jUser.avatarUrls["48x48"]} 
+                            alt="" 
+                            className="h-5 w-5 rounded-full"
+                          />
+                        )}
+                        <span>{jUser.displayName}</span>
+                        {jUser.emailAddress && (
+                          <span className="text-muted-foreground text-xs">({jUser.emailAddress})</span>
+                        )}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                Po prepojení budú úlohy pridelené tomuto používateľovi automaticky synchronizované s jeho Jira účtom
+              </p>
+            </div>
+            
+            {selectedJiraUser && (
+              <div className="p-3 rounded-md bg-green-50 dark:bg-green-900/20 text-sm">
+                <div className="flex items-center gap-2">
+                  <Link2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  <span className="text-green-700 dark:text-green-300">
+                    Prepojené s Jira účtom: {jiraUsers.find(j => j.accountId === selectedJiraUser)?.displayName}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <Form {...form}>
