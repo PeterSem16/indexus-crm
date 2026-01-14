@@ -1043,6 +1043,10 @@ export async function registerRoutes(
 ): Promise<Server> {
   // Initialize WebSocket notification service
   notificationService.initialize(httpServer);
+  
+  // Start email monitoring service for automatic sentiment analysis
+  const { startEmailMonitoring } = await import("./lib/email-monitoring-service");
+  startEmailMonitoring();
 
   // Session middleware
   app.use(
