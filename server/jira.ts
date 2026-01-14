@@ -1,12 +1,37 @@
 import { Version3Client } from 'jira.js';
 
 let connectionSettings: any;
+let useEnvVars = false;
+
+function getEnvCredentials(): { host: string; email: string; apiToken: string } | null {
+  const host = process.env.JIRA_HOST;
+  const email = process.env.JIRA_EMAIL;
+  const apiToken = process.env.JIRA_API_TOKEN;
+  
+  if (host && email && apiToken) {
+    return { host, email, apiToken };
+  }
+  return null;
+}
 
 async function getAccessToken() {
+  const envCreds = getEnvCredentials();
+  if (envCreds) {
+    useEnvVars = true;
+    console.log('[Jira] Using environment variables for authentication');
+    return { 
+      hostName: envCreds.host,
+      email: envCreds.email,
+      apiToken: envCreds.apiToken,
+      useBasicAuth: true
+    };
+  }
+
   if (connectionSettings && connectionSettings.settings?.expires_at && new Date(connectionSettings.settings.expires_at).getTime() > Date.now()) {
     return { 
       accessToken: connectionSettings.settings.access_token,
-      hostName: connectionSettings.settings.site_url 
+      hostName: connectionSettings.settings.site_url,
+      useBasicAuth: false
     };
   }
   
@@ -18,7 +43,7 @@ async function getAccessToken() {
     : null;
 
   if (!xReplitToken || !hostname) {
-    throw new Error('Jira integration not available - missing Replit connector environment');
+    throw new Error('Jira integration not available - set JIRA_HOST, JIRA_EMAIL, JIRA_API_TOKEN environment variables');
   }
 
   try {
@@ -42,7 +67,7 @@ async function getAccessToken() {
     connectionSettings = data.items?.[0];
   } catch (error: any) {
     console.error('[Jira] Error fetching connection:', error.message);
-    throw new Error('Jira integration not connected - please configure in Replit');
+    throw new Error('Jira integration not connected - please configure environment variables');
   }
 
   if (!connectionSettings || !connectionSettings.settings) {
@@ -56,16 +81,28 @@ async function getAccessToken() {
     throw new Error('Jira not connected - missing credentials');
   }
 
-  return { accessToken, hostName };
+  return { accessToken, hostName, useBasicAuth: false };
 }
 
 export async function getJiraClient() {
-  const { accessToken, hostName } = await getAccessToken();
+  const creds = await getAccessToken();
+
+  if (creds.useBasicAuth) {
+    return new Version3Client({
+      host: creds.hostName,
+      authentication: {
+        basic: { 
+          email: creds.email!,
+          apiToken: creds.apiToken!
+        },
+      },
+    });
+  }
 
   return new Version3Client({
-    host: hostName,
+    host: creds.hostName,
     authentication: {
-      oauth2: { accessToken },
+      oauth2: { accessToken: creds.accessToken! },
     },
   });
 }
