@@ -2977,6 +2977,31 @@ export async function registerRoutes(
               
               aiAnalysisResult = analysisResult;
               console.log(`[EmailRouter] AI analyzed email ${emailId}: sentiment=${analysisResult.sentiment}, alert=${analysisResult.alertLevel}, angry=${analysisResult.hasAngryTone}, rude=${analysisResult.hasRudeExpressions}, wantsCancel=${analysisResult.wantsToCancel}`);
+              
+              // Trigger notification for negative sentiment
+              if (analysisResult.sentiment === "negative" || analysisResult.sentiment === "angry" || analysisResult.hasAngryTone) {
+                try {
+                  await notificationService.triggerNotification("sentiment_negative", {
+                    title: `Negatívny sentiment: ${email.subject || "Email bez predmetu"}`,
+                    message: analysisResult.note || `Email od ${email.from?.emailAddress?.name || email.from?.emailAddress?.address || "neznámy"} obsahuje negatívny sentiment`,
+                    entityType: "email",
+                    entityId: emailId,
+                    countryCode: linkedCustomer?.country,
+                    priority: analysisResult.alertLevel === "critical" ? "urgent" : analysisResult.alertLevel === "warning" ? "high" : "normal",
+                    metadata: {
+                      sentiment: analysisResult.sentiment,
+                      alertLevel: analysisResult.alertLevel,
+                      hasAngryTone: analysisResult.hasAngryTone,
+                      wantsToCancel: analysisResult.wantsToCancel,
+                      customerName: linkedCustomer ? `${linkedCustomer.firstName} ${linkedCustomer.lastName}` : null,
+                      senderEmail: email.from?.emailAddress?.address,
+                    }
+                  });
+                  console.log(`[EmailRouter] Notification triggered for negative sentiment email ${emailId}`);
+                } catch (notifError) {
+                  console.error("[EmailRouter] Error triggering notification:", notifError);
+                }
+              }
             }
           } catch (aiError) {
             console.error("[EmailRouter] AI analysis error:", aiError);
