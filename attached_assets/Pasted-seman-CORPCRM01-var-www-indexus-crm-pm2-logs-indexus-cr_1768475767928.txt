@@ -1,0 +1,186 @@
+seman@CORPCRM01:/var/www/indexus-crm$ pm2 logs indexus-crm
+[TAILING] Tailing last 15 lines for [indexus-crm] process (change the value with --lines option)
+/home/seman/.pm2/logs/indexus-crm-error-0.log last 15 lines:
+0|indexus- | You have triggered an unhandledRejection, you may have forgotten to catch a Promise rejection:
+0|indexus- | Error: DATABASE_URL must be set. Did you forget to provision a database?
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:78:31632
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1:225
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:78:31886
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1:225
+0|indexus- |     at Object.<anonymous> (/var/www/indexus-crm/dist/index.cjs:154:32535)
+0|indexus- |     at Module._compile (node:internal/modules/cjs/loader:1521:14)
+0|indexus- |     at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+0|indexus- |     at Module.load (node:internal/modules/cjs/loader:1266:32)
+0|indexus- |     at Module._load (node:internal/modules/cjs/loader:1091:12)
+0|indexus- |     at cjsLoader (node:internal/modules/esm/translators:298:15)
+
+/home/seman/.pm2/logs/indexus-crm-error-1.log last 15 lines:
+1|indexus- | You have triggered an unhandledRejection, you may have forgotten to catch a Promise rejection:
+1|indexus- | Error: DATABASE_URL must be set. Did you forget to provision a database?
+1|indexus- |     at /var/www/indexus-crm/dist/index.cjs:78:31632
+1|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1:225
+1|indexus- |     at /var/www/indexus-crm/dist/index.cjs:78:31886
+1|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1:225
+1|indexus- |     at Object.<anonymous> (/var/www/indexus-crm/dist/index.cjs:154:32535)
+1|indexus- |     at Module._compile (node:internal/modules/cjs/loader:1521:14)
+1|indexus- |     at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+1|indexus- |     at Module.load (node:internal/modules/cjs/loader:1266:32)
+1|indexus- |     at Module._load (node:internal/modules/cjs/loader:1091:12)
+1|indexus- |     at cjsLoader (node:internal/modules/esm/translators:298:15)
+
+/home/seman/.pm2/logs/indexus-crm-error-2.log last 15 lines:
+2|indexus- | You have triggered an unhandledRejection, you may have forgotten to catch a Promise rejection:
+2|indexus- | Error: DATABASE_URL must be set. Did you forget to provision a database?
+2|indexus- |     at /var/www/indexus-crm/dist/index.cjs:78:31632
+2|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1:225
+2|indexus- |     at /var/www/indexus-crm/dist/index.cjs:78:31886
+2|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1:225
+2|indexus- |     at Object.<anonymous> (/var/www/indexus-crm/dist/index.cjs:154:32535)
+2|indexus- |     at Module._compile (node:internal/modules/cjs/loader:1521:14)
+2|indexus- |     at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+2|indexus- |     at Module.load (node:internal/modules/cjs/loader:1266:32)
+2|indexus- |     at Module._load (node:internal/modules/cjs/loader:1091:12)
+2|indexus- |     at cjsLoader (node:internal/modules/esm/translators:298:15)
+
+/home/seman/.pm2/logs/indexus-crm-error-5.log last 15 lines:
+5|indexus- | You have triggered an unhandledRejection, you may have forgotten to catch a Promise rejection:
+5|indexus- | Error: DATABASE_URL must be set. Did you forget to provision a database?
+5|indexus- |     at /var/www/indexus-crm/dist/index.cjs:78:31632
+5|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1:225
+5|indexus- |     at /var/www/indexus-crm/dist/index.cjs:78:31886
+5|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1:225
+5|indexus- |     at Object.<anonymous> (/var/www/indexus-crm/dist/index.cjs:154:32535)
+5|indexus- |     at Module._compile (node:internal/modules/cjs/loader:1521:14)
+5|indexus- |     at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+5|indexus- |     at Module.load (node:internal/modules/cjs/loader:1266:32)
+5|indexus- |     at Module._load (node:internal/modules/cjs/loader:1091:12)
+5|indexus- |     at cjsLoader (node:internal/modules/esm/translators:298:15)
+
+/home/seman/.pm2/logs/indexus-crm-error-4.log last 15 lines:
+4|indexus- | You have triggered an unhandledRejection, you may have forgotten to catch a Promise rejection:
+4|indexus- | Error: DATABASE_URL must be set. Did you forget to provision a database?
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:78:31632
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1:225
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:78:31886
+4|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1:225
+4|indexus- |     at Object.<anonymous> (/var/www/indexus-crm/dist/index.cjs:154:32535)
+4|indexus- |     at Module._compile (node:internal/modules/cjs/loader:1521:14)
+4|indexus- |     at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+4|indexus- |     at Module.load (node:internal/modules/cjs/loader:1266:32)
+4|indexus- |     at Module._load (node:internal/modules/cjs/loader:1091:12)
+4|indexus- |     at cjsLoader (node:internal/modules/esm/translators:298:15)
+
+/home/seman/.pm2/logs/indexus-crm-error-3.log last 15 lines:
+3|indexus- | You have triggered an unhandledRejection, you may have forgotten to catch a Promise rejection:
+3|indexus- | Error: DATABASE_URL must be set. Did you forget to provision a database?
+3|indexus- |     at /var/www/indexus-crm/dist/index.cjs:78:31632
+3|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1:225
+3|indexus- |     at /var/www/indexus-crm/dist/index.cjs:78:31886
+3|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1:225
+3|indexus- |     at Object.<anonymous> (/var/www/indexus-crm/dist/index.cjs:154:32535)
+3|indexus- |     at Module._compile (node:internal/modules/cjs/loader:1521:14)
+3|indexus- |     at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+3|indexus- |     at Module.load (node:internal/modules/cjs/loader:1266:32)
+3|indexus- |     at Module._load (node:internal/modules/cjs/loader:1091:12)
+3|indexus- |     at cjsLoader (node:internal/modules/esm/translators:298:15)
+
+/home/seman/.pm2/logs/indexus-crm-error-6.log last 15 lines:
+6|indexus- | You have triggered an unhandledRejection, you may have forgotten to catch a Promise rejection:
+6|indexus- | Error: DATABASE_URL must be set. Did you forget to provision a database?
+6|indexus- |     at /var/www/indexus-crm/dist/index.cjs:78:31632
+6|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1:225
+6|indexus- |     at /var/www/indexus-crm/dist/index.cjs:78:31886
+6|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1:225
+6|indexus- |     at Object.<anonymous> (/var/www/indexus-crm/dist/index.cjs:154:32535)
+6|indexus- |     at Module._compile (node:internal/modules/cjs/loader:1521:14)
+6|indexus- |     at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+6|indexus- |     at Module.load (node:internal/modules/cjs/loader:1266:32)
+6|indexus- |     at Module._load (node:internal/modules/cjs/loader:1091:12)
+6|indexus- |     at cjsLoader (node:internal/modules/esm/translators:298:15)
+
+/home/seman/.pm2/logs/indexus-crm-error-7.log last 15 lines:
+7|indexus- | You have triggered an unhandledRejection, you may have forgotten to catch a Promise rejection:
+7|indexus- | Error: DATABASE_URL must be set. Did you forget to provision a database?
+7|indexus- |     at /var/www/indexus-crm/dist/index.cjs:78:31632
+7|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1:225
+7|indexus- |     at /var/www/indexus-crm/dist/index.cjs:78:31886
+7|indexus- |     at /var/www/indexus-crm/dist/index.cjs:1:225
+7|indexus- |     at Object.<anonymous> (/var/www/indexus-crm/dist/index.cjs:154:32535)
+7|indexus- |     at Module._compile (node:internal/modules/cjs/loader:1521:14)
+7|indexus- |     at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+7|indexus- |     at Module.load (node:internal/modules/cjs/loader:1266:32)
+7|indexus- |     at Module._load (node:internal/modules/cjs/loader:1091:12)
+7|indexus- |     at cjsLoader (node:internal/modules/esm/translators:298:15)
+
+/home/seman/.pm2/logs/indexus-crm-out-5.log last 15 lines:
+5|indexus- | Notification WebSocket server initialized on /ws/notifications
+5|indexus- | [EmailMonitor] Starting email monitoring service...
+5|indexus- | [Chat] WebSocket server initialized on path /ws/chat
+5|indexus- | [ExchangeRates] Scheduled update in 765 minutes (at midnight)
+5|indexus- | 11:14:35 AM [express] serving on port 5000
+
+/home/seman/.pm2/logs/indexus-crm-out-3.log last 15 lines:
+3|indexus- | Notification WebSocket server initialized on /ws/notifications
+3|indexus- | [EmailMonitor] Starting email monitoring service...
+3|indexus- | [Chat] WebSocket server initialized on path /ws/chat
+3|indexus- | [ExchangeRates] Scheduled update in 765 minutes (at midnight)
+3|indexus- | 11:14:35 AM [express] serving on port 5000
+
+/home/seman/.pm2/logs/indexus-crm-out-0.log last 15 lines:
+0|indexus- | Notification WebSocket server initialized on /ws/notifications
+0|indexus- | [EmailMonitor] Starting email monitoring service...
+0|indexus- | [Chat] WebSocket server initialized on path /ws/chat
+0|indexus- | [ExchangeRates] Scheduled update in 765 minutes (at midnight)
+0|indexus- | 11:14:35 AM [express] serving on port 5000
+0|indexus- | [ExchangeRates] No rates in database, fetching initial rates...
+0|indexus- | [ExchangeRates] Fetching from: https://nbs.sk/export/sk/exchange-rate/2026-01-15/xml
+0|indexus- | [ExchangeRates] Fetched 29 rates from NBS XML
+0|indexus- | [ExchangeRates] Saved 29 initial rates
+
+/home/seman/.pm2/logs/indexus-crm-out-6.log last 15 lines:
+6|indexus- | Notification WebSocket server initialized on /ws/notifications
+6|indexus- | [EmailMonitor] Starting email monitoring service...
+6|indexus- | [Chat] WebSocket server initialized on path /ws/chat
+6|indexus- | [ExchangeRates] Scheduled update in 765 minutes (at midnight)
+6|indexus- | 11:14:35 AM [express] serving on port 5000
+
+/home/seman/.pm2/logs/indexus-crm-out-2.log last 15 lines:
+2|indexus- | Notification WebSocket server initialized on /ws/notifications
+2|indexus- | [EmailMonitor] Starting email monitoring service...
+2|indexus- | [Chat] WebSocket server initialized on path /ws/chat
+2|indexus- | [ExchangeRates] Scheduled update in 765 minutes (at midnight)
+2|indexus- | 11:14:35 AM [express] serving on port 5000
+2|indexus- | [ExchangeRates] No rates in database, fetching initial rates...
+2|indexus- | [ExchangeRates] Fetching from: https://nbs.sk/export/sk/exchange-rate/2026-01-15/xml
+2|indexus- | [ExchangeRates] Fetched 29 rates from NBS XML
+2|indexus- | [ExchangeRates] Saved 29 initial rates
+
+/home/seman/.pm2/logs/indexus-crm-out-1.log last 15 lines:
+1|indexus- | Notification WebSocket server initialized on /ws/notifications
+1|indexus- | [EmailMonitor] Starting email monitoring service...
+1|indexus- | [Chat] WebSocket server initialized on path /ws/chat
+1|indexus- | [ExchangeRates] Scheduled update in 765 minutes (at midnight)
+1|indexus- | 11:14:35 AM [express] serving on port 5000
+1|indexus- | [ExchangeRates] No rates in database, fetching initial rates...
+1|indexus- | [ExchangeRates] Fetching from: https://nbs.sk/export/sk/exchange-rate/2026-01-15/xml
+1|indexus- | [ExchangeRates] Fetched 29 rates from NBS XML
+1|indexus- | [ExchangeRates] Saved 29 initial rates
+
+/home/seman/.pm2/logs/indexus-crm-out-7.log last 15 lines:
+7|indexus- | Notification WebSocket server initialized on /ws/notifications
+7|indexus- | [EmailMonitor] Starting email monitoring service...
+7|indexus- | [Chat] WebSocket server initialized on path /ws/chat
+7|indexus- | [ExchangeRates] Scheduled update in 765 minutes (at midnight)
+7|indexus- | 11:14:35 AM [express] serving on port 5000
+
+/home/seman/.pm2/logs/indexus-crm-out-4.log last 15 lines:
+4|indexus- | Notification WebSocket server initialized on /ws/notifications
+4|indexus- | [EmailMonitor] Starting email monitoring service...
+4|indexus- | [Chat] WebSocket server initialized on path /ws/chat
+4|indexus- | [ExchangeRates] Scheduled update in 765 minutes (at midnight)
+4|indexus- | 11:14:35 AM [express] serving on port 5000
+4|indexus- | [ExchangeRates] No rates in database, fetching initial rates...
+4|indexus- | [ExchangeRates] Fetching from: https://nbs.sk/export/sk/exchange-rate/2026-01-15/xml
+4|indexus- | [ExchangeRates] Fetched 29 rates from NBS XML
+4|indexus- | [ExchangeRates] Saved 29 initial rates
+
