@@ -654,12 +654,87 @@ pm2 reload indexus-crm        # Zero-downtime reload
 
 ### Aktualizácia Aplikácie
 
+#### Štandardná aktualizácia (odporúčaný postup)
+
+```bash
+# 1. Pripojte sa na server
+ssh user@indexus.cordbloodcenter.com
+
+# 2. Prejdite do adresára aplikácie
+cd /var/www/indexus-crm
+
+# 3. Stiahnite najnovšie zmeny z Git repozitára
+git pull origin main
+
+# 4. Nainštalujte prípadné nové závislosti
+npm install
+
+# 5. Aplikujte databázové zmeny (ak sú)
+npm run db:push
+
+# 6. Prebuildujte frontend (ak boli zmeny v UI)
+npm run build
+
+# 7. Reštartujte aplikáciu cez PM2
+pm2 restart indexus-crm
+
+# 8. Overte že aplikácia beží správne
+pm2 status
+pm2 logs indexus-crm --lines 50
+```
+
+#### Rýchla aktualizácia (len backend zmeny, bez frontend buildovania)
+
 ```bash
 cd /var/www/indexus-crm
-git pull
+git pull origin main
 npm install
+npm run db:push
+pm2 restart indexus-crm
+```
+
+#### Zero-downtime aktualizácia
+
+Pre produkčné prostredie s minimálnym výpadkom:
+
+```bash
+cd /var/www/indexus-crm
+git pull origin main
+npm install
+npm run db:push
 npm run build
-pm2 reload indexus-crm
+pm2 reload indexus-crm  # reload namiesto restart = zero-downtime
+```
+
+#### Kontrola po aktualizácii
+
+```bash
+# Skontrolujte status PM2
+pm2 status
+
+# Pozrite posledné logy
+pm2 logs indexus-crm --lines 100
+
+# Overte že web funguje
+curl -I https://indexus.cordbloodcenter.com
+```
+
+#### Rollback na predchádzajúcu verziu
+
+Ak sa vyskytne problém po aktualizácii:
+
+```bash
+# Zistite predchádzajúci commit
+git log --oneline -5
+
+# Vráťte sa na konkrétny commit
+git checkout <commit-hash>
+
+# Reštartujte aplikáciu
+npm install
+npm run db:push
+npm run build
+pm2 restart indexus-crm
 ```
 
 ### Záloha Databázy
