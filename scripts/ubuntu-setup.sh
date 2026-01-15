@@ -13,7 +13,7 @@ echo "=== INDEXUS Database Setup ==="
 
 # 1. Zastavíme aplikáciu
 echo "1. Zastavujem aplikáciu..."
-pm2 stop indexus 2>/dev/null || true
+pm2 stop indexus-crm 2>/dev/null || true
 
 # 2. Dropneme a vytvoríme databázu
 echo "2. Resetujem databázu..."
@@ -40,7 +40,7 @@ echo "   Zákazníci: $CUSTOMERS"
 
 # 6. Reštartujeme aplikáciu
 echo "6. Reštartujem aplikáciu..."
-pm2 restart indexus
+pm2 restart indexus-crm
 
 echo ""
 echo "=== HOTOVO ==="
