@@ -1,0 +1,20 @@
+0|indexus- | [Auth] Checking auth method for user: admin -> ms365
+0|indexus- | 6:50:25 PM [express] POST /api/auth/check-auth-method 200 in 9ms :: {"authMethod":"ms365","userId":"67467ce3-7a44-4f67-a3d3-6a251e2991e5","fullName":"System Administrator"}
+0|indexus- | 6:50:27 PM [express] POST /api/auth/login-ms365 200 in 3ms :: {"authUrl":"https://login.microsoftonline.com/c1cdb9f9-f730-4b88-b2b2-2e152f040066/oauth2/v2.0/authorize?client_id=c053e40b-ba68-4ddb-9558-07efc730be9e&response_type=code&redirect_uri=https%3A%2F%2Findexus.cordbloodcenter.com%2Fapi%2Fauth%2Fmicrosoft%2Fcallback&scope=openid%20profile%20email%20User.Read&response_mode=query&state=login"}
+0|indexus- | [MS365 Callback] Request received with query: {"code":"1.AR8A-bnNwTD3iEuysi4VLwQAZgvkU8BouttNlVgH78cwvp66AQAfAA.AgABBAIAAACvnsHKEvvRQb3Bz3Qc7wnaAwDs_wUA9P9Fdm9TdHNBcnRpZmFjdHMCAAAAAABKN-e_wbrBDdLJrY_KEZcV3a2xJY_dtIMVj6upviWYzkQ_HJPKEXr_rnzd6LPcF8RNfSNwh7OHeDCEa3S8j9tZHUq_bms9z_z5YlhXaSvYvbU8V8GO6OF-hif6kcpofTL_DLuNEK2W650Sv5AGrdhOW-etpDzPGXohSJbfe5cPdtWlk5oKxcjRhlbME0JkGBI4lprVbw7pc1Meo4vyEAJ-pThGVO9fw25zldryijIdm23oQyuSJhaxyF7r5x22oUd_NhhyXcFmbGT1d-VT38j3iaJ3tQrnAlFw2xzUAdkDnuFCARRqqHaL4ZEKWrCEpav9lGO4IwBMxWdC72sIRHwQmN0iwywzgtgdVU5Wn1Jun8Zh27ibPHPaRe5uDQiGG0geu9JogCJ5jpRjZATph7YWiuRRjEsoP4KBilYCKbQhVTKIhNb-TbAOLu06EQJhUihbYxz-Vj5E68GZUapj1_vwrXsYQOf08zKlCPv7cHZrSiq7FeFLB4Fro3rS6g4Li3yyY7QJVlcm97TEP63JYUsY_rZkFTkfznjrNsVgtYxQ8_Kz-QqaEm7qD-fbdMZEF_VHNx4W8U7X6dD_jomOu8DZHN3du1_FAcNK2aIVGwHdRjGkhkhSq1w4iHAdVTsNnnoH5pvw95yESTPaNerkWk5IZEOvc0YcBIo8hniayDwo-bIydUKbF5CvBUSetQkgg4ke1z_kWqUmc1cKLr8Ax_PRw1Jl9uFMlyLr1m-ieAyGXbFvK1CNKDGFc_X5X4LGR1uZtQWXSScuhoz-QONx8Q","state":"login","session_state":"0011941a-a9ed-f0e9-b38a-d486a41f6b12"}
+0|indexus- | [MS365 Callback] Processing state: login
+0|indexus- | [MS365 Callback] Login flow detected
+0|indexus- | 6:50:35 PM [express] GET /api/auth/microsoft/callback 302 in 3ms
+0|indexus- | 6:50:36 PM [express] GET /api/auth/me 200 in 0ms :: {"user":null}
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user 95c58392-d61e-41e2-b5d3-ed1f9d93147d
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user 67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user 95c58392-d61e-41e2-b5d3-ed1f9d93147d
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user 67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus- | Notification WebSocket server initialized on /ws/notifications
+0|indexus- | [EmailMonitor] Starting email monitoring service...
+0|indexus- | [Chat] WebSocket server initialized on path /ws/chat
+0|indexus- | [ExchangeRates] Scheduled update in 307 minutes (at midnight)
+0|indexus- | 6:52:48 PM [express] serving on port 5000
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user 95c58392-d61e-41e2-b5d3-ed1f9d93147d
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user 67467ce3-7a44-4f67-a3d3-6a251e2991e5
+
