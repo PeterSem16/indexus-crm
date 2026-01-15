@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Phone, User, Shield, MapPin, Camera, Loader2, Link2, RefreshCw, Mail, Star, Trash2, Plus, CheckCircle, CheckCircle2, XCircle } from "lucide-react";
+import { Phone, User, Shield, MapPin, Camera, Loader2, Link2, RefreshCw, Mail, Star, Trash2, Plus, CheckCircle, CheckCircle2, XCircle, Sparkles } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
@@ -48,6 +48,7 @@ const createUserFormSchema = z.object({
   sipPassword: z.string().optional(),
   sipDisplayName: z.string().optional(),
   authMethod: z.enum(["local", "ms365"]).optional(),
+  nexusEnabled: z.boolean().optional(),
 });
 
 const updateUserFormSchema = z.object({
@@ -64,6 +65,7 @@ const updateUserFormSchema = z.object({
   sipPassword: z.string().optional(),
   sipDisplayName: z.string().optional(),
   authMethod: z.enum(["local", "ms365"]).optional(),
+  nexusEnabled: z.boolean().optional(),
 });
 
 export type UserFormData = z.infer<typeof createUserFormSchema>;
@@ -138,6 +140,7 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
       sipPassword: (initialData as any)?.sipPassword || "",
       authMethod: (initialData as any)?.authMethod || "local",
       sipDisplayName: (initialData as any)?.sipDisplayName || "",
+      nexusEnabled: (initialData as any)?.nexusEnabled ?? false,
     },
   });
   
@@ -674,6 +677,38 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
     </div>
   );
 
+  // NEXUS AI Assistant section
+  const renderNexusSection = () => (
+    <div className="space-y-4">
+      <FormField
+        control={form.control}
+        name="nexusEnabled"
+        render={({ field }) => (
+          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+            <div className="space-y-0.5">
+              <FormLabel className="text-base flex items-center gap-2">
+                <svg viewBox="0 0 24 24" className="h-5 w-5 text-primary" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+                Enable NEXUS AI
+              </FormLabel>
+              <FormDescription>
+                Activate NEXUS AI assistant for intelligent data queries in any language
+              </FormDescription>
+            </div>
+            <FormControl>
+              <Switch
+                checked={field.value}
+                onCheckedChange={field.onChange}
+                data-testid="switch-nexus-enabled"
+              />
+            </FormControl>
+          </FormItem>
+        )}
+      />
+    </div>
+  );
+
   // MS365 Connection state and queries
   const userId = initialData?.id;
   
@@ -1151,7 +1186,7 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
         <Tabs defaultValue="profile" className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="profile" className="flex items-center gap-2" data-testid="tab-profile">
               <User className="h-4 w-4" />
               <span className="hidden sm:inline">Profil</span>
@@ -1167,6 +1202,10 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
             <TabsTrigger value="sip" className="flex items-center gap-2" data-testid="tab-sip">
               <Phone className="h-4 w-4" />
               <span className="hidden sm:inline">SIP</span>
+            </TabsTrigger>
+            <TabsTrigger value="nexus" className="flex items-center gap-2" data-testid="tab-nexus">
+              <Sparkles className="h-4 w-4" />
+              <span className="hidden sm:inline">NEXUS</span>
             </TabsTrigger>
             <TabsTrigger value="ms365" className="flex items-center gap-2" data-testid="tab-ms365">
               <Mail className="h-4 w-4" />
@@ -1192,6 +1231,10 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
           
           <TabsContent value="sip" className="mt-6">
             {renderSipTab()}
+          </TabsContent>
+          
+          <TabsContent value="nexus" className="mt-6">
+            {renderNexusSection()}
           </TabsContent>
           
           <TabsContent value="ms365" className="mt-6">

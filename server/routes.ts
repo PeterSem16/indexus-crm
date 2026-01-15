@@ -14653,6 +14653,146 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
     }
   });
 
+  // NEXUS AI Assistant endpoint
+  app.post("/api/nexus/query", requireAuth, async (req, res) => {
+    try {
+      const { query } = req.body;
+      if (!query || typeof query !== "string" || query.length > 2000) {
+        return res.status(400).json({ error: "Query is required (max 2000 characters)" });
+      }
+
+      const user = req.session?.user;
+      if (!user?.nexusEnabled) {
+        return res.status(403).json({ error: "NEXUS is not enabled for this user" });
+      }
+
+      // Check for OpenAI API key
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(503).json({ error: "AI service is not configured" });
+      }
+
+      // Role-based data access control
+      const isAdmin = user.role === "admin";
+      const isManager = user.role === "manager" || isAdmin;
+      const userCountries = user.assignedCountries || [];
+
+      // Gather system context from database with role-based filtering
+      const [
+        allUsers,
+        allCustomers,
+        activityLogs,
+        campaigns,
+        notifications
+      ] = await Promise.all([
+        isAdmin ? storage.getUsers() : Promise.resolve([]),
+        storage.getCustomers(),
+        isManager ? storage.getActivityLogs({ limit: 50 }) : Promise.resolve([]),
+        storage.getCampaigns(),
+        storage.getNotifications(user.id, { limit: 20 })
+      ]);
+
+      // Filter customers by user's assigned countries (unless admin)
+      const accessibleCustomers = isAdmin 
+        ? allCustomers 
+        : allCustomers.filter((c: any) => userCountries.includes(c.country));
+
+      // Filter campaigns by user's assigned countries (unless admin)
+      const accessibleCampaigns = isAdmin
+        ? campaigns
+        : campaigns.filter((c: any) => !c.countryCode || userCountries.includes(c.countryCode));
+
+      // Build context summary (anonymized/aggregated data only)
+      const now = new Date();
+      const today = now.toISOString().split("T")[0];
+      
+      const todayLogins = activityLogs.filter((log: any) => 
+        log.action === "user_login" && 
+        log.createdAt && 
+        new Date(log.createdAt).toISOString().split("T")[0] === today
+      );
+
+      // Build role-appropriate context
+      let userContext = "";
+      if (isAdmin) {
+        userContext = `\nUSERS (${allUsers.length} total):
+${allUsers.map((u: any) => `- ${u.fullName} (${u.role}, ${u.isActive ? "active" : "inactive"})`).join("\n")}`;
+      }
+
+      let activityContext = "";
+      if (isManager) {
+        activityContext = `\nTODAY'S LOGINS: ${todayLogins.length}
+RECENT ACTIVITY (last 50 events):
+${activityLogs.slice(0, 15).map((log: any) => `- [${log.action}] ${log.details || ""} (${new Date(log.createdAt).toLocaleString()})`).join("\n")}`;
+      }
+
+      const systemContext = `
+INDEXUS CRM Data Summary (as of ${now.toLocaleString()}):
+Your role: ${user.role}
+Your assigned countries: ${userCountries.join(", ") || "all"}
+${userContext}
+${activityContext}
+CUSTOMERS (${accessibleCustomers.length} accessible):
+- By country: ${Object.entries(accessibleCustomers.reduce((acc: any, c: any) => { acc[c.country] = (acc[c.country] || 0) + 1; return acc; }, {})).map(([k, v]) => `${k}: ${v}`).join(", ") || "none"}
+- By status: ${Object.entries(accessibleCustomers.reduce((acc: any, c: any) => { acc[c.status || "unknown"] = (acc[c.status || "unknown"] || 0) + 1; return acc; }, {})).map(([k, v]) => `${k}: ${v}`).join(", ") || "none"}
+
+CAMPAIGNS (${accessibleCampaigns.length} accessible):
+${accessibleCampaigns.slice(0, 10).map((c: any) => `- ${c.name} (${c.status || "draft"})`).join("\n") || "No campaigns"}
+
+YOUR NOTIFICATIONS (${notifications.length}):
+${notifications.slice(0, 5).map((n: any) => `- ${n.title}`).join("\n") || "No notifications"}
+
+Note: Data access is limited based on your role and assigned countries.
+`;
+
+      const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `You are NEXUS, an intelligent AI assistant for the INDEXUS CRM system. You help users understand their data based on their role and permissions.
+
+Your capabilities:
+- Answer questions about system data in any language
+- Provide summaries and statistics
+- Analyze trends and patterns
+- Respond in the same language the user asks in
+
+Current system context:
+${systemContext}
+
+Guidelines:
+- Be helpful, accurate, and concise
+- Format data clearly
+- If you don't have enough information, say so
+- Never reveal sensitive personal data (emails, phone numbers, addresses)
+- For statistical questions, calculate from the provided aggregated data
+- If asked about data outside user's access scope, politely explain the limitation`
+          },
+          {
+            role: "user",
+            content: query
+          }
+        ],
+        max_tokens: 1500,
+        temperature: 0.7,
+      });
+
+      const response = completion.choices[0]?.message?.content || "I could not generate a response.";
+      
+      // Log NEXUS usage for audit
+      console.log(`[NEXUS] Query from user ${user.username}: "${query.substring(0, 100)}..."`);
+      
+      res.json({ response });
+    } catch (error: any) {
+      console.error("NEXUS query error:", error);
+      res.status(500).json({ error: "Failed to process query. Please try again." });
+    }
+  });
+
   return httpServer;
 }
 

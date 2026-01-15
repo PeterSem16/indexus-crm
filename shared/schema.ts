@@ -161,6 +161,7 @@ export const users = pgTable("users", {
   jiraAccountId: text("jira_account_id"),
   jiraDisplayName: text("jira_display_name"),
   authMethod: text("auth_method").notNull().default("local"), // 'local' or 'ms365'
+  nexusEnabled: boolean("nexus_enabled").notNull().default(false), // NEXUS AI assistant
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 

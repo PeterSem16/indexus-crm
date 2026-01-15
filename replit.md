@@ -92,6 +92,22 @@ The system includes comprehensive campaign management for marketing and sales:
 - **Calendar View**: Month-based calendar showing campaign timelines
 - **Campaign Comparison**: Side-by-side comparison of up to 4 campaigns
 
+### NEXUS AI Assistant
+The system includes an intelligent AI assistant powered by OpenAI:
+- **Enable/Disable**: Toggle in user profile settings under NEXUS tab
+- **Header Integration**: NEXUS icon appears in header when enabled for user
+- **Heartbeat Sound**: 5-second heartbeat sound plays on first login when NEXUS is enabled
+- **Chat Dialog**: Full-featured chat interface for natural language queries
+- **Multi-language Support**: Responds in the language the user asks in (SK, CZ, HU, DE, IT, RO, EN)
+- **Role-based Access**: Data visibility respects user role and assigned countries
+- **Components**: 
+  - `client/src/components/nexus/nexus-button.tsx` - Header button with icon
+  - `client/src/components/nexus/nexus-chat.tsx` - Chat dialog
+  - `client/src/components/nexus/nexus-icon.tsx` - Animated icon
+  - `client/src/hooks/use-heartbeat-sound.ts` - Web Audio API heartbeat sound
+- **API Endpoint**: `POST /api/nexus/query` - Processes queries via OpenAI GPT-4o
+- **Database Field**: `nexus_enabled` boolean in users table
+
 ### Real-time Notification Center
 The system includes a comprehensive notification center with real-time push notifications:
 - **WebSocket Service**: `server/lib/notification-service.ts` provides real-time notifications via `/ws/notifications`

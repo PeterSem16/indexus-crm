@@ -19,6 +19,7 @@ import { EmailNotifications } from "@/components/email-notifications";
 import { ChatProvider } from "@/contexts/chat-context";
 import { ChatContainer } from "@/components/chat-container";
 import { NotificationBell, NotificationCenterPage } from "@/components/notification-center";
+import { NexusButton } from "@/components/nexus/nexus-button";
 import Dashboard from "@/pages/dashboard";
 import UsersPage from "@/pages/users";
 import CustomersPage from "@/pages/customers";
@@ -120,6 +121,7 @@ function AuthenticatedApp() {
                   <QuickCreate />
                   <EmailNotifications />
                   <NotificationBell />
+                  <NexusButton nexusEnabled={user?.nexusEnabled ?? false} />
                   <SipPhoneHeaderButton user={user} />
                   <TourTrigger />
                   <ThemeToggle />
