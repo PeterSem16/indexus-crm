@@ -573,9 +573,9 @@ https://indexus.cordbloodcenter.com
 
 ---
 
-## Inicializácia databázy s testovacími dátami
+## Inicializácia databázy s dátami
 
-Po prvej inštalácii môžete naplniť databázu základnými dátami:
+Po prvej inštalácii naplňte databázu dátami z development prostredia:
 
 ```bash
 cd /var/www/indexus-crm
@@ -583,16 +583,25 @@ cd /var/www/indexus-crm
 # Najprv vytvorte schému
 npm run db:push
 
-# Potom naplňte testovacími dátami
+# Import VŠETKÝCH dát z Replit (kompletný export)
+psql $DATABASE_URL < scripts/full-data-export.sql
+```
+
+### Alternatíva: Len základné testovacie dáta
+
+Ak chcete len minimálne testovacie dáta (departments, roles, users, products):
+
+```bash
 psql $DATABASE_URL < scripts/seed-production.sql
 ```
 
 **Predvolené prihlasovacie údaje:**
-| Používateľ | Heslo | Rola |
-|------------|-------|------|
-| admin | Admin123! | Administrator |
-| seman | Admin123! | Administrator |
-| kollar | Admin123! | Manager |
+| Používateľ | Heslo | Prihlásenie |
+|------------|-------|-------------|
+| admin | Admin123! | lokálne (meno + heslo) |
+| seman | Admin123! | lokálne (meno + heslo) |
+| kollar | Admin123! | lokálne (meno + heslo) |
+| michal.kollar | - | MS365 (vyžaduje integráciu) |
 
 **Dôležité:** Po prvom prihlásení si ihneď zmeňte heslo!
 
