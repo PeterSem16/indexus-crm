@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { NexusIcon } from "./nexus-icon";
@@ -10,11 +10,19 @@ interface NexusButtonProps {
 }
 
 const NEXUS_HEARTBEAT_KEY = "nexus_heartbeat_played";
+const MIN_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const MAX_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
+
+function getRandomInterval() {
+  return MIN_INTERVAL_MS + Math.random() * (MAX_INTERVAL_MS - MIN_INTERVAL_MS);
+}
 
 export function NexusButton({ nexusEnabled }: NexusButtonProps) {
   const [open, setOpen] = useState(false);
   const { playHeartbeat } = useHeartbeatSound();
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Initial heartbeat on first login
   useEffect(() => {
     if (nexusEnabled) {
       const hasPlayed = sessionStorage.getItem(NEXUS_HEARTBEAT_KEY);
@@ -26,6 +34,31 @@ export function NexusButton({ nexusEnabled }: NexusButtonProps) {
         return () => clearTimeout(timer);
       }
     }
+  }, [nexusEnabled, playHeartbeat]);
+
+  // Random periodic heartbeat during work
+  useEffect(() => {
+    if (!nexusEnabled) return;
+
+    const scheduleNextHeartbeat = () => {
+      const nextInterval = getRandomInterval();
+      intervalRef.current = setTimeout(() => {
+        playHeartbeat(3000); // Shorter 3-second heartbeat for periodic sounds
+        scheduleNextHeartbeat(); // Schedule next one
+      }, nextInterval);
+    };
+
+    // Start scheduling after initial delay
+    const startDelay = setTimeout(() => {
+      scheduleNextHeartbeat();
+    }, getRandomInterval());
+
+    return () => {
+      clearTimeout(startDelay);
+      if (intervalRef.current) {
+        clearTimeout(intervalRef.current);
+      }
+    };
   }, [nexusEnabled, playHeartbeat]);
 
   if (!nexusEnabled) {
