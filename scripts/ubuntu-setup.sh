@@ -17,6 +17,9 @@ pm2 stop indexus-crm 2>/dev/null || true
 
 # 2. Dropneme a vytvoríme databázu
 echo "2. Resetujem databázu..."
+# Najprv ukončíme všetky pripojenia k databáze
+sudo -u postgres psql -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$DB_NAME' AND pid <> pg_backend_pid();" 2>/dev/null || true
+sleep 2
 sudo -u postgres psql -c "DROP DATABASE IF EXISTS $DB_NAME;"
 sudo -u postgres psql -c "CREATE DATABASE $DB_NAME OWNER $DB_USER;"
 sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;"
