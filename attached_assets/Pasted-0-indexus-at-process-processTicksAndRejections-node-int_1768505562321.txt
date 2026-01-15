@@ -1,0 +1,49 @@
+0|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus- | [MS365] Token decryption failed: Error: Unsupported state or unable to authenticate data
+0|indexus- |     at Decipheriv.final (node:internal/crypto/cipher:193:29)
+0|indexus- |     at ek (/var/www/indexus-crm/dist/index.cjs:131:37668)
+0|indexus- |     at Sde (/var/www/indexus-crm/dist/index.cjs:131:37862)
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:192:37360
+0|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus- | Error: EACCES: permission denied, mkdir '/var/www/indexus-crm/data/agreements'
+0|indexus- |     at Object.mkdirSync (node:fs:1386:26)
+0|indexus- |     at kde (/var/www/indexus-crm/dist/index.cjs:154:33563)
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:154:33635
+0|indexus- |     at Array.forEach (<anonymous>)
+0|indexus- |     at qL (/var/www/indexus-crm/dist/index.cjs:154:33623)
+0|indexus- |     at Object.<anonymous> (/var/www/indexus-crm/dist/index.cjs:154:33739)
+0|indexus- |     at Module._compile (node:internal/modules/cjs/loader:1521:14)
+0|indexus- |     at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+0|indexus- |     at Module.load (node:internal/modules/cjs/loader:1266:32)
+0|indexus- |     at Module._load (node:internal/modules/cjs/loader:1091:12)
+0|indexus- |     at cjsLoader (node:internal/modules/esm/translators:298:15)
+0|indexus- |     at ModuleWrap.<anonymous> (node:internal/modules/esm/translators:240:7)
+0|indexus- |     at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+0|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus- |     at async ModuleLoader.import (node:internal/modules/esm/loader:606:24) {
+0|indexus- |   errno: -13,
+0|indexus- |   code: 'EACCES',
+0|indexus- |   syscall: 'mkdir',
+0|indexus- |   path: '/var/www/indexus-crm/data/agreements'
+0|indexus- | }
+0|indexus- | Error: EACCES: permission denied, mkdir '/var/www/indexus-crm/data/email-images'
+0|indexus- |     at Object.mkdirSync (node:fs:1386:26)
+0|indexus- |     at kde (/var/www/indexus-crm/dist/index.cjs:154:33563)
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:154:33635
+0|indexus- |     at Array.forEach (<anonymous>)
+0|indexus- |     at qL (/var/www/indexus-crm/dist/index.cjs:154:33623)
+0|indexus- |     at Object.<anonymous> (/var/www/indexus-crm/dist/index.cjs:154:33739)
+0|indexus- |     at Module._compile (node:internal/modules/cjs/loader:1521:14)
+0|indexus- |     at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+0|indexus- |     at Module.load (node:internal/modules/cjs/loader:1266:32)
+0|indexus- |     at Module._load (node:internal/modules/cjs/loader:1091:12)
+0|indexus- |     at cjsLoader (node:internal/modules/esm/translators:298:15)
+0|indexus- |     at ModuleWrap.<anonymous> (node:internal/modules/esm/translators:240:7)
+0|indexus- |     at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+0|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus- |     at async ModuleLoader.import (node:internal/modules/esm/loader:606:24) {
+0|indexus- |   errno: -13,
+0|indexus- |   code: 'EACCES',
+0|indexus- |   syscall: 'mkdir',
+0|indexus- |   path: '/var/www/indexus-crm/data/email-images'
+0|indexus- | }
