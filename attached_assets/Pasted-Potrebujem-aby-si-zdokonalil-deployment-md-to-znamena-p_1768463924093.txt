@@ -1,0 +1,76 @@
+Potrebujem aby si zdokonalil deployment.md 
+
+to znamena prehladne popisal obe instancie 
+
+plus urob nejake prehladne blokove schemy oboch instancii a integracii ktore su uveden nizsie aby to bolo co najviac zrozumitelene a urob nejaky popis 
+
+NODE_ENV=devolopment
+
+# ===========================================
+# MICROSOFT 365 INTEGRÁCIA
+# ===========================================
+# Získate v Azure Portal > App Registrations  bude mat nazov indexus_dev
+MS365_TENANT_ID=(doplni sa z azure po vytvorení app)
+MS365_CLIENT_ID==(doplni sa z azure po vytvorení app)
+MS365_CLIENT_SECRET==(doplni sa z azure po vytvorení app)
+
+# OAuth redirect URLs - zmeňte na vašu doménu   (urob zmenu na domenu ktoru replit pouziva na testovanie a premenuj redirect uri)
+MS365_REDIRECT_URI=https://vasa-domena.sk/api/auth/microsoft/callback
+MS365_POST_LOGOUT_URI=https://vasa-domena.sk
+
+ ===========================================
+# OPENAI (AI funkcie - sentiment analysis, etc.)
+# ===========================================
+OPENAI_API_KEY=(pouziva sa sucane nastavena v replit env)
+
+# ===========================================
+# BULKGATE SMS
+# DÔLEŽITÉ: Pred produkciou rotujte všetky BulkGate tokeny!
+# ===========================================
+BULKGATE_APPLICATION_ID=INDEXUS
+BULKGATE_APPLICATION_TOKEN=(stake sa pouziva sucasne v replit)
+
+dopln replit testovaciu domenu
+BULKGATE_WEBHOOK_URL=https://vasa-domena.sk/api/auth/bulkgate/callback
+# Token pre overenie prichádzajúcich webhookov
+BULKGATE_WEBHOOK_TOKEN=vygenerujte-nahodny-token
+BULKGATE_SENDER_ID=INDEXUS
+
+
+
+NODE_ENV=production
+
+je nastavena domena indexus.cordbloodcenter.com
+# Session secret - použite silný náhodný reťazec (min. 32 znakov)
+# Vygenerovať môžete: openssl rand -base64 32
+SESSION_SECRET=vygenerujte-silny-nahodny-kluc-min-32-znakov
+
+# ===========================================
+# MICROSOFT 365 INTEGRÁCIA
+# ===========================================
+# Získate v Azure Portal > App Registrations  bude mat nazov indexus_prod
+MS365_TENANT_ID=(doplni sa z azure po vytvorení app)
+MS365_CLIENT_ID==(doplni sa z azure po vytvorení app)
+MS365_CLIENT_SECRET==(doplni sa z azure po vytvorení app)
+
+# OAuth redirect URLs - zmeňte na vašu doménu   (urob zmenu na domenu ktoru uvadzam)
+MS365_REDIRECT_URI=https://vasa-domena.sk/api/auth/microsoft/callback
+MS365_POST_LOGOUT_URI=https://vasa-domena.sk
+
+
+ ===========================================
+# OPENAI (AI funkcie - sentiment analysis, etc.)
+# ===========================================
+OPENAI_API_KEY=(vygeneruje sa novy API key)
+
+# ===========================================
+# BULKGATE SMS
+# DÔLEŽITÉ: Pred produkciou rotujte všetky BulkGate tokeny!
+# ===========================================
+BULKGATE_APPLICATION_ID=INDEXUS_PROD
+BULKGATE_APPLICATION_TOKEN=(doplni sa api v bulkgate)
+doplni domenu v rodukcnom env
+BULKGATE_WEBHOOK_URL=https://vasa-domena.sk/api/auth/bulkgate/callback
+# Token pre overenie prichádzajúcich webhookov
+BULKGATE_WEBHOOK_TOKEN=vygenerujte-nahodny-token
+BULKGATE_SENDER_ID=INDEXUS_PROD

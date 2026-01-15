@@ -1,171 +1,384 @@
 # INDEXUS CRM - Deployment Guide
 
-## Environment Variables
+## Prehľad Architektúry
 
-### Required Secrets
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `DATABASE_URL` | PostgreSQL connection string | Yes |
-| `SESSION_SECRET` | Session encryption key (random string 32+ chars) | Yes |
-| `OPENAI_API_KEY` | OpenAI API key for sentiment analysis | Yes |
-
-### Microsoft 365 Integration (Per-User)
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `MS365_CLIENT_ID` | Azure AD Application (client) ID | Yes |
-| `MS365_CLIENT_SECRET` | Azure AD Application secret | Yes |
-| `MS365_TENANT_ID` | Azure AD Tenant ID | Yes |
-
-### Jira Integration
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `JIRA_HOST` | Jira instance URL (e.g., `https://yourcompany.atlassian.net`) | Yes |
-| `JIRA_EMAIL` | Atlassian account email | Yes |
-| `JIRA_API_TOKEN` | Jira API token (generate at https://id.atlassian.com/manage-profile/security/api-tokens) | Yes |
-
-### SMS Integration (BulkGate)
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `BULKGATE_APPLICATION_ID` | BulkGate application ID | Optional |
-| `BULKGATE_APPLICATION_TOKEN` | BulkGate application token | Optional |
-| `BULKGATE_WEBHOOK_URL` | Webhook URL for incoming SMS | Optional |
+INDEXUS CRM je moderný systém pre správu zákazníkov s pokročilými integráciami. Systém beží v dvoch prostrediach - vývojovom (Replit) a produkčnom (Ubuntu server).
 
 ---
 
-## Replit Deployment
+## Bloková Schéma - Development (Replit)
 
-### 1. Setup Database
-- Click "Database" in the Tools panel
-- Create a PostgreSQL database
-- `DATABASE_URL` is automatically set
-
-### 2. Configure Secrets
-Go to **Secrets** tab and add:
 ```
-SESSION_SECRET=<random-32-char-string>
-OPENAI_API_KEY=<your-openai-key>
-MS365_CLIENT_ID=<azure-app-id>
-MS365_CLIENT_SECRET=<azure-app-secret>
-MS365_TENANT_ID=<azure-tenant-id>
-JIRA_HOST=https://yourcompany.atlassian.net
-JIRA_EMAIL=your-atlassian-email@example.com
-JIRA_API_TOKEN=<jira-api-token>
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         REPLIT DEVELOPMENT ENVIRONMENT                       │
+│                  fc828d39-61cd-41d5-ba8d-20e8af9db227-00-7urdqg8tuo0k.worf.replit.dev                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐         │
+│  │   FRONTEND      │    │   BACKEND       │    │   DATABASE      │         │
+│  │   React + Vite  │◄──►│   Express.js    │◄──►│   PostgreSQL    │         │
+│  │   Port: 5000    │    │   Node.js 20    │    │   Neon (Replit) │         │
+│  └─────────────────┘    └────────┬────────┘    └─────────────────┘         │
+│                                  │                                          │
+│                    ┌─────────────┴─────────────┐                            │
+│                    │      INTEGRÁCIE           │                            │
+│                    └─────────────┬─────────────┘                            │
+│                                  │                                          │
+│      ┌───────────────────────────┼───────────────────────────┐             │
+│      │                           │                           │             │
+│      ▼                           ▼                           ▼             │
+│ ┌─────────────┐          ┌─────────────┐          ┌─────────────┐          │
+│ │ MICROSOFT   │          │   OPENAI    │          │  BULKGATE   │          │
+│ │    365      │          │   GPT-4o    │          │    SMS      │          │
+│ │ indexus_dev │          │  mini       │          │   INDEXUS   │          │
+│ │  (Azure)    │          │             │          │             │          │
+│ └─────────────┘          └─────────────┘          └─────────────┘          │
+│       │                                                  │                  │
+│       │ OAuth 2.0                              Webhook   │                  │
+│       ▼                                                  ▼                  │
+│ ┌─────────────────────────────────────────────────────────────┐            │
+│ │              REDIRECT & WEBHOOK URLs                         │            │
+│ │  MS365: .../api/auth/microsoft/callback                      │            │
+│ │  BulkGate: .../api/auth/bulkgate/callback                    │            │
+│ └─────────────────────────────────────────────────────────────┘            │
+│                                                                             │
+│  ┌─────────────────┐    ┌─────────────────┐                                │
+│  │   WEBSOCKET     │    │  NOTIFICATION   │                                │
+│  │   /ws/*         │◄──►│    CENTER       │                                │
+│  │   Real-time     │    │   Push alerts   │                                │
+│  └─────────────────┘    └─────────────────┘                                │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
-
-### 3. Run Database Migrations
-```bash
-npm run db:push
-```
-
-### 4. Publish
-- Click **Publish** button
-- Select deployment type (Static/Autoscale/Reserved VM)
-- App will be available at `https://your-repl-name.replit.app`
 
 ---
 
-## Ubuntu Server Deployment
+## Bloková Schéma - Production (Ubuntu Server)
 
-### Prerequisites
-- Ubuntu 20.04+ LTS
-- Node.js 20+
-- PostgreSQL 14+
-- Nginx (recommended)
-- PM2 for process management
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      PRODUCTION ENVIRONMENT                                  │
+│                   indexus.cordbloodcenter.com                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                           NGINX                                      │   │
+│  │              Reverse Proxy + SSL (Let's Encrypt)                     │   │
+│  │                     Port 80/443 ──► Port 5000                        │   │
+│  └─────────────────────────────────────┬───────────────────────────────┘   │
+│                                        │                                    │
+│                                        ▼                                    │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐         │
+│  │   FRONTEND      │    │   BACKEND       │    │   DATABASE      │         │
+│  │   React Build   │◄──►│   PM2 Cluster   │◄──►│   PostgreSQL    │         │
+│  │   Static Files  │    │   Node.js 20    │    │   Local/Remote  │         │
+│  └─────────────────┘    └────────┬────────┘    └─────────────────┘         │
+│                                  │                                          │
+│                    ┌─────────────┴─────────────┐                            │
+│                    │      INTEGRÁCIE           │                            │
+│                    └─────────────┬─────────────┘                            │
+│                                  │                                          │
+│      ┌───────────────────────────┼───────────────────────────┐             │
+│      │                           │                           │             │
+│      ▼                           ▼                           ▼             │
+│ ┌─────────────┐          ┌─────────────┐          ┌─────────────┐          │
+│ │ MICROSOFT   │          │   OPENAI    │          │  BULKGATE   │          │
+│ │    365      │          │   GPT-4o    │          │    SMS      │          │
+│ │indexus_prod │          │  mini       │          │INDEXUS_PROD │          │
+│ │  (Azure)    │          │             │          │             │          │
+│ └─────────────┘          └─────────────┘          └─────────────┘          │
+│       │                                                  │                  │
+│       │ OAuth 2.0                              Webhook   │                  │
+│       ▼                                                  ▼                  │
+│ ┌─────────────────────────────────────────────────────────────┐            │
+│ │              REDIRECT & WEBHOOK URLs                         │            │
+│ │  MS365: https://indexus.cordbloodcenter.com/api/auth/microsoft/callback  │
+│ │  BulkGate: https://indexus.cordbloodcenter.com/api/auth/bulkgate/callback│
+│ └─────────────────────────────────────────────────────────────┘            │
+│                                                                             │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐         │
+│  │   WEBSOCKET     │    │  NOTIFICATION   │    │   PM2           │         │
+│  │   /ws/*         │◄──►│    CENTER       │    │   Monitoring    │         │
+│  │   Real-time     │    │   Push alerts   │    │   Auto-restart  │         │
+│  └─────────────────┘    └─────────────────┘    └─────────────────┘         │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
 
-### 1. Install Dependencies
+---
+
+## Schéma Integrácií
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         INDEXUS CRM INTEGRÁCIE                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │                    MICROSOFT 365 / ENTRA ID                          │  │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  │  │
+│  │  │   OAuth     │  │   Email     │  │   Graph     │  │   Per-User  │  │  │
+│  │  │   2.0       │  │   Sync      │  │   API       │  │   Tokens    │  │  │
+│  │  │   Login     │  │   Inbox     │  │   Access    │  │   Storage   │  │  │
+│  │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘  │  │
+│  │                                                                       │  │
+│  │  Permissions: Mail.Read, Mail.Send, Mail.ReadWrite, User.Read,       │  │
+│  │               offline_access                                          │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │                         OPENAI GPT-4o-mini                           │  │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                   │  │
+│  │  │  Sentiment  │  │   Email     │  │   Auto      │                   │  │
+│  │  │  Analysis   │  │   Monitor   │  │   Response  │                   │  │
+│  │  │  Detection  │  │   60s Poll  │  │   Suggest   │                   │  │
+│  │  └─────────────┘  └─────────────┘  └─────────────┘                   │  │
+│  │                                                                       │  │
+│  │  Features: Negative sentiment alerts, Priority classification,       │  │
+│  │            Customer emotion tracking                                  │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │                         BULKGATE SMS                                 │  │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                   │  │
+│  │  │   Odosielanie│  │  Príjem    │  │   Webhook   │                   │  │
+│  │  │   SMS       │  │   SMS      │  │   Callback  │                   │  │
+│  │  │   Notify    │  │   Inbox    │  │   Verify    │                   │  │
+│  │  └─────────────┘  └─────────────┘  └─────────────┘                   │  │
+│  │                                                                       │  │
+│  │  Sender ID: INDEXUS (dev) / INDEXUS_PROD (prod)                      │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │                      REAL-TIME NOTIFICATIONS                         │  │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  │  │
+│  │  │  WebSocket  │  │   Push      │  │   Rules     │  │   Priority  │  │  │
+│  │  │  /ws/notif  │  │   Alerts    │  │   Engine    │  │   Levels    │  │  │
+│  │  │  Real-time  │  │   Browser   │  │   Auto-fire │  │   Coloring  │  │  │
+│  │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘  │  │
+│  │                                                                       │  │
+│  │  Types: new_email, new_sms, status_change, sentiment_alert,          │  │
+│  │         task_assigned, task_due, mention, system                      │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Development Environment (Replit)
+
+### Základné informácie
+
+| Parameter | Hodnota |
+|-----------|---------|
+| **Prostredie** | Replit Development |
+| **Doména** | `fc828d39-61cd-41d5-ba8d-20e8af9db227-00-7urdqg8tuo0k.worf.replit.dev` |
+| **Node.js** | 20.x |
+| **Database** | PostgreSQL (Neon - Replit managed) |
+| **Azure App** | `indexus_dev` |
+
+### Environment Variables - Development
 
 ```bash
-# Update system
+# ===========================================
+# ZÁKLADNÉ NASTAVENIA
+# ===========================================
+NODE_ENV=development
+
+# ===========================================
+# MICROSOFT 365 INTEGRÁCIA
+# ===========================================
+# Získate v Azure Portal > App Registrations
+# Názov aplikácie: indexus_dev
+
+MS365_TENANT_ID=<doplní sa z Azure po vytvorení app>
+MS365_CLIENT_ID=<doplní sa z Azure po vytvorení app>
+MS365_CLIENT_SECRET=<doplní sa z Azure po vytvorení app>
+
+# OAuth redirect URLs - Replit development doména
+MS365_REDIRECT_URI=https://fc828d39-61cd-41d5-ba8d-20e8af9db227-00-7urdqg8tuo0k.worf.replit.dev/api/auth/microsoft/callback
+MS365_POST_LOGOUT_URI=https://fc828d39-61cd-41d5-ba8d-20e8af9db227-00-7urdqg8tuo0k.worf.replit.dev
+
+# ===========================================
+# OPENAI (AI funkcie - sentiment analysis)
+# ===========================================
+# Používa sa aktuálne nastavený kľúč v Replit env
+OPENAI_API_KEY=<aktuálny kľúč v Replit Secrets>
+
+# ===========================================
+# BULKGATE SMS
+# ===========================================
+BULKGATE_APPLICATION_ID=INDEXUS
+BULKGATE_APPLICATION_TOKEN=<aktuálny token v Replit>
+BULKGATE_WEBHOOK_URL=https://fc828d39-61cd-41d5-ba8d-20e8af9db227-00-7urdqg8tuo0k.worf.replit.dev/api/auth/bulkgate/callback
+BULKGATE_WEBHOOK_TOKEN=<vygenerujte náhodný token>
+BULKGATE_SENDER_ID=INDEXUS
+
+# ===========================================
+# DATABASE (automaticky nastavené Replitom)
+# ===========================================
+DATABASE_URL=<automaticky nastavené>
+
+# ===========================================
+# SESSION
+# ===========================================
+SESSION_SECRET=<nastavené v Replit Secrets>
+```
+
+### Nastavenie v Replit
+
+1. **Secrets Tab** - Pridajte všetky premenné vyššie
+2. **Database** - Kliknite na "Database" v Tools paneli, PostgreSQL sa vytvorí automaticky
+3. **Migrácie** - Spustite `npm run db:push` v Shell
+
+---
+
+## Production Environment (Ubuntu Server)
+
+### Základné informácie
+
+| Parameter | Hodnota |
+|-----------|---------|
+| **Prostredie** | Ubuntu Server 20.04+ LTS |
+| **Doména** | `indexus.cordbloodcenter.com` |
+| **Node.js** | 20.x |
+| **Database** | PostgreSQL 14+ |
+| **Process Manager** | PM2 (cluster mode) |
+| **Reverse Proxy** | Nginx + SSL (Let's Encrypt) |
+| **Azure App** | `indexus_prod` |
+
+### Environment Variables - Production
+
+Vytvorte súbor `/var/www/indexus-crm/.env`:
+
+```bash
+# ===========================================
+# ZÁKLADNÉ NASTAVENIA
+# ===========================================
+NODE_ENV=production
+PORT=5000
+
+# ===========================================
+# SESSION SECRET
+# Vygenerujte: openssl rand -base64 32
+# ===========================================
+SESSION_SECRET=<vygenerujte silný náhodný kľúč min. 32 znakov>
+
+# ===========================================
+# DATABASE
+# ===========================================
+DATABASE_URL=postgresql://indexus:<heslo>@localhost:5432/indexus_crm
+
+# ===========================================
+# MICROSOFT 365 INTEGRÁCIA
+# ===========================================
+# Získate v Azure Portal > App Registrations
+# Názov aplikácie: indexus_prod
+
+MS365_TENANT_ID=<doplní sa z Azure po vytvorení app>
+MS365_CLIENT_ID=<doplní sa z Azure po vytvorení app>
+MS365_CLIENT_SECRET=<doplní sa z Azure po vytvorení app>
+
+# OAuth redirect URLs - produkčná doména
+MS365_REDIRECT_URI=https://indexus.cordbloodcenter.com/api/auth/microsoft/callback
+MS365_POST_LOGOUT_URI=https://indexus.cordbloodcenter.com
+
+# ===========================================
+# OPENAI (AI funkcie - sentiment analysis)
+# ===========================================
+OPENAI_API_KEY=<vygenerujte nový API key pre produkciu>
+
+# ===========================================
+# BULKGATE SMS
+# DÔLEŽITÉ: Rotujte všetky tokeny pre produkciu!
+# ===========================================
+BULKGATE_APPLICATION_ID=INDEXUS_PROD
+BULKGATE_APPLICATION_TOKEN=<nový token pre produkciu>
+BULKGATE_WEBHOOK_URL=https://indexus.cordbloodcenter.com/api/auth/bulkgate/callback
+BULKGATE_WEBHOOK_TOKEN=<vygenerujte nový náhodný token>
+BULKGATE_SENDER_ID=INDEXUS_PROD
+```
+
+---
+
+## Azure AD App Registration
+
+### Pre Development (indexus_dev)
+
+1. Prihláste sa na [Azure Portal](https://portal.azure.com)
+2. Navigujte na **Azure Active Directory** > **App registrations**
+3. Kliknite **New registration**
+4. Vyplňte:
+   - **Name**: `indexus_dev`
+   - **Supported account types**: Accounts in this organizational directory only
+   - **Redirect URI**: `https://fc828d39-61cd-41d5-ba8d-20e8af9db227-00-7urdqg8tuo0k.worf.replit.dev/api/auth/microsoft/callback`
+5. Po vytvorení si poznačte:
+   - **Application (client) ID** → `MS365_CLIENT_ID`
+   - **Directory (tenant) ID** → `MS365_TENANT_ID`
+6. **Certificates & secrets** > **New client secret** → `MS365_CLIENT_SECRET`
+7. **API permissions** > **Add permission** > **Microsoft Graph**:
+   - `Mail.Read`
+   - `Mail.Send`
+   - `Mail.ReadWrite`
+   - `User.Read`
+   - `offline_access`
+8. Kliknite **Grant admin consent**
+
+### Pre Production (indexus_prod)
+
+Rovnaký postup ako vyššie, ale:
+- **Name**: `indexus_prod`
+- **Redirect URI**: `https://indexus.cordbloodcenter.com/api/auth/microsoft/callback`
+
+---
+
+## Inštalácia na Ubuntu Server
+
+### 1. Systémové závislosti
+
+```bash
+# Aktualizácia systému
 sudo apt update && sudo apt upgrade -y
 
-# Install Node.js 20
+# Node.js 20
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs
 
-# Install PostgreSQL
+# PostgreSQL
 sudo apt install -y postgresql postgresql-contrib
 
-# Install PM2
+# PM2 & Nginx
 sudo npm install -g pm2
-
-# Install Nginx
 sudo apt install -y nginx
 ```
 
-### 2. Setup PostgreSQL
+### 2. PostgreSQL Setup
 
 ```bash
-# Create database and user
 sudo -u postgres psql
 
-CREATE USER indexus WITH PASSWORD 'your-secure-password';
+CREATE USER indexus WITH PASSWORD 'vase-bezpecne-heslo';
 CREATE DATABASE indexus_crm OWNER indexus;
 GRANT ALL PRIVILEGES ON DATABASE indexus_crm TO indexus;
 \q
 ```
 
-### 3. Clone and Setup Application
+### 3. Aplikácia
 
 ```bash
-# Clone repository
 cd /var/www
 git clone https://github.com/your-repo/indexus-crm.git
 cd indexus-crm
 
-# Install dependencies
 npm install
-
-# Build application
 npm run build
-```
-
-### 4. Configure Environment Variables
-
-Create `/var/www/indexus-crm/.env`:
-
-```bash
-NODE_ENV=production
-PORT=5000
-
-# Database
-DATABASE_URL=postgresql://indexus:your-secure-password@localhost:5432/indexus_crm
-
-# Session
-SESSION_SECRET=your-random-32-char-secret-here
-
-# OpenAI
-OPENAI_API_KEY=sk-...
-
-# Microsoft 365
-MS365_CLIENT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-MS365_CLIENT_SECRET=your-client-secret
-MS365_TENANT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-
-# Jira
-JIRA_HOST=https://yourcompany.atlassian.net
-JIRA_EMAIL=your-atlassian-email@example.com
-JIRA_API_TOKEN=your-jira-api-token
-
-# BulkGate SMS (optional)
-BULKGATE_APPLICATION_ID=xxxxx
-BULKGATE_APPLICATION_TOKEN=xxxxx
-BULKGATE_WEBHOOK_URL=https://your-domain.com/api/auth/bulkgate/callback
-```
-
-### 5. Run Database Migrations
-
-```bash
 npm run db:push
 ```
 
-### 6. Setup PM2 Process Manager
+### 4. PM2 Konfigurácia
 
-Create `ecosystem.config.js`:
+Vytvorte `ecosystem.config.js`:
 
 ```javascript
 module.exports = {
@@ -183,22 +396,20 @@ module.exports = {
 };
 ```
 
-Start application:
-
 ```bash
 pm2 start ecosystem.config.js
 pm2 save
 pm2 startup
 ```
 
-### 7. Configure Nginx
+### 5. Nginx Konfigurácia
 
-Create `/etc/nginx/sites-available/indexus-crm`:
+Vytvorte `/etc/nginx/sites-available/indexus-crm`:
 
 ```nginx
 server {
     listen 80;
-    server_name your-domain.com;
+    server_name indexus.cordbloodcenter.com;
 
     location / {
         proxy_pass http://localhost:5000;
@@ -212,7 +423,7 @@ server {
         proxy_cache_bypass $http_upgrade;
     }
 
-    # WebSocket support for notifications
+    # WebSocket support
     location /ws/ {
         proxy_pass http://localhost:5000;
         proxy_http_version 1.1;
@@ -224,22 +435,20 @@ server {
 }
 ```
 
-Enable site and restart Nginx:
-
 ```bash
 sudo ln -s /etc/nginx/sites-available/indexus-crm /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl restart nginx
 ```
 
-### 8. Setup SSL with Let's Encrypt
+### 6. SSL Certifikát
 
 ```bash
 sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d your-domain.com
+sudo certbot --nginx -d indexus.cordbloodcenter.com
 ```
 
-### 9. Setup Firewall
+### 7. Firewall
 
 ```bash
 sudo ufw allow 22
@@ -250,89 +459,67 @@ sudo ufw enable
 
 ---
 
-## Azure AD App Registration (MS365)
+## Porovnanie Prostredí
 
-1. Go to [Azure Portal](https://portal.azure.com)
-2. Navigate to **Azure Active Directory** > **App registrations**
-3. Click **New registration**
-4. Configure:
-   - Name: `INDEXUS CRM`
-   - Supported account types: **Accounts in this organizational directory only**
-   - Redirect URI: `https://your-domain.com/api/auth/ms365/callback`
-5. After creation, note:
-   - **Application (client) ID** → `MS365_CLIENT_ID`
-   - **Directory (tenant) ID** → `MS365_TENANT_ID`
-6. Go to **Certificates & secrets** > **New client secret**
-   - Copy the secret value → `MS365_CLIENT_SECRET`
-7. Go to **API permissions** > **Add permission** > **Microsoft Graph**:
-   - `Mail.Read`
-   - `Mail.Send`
-   - `Mail.ReadWrite`
-   - `User.Read`
-   - `offline_access`
-8. Click **Grant admin consent**
+| Funkcia | Development (Replit) | Production (Ubuntu) |
+|---------|---------------------|---------------------|
+| **Doména** | `*.worf.replit.dev` | `indexus.cordbloodcenter.com` |
+| **Azure App** | `indexus_dev` | `indexus_prod` |
+| **BulkGate ID** | `INDEXUS` | `INDEXUS_PROD` |
+| **Database** | Neon (managed) | PostgreSQL (local) |
+| **SSL** | Automatický | Let's Encrypt |
+| **Process Manager** | Replit | PM2 Cluster |
+| **Monitoring** | Replit Dashboard | PM2 Monit |
 
 ---
 
-## Jira API Token Generation
+## Údržba a Monitoring
 
-1. Go to [Atlassian Account Settings](https://id.atlassian.com/manage-profile/security/api-tokens)
-2. Click **Create API token**
-3. Name it (e.g., `INDEXUS CRM`)
-4. Copy the token → `JIRA_API_TOKEN`
-5. Use your Atlassian login email → `JIRA_EMAIL`
-6. Your Jira URL → `JIRA_HOST` (e.g., `https://yourcompany.atlassian.net`)
-
----
-
-## Monitoring & Maintenance
-
-### PM2 Commands
+### PM2 Príkazy (Production)
 
 ```bash
-# View logs
-pm2 logs indexus-crm
+pm2 logs indexus-crm          # Zobraziť logy
+pm2 restart indexus-crm       # Reštartovať
+pm2 monit                     # Monitoring
+pm2 reload indexus-crm        # Zero-downtime reload
+```
 
-# Restart application
-pm2 restart indexus-crm
+### Aktualizácia Aplikácie
 
-# Monitor
-pm2 monit
-
-# Update application
+```bash
 cd /var/www/indexus-crm
 git pull
 npm install
 npm run build
-pm2 restart indexus-crm
+pm2 reload indexus-crm
 ```
 
-### Database Backup
+### Záloha Databázy
 
 ```bash
-# Create backup
-pg_dump -U indexus indexus_crm > backup_$(date +%Y%m%d).sql
+# Vytvorenie zálohy
+pg_dump -U indexus indexus_crm > backup_$(date +%Y%m%d_%H%M%S).sql
 
-# Restore backup
-psql -U indexus indexus_crm < backup_20240115.sql
+# Obnova zo zálohy
+psql -U indexus indexus_crm < backup_20240115_120000.sql
 ```
 
 ---
 
 ## Troubleshooting
 
+### MS365 OAuth Zlyhanie
+- Skontrolujte, že Redirect URI v Azure presne zodpovedá URL v `.env`
+- Overte, že API permissions majú Admin Consent
+
+### BulkGate Webhook Nefunguje
+- Skontrolujte BULKGATE_WEBHOOK_URL
+- Overte, že firewall povoľuje prichádzajúce požiadavky
+
+### WebSocket Nepripája
+- Nginx musí mať WebSocket konfiguráciu (Upgrade headers)
+- Skontrolujte `proxy_read_timeout` nastavenie
+
 ### Jira 401 Unauthorized
-- Verify `JIRA_EMAIL` matches your Atlassian account email exactly
-- Regenerate `JIRA_API_TOKEN` at https://id.atlassian.com/manage-profile/security/api-tokens
-
-### Jira 403 Forbidden
-- Check user has proper permissions in Jira project
-- Verify Jira Cloud (not Server) is being used
-
-### MS365 Authentication Fails
-- Verify redirect URI matches exactly in Azure AD app
-- Ensure all required API permissions are granted with admin consent
-
-### WebSocket Connection Issues
-- Ensure Nginx is configured for WebSocket upgrade
-- Check firewall allows WebSocket connections
+- Overte `JIRA_EMAIL` presne zodpovedá Atlassian účtu
+- Regenerujte API token na https://id.atlassian.com/manage-profile/security/api-tokens
