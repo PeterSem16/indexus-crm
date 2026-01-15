@@ -1824,6 +1824,19 @@ export async function registerRoutes(
         console.log(`[Auth] User logged in via MS365: ${user.username} (${user.fullName})`);
         await logActivity(user.id, "login", "user", user.id, `${user.fullName} (MS365 auth)`, JSON.stringify({ method: "ms365", msEmail }), req.ip);
         
+        // Save session explicitly before redirect
+        await new Promise<void>((resolve, reject) => {
+          req.session.save((err) => {
+            if (err) {
+              console.error("[MS365 Callback] Session save error:", err);
+              reject(err);
+            } else {
+              console.log("[MS365 Callback] Session saved successfully, redirecting...");
+              resolve();
+            }
+          });
+        });
+        
         return res.redirect("/");
       }
       

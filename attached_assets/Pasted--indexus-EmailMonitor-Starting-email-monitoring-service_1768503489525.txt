@@ -1,0 +1,19 @@
+|indexus- | [EmailMonitor] Starting email monitoring service...
+0|indexus- | [Chat] WebSocket server initialized on path /ws/chat
+0|indexus- | [ExchangeRates] Scheduled update in 303 minutes (at midnight)
+0|indexus- | 6:57:26 PM [express] serving on port 5000
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user 95c58392-d61e-41e2-b5d3-ed1f9d93147d
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user 67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus- | 6:57:34 PM [express] GET /api/auth/me 304 in 2ms :: {"user":null}
+0|indexus- | [Auth] Checking auth method for user: admin -> ms365
+0|indexus- | 6:57:36 PM [express] POST /api/auth/check-auth-method 200 in 2ms :: {"authMethod":"ms365","userId":"67467ce3-7a44-4f67-a3d3-6a251e2991e5","fullName":"System Administrator"}
+0|indexus- | [MS365 Login] Generated state with userId: login:67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus- | 6:57:38 PM [express] POST /api/auth/login-ms365 200 in 2ms :: {"authUrl":"https://login.microsoftonline.com/c1cdb9f9-f730-4b88-b2b2-2e152f040066/oauth2/v2.0/authorize?client_id=c053e40b-ba68-4ddb-9558-07efc730be9e&response_type=code&redirect_uri=https%3A%2F%2Findexus.cordbloodcenter.com%2Fapi%2Fauth%2Fmicrosoft%2Fcallback&scope=openid%20profile%20email%20User.Read&response_mode=query&state=login%3A67467ce3-7a44-4f67-a3d3-6a251e2991e5"}
+0|indexus- | [MS365 Callback] Request received with query: {"code":"1.AR8A-bnNwTD3iEuysi4VLwQAZgvkU8BouttNlVgH78cwvp66AQAfAA.AgABBAIAAACvnsHKEvvRQb3Bz3Qc7wnaAwDs_wUA9P9Fdm9TdHNBcnRpZmFjdHMCAAAAAACidx-oKu182riN5baNlVdTGkV-FW9uSjRmv0YAan3ij6E-dQyg7hPUHgUBf2WM7pntrAZ1XbrjXvkzYe5MFvIMkxowjvFoKMCrNRF7ESvasF1APVWzQOf7Zf044Bk9hWTw_VKncS0p6uEWUloiXY3Hoplj9SiM2zldmI0Y9GUAddR6JHcAi-NVRaq055Y7DkjgaS0OEh8Iie2-xrGfyxDcs57-AxwwyK1eWKoWmQF_BPW43UIdtMt1xsayY4yoaGv1U3Oh8fc_iFUMkRxxrBuFR4tZOJ1w_67EgR0oQqBOAU32bw6Mtq1s1YKMl-0Iu7tYtjvRbV0oqKG20KmH3qbJoa0hQcjgU1CCAbtykjPit4WvYHgn5yUj9ug7JZlEyfb6zEHPoKvfDhT3lC51XJ_QdhAHkOk3a1JchZmqbMZhuePoviGVt_6dTSMYc67n_P27-LIz8gUG7wIrlSgvewsfz18-0KCNm3PWqGVmfrTJOcCtJVdFD9AR-TJJ_qGMFwhDfJeTgR2959F4JTqZuEmbyuCghhxMy49R9dVsrpu3fWvNJq0J6aUrwaTW3Lp42yby3KnonEkKe7dO1yn3o0GoolqRi0wa2mKLV9XaKo-tErbTbhVuQRk2OHfe8IKoxdeP1JyvviGaoCGUE0v_afOVJBCuTyHTxnGusQbgifplB_f01_r56lUuTNtLi-A3Km-F4L_SG5gZV9REgxy_BZ5NDA87i9yh1fb8hySkGoZSS2I9DEPKDdyIFf1hydEdOmawTU99rGmtDdRRyX8g","state":"login:67467ce3-7a44-4f67-a3d3-6a251e2991e5","session_state":"0011941a-a9ed-f0e9-b38a-d486a41f6b12"}
+0|indexus- | [MS365 Callback] Processing state: login:67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus- | [MS365 Callback] Login flow detected
+0|indexus- | [MS365 Callback] Extracted userId from state: 67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus- | [Auth] User logged in via MS365: admin (System Administrator)
+0|indexus- | 6:57:39 PM [express] GET /api/auth/microsoft/callback 302 in 410ms
+0|indexus- | 6:57:39 PM [express] GET /api/auth/me 304 in 0ms :: {"user":null}
+
