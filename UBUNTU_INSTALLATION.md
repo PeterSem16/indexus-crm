@@ -266,8 +266,10 @@ npm run db:push
 
 ## Krok 16: Vytvorenie PM2 konfigurácie
 
+**DÔLEŽITÉ**: Súbor musí mať príponu `.cjs` (nie `.js`) kvôli ES modulom!
+
 ```bash
-nano ecosystem.config.js
+nano ecosystem.config.cjs
 ```
 
 Vložte:
@@ -295,7 +297,7 @@ Uložte: `Ctrl+X`, `Y`, `Enter`
 
 ```bash
 # Spustenie
-pm2 start ecosystem.config.js
+pm2 start ecosystem.config.cjs
 
 # Uloženie konfigurácie
 pm2 save
