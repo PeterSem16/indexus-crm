@@ -1192,6 +1192,21 @@ export async function registerRoutes(
       
       // Store the user ID in session for the MS365 callback to use
       req.session.pendingMs365UserId = user.id;
+      console.log("[MS365 Login] Setting pendingMs365UserId:", user.id);
+      console.log("[MS365 Login] Session ID:", req.sessionID);
+      
+      // Save session explicitly to ensure it's stored before redirect
+      await new Promise<void>((resolve, reject) => {
+        req.session.save((err) => {
+          if (err) {
+            console.error("[MS365 Login] Session save error:", err);
+            reject(err);
+          } else {
+            console.log("[MS365 Login] Session saved successfully");
+            resolve();
+          }
+        });
+      });
       
       // Generate MS365 auth URL
       const clientId = process.env.MS365_CLIENT_ID;
@@ -1747,10 +1762,14 @@ export async function registerRoutes(
       // Handle login flow (state="login") - for users with authMethod = ms365
       if (stateStr === "login") {
         console.log("[MS365 Callback] Login flow detected");
+        console.log("[MS365 Callback] Session ID:", req.sessionID);
+        console.log("[MS365 Callback] Session data:", JSON.stringify(req.session));
         const pendingUserId = req.session.pendingMs365UserId;
         if (!pendingUserId) {
+          console.log("[MS365 Callback] ERROR: pendingMs365UserId not found in session");
           return res.redirect("/?error=session_expired");
         }
+        console.log("[MS365 Callback] Found pendingUserId:", pendingUserId);
         
         // Exchange code for token
         const clientId = process.env.MS365_CLIENT_ID!;
