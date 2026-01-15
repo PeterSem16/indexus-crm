@@ -127,6 +127,25 @@ The system includes a comprehensive notification center with real-time push noti
 - React Context for global state (CountryFilter, Theme)
 - WebSocket for real-time features (notifications, chat)
 
+### File Storage Architecture
+The system uses a centralized file storage configuration that automatically detects the environment:
+- **Configuration File**: `server/config/storage-paths.ts`
+- **Replit**: Files stored in `./uploads/` directory
+- **Ubuntu Production**: Files stored in `/var/www/indexus-crm/data/` (mounted data disk)
+
+Storage directories:
+- `agreements/` - Collaborator agreement files
+- `avatars/` - User profile images
+- `contract-pdfs/` - PDF contract templates
+- `contract-templates/` - DOCX contract templates
+- `generated-contracts/` - Generated customer contracts
+- `invoice-images/` - Invoice logo/images
+- `email-images/` - Email attachments
+
+Files are served via:
+- Replit: `/uploads/...`
+- Ubuntu: `/data/...` (both `/uploads` and `/data` routes work for compatibility)
+
 ## External Dependencies
 
 ### Database

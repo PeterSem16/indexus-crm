@@ -47,9 +47,13 @@ import { convertPdfToDocx, isConverterAvailable } from "./pdf-to-docx-converter"
 import mammoth from "mammoth";
 import { PDFDocument as PDFLibDocument, rgb, degrees, StandardFonts } from "pdf-lib";
 import { notificationService } from "./lib/notification-service";
+import { STORAGE_PATHS, ensureAllDirectoriesExist, getPublicUrl, DATA_ROOT } from "./config/storage-paths";
 
-// Global uploads directory
-const uploadsDir = path.join(process.cwd(), "uploads");
+// Initialize all storage directories
+ensureAllDirectoriesExist();
+
+// Global uploads directory (for backward compatibility)
+const uploadsDir = DATA_ROOT;
 
 // OpenAI client for AI-powered PDF conversion
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
@@ -212,11 +216,7 @@ Slovak profanity: check for vulgar words`
 // Configure multer for agreement file uploads
 const agreementStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadDir = path.join(process.cwd(), "uploads", "agreements");
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
+    cb(null, STORAGE_PATHS.agreements);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
@@ -242,11 +242,7 @@ const uploadAgreement = multer({
 // Configure multer for invoice image uploads
 const invoiceImageStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadDir = path.join(process.cwd(), "uploads", "invoice-images");
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
+    cb(null, STORAGE_PATHS.invoiceImages);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
@@ -271,11 +267,7 @@ const uploadInvoiceImage = multer({
 // Configure multer for user avatar uploads
 const avatarStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadDir = path.join(process.cwd(), "uploads", "avatars");
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
+    cb(null, STORAGE_PATHS.avatars);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
@@ -300,11 +292,7 @@ const uploadAvatar = multer({
 // Configure multer for email image uploads
 const emailImageStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadDir = path.join(process.cwd(), "uploads", "email-images");
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
+    cb(null, STORAGE_PATHS.emailImages);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
@@ -329,11 +317,7 @@ const uploadEmailImage = multer({
 // Configure multer for contract template PDF uploads
 const contractPdfStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadDir = path.join(process.cwd(), "uploads", "contract-pdfs");
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
+    cb(null, STORAGE_PATHS.contractPdfs);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
@@ -1071,12 +1055,11 @@ export async function registerRoutes(
     })
   );
 
-  // Serve uploaded files statically
-  const uploadsDir = path.join(process.cwd(), "uploads");
-  if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-  }
-  app.use("/uploads", express.static(uploadsDir));
+  // Serve uploaded files statically from DATA_ROOT
+  // On Ubuntu: /data -> /var/www/indexus-crm/data
+  // On Replit: /uploads -> ./uploads
+  app.use("/data", express.static(DATA_ROOT));
+  app.use("/uploads", express.static(DATA_ROOT)); // backward compatibility
 
   // Auth middleware
   const requireAuth = (req: Request, res: Response, next: NextFunction) => {

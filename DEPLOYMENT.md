@@ -568,6 +568,63 @@ sudo ufw allow 443
 sudo ufw enable
 ```
 
+### 8. File Storage (Dátový Disk)
+
+INDEXUS používa centralizovaný dátový adresár pre všetky súbory. Na Ubuntu serveri je tento disk namapovaný do `/var/www/indexus-crm/data/`.
+
+#### Štruktúra dátového disku
+
+```
+/var/www/indexus-crm/data/
+├── agreements/           # Zmluvy spolupracovníkov
+├── avatars/              # Profilové obrázky používateľov
+├── contract-pdfs/        # PDF šablóny zmlúv
+├── contract-previews/    # Náhľady zmlúv
+├── contract-templates/   # DOCX šablóny zmlúv
+├── contract_versions/    # Verzie zmlúv
+├── email-images/         # Obrázky z emailov
+├── generated-contracts/  # Vygenerované zmluvy
+├── invoice-images/       # Obrázky pre faktúry
+├── template-previews/    # Náhľady šablón
+└── exports/              # Exportované dáta
+```
+
+#### Vytvorenie dátového adresára
+
+```bash
+# Vytvorte adresár ak neexistuje
+sudo mkdir -p /var/www/indexus-crm/data
+
+# Nastavte vlastníka
+sudo chown -R www-data:www-data /var/www/indexus-crm/data
+
+# Nastavte oprávnenia
+sudo chmod -R 755 /var/www/indexus-crm/data
+```
+
+#### Nginx konfigurácia pre /data
+
+Pridajte do Nginx konfigurácie:
+
+```nginx
+# Statické súbory z dátového disku
+location /data/ {
+    alias /var/www/indexus-crm/data/;
+    expires 1d;
+    add_header Cache-Control "public, immutable";
+}
+```
+
+#### Automatická detekcia prostredia
+
+Aplikácia automaticky detekuje prostredie:
+- **Ubuntu**: Ak existuje `/var/www/indexus-crm/data`, používa tento adresár
+- **Replit**: Používa `./uploads` v pracovnom adresári
+
+Súbory sú dostupné cez:
+- Ubuntu: `https://indexus.cordbloodcenter.com/data/...`
+- Replit: `https://domain/uploads/...`
+
 ---
 
 ## Porovnanie Prostredí
