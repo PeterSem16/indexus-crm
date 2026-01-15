@@ -14684,7 +14684,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         campaigns,
         notifications
       ] = await Promise.all([
-        isAdmin ? storage.getUsers() : Promise.resolve([]),
+        isAdmin ? storage.getAllUsers() : Promise.resolve([]),
         storage.getCustomers(),
         isManager ? storage.getActivityLogs({ limit: 50 }) : Promise.resolve([]),
         storage.getCampaigns(),
