@@ -1048,6 +1048,11 @@ export async function registerRoutes(
   const { startEmailMonitoring } = await import("./lib/email-monitoring-service");
   startEmailMonitoring();
 
+  // Trust proxy for production (nginx, cloudflare, etc.)
+  if (process.env.NODE_ENV === "production") {
+    app.set("trust proxy", 1);
+  }
+
   // Session middleware
   app.use(
     session({
@@ -1060,6 +1065,7 @@ export async function registerRoutes(
       cookie: {
         secure: process.env.NODE_ENV === "production",
         httpOnly: true,
+        sameSite: "lax",
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
       },
     })
