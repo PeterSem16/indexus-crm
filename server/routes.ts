@@ -14788,7 +14788,13 @@ Guidelines:
       
       res.json({ response });
     } catch (error: any) {
-      console.error("NEXUS query error:", error);
+      console.error("NEXUS query error:", error?.message || error);
+      if (error?.status === 401) {
+        return res.status(503).json({ error: "AI service authentication failed. Please check API key." });
+      }
+      if (error?.status === 429) {
+        return res.status(503).json({ error: "AI service rate limit exceeded. Please try again later." });
+      }
       res.status(500).json({ error: "Failed to process query. Please try again." });
     }
   });
