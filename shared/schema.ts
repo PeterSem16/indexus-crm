@@ -24,6 +24,26 @@ export const CURRENCIES = [
   { code: "CHF", symbol: "Fr.", name: "Swiss Franc", countries: ["CH"] },
 ] as const;
 
+// Phone prefixes for countries
+export const COUNTRY_PHONE_PREFIXES = [
+  { code: "SK", prefix: "+421", name: "Slovakia" },
+  { code: "CZ", prefix: "+420", name: "Czech Republic" },
+  { code: "HU", prefix: "+36", name: "Hungary" },
+  { code: "RO", prefix: "+40", name: "Romania" },
+  { code: "IT", prefix: "+39", name: "Italy" },
+  { code: "DE", prefix: "+49", name: "Germany" },
+  { code: "US", prefix: "+1", name: "USA" },
+  { code: "CH", prefix: "+41", name: "Switzerland" },
+  { code: "AT", prefix: "+43", name: "Austria" },
+  { code: "PL", prefix: "+48", name: "Poland" },
+  { code: "UA", prefix: "+380", name: "Ukraine" },
+  { code: "GB", prefix: "+44", name: "United Kingdom" },
+  { code: "FR", prefix: "+33", name: "France" },
+  { code: "ES", prefix: "+34", name: "Spain" },
+  { code: "NL", prefix: "+31", name: "Netherlands" },
+  { code: "BE", prefix: "+32", name: "Belgium" },
+] as const;
+
 export const getCurrencySymbol = (currencyCode: string): string => {
   const currency = CURRENCIES.find(c => c.code === currencyCode);
   return currency?.symbol || "€";
@@ -162,6 +182,8 @@ export const users = pgTable("users", {
   jiraDisplayName: text("jira_display_name"),
   authMethod: text("auth_method").notNull().default("local"), // 'local' or 'ms365'
   nexusEnabled: boolean("nexus_enabled").notNull().default(false), // NEXUS AI assistant
+  phonePrefix: text("phone_prefix"), // Phone country prefix like +421
+  phone: text("phone"), // Phone number for notifications/alerts
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
