@@ -1190,25 +1190,7 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Tento účet nevyžaduje Microsoft 365 prihlásenie" });
       }
       
-      // Store the user ID in session for the MS365 callback to use
-      req.session.pendingMs365UserId = user.id;
-      console.log("[MS365 Login] Setting pendingMs365UserId:", user.id);
-      console.log("[MS365 Login] Session ID:", req.sessionID);
-      
-      // Save session explicitly to ensure it's stored before redirect
-      await new Promise<void>((resolve, reject) => {
-        req.session.save((err) => {
-          if (err) {
-            console.error("[MS365 Login] Session save error:", err);
-            reject(err);
-          } else {
-            console.log("[MS365 Login] Session saved successfully");
-            resolve();
-          }
-        });
-      });
-      
-      // Generate MS365 auth URL
+      // Generate MS365 auth URL with user ID in state (session doesn't persist across OAuth redirects)
       const clientId = process.env.MS365_CLIENT_ID;
       const tenantId = process.env.MS365_TENANT_ID;
       
@@ -1220,13 +1202,17 @@ export async function registerRoutes(
       const redirectUri = `https://${req.get("host")}/api/auth/microsoft/callback`;
       const scopes = ["openid", "profile", "email", "User.Read"];
       
+      // Include user ID in state parameter (format: login:{userId})
+      const stateParam = `login:${user.id}`;
+      console.log("[MS365 Login] Generated state with userId:", stateParam);
+      
       const authUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?` +
         `client_id=${clientId}&` +
         `response_type=code&` +
         `redirect_uri=${encodeURIComponent(redirectUri)}&` +
         `scope=${encodeURIComponent(scopes.join(" "))}&` +
         `response_mode=query&` +
-        `state=login`;
+        `state=${encodeURIComponent(stateParam)}`;
       
       res.json({ authUrl });
     } catch (error) {
@@ -1759,17 +1745,18 @@ export async function registerRoutes(
       const stateStr = String(state || "");
       console.log("[MS365 Callback] Processing state:", stateStr);
       
-      // Handle login flow (state="login") - for users with authMethod = ms365
-      if (stateStr === "login") {
+      // Handle login flow (state starts with "login:") - for users with authMethod = ms365
+      if (stateStr.startsWith("login:")) {
         console.log("[MS365 Callback] Login flow detected");
-        console.log("[MS365 Callback] Session ID:", req.sessionID);
-        console.log("[MS365 Callback] Session data:", JSON.stringify(req.session));
-        const pendingUserId = req.session.pendingMs365UserId;
+        
+        // Extract user ID from state parameter (format: login:{userId})
+        const pendingUserId = stateStr.substring(6); // Remove "login:" prefix
+        console.log("[MS365 Callback] Extracted userId from state:", pendingUserId);
+        
         if (!pendingUserId) {
-          console.log("[MS365 Callback] ERROR: pendingMs365UserId not found in session");
-          return res.redirect("/?error=session_expired");
+          console.log("[MS365 Callback] ERROR: userId not found in state");
+          return res.redirect("/?error=invalid_state");
         }
-        console.log("[MS365 Callback] Found pendingUserId:", pendingUserId);
         
         // Exchange code for token
         const clientId = process.env.MS365_CLIENT_ID!;
@@ -1832,7 +1819,6 @@ export async function registerRoutes(
         // Login successful - set session
         const { passwordHash, ...safeUser } = user;
         req.session.user = safeUser;
-        delete req.session.pendingMs365UserId;
         
         // Log login activity with MS365 auth method
         console.log(`[Auth] User logged in via MS365: ${user.username} (${user.fullName})`);

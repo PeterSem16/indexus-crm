@@ -1,0 +1,13 @@
+0|indexus- | [MS365 Login] Setting pendingMs365UserId: 67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus- | [MS365 Login] Session ID: KG4zTnnC8ignW4t9JWie5OLtckbCnZMX
+0|indexus- | [MS365 Login] Session saved successfully
+0|indexus- | 6:54:33 PM [express] POST /api/auth/login-ms365 200 in 3ms :: {"authUrl":"https://login.microsoftonline.com/c1cdb9f9-f730-4b88-b2b2-2e152f040066/oauth2/v2.0/authorize?client_id=c053e40b-ba68-4ddb-9558-07efc730be9e&response_type=code&redirect_uri=https%3A%2F%2Findexus.cordbloodcenter.com%2Fapi%2Fauth%2Fmicrosoft%2Fcallback&scope=openid%20profile%20email%20User.Read&response_mode=query&state=login"}
+0|indexus- | [MS365 Callback] Request received with query: {"code":"1.AR8A-bnNwTD3iEuysi4VLwQAZgvkU8BouttNlVgH78cwvp66AQAfAA.AgABBAIAAACvnsHKEvvRQb3Bz3Qc7wnaAwDs_wUA9P9Fdm9TdHNBcnRpZmFjdHMCAAAAAACrLdzGwtd111NulBCVoQmfWscM-TRpX0KFezg_bdKS7xvxToVxdlraMvN9QTlPbDQMi1RLIuR-_-2umH6r5gIGvuLHLafrFHt36bH6geINXv1m8oe-mmOFlJWW9q6KMaKnPbWVhrEzYNvNZbbt41XwjihwqpUFevvE_egZG8uGQE794ULD2RX7slfzYzW7jnpq3Xb6L6BnJG6EnJHdK-BbkuD4_4VGH3f5goEtZoY6AUNSXqj1bftMO6VjttGs6oRa21ieBeUs9evY24oMTGXJCxlov6NrK2Q3G_0hAMNqngDNnJEKz4svl9tKSEe4b-jIViwuEufHbcb0dj8FVMrUeed37YBk9nHyqjQTM6t-WBtw2GqP1f7coLv1Ft0sVvavhqFQWvC7TXni2QwUalZpbdJUE2qfhFn298VEb2VKeql5rula_8aq4UEAZ0jGEhPAas5NyBWXDk65GuVQxvqDLBx6O0Hz6cxvrwk3mTQePOwAHifOhXMjqlu2B6GvteRPmp2rrSR44LP9-WWA8a3pi_TRfl5nqNh5k93JX-pgY0BWjw9eF-hcJryxvDWYrNff2QaNM_AQf0BdID-52L_fNOZOZOL8Ej6svTa_YWz3Z1C-5sIOC88wy096fDWVij_jXfJSnLdHq8zAWlZB4VWdtYbhXSMx0VI7_qJOcyA6ZRBfZZZfcrOPrcqDDr7WBoKDwDMDRA-1HHubfunlko6sD3FIZNcsVcJ0cvovH0xJenrjGKqvHn1H0n4NMifrf2Jxje26EZ3kIF_Hc03hFA","state":"login","session_state":"0011941a-a9ed-f0e9-b38a-d486a41f6b12"}
+0|indexus- | [MS365 Callback] Processing state: login
+0|indexus- | [MS365 Callback] Login flow detected
+0|indexus- | [MS365 Callback] Session ID: T9F_HoiwVE_M5fpp7UP-01POw2C7j8ex
+0|indexus- | [MS365 Callback] Session data: {"cookie":{"originalMaxAge":86400000,"expires":"2026-01-16T18:54:34.221Z","secure":true,"httpOnly":true,"path":"/"}}
+0|indexus- | [MS365 Callback] ERROR: pendingMs365UserId not found in session
+0|indexus- | 6:54:34 PM [express] GET /api/auth/microsoft/callback 302 in 3ms
+0|indexus- | 6:54:34 PM [express] GET /api/auth/me 304 in 1ms :: {"user":null}
+
