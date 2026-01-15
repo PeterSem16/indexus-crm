@@ -176,7 +176,7 @@ export default function LandingPage() {
         <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent" />
         
         <div className="relative z-10 container mx-auto px-4 py-8">
-          <header className="flex items-center justify-between mb-16">
+          <header className="flex items-center justify-center lg:justify-between mb-8 lg:mb-16">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-md bg-primary flex items-center justify-center">
                 <Heart className="h-6 w-6 text-primary-foreground" />
@@ -188,19 +188,19 @@ export default function LandingPage() {
             </div>
           </header>
 
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div className="space-y-8">
-              <div className="space-y-4">
-                <h2 className="text-4xl lg:text-5xl font-bold text-foreground leading-tight">
+          <div className="flex flex-col-reverse lg:flex-row lg:grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+            <div className="space-y-8 order-2 lg:order-1">
+              <div className="space-y-4 text-center lg:text-left">
+                <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground leading-tight">
                   Manage Your <span className="text-primary">Cord Blood Banking</span> Business
                 </h2>
-                <p className="text-lg text-muted-foreground max-w-lg">
+                <p className="text-base lg:text-lg text-muted-foreground max-w-lg mx-auto lg:mx-0">
                   A comprehensive CRM system designed specifically for cord blood banking companies. 
                   Streamline customer management across multiple countries with role-based access control.
                 </p>
               </div>
 
-              <div className="grid sm:grid-cols-2 gap-4">
+              <div className="hidden md:grid sm:grid-cols-2 gap-4">
                 {features.map((feature, index) => (
                   <div 
                     key={index} 
@@ -219,7 +219,7 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <div className="flex justify-center lg:justify-end">
+            <div className="flex justify-center lg:justify-end w-full order-1 lg:order-2">
               <Card className="w-full max-w-md">
                 <CardHeader className="space-y-1">
                   <div className="flex items-center gap-2">
@@ -339,16 +339,22 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <footer className="mt-24 pt-8 border-t">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
+          <footer className="mt-12 lg:mt-24 pt-8 border-t">
+            <div className="flex flex-col items-center gap-4 text-sm text-muted-foreground text-center">
               <p>INDEXUS CRM - Secure Medical Customer Management</p>
-              <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center justify-center gap-2 md:gap-4">
                 <span>Slovakia</span>
+                <span className="hidden md:inline">|</span>
                 <span>Czech Republic</span>
+                <span className="hidden md:inline">|</span>
                 <span>Hungary</span>
+                <span className="hidden md:inline">|</span>
                 <span>Romania</span>
+                <span className="hidden md:inline">|</span>
                 <span>Italy</span>
+                <span className="hidden md:inline">|</span>
                 <span>Germany</span>
+                <span className="hidden md:inline">|</span>
                 <span>USA</span>
               </div>
             </div>
