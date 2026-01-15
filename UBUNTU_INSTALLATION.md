@@ -390,7 +390,7 @@ sudo systemctl restart nginx
 
 ## Krok 21: Inštalácia SSL certifikátov
 
-Cordbloodcenter používa vlastné wildcard certifikáty uložené v `/cert/ROK/`.
+Cordbloodcenter používa vlastné wildcard certifikáty uložené v `/ROK/` (napr. `/2025/`).
 
 ### 21.1 Vytvorte priečinok pre certifikáty
 ```bash
@@ -399,9 +399,9 @@ sudo mkdir -p /etc/nginx/ssl
 
 ### 21.2 Skopírujte certifikáty (príklad pre rok 2025)
 ```bash
-sudo cp /cert/2025/wildcard-cordbloodcenter-com.crt /etc/nginx/ssl/
-sudo cp /cert/2025/wildcard-cordbloodcenter-com.key /etc/nginx/ssl/
-sudo cp /cert/2025/intermediate.crt /etc/nginx/ssl/
+sudo cp /2025/wildcard-cordbloodcenter-com.crt /etc/nginx/ssl/
+sudo cp /2025/wildcard-cordbloodcenter-com.key /etc/nginx/ssl/
+sudo cp /2025/intermediate.crt /etc/nginx/ssl/
 ```
 
 ### 21.3 Vytvorte reťazený certifikát (fullchain)
@@ -497,9 +497,9 @@ Keď dostanete nové certifikáty (napr. v roku 2026):
 
 ```bash
 # 1. Skopírujte nové certifikáty
-sudo cp /cert/2026/wildcard-cordbloodcenter-com.crt /etc/nginx/ssl/
-sudo cp /cert/2026/wildcard-cordbloodcenter-com.key /etc/nginx/ssl/
-sudo cp /cert/2026/intermediate.crt /etc/nginx/ssl/
+sudo cp /2026/wildcard-cordbloodcenter-com.crt /etc/nginx/ssl/
+sudo cp /2026/wildcard-cordbloodcenter-com.key /etc/nginx/ssl/
+sudo cp /2026/intermediate.crt /etc/nginx/ssl/
 
 # 2. Vytvorte nový fullchain
 sudo cat /etc/nginx/ssl/wildcard-cordbloodcenter-com.crt /etc/nginx/ssl/intermediate.crt > /etc/nginx/ssl/fullchain.crt
