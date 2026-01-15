@@ -226,11 +226,64 @@ DATABASE_URL=<automaticky nastavené>
 SESSION_SECRET=<nastavené v Replit Secrets>
 ```
 
-### Nastavenie v Replit
+### Ako nastaviť Environment Variables v Replit
 
-1. **Secrets Tab** - Pridajte všetky premenné vyššie
-2. **Database** - Kliknite na "Database" v Tools paneli, PostgreSQL sa vytvorí automaticky
-3. **Migrácie** - Spustite `npm run db:push` v Shell
+#### Krok 1: Otvorte Secrets Panel
+1. V ľavom paneli kliknite na ikonu **Tools** (nástroje)
+2. Vyberte **Secrets**
+3. Otvorí sa panel pre správu tajných premenných
+
+#### Krok 2: Pridajte jednotlivé premenné
+Pre každú premennú:
+1. Kliknite na **+ New Secret**
+2. Do poľa **Key** zadajte názov premennej (napr. `MS365_CLIENT_ID`)
+3. Do poľa **Value** zadajte hodnotu
+4. Kliknite **Add Secret**
+
+#### Krok 3: Zoznam potrebných premenných
+
+| Premenná | Popis | Kde získať |
+|----------|-------|------------|
+| `SESSION_SECRET` | Šifrovací kľúč pre sessions | Vygenerujte náhodný reťazec 32+ znakov |
+| `MS365_TENANT_ID` | Azure Tenant ID | Azure Portal > App Registration |
+| `MS365_CLIENT_ID` | Azure Application ID | Azure Portal > App Registration |
+| `MS365_CLIENT_SECRET` | Azure Client Secret | Azure Portal > Certificates & secrets |
+| `MS365_REDIRECT_URI` | OAuth callback URL | Použite Replit doménu + `/api/auth/microsoft/callback` |
+| `MS365_POST_LOGOUT_URI` | Logout redirect URL | Použite Replit doménu |
+| `OPENAI_API_KEY` | OpenAI API kľúč | https://platform.openai.com/api-keys |
+| `BULKGATE_APPLICATION_ID` | BulkGate App ID | BulkGate Dashboard |
+| `BULKGATE_APPLICATION_TOKEN` | BulkGate Token | BulkGate Dashboard |
+| `BULKGATE_WEBHOOK_URL` | Webhook URL | Replit doména + `/api/auth/bulkgate/callback` |
+| `BULKGATE_SENDER_ID` | SMS Sender ID | Napr. `INDEXUS` |
+
+#### Krok 4: Nastavte Database
+1. V ľavom paneli kliknite na **Tools**
+2. Vyberte **Database**
+3. Kliknite **Create Database**
+4. `DATABASE_URL` sa nastaví automaticky
+
+#### Krok 5: Spustite migrácie
+V **Shell** paneli spustite:
+```bash
+npm run db:push
+```
+
+#### Tip: Generovanie náhodného SESSION_SECRET
+V Shell spustite:
+```bash
+openssl rand -base64 32
+```
+Výstup skopírujte a použite ako hodnotu pre `SESSION_SECRET`.
+
+---
+
+### Overenie nastavenia
+
+Po nastavení všetkých premenných reštartujte aplikáciu:
+1. Kliknite na **Stop** v hornej časti
+2. Kliknite na **Run**
+
+Skontrolujte logy či sa aplikácia spustila správne bez chýb.
 
 ---
 
@@ -298,6 +351,64 @@ BULKGATE_APPLICATION_TOKEN=<nový token pre produkciu>
 BULKGATE_WEBHOOK_URL=https://indexus.cordbloodcenter.com/api/auth/bulkgate/callback
 BULKGATE_WEBHOOK_TOKEN=<vygenerujte nový náhodný token>
 BULKGATE_SENDER_ID=INDEXUS_PROD
+```
+
+### Ako vytvoriť .env súbor na Ubuntu Server
+
+#### Krok 1: Pripojte sa na server
+```bash
+ssh user@indexus.cordbloodcenter.com
+```
+
+#### Krok 2: Prejdite do priečinka aplikácie
+```bash
+cd /var/www/indexus-crm
+```
+
+#### Krok 3: Vytvorte .env súbor
+```bash
+sudo nano .env
+```
+
+#### Krok 4: Vložte všetky premenné
+Skopírujte obsah z tabuľky vyššie a upravte hodnoty:
+
+```bash
+NODE_ENV=production
+PORT=5000
+SESSION_SECRET=tu-vloz-vygenerovany-kluc
+DATABASE_URL=postgresql://indexus:vase-heslo@localhost:5432/indexus_crm
+MS365_TENANT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+MS365_CLIENT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+MS365_CLIENT_SECRET=vasa-hodnota
+MS365_REDIRECT_URI=https://indexus.cordbloodcenter.com/api/auth/microsoft/callback
+MS365_POST_LOGOUT_URI=https://indexus.cordbloodcenter.com
+OPENAI_API_KEY=sk-xxxxxxxxxxxxx
+BULKGATE_APPLICATION_ID=INDEXUS_PROD
+BULKGATE_APPLICATION_TOKEN=vas-token
+BULKGATE_WEBHOOK_URL=https://indexus.cordbloodcenter.com/api/auth/bulkgate/callback
+BULKGATE_WEBHOOK_TOKEN=nahodny-token
+BULKGATE_SENDER_ID=INDEXUS_PROD
+```
+
+#### Krok 5: Uložte súbor
+- Stlačte `Ctrl+X`
+- Potvrďte `Y`
+- Stlačte `Enter`
+
+#### Krok 6: Nastavte oprávnenia
+```bash
+chmod 600 .env
+```
+
+#### Krok 7: Generovanie SESSION_SECRET
+```bash
+openssl rand -base64 32
+```
+
+#### Krok 8: Reštartujte aplikáciu
+```bash
+pm2 restart indexus-crm
 ```
 
 ---
