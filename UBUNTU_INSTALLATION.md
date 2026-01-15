@@ -573,6 +573,31 @@ https://indexus.cordbloodcenter.com
 
 ---
 
+## Inicializácia databázy s testovacími dátami
+
+Po prvej inštalácii môžete naplniť databázu základnými dátami:
+
+```bash
+cd /var/www/indexus-crm
+
+# Najprv vytvorte schému
+npm run db:push
+
+# Potom naplňte testovacími dátami
+psql $DATABASE_URL < scripts/seed-production.sql
+```
+
+**Predvolené prihlasovacie údaje:**
+| Používateľ | Heslo | Rola |
+|------------|-------|------|
+| admin | Admin123! | Administrator |
+| seman | Admin123! | Administrator |
+| kollar | Admin123! | Manager |
+
+**Dôležité:** Po prvom prihlásení si ihneď zmeňte heslo!
+
+---
+
 ## Aktualizácia aplikácie
 
 Pri vydaní novej verzie:
