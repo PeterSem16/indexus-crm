@@ -1,0 +1,52 @@
+/home/seman/.pm2/logs/indexus-crm-out-6.log last 50 lines:
+6|indexus- | [Chat] WebSocket server initialized on path /ws/chat
+6|indexus- | [ExchangeRates] Scheduled update in 761 minutes (at midnight)
+6|indexus- | 11:18:32 AM [express] serving on port 5000
+6|indexus- | Notification WebSocket server initialized on /ws/notifications
+6|indexus- | [EmailMonitor] Starting email monitoring service...
+6|indexus- | [Chat] WebSocket server initialized on path /ws/chat
+6|indexus- | [ExchangeRates] Scheduled update in 761 minutes (at midnight)
+6|indexus- | 11:19:17 AM [express] serving on port 5000
+6|indexus- | 11:23:05 AM [express] POST /api/auth/check-auth-method 404 in 10ms :: {"error":"Používateľ neexistuje"}
+6|indexus- | 11:41:21 AM [express] GET /api/auth/me 200 in 1ms :: {"user":null}
+6|indexus- | 11:41:51 AM [express] POST /api/auth/check-auth-method 404 in 7ms :: {"error":"Používateľ neexistuje"}
+6|indexus- | 11:43:05 AM [express] GET /api/auth/me 304 in 1ms :: {"user":null}
+6|indexus- | 11:43:08 AM [express] GET /api/auth/me 304 in 1ms :: {"user":null}
+6|indexus- | 11:43:15 AM [express] GET /api/auth/me 304 in 1ms :: {"user":null}
+6|indexus- | 11:51:38 AM [express] GET /api/auth/me 304 in 1ms :: {"user":null}
+6|indexus- | 11:53:38 AM [express] GET /api/auth/me 304 in 0ms :: {"user":null}
+6|indexus- | 12:02:09 PM [express] GET /api/auth/me 304 in 0ms :: {"user":null}
+6|indexus- | 12:03:49 PM [express] GET /api/auth/me 304 in 1ms :: {"user":null}
+6|indexus- | 12:11:40 PM [express] GET /api/auth/me 304 in 1ms :: {"user":null}
+6|indexus- | 12:15:25 PM [express] POST /api/auth/check-auth-method 404 in 2ms :: {"error":"Používateľ neexistuje"}
+6|indexus- | Notification WebSocket server initialized on /ws/notifications
+6|indexus- | [EmailMonitor] Starting email monitoring service...
+6|indexus- | [Chat] WebSocket server initialized on path /ws/chat
+6|indexus- | [ExchangeRates] Scheduled update in 703 minutes (at midnight)
+6|indexus- | 12:17:13 PM [express] serving on port 5000
+6|indexus- | 1:02:23 PM [express] POST /api/auth/check-auth-method 404 in 3ms :: {"error":"Používateľ neexistuje"}
+6|indexus- | 1:03:31 PM [express] POST /api/auth/check-auth-method 404 in 8ms :: {"error":"Používateľ neexistuje"}
+6|indexus- | 2:26:44 PM [express] POST /api/auth/check-auth-method 404 in 7ms :: {"error":"Používateľ neexistuje"}
+6|indexus- | 3:00:18 PM [express] GET /api/auth/me 200 in 0ms :: {"user":null}
+6|indexus- | Notification WebSocket server initialized on /ws/notifications
+6|indexus- | [EmailMonitor] Starting email monitoring service...
+6|indexus- | [Chat] WebSocket server initialized on path /ws/chat
+6|indexus- | [ExchangeRates] Scheduled update in 435 minutes (at midnight)
+6|indexus- | 4:44:48 PM [express] serving on port 5000
+6|indexus- | 4:50:41 PM [express] POST /api/auth/check-auth-method 404 in 11ms :: {"error":"Používateľ neexistuje"}
+6|indexus- | 4:53:50 PM [express] POST /api/auth/check-auth-method 404 in 2ms :: {"error":"Používateľ neexistuje"}
+6|indexus- | 4:54:07 PM [express] POST /api/auth/check-auth-method 404 in 7ms :: {"error":"Používateľ neexistuje"}
+6|indexus- | Notification WebSocket server initialized on /ws/notifications
+6|indexus- | [EmailMonitor] Starting email monitoring service...
+6|indexus- | [Chat] WebSocket server initialized on path /ws/chat
+6|indexus- | [ExchangeRates] Scheduled update in 417 minutes (at midnight)
+6|indexus- | 5:02:47 PM [express] serving on port 5000
+6|indexus- | 5:03:05 PM [express] POST /api/auth/check-auth-method 404 in 13ms :: {"error":"Používateľ neexistuje"}
+6|indexus- | 5:03:17 PM [express] POST /api/auth/check-auth-method 404 in 8ms :: {"error":"Používateľ neexistuje"}
+6|indexus- | 5:05:25 PM [express] GET /api/auth/me 304 in 2ms :: {"user":null}
+6|indexus- | Notification WebSocket server initialized on /ws/notifications
+6|indexus- | [EmailMonitor] Starting email monitoring service...
+6|indexus- | [Chat] WebSocket server initialized on path /ws/chat
+6|indexus- | [ExchangeRates] Scheduled update in 412 minutes (at midnight)
+6|indexus- | 5:08:27 PM [express] serving on port 5000
+
