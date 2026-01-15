@@ -388,20 +388,129 @@ sudo systemctl restart nginx
 
 ---
 
-## Krok 21: Inštalácia SSL certifikátu
+## Krok 21: Inštalácia SSL certifikátov
 
+Cordbloodcenter používa vlastné wildcard certifikáty uložené v `/cert/ROK/`.
+
+### 21.1 Vytvorte priečinok pre certifikáty
 ```bash
-# Inštalácia Certbot
-sudo apt install -y certbot python3-certbot-nginx
-
-# Získanie certifikátu
-sudo certbot --nginx -d indexus.cordbloodcenter.com
+sudo mkdir -p /etc/nginx/ssl
 ```
 
-Postupujte podľa pokynov:
-1. Zadajte email pre notifikácie
-2. Súhlaste s podmienkami (A)
-3. Vyberte či chcete presmerovať HTTP na HTTPS (odporúčané: 2)
+### 21.2 Skopírujte certifikáty (príklad pre rok 2025)
+```bash
+sudo cp /cert/2025/wildcard-cordbloodcenter-com.crt /etc/nginx/ssl/
+sudo cp /cert/2025/wildcard-cordbloodcenter-com.key /etc/nginx/ssl/
+sudo cp /cert/2025/intermediate.crt /etc/nginx/ssl/
+```
+
+### 21.3 Vytvorte reťazený certifikát (fullchain)
+```bash
+sudo cat /etc/nginx/ssl/wildcard-cordbloodcenter-com.crt /etc/nginx/ssl/intermediate.crt > /etc/nginx/ssl/fullchain.crt
+```
+
+### 21.4 Nastavte oprávnenia
+```bash
+sudo chmod 600 /etc/nginx/ssl/*.key
+sudo chmod 644 /etc/nginx/ssl/*.crt
+sudo chown root:root /etc/nginx/ssl/*
+```
+
+### 21.5 Aktualizujte Nginx konfiguráciu pre HTTPS
+```bash
+sudo nano /etc/nginx/sites-available/indexus-crm
+```
+
+Nahraďte celý obsah:
+
+```nginx
+server {
+    listen 80;
+    server_name indexus.cordbloodcenter.com;
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name indexus.cordbloodcenter.com;
+
+    # SSL certifikáty
+    ssl_certificate /etc/nginx/ssl/fullchain.crt;
+    ssl_certificate_key /etc/nginx/ssl/wildcard-cordbloodcenter-com.key;
+
+    # SSL nastavenia
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1d;
+
+    # Hlavná aplikácia
+    location / {
+        proxy_pass http://localhost:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 300;
+        proxy_connect_timeout 300;
+        proxy_send_timeout 300;
+    }
+
+    # WebSocket pre notifikácie
+    location /ws/ {
+        proxy_pass http://localhost:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_read_timeout 86400;
+    }
+
+    client_max_body_size 50M;
+}
+```
+
+Uložte: `Ctrl+X`, `Y`, `Enter`
+
+### 21.6 Otestujte a reštartujte Nginx
+```bash
+sudo nginx -t
+sudo systemctl restart nginx
+```
+
+### 21.7 Overte funkčnosť SSL
+```bash
+curl -I https://indexus.cordbloodcenter.com
+```
+
+---
+
+## Ročná obnova SSL certifikátov
+
+Keď dostanete nové certifikáty (napr. v roku 2026):
+
+```bash
+# 1. Skopírujte nové certifikáty
+sudo cp /cert/2026/wildcard-cordbloodcenter-com.crt /etc/nginx/ssl/
+sudo cp /cert/2026/wildcard-cordbloodcenter-com.key /etc/nginx/ssl/
+sudo cp /cert/2026/intermediate.crt /etc/nginx/ssl/
+
+# 2. Vytvorte nový fullchain
+sudo cat /etc/nginx/ssl/wildcard-cordbloodcenter-com.crt /etc/nginx/ssl/intermediate.crt > /etc/nginx/ssl/fullchain.crt
+
+# 3. Nastavte oprávnenia
+sudo chmod 600 /etc/nginx/ssl/*.key
+sudo chmod 644 /etc/nginx/ssl/*.crt
+
+# 4. Otestujte a reštartujte Nginx
+sudo nginx -t && sudo systemctl restart nginx
+```
 
 ---
 
