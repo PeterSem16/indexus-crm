@@ -25,19 +25,19 @@ export default function LandingPage() {
     const error = params.get("error");
     if (error) {
       const errorMessages: Record<string, string> = {
-        ms365_auth_failed: "Prihlásenie cez Microsoft 365 zlyhalo",
-        missing_code: "Chýba autorizačný kód",
-        session_expired: "Relácia vypršala, skúste znova",
-        token_exchange_failed: "Chyba pri získavaní tokenu",
-        graph_api_failed: "Chyba pri komunikácii s Microsoft",
-        user_not_found: "Používateľ nebol nájdený",
-        account_deactivated: "Účet je deaktivovaný",
-        email_mismatch: "Email v Microsoft účte sa nezhoduje s CRM účtom",
-        login_failed: "Prihlásenie zlyhalo",
+        ms365_auth_failed: "Microsoft 365 login failed",
+        missing_code: "Missing authorization code",
+        session_expired: "Session expired, please try again",
+        token_exchange_failed: "Error obtaining token",
+        graph_api_failed: "Error communicating with Microsoft",
+        user_not_found: "User not found",
+        account_deactivated: "Account is deactivated",
+        email_mismatch: "Microsoft account email does not match CRM account",
+        login_failed: "Login failed",
       };
       toast({
-        title: "Chyba prihlásenia",
-        description: errorMessages[error] || "Neznáma chyba",
+        title: "Login Error",
+        description: errorMessages[error] || "Unknown error",
         variant: "destructive",
       });
       // Clean URL
@@ -50,8 +50,8 @@ export default function LandingPage() {
     e.preventDefault();
     if (!username) {
       toast({
-        title: "Chyba",
-        description: "Zadajte používateľské meno",
+        title: "Error",
+        description: "Please enter your username",
         variant: "destructive",
       });
       return;
@@ -70,8 +70,8 @@ export default function LandingPage() {
       
       if (!response.ok) {
         toast({
-          title: "Chyba",
-          description: data.error || "Používateľ neexistuje",
+          title: "Error",
+          description: data.error || "User does not exist",
           variant: "destructive",
         });
         return;
@@ -87,8 +87,8 @@ export default function LandingPage() {
       }
     } catch (error: any) {
       toast({
-        title: "Chyba",
-        description: error.message || "Nepodarilo sa overiť používateľa",
+        title: "Error",
+        description: error.message || "Failed to verify user",
         variant: "destructive",
       });
     } finally {
@@ -101,8 +101,8 @@ export default function LandingPage() {
     e.preventDefault();
     if (!password) {
       toast({
-        title: "Chyba",
-        description: "Zadajte heslo",
+        title: "Error",
+        description: "Please enter your password",
         variant: "destructive",
       });
       return;
@@ -117,8 +117,8 @@ export default function LandingPage() {
       }
     } catch (error: any) {
       toast({
-        title: "Prihlásenie zlyhalo",
-        description: error.message || "Neplatné heslo",
+        title: "Login Failed",
+        description: error.message || "Invalid password",
         variant: "destructive",
       });
     } finally {
@@ -133,8 +133,8 @@ export default function LandingPage() {
       await loginWithMs365(username);
     } catch (error: any) {
       toast({
-        title: "Chyba",
-        description: error.message || "Nepodarilo sa pripojiť k Microsoft 365",
+        title: "Error",
+        description: error.message || "Failed to connect to Microsoft 365",
         variant: "destructive",
       });
       setIsLoading(false);
@@ -235,10 +235,10 @@ export default function LandingPage() {
                   {step === "username" && (
                     <form onSubmit={handleCheckAuthMethod} className="space-y-4">
                       <div className="space-y-2">
-                        <Label htmlFor="username">Používateľské meno</Label>
+                        <Label htmlFor="username">Username</Label>
                         <Input
                           id="username"
-                          placeholder="Zadajte používateľské meno"
+                          placeholder="Enter your username"
                           value={username}
                           onChange={(e) => setUsername(e.target.value)}
                           disabled={isLoading}
@@ -252,7 +252,7 @@ export default function LandingPage() {
                         disabled={isLoading || !username}
                         data-testid="button-continue"
                       >
-                        {isLoading ? "Overujem..." : "Pokračovať"}
+                        {isLoading ? "Verifying..." : "Continue"}
                         {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
                       </Button>
                     </form>
@@ -262,15 +262,15 @@ export default function LandingPage() {
                   {step === "password" && (
                     <form onSubmit={handlePasswordLogin} className="space-y-4">
                       <div className="text-center mb-4">
-                        <p className="text-sm text-muted-foreground">Prihlásenie ako</p>
+                        <p className="text-sm text-muted-foreground">Signing in as</p>
                         <p className="font-semibold">{userFullName || username}</p>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="password">Heslo</Label>
+                        <Label htmlFor="password">Password</Label>
                         <Input
                           id="password"
                           type="password"
-                          placeholder="Zadajte heslo"
+                          placeholder="Enter your password"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           disabled={isLoading}
@@ -284,7 +284,7 @@ export default function LandingPage() {
                         disabled={isLoading || !password}
                         data-testid="button-login"
                       >
-                        {isLoading ? "Prihlasujem..." : "Prihlásiť sa"}
+                        {isLoading ? "Signing in..." : "Sign In"}
                         {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
                       </Button>
                       <Button 
@@ -295,7 +295,7 @@ export default function LandingPage() {
                         disabled={isLoading}
                         data-testid="button-back"
                       >
-                        Späť
+                        Back
                       </Button>
                     </form>
                   )}
@@ -304,12 +304,12 @@ export default function LandingPage() {
                   {step === "ms365" && (
                     <div className="space-y-4">
                       <div className="text-center mb-4">
-                        <p className="text-sm text-muted-foreground">Prihlásenie ako</p>
+                        <p className="text-sm text-muted-foreground">Signing in as</p>
                         <p className="font-semibold">{userFullName || username}</p>
                       </div>
                       <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
                         <p className="text-sm text-blue-700 dark:text-blue-300 mb-3 text-center">
-                          Tento účet vyžaduje prihlásenie cez Microsoft 365
+                          This account requires Microsoft 365 sign-in
                         </p>
                         <Button 
                           type="button"
@@ -319,7 +319,7 @@ export default function LandingPage() {
                           data-testid="button-login-ms365"
                         >
                           <Building2 className="mr-2 h-4 w-4" />
-                          {isLoading ? "Prihlasujem..." : "Prihlásiť sa cez Microsoft 365"}
+                          {isLoading ? "Signing in..." : "Sign in with Microsoft 365"}
                         </Button>
                       </div>
                       <Button 
@@ -330,7 +330,7 @@ export default function LandingPage() {
                         disabled={isLoading}
                         data-testid="button-back-ms365"
                       >
-                        Späť
+                        Back
                       </Button>
                     </div>
                   )}
