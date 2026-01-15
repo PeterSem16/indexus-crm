@@ -32,6 +32,7 @@ import {
 import { COUNTRIES } from "@/lib/countries";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { User as UserType, Role } from "@shared/schema";
+import { COUNTRY_PHONE_PREFIXES } from "@shared/schema";
 import { useModuleFieldPermissions } from "@/components/ui/permission-field";
 
 const createUserFormSchema = z.object({
@@ -49,6 +50,8 @@ const createUserFormSchema = z.object({
   sipDisplayName: z.string().optional(),
   authMethod: z.enum(["local", "ms365"]).optional(),
   nexusEnabled: z.boolean().optional(),
+  phonePrefix: z.string().optional(),
+  phone: z.string().optional(),
 });
 
 const updateUserFormSchema = z.object({
@@ -66,6 +69,8 @@ const updateUserFormSchema = z.object({
   sipDisplayName: z.string().optional(),
   authMethod: z.enum(["local", "ms365"]).optional(),
   nexusEnabled: z.boolean().optional(),
+  phonePrefix: z.string().optional(),
+  phone: z.string().optional(),
 });
 
 export type UserFormData = z.infer<typeof createUserFormSchema>;
@@ -141,6 +146,8 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
       authMethod: (initialData as any)?.authMethod || "local",
       sipDisplayName: (initialData as any)?.sipDisplayName || "",
       nexusEnabled: (initialData as any)?.nexusEnabled ?? false,
+      phonePrefix: (initialData as any)?.phonePrefix || "+421",
+      phone: (initialData as any)?.phone || "",
     },
   });
   
@@ -371,6 +378,58 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
             )}
           />
         )}
+      </div>
+
+      {/* Phone number for notifications */}
+      <div className="mt-4 pt-4 border-t">
+        <FormLabel className="text-base font-medium flex items-center gap-2 mb-3">
+          <Phone className="h-4 w-4" />
+          {t.users.phoneForNotifications || "Telefón pre notifikácie"}
+        </FormLabel>
+        <FormDescription className="mb-3">
+          {t.users.phoneForNotificationsHint || "Toto číslo bude použité na zasielanie SMS notifikácií a alertov zo systému."}
+        </FormDescription>
+        <div className="flex gap-2">
+          <FormField
+            control={form.control}
+            name="phonePrefix"
+            render={({ field }) => (
+              <FormItem className="w-32">
+                <FormControl>
+                  <Select onValueChange={field.onChange} value={field.value || "+421"}>
+                    <SelectTrigger data-testid="select-phone-prefix">
+                      <SelectValue placeholder="+421" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COUNTRY_PHONE_PREFIXES.map((country) => (
+                        <SelectItem key={country.code} value={country.prefix}>
+                          {country.prefix} ({country.code})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="phone"
+            render={({ field }) => (
+              <FormItem className="flex-1">
+                <FormControl>
+                  <Input
+                    type="tel"
+                    placeholder="900 123 456"
+                    {...field}
+                    data-testid="input-phone"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
       </div>
     </div>
   );

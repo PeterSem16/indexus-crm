@@ -469,6 +469,8 @@ export interface Translations {
     newPassword: string;
     leaveEmptyPassword: string;
     enterPassword: string;
+    phoneForNotifications: string;
+    phoneForNotificationsHint: string;
     selectRole: string;
     activeAccount: string;
     activeAccountHint: string;
@@ -1920,6 +1922,8 @@ export const translations: Record<Locale, Translations> = {
       newPassword: 'New Password (optional)',
       leaveEmptyPassword: 'Leave empty to keep current',
       enterPassword: 'Enter password',
+      phoneForNotifications: 'Phone for notifications',
+      phoneForNotificationsHint: 'This number will be used to send SMS notifications and alerts from the system.',
       selectRole: 'Select a role',
       activeAccount: 'Active Account',
       activeAccountHint: 'User can access the CRM system when active',
@@ -3381,6 +3385,8 @@ export const translations: Record<Locale, Translations> = {
       newPassword: 'Nové heslo (voliteľné)',
       leaveEmptyPassword: 'Nechajte prázdne pre zachovanie aktuálneho',
       enterPassword: 'Zadajte heslo',
+      phoneForNotifications: 'Telefón pre notifikácie',
+      phoneForNotificationsHint: 'Toto číslo bude použité na zasielanie SMS notifikácií a alertov zo systému.',
       selectRole: 'Vyberte rolu',
       activeAccount: 'Aktívny účet',
       activeAccountHint: 'Používateľ môže pristupovať k CRM systému keď je aktívny',
@@ -4847,6 +4853,8 @@ export const translations: Record<Locale, Translations> = {
       newPassword: 'Nové heslo (volitelné)',
       leaveEmptyPassword: 'Ponechte prázdné pro zachování stávajícího',
       enterPassword: 'Zadejte heslo',
+      phoneForNotifications: 'Telefon pro notifikace',
+      phoneForNotificationsHint: 'Toto číslo bude použito k zasílání SMS notifikací a upozornění ze systému.',
       selectRole: 'Vyberte roli',
       activeAccount: 'Aktivní účet',
       activeAccountHint: 'Uživatel může přistupovat k CRM systému když je aktivní',
@@ -6276,6 +6284,8 @@ export const translations: Record<Locale, Translations> = {
       newPassword: 'Új jelszó (opcionális)',
       leaveEmptyPassword: 'Hagyja üresen a jelenlegi megtartásához',
       enterPassword: 'Adja meg a jelszót',
+      phoneForNotifications: 'Telefon az értesítésekhez',
+      phoneForNotificationsHint: 'Ez a szám lesz használva SMS értesítések és riasztások küldésére a rendszerből.',
       selectRole: 'Válasszon szerepkört',
       activeAccount: 'Aktív fiók',
       activeAccountHint: 'A felhasználó hozzáférhet a CRM rendszerhez ha aktív',
@@ -7705,6 +7715,8 @@ export const translations: Record<Locale, Translations> = {
       newPassword: 'Parolă nouă (opțional)',
       leaveEmptyPassword: 'Lăsați gol pentru a păstra parola actuală',
       enterPassword: 'Introduceți parola',
+      phoneForNotifications: 'Telefon pentru notificări',
+      phoneForNotificationsHint: 'Acest număr va fi folosit pentru a trimite notificări SMS și alerte din sistem.',
       selectRole: 'Selectați un rol',
       activeAccount: 'Cont activ',
       activeAccountHint: 'Utilizatorul poate accesa sistemul CRM când este activ',
@@ -9134,6 +9146,8 @@ export const translations: Record<Locale, Translations> = {
       newPassword: 'Nuova password (opzionale)',
       leaveEmptyPassword: 'Lascia vuoto per mantenere la password attuale',
       enterPassword: 'Inserisci password',
+      phoneForNotifications: 'Telefono per notifiche',
+      phoneForNotificationsHint: 'Questo numero verrà utilizzato per inviare notifiche SMS e avvisi dal sistema.',
       selectRole: 'Seleziona un ruolo',
       activeAccount: 'Account attivo',
       activeAccountHint: 'L\'utente può accedere al sistema CRM quando è attivo',
@@ -10563,6 +10577,8 @@ export const translations: Record<Locale, Translations> = {
       newPassword: 'Neues Passwort (optional)',
       leaveEmptyPassword: 'Leer lassen, um das aktuelle Passwort beizubehalten',
       enterPassword: 'Passwort eingeben',
+      phoneForNotifications: 'Telefon für Benachrichtigungen',
+      phoneForNotificationsHint: 'Diese Nummer wird verwendet, um SMS-Benachrichtigungen und Warnungen aus dem System zu senden.',
       selectRole: 'Rolle auswählen',
       activeAccount: 'Aktives Konto',
       activeAccountHint: 'Benutzer kann auf das CRM-System zugreifen, wenn aktiv',
