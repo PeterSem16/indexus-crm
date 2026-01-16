@@ -49,6 +49,13 @@
         {
           "microphonePermission": "Allow INDEXUS Connect to access your microphone."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#6B1C3B"
+        }
       ]
     ],
     "experiments": {
