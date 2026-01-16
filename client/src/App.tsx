@@ -39,6 +39,7 @@ import PipelinePage from "@/pages/pipeline";
 import MS365IntegrationPage from "@/pages/ms365-integration";
 import EmailClientPage from "@/pages/email-client";
 import LandingPage from "@/pages/landing";
+import MobilePreview from "@/pages/mobile-preview";
 import NotFound from "@/pages/not-found";
 import { Loader2 } from "lucide-react";
 
@@ -152,6 +153,7 @@ function AuthenticatedApp() {
                     <Route path="/ms365" component={MS365IntegrationPage} />
                     <Route path="/email" component={EmailClientPage} />
                     <Route path="/notifications" component={NotificationCenterPage} />
+                    <Route path="/mobile-preview" component={MobilePreview} />
                     <Route path="/login">
                       <Redirect to="/" />
                     </Route>
