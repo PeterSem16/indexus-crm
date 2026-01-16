@@ -659,9 +659,9 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
         render={({ field }) => (
           <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
             <div className="space-y-0.5">
-              <FormLabel className="text-base">Povoliť SIP telefón</FormLabel>
+              <FormLabel className="text-base">{t.users?.sip?.enableSipPhone || "Povoliť SIP telefón"}</FormLabel>
               <FormDescription>
-                Aktivovať možnosť telefonovania pre tohto používateľa
+                {t.users?.sip?.enableSipPhoneHint || "Aktivovať možnosť telefonovania pre tohto používateľa"}
               </FormDescription>
             </div>
             <FormControl>
@@ -708,16 +708,16 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
               name="sipExtension"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Linka (Extension)</FormLabel>
+                  <FormLabel>{t.users?.sip?.extension || "Linka (Extension)"}</FormLabel>
                   <FormControl>
                     <Input 
-                      placeholder="1001" 
+                      placeholder={t.users?.sip?.extensionPlaceholder || "1001"} 
                       {...field}
                       data-testid="input-sip-extension"
                     />
                   </FormControl>
                   <FormDescription>
-                    Číslo linky pridelené v Asterisk PBX
+                    {t.users?.sip?.extensionHint || "Číslo linky pridelené v Asterisk PBX"}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -729,17 +729,17 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
               name="sipPassword"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Heslo</FormLabel>
+                  <FormLabel>{t.users?.sip?.password || "Heslo"}</FormLabel>
                   <FormControl>
                     <Input 
                       type="password"
-                      placeholder="••••••••" 
+                      placeholder={t.users?.sip?.passwordPlaceholder || "••••••••"} 
                       {...field}
                       data-testid="input-sip-password"
                     />
                   </FormControl>
                   <FormDescription>
-                    Heslo pre autentifikáciu SIP linky
+                    {t.users?.sip?.passwordHint || "Heslo pre autentifikáciu SIP linky"}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -751,16 +751,16 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
               name="sipDisplayName"
               render={({ field }) => (
                 <FormItem className="sm:col-span-2">
-                  <FormLabel>Zobrazované meno (voliteľné)</FormLabel>
+                  <FormLabel>{t.users?.sip?.displayName || "Zobrazované meno (voliteľné)"}</FormLabel>
                   <FormControl>
                     <Input 
-                      placeholder="Meno zobrazené pri hovore" 
+                      placeholder={t.users?.sip?.displayNamePlaceholder || "Meno zobrazené pri hovore"} 
                       {...field}
                       data-testid="input-sip-display-name"
                     />
                   </FormControl>
                   <FormDescription>
-                    Meno ktoré sa zobrazí volanému
+                    {t.users?.sip?.displayNameHint || "Meno ktoré sa zobrazí volanému"}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -785,10 +785,10 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
                 <svg viewBox="0 0 24 24" className="h-5 w-5 text-primary" fill="currentColor">
                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
                 </svg>
-                Enable NEXUS AI
+                {t.users?.nexus?.enableNexus || "Povoliť NEXUS AI"}
               </FormLabel>
               <FormDescription>
-                Activate NEXUS AI assistant for intelligent data queries in any language
+                {t.users?.nexus?.enableNexusHint || "Aktivovať NEXUS AI asistenta pre inteligentné dopyty v ľubovoľnom jazyku"}
               </FormDescription>
             </div>
             <FormControl>
@@ -907,10 +907,10 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
     },
     onSuccess: () => {
       refetchMs365Connection();
-      toast({ title: "MS365 pripojenie uložené" });
+      toast({ title: t.users?.ms365?.connectionSaved || "MS365 pripojenie uložené" });
     },
     onError: () => {
-      toast({ title: "Chyba pri ukladaní pripojenia", variant: "destructive" });
+      toast({ title: t.users?.ms365?.connectionError || "Chyba pri ukladaní pripojenia", variant: "destructive" });
     },
   });
   
@@ -926,10 +926,10 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
     onSuccess: () => {
       refetchMs365Connection();
       refetchMailboxes();
-      toast({ title: "MS365 odpojené" });
+      toast({ title: t.users?.ms365?.disconnected || "MS365 odpojené" });
     },
     onError: () => {
-      toast({ title: "Chyba pri odpájaní", variant: "destructive" });
+      toast({ title: t.users?.ms365?.disconnectError || "Chyba pri odpájaní", variant: "destructive" });
     },
   });
   
@@ -949,10 +949,10 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
       setNewMailboxEmail("");
       setNewMailboxName("");
       setIsAddingMailbox(false);
-      toast({ title: "Shared mailbox pridaný" });
+      toast({ title: t.users?.ms365?.mailboxAdded || "Shared mailbox pridaný" });
     },
     onError: () => {
-      toast({ title: "Chyba pri pridávaní mailboxu", variant: "destructive" });
+      toast({ title: t.users?.ms365?.mailboxAddError || "Chyba pri pridávaní mailboxu", variant: "destructive" });
     },
   });
   
@@ -967,10 +967,10 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
     },
     onSuccess: () => {
       refetchMailboxes();
-      toast({ title: "Shared mailbox odstránený" });
+      toast({ title: t.users?.ms365?.mailboxRemoved || "Shared mailbox odstránený" });
     },
     onError: () => {
-      toast({ title: "Chyba pri odstraňovaní mailboxu", variant: "destructive" });
+      toast({ title: t.users?.ms365?.mailboxRemoveError || "Chyba pri odstraňovaní mailboxu", variant: "destructive" });
     },
   });
   
@@ -985,10 +985,10 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
     },
     onSuccess: () => {
       refetchMailboxes();
-      toast({ title: "Predvolený mailbox nastavený" });
+      toast({ title: t.users?.ms365?.defaultSet || "Predvolený mailbox nastavený" });
     },
     onError: () => {
-      toast({ title: "Chyba pri nastavovaní predvoleného mailboxu", variant: "destructive" });
+      toast({ title: t.users?.ms365?.defaultSetError || "Chyba pri nastavovaní predvoleného mailboxu", variant: "destructive" });
     },
   });
   
@@ -1008,7 +1008,7 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
       return (
         <div className="p-4 rounded-md bg-muted text-center">
           <p className="text-sm text-muted-foreground">
-            MS365 pripojenie je dostupné až po vytvorení používateľa.
+            {t.users?.ms365?.availableAfterCreate || "MS365 pripojenie je dostupné až po vytvorení používateľa."}
           </p>
         </div>
       );
@@ -1018,13 +1018,13 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
       <div className="space-y-6">
         <div className="flex items-center gap-2 text-muted-foreground mb-4">
           <Mail className="h-4 w-4" />
-          <span className="text-sm">Pripojenie Microsoft 365 účtu pre email a kalendár</span>
+          <span className="text-sm">{t.users?.ms365?.connectionDescription || "Pripojenie Microsoft 365 účtu pre email a kalendár"}</span>
         </div>
         
         {ms365Loading ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
-            Načítavanie...
+            {t.users?.ms365?.loading || "Načítavanie..."}
           </div>
         ) : ms365Connection?.isConnected ? (
           <div className="space-y-4">
@@ -1033,7 +1033,7 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
                 <div className="flex items-center gap-3">
                   <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
                   <div>
-                    <p className="font-medium text-green-700 dark:text-green-300">Pripojené</p>
+                    <p className="font-medium text-green-700 dark:text-green-300">{t.users?.ms365?.connected || "Pripojené"}</p>
                     <p className="text-sm text-green-600 dark:text-green-400">{ms365Connection.email}</p>
                     {ms365Connection.displayName && (
                       <p className="text-xs text-green-600/70 dark:text-green-400/70">{ms365Connection.displayName}</p>
@@ -1053,14 +1053,14 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
                   ) : (
                     <XCircle className="h-4 w-4 mr-1" />
                   )}
-                  Odpojiť
+                  {t.users?.ms365?.disconnect || "Odpojiť"}
                 </Button>
               </div>
             </div>
             
             <div className="border-t pt-4">
               <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                <h4 className="font-medium">Shared Mailboxy</h4>
+                <h4 className="font-medium">{t.users?.ms365?.sharedMailboxes || "Shared Mailboxy"}</h4>
                 {!isAddingMailbox && (
                   <Button
                     type="button"
@@ -1070,25 +1070,25 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
                     data-testid="button-add-mailbox"
                   >
                     <Plus className="h-4 w-4 mr-1" />
-                    Pridať
+                    {t.users?.ms365?.add || "Pridať"}
                   </Button>
                 )}
               </div>
               
               <p className="text-sm text-muted-foreground mb-3">
-                Pridajte shared mailboxy, z ktorých môžete odosielať emaily. Predvolený mailbox sa použije ako prvý pri odosielaní.
+                {t.users?.ms365?.sharedMailboxesHint || "Pridajte shared mailboxy, z ktorých môžete odosielať emaily. Predvolený mailbox sa použije ako prvý pri odosielaní."}
               </p>
               
               {isAddingMailbox && (
                 <div className="p-3 border rounded-md mb-3 space-y-3">
                   <Input
-                    placeholder="Email (napr. info@firma.sk)"
+                    placeholder={t.users?.ms365?.emailPlaceholder || "Email (napr. info@firma.sk)"}
                     value={newMailboxEmail}
                     onChange={(e) => setNewMailboxEmail(e.target.value)}
                     data-testid="input-new-mailbox-email"
                   />
                   <Input
-                    placeholder="Názov (napr. Info box)"
+                    placeholder={t.users?.ms365?.namePlaceholder || "Názov (napr. Info box)"}
                     value={newMailboxName}
                     onChange={(e) => setNewMailboxName(e.target.value)}
                     data-testid="input-new-mailbox-name"
@@ -1101,7 +1101,7 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
                       disabled={!newMailboxEmail || !newMailboxName || addMailboxMutation.isPending}
                       data-testid="button-save-mailbox"
                     >
-                      {addMailboxMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Uložiť"}
+                      {addMailboxMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : (t.users?.ms365?.save || "Uložiť")}
                     </Button>
                     <Button
                       type="button"
@@ -1114,14 +1114,14 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
                       }}
                       data-testid="button-cancel-mailbox"
                     >
-                      Zrušiť
+                      {t.users?.ms365?.cancel || "Zrušiť"}
                     </Button>
                   </div>
                 </div>
               )}
               
               {ms365Mailboxes.length === 0 ? (
-                <p className="text-sm text-muted-foreground italic">Žiadne shared mailboxy</p>
+                <p className="text-sm text-muted-foreground italic">{t.users?.ms365?.noSharedMailboxes || "Žiadne shared mailboxy"}</p>
               ) : (
                 <div className="space-y-2">
                   {ms365Mailboxes.map((mailbox) => (
@@ -1138,7 +1138,7 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
                         {mailbox.isDefault && (
                           <Badge variant="secondary" className="ml-2">
                             <Star className="h-3 w-3 mr-1" />
-                            Predvolený
+                            {t.users?.ms365?.default || "Predvolený"}
                           </Badge>
                         )}
                       </div>
@@ -1150,7 +1150,7 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
                             size="icon"
                             onClick={() => setDefaultMailboxMutation.mutate(mailbox.id)}
                             disabled={setDefaultMailboxMutation.isPending}
-                            title="Nastaviť ako predvolený"
+                            title={t.users?.ms365?.setAsDefault || "Nastaviť ako predvolený"}
                             data-testid={`button-set-default-${mailbox.id}`}
                           >
                             <Star className="h-4 w-4" />
@@ -1162,7 +1162,7 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
                           size="icon"
                           onClick={() => deleteMailboxMutation.mutate(mailbox.id)}
                           disabled={deleteMailboxMutation.isPending}
-                          title="Odstrániť"
+                          title={t.users?.ms365?.remove || "Odstrániť"}
                           data-testid={`button-delete-mailbox-${mailbox.id}`}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
@@ -1178,10 +1178,10 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
           <div className="p-4 rounded-md bg-muted space-y-3">
             <div className="flex items-center gap-2">
               <XCircle className="h-5 w-5 text-muted-foreground" />
-              <p className="font-medium">Nepripojené</p>
+              <p className="font-medium">{t.users?.ms365?.notConnected || "Nepripojené"}</p>
             </div>
             <p className="text-sm text-muted-foreground">
-              Pre pripojenie Microsoft 365 účtu najprv vykonajte autentifikáciu na stránke MS365 Integrácia a potom sa vráťte sem.
+              {t.users?.ms365?.authInstructions || "Pre pripojenie Microsoft 365 účtu najprv vykonajte autentifikáciu na stránke MS365 Integrácia a potom sa vráťte sem."}
             </p>
             <Button
               type="button"
@@ -1189,7 +1189,7 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
               data-testid="button-connect-ms365"
             >
               <Mail className="h-4 w-4 mr-2" />
-              Pripojiť Microsoft 365
+              {t.users?.ms365?.connect || "Pripojiť Microsoft 365"}
             </Button>
           </div>
         )}
@@ -1202,7 +1202,7 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
       return (
         <div className="flex items-center gap-2 text-sm text-muted-foreground p-4">
           <Loader2 className="h-4 w-4 animate-spin" />
-          Kontrola Jira pripojenia...
+          {t.users?.jira?.checkingConnection || "Kontrola Jira pripojenia..."}
         </div>
       );
     }
@@ -1212,20 +1212,20 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
         <div className="space-y-4">
           <div className="flex items-center gap-2 text-muted-foreground mb-4">
             <Link2 className="h-4 w-4" />
-            <span className="text-sm">Prepojenie Jira účtu umožní synchronizáciu úloh s Jirou</span>
+            <span className="text-sm">{t.users?.jira?.connectionDescription || "Prepojenie Jira účtu umožní synchronizáciu úloh s Jirou"}</span>
           </div>
           
           <div className="p-4 rounded-md bg-amber-50 dark:bg-amber-900/20 space-y-3">
             <div className="flex items-center gap-2">
               <XCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-              <p className="font-medium text-amber-700 dark:text-amber-300">Jira nie je pripojená</p>
+              <p className="font-medium text-amber-700 dark:text-amber-300">{t.users?.jira?.notConnected || "Jira nie je pripojená"}</p>
             </div>
             <p className="text-sm text-muted-foreground">
-              Jira integrácia nie je nakonfigurovaná v tomto prostredí. Pre pripojenie Jiry:
+              {t.users?.jira?.notConfigured || "Jira integrácia nie je nakonfigurovaná v tomto prostredí. Pre pripojenie Jiry:"}
             </p>
             <ul className="text-sm text-muted-foreground list-disc list-inside space-y-1">
-              <li>Kontaktujte administrátora pre nastavenie Jira konektora</li>
-              <li>Po pripojení sa tu zobrazia Jira používatelia na prepojenie</li>
+              <li>{t.users?.jira?.contactAdmin || "Kontaktujte administrátora pre nastavenie Jira konektora"}</li>
+              <li>{t.users?.jira?.afterConnection || "Po pripojení sa tu zobrazia Jira používatelia na prepojenie"}</li>
             </ul>
             {jiraStatus?.error && (
               <p className="text-xs text-muted-foreground mt-2 font-mono bg-muted p-2 rounded">
@@ -1241,14 +1241,14 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
       <div className="space-y-4">
         <div className="flex items-center gap-2 text-muted-foreground mb-4">
           <Link2 className="h-4 w-4" />
-          <span className="text-sm">Prepojenie Jira účtu umožní synchronizáciu úloh s Jirou</span>
+          <span className="text-sm">{t.users?.jira?.connectionDescription || "Prepojenie Jira účtu umožní synchronizáciu úloh s Jirou"}</span>
         </div>
 
         <div className="p-3 rounded-md bg-green-50 dark:bg-green-900/20 text-sm mb-4">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
             <span className="text-green-700 dark:text-green-300">
-              Jira pripojená: {jiraStatus.siteUrl}
+              {t.users?.jira?.connected || "Jira pripojená"}: {jiraStatus.siteUrl}
             </span>
           </div>
         </div>
@@ -1256,12 +1256,12 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
         {jiraUsersLoading ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
-            Načítavanie Jira používateľov...
+            {t.users?.jira?.loadingUsers || "Načítavanie Jira používateľov..."}
           </div>
         ) : jiraUsers.length === 0 ? (
           <div className="p-4 rounded-md bg-muted space-y-3">
             <p className="text-sm text-muted-foreground">
-              Nepodarilo sa načítať Jira používateľov.
+              {t.users?.jira?.loadError || "Nepodarilo sa načítať Jira používateľov."}
             </p>
             <Button 
               type="button"
@@ -1271,22 +1271,22 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
               data-testid="button-refresh-jira"
             >
               <RefreshCw className="h-4 w-4 mr-2" />
-              Skúsiť znova
+              {t.users?.jira?.tryAgain || "Skúsiť znova"}
             </Button>
           </div>
         ) : (
           <div className="space-y-4">
             <div>
-              <FormLabel>Jira účet</FormLabel>
+              <FormLabel>{t.users?.jira?.jiraAccount || "Jira účet"}</FormLabel>
               <Select 
                 value={selectedJiraUser} 
                 onValueChange={setSelectedJiraUser}
               >
                 <SelectTrigger data-testid="select-jira-user">
-                  <SelectValue placeholder="Vyberte Jira používateľa" />
+                  <SelectValue placeholder={t.users?.jira?.selectUser || "Vyberte Jira používateľa"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Žiadny</SelectItem>
+                  <SelectItem value="">{t.users?.jira?.none || "Žiadny"}</SelectItem>
                   {jiraUsers.map((jUser) => (
                     <SelectItem key={jUser.accountId} value={jUser.accountId}>
                       <div className="flex items-center gap-2">
@@ -1307,7 +1307,7 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground mt-1">
-                Po prepojení budú úlohy pridelené tomuto používateľovi automaticky synchronizované s jeho Jira účtom
+                {t.users?.jira?.syncHint || "Po prepojení budú úlohy pridelené tomuto používateľovi automaticky synchronizované s jeho Jira účtom"}
               </p>
             </div>
             
@@ -1316,7 +1316,7 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
                 <div className="flex items-center gap-2">
                   <Link2 className="h-4 w-4 text-green-600 dark:text-green-400" />
                   <span className="text-green-700 dark:text-green-300">
-                    Prepojené s Jira účtom: {jiraUsers.find(j => j.accountId === selectedJiraUser)?.displayName}
+                    {t.users?.jira?.linkedWith || "Prepojené s Jira účtom"}: {jiraUsers.find(j => j.accountId === selectedJiraUser)?.displayName}
                   </span>
                 </div>
               </div>
