@@ -73,9 +73,11 @@ export default function MobilePreview() {
   const [selectedVisit, setSelectedVisit] = useState<VisitEvent | null>(null);
   const [newVisitForm, setNewVisitForm] = useState({
     hospitalId: "",
-    visitType: "personal_visit",
+    subject: "1",
     scheduledDate: new Date().toISOString().split("T")[0],
-    notes: ""
+    startTime: "09:00",
+    endTime: "10:00",
+    remark: ""
   });
 
   const currentTime = new Date().toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" });
@@ -167,13 +169,16 @@ export default function MobilePreview() {
   };
 
   const handleCreateVisit = async () => {
-    if (!newVisitForm.hospitalId) {
-      toast({ title: "Vyberte nemocnicu", variant: "destructive" });
+    if (!newVisitForm.subject) {
+      toast({ title: "Vyberte predmet navstevy", variant: "destructive" });
       return;
     }
     
     setIsLoading(true);
     try {
+      const startDateTime = new Date(`${newVisitForm.scheduledDate}T${newVisitForm.startTime}:00`);
+      const endDateTime = new Date(`${newVisitForm.scheduledDate}T${newVisitForm.endTime}:00`);
+      
       const response = await fetch("/api/mobile/visit-events", {
         method: "POST",
         headers: {
@@ -181,21 +186,30 @@ export default function MobilePreview() {
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
-          ...newVisitForm,
-          status: "planned"
+          subject: newVisitForm.subject,
+          hospitalId: newVisitForm.hospitalId || null,
+          startTime: startDateTime.toISOString(),
+          endTime: endDateTime.toISOString(),
+          remark: newVisitForm.remark || null,
+          isAllDay: false
         })
       });
       
-      if (!response.ok) throw new Error("Nepodarilo sa vytvorit navstevu");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Nepodarilo sa vytvorit navstevu");
+      }
       
       const newVisit = await response.json();
       setVisits(prev => [newVisit, ...prev]);
       setCurrentScreen("visits");
       setNewVisitForm({
         hospitalId: "",
-        visitType: "personal_visit",
+        subject: "1",
         scheduledDate: new Date().toISOString().split("T")[0],
-        notes: ""
+        startTime: "09:00",
+        endTime: "10:00",
+        remark: ""
       });
       toast({ title: "Navsteva vytvorena" });
     } catch (error: any) {
@@ -678,17 +692,18 @@ export default function MobilePreview() {
           </div>
           
           <div>
-            <label className="text-sm font-medium mb-1 block">Typ navstevy</label>
+            <label className="text-sm font-medium mb-1 block">Predmet navstevy</label>
             <select 
               className="w-full p-2 border rounded-md bg-background"
-              value={newVisitForm.visitType}
-              onChange={(e) => setNewVisitForm(prev => ({ ...prev, visitType: e.target.value }))}
+              value={newVisitForm.subject}
+              onChange={(e) => setNewVisitForm(prev => ({ ...prev, subject: e.target.value }))}
             >
-              <option value="personal_visit">Osobna navsteva</option>
-              <option value="phone_call">Telefonicky hovor</option>
-              <option value="online_meeting">Online stretnutie</option>
-              <option value="training">Skolenie</option>
-              <option value="other">Ine</option>
+              <option value="1">Osobna navsteva</option>
+              <option value="2">Telefonicky hovor</option>
+              <option value="3">Online stretnutie</option>
+              <option value="4">Skolenie</option>
+              <option value="5">Konferencia</option>
+              <option value="6">Ine</option>
             </select>
           </div>
           
@@ -701,12 +716,31 @@ export default function MobilePreview() {
             />
           </div>
           
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-sm font-medium mb-1 block">Od</label>
+              <Input
+                type="time"
+                value={newVisitForm.startTime}
+                onChange={(e) => setNewVisitForm(prev => ({ ...prev, startTime: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Do</label>
+              <Input
+                type="time"
+                value={newVisitForm.endTime}
+                onChange={(e) => setNewVisitForm(prev => ({ ...prev, endTime: e.target.value }))}
+              />
+            </div>
+          </div>
+          
           <div>
-            <label className="text-sm font-medium mb-1 block">Poznamky</label>
+            <label className="text-sm font-medium mb-1 block">Poznamka</label>
             <textarea 
               className="w-full p-2 border rounded-md bg-background min-h-[100px]"
-              value={newVisitForm.notes}
-              onChange={(e) => setNewVisitForm(prev => ({ ...prev, notes: e.target.value }))}
+              value={newVisitForm.remark}
+              onChange={(e) => setNewVisitForm(prev => ({ ...prev, remark: e.target.value }))}
               placeholder="Volitelne poznamky..."
             />
           </div>
