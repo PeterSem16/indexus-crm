@@ -182,6 +182,9 @@ export const users = pgTable("users", {
   jiraDisplayName: text("jira_display_name"),
   authMethod: text("auth_method").notNull().default("local"), // 'local' or 'ms365'
   nexusEnabled: boolean("nexus_enabled").notNull().default(false), // NEXUS AI assistant
+  showNotificationBell: boolean("show_notification_bell").notNull().default(true), // Show notification bell in header
+  showEmailQueue: boolean("show_email_queue").notNull().default(false), // Show email queue icon in header
+  showSipPhone: boolean("show_sip_phone").notNull().default(false), // Show SIP phone icon in header
   phonePrefix: text("phone_prefix"), // Phone country prefix like +421
   phone: text("phone"), // Phone number for notifications/alerts
   createdAt: timestamp("created_at").notNull().default(sql`now()`),

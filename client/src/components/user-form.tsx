@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Phone, User, Shield, MapPin, Camera, Loader2, Link2, RefreshCw, Mail, Star, Trash2, Plus, CheckCircle, CheckCircle2, XCircle, Sparkles } from "lucide-react";
+import { Phone, User, Shield, MapPin, Camera, Loader2, Link2, RefreshCw, Mail, Star, Trash2, Plus, CheckCircle, CheckCircle2, XCircle, Sparkles, Bell, Settings } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
@@ -50,6 +50,9 @@ const createUserFormSchema = z.object({
   sipDisplayName: z.string().optional(),
   authMethod: z.enum(["local", "ms365"]).optional(),
   nexusEnabled: z.boolean().optional(),
+  showNotificationBell: z.boolean().optional(),
+  showEmailQueue: z.boolean().optional(),
+  showSipPhone: z.boolean().optional(),
   phonePrefix: z.string().optional(),
   phone: z.string().optional(),
 });
@@ -69,6 +72,9 @@ const updateUserFormSchema = z.object({
   sipDisplayName: z.string().optional(),
   authMethod: z.enum(["local", "ms365"]).optional(),
   nexusEnabled: z.boolean().optional(),
+  showNotificationBell: z.boolean().optional(),
+  showEmailQueue: z.boolean().optional(),
+  showSipPhone: z.boolean().optional(),
   phonePrefix: z.string().optional(),
   phone: z.string().optional(),
 });
@@ -146,6 +152,9 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
       authMethod: (initialData as any)?.authMethod || "local",
       sipDisplayName: (initialData as any)?.sipDisplayName || "",
       nexusEnabled: (initialData as any)?.nexusEnabled ?? false,
+      showNotificationBell: (initialData as any)?.showNotificationBell ?? true,
+      showEmailQueue: (initialData as any)?.showEmailQueue ?? false,
+      showSipPhone: (initialData as any)?.showSipPhone ?? false,
       phonePrefix: (initialData as any)?.phonePrefix || "+421",
       phone: (initialData as any)?.phone || "",
     },
@@ -667,70 +676,97 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
       />
 
       {form.watch("sipEnabled") && (
-        <div className="grid gap-4 sm:grid-cols-2 pl-4 border-l-2 border-primary/20">
+        <div className="space-y-4 pl-4 border-l-2 border-primary/20">
           <FormField
             control={form.control}
-            name="sipExtension"
+            name="showSipPhone"
             render={({ field }) => (
-              <FormItem>
-                <FormLabel>Linka (Extension)</FormLabel>
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <FormLabel className="text-base flex items-center gap-2">
+                    <Phone className="h-4 w-4" />
+                    {t.users?.showSipPhoneInHeader || "Zobraziť telefón v hlavičke"}
+                  </FormLabel>
+                  <FormDescription>
+                    {t.users?.showSipPhoneInHeaderHint || "Ikona telefónu sa zobrazí v hornej lište pre rýchly prístup k volaniu"}
+                  </FormDescription>
+                </div>
                 <FormControl>
-                  <Input 
-                    placeholder="1001" 
-                    {...field}
-                    data-testid="input-sip-extension"
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    data-testid="switch-show-sip-phone"
                   />
                 </FormControl>
-                <FormDescription>
-                  Číslo linky pridelené v Asterisk PBX
-                </FormDescription>
-                <FormMessage />
               </FormItem>
             )}
           />
+          
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="sipExtension"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Linka (Extension)</FormLabel>
+                  <FormControl>
+                    <Input 
+                      placeholder="1001" 
+                      {...field}
+                      data-testid="input-sip-extension"
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Číslo linky pridelené v Asterisk PBX
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          <FormField
-            control={form.control}
-            name="sipPassword"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Heslo</FormLabel>
-                <FormControl>
-                  <Input 
-                    type="password"
-                    placeholder="••••••••" 
-                    {...field}
-                    data-testid="input-sip-password"
-                  />
-                </FormControl>
-                <FormDescription>
-                  Heslo pre autentifikáciu SIP linky
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+            <FormField
+              control={form.control}
+              name="sipPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Heslo</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="password"
+                      placeholder="••••••••" 
+                      {...field}
+                      data-testid="input-sip-password"
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Heslo pre autentifikáciu SIP linky
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          <FormField
-            control={form.control}
-            name="sipDisplayName"
-            render={({ field }) => (
-              <FormItem className="sm:col-span-2">
-                <FormLabel>Zobrazované meno (voliteľné)</FormLabel>
-                <FormControl>
-                  <Input 
-                    placeholder="Meno zobrazené pri hovore" 
-                    {...field}
-                    data-testid="input-sip-display-name"
-                  />
-                </FormControl>
-                <FormDescription>
-                  Meno ktoré sa zobrazí volanému
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+            <FormField
+              control={form.control}
+              name="sipDisplayName"
+              render={({ field }) => (
+                <FormItem className="sm:col-span-2">
+                  <FormLabel>Zobrazované meno (voliteľné)</FormLabel>
+                  <FormControl>
+                    <Input 
+                      placeholder="Meno zobrazené pri hovore" 
+                      {...field}
+                      data-testid="input-sip-display-name"
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Meno ktoré sa zobrazí volanému
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
         </div>
       )}
     </div>
@@ -760,6 +796,56 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
                 checked={field.value}
                 onCheckedChange={field.onChange}
                 data-testid="switch-nexus-enabled"
+              />
+            </FormControl>
+          </FormItem>
+        )}
+      />
+      
+      <FormField
+        control={form.control}
+        name="showNotificationBell"
+        render={({ field }) => (
+          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+            <div className="space-y-0.5">
+              <FormLabel className="text-base flex items-center gap-2">
+                <Bell className="h-4 w-4" />
+                {t.users?.showNotificationBell || "Povoliť push notifikácie"}
+              </FormLabel>
+              <FormDescription>
+                {t.users?.showNotificationBellHint || "Zobrazí zvonček v hornej lište pre push notifikácie"}
+              </FormDescription>
+            </div>
+            <FormControl>
+              <Switch
+                checked={field.value}
+                onCheckedChange={field.onChange}
+                data-testid="switch-show-notification-bell"
+              />
+            </FormControl>
+          </FormItem>
+        )}
+      />
+      
+      <FormField
+        control={form.control}
+        name="showEmailQueue"
+        render={({ field }) => (
+          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+            <div className="space-y-0.5">
+              <FormLabel className="text-base flex items-center gap-2">
+                <Mail className="h-4 w-4" />
+                {t.users?.showEmailQueue || "Povoliť email frontu"}
+              </FormLabel>
+              <FormDescription>
+                {t.users?.showEmailQueueHint || "Zobrazí ikonu obálky v hornej lište s počtom neprečítaných emailov"}
+              </FormDescription>
+            </div>
+            <FormControl>
+              <Switch
+                checked={field.value}
+                onCheckedChange={field.onChange}
+                data-testid="switch-show-email-queue"
               />
             </FormControl>
           </FormItem>
@@ -1245,34 +1331,22 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
         <Tabs defaultValue="profile" className="w-full">
-          <TabsList className="grid w-full grid-cols-7">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="profile" className="flex items-center gap-2" data-testid="tab-profile">
               <User className="h-4 w-4" />
-              <span className="hidden sm:inline">Profil</span>
+              <span className="hidden sm:inline">{t.users?.profileTab || "Profil"}</span>
             </TabsTrigger>
             <TabsTrigger value="access" className="flex items-center gap-2" data-testid="tab-access">
               <Shield className="h-4 w-4" />
-              <span className="hidden sm:inline">Prístupy</span>
+              <span className="hidden sm:inline">{t.users?.accessTab || "Prístupy"}</span>
             </TabsTrigger>
             <TabsTrigger value="countries" className="flex items-center gap-2" data-testid="tab-countries">
               <MapPin className="h-4 w-4" />
-              <span className="hidden sm:inline">Krajiny</span>
+              <span className="hidden sm:inline">{t.users?.countriesTab || "Krajiny"}</span>
             </TabsTrigger>
-            <TabsTrigger value="sip" className="flex items-center gap-2" data-testid="tab-sip">
-              <Phone className="h-4 w-4" />
-              <span className="hidden sm:inline">SIP</span>
-            </TabsTrigger>
-            <TabsTrigger value="nexus" className="flex items-center gap-2" data-testid="tab-nexus">
-              <Sparkles className="h-4 w-4" />
-              <span className="hidden sm:inline">NEXUS</span>
-            </TabsTrigger>
-            <TabsTrigger value="ms365" className="flex items-center gap-2" data-testid="tab-ms365">
-              <Mail className="h-4 w-4" />
-              <span className="hidden sm:inline">MS365</span>
-            </TabsTrigger>
-            <TabsTrigger value="jira" className="flex items-center gap-2" data-testid="tab-jira">
-              <Link2 className="h-4 w-4" />
-              <span className="hidden sm:inline">Jira</span>
+            <TabsTrigger value="settings" className="flex items-center gap-2" data-testid="tab-settings">
+              <Settings className="h-4 w-4" />
+              <span className="hidden sm:inline">{t.users?.settingsTab || "Nastavenia"}</span>
             </TabsTrigger>
           </TabsList>
           
@@ -1288,20 +1362,43 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
             {renderCountriesTab()}
           </TabsContent>
           
-          <TabsContent value="sip" className="mt-6">
-            {renderSipTab()}
-          </TabsContent>
-          
-          <TabsContent value="nexus" className="mt-6">
-            {renderNexusSection()}
-          </TabsContent>
-          
-          <TabsContent value="ms365" className="mt-6">
-            {renderMs365Tab()}
-          </TabsContent>
-          
-          <TabsContent value="jira" className="mt-6">
-            {renderJiraTab()}
+          <TabsContent value="settings" className="mt-6">
+            <Tabs defaultValue="sip" className="w-full">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="sip" className="flex items-center gap-2" data-testid="tab-settings-sip">
+                  <Phone className="h-4 w-4" />
+                  <span className="hidden sm:inline">SIP</span>
+                </TabsTrigger>
+                <TabsTrigger value="nexus" className="flex items-center gap-2" data-testid="tab-settings-nexus">
+                  <Sparkles className="h-4 w-4" />
+                  <span className="hidden sm:inline">NEXUS</span>
+                </TabsTrigger>
+                <TabsTrigger value="ms365" className="flex items-center gap-2" data-testid="tab-settings-ms365">
+                  <Mail className="h-4 w-4" />
+                  <span className="hidden sm:inline">MS365</span>
+                </TabsTrigger>
+                <TabsTrigger value="jira" className="flex items-center gap-2" data-testid="tab-settings-jira">
+                  <Link2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Jira</span>
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="sip" className="mt-4">
+                {renderSipTab()}
+              </TabsContent>
+              
+              <TabsContent value="nexus" className="mt-4">
+                {renderNexusSection()}
+              </TabsContent>
+              
+              <TabsContent value="ms365" className="mt-4">
+                {renderMs365Tab()}
+              </TabsContent>
+              
+              <TabsContent value="jira" className="mt-4">
+                {renderJiraTab()}
+              </TabsContent>
+            </Tabs>
           </TabsContent>
         </Tabs>
 

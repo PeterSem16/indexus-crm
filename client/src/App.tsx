@@ -119,10 +119,10 @@ function AuthenticatedApp() {
                 <div className="flex items-center gap-2">
                   <GlobalSearch />
                   <QuickCreate />
-                  <EmailNotifications />
-                  <NotificationBell />
+                  {(user as any)?.showEmailQueue && <EmailNotifications />}
+                  {(user as any)?.showNotificationBell !== false && <NotificationBell />}
                   <NexusButton nexusEnabled={user?.nexusEnabled ?? false} />
-                  <SipPhoneHeaderButton user={user} />
+                  {(user as any)?.showSipPhone && <SipPhoneHeaderButton user={user} />}
                   <TourTrigger />
                   <ThemeToggle />
                 </div>
