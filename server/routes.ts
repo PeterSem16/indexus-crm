@@ -19,6 +19,7 @@ import {
   insertContractTemplateSchema, insertContractTemplateVersionSchema, insertContractInstanceSchema,
   insertContractInstanceProductSchema, insertContractParticipantSchema, insertContractSignatureRequestSchema,
   insertGsmSenderConfigSchema,
+  insertVisitEventSchema,
   type SafeUser, type Customer, type Product, type BillingDetails, type ActivityLog, type LeadScoringCriteria,
   type ServiceConfiguration, type InvoiceTemplate, type InvoiceLayout, type Role,
   type Campaign, type CampaignContact, type ContractInstance
