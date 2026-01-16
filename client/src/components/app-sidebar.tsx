@@ -19,8 +19,7 @@ import {
   Kanban,
   Mail,
   Network,
-  MapPin,
-  Smartphone
+  MapPin
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/contexts/permissions-context";
@@ -72,7 +71,6 @@ export function AppSidebar() {
     { title: t.nav.invoices, url: "/invoices", icon: FileText, testId: "invoices", moduleKey: "invoices" },
     { title: t.nav.campaigns, url: "/campaigns", icon: Megaphone, testId: "campaigns", moduleKey: "campaigns" },
     { title: "Pipeline", url: "/pipeline", icon: Kanban, testId: "pipeline", moduleKey: "pipeline" },
-    { title: "Mobile Preview", url: "/mobile-preview", icon: Smartphone, testId: "mobile-preview", moduleKey: "visitEvents" },
   ];
 
   const customerSubItems = [

@@ -13,8 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Calendar, MapPin, ChevronLeft, ChevronRight, Clock, User, Building2, 
-  Phone, MessageSquare, Filter, List, Map as MapIcon, Eye
+  Phone, MessageSquare, Filter, List, Map as MapIcon, Eye, Smartphone
 } from "lucide-react";
+import { Link } from "wouter";
 import type { VisitEvent, Collaborator, Hospital } from "@shared/schema";
 import { VISIT_SUBJECTS, REMARK_DETAIL_OPTIONS, VISIT_PLACE_OPTIONS } from "@shared/schema";
 
@@ -332,6 +333,13 @@ export default function VisitEventsPage() {
             </SelectContent>
           </Select>
         </div>
+
+        <Link href="/mobile-preview">
+          <Button variant="outline" className="flex items-center gap-2" data-testid="button-mobile-preview">
+            <Smartphone className="h-4 w-4" />
+            Mobile Preview
+          </Button>
+        </Link>
 
         <div className="ml-auto text-sm text-muted-foreground">
           {filteredEvents.length} {t.visitEvents?.eventsCount || "návštev"}
