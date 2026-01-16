@@ -18,7 +18,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { COUNTRIES } from "@shared/schema";
 import type { Collaborator, Hospital, SafeUser, HealthInsurance } from "@shared/schema";
-import { ChevronLeft, ChevronRight, Check, User, Phone, CreditCard, Building2, ClipboardCheck, Smartphone } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, User, Phone, CreditCard, Building2, Smartphone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/I18nProvider";
 import { getCountryFlag } from "@/lib/countries";
@@ -91,7 +91,6 @@ const WIZARD_STEPS = [
   { id: "banking", icon: CreditCard },
   { id: "company", icon: Building2 },
   { id: "mobile", icon: Smartphone },
-  { id: "review", icon: ClipboardCheck },
 ];
 
 function DateFields({
@@ -399,7 +398,6 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
       banking: steps?.banking || t.collaborators?.fields?.bankAccountIban || "Banking",
       company: steps?.company || t.collaborators?.fields?.companyName || "Company",
       mobile: steps?.mobile || "INDEXUS Connect",
-      review: steps?.review || "Review",
     };
     return stepTitles[stepId] || stepId;
   };
@@ -412,7 +410,6 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
       banking: steps?.bankingDesc || "Bank account details",
       company: steps?.companyDesc || "Company information (optional)",
       mobile: steps?.mobileDesc || "Mobile app access settings",
-      review: steps?.reviewDesc || "Review and confirm",
     };
     return stepDescs[stepId] || "";
   };
@@ -906,128 +903,6 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
                       )}
                     </div>
                   )}
-                </div>
-              )}
-            </div>
-          </div>
-        );
-
-      case 5:
-        const countryName = COUNTRIES.find(c => c.code === formData.countryCode)?.name || formData.countryCode;
-        const repName = users.find(u => u.id === formData.representativeId)?.fullName || "-";
-        const hospitalName = hospitals.find(h => h.id === formData.hospitalId)?.name || "-";
-        const collabType = formData.collaboratorType 
-          ? ((t.collaborators.types as Record<string, string>)[formData.collaboratorType] || formData.collaboratorType)
-          : "-";
-        
-        return (
-          <div className="space-y-6">
-            <div className="grid gap-6 sm:grid-cols-2">
-              <div className="space-y-4">
-                <h4 className="font-medium">{getStepTitle("personal")}</h4>
-                <div className="space-y-2 text-sm">
-                  {formData.legacyId && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">{t.collaborators.legacyId}:</span>
-                      <span className="font-medium">{formData.legacyId}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">{t.collaborators.fields.firstName}:</span>
-                    <span className="font-medium">{formData.titleBefore} {formData.firstName} {formData.lastName} {formData.titleAfter}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">{t.collaborators.fields.country}:</span>
-                    <span className="font-medium">{countryName}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">{t.collaborators.fields.collaboratorType}:</span>
-                    <span className="font-medium">{collabType}</span>
-                  </div>
-                  {(formData.birthDay > 0 && formData.birthMonth > 0 && formData.birthYear > 0) && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">{t.collaborators.fields.birthDate}:</span>
-                      <span className="font-medium">{formData.birthDay}.{formData.birthMonth}.{formData.birthYear}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <h4 className="font-medium">{getStepTitle("contact")}</h4>
-                <div className="space-y-2 text-sm">
-                  {formData.email && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">{t.collaborators.fields.email}:</span>
-                      <span className="font-medium">{formData.email}</span>
-                    </div>
-                  )}
-                  {formData.phone && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">{t.collaborators.fields.phone}:</span>
-                      <span className="font-medium">{formData.phone}</span>
-                    </div>
-                  )}
-                  {formData.mobile && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">{t.collaborators.fields.mobile}:</span>
-                      <span className="font-medium">{formData.mobile}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">{t.collaborators.fields.hospital}:</span>
-                    <span className="font-medium">{hospitalName}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">{t.collaborators.fields.representative}:</span>
-                    <span className="font-medium">{repName}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <Separator />
-
-            <div className="grid gap-6 sm:grid-cols-2">
-              <div className="space-y-4">
-                <h4 className="font-medium">{getStepTitle("banking")}</h4>
-                <div className="space-y-2 text-sm">
-                  {formData.bankAccountIban && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">{t.collaborators.fields.bankAccountIban}:</span>
-                      <span className="font-medium">{formData.bankAccountIban}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">{t.collaborators.fields.active}:</span>
-                    <Badge variant={formData.isActive ? "default" : "secondary"}>
-                      {formData.isActive ? t.common.yes : t.common.no}
-                    </Badge>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">{t.collaborators.fields.clientContact}:</span>
-                    <Badge variant={formData.clientContact ? "default" : "secondary"}>
-                      {formData.clientContact ? t.common.yes : t.common.no}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-
-              {formData.companyName && (
-                <div className="space-y-4">
-                  <h4 className="font-medium">{getStepTitle("company")}</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">{t.collaborators.fields.companyName}:</span>
-                      <span className="font-medium">{formData.companyName}</span>
-                    </div>
-                    {formData.ico && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">{t.collaborators.fields.ico}:</span>
-                        <span className="font-medium">{formData.ico}</span>
-                      </div>
-                    )}
-                  </div>
                 </div>
               )}
             </div>
