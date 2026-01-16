@@ -1,0 +1,58 @@
+{
+  "expo": {
+    "name": "INDEXUS Connect",
+    "slug": "indexus-connect",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "indexus",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#6B1C3B"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.cordbloodcenter.indexusconnect",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "INDEXUS Connect needs access to your location to track hospital visits.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "INDEXUS Connect needs access to your location to track hospital visits in the background.",
+        "NSMicrophoneUsageDescription": "INDEXUS Connect needs access to your microphone to record voice notes."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#6B1C3B"
+      },
+      "package": "com.cordbloodcenter.indexusconnect",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "RECORD_AUDIO"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow INDEXUS Connect to use your location."
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Allow INDEXUS Connect to access your microphone."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
