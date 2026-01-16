@@ -197,7 +197,8 @@ export default function MobilePreview() {
       
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Nepodarilo sa vytvorit navstevu");
+        console.error("Create visit error:", errorData);
+        throw new Error(errorData.error || errorData.details?.[0]?.message || "Nepodarilo sa vytvorit navstevu");
       }
       
       const newVisit = await response.json();
