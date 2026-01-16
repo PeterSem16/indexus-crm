@@ -1,0 +1,70 @@
+navrhnutie mobilne aplikacie na moznost stahovanie z app store (android a ios)
+
+mobilna appka by ammal mat nejaky nazov (navrhni nazov nieco ako indexus a spojenie s planovanim navstev reprezentatnov s medicinskych zariadeniach )
+
+Predstava:
+
+mobilna apliakcia by pouzivali collaborators z indexus , preto je potreben rozsrit collaborattors o moznost zaskrtavacie pole ci moze pouzivat mobilnu aplikaciu ak ano ponukne mu to zadat meno a prihlasovacie heslo na strane indexus ) tieto prihlasovacie udaje sa pouziju pre mobilnu aplikaciu .Mobilna aplikacia bude bezat prioritne na domenae indexus.cordbloodcenter.com
+
+posielam priluzeny obrazok co asi vsetko by tato aplikacia mala vedeit robit , teda zapis zo stretnutia a lokalizacia reprezentanta/collaborator na mape pre reporting v indexus
+
+prosim anrhni modernu a graficky privetivu applikaciu ktora dokaze podla jazyky telefonu zmenit jazykove prostredie pre app cize udrziavat ju v jazykovych mutaciach indexus 
+
+subjekt 
+vyber moznosti (bez madarskeho text a lakolizuj do vstkych jazykov)
+|1|Standard visit to strengthen recommendations and CBC cooperation (Ajánlásokat és CBC együttműködést erősítő standard látogatás)
+|2|Individual training - collection process (Egyéni képzés – levétel menete)
+|3|Examination of problematic collection (Problémás levétel kivizsgálása)
+|4|Hospital kit delivery (Kórházi szett átadás)
+|5|Pregnancy preparation lecture for pregnant women (Szülésfelkészítő előadás várandósoknak)
+|6|Group lecture for midwives (Csoportos előadás szülésznőknek)
+|7|Group lecture for doctors (Csoportos előadás orvosoknak)
+|8|Hospital contract management (Kórházi szerződés intézése)
+|9|Doctor contract management (Orvosi szerződés intézése)
+|10|Business partner contract management - other collaborator (Üzleti partner szerződés intézése – egyéb együttműködő)
+|11|Other (Egyéb)
+|12|Phone call / Video conference
+
+Time event 
+pekny datapicker aj s acasom od do 
+
+Location 
+automaticky natiahne polohu kde je reprezentant a zapise ho do indexus kde sa bude dat pozriet na mape kde reprezentant urobil shôdzku
+
+Hospital 
+vyber nemocnice podla hospital v indexus, hospitals sa zobrazuju iba pre krajinu prihlaseneho collabortor + moznost pridat novu nemocnicu priamo do indexus resp. upravit udaje ak bude mat collaborator na to opravenie (urob v collaborators moznost zaskrtnut ci moze urbit zmeny a pridavat )
+
+remark - tu je predstava ze moze zadat text alebo nahrat hlasovu spravu s transciptiou do textu 
+
+remark detial - vaber tychto hodnout bez madarskych 
+|1|Price
+|2|Competitors
+|3|Doctor (Orvos)
+|4|Resident (Rezidens)
+|5|Midwife (Szülésznő)
+|6|Business partner - other collaborator (Üzleti partner – egyéb együttműködő)
+|7|Other (Eqyéb)
+
+Type of visit - bez madarskych casti
+|1|Standard visit to strengthen recommendations and CBC cooperation (Ajánlásokat és CBC együttműködést erősítő standard látogatás)
+|2|Individual training - collection process (Egyéni képzés – levétel menete)
+|3|Examination of problematic collection (Problémás levétel kivizsgálása)
+|4|Hospital kit delivery (Kórházi szett átadás)
+|5|Pregnancy preparation lecture for pregnant women (Szülésfelkészítő előadás várandósoknak)
+|6|Group lecture for midwives (Csoportos előadás szülésznőknek)
+|7|Group lecture for doctors (Csoportos előadás orvosoknak)
+|8|Hospital contract management (Kórházi szerződés intézése)
+|9|Doctor contract management (Orvosi szerződés intézése)
+|10|Business partner contract management - other collaborator (Üzleti partner szerződés intézése – egyéb együttműködő)
+|11|Other (Egyéb)
+|12|Phone call / Video conference
+
+place - bez madarskych casti
+|1|Department of Obstetrics, Hospital (Kórház szülészeti osztálya)
+|2|Private doctor's office (Orvos magánrendelője)
+|3|State doctor's office (Orvos szakrendelője)
+|4|Hospital management department (Kórház vezetőségi osztály)
+|5|Other (Egyéb)
+|6|Phone call / Video conference
+
+info o navstevach sa vsetko bude zapisovat do indexus a tak chcem podrobne logovanie kalendare pre kazdu krajinu kde sa budu graficky jednotlive zapisy event zobrazovat a integraciu s mapou aby sme vedeli kde reprrezentat bol atd..
