@@ -395,6 +395,7 @@ export interface IStorage {
   getCollaboratorByMobileUsername(username: string): Promise<Collaborator | undefined>;
   validateCollaboratorMobilePassword(username: string, password: string): Promise<Collaborator | null>;
   updateCollaboratorMobileLogin(id: string): Promise<void>;
+  setCollaboratorMobileCredentials(id: string, data: { mobileAppEnabled: boolean; mobileUsername?: string; mobilePassword?: string }): Promise<Collaborator | undefined>;
 
   // Visit Events (INDEXUS Connect)
   getVisitEvent(id: string): Promise<VisitEvent | undefined>;
@@ -2245,6 +2246,27 @@ export class DatabaseStorage implements IStorage {
     await db.update(collaborators)
       .set({ lastMobileLogin: new Date() })
       .where(eq(collaborators.id, id));
+  }
+
+  async setCollaboratorMobileCredentials(id: string, data: { mobileAppEnabled: boolean; mobileUsername?: string; mobilePassword?: string }): Promise<Collaborator | undefined> {
+    const updateData: Partial<typeof collaborators.$inferInsert> = {
+      mobileAppEnabled: data.mobileAppEnabled,
+    };
+    
+    if (data.mobileUsername !== undefined) {
+      updateData.mobileUsername = data.mobileUsername;
+    }
+    
+    if (data.mobilePassword) {
+      updateData.mobilePasswordHash = await bcrypt.hash(data.mobilePassword, 10);
+    }
+    
+    const [updated] = await db.update(collaborators)
+      .set(updateData)
+      .where(eq(collaborators.id, id))
+      .returning();
+    
+    return updated || undefined;
   }
 
   // Visit Events (INDEXUS Connect)

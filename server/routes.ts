@@ -6967,6 +6967,50 @@ export async function registerRoutes(
     }
   });
 
+  // Set mobile app credentials for collaborator
+  app.put("/api/collaborators/:id/mobile-credentials", requireAuth, async (req, res) => {
+    try {
+      const { mobileAppEnabled, mobileUsername, mobilePassword } = req.body;
+      
+      if (typeof mobileAppEnabled !== 'boolean') {
+        return res.status(400).json({ error: "mobileAppEnabled is required" });
+      }
+      
+      // Check if username is already taken by another collaborator
+      if (mobileUsername && mobileAppEnabled) {
+        const existing = await storage.getCollaboratorByMobileUsername(mobileUsername);
+        if (existing && existing.id !== req.params.id) {
+          return res.status(400).json({ error: "Username already taken" });
+        }
+      }
+      
+      const collaborator = await storage.setCollaboratorMobileCredentials(req.params.id, {
+        mobileAppEnabled,
+        mobileUsername,
+        mobilePassword
+      });
+      
+      if (!collaborator) {
+        return res.status(404).json({ error: "Collaborator not found" });
+      }
+      
+      await logActivity(
+        req.session.user!.id,
+        "update_mobile_credentials",
+        "collaborator",
+        collaborator.id,
+        `${collaborator.firstName} ${collaborator.lastName}`
+      );
+      
+      // Return collaborator without password hash
+      const { mobilePasswordHash, ...safeCollaborator } = collaborator;
+      res.json(safeCollaborator);
+    } catch (error) {
+      console.error("Failed to set mobile credentials:", error);
+      res.status(500).json({ error: "Failed to set mobile credentials" });
+    }
+  });
+
   // Collaborator Addresses routes
   app.get("/api/collaborators/:id/addresses", requireAuth, async (req, res) => {
     try {
