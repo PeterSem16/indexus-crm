@@ -1706,6 +1706,21 @@ const optionalEmail = z.preprocess(
   z.string().email().optional().nullable()
 );
 
+const optionalDay = z.preprocess(
+  (val) => (val === 0 || val === "" || val === null || val === undefined ? null : val),
+  z.number().min(1).max(31).optional().nullable()
+);
+
+const optionalMonth = z.preprocess(
+  (val) => (val === 0 || val === "" || val === null || val === undefined ? null : val),
+  z.number().min(1).max(12).optional().nullable()
+);
+
+const optionalYear = z.preprocess(
+  (val) => (val === 0 || val === "" || val === null || val === undefined ? null : val),
+  z.number().min(1900).max(2100).optional().nullable()
+);
+
 export const insertCollaboratorSchema = createInsertSchema(collaborators).omit({
   id: true,
   createdAt: true,
@@ -1714,9 +1729,9 @@ export const insertCollaboratorSchema = createInsertSchema(collaborators).omit({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   countryCode: z.string().min(1, "Country is required"),
-  birthDay: z.number().min(1).max(31).optional().nullable(),
-  birthMonth: z.number().min(1).max(12).optional().nullable(),
-  birthYear: z.number().min(1900).max(2100).optional().nullable(),
+  birthDay: optionalDay,
+  birthMonth: optionalMonth,
+  birthYear: optionalYear,
   email: optionalEmail,
   legacyId: emptyStringToNull,
   titleBefore: emptyStringToNull,
@@ -1739,6 +1754,9 @@ export const insertCollaboratorSchema = createInsertSchema(collaborators).omit({
   companyIban: emptyStringToNull,
   companySwift: emptyStringToNull,
   note: emptyStringToNull,
+  representativeId: emptyStringToNull,
+  hospitalId: emptyStringToNull,
+  healthInsuranceId: emptyStringToNull,
 });
 
 export const insertCollaboratorAddressSchema = createInsertSchema(collaboratorAddresses).omit({
