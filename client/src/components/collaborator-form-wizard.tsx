@@ -18,7 +18,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { COUNTRIES } from "@shared/schema";
 import type { Collaborator, Hospital, SafeUser, HealthInsurance } from "@shared/schema";
-import { ChevronLeft, ChevronRight, Check, User, Phone, CreditCard, Building2, ClipboardCheck } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, User, Phone, CreditCard, Building2, ClipboardCheck, Smartphone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/I18nProvider";
 import { getCountryFlag } from "@/lib/countries";
@@ -90,6 +90,7 @@ const WIZARD_STEPS = [
   { id: "contact", icon: Phone },
   { id: "banking", icon: CreditCard },
   { id: "company", icon: Building2 },
+  { id: "mobile", icon: Smartphone },
   { id: "review", icon: ClipboardCheck },
 ];
 
@@ -179,6 +180,13 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
   const { isHidden, isReadonly } = useModuleFieldPermissions("collaborators");
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
+  
+  const [mobileCredentials, setMobileCredentials] = useState({
+    mobileAppEnabled: initialData?.mobileAppEnabled ?? false,
+    mobileUsername: initialData?.mobileUsername ?? "",
+    mobilePassword: "",
+    mobilePasswordConfirm: "",
+  });
 
   const [formData, setFormData] = useState<CollaboratorFormData>(() =>
     initialData
@@ -279,11 +287,32 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
     : hospitals;
 
   const saveMutation = useMutation({
-    mutationFn: (data: CollaboratorFormData) => {
+    mutationFn: async (data: CollaboratorFormData) => {
+      let collaboratorId: string;
+      
       if (initialData) {
-        return apiRequest("PUT", `/api/collaborators/${initialData.id}`, data);
+        await apiRequest("PUT", `/api/collaborators/${initialData.id}`, data);
+        collaboratorId = initialData.id;
       } else {
-        return apiRequest("POST", "/api/collaborators", data);
+        const response = await apiRequest("POST", "/api/collaborators", data);
+        const newCollaborator = await response.json();
+        collaboratorId = newCollaborator.id;
+      }
+      
+      // Save mobile credentials if enabled or if previously enabled
+      if (mobileCredentials.mobileAppEnabled || initialData?.mobileAppEnabled) {
+        const mobileData: { mobileAppEnabled: boolean; mobileUsername?: string; mobilePassword?: string } = {
+          mobileAppEnabled: mobileCredentials.mobileAppEnabled,
+        };
+        
+        if (mobileCredentials.mobileAppEnabled) {
+          mobileData.mobileUsername = mobileCredentials.mobileUsername;
+          if (mobileCredentials.mobilePassword) {
+            mobileData.mobilePassword = mobileCredentials.mobilePassword;
+          }
+        }
+        
+        await apiRequest("PUT", `/api/collaborators/${collaboratorId}/mobile-credentials`, mobileData);
       }
     },
     onSuccess: () => {
@@ -304,6 +333,22 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
     switch (currentStep) {
       case 0:
         return !!formData.firstName && !!formData.lastName && !!formData.countryCode;
+      case 4:
+        if (mobileCredentials.mobileAppEnabled) {
+          if (!mobileCredentials.mobileUsername) {
+            toast({ title: t.collaborators?.mobileApp?.usernameRequired || "Username is required for mobile app access", variant: "destructive" });
+            return false;
+          }
+          if (!initialData?.mobilePasswordHash && !mobileCredentials.mobilePassword) {
+            toast({ title: t.collaborators?.mobileApp?.passwordRequired || "Password is required for mobile app access", variant: "destructive" });
+            return false;
+          }
+          if (mobileCredentials.mobilePassword && mobileCredentials.mobilePassword !== mobileCredentials.mobilePasswordConfirm) {
+            toast({ title: t.collaborators?.mobileApp?.passwordMismatch || "Passwords do not match", variant: "destructive" });
+            return false;
+          }
+        }
+        return true;
       default:
         return true;
     }
@@ -353,6 +398,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
       contact: steps?.contactDetails || t.collaborators?.fields?.phone || "Contact",
       banking: steps?.banking || t.collaborators?.fields?.bankAccountIban || "Banking",
       company: steps?.company || t.collaborators?.fields?.companyName || "Company",
+      mobile: steps?.mobile || "INDEXUS Connect",
       review: steps?.review || "Review",
     };
     return stepTitles[stepId] || stepId;
@@ -365,6 +411,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
       contact: steps?.contactDetailsDesc || "Phone, email, address",
       banking: steps?.bankingDesc || "Bank account details",
       company: steps?.companyDesc || "Company information (optional)",
+      mobile: steps?.mobileDesc || "Mobile app access settings",
       review: steps?.reviewDesc || "Review and confirm",
     };
     return stepDescs[stepId] || "";
@@ -801,6 +848,71 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
         );
 
       case 4:
+        return (
+          <div className="space-y-6">
+            <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/50">
+              <Smartphone className="h-6 w-6 text-muted-foreground" />
+              <div>
+                <h4 className="font-medium">INDEXUS Connect</h4>
+                <p className="text-sm text-muted-foreground">
+                  {t.collaborators?.mobileApp?.description || "Configure mobile app access for field representatives"}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  checked={mobileCredentials.mobileAppEnabled}
+                  onCheckedChange={(checked) => setMobileCredentials({ ...mobileCredentials, mobileAppEnabled: checked })}
+                  data-testid="wizard-switch-mobile-app-enabled"
+                />
+                <Label>{t.collaborators?.mobileApp?.enabled || "Enable mobile app access"}</Label>
+              </div>
+
+              {mobileCredentials.mobileAppEnabled && (
+                <div className="space-y-4 pl-8 border-l-2 border-muted">
+                  <div className="space-y-2">
+                    <Label>{t.collaborators?.mobileApp?.username || "Username"}</Label>
+                    <Input
+                      value={mobileCredentials.mobileUsername}
+                      onChange={(e) => setMobileCredentials({ ...mobileCredentials, mobileUsername: e.target.value })}
+                      placeholder={t.collaborators?.mobileApp?.usernamePlaceholder || "Enter username for mobile app login"}
+                      data-testid="wizard-input-mobile-username"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t.collaborators?.mobileApp?.password || "Password"}</Label>
+                    <Input
+                      type="password"
+                      value={mobileCredentials.mobilePassword}
+                      onChange={(e) => setMobileCredentials({ ...mobileCredentials, mobilePassword: e.target.value })}
+                      placeholder={initialData?.mobilePasswordHash ? (t.collaborators?.mobileApp?.passwordPlaceholderExisting || "Leave blank to keep current password") : (t.collaborators?.mobileApp?.passwordPlaceholder || "Enter password for mobile app")}
+                      data-testid="wizard-input-mobile-password"
+                    />
+                  </div>
+                  {mobileCredentials.mobilePassword && (
+                    <div className="space-y-2">
+                      <Label>{t.collaborators?.mobileApp?.passwordConfirm || "Confirm Password"}</Label>
+                      <Input
+                        type="password"
+                        value={mobileCredentials.mobilePasswordConfirm}
+                        onChange={(e) => setMobileCredentials({ ...mobileCredentials, mobilePasswordConfirm: e.target.value })}
+                        placeholder={t.collaborators?.mobileApp?.passwordConfirmPlaceholder || "Confirm password"}
+                        data-testid="wizard-input-mobile-password-confirm"
+                      />
+                      {mobileCredentials.mobilePassword !== mobileCredentials.mobilePasswordConfirm && mobileCredentials.mobilePasswordConfirm && (
+                        <p className="text-sm text-destructive">{t.collaborators?.mobileApp?.passwordMismatch || "Passwords do not match"}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+
+      case 5:
         const countryName = COUNTRIES.find(c => c.code === formData.countryCode)?.name || formData.countryCode;
         const repName = users.find(u => u.id === formData.representativeId)?.fullName || "-";
         const hospitalName = hospitals.find(h => h.id === formData.hospitalId)?.name || "-";

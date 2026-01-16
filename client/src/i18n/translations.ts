@@ -666,6 +666,20 @@ export interface Translations {
     updateCollaborator: string;
     noFile: string;
     uploadAgreement: string;
+    mobileApp: {
+      description: string;
+      enabled: string;
+      username: string;
+      usernamePlaceholder: string;
+      password: string;
+      passwordPlaceholder: string;
+      passwordPlaceholderExisting: string;
+      passwordConfirm: string;
+      passwordConfirmPlaceholder: string;
+      passwordMismatch: string;
+      usernameRequired: string;
+      passwordRequired: string;
+    };
   };
   campaigns: {
     title: string;
@@ -2200,6 +2214,20 @@ export const translations: Record<Locale, Translations> = {
       updateCollaborator: 'Update Collaborator',
       noFile: 'No file attached',
       uploadAgreement: 'Upload Agreement',
+      mobileApp: {
+        description: 'Configure mobile app access for field representatives',
+        enabled: 'Enable mobile app access',
+        username: 'Username',
+        usernamePlaceholder: 'Enter username for mobile app login',
+        password: 'Password',
+        passwordPlaceholder: 'Enter password for mobile app',
+        passwordPlaceholderExisting: 'Leave blank to keep current password',
+        passwordConfirm: 'Confirm Password',
+        passwordConfirmPlaceholder: 'Confirm password',
+        passwordMismatch: 'Passwords do not match',
+        usernameRequired: 'Username is required for mobile app access',
+        passwordRequired: 'Password is required for mobile app access',
+      },
     },
     campaigns: {
       title: 'Campaigns',
@@ -3744,6 +3772,20 @@ export const translations: Record<Locale, Translations> = {
       updateCollaborator: 'Aktualizovať spolupracovníka',
       noFile: 'Žiadny súbor',
       uploadAgreement: 'Nahrať dohodu',
+      mobileApp: {
+        description: 'Nastavenie prístupu do mobilnej aplikácie pre terénnych pracovníkov',
+        enabled: 'Povoliť prístup do mobilnej aplikácie',
+        username: 'Používateľské meno',
+        usernamePlaceholder: 'Zadajte používateľské meno pre prihlásenie do aplikácie',
+        password: 'Heslo',
+        passwordPlaceholder: 'Zadajte heslo pre mobilnú aplikáciu',
+        passwordPlaceholderExisting: 'Ponechajte prázdne pre zachovanie aktuálneho hesla',
+        passwordConfirm: 'Potvrdiť heslo',
+        passwordConfirmPlaceholder: 'Potvrďte heslo',
+        passwordMismatch: 'Heslá sa nezhodujú',
+        usernameRequired: 'Používateľské meno je povinné pre prístup do mobilnej aplikácie',
+        passwordRequired: 'Heslo je povinné pre prístup do mobilnej aplikácie',
+      },
     },
     campaigns: {
       title: 'Kampane',
@@ -5288,6 +5330,20 @@ export const translations: Record<Locale, Translations> = {
       updateCollaborator: 'Aktualizovat spolupracovníka',
       noFile: 'Žádný soubor',
       uploadAgreement: 'Nahrát dohodu',
+      mobileApp: {
+        description: 'Nastavení přístupu do mobilní aplikace pro terénní pracovníky',
+        enabled: 'Povolit přístup do mobilní aplikace',
+        username: 'Uživatelské jméno',
+        usernamePlaceholder: 'Zadejte uživatelské jméno pro přihlášení do aplikace',
+        password: 'Heslo',
+        passwordPlaceholder: 'Zadejte heslo pro mobilní aplikaci',
+        passwordPlaceholderExisting: 'Ponechte prázdné pro zachování aktuálního hesla',
+        passwordConfirm: 'Potvrdit heslo',
+        passwordConfirmPlaceholder: 'Potvrďte heslo',
+        passwordMismatch: 'Hesla se neshodují',
+        usernameRequired: 'Uživatelské jméno je povinné pro přístup do mobilní aplikace',
+        passwordRequired: 'Heslo je povinné pro přístup do mobilní aplikace',
+      },
     },
     campaigns: {
       title: 'Kampaně',
@@ -6795,6 +6851,20 @@ export const translations: Record<Locale, Translations> = {
       updateCollaborator: 'Munkatárs frissítése',
       noFile: 'Nincs fájl csatolva',
       uploadAgreement: 'Megállapodás feltöltése',
+      mobileApp: {
+        description: 'Mobilalkalmazás-hozzáférés beállítása a terepi munkatársak számára',
+        enabled: 'Mobilalkalmazás-hozzáférés engedélyezése',
+        username: 'Felhasználónév',
+        usernamePlaceholder: 'Adja meg a bejelentkezési felhasználónevet',
+        password: 'Jelszó',
+        passwordPlaceholder: 'Adja meg a mobilalkalmazás jelszavát',
+        passwordPlaceholderExisting: 'Hagyja üresen a jelenlegi jelszó megtartásához',
+        passwordConfirm: 'Jelszó megerősítése',
+        passwordConfirmPlaceholder: 'Erősítse meg a jelszót',
+        passwordMismatch: 'A jelszavak nem egyeznek',
+        usernameRequired: 'Felhasználónév szükséges a mobilalkalmazás-hozzáféréshez',
+        passwordRequired: 'Jelszó szükséges a mobilalkalmazás-hozzáféréshez',
+      },
     },
     campaigns: {
       title: 'Kampányok',
@@ -8302,6 +8372,20 @@ export const translations: Record<Locale, Translations> = {
       updateCollaborator: 'Actualizează colaborator',
       noFile: 'Niciun fișier atașat',
       uploadAgreement: 'Încarcă acord',
+      mobileApp: {
+        description: 'Configurați accesul la aplicația mobilă pentru reprezentanții de teren',
+        enabled: 'Activați accesul la aplicația mobilă',
+        username: 'Nume de utilizator',
+        usernamePlaceholder: 'Introduceți numele de utilizator pentru autentificare',
+        password: 'Parolă',
+        passwordPlaceholder: 'Introduceți parola pentru aplicația mobilă',
+        passwordPlaceholderExisting: 'Lăsați gol pentru a păstra parola curentă',
+        passwordConfirm: 'Confirmați parola',
+        passwordConfirmPlaceholder: 'Confirmați parola',
+        passwordMismatch: 'Parolele nu se potrivesc',
+        usernameRequired: 'Numele de utilizator este necesar pentru accesul la aplicația mobilă',
+        passwordRequired: 'Parola este necesară pentru accesul la aplicația mobilă',
+      },
     },
     campaigns: {
       title: 'Campanii',
@@ -9809,6 +9893,20 @@ export const translations: Record<Locale, Translations> = {
       updateCollaborator: 'Aggiorna collaboratore',
       noFile: 'Nessun file allegato',
       uploadAgreement: 'Carica accordo',
+      mobileApp: {
+        description: "Configura l'accesso all'app mobile per i rappresentanti sul campo",
+        enabled: "Abilita l'accesso all'app mobile",
+        username: 'Nome utente',
+        usernamePlaceholder: 'Inserisci il nome utente per il login',
+        password: 'Password',
+        passwordPlaceholder: "Inserisci la password per l'app mobile",
+        passwordPlaceholderExisting: 'Lascia vuoto per mantenere la password attuale',
+        passwordConfirm: 'Conferma password',
+        passwordConfirmPlaceholder: 'Conferma la password',
+        passwordMismatch: 'Le password non corrispondono',
+        usernameRequired: "Il nome utente è richiesto per l'accesso all'app mobile",
+        passwordRequired: "La password è richiesta per l'accesso all'app mobile",
+      },
     },
     campaigns: {
       title: 'Campagne',
@@ -11316,6 +11414,20 @@ export const translations: Record<Locale, Translations> = {
       updateCollaborator: 'Mitarbeiter aktualisieren',
       noFile: 'Keine Datei angehängt',
       uploadAgreement: 'Vereinbarung hochladen',
+      mobileApp: {
+        description: 'Mobile App-Zugang für Außendienstmitarbeiter konfigurieren',
+        enabled: 'Mobile App-Zugang aktivieren',
+        username: 'Benutzername',
+        usernamePlaceholder: 'Benutzernamen für App-Anmeldung eingeben',
+        password: 'Passwort',
+        passwordPlaceholder: 'Passwort für die mobile App eingeben',
+        passwordPlaceholderExisting: 'Leer lassen um aktuelles Passwort beizubehalten',
+        passwordConfirm: 'Passwort bestätigen',
+        passwordConfirmPlaceholder: 'Passwort bestätigen',
+        passwordMismatch: 'Passwörter stimmen nicht überein',
+        usernameRequired: 'Benutzername ist für den Mobile App-Zugang erforderlich',
+        passwordRequired: 'Passwort ist für den Mobile App-Zugang erforderlich',
+      },
     },
     campaigns: {
       title: 'Kampagnen',
