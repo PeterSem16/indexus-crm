@@ -6933,10 +6933,13 @@ export async function registerRoutes(
 
   app.post("/api/collaborators", requireAuth, async (req, res) => {
     try {
+      console.log("[Collaborators] POST request body:", JSON.stringify(req.body, null, 2));
       const parsed = insertCollaboratorSchema.safeParse(req.body);
       if (!parsed.success) {
+        console.log("[Collaborators] Validation failed:", JSON.stringify(parsed.error.issues, null, 2));
         return res.status(400).json({ error: "Invalid data", details: parsed.error.issues });
       }
+      console.log("[Collaborators] Validation passed, parsed data:", JSON.stringify(parsed.data, null, 2));
       const collaborator = await storage.createCollaborator(parsed.data);
       await logActivity(req.session.user!.id, "create", "collaborator", collaborator.id, `${collaborator.firstName} ${collaborator.lastName}`);
       res.status(201).json(collaborator);
@@ -6947,6 +6950,7 @@ export async function registerRoutes(
 
   app.put("/api/collaborators/:id", requireAuth, async (req, res) => {
     try {
+      console.log("[Collaborators] PUT request for id:", req.params.id, "body:", JSON.stringify(req.body, null, 2));
       const collaborator = await storage.updateCollaborator(req.params.id, req.body);
       if (!collaborator) return res.status(404).json({ error: "Collaborator not found" });
       await logActivity(req.session.user!.id, "update", "collaborator", collaborator.id, `${collaborator.firstName} ${collaborator.lastName}`);
