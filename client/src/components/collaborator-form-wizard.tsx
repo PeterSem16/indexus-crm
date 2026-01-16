@@ -319,8 +319,10 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
       toast({ title: t.success.saved });
       onSuccess();
     },
-    onError: () => {
-      toast({ title: t.errors.saveFailed, variant: "destructive" });
+    onError: (error: any) => {
+      console.error("[Wizard] Save error:", error);
+      const errorMessage = error?.message || error?.toString() || t.errors.saveFailed;
+      toast({ title: errorMessage, variant: "destructive" });
     },
   });
 
