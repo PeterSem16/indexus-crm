@@ -1696,6 +1696,16 @@ export const collaboratorAgreements = pgTable("collaborator_agreements", {
 });
 
 // Collaborator schemas
+const emptyStringToNull = z.preprocess(
+  (val) => (val === "" ? null : val),
+  z.string().optional().nullable()
+);
+
+const optionalEmail = z.preprocess(
+  (val) => (val === "" ? null : val),
+  z.string().email().optional().nullable()
+);
+
 export const insertCollaboratorSchema = createInsertSchema(collaborators).omit({
   id: true,
   createdAt: true,
@@ -1707,7 +1717,28 @@ export const insertCollaboratorSchema = createInsertSchema(collaborators).omit({
   birthDay: z.number().min(1).max(31).optional().nullable(),
   birthMonth: z.number().min(1).max(12).optional().nullable(),
   birthYear: z.number().min(1900).max(2100).optional().nullable(),
-  email: z.string().email().optional().nullable().or(z.literal("")),
+  email: optionalEmail,
+  legacyId: emptyStringToNull,
+  titleBefore: emptyStringToNull,
+  maidenName: emptyStringToNull,
+  titleAfter: emptyStringToNull,
+  birthNumber: emptyStringToNull,
+  birthPlace: emptyStringToNull,
+  maritalStatus: emptyStringToNull,
+  collaboratorType: emptyStringToNull,
+  phone: emptyStringToNull,
+  mobile: emptyStringToNull,
+  mobile2: emptyStringToNull,
+  otherContact: emptyStringToNull,
+  bankAccountIban: emptyStringToNull,
+  swiftCode: emptyStringToNull,
+  companyName: emptyStringToNull,
+  ico: emptyStringToNull,
+  dic: emptyStringToNull,
+  icDph: emptyStringToNull,
+  companyIban: emptyStringToNull,
+  companySwift: emptyStringToNull,
+  note: emptyStringToNull,
 });
 
 export const insertCollaboratorAddressSchema = createInsertSchema(collaboratorAddresses).omit({
