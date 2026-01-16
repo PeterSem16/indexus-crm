@@ -255,7 +255,13 @@ export const hospitals = pgTable("hospitals", {
   countryCode: text("country_code").notNull(), // Krajina
   contactPerson: text("contact_person"), // Kontaktná osoba
   svetZdravia: boolean("svet_zdravia").notNull().default(false), // Svet zdravia
+  phone: text("phone"), // Telefón
+  email: text("email"), // Email
+  latitude: decimal("latitude", { precision: 10, scale: 7 }), // GPS súradnica
+  longitude: decimal("longitude", { precision: 10, scale: 7 }), // GPS súradnica
+  createdByCollaboratorId: varchar("created_by_collaborator_id"), // Pridal collaborator cez mobilnú app
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
 // Client status types
@@ -1593,6 +1599,13 @@ export const collaborators = pgTable("collaborators", {
   note: text("note"),
   hospitalId: varchar("hospital_id"),
   
+  // INDEXUS Connect mobile app access
+  mobileAppEnabled: boolean("mobile_app_enabled").notNull().default(false),
+  mobileUsername: text("mobile_username"),
+  mobilePasswordHash: text("mobile_password_hash"),
+  canEditHospitals: boolean("can_edit_hospitals").notNull().default(false), // Permission to add/edit hospitals
+  lastMobileLogin: timestamp("last_mobile_login"),
+  
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
@@ -1729,6 +1742,105 @@ export type InsertCollaboratorOtherData = z.infer<typeof insertCollaboratorOther
 export type CollaboratorOtherData = typeof collaboratorOtherData.$inferSelect;
 export type InsertCollaboratorAgreement = z.infer<typeof insertCollaboratorAgreementSchema>;
 export type CollaboratorAgreement = typeof collaboratorAgreements.$inferSelect;
+
+// Visit Events - INDEXUS Connect field visit records
+export const visitEvents = pgTable("visit_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  collaboratorId: varchar("collaborator_id").notNull(),
+  countryCode: text("country_code").notNull(),
+  
+  // Subject/Type of visit
+  subject: text("subject").notNull(), // visit type code (1-12)
+  
+  // Time
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time").notNull(),
+  isAllDay: boolean("is_all_day").notNull().default(false),
+  
+  // Location (GPS coordinates captured from mobile)
+  latitude: decimal("latitude", { precision: 10, scale: 7 }),
+  longitude: decimal("longitude", { precision: 10, scale: 7 }),
+  locationAddress: text("location_address"), // Reverse geocoded address
+  
+  // Hospital reference
+  hospitalId: varchar("hospital_id"),
+  
+  // Remark - can be text or voice transcription
+  remark: text("remark"),
+  remarkVoiceUrl: text("remark_voice_url"), // URL to audio file if voice recorded
+  
+  // Remark detail (visited person type: 1-7)
+  remarkDetail: text("remark_detail"),
+  
+  // Type of visit (1-12)
+  visitType: text("visit_type"),
+  
+  // Place (1-6)
+  place: text("place"),
+  
+  // Status
+  isCancelled: boolean("is_cancelled").notNull().default(false),
+  isNotRealized: boolean("is_not_realized").notNull().default(false),
+  
+  // Sync info
+  syncedFromMobile: boolean("synced_from_mobile").notNull().default(false),
+  mobileDeviceInfo: text("mobile_device_info"),
+  
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertVisitEventSchema = createInsertSchema(visitEvents).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  collaboratorId: z.string().min(1, "Collaborator ID is required"),
+  countryCode: z.string().min(1, "Country is required"),
+  subject: z.string().min(1, "Subject is required"),
+  startTime: z.string().or(z.date()),
+  endTime: z.string().or(z.date()),
+});
+
+export type InsertVisitEvent = z.infer<typeof insertVisitEventSchema>;
+export type VisitEvent = typeof visitEvents.$inferSelect;
+
+// Visit event subject/type options (localized)
+export const VISIT_SUBJECTS = [
+  { code: "1", en: "Standard visit to strengthen recommendations and CBC cooperation", sk: "Štandardná návšteva na posilnenie odporúčaní a spolupráce CBC", cs: "Standardní návštěva k posílení doporučení a spolupráce CBC", hu: "Ajánlásokat és CBC együttműködést erősítő standard látogatás", ro: "Vizită standard pentru consolidarea recomandărilor și cooperării CBC", it: "Visita standard per rafforzare raccomandazioni e cooperazione CBC", de: "Standardbesuch zur Stärkung von Empfehlungen und CBC-Kooperation" },
+  { code: "2", en: "Individual training - collection process", sk: "Individuálne školenie - proces odberu", cs: "Individuální školení - proces odběru", hu: "Egyéni képzés – levétel menete", ro: "Instruire individuală - procesul de colectare", it: "Formazione individuale - processo di raccolta", de: "Einzelschulung - Entnahmeprozess" },
+  { code: "3", en: "Examination of problematic collection", sk: "Preskúmanie problémového odberu", cs: "Prošetření problémového odběru", hu: "Problémás levétel kivizsgálása", ro: "Examinarea colectării problematice", it: "Esame della raccolta problematica", de: "Untersuchung problematischer Entnahme" },
+  { code: "4", en: "Hospital kit delivery", sk: "Dodanie nemocničnej súpravy", cs: "Dodání nemocniční soupravy", hu: "Kórházi szett átadás", ro: "Livrarea kitului de spital", it: "Consegna kit ospedaliero", de: "Krankenhauskit-Lieferung" },
+  { code: "5", en: "Pregnancy preparation lecture for pregnant women", sk: "Prednáška prípravy na pôrod pre tehotné", cs: "Přednáška přípravy na porod pro těhotné", hu: "Szülésfelkészítő előadás várandósoknak", ro: "Curs de pregătire pentru naștere pentru gravide", it: "Corso di preparazione al parto per gestanti", de: "Geburtsvorbereitung für Schwangere" },
+  { code: "6", en: "Group lecture for midwives", sk: "Skupinová prednáška pre pôrodné asistentky", cs: "Skupinová přednáška pro porodní asistentky", hu: "Csoportos előadás szülésznőknek", ro: "Curs de grup pentru moașe", it: "Corso di gruppo per ostetriche", de: "Gruppenvortrag für Hebammen" },
+  { code: "7", en: "Group lecture for doctors", sk: "Skupinová prednáška pre lekárov", cs: "Skupinová přednáška pro lékaře", hu: "Csoportos előadás orvosoknak", ro: "Curs de grup pentru medici", it: "Corso di gruppo per medici", de: "Gruppenvortrag für Ärzte" },
+  { code: "8", en: "Hospital contract management", sk: "Správa nemocničnej zmluvy", cs: "Správa nemocniční smlouvy", hu: "Kórházi szerződés intézése", ro: "Gestionarea contractului de spital", it: "Gestione contratto ospedaliero", de: "Krankenhausvertragsmanagement" },
+  { code: "9", en: "Doctor contract management", sk: "Správa lekárskej zmluvy", cs: "Správa lékařské smlouvy", hu: "Orvosi szerződés intézése", ro: "Gestionarea contractului de medic", it: "Gestione contratto medico", de: "Arztvertragsmanagement" },
+  { code: "10", en: "Business partner contract management - other collaborator", sk: "Správa zmluvy s obchodným partnerom - iný spolupracovník", cs: "Správa smlouvy s obchodním partnerem - jiný spolupracovník", hu: "Üzleti partner szerződés intézése – egyéb együttműködő", ro: "Gestionarea contractului partener de afaceri - alt colaborator", it: "Gestione contratto partner commerciale - altro collaboratore", de: "Geschäftspartnervertragsmanagement - anderer Mitarbeiter" },
+  { code: "11", en: "Other", sk: "Iné", cs: "Jiné", hu: "Egyéb", ro: "Altele", it: "Altro", de: "Sonstiges" },
+  { code: "12", en: "Phone call / Video conference", sk: "Telefonát / Videokonferencia", cs: "Telefonát / Videokonference", hu: "Telefonhívás / Videokonferencia", ro: "Apel telefonic / Videoconferință", it: "Telefonata / Videoconferenza", de: "Telefonat / Videokonferenz" },
+] as const;
+
+// Remark detail options (visited person type)
+export const REMARK_DETAIL_OPTIONS = [
+  { code: "1", en: "Price", sk: "Cena", cs: "Cena", hu: "Ár", ro: "Preț", it: "Prezzo", de: "Preis" },
+  { code: "2", en: "Competitors", sk: "Konkurencia", cs: "Konkurence", hu: "Versenytársak", ro: "Concurenți", it: "Concorrenti", de: "Wettbewerber" },
+  { code: "3", en: "Doctor", sk: "Lekár", cs: "Lékař", hu: "Orvos", ro: "Medic", it: "Medico", de: "Arzt" },
+  { code: "4", en: "Resident", sk: "Rezident", cs: "Rezident", hu: "Rezidens", ro: "Rezident", it: "Residente", de: "Assistenzarzt" },
+  { code: "5", en: "Midwife", sk: "Pôrodná asistentka", cs: "Porodní asistentka", hu: "Szülésznő", ro: "Moașă", it: "Ostetrica", de: "Hebamme" },
+  { code: "6", en: "Business partner - other collaborator", sk: "Obchodný partner - iný spolupracovník", cs: "Obchodní partner - jiný spolupracovník", hu: "Üzleti partner – egyéb együttműködő", ro: "Partener de afaceri - alt colaborator", it: "Partner commerciale - altro collaboratore", de: "Geschäftspartner - anderer Mitarbeiter" },
+  { code: "7", en: "Other", sk: "Iné", cs: "Jiné", hu: "Egyéb", ro: "Altele", it: "Altro", de: "Sonstiges" },
+] as const;
+
+// Place options
+export const VISIT_PLACE_OPTIONS = [
+  { code: "1", en: "Department of Obstetrics, Hospital", sk: "Pôrodnícke oddelenie, Nemocnica", cs: "Porodnické oddělení, Nemocnice", hu: "Kórház szülészeti osztálya", ro: "Secția de obstetrică, Spital", it: "Reparto di Ostetricia, Ospedale", de: "Geburtshilfe-Abteilung, Krankenhaus" },
+  { code: "2", en: "Private doctor's office", sk: "Súkromná ordinácia lekára", cs: "Soukromá ordinace lékaře", hu: "Orvos magánrendelője", ro: "Cabinet medical privat", it: "Studio medico privato", de: "Private Arztpraxis" },
+  { code: "3", en: "State doctor's office", sk: "Štátna ordinácia lekára", cs: "Státní ordinace lékaře", hu: "Orvos szakrendelője", ro: "Cabinet medical de stat", it: "Studio medico statale", de: "Staatliche Arztpraxis" },
+  { code: "4", en: "Hospital management department", sk: "Vedenie nemocnice", cs: "Vedení nemocnice", hu: "Kórház vezetőségi osztály", ro: "Departamentul de management al spitalului", it: "Direzione ospedaliera", de: "Krankenhausverwaltung" },
+  { code: "5", en: "Other", sk: "Iné", cs: "Jiné", hu: "Egyéb", ro: "Altele", it: "Altro", de: "Sonstiges" },
+  { code: "6", en: "Phone call / Video conference", sk: "Telefonát / Videokonferencia", cs: "Telefonát / Videokonference", hu: "Telefonhívás / Videokonferencia", ro: "Apel telefonic / Videoconferință", it: "Telefonata / Videoconferenza", de: "Telefonat / Videokonferenz" },
+] as const;
 
 // Customer Potential Cases - extended data for potential clients
 export const customerPotentialCases = pgTable("customer_potential_cases", {

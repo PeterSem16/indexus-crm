@@ -18,6 +18,7 @@ export interface Translations {
     invoices: string;
     hospitals: string;
     collaborators: string;
+    visitEvents: string;
     campaigns: string;
     tasks: string;
     contracts: string;
@@ -1454,6 +1455,7 @@ export const translations: Record<Locale, Translations> = {
       invoices: 'Invoices',
       hospitals: 'Hospitals',
       collaborators: 'Collaborators',
+      visitEvents: 'INDEXUS Connect',
       campaigns: 'Campaigns',
       tasks: 'Tasks',
       contracts: 'Contracts',
@@ -3002,6 +3004,7 @@ export const translations: Record<Locale, Translations> = {
       invoices: 'Faktúry',
       hospitals: 'Nemocnice',
       collaborators: 'Spolupracovníci',
+      visitEvents: 'INDEXUS Connect',
       campaigns: 'Kampane',
       tasks: 'Úlohy',
       contracts: 'Zmluvy',
@@ -4545,6 +4548,7 @@ export const translations: Record<Locale, Translations> = {
       invoices: 'Faktury',
       hospitals: 'Nemocnice',
       collaborators: 'Spolupracovníci',
+      visitEvents: 'INDEXUS Connect',
       campaigns: 'Kampaně',
       tasks: 'Úkoly',
       contracts: 'Smlouvy',
@@ -6051,6 +6055,7 @@ export const translations: Record<Locale, Translations> = {
       invoices: 'Számlák',
       hospitals: 'Kórházak',
       collaborators: 'Munkatársak',
+      visitEvents: 'INDEXUS Connect',
       campaigns: 'Kampányok',
       tasks: 'Feladatok',
       contracts: 'Szerződések',
@@ -7557,6 +7562,7 @@ export const translations: Record<Locale, Translations> = {
       invoices: 'Facturi',
       hospitals: 'Spitale',
       collaborators: 'Colaboratori',
+      visitEvents: 'INDEXUS Connect',
       campaigns: 'Campanii',
       tasks: 'Sarcini',
       contracts: 'Contracte',
@@ -9063,6 +9069,7 @@ export const translations: Record<Locale, Translations> = {
       invoices: 'Fatture',
       hospitals: 'Ospedali',
       collaborators: 'Collaboratori',
+      visitEvents: 'INDEXUS Connect',
       campaigns: 'Campagne',
       tasks: 'Attività',
       contracts: 'Contratti',
@@ -10569,6 +10576,7 @@ export const translations: Record<Locale, Translations> = {
       invoices: 'Rechnungen',
       hospitals: 'Krankenhäuser',
       collaborators: 'Mitarbeiter',
+      visitEvents: 'INDEXUS Connect',
       campaigns: 'Kampagnen',
       tasks: 'Aufgaben',
       contracts: 'Verträge',

@@ -7120,6 +7120,384 @@ export async function registerRoutes(
     }
   });
 
+  // ============================================================================
+  // INDEXUS Connect Mobile API - for mobile app used by collaborators
+  // JWT-based authentication for secure mobile access
+  // ============================================================================
+  
+  const MOBILE_JWT_SECRET = process.env.SESSION_SECRET;
+  const MOBILE_JWT_EXPIRES_IN = "30d"; // Mobile tokens valid for 30 days
+  
+  if (!MOBILE_JWT_SECRET) {
+    console.warn("[Mobile API] Warning: SESSION_SECRET not set, mobile API will reject all requests");
+  }
+  
+  // Helper to extract collaborator from JWT token
+  async function getMobileCollaboratorFromToken(req: any): Promise<{ collaboratorId: string } | null> {
+    if (!MOBILE_JWT_SECRET) {
+      return null; // Fail-secure if no secret configured
+    }
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return null;
+    }
+    try {
+      const jwt = await import("jsonwebtoken");
+      const token = authHeader.split(" ")[1];
+      const decoded = jwt.default.verify(token, MOBILE_JWT_SECRET) as { collaboratorId: string };
+      return decoded;
+    } catch (error) {
+      return null;
+    }
+  }
+  
+  // Mobile app authentication - issues JWT token
+  app.post("/api/mobile/auth/login", async (req, res) => {
+    try {
+      if (!MOBILE_JWT_SECRET) {
+        return res.status(500).json({ error: "Mobile API not configured" });
+      }
+      
+      const { username, password } = req.body;
+      if (!username || !password) {
+        return res.status(400).json({ error: "Username and password are required" });
+      }
+      
+      const collaborator = await storage.validateCollaboratorMobilePassword(username, password);
+      if (!collaborator) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+      
+      // Update last login timestamp
+      await storage.updateCollaboratorMobileLogin(collaborator.id);
+      
+      // Generate JWT token
+      const jwt = await import("jsonwebtoken");
+      const token = jwt.default.sign(
+        { collaboratorId: collaborator.id, countryCode: collaborator.countryCode },
+        MOBILE_JWT_SECRET,
+        { expiresIn: MOBILE_JWT_EXPIRES_IN }
+      );
+      
+      // Return collaborator info (exclude password hash)
+      const { mobilePasswordHash, ...safeCollaborator } = collaborator;
+      res.json({
+        success: true,
+        collaborator: safeCollaborator,
+        token
+      });
+    } catch (error) {
+      console.error("Mobile login error:", error);
+      res.status(500).json({ error: "Login failed" });
+    }
+  });
+  
+  // Mobile token verification endpoint
+  app.get("/api/mobile/auth/verify", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) {
+        return res.status(401).json({ error: "Invalid or expired token" });
+      }
+      
+      const collaborator = await storage.getCollaborator(tokenData.collaboratorId);
+      if (!collaborator || !collaborator.mobileAppEnabled) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const { mobilePasswordHash, ...safeCollaborator } = collaborator;
+      res.json({ valid: true, collaborator: safeCollaborator });
+    } catch (error) {
+      res.status(500).json({ error: "Verification failed" });
+    }
+  });
+
+  // Get hospitals for mobile app (filtered by collaborator's country)
+  app.get("/api/mobile/hospitals", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) {
+        return res.status(401).json({ error: "Invalid or expired token" });
+      }
+      
+      const collaborator = await storage.getCollaborator(tokenData.collaboratorId);
+      if (!collaborator || !collaborator.mobileAppEnabled) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const hospitals = await storage.getHospitalsByCountry([collaborator.countryCode]);
+      res.json(hospitals);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch hospitals" });
+    }
+  });
+
+  // Create new hospital from mobile app
+  app.post("/api/mobile/hospitals", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) {
+        return res.status(401).json({ error: "Invalid or expired token" });
+      }
+      
+      const collaborator = await storage.getCollaborator(tokenData.collaboratorId);
+      if (!collaborator || !collaborator.mobileAppEnabled) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      if (!collaborator.canEditHospitals) {
+        return res.status(403).json({ error: "No permission to add hospitals" });
+      }
+      
+      const parsed = insertHospitalSchema.safeParse({
+        ...req.body,
+        countryCode: collaborator.countryCode,
+        createdByCollaboratorId: collaborator.id
+      });
+      
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid data", details: parsed.error.issues });
+      }
+      
+      const hospital = await storage.createHospital(parsed.data);
+      res.status(201).json(hospital);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create hospital" });
+    }
+  });
+
+  // Update hospital from mobile app
+  app.put("/api/mobile/hospitals/:id", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) {
+        return res.status(401).json({ error: "Invalid or expired token" });
+      }
+      
+      const collaborator = await storage.getCollaborator(tokenData.collaboratorId);
+      if (!collaborator || !collaborator.mobileAppEnabled) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      if (!collaborator.canEditHospitals) {
+        return res.status(403).json({ error: "No permission to edit hospitals" });
+      }
+      
+      const hospital = await storage.updateHospital(req.params.id, req.body);
+      if (!hospital) {
+        return res.status(404).json({ error: "Hospital not found" });
+      }
+      
+      res.json(hospital);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update hospital" });
+    }
+  });
+
+  // Get visit events for mobile app
+  app.get("/api/mobile/visit-events", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) {
+        return res.status(401).json({ error: "Invalid or expired token" });
+      }
+      
+      const collaborator = await storage.getCollaborator(tokenData.collaboratorId);
+      if (!collaborator || !collaborator.mobileAppEnabled) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const events = await storage.getVisitEventsByCollaborator(tokenData.collaboratorId);
+      res.json(events);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch visit events" });
+    }
+  });
+
+  // Create visit event from mobile app
+  app.post("/api/mobile/visit-events", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) {
+        return res.status(401).json({ error: "Invalid or expired token" });
+      }
+      
+      const collaborator = await storage.getCollaborator(tokenData.collaboratorId);
+      if (!collaborator || !collaborator.mobileAppEnabled) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const parsed = insertVisitEventSchema.safeParse({
+        ...req.body,
+        collaboratorId: tokenData.collaboratorId,
+        countryCode: collaborator.countryCode,
+        syncedFromMobile: true
+      });
+      
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid data", details: parsed.error.issues });
+      }
+      
+      const event = await storage.createVisitEvent(parsed.data);
+      res.status(201).json(event);
+    } catch (error) {
+      console.error("Create visit event error:", error);
+      res.status(500).json({ error: "Failed to create visit event" });
+    }
+  });
+
+  // Update visit event from mobile app
+  app.put("/api/mobile/visit-events/:id", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) {
+        return res.status(401).json({ error: "Invalid or expired token" });
+      }
+      
+      const collaborator = await storage.getCollaborator(tokenData.collaboratorId);
+      if (!collaborator || !collaborator.mobileAppEnabled) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      // Verify the event belongs to this collaborator
+      const existingEvent = await storage.getVisitEvent(req.params.id);
+      if (!existingEvent || existingEvent.collaboratorId !== tokenData.collaboratorId) {
+        return res.status(403).json({ error: "Not authorized to update this event" });
+      }
+      
+      const event = await storage.updateVisitEvent(req.params.id, req.body);
+      if (!event) {
+        return res.status(404).json({ error: "Visit event not found" });
+      }
+      
+      res.json(event);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update visit event" });
+    }
+  });
+
+  // Delete visit event from mobile app
+  app.delete("/api/mobile/visit-events/:id", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) {
+        return res.status(401).json({ error: "Invalid or expired token" });
+      }
+      
+      const collaborator = await storage.getCollaborator(tokenData.collaboratorId);
+      if (!collaborator || !collaborator.mobileAppEnabled) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      // Verify the event belongs to this collaborator
+      const existingEvent = await storage.getVisitEvent(req.params.id);
+      if (!existingEvent || existingEvent.collaboratorId !== tokenData.collaboratorId) {
+        return res.status(403).json({ error: "Not authorized to delete this event" });
+      }
+      
+      const success = await storage.deleteVisitEvent(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Visit event not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete visit event" });
+    }
+  });
+
+  // Get visit subject/type options (localized) - public endpoint for mobile app
+  app.get("/api/mobile/visit-options", async (req, res) => {
+    try {
+      // Import the localized options from schema
+      const { VISIT_SUBJECTS, REMARK_DETAIL_OPTIONS, VISIT_PLACE_OPTIONS } = await import("@shared/schema");
+      res.json({
+        subjects: VISIT_SUBJECTS,
+        remarkDetails: REMARK_DETAIL_OPTIONS,
+        places: VISIT_PLACE_OPTIONS
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch visit options" });
+    }
+  });
+
+  // ============================================================================
+  // INDEXUS Web - Visit Events Calendar (for admins/managers)
+  // ============================================================================
+  
+  app.get("/api/visit-events", requireAuth, async (req, res) => {
+    try {
+      const { countries, startDate, endDate, collaboratorId } = req.query;
+      
+      if (collaboratorId) {
+        const events = await storage.getVisitEventsByCollaborator(collaboratorId as string);
+        return res.json(events);
+      }
+      
+      if (startDate && endDate) {
+        const countryCodes = countries ? (countries as string).split(",") : undefined;
+        const events = await storage.getVisitEventsByDateRange(
+          new Date(startDate as string),
+          new Date(endDate as string),
+          countryCodes
+        );
+        return res.json(events);
+      }
+      
+      const countryCodes = countries ? (countries as string).split(",") : undefined;
+      const events = countryCodes
+        ? await storage.getVisitEventsByCountry(countryCodes)
+        : await storage.getAllVisitEvents();
+      
+      res.json(events);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch visit events" });
+    }
+  });
+
+  app.get("/api/visit-events/:id", requireAuth, async (req, res) => {
+    try {
+      const event = await storage.getVisitEvent(req.params.id);
+      if (!event) return res.status(404).json({ error: "Visit event not found" });
+      res.json(event);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch visit event" });
+    }
+  });
+
+  app.post("/api/visit-events", requireAuth, async (req, res) => {
+    try {
+      const event = await storage.createVisitEvent(req.body);
+      await logActivity(req.session.user!.id, "create", "visit_event", event.id, `Visit: ${event.subject}`);
+      res.status(201).json(event);
+    } catch (error) {
+      console.error("Create visit event error:", error);
+      res.status(500).json({ error: "Failed to create visit event" });
+    }
+  });
+
+  app.put("/api/visit-events/:id", requireAuth, async (req, res) => {
+    try {
+      const event = await storage.updateVisitEvent(req.params.id, req.body);
+      if (!event) return res.status(404).json({ error: "Visit event not found" });
+      await logActivity(req.session.user!.id, "update", "visit_event", event.id, `Visit: ${event.subject}`);
+      res.json(event);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update visit event" });
+    }
+  });
+
+  app.delete("/api/visit-events/:id", requireAuth, async (req, res) => {
+    try {
+      const success = await storage.deleteVisitEvent(req.params.id);
+      if (!success) return res.status(404).json({ error: "Visit event not found" });
+      await logActivity(req.session.user!.id, "delete", "visit_event", req.params.id, "");
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete visit event" });
+    }
+  });
+
   // File upload for agreements
   app.post("/api/collaborators/:id/agreements/:agreementId/upload", requireAuth, uploadAgreement.single("file"), async (req, res) => {
     try {

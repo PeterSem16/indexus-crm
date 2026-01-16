@@ -2,7 +2,7 @@ import {
   users, customers, products, customerProducts, invoices, billingDetails, invoiceItems,
   customerNotes, activityLogs, communicationMessages,
   complaintTypes, cooperationTypes, vipStatuses, healthInsuranceCompanies,
-  laboratories, hospitals,
+  laboratories, hospitals, visitEvents,
   collaborators, collaboratorAddresses, collaboratorOtherData, collaboratorAgreements,
   customerPotentialCases, leadScoringCriteria,
   serviceConfigurations, serviceInstances, numberRanges, invoiceTemplates, invoiceLayouts,
@@ -34,6 +34,7 @@ import {
   type CollaboratorAddress, type InsertCollaboratorAddress,
   type CollaboratorOtherData, type InsertCollaboratorOtherData,
   type CollaboratorAgreement, type InsertCollaboratorAgreement,
+  type VisitEvent, type InsertVisitEvent,
   type CustomerPotentialCase, type InsertCustomerPotentialCase,
   type LeadScoringCriteria, type InsertLeadScoringCriteria,
   type ServiceConfiguration, type InsertServiceConfiguration,
@@ -110,7 +111,7 @@ import {
   type NotificationRule, type InsertNotificationRule
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, inArray, sql, desc, and, or, asc } from "drizzle-orm";
+import { eq, inArray, sql, desc, and, or, asc, gte, lte } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
 const SALT_ROUNDS = 10;
@@ -387,6 +388,21 @@ export interface IStorage {
   createCollaboratorAgreement(data: InsertCollaboratorAgreement): Promise<CollaboratorAgreement>;
   updateCollaboratorAgreement(id: string, data: Partial<InsertCollaboratorAgreement>): Promise<CollaboratorAgreement | undefined>;
   deleteCollaboratorAgreement(id: string): Promise<boolean>;
+
+  // INDEXUS Connect Mobile App - Collaborator Auth
+  getCollaboratorByMobileUsername(username: string): Promise<Collaborator | undefined>;
+  validateCollaboratorMobilePassword(username: string, password: string): Promise<Collaborator | null>;
+  updateCollaboratorMobileLogin(id: string): Promise<void>;
+
+  // Visit Events (INDEXUS Connect)
+  getVisitEvent(id: string): Promise<VisitEvent | undefined>;
+  getAllVisitEvents(): Promise<VisitEvent[]>;
+  getVisitEventsByCollaborator(collaboratorId: string): Promise<VisitEvent[]>;
+  getVisitEventsByCountry(countryCodes: string[]): Promise<VisitEvent[]>;
+  getVisitEventsByDateRange(startDate: Date, endDate: Date, countryCodes?: string[]): Promise<VisitEvent[]>;
+  createVisitEvent(data: InsertVisitEvent): Promise<VisitEvent>;
+  updateVisitEvent(id: string, data: Partial<InsertVisitEvent>): Promise<VisitEvent | undefined>;
+  deleteVisitEvent(id: string): Promise<boolean>;
 
   // Customer Potential Cases
   getCustomerPotentialCase(customerId: string): Promise<CustomerPotentialCase | undefined>;
@@ -2193,6 +2209,90 @@ export class DatabaseStorage implements IStorage {
 
   async deleteCollaboratorAgreement(id: string): Promise<boolean> {
     const result = await db.delete(collaboratorAgreements).where(eq(collaboratorAgreements.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // INDEXUS Connect Mobile App - Collaborator Auth
+  async getCollaboratorByMobileUsername(username: string): Promise<Collaborator | undefined> {
+    const [collaborator] = await db.select().from(collaborators)
+      .where(and(
+        eq(collaborators.mobileUsername, username),
+        eq(collaborators.mobileAppEnabled, true)
+      ));
+    return collaborator || undefined;
+  }
+
+  async validateCollaboratorMobilePassword(username: string, password: string): Promise<Collaborator | null> {
+    const collaborator = await this.getCollaboratorByMobileUsername(username);
+    if (!collaborator || !collaborator.mobilePasswordHash) return null;
+    const isValid = await bcrypt.compare(password, collaborator.mobilePasswordHash);
+    return isValid ? collaborator : null;
+  }
+
+  async updateCollaboratorMobileLogin(id: string): Promise<void> {
+    await db.update(collaborators)
+      .set({ lastMobileLogin: new Date() })
+      .where(eq(collaborators.id, id));
+  }
+
+  // Visit Events (INDEXUS Connect)
+  async getVisitEvent(id: string): Promise<VisitEvent | undefined> {
+    const [event] = await db.select().from(visitEvents).where(eq(visitEvents.id, id));
+    return event || undefined;
+  }
+
+  async getAllVisitEvents(): Promise<VisitEvent[]> {
+    return db.select().from(visitEvents).orderBy(desc(visitEvents.startTime));
+  }
+
+  async getVisitEventsByCollaborator(collaboratorId: string): Promise<VisitEvent[]> {
+    return db.select().from(visitEvents)
+      .where(eq(visitEvents.collaboratorId, collaboratorId))
+      .orderBy(desc(visitEvents.startTime));
+  }
+
+  async getVisitEventsByCountry(countryCodes: string[]): Promise<VisitEvent[]> {
+    if (countryCodes.length === 0) return [];
+    return db.select().from(visitEvents)
+      .where(inArray(visitEvents.countryCode, countryCodes))
+      .orderBy(desc(visitEvents.startTime));
+  }
+
+  async getVisitEventsByDateRange(startDate: Date, endDate: Date, countryCodes?: string[]): Promise<VisitEvent[]> {
+    const conditions = [
+      gte(visitEvents.startTime, startDate),
+      lte(visitEvents.startTime, endDate)
+    ];
+    if (countryCodes && countryCodes.length > 0) {
+      conditions.push(inArray(visitEvents.countryCode, countryCodes));
+    }
+    return db.select().from(visitEvents)
+      .where(and(...conditions))
+      .orderBy(desc(visitEvents.startTime));
+  }
+
+  async createVisitEvent(data: InsertVisitEvent): Promise<VisitEvent> {
+    const [created] = await db.insert(visitEvents).values({
+      ...data,
+      startTime: new Date(data.startTime),
+      endTime: new Date(data.endTime),
+    }).returning();
+    return created;
+  }
+
+  async updateVisitEvent(id: string, data: Partial<InsertVisitEvent>): Promise<VisitEvent | undefined> {
+    const updateData: any = { ...data, updatedAt: new Date() };
+    if (data.startTime) updateData.startTime = new Date(data.startTime);
+    if (data.endTime) updateData.endTime = new Date(data.endTime);
+    const [updated] = await db.update(visitEvents)
+      .set(updateData)
+      .where(eq(visitEvents.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteVisitEvent(id: string): Promise<boolean> {
+    const result = await db.delete(visitEvents).where(eq(visitEvents.id, id)).returning();
     return result.length > 0;
   }
 

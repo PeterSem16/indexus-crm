@@ -18,7 +18,8 @@ import {
   FileSignature,
   Kanban,
   Mail,
-  Network
+  Network,
+  MapPin
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/contexts/permissions-context";
@@ -66,6 +67,7 @@ export function AppSidebar() {
     { title: t.nav.dashboard, url: "/", icon: LayoutDashboard, testId: "dashboard", moduleKey: "dashboard" },
     { title: t.nav.hospitals, url: "/hospitals", icon: Building2, testId: "hospitals", moduleKey: "hospitals" },
     { title: t.nav.collaborators, url: "/collaborators", icon: Handshake, testId: "collaborators", moduleKey: "collaborators" },
+    { title: t.nav.visitEvents || "INDEXUS Connect", url: "/visit-events", icon: MapPin, testId: "visit-events", moduleKey: "visitEvents" },
     { title: t.nav.invoices, url: "/invoices", icon: FileText, testId: "invoices", moduleKey: "invoices" },
     { title: t.nav.campaigns, url: "/campaigns", icon: Megaphone, testId: "campaigns", moduleKey: "campaigns" },
     { title: "Pipeline", url: "/pipeline", icon: Kanban, testId: "pipeline", moduleKey: "pipeline" },
