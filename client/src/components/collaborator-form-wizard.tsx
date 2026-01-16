@@ -393,10 +393,19 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
   };
 
   const handleStepClick = (index: number) => {
+    if (index === currentStep) {
+      return;
+    }
+    
+    // When editing existing collaborator, allow clicking on any step
+    if (initialData) {
+      setCurrentStep(index);
+      return;
+    }
+    
+    // For new collaborators, require completing previous steps
     if (index < currentStep) {
       setCurrentStep(index);
-    } else if (index === currentStep) {
-      return;
     } else {
       for (let i = 0; i < index; i++) {
         if (!completedSteps.has(i)) {
