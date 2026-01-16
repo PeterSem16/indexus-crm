@@ -1805,6 +1805,58 @@ export const insertVisitEventSchema = createInsertSchema(visitEvents).omit({
 export type InsertVisitEvent = z.infer<typeof insertVisitEventSchema>;
 export type VisitEvent = typeof visitEvents.$inferSelect;
 
+// Voice Notes for Visit Events (mobile app voice recordings)
+export const voiceNotes = pgTable("voice_notes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  visitEventId: varchar("visit_event_id").notNull(),
+  collaboratorId: varchar("collaborator_id").notNull(),
+  
+  filePath: text("file_path").notNull(),
+  fileName: text("file_name"),
+  durationSeconds: integer("duration_seconds"),
+  fileSize: integer("file_size"),
+  
+  transcription: text("transcription"),
+  isTranscribed: boolean("is_transcribed").notNull().default(false),
+  transcriptionLanguage: text("transcription_language"),
+  
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertVoiceNoteSchema = createInsertSchema(voiceNotes).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertVoiceNote = z.infer<typeof insertVoiceNoteSchema>;
+export type VoiceNote = typeof voiceNotes.$inferSelect;
+
+// Mobile Push Notification Tokens
+export const mobilePushTokens = pgTable("mobile_push_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  collaboratorId: varchar("collaborator_id").notNull(),
+  
+  token: text("token").notNull(),
+  platform: text("platform").notNull(), // 'ios', 'android', 'expo'
+  deviceId: text("device_id"),
+  deviceName: text("device_name"),
+  
+  isActive: boolean("is_active").notNull().default(true),
+  lastUsedAt: timestamp("last_used_at"),
+  
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertMobilePushTokenSchema = createInsertSchema(mobilePushTokens).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertMobilePushToken = z.infer<typeof insertMobilePushTokenSchema>;
+export type MobilePushToken = typeof mobilePushTokens.$inferSelect;
+
 // Visit event subject/type options (localized)
 export const VISIT_SUBJECTS = [
   { code: "1", en: "Standard visit to strengthen recommendations and CBC cooperation", sk: "Štandardná návšteva na posilnenie odporúčaní a spolupráce CBC", cs: "Standardní návštěva k posílení doporučení a spolupráce CBC", hu: "Ajánlásokat és CBC együttműködést erősítő standard látogatás", ro: "Vizită standard pentru consolidarea recomandărilor și cooperării CBC", it: "Visita standard per rafforzare raccomandazioni e cooperazione CBC", de: "Standardbesuch zur Stärkung von Empfehlungen und CBC-Kooperation" },

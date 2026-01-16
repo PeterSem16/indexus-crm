@@ -169,3 +169,49 @@ Files are served via:
 - @replit/vite-plugin-runtime-error-modal for error display
 - @replit/vite-plugin-cartographer for development
 - connect-pg-simple for session storage (if sessions needed)
+
+## INDEXUS Connect Mobile Application
+
+### Overview
+INDEXUS Connect is a React Native (Expo) mobile application for field representatives (collaborators) to manage hospital visits, track GPS location, and record voice notes.
+
+### Mobile API Endpoints
+All mobile endpoints require JWT Bearer token authentication:
+- `POST /api/mobile/auth/login` - Authenticate and receive JWT token
+- `GET /api/mobile/auth/verify` - Verify token validity
+- `GET /api/mobile/hospitals` - List hospitals (filtered by collaborator's country)
+- `POST /api/mobile/hospitals` - Create new hospital
+- `PUT /api/mobile/hospitals/:id` - Update hospital
+- `GET /api/mobile/visit-events` - List visit events
+- `POST /api/mobile/visit-events` - Create visit event
+- `PUT /api/mobile/visit-events/:id` - Update visit event
+- `DELETE /api/mobile/visit-events/:id` - Delete visit event
+- `GET /api/mobile/visit-options` - Get localized visit type options
+- `POST /api/mobile/voice-notes` - Upload voice note with OpenAI Whisper transcription
+- `GET /api/mobile/voice-notes/:visitEventId` - Get voice notes for a visit
+- `POST /api/mobile/push-token` - Register push notification token
+- `DELETE /api/mobile/push-token` - Deactivate push token on logout
+
+### JWT Authentication
+- Secret: Uses SESSION_SECRET environment variable (fail-secure if not set)
+- Token lifetime: 30 days
+- Token payload: `{ collaboratorId, countryCode }`
+- Header format: `Authorization: Bearer <token>`
+
+### Key Database Tables
+- `visit_events` - Field visit events with GPS coordinates
+- `voice_notes` - Voice recordings with transcriptions
+- `mobile_push_tokens` - Push notification tokens per device
+- `collaborators.mobileAppEnabled` - Flag to enable mobile access
+- `collaborators.mobileUsername` - Mobile app login username
+- `collaborators.mobilePasswordHash` - Bcrypt hashed password
+
+### Design Documentation
+Complete mobile app design specification: `docs/INDEXUS_CONNECT_MOBILE_APP.md`
+
+### Key Features
+- Offline-first architecture with SQLite local storage
+- GPS tracking during active visits
+- Voice note recording with automatic transcription
+- Multi-language support (SK, CZ, HU, DE, IT, RO, EN)
+- Push notifications for visit reminders

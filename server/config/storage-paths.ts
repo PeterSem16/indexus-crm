@@ -27,7 +27,28 @@ export const STORAGE_PATHS = {
   invoiceImages: path.join(DATA_ROOT, "invoice-images"),
   templatePreviews: path.join(DATA_ROOT, "template-previews"),
   exports: path.join(DATA_ROOT, "exports"),
+  voiceNotes: path.join(DATA_ROOT, "voice-notes"),
 };
+
+export type StoragePathKey = keyof typeof STORAGE_PATHS;
+
+export function getStorageDir(key: string): string {
+  const normalizedKey = key.replace(/-/g, "").toLowerCase();
+  const pathMap: Record<string, string> = {
+    "voicenotes": STORAGE_PATHS.voiceNotes,
+    "voice-notes": STORAGE_PATHS.voiceNotes,
+    "agreements": STORAGE_PATHS.agreements,
+    "avatars": STORAGE_PATHS.avatars,
+    "contractpdfs": STORAGE_PATHS.contractPdfs,
+    "exports": STORAGE_PATHS.exports,
+  };
+  return pathMap[normalizedKey] || path.join(DATA_ROOT, key);
+}
+
+export async function ensureStorageExists(key: string): Promise<void> {
+  const dir = getStorageDir(key);
+  ensureDirectoryExists(dir);
+}
 
 export function ensureDirectoryExists(dirPath: string): void {
   if (!fs.existsSync(dirPath)) {

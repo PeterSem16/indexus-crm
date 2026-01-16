@@ -2,7 +2,7 @@ import {
   users, customers, products, customerProducts, invoices, billingDetails, invoiceItems,
   customerNotes, activityLogs, communicationMessages,
   complaintTypes, cooperationTypes, vipStatuses, healthInsuranceCompanies,
-  laboratories, hospitals, visitEvents,
+  laboratories, hospitals, visitEvents, voiceNotes, mobilePushTokens,
   collaborators, collaboratorAddresses, collaboratorOtherData, collaboratorAgreements,
   customerPotentialCases, leadScoringCriteria,
   serviceConfigurations, serviceInstances, numberRanges, invoiceTemplates, invoiceLayouts,
@@ -35,6 +35,8 @@ import {
   type CollaboratorOtherData, type InsertCollaboratorOtherData,
   type CollaboratorAgreement, type InsertCollaboratorAgreement,
   type VisitEvent, type InsertVisitEvent,
+  type VoiceNote, type InsertVoiceNote,
+  type MobilePushToken, type InsertMobilePushToken,
   type CustomerPotentialCase, type InsertCustomerPotentialCase,
   type LeadScoringCriteria, type InsertLeadScoringCriteria,
   type ServiceConfiguration, type InsertServiceConfiguration,
@@ -403,6 +405,16 @@ export interface IStorage {
   createVisitEvent(data: InsertVisitEvent): Promise<VisitEvent>;
   updateVisitEvent(id: string, data: Partial<InsertVisitEvent>): Promise<VisitEvent | undefined>;
   deleteVisitEvent(id: string): Promise<boolean>;
+
+  // Voice Notes
+  getVoiceNotesByVisitEvent(visitEventId: string): Promise<VoiceNote[]>;
+  createVoiceNote(data: InsertVoiceNote): Promise<VoiceNote>;
+  deleteVoiceNote(id: string): Promise<boolean>;
+
+  // Mobile Push Tokens
+  getMobilePushTokensByCollaborator(collaboratorId: string): Promise<MobilePushToken[]>;
+  upsertMobilePushToken(data: InsertMobilePushToken): Promise<MobilePushToken>;
+  deactivateMobilePushToken(collaboratorId: string, deviceId: string): Promise<boolean>;
 
   // Customer Potential Cases
   getCustomerPotentialCase(customerId: string): Promise<CustomerPotentialCase | undefined>;
@@ -2293,6 +2305,72 @@ export class DatabaseStorage implements IStorage {
 
   async deleteVisitEvent(id: string): Promise<boolean> {
     const result = await db.delete(visitEvents).where(eq(visitEvents.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Voice Notes
+  async getVoiceNotesByVisitEvent(visitEventId: string): Promise<VoiceNote[]> {
+    return db.select().from(voiceNotes)
+      .where(eq(voiceNotes.visitEventId, visitEventId))
+      .orderBy(voiceNotes.createdAt);
+  }
+
+  async createVoiceNote(data: InsertVoiceNote): Promise<VoiceNote> {
+    const [created] = await db.insert(voiceNotes).values(data).returning();
+    return created;
+  }
+
+  async deleteVoiceNote(id: string): Promise<boolean> {
+    const result = await db.delete(voiceNotes).where(eq(voiceNotes.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Mobile Push Tokens
+  async getMobilePushTokensByCollaborator(collaboratorId: string): Promise<MobilePushToken[]> {
+    return db.select().from(mobilePushTokens)
+      .where(and(
+        eq(mobilePushTokens.collaboratorId, collaboratorId),
+        eq(mobilePushTokens.isActive, true)
+      ));
+  }
+
+  async upsertMobilePushToken(data: InsertMobilePushToken): Promise<MobilePushToken> {
+    // Check if token already exists for this device
+    if (data.deviceId) {
+      const [existing] = await db.select().from(mobilePushTokens)
+        .where(and(
+          eq(mobilePushTokens.collaboratorId, data.collaboratorId),
+          eq(mobilePushTokens.deviceId, data.deviceId)
+        ));
+      
+      if (existing) {
+        const [updated] = await db.update(mobilePushTokens)
+          .set({ 
+            token: data.token, 
+            platform: data.platform,
+            deviceName: data.deviceName,
+            isActive: true,
+            lastUsedAt: new Date(),
+            updatedAt: new Date() 
+          })
+          .where(eq(mobilePushTokens.id, existing.id))
+          .returning();
+        return updated;
+      }
+    }
+    
+    const [created] = await db.insert(mobilePushTokens).values(data).returning();
+    return created;
+  }
+
+  async deactivateMobilePushToken(collaboratorId: string, deviceId: string): Promise<boolean> {
+    const result = await db.update(mobilePushTokens)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(and(
+        eq(mobilePushTokens.collaboratorId, collaboratorId),
+        eq(mobilePushTokens.deviceId, deviceId)
+      ))
+      .returning();
     return result.length > 0;
   }
 

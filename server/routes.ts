@@ -7421,6 +7421,154 @@ export async function registerRoutes(
     }
   });
 
+  // Mobile voice notes upload with transcription
+  app.post("/api/mobile/voice-notes", uploadDocxMemory.single("audio"), async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const { visitEventId, durationSeconds, fileName } = req.body;
+      const audioFile = req.file;
+      
+      if (!audioFile || !visitEventId) {
+        return res.status(400).json({ error: "Audio file and visit event ID are required" });
+      }
+      
+      // Verify the visit belongs to this collaborator
+      const visit = await storage.getVisitEvent(visitEventId);
+      if (!visit || visit.collaboratorId !== tokenData.collaboratorId) {
+        return res.status(403).json({ error: "Visit event not found or access denied" });
+      }
+      
+      // Save file to voice notes directory
+      const { getStorageDir, ensureStorageExists } = await import("./config/storage-paths");
+      const voiceNotesDir = getStorageDir("voice-notes");
+      await ensureStorageExists("voice-notes");
+      
+      const fileExt = audioFile.originalname.split(".").pop() || "m4a";
+      const savedFileName = `voice_${visitEventId}_${Date.now()}.${fileExt}`;
+      const filePath = `${voiceNotesDir}/${savedFileName}`;
+      
+      const fs = await import("fs/promises");
+      await fs.writeFile(filePath, audioFile.buffer);
+      
+      // Transcribe using OpenAI Whisper if available
+      let transcription = null;
+      let isTranscribed = false;
+      
+      if (process.env.OPENAI_API_KEY) {
+        try {
+          const OpenAI = (await import("openai")).default;
+          const openai = new OpenAI();
+          const fsSync = await import("fs");
+          
+          const transcriptionResult = await openai.audio.transcriptions.create({
+            file: fsSync.createReadStream(filePath),
+            model: "whisper-1",
+            language: "sk",
+            response_format: "text",
+          });
+          
+          transcription = transcriptionResult as unknown as string;
+          isTranscribed = true;
+        } catch (transcribeError) {
+          console.error("Transcription failed:", transcribeError);
+        }
+      }
+      
+      // Store voice note record
+      const voiceNote = await storage.createVoiceNote({
+        visitEventId,
+        collaboratorId: tokenData.collaboratorId,
+        filePath: filePath,
+        fileName: fileName || savedFileName,
+        durationSeconds: parseInt(durationSeconds) || 0,
+        fileSize: audioFile.size,
+        transcription,
+        isTranscribed,
+        transcriptionLanguage: isTranscribed ? "sk" : null,
+      });
+      
+      res.status(201).json({ success: true, voiceNote });
+    } catch (error) {
+      console.error("Voice note upload error:", error);
+      res.status(500).json({ error: "Failed to upload voice note" });
+    }
+  });
+
+  // Get voice notes for a visit event
+  app.get("/api/mobile/voice-notes/:visitEventId", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      // Verify the visit belongs to this collaborator
+      const visit = await storage.getVisitEvent(req.params.visitEventId);
+      if (!visit || visit.collaboratorId !== tokenData.collaboratorId) {
+        return res.status(403).json({ error: "Visit event not found or access denied" });
+      }
+      
+      const voiceNotes = await storage.getVoiceNotesByVisitEvent(req.params.visitEventId);
+      res.json(voiceNotes);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch voice notes" });
+    }
+  });
+
+  // Register push notification token
+  app.post("/api/mobile/push-token", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const { token, platform, deviceId, deviceName } = req.body;
+      if (!token || !platform) {
+        return res.status(400).json({ error: "Token and platform are required" });
+      }
+      
+      // Upsert the push token (update if same device, create if new)
+      const pushToken = await storage.upsertMobilePushToken({
+        collaboratorId: tokenData.collaboratorId,
+        token,
+        platform,
+        deviceId,
+        deviceName,
+        isActive: true,
+        lastUsedAt: new Date(),
+      });
+      
+      res.json({ success: true, pushToken });
+    } catch (error) {
+      console.error("Push token registration error:", error);
+      res.status(500).json({ error: "Failed to register push token" });
+    }
+  });
+
+  // Deactivate push token (on logout)
+  app.delete("/api/mobile/push-token", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const { deviceId } = req.body;
+      if (deviceId) {
+        await storage.deactivateMobilePushToken(tokenData.collaboratorId, deviceId);
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to deactivate push token" });
+    }
+  });
+
   // ============================================================================
   // INDEXUS Web - Visit Events Calendar (for admins/managers)
   // ============================================================================
