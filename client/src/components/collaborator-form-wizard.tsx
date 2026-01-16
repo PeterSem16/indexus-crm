@@ -287,15 +287,25 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
 
   const saveMutation = useMutation({
     mutationFn: async (data: CollaboratorFormData) => {
+      console.log("[Wizard] mutationFn starting, data:", data);
+      console.log("[Wizard] initialData:", initialData);
       let collaboratorId: string;
       
-      if (initialData) {
-        await apiRequest("PUT", `/api/collaborators/${initialData.id}`, data);
-        collaboratorId = initialData.id;
-      } else {
-        const response = await apiRequest("POST", "/api/collaborators", data);
-        const newCollaborator = await response.json();
-        collaboratorId = newCollaborator.id;
+      try {
+        if (initialData) {
+          console.log("[Wizard] Calling PUT /api/collaborators/" + initialData.id);
+          await apiRequest("PUT", `/api/collaborators/${initialData.id}`, data);
+          collaboratorId = initialData.id;
+        } else {
+          console.log("[Wizard] Calling POST /api/collaborators");
+          const response = await apiRequest("POST", "/api/collaborators", data);
+          const newCollaborator = await response.json();
+          collaboratorId = newCollaborator.id;
+          console.log("[Wizard] Created collaborator with id:", collaboratorId);
+        }
+      } catch (apiError) {
+        console.error("[Wizard] API request failed:", apiError);
+        throw apiError;
       }
       
       // Save mobile credentials if enabled or if previously enabled
