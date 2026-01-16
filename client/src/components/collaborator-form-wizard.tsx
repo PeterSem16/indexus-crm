@@ -383,7 +383,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
     } else {
       for (let i = 0; i < index; i++) {
         if (!completedSteps.has(i)) {
-          toast({ title: t.wizard?.completeStepsFirst || "Please complete previous steps first", variant: "destructive" });
+          toast({ title: "Please complete previous steps first", variant: "destructive" });
           return;
         }
       }
