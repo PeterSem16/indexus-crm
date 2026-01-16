@@ -354,16 +354,22 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
   };
 
   const handleNext = () => {
-    if (!validateCurrentStep()) {
-      toast({ title: t.errors.required, variant: "destructive" });
+    console.log("[Wizard] handleNext called, currentStep:", currentStep, "isLastStep:", isLastStep, "WIZARD_STEPS.length:", WIZARD_STEPS.length);
+    
+    const isValid = validateCurrentStep();
+    console.log("[Wizard] validateCurrentStep result:", isValid);
+    
+    if (!isValid) {
       return;
     }
     
     setCompletedSteps(prev => new Set(Array.from(prev).concat(currentStep)));
     
     if (isLastStep) {
+      console.log("[Wizard] Calling saveMutation.mutate with formData:", formData);
       saveMutation.mutate(formData);
     } else {
+      console.log("[Wizard] Moving to next step:", currentStep + 1);
       setCurrentStep(prev => prev + 1);
     }
   };
