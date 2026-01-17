@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChecks, FileEdit, MapPin, Navigation, ExternalLink } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChecks, FileEdit, MapPin, Navigation, ExternalLink, Database, Loader2 } from "lucide-react";
+import { useAuth } from "@/contexts/auth-context";
 import { HospitalFormWizard } from "@/components/hospital-form-wizard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -533,6 +534,7 @@ export default function HospitalsPage() {
   const { toast } = useToast();
   const { selectedCountries } = useCountryFilter();
   const { canAdd, canEdit } = usePermissions();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -540,6 +542,8 @@ export default function HospitalsPage() {
   const [hospitalToDelete, setHospitalToDelete] = useState<Hospital | null>(null);
   const [activeTab, setActiveTab] = useState("hospital");
   const [useWizardForm, setUseWizardForm] = useState(true);
+
+  const isAdmin = user?.role === "admin";
 
   const { data: hospitals = [], isLoading } = useQuery<Hospital[]>({
     queryKey: ["/api/hospitals", selectedCountries.join(",")],
@@ -569,6 +573,24 @@ export default function HospitalsPage() {
     },
     onError: () => {
       toast({ title: t.errors.deleteFailed, variant: "destructive" });
+    },
+  });
+
+  const seedAllMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/hospitals/seed-all"),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/hospitals"] });
+      toast({ 
+        title: "Nemocnice nasadené",
+        description: `Vytvorené: ${data.inserted}, Preskočené: ${data.skipped} (celkom ${data.total})`,
+      });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Chyba pri nasadzovaní", 
+        description: error.message || "Nepodarilo sa nasadiť nemocnice",
+        variant: "destructive" 
+      });
     },
   });
 
@@ -675,12 +697,29 @@ export default function HospitalsPage() {
   return (
     <div className="space-y-6">
       <PageHeader title={t.hospitals.title} description={t.hospitals.description}>
-        {canAdd("hospitals") && (
-          <Button onClick={handleAddNew} data-testid="button-add-hospital">
-            <Plus className="h-4 w-4 mr-2" />
-            {t.hospitals.addHospital}
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <Button 
+              variant="outline" 
+              onClick={() => seedAllMutation.mutate()}
+              disabled={seedAllMutation.isPending}
+              data-testid="button-seed-all-hospitals"
+            >
+              {seedAllMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Database className="h-4 w-4 mr-2" />
+              )}
+              {seedAllMutation.isPending ? "Nasadzujem..." : "Nasadiť všetky krajiny"}
+            </Button>
+          )}
+          {canAdd("hospitals") && (
+            <Button onClick={handleAddNew} data-testid="button-add-hospital">
+              <Plus className="h-4 w-4 mr-2" />
+              {t.hospitals.addHospital}
+            </Button>
+          )}
+        </div>
       </PageHeader>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>

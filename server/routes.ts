@@ -6925,6 +6925,32 @@ export async function registerRoutes(
     }
   });
 
+  // Seed all hospitals endpoint (admin only) - SK, CZ, HU, RO, IT, DE, US
+  app.post("/api/hospitals/seed-all", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      
+      const { seedAllHospitals } = await import('./seeds/all-hospitals');
+      const { db } = await import('./db');
+      
+      const result = await seedAllHospitals(db);
+      
+      await logActivity(user.id, "seed", "hospital", "bulk", `All countries hospital seed: ${result.inserted} created, ${result.skipped} skipped`);
+      
+      res.json({ 
+        success: true, 
+        message: `Seed completed: ${result.inserted} hospitals created, ${result.skipped} skipped`,
+        ...result 
+      });
+    } catch (error: any) {
+      console.error("Hospital seed all countries error:", error);
+      res.status(500).json({ error: "Failed to seed hospitals", details: error.message });
+    }
+  });
+
   app.delete("/api/hospitals/:id", requireAuth, async (req, res) => {
     try {
       const success = await storage.deleteHospital(req.params.id);
