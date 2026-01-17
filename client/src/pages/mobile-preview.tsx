@@ -136,6 +136,7 @@ export default function MobilePreview() {
 
   const loadData = async (authToken: string) => {
     try {
+      console.log("[MobilePreview] Loading data with token...");
       const [visitsRes, hospitalsRes] = await Promise.all([
         fetch("/api/mobile/visit-events", {
           headers: { Authorization: `Bearer ${authToken}` }
@@ -147,12 +148,18 @@ export default function MobilePreview() {
       
       if (visitsRes.ok) {
         const visitsData = await visitsRes.json();
+        console.log("[MobilePreview] Loaded visits:", visitsData.length);
         setVisits(visitsData);
+      } else {
+        console.error("[MobilePreview] Failed to load visits:", visitsRes.status);
       }
       
       if (hospitalsRes.ok) {
         const hospitalsData = await hospitalsRes.json();
+        console.log("[MobilePreview] Loaded hospitals:", hospitalsData.length, hospitalsData);
         setHospitals(hospitalsData);
+      } else {
+        console.error("[MobilePreview] Failed to load hospitals:", hospitalsRes.status);
       }
     } catch (error) {
       console.error("Failed to load data:", error);
