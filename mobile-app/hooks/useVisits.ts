@@ -55,11 +55,24 @@ export function useVisits(date?: string) {
 }
 
 export function useVisit(id: string) {
+  const isOnline = useSyncStore((state) => state.isOnline);
+  
   return useQuery({
     queryKey: ['visit', id],
     queryFn: async () => {
+      if (isOnline) {
+        try {
+          const visit = await api.get<VisitEvent>(`/api/mobile/visit-events/${id}`);
+          if (visit) {
+            await db.saveVisitEvent(visit);
+            return visit;
+          }
+        } catch (error) {
+          console.log('[useVisit] API error, falling back to local DB');
+        }
+      }
       const visits = await db.getVisitEvents();
-      return visits.find((v: any) => v.id === id);
+      return visits.find((v: any) => String(v.id) === String(id));
     },
     enabled: !!id,
   });

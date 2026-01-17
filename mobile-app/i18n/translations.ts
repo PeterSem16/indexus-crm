@@ -18,6 +18,11 @@ type TranslationKeys = {
     offline: string;
     syncing: string;
     pendingSync: string;
+    selectDate: string;
+    day: string;
+    month: string;
+    year: string;
+    today: string;
   };
   auth: {
     login: string;
@@ -93,6 +98,11 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       offline: 'Offline režim',
       syncing: 'Synchronizujem...',
       pendingSync: 'Čaká na synchronizáciu',
+      selectDate: 'Vybrať dátum',
+      day: 'Deň',
+      month: 'Mesiac',
+      year: 'Rok',
+      today: 'Dnes',
     },
     auth: {
       login: 'Prihlásenie',
@@ -166,6 +176,11 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       offline: 'Offline režim',
       syncing: 'Synchronizuji...',
       pendingSync: 'Čeká na synchronizaci',
+      selectDate: 'Vybrat datum',
+      day: 'Den',
+      month: 'Měsíc',
+      year: 'Rok',
+      today: 'Dnes',
     },
     auth: {
       login: 'Přihlášení',
@@ -239,6 +254,11 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       offline: 'Offline mód',
       syncing: 'Szinkronizálás...',
       pendingSync: 'Szinkronizálásra vár',
+      selectDate: 'Dátum kiválasztása',
+      day: 'Nap',
+      month: 'Hónap',
+      year: 'Év',
+      today: 'Ma',
     },
     auth: {
       login: 'Bejelentkezés',
@@ -312,6 +332,11 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       offline: 'Offline-Modus',
       syncing: 'Synchronisieren...',
       pendingSync: 'Ausstehende Synchronisierung',
+      selectDate: 'Datum auswählen',
+      day: 'Tag',
+      month: 'Monat',
+      year: 'Jahr',
+      today: 'Heute',
     },
     auth: {
       login: 'Anmeldung',
@@ -385,6 +410,11 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       offline: 'Modalità offline',
       syncing: 'Sincronizzazione...',
       pendingSync: 'In attesa di sincronizzazione',
+      selectDate: 'Seleziona data',
+      day: 'Giorno',
+      month: 'Mese',
+      year: 'Anno',
+      today: 'Oggi',
     },
     auth: {
       login: 'Accesso',
@@ -458,6 +488,11 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       offline: 'Mod offline',
       syncing: 'Se sincronizează...',
       pendingSync: 'În așteptare sincronizare',
+      selectDate: 'Selectează data',
+      day: 'Zi',
+      month: 'Lună',
+      year: 'An',
+      today: 'Astăzi',
     },
     auth: {
       login: 'Autentificare',
@@ -531,6 +566,11 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       offline: 'Offline mode',
       syncing: 'Syncing...',
       pendingSync: 'Pending sync',
+      selectDate: 'Select Date',
+      day: 'Day',
+      month: 'Month',
+      year: 'Year',
+      today: 'Today',
     },
     auth: {
       login: 'Login',

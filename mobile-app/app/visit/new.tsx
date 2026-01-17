@@ -1,11 +1,12 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList, Alert, Pressable, Platform } from 'react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { DatePicker } from '@/components/ui/DatePicker';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useHospitals } from '@/hooks/useHospitals';
 import { useCreateVisit } from '@/hooks/useVisits';
@@ -30,11 +31,15 @@ export default function NewVisitScreen() {
   
   const [selectedHospitalId, setSelectedHospitalId] = useState<string>('');
   const [selectedType, setSelectedType] = useState<string>('1');
-  const [scheduledDate, setScheduledDate] = useState(new Date().toISOString().split('T')[0]);
+  const [scheduledDate, setScheduledDate] = useState(new Date());
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('10:00');
   const [notes, setNotes] = useState('');
   const [showHospitalPicker, setShowHospitalPicker] = useState(false);
+  
+  useEffect(() => {
+    console.log('[NewVisitScreen] Hospitals loaded:', hospitals.length);
+  }, [hospitals]);
 
   const selectedHospital = hospitals.find(h => String(h.id) === selectedHospitalId);
 
@@ -45,8 +50,9 @@ export default function NewVisitScreen() {
     }
 
     try {
-      const startDateTime = new Date(`${scheduledDate}T${startTime}:00`);
-      const endDateTime = new Date(`${scheduledDate}T${endTime}:00`);
+      const dateStr = scheduledDate.toISOString().split('T')[0];
+      const startDateTime = new Date(`${dateStr}T${startTime}:00`);
+      const endDateTime = new Date(`${dateStr}T${endTime}:00`);
 
       await createVisit.mutateAsync({
         hospitalId: selectedHospitalId || undefined,
@@ -157,13 +163,13 @@ export default function NewVisitScreen() {
 
         <Text style={styles.sectionTitle}>{translations.visits.scheduledTime}</Text>
         <View style={styles.dateTimeRow}>
-          <Input
-            placeholder="Date (YYYY-MM-DD)"
-            value={scheduledDate}
-            onChangeText={setScheduledDate}
-            containerStyle={styles.dateInput}
-            testID="input-date"
-          />
+          <View style={styles.dateInput}>
+            <DatePicker
+              value={scheduledDate}
+              onChange={setScheduledDate}
+              label="Date"
+            />
+          </View>
         </View>
         <View style={styles.dateTimeRow}>
           <Input
