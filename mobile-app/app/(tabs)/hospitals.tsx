@@ -1,5 +1,5 @@
-import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator, Linking, Platform, RefreshControl } from 'react-native';
-import { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator, Linking, Platform, RefreshControl, ScrollView } from 'react-native';
+import { useState, useCallback, useMemo } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Card } from '@/components/ui/Card';
@@ -18,10 +18,23 @@ interface Hospital {
   email?: string;
   latitude?: string;
   longitude?: string;
+  countryCode?: string;
 }
+
+const COUNTRY_TABS = [
+  { code: 'ALL', label: 'Všetky', flag: '' },
+  { code: 'SK', label: 'Slovensko', flag: 'SK' },
+  { code: 'CZ', label: 'Česko', flag: 'CZ' },
+  { code: 'HU', label: 'Maďarsko', flag: 'HU' },
+  { code: 'RO', label: 'Rumunsko', flag: 'RO' },
+  { code: 'IT', label: 'Taliansko', flag: 'IT' },
+  { code: 'DE', label: 'Nemecko', flag: 'DE' },
+  { code: 'US', label: 'USA', flag: 'US' },
+];
 
 export default function HospitalsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCountry, setSelectedCountry] = useState('ALL');
   const { translations } = useTranslation();
   const { data: hospitals = [], isLoading, error, refetch } = useHospitals();
   const [refreshing, setRefreshing] = useState(false);
@@ -56,12 +69,59 @@ export default function HospitalsScreen() {
     Linking.openURL(`tel:${phone}`);
   };
 
-  const filteredHospitals = hospitals.filter(
-    (h) =>
-      h.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (h.city?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-      (h.address?.toLowerCase() || '').includes(searchQuery.toLowerCase())
-  );
+  const countryCounts = useMemo(() => {
+    const counts: Record<string, number> = { ALL: hospitals.length };
+    hospitals.forEach((h) => {
+      const code = h.countryCode || 'UNKNOWN';
+      counts[code] = (counts[code] || 0) + 1;
+    });
+    return counts;
+  }, [hospitals]);
+
+  const filteredHospitals = useMemo(() => {
+    let filtered = hospitals;
+    
+    if (selectedCountry !== 'ALL') {
+      filtered = filtered.filter((h) => h.countryCode === selectedCountry);
+    }
+    
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter((h) =>
+        h.name.toLowerCase().includes(query) ||
+        (h.city?.toLowerCase() || '').includes(query) ||
+        (h.address?.toLowerCase() || '').includes(query) ||
+        (h.phone?.toLowerCase() || '').includes(query) ||
+        (h.email?.toLowerCase() || '').includes(query)
+      );
+    }
+    
+    return filtered;
+  }, [hospitals, selectedCountry, searchQuery]);
+
+  const renderCountryTab = (tab: typeof COUNTRY_TABS[0]) => {
+    const isActive = selectedCountry === tab.code;
+    const count = countryCounts[tab.code] || 0;
+    
+    return (
+      <Pressable
+        key={tab.code}
+        style={[styles.countryTab, isActive && styles.countryTabActive]}
+        onPress={() => setSelectedCountry(tab.code)}
+        android_ripple={{ color: Colors.border }}
+        testID={`tab-country-${tab.code}`}
+      >
+        <Text style={[styles.countryTabText, isActive && styles.countryTabTextActive]}>
+          {tab.flag ? `${tab.flag} ` : ''}{tab.code === 'ALL' ? 'Všetky' : tab.code}
+        </Text>
+        <View style={[styles.countBadge, isActive && styles.countBadgeActive]}>
+          <Text style={[styles.countBadgeText, isActive && styles.countBadgeTextActive]}>
+            {count}
+          </Text>
+        </View>
+      </Pressable>
+    );
+  };
 
   const renderHospital = ({ item }: { item: Hospital }) => (
     <Card style={styles.hospitalCard}>
@@ -69,14 +129,21 @@ export default function HospitalsScreen() {
         <Ionicons name="business" size={24} color={Colors.primary} />
       </View>
       <View style={styles.hospitalInfo}>
-        <Text style={styles.hospitalName} numberOfLines={2}>{item.name}</Text>
+        <View style={styles.hospitalHeader}>
+          <Text style={styles.hospitalName} numberOfLines={2}>{item.name}</Text>
+          {item.countryCode && (
+            <View style={styles.countryBadge}>
+              <Text style={styles.countryBadgeText}>{item.countryCode}</Text>
+            </View>
+          )}
+        </View>
         {(item.address || item.city) && (
           <Text style={styles.hospitalAddress} numberOfLines={1}>
             {[item.address, item.city].filter(Boolean).join(', ')}
           </Text>
         )}
-        {item.contactPerson && (
-          <Text style={styles.hospitalContact}>{item.contactPerson}</Text>
+        {item.email && (
+          <Text style={styles.hospitalEmail} numberOfLines={1}>{item.email}</Text>
         )}
       </View>
       <View style={styles.actionButtons}>
@@ -106,15 +173,33 @@ export default function HospitalsScreen() {
         <Text style={styles.title}>{translations.hospitals.title}</Text>
       </View>
 
+      <View style={styles.tabsContainer}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tabsContent}
+        >
+          {COUNTRY_TABS.map(renderCountryTab)}
+        </ScrollView>
+      </View>
+
       <View style={styles.searchContainer}>
         <Ionicons name="search" size={20} color={Colors.textSecondary} style={styles.searchIcon} />
         <Input
-          placeholder={translations.common.search}
+          placeholder="Hľadať podľa názvu, mesta, adresy..."
           value={searchQuery}
           onChangeText={setSearchQuery}
           containerStyle={styles.searchInput}
           testID="input-search-hospitals"
         />
+        {searchQuery.length > 0 && (
+          <Pressable 
+            style={styles.clearButton}
+            onPress={() => setSearchQuery('')}
+          >
+            <Ionicons name="close-circle" size={20} color={Colors.textSecondary} />
+          </Pressable>
+        )}
       </View>
 
       {isLoading && !refreshing ? (
@@ -150,13 +235,24 @@ export default function HospitalsScreen() {
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <Ionicons name="business-outline" size={48} color={Colors.textSecondary} />
-              <Text style={styles.emptyText}>{translations.hospitals.noHospitals}</Text>
+              <Text style={styles.emptyText}>
+                {searchQuery ? 'Žiadne výsledky' : translations.hospitals.noHospitals}
+              </Text>
+              {searchQuery && (
+                <Pressable 
+                  style={styles.clearSearchButton}
+                  onPress={() => setSearchQuery('')}
+                >
+                  <Text style={styles.clearSearchText}>Vymazať filter</Text>
+                </Pressable>
+              )}
             </View>
           }
           ListHeaderComponent={
-            hospitals.length > 0 ? (
-              <Text style={styles.countText}>{filteredHospitals.length} z {hospitals.length} nemocníc</Text>
-            ) : null
+            <Text style={styles.countText}>
+              {filteredHospitals.length} {filteredHospitals.length === 1 ? 'nemocnica' : 'nemocníc'}
+              {selectedCountry !== 'ALL' && ` v ${selectedCountry}`}
+            </Text>
           }
         />
       )}
@@ -180,6 +276,54 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: Colors.text,
   },
+  tabsContainer: {
+    backgroundColor: Colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  tabsContent: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    gap: Spacing.xs,
+  },
+  countryTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: 20,
+    backgroundColor: Colors.surface,
+    marginRight: Spacing.xs,
+  },
+  countryTabActive: {
+    backgroundColor: Colors.primary,
+  },
+  countryTabText: {
+    fontSize: FontSizes.sm,
+    fontWeight: '500',
+    color: Colors.text,
+  },
+  countryTabTextActive: {
+    color: Colors.white,
+  },
+  countBadge: {
+    marginLeft: Spacing.xs,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    backgroundColor: Colors.border,
+  },
+  countBadgeActive: {
+    backgroundColor: 'rgba(255,255,255,0.3)',
+  },
+  countBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  countBadgeTextActive: {
+    color: Colors.white,
+  },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -195,8 +339,14 @@ const styles = StyleSheet.create({
     flex: 1,
     marginBottom: 0,
   },
+  clearButton: {
+    position: 'absolute',
+    right: Spacing.xl,
+    zIndex: 1,
+  },
   listContent: {
     padding: Spacing.md,
+    paddingBottom: Spacing.xxl,
   },
   hospitalCard: {
     flexDirection: 'row',
@@ -215,19 +365,38 @@ const styles = StyleSheet.create({
   hospitalInfo: {
     flex: 1,
   },
+  hospitalHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
   hospitalName: {
     fontSize: FontSizes.md,
     fontWeight: '600',
     color: Colors.text,
+    flex: 1,
+    marginRight: Spacing.xs,
+  },
+  countryBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: Colors.surface,
+  },
+  countryBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: Colors.textSecondary,
   },
   hospitalAddress: {
     fontSize: FontSizes.sm,
     color: Colors.textSecondary,
+    marginTop: 2,
   },
-  hospitalContact: {
-    fontSize: FontSizes.sm,
+  hospitalEmail: {
+    fontSize: FontSizes.xs,
     color: Colors.primary,
-    marginTop: Spacing.xs,
+    marginTop: 2,
   },
   actionButtons: {
     flexDirection: 'row',
@@ -272,25 +441,21 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.md,
     fontWeight: '600',
   },
+  clearSearchButton: {
+    marginTop: Spacing.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: Colors.surface,
+    borderRadius: 8,
+  },
+  clearSearchText: {
+    color: Colors.primary,
+    fontSize: FontSizes.md,
+    fontWeight: '500',
+  },
   countText: {
     fontSize: FontSizes.sm,
     color: Colors.textSecondary,
     marginBottom: Spacing.sm,
-  },
-  fab: {
-    position: 'absolute',
-    bottom: Spacing.xl,
-    right: Spacing.lg,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 8,
   },
 });
