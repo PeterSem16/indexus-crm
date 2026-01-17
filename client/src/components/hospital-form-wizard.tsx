@@ -15,7 +15,13 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { COUNTRIES } from "@shared/schema";
 import type { Hospital, Laboratory, SafeUser } from "@shared/schema";
-import { ChevronLeft, ChevronRight, Check, Building2, MapPin, Users, Settings } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, Building2, MapPin, Users, Settings, ExternalLink } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/I18nProvider";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +47,8 @@ interface HospitalFormData {
   countryCode: string;
   contactPerson: string;
   svetZdravia: boolean;
+  latitude: string;
+  longitude: string;
 }
 
 interface HospitalFormWizardProps {
@@ -82,6 +90,8 @@ export function HospitalFormWizard({ initialData, onSuccess, onCancel }: Hospita
           countryCode: initialData.countryCode,
           contactPerson: initialData.contactPerson || "",
           svetZdravia: initialData.svetZdravia,
+          latitude: initialData.latitude || "",
+          longitude: initialData.longitude || "",
         }
       : {
           legacyId: "",
@@ -99,8 +109,12 @@ export function HospitalFormWizard({ initialData, onSuccess, onCancel }: Hospita
           countryCode: "",
           contactPerson: "",
           svetZdravia: false,
+          latitude: "",
+          longitude: "",
         }
   );
+  
+  const [showMapDialog, setShowMapDialog] = useState(false);
 
   const { data: users = [] } = useQuery<SafeUser[]>({
     queryKey: ["/api/users"],
@@ -359,6 +373,54 @@ export function HospitalFormWizard({ initialData, onSuccess, onCancel }: Hospita
                 </div>
               )}
             </div>
+
+            <Separator className="my-4" />
+            
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-base font-medium">GPS súradnice</Label>
+                {formData.latitude && formData.longitude && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowMapDialog(true)}
+                    data-testid="button-show-on-map"
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Zobraziť na mape
+                  </Button>
+                )}
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Zemepisná šírka (Latitude)</Label>
+                  <Input
+                    type="number"
+                    step="0.0000001"
+                    value={formData.latitude}
+                    onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
+                    placeholder="napr. 48.7164"
+                    data-testid="wizard-input-hospital-latitude"
+                    disabled={isReadonly("latitude")}
+                    className={isReadonly("latitude") ? "bg-muted" : ""}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Zemepisná dĺžka (Longitude)</Label>
+                  <Input
+                    type="number"
+                    step="0.0000001"
+                    value={formData.longitude}
+                    onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
+                    placeholder="napr. 21.2611"
+                    data-testid="wizard-input-hospital-longitude"
+                    disabled={isReadonly("longitude")}
+                    className={isReadonly("longitude") ? "bg-muted" : ""}
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         );
 
@@ -595,6 +657,7 @@ export function HospitalFormWizard({ initialData, onSuccess, onCancel }: Hospita
   const StepIcon = currentStepInfo?.icon || Building2;
 
   return (
+    <>
     <Card className="w-full">
       <CardHeader className="pb-4">
         <div className="space-y-4">
@@ -689,5 +752,42 @@ export function HospitalFormWizard({ initialData, onSuccess, onCancel }: Hospita
         </div>
       </CardFooter>
     </Card>
+
+    <Dialog open={showMapDialog} onOpenChange={setShowMapDialog}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <MapPin className="h-5 w-5" />
+            {formData.name || "Nemocnica"} - Poloha na mape
+          </DialogTitle>
+        </DialogHeader>
+        <div className="w-full h-[400px] rounded-lg overflow-hidden border">
+          {formData.latitude && formData.longitude && (
+            <iframe
+              title="Hospital Location Map"
+              width="100%"
+              height="100%"
+              frameBorder="0"
+              style={{ border: 0 }}
+              src={`https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(formData.longitude) - 0.01}%2C${parseFloat(formData.latitude) - 0.01}%2C${parseFloat(formData.longitude) + 0.01}%2C${parseFloat(formData.latitude) + 0.01}&layer=mapnik&marker=${formData.latitude}%2C${formData.longitude}`}
+              allowFullScreen
+            />
+          )}
+        </div>
+        <div className="flex justify-between items-center text-sm text-muted-foreground">
+          <span>GPS: {formData.latitude}, {formData.longitude}</span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.open(`https://www.google.com/maps?q=${formData.latitude},${formData.longitude}`, '_blank')}
+            data-testid="button-open-google-maps"
+          >
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Otvoriť v Google Maps
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
