@@ -1,0 +1,61 @@
+I/DynamiteModule( 7163): Considering local module com.google.android.gms.maps_dynamite:0 and remote module com.google.android.gms.maps_dynamite:203115000
+I/DynamiteModule( 7163): Selected remote version of com.google.android.gms.maps_dynamite, version >= 203115000
+V/DynamiteModule( 7163): Dynamite loader version >= 2, using loadModule2NoCrashUtils
+W/ziparchive( 7163): Unable to open '/data/user_de/0/com.google.android.gms/app_chimera/m/00000006/MapsDynamite.dm': No such file or directory
+W/ziparchive( 7163): Unable to open '/data/user_de/0/com.google.android.gms/app_chimera/m/00000006/MapsDynamite.dm': No such file or directory
+I/Google Maps Android API( 7163): Google Play services client version: 18020000
+D/CompatibilityChangeReporter( 7163): Compat change id reported: 183155436; UID 10170; state: ENABLED
+I/SnapshotHandler( 7163): Unable to retrieve flag snapshot for com.google.android.gms.maps#com.cordbloodcenter.indexusconnect, using defaults.
+I/Google Maps Android API( 7163): Google Play services package version: 225014047
+I/Google Maps Android API( 7163): Google Play services maps renderer version(legacy): 203115000
+D/AndroidRuntime( 7163): Shutting down VM
+E/AndroidRuntime( 7163): FATAL EXCEPTION: main
+E/AndroidRuntime( 7163): Process: com.cordbloodcenter.indexusconnect, PID: 7163
+E/AndroidRuntime( 7163): java.lang.RuntimeException: API key not found.  Check that <meta-data android:name="com.google.android.geo.API_KEY" android:value="your API key"/> is in the <application> element of AndroidManifest.xml
+E/AndroidRuntime( 7163): 	at com.google.maps.api.android.lib6.drd.p.a(:com.google.android.gms.dynamite_mapsdynamite@225014047@22.50.14 (190800-0):6)
+E/AndroidRuntime( 7163): 	at com.google.maps.api.android.lib6.auth.f.i(:com.google.android.gms.dynamite_mapsdynamite@225014047@22.50.14 (190800-0):1)
+E/AndroidRuntime( 7163): 	at com.google.maps.api.android.lib6.impl.l.a(:com.google.android.gms.dynamite_mapsdynamite@225014047@22.50.14 (190800-0):24)
+E/AndroidRuntime( 7163): 	at com.google.android.gms.maps.internal.CreatorImpl.b(:com.google.android.gms.dynamite_mapsdynamite@225014047@22.50.14 (190800-0):7)
+E/AndroidRuntime( 7163): 	at com.google.android.gms.maps.internal.CreatorImpl.logInitialization(:com.google.android.gms.dynamite_mapsdynamite@225014047@22.50.14 (190800-0):3)
+E/AndroidRuntime( 7163): 	at com.google.android.gms.maps.internal.g.ba(:com.google.android.gms.dynamite_mapsdynamite@225014047@22.50.14 (190800-0):5)
+E/AndroidRuntime( 7163): 	at fd.onTransact(:com.google.android.gms.dynamite_mapsdynamite@225014047@22.50.14 (190800-0):4)
+E/AndroidRuntime( 7163): 	at android.os.Binder.transact(Binder.java:1164)
+E/AndroidRuntime( 7163): 	at com.google.android.gms.internal.maps.zza.zzc(com.google.android.gms:play-services-maps@@18.2.0:2)
+E/AndroidRuntime( 7163): 	at com.google.android.gms.maps.internal.zze.zzl(com.google.android.gms:play-services-maps@@18.2.0:4)
+E/AndroidRuntime( 7163): 	at com.google.android.gms.maps.MapsInitializer.initialize(com.google.android.gms:play-services-maps@@18.2.0:12)
+E/AndroidRuntime( 7163): 	at com.google.android.gms.maps.MapsInitializer.initialize(com.google.android.gms:play-services-maps@@18.2.0:1)
+E/AndroidRuntime( 7163): 	at com.google.android.gms.maps.zzai.zzb(com.google.android.gms:play-services-maps@@18.2.0:2)
+E/AndroidRuntime( 7163): 	at com.google.android.gms.maps.zzai.createDelegate(com.google.android.gms:play-services-maps@@18.2.0:1)
+E/AndroidRuntime( 7163): 	at com.google.android.gms.dynamic.DeferredLifecycleHelper.zaf(com.google.android.gms:play-services-base@@18.2.0:6)
+E/AndroidRuntime( 7163): 	at com.google.android.gms.dynamic.DeferredLifecycleHelper.onCreate(com.google.android.gms:play-services-base@@18.2.0:1)
+E/AndroidRuntime( 7163): 	at com.google.android.gms.maps.MapView.onCreate(com.google.android.gms:play-services-maps@@18.2.0:4)
+E/AndroidRuntime( 7163): 	at com.rnmaps.maps.MapView.<init>(MapView.java:174)
+E/AndroidRuntime( 7163): 	at com.rnmaps.maps.MapManager.createViewInstance(MapManager.java:73)
+E/AndroidRuntime( 7163): 	at com.rnmaps.maps.MapManager.createViewInstance(MapManager.java:30)
+E/AndroidRuntime( 7163): 	at com.facebook.react.uimanager.ViewManager.createViewInstance(ViewManager.java:176)
+E/AndroidRuntime( 7163): 	at com.rnmaps.maps.MapManager.createViewInstance(MapManager.java:85)
+E/AndroidRuntime( 7163): 	at com.rnmaps.maps.MapManager.createViewInstance(MapManager.java:30)
+E/AndroidRuntime( 7163): 	at com.facebook.react.uimanager.ViewManager.createView(ViewManager.java:108)
+E/AndroidRuntime( 7163): 	at com.facebook.react.uimanager.NativeViewHierarchyManager.createView(NativeViewHierarchyManager.java:281)
+E/AndroidRuntime( 7163): 	at com.facebook.react.uimanager.UIViewOperationQueue$CreateViewOperation.execute(UIViewOperationQueue.java:194)
+E/AndroidRuntime( 7163): 	at com.facebook.react.uimanager.UIViewOperationQueue$1.run(UIViewOperationQueue.java:920)
+E/AndroidRuntime( 7163): 	at com.facebook.react.uimanager.UIViewOperationQueue.flushPendingBatches(UIViewOperationQueue.java:1037)
+E/AndroidRuntime( 7163): 	at com.facebook.react.uimanager.UIViewOperationQueue.-$$Nest$mflushPendingBatches(Unknown Source:0)
+E/AndroidRuntime( 7163): 	at com.facebook.react.uimanager.UIViewOperationQueue$DispatchUIFrameCallback.doFrameGuarded(UIViewOperationQueue.java:1097)
+E/AndroidRuntime( 7163): 	at com.facebook.react.uimanager.GuardedFrameCallback.doFrame(GuardedFrameCallback.java:29)
+E/AndroidRuntime( 7163): 	at com.facebook.react.modules.core.ReactChoreographer$ReactChoreographerDispatcher.doFrame(ReactChoreographer.java:175)
+E/AndroidRuntime( 7163): 	at com.facebook.react.modules.core.ChoreographerCompat$FrameCallback$1.doFrame(ChoreographerCompat.java:85)
+E/AndroidRuntime( 7163): 	at android.view.Choreographer$CallbackRecord.run(Choreographer.java:1229)
+E/AndroidRuntime( 7163): 	at android.view.Choreographer$CallbackRecord.run(Choreographer.java:1239)
+E/AndroidRuntime( 7163): 	at android.view.Choreographer.doCallbacks(Choreographer.java:899)
+E/AndroidRuntime( 7163): 	at android.view.Choreographer.doFrame(Choreographer.java:827)
+E/AndroidRuntime( 7163): 	at android.view.Choreographer$FrameDisplayEventReceiver.run(Choreographer.java:1214)
+E/AndroidRuntime( 7163): 	at android.os.Handler.handleCallback(Handler.java:942)
+E/AndroidRuntime( 7163): 	at android.os.Handler.dispatchMessage(Handler.java:99)
+E/AndroidRuntime( 7163): 	at android.os.Looper.loopOnce(Looper.java:201)
+E/AndroidRuntime( 7163): 	at android.os.Looper.loop(Looper.java:288)
+E/AndroidRuntime( 7163): 	at android.app.ActivityThread.main(ActivityThread.java:7872)
+E/AndroidRuntime( 7163): 	at java.lang.reflect.Method.invoke(Native Method)
+E/AndroidRuntime( 7163): 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:548)
+E/AndroidRuntime( 7163): 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:936)
+I/Process ( 7163): Sending signal. PID: 7163 SIG: 9
