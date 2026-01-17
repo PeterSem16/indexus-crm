@@ -345,7 +345,7 @@ export default function LandingPage() {
                     <CardTitle className="text-lg">INDEXUS Connect</CardTitle>
                   </div>
                   <CardDescription>
-                    Mobilná aplikácia pre terénnych pracovníkov
+                    Mobile app for field representatives
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -360,13 +360,13 @@ export default function LandingPage() {
                       <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
                         <Mic className="h-4 w-4 text-primary" />
                       </div>
-                      <span className="text-xs text-muted-foreground">Hlasové poznámky</span>
+                      <span className="text-xs text-muted-foreground">Voice Notes</span>
                     </div>
                     <div className="flex flex-col items-center gap-1">
                       <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
                         <Wifi className="h-4 w-4 text-primary" />
                       </div>
-                      <span className="text-xs text-muted-foreground">Offline režim</span>
+                      <span className="text-xs text-muted-foreground">Offline Mode</span>
                     </div>
                   </div>
 
@@ -379,11 +379,11 @@ export default function LandingPage() {
                     <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M3.609 1.814L13.792 12 3.61 22.186a.996.996 0 0 1-.61-.92V2.734a1 1 0 0 1 .609-.92zm10.89 10.893l2.302 2.302-10.937 6.333 8.635-8.635zm3.199-3.198l2.807 1.626a1 1 0 0 1 0 1.73l-2.808 1.626L15.206 12l2.492-2.491zM5.864 2.658L16.8 8.99l-2.302 2.302-8.634-8.634z"/>
                     </svg>
-                    Stiahnuť pre Android
+                    Download for Android
                   </Button>
 
                   <p className="text-xs text-center text-muted-foreground">
-                    Dostupné pre Android zariadenia
+                    Available for Android devices
                   </p>
                 </CardContent>
               </Card>
