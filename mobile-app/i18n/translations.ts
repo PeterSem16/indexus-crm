@@ -29,6 +29,7 @@ type TranslationKeys = {
     signingIn: string;
     invalidCredentials: string;
     welcome: string;
+    appDescription: string;
   };
   navigation: {
     home: string;
@@ -103,6 +104,7 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       signingIn: 'Prihlasujem...',
       invalidCredentials: 'Nesprávne prihlasovacie údaje',
       welcome: 'Vitajte späť',
+      appDescription: 'Aplikácia pre obchodných zástupcov',
     },
     navigation: {
       home: 'Domov',
@@ -175,6 +177,7 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       signingIn: 'Přihlašuji...',
       invalidCredentials: 'Nesprávné přihlašovací údaje',
       welcome: 'Vítejte zpět',
+      appDescription: 'Aplikace pro obchodní zástupce',
     },
     navigation: {
       home: 'Domů',
@@ -247,6 +250,7 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       signingIn: 'Bejelentkezés...',
       invalidCredentials: 'Hibás bejelentkezési adatok',
       welcome: 'Üdv újra',
+      appDescription: 'Területi képviselő alkalmazás',
     },
     navigation: {
       home: 'Kezdőlap',
@@ -319,6 +323,7 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       signingIn: 'Anmelden...',
       invalidCredentials: 'Ungültige Anmeldedaten',
       welcome: 'Willkommen zurück',
+      appDescription: 'Außendienst-App',
     },
     navigation: {
       home: 'Startseite',
@@ -391,6 +396,7 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       signingIn: 'Accesso in corso...',
       invalidCredentials: 'Credenziali non valide',
       welcome: 'Bentornato',
+      appDescription: 'App per rappresentanti',
     },
     navigation: {
       home: 'Home',
@@ -463,6 +469,7 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       signingIn: 'Se conectează...',
       invalidCredentials: 'Credențiale invalide',
       welcome: 'Bine ai revenit',
+      appDescription: 'Aplicație pentru reprezentanți',
     },
     navigation: {
       home: 'Acasă',
@@ -535,6 +542,7 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       signingIn: 'Signing in...',
       invalidCredentials: 'Invalid credentials',
       welcome: 'Welcome back',
+      appDescription: 'Field Representative App',
     },
     navigation: {
       home: 'Home',

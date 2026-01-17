@@ -49,13 +49,7 @@ export default function LoginScreen() {
             <Text style={styles.logoSubtext}>Connect</Text>
           </View>
           <Text style={styles.appDescription}>
-            {language === 'en' ? 'Field Representative App' : 
-             language === 'de' ? 'Außendienst-App' :
-             language === 'it' ? 'App per Rappresentanti' :
-             language === 'hu' ? 'Területi Képviselő App' :
-             language === 'ro' ? 'Aplicație pentru Reprezentanți' :
-             language === 'cs' ? 'Aplikace pro obchodní zástupce' :
-             'Aplikácia pre obchodných zástupcov'}
+            {translations.auth.appDescription}
           </Text>
         </View>
 
