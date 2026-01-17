@@ -48,6 +48,15 @@ export default function LoginScreen() {
             <Text style={styles.logoText}>INDEXUS</Text>
             <Text style={styles.logoSubtext}>Connect</Text>
           </View>
+          <Text style={styles.appDescription}>
+            {language === 'en' ? 'Field Representative App' : 
+             language === 'de' ? 'Außendienst-App' :
+             language === 'it' ? 'App per Rappresentanti' :
+             language === 'hu' ? 'Területi Képviselő App' :
+             language === 'ro' ? 'Aplicație pentru Reprezentanți' :
+             language === 'cs' ? 'Aplikace pro obchodní zástupce' :
+             'Aplikácia pre obchodných zástupcov'}
+          </Text>
         </View>
 
         <View style={styles.formContainer}>
@@ -157,6 +166,12 @@ const styles = StyleSheet.create({
   logoSubtext: {
     color: Colors.white,
     fontSize: FontSizes.sm,
+  },
+  appDescription: {
+    color: Colors.textSecondary,
+    fontSize: FontSizes.sm,
+    marginTop: Spacing.md,
+    textAlign: 'center',
   },
   formContainer: {
     marginBottom: Spacing.xl,
