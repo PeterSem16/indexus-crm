@@ -18,6 +18,10 @@
       },
       "ios": {
         "simulator": false
+      },
+      "node": "20.20.0",
+      "env": {
+        "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
       }
     },
     "production": {
