@@ -1,21 +1,19 @@
-import { View, Text, StyleSheet, Dimensions, ActivityIndicator, Platform } from 'react-native';
-import { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Dimensions, ActivityIndicator } from 'react-native';
+import { useState, useEffect, useRef } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { WebView } from 'react-native-webview';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useHospitals } from '@/hooks/useHospitals';
 import { useVisits } from '@/hooks/useVisits';
 import { Colors, Spacing, FontSizes } from '@/constants/colors';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
-const INITIAL_REGION = {
+const INITIAL_COORDS = {
   latitude: 48.7164,
   longitude: 21.2611,
-  latitudeDelta: 2,
-  longitudeDelta: 2,
 };
 
 export default function MapScreen() {
@@ -24,6 +22,8 @@ export default function MapScreen() {
   const { data: visits = [], isLoading: visitsLoading } = useVisits();
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [mapReady, setMapReady] = useState(false);
+  const webViewRef = useRef<WebView>(null);
 
   useEffect(() => {
     (async () => {
@@ -43,6 +43,7 @@ export default function MapScreen() {
           longitude: location.coords.longitude,
         });
       } catch (error) {
+        console.log('Location error:', error);
         setLocationError('Failed to get location');
       }
     })();
@@ -50,7 +51,7 @@ export default function MapScreen() {
 
   const getVisitStatus = (hospitalId: string): string | null => {
     const visit = visits.find((v: any) => 
-      (v.hospitalId === hospitalId || v.hospital_id === hospitalId) && 
+      (String(v.hospitalId) === String(hospitalId) || String(v.hospital_id) === String(hospitalId)) && 
       v.status !== 'cancelled'
     );
     return visit?.status || null;
@@ -58,14 +59,104 @@ export default function MapScreen() {
 
   const getMarkerColor = (status: string | null) => {
     switch (status) {
-      case 'completed': return Colors.success;
-      case 'in_progress': return Colors.warning;
-      case 'scheduled': return Colors.info;
-      default: return Colors.primary;
+      case 'completed': return '#22C55E';
+      case 'in_progress': return '#F59E0B';
+      case 'scheduled': return '#3B82F6';
+      default: return '#6B1C3B';
     }
   };
 
   const isLoading = hospitalsLoading || visitsLoading;
+
+  const centerLat = userLocation?.latitude || INITIAL_COORDS.latitude;
+  const centerLng = userLocation?.longitude || INITIAL_COORDS.longitude;
+
+  const hospitalsWithCoords = hospitals.filter((h: any) => h.latitude && h.longitude);
+
+  const markersJson = JSON.stringify(hospitalsWithCoords.map((hospital: any) => ({
+    id: String(hospital.id),
+    lat: parseFloat(hospital.latitude),
+    lng: parseFloat(hospital.longitude),
+    name: hospital.name || 'Hospital',
+    city: hospital.city || '',
+    color: getMarkerColor(getVisitStatus(String(hospital.id))),
+  })));
+
+  const leafletHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    body { margin: 0; padding: 0; }
+    #map { width: 100%; height: 100vh; }
+    .custom-marker {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 3px solid white;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+    .user-marker {
+      width: 16px;
+      height: 16px;
+      background-color: #4285F4;
+      border-radius: 50%;
+      border: 3px solid white;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+    var map = L.map('map').setView([${centerLat}, ${centerLng}], 8);
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
+      maxZoom: 19
+    }).addTo(map);
+
+    // User location marker
+    ${userLocation ? `
+    var userIcon = L.divIcon({
+      className: 'user-marker-container',
+      html: '<div class="user-marker"></div>',
+      iconSize: [22, 22],
+      iconAnchor: [11, 11]
+    });
+    L.marker([${userLocation.latitude}, ${userLocation.longitude}], { icon: userIcon })
+      .addTo(map)
+      .bindPopup('Your location');
+    ` : ''}
+
+    // Hospital markers
+    var markers = ${markersJson};
+    markers.forEach(function(m) {
+      var icon = L.divIcon({
+        className: 'marker-container',
+        html: '<div class="custom-marker" style="background-color: ' + m.color + ';"></div>',
+        iconSize: [30, 30],
+        iconAnchor: [15, 15]
+      });
+      L.marker([m.lat, m.lng], { icon: icon })
+        .addTo(map)
+        .bindPopup('<strong>' + m.name + '</strong>' + (m.city ? '<br/>' + m.city : ''));
+    });
+
+    // Fit bounds if we have markers
+    if (markers.length > 0) {
+      var bounds = L.latLngBounds(markers.map(function(m) { return [m.lat, m.lng]; }));
+      ${userLocation ? `bounds.extend([${userLocation.latitude}, ${userLocation.longitude}]);` : ''}
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 12 });
+    }
+  </script>
+</body>
+</html>
+`;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -80,37 +171,20 @@ export default function MapScreen() {
             <Text style={styles.loadingText}>Loading map...</Text>
           </View>
         ) : (
-          <MapView
+          <WebView
+            ref={webViewRef}
+            source={{ html: leafletHtml }}
             style={styles.map}
-            provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-            initialRegion={userLocation ? {
-              ...userLocation,
-              latitudeDelta: 0.5,
-              longitudeDelta: 0.5,
-            } : INITIAL_REGION}
-            showsUserLocation={true}
-            showsMyLocationButton={true}
-          >
-            {hospitals.map((hospital: any) => {
-              if (!hospital.latitude || !hospital.longitude) return null;
-              
-              const status = getVisitStatus(hospital.id);
-              const markerColor = getMarkerColor(status);
-              
-              return (
-                <Marker
-                  key={hospital.id}
-                  coordinate={{
-                    latitude: parseFloat(hospital.latitude),
-                    longitude: parseFloat(hospital.longitude),
-                  }}
-                  title={hospital.name}
-                  description={hospital.city || hospital.address}
-                  pinColor={markerColor}
-                />
-              );
-            })}
-          </MapView>
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+            startInLoadingState={true}
+            onLoadEnd={() => setMapReady(true)}
+            renderLoading={() => (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={Colors.primary} />
+              </View>
+            )}
+          />
         )}
       </View>
 
@@ -133,7 +207,7 @@ export default function MapScreen() {
         </View>
       </View>
 
-      {hospitals.length === 0 && !isLoading && (
+      {hospitalsWithCoords.length === 0 && !isLoading && (
         <View style={styles.emptyOverlay}>
           <View style={styles.emptyCard}>
             <Ionicons name="location-outline" size={48} color={Colors.textSecondary} />
