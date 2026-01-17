@@ -15,7 +15,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { COUNTRIES } from "@shared/schema";
 import type { Hospital, Laboratory, SafeUser } from "@shared/schema";
-import { ChevronLeft, ChevronRight, Check, Building2, MapPin, Users, Settings, ExternalLink } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, Building2, MapPin, Users, Settings, ExternalLink, Navigation } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -115,6 +115,40 @@ export function HospitalFormWizard({ initialData, onSuccess, onCancel }: Hospita
   );
   
   const [showMapDialog, setShowMapDialog] = useState(false);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+
+  const handleGetCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast({ title: "Geolokácia nie je podporovaná vo vašom prehliadači", variant: "destructive" });
+      return;
+    }
+    
+    setIsLoadingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setFormData({
+          ...formData,
+          latitude: position.coords.latitude.toFixed(7),
+          longitude: position.coords.longitude.toFixed(7),
+        });
+        setIsLoadingLocation(false);
+        toast({ title: "GPS súradnice boli načítané" });
+      },
+      (error) => {
+        setIsLoadingLocation(false);
+        let message = "Nepodarilo sa získať polohu";
+        if (error.code === error.PERMISSION_DENIED) {
+          message = "Prístup k polohe bol zamietnutý";
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          message = "Poloha nie je dostupná";
+        } else if (error.code === error.TIMEOUT) {
+          message = "Časový limit vypršal";
+        }
+        toast({ title: message, variant: "destructive" });
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
 
   const { data: users = [] } = useQuery<SafeUser[]>({
     queryKey: ["/api/users"],
@@ -379,18 +413,31 @@ export function HospitalFormWizard({ initialData, onSuccess, onCancel }: Hospita
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label className="text-base font-medium">GPS súradnice</Label>
-                {formData.latitude && formData.longitude && (
+                <div className="flex gap-2">
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => setShowMapDialog(true)}
-                    data-testid="button-show-on-map"
+                    onClick={handleGetCurrentLocation}
+                    disabled={isLoadingLocation}
+                    data-testid="wizard-button-get-location"
                   >
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Zobraziť na mape
+                    <Navigation className={`h-4 w-4 mr-2 ${isLoadingLocation ? 'animate-spin' : ''}`} />
+                    {isLoadingLocation ? "Načítavam..." : "Načítať polohu"}
                   </Button>
-                )}
+                  {formData.latitude && formData.longitude && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowMapDialog(true)}
+                      data-testid="button-show-on-map"
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Zobraziť na mape
+                    </Button>
+                  )}
+                </div>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
