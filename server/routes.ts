@@ -6898,6 +6898,33 @@ export async function registerRoutes(
     }
   });
 
+  // Seed Slovak hospitals endpoint (admin only)
+  app.post("/api/hospitals/seed-slovak", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      
+      const { seedSlovakHospitals, slovakHospitals } = await import('./seeds/slovak-hospitals');
+      const { db } = await import('./db');
+      
+      const result = await seedSlovakHospitals(db);
+      
+      await logActivity(user.id, "seed", "hospital", "bulk", `Slovak hospitals seed: ${result.created} created, ${result.skipped} skipped`);
+      
+      res.json({ 
+        success: true, 
+        message: `Seed completed: ${result.created} hospitals created, ${result.skipped} skipped`,
+        total: slovakHospitals.length,
+        ...result 
+      });
+    } catch (error: any) {
+      console.error("Hospital seed error:", error);
+      res.status(500).json({ error: "Failed to seed hospitals", details: error.message });
+    }
+  });
+
   app.delete("/api/hospitals/:id", requireAuth, async (req, res) => {
     try {
       const success = await storage.deleteHospital(req.params.id);
