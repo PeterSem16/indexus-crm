@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator, Linking, Platform, RefreshControl, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator, Linking, Platform, RefreshControl } from 'react-native';
 import { useState, useCallback, useMemo } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,20 +21,8 @@ interface Hospital {
   countryCode?: string;
 }
 
-const COUNTRY_TABS = [
-  { code: 'ALL', label: 'Všetky', flag: '' },
-  { code: 'SK', label: 'Slovensko', flag: 'SK' },
-  { code: 'CZ', label: 'Česko', flag: 'CZ' },
-  { code: 'HU', label: 'Maďarsko', flag: 'HU' },
-  { code: 'RO', label: 'Rumunsko', flag: 'RO' },
-  { code: 'IT', label: 'Taliansko', flag: 'IT' },
-  { code: 'DE', label: 'Nemecko', flag: 'DE' },
-  { code: 'US', label: 'USA', flag: 'US' },
-];
-
 export default function HospitalsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCountry, setSelectedCountry] = useState('ALL');
   const { translations } = useTranslation();
   const { data: hospitals = [], isLoading, error, refetch } = useHospitals();
   const [refreshing, setRefreshing] = useState(false);
@@ -69,59 +57,18 @@ export default function HospitalsScreen() {
     Linking.openURL(`tel:${phone}`);
   };
 
-  const countryCounts = useMemo(() => {
-    const counts: Record<string, number> = { ALL: hospitals.length };
-    hospitals.forEach((h) => {
-      const code = h.countryCode || 'UNKNOWN';
-      counts[code] = (counts[code] || 0) + 1;
-    });
-    return counts;
-  }, [hospitals]);
-
   const filteredHospitals = useMemo(() => {
-    let filtered = hospitals;
+    if (!searchQuery.trim()) return hospitals;
     
-    if (selectedCountry !== 'ALL') {
-      filtered = filtered.filter((h) => h.countryCode === selectedCountry);
-    }
-    
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter((h) =>
-        h.name.toLowerCase().includes(query) ||
-        (h.city?.toLowerCase() || '').includes(query) ||
-        (h.address?.toLowerCase() || '').includes(query) ||
-        (h.phone?.toLowerCase() || '').includes(query) ||
-        (h.email?.toLowerCase() || '').includes(query)
-      );
-    }
-    
-    return filtered;
-  }, [hospitals, selectedCountry, searchQuery]);
-
-  const renderCountryTab = (tab: typeof COUNTRY_TABS[0]) => {
-    const isActive = selectedCountry === tab.code;
-    const count = countryCounts[tab.code] || 0;
-    
-    return (
-      <Pressable
-        key={tab.code}
-        style={[styles.countryTab, isActive && styles.countryTabActive]}
-        onPress={() => setSelectedCountry(tab.code)}
-        android_ripple={{ color: Colors.border }}
-        testID={`tab-country-${tab.code}`}
-      >
-        <Text style={[styles.countryTabText, isActive && styles.countryTabTextActive]}>
-          {tab.flag ? `${tab.flag} ` : ''}{tab.code === 'ALL' ? 'Všetky' : tab.code}
-        </Text>
-        <View style={[styles.countBadge, isActive && styles.countBadgeActive]}>
-          <Text style={[styles.countBadgeText, isActive && styles.countBadgeTextActive]}>
-            {count}
-          </Text>
-        </View>
-      </Pressable>
+    const query = searchQuery.toLowerCase();
+    return hospitals.filter((h) =>
+      h.name.toLowerCase().includes(query) ||
+      (h.city?.toLowerCase() || '').includes(query) ||
+      (h.address?.toLowerCase() || '').includes(query) ||
+      (h.phone?.toLowerCase() || '').includes(query) ||
+      (h.email?.toLowerCase() || '').includes(query)
     );
-  };
+  }, [hospitals, searchQuery]);
 
   const renderHospital = ({ item }: { item: Hospital }) => (
     <Card style={styles.hospitalCard}>
@@ -129,14 +76,7 @@ export default function HospitalsScreen() {
         <Ionicons name="business" size={24} color={Colors.primary} />
       </View>
       <View style={styles.hospitalInfo}>
-        <View style={styles.hospitalHeader}>
-          <Text style={styles.hospitalName} numberOfLines={2}>{item.name}</Text>
-          {item.countryCode && (
-            <View style={styles.countryBadge}>
-              <Text style={styles.countryBadgeText}>{item.countryCode}</Text>
-            </View>
-          )}
-        </View>
+        <Text style={styles.hospitalName} numberOfLines={2}>{item.name}</Text>
         {(item.address || item.city) && (
           <Text style={styles.hospitalAddress} numberOfLines={1}>
             {[item.address, item.city].filter(Boolean).join(', ')}
@@ -171,16 +111,7 @@ export default function HospitalsScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>{translations.hospitals.title}</Text>
-      </View>
-
-      <View style={styles.tabsContainer}>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.tabsContent}
-        >
-          {COUNTRY_TABS.map(renderCountryTab)}
-        </ScrollView>
+        <Text style={styles.subtitle}>Nemocnice vo vašej krajine</Text>
       </View>
 
       <View style={styles.searchContainer}>
@@ -251,7 +182,6 @@ export default function HospitalsScreen() {
           ListHeaderComponent={
             <Text style={styles.countText}>
               {filteredHospitals.length} {filteredHospitals.length === 1 ? 'nemocnica' : 'nemocníc'}
-              {selectedCountry !== 'ALL' && ` v ${selectedCountry}`}
             </Text>
           }
         />
@@ -276,53 +206,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: Colors.text,
   },
-  tabsContainer: {
-    backgroundColor: Colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  tabsContent: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.sm,
-    gap: Spacing.xs,
-  },
-  countryTab: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: 20,
-    backgroundColor: Colors.surface,
-    marginRight: Spacing.xs,
-  },
-  countryTabActive: {
-    backgroundColor: Colors.primary,
-  },
-  countryTabText: {
+  subtitle: {
     fontSize: FontSizes.sm,
-    fontWeight: '500',
-    color: Colors.text,
-  },
-  countryTabTextActive: {
-    color: Colors.white,
-  },
-  countBadge: {
-    marginLeft: Spacing.xs,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 10,
-    backgroundColor: Colors.border,
-  },
-  countBadgeActive: {
-    backgroundColor: 'rgba(255,255,255,0.3)',
-  },
-  countBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
     color: Colors.textSecondary,
-  },
-  countBadgeTextActive: {
-    color: Colors.white,
+    marginTop: 2,
   },
   searchContainer: {
     flexDirection: 'row',
@@ -365,28 +252,10 @@ const styles = StyleSheet.create({
   hospitalInfo: {
     flex: 1,
   },
-  hospitalHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-  },
   hospitalName: {
     fontSize: FontSizes.md,
     fontWeight: '600',
     color: Colors.text,
-    flex: 1,
-    marginRight: Spacing.xs,
-  },
-  countryBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    backgroundColor: Colors.surface,
-  },
-  countryBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: Colors.textSecondary,
   },
   hospitalAddress: {
     fontSize: FontSizes.sm,

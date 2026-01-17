@@ -542,6 +542,7 @@ export default function HospitalsPage() {
   const [hospitalToDelete, setHospitalToDelete] = useState<Hospital | null>(null);
   const [activeTab, setActiveTab] = useState("hospital");
   const [useWizardForm, setUseWizardForm] = useState(true);
+  const [countryTab, setCountryTab] = useState<string>("ALL");
 
   const isAdmin = user?.role === "admin";
 
@@ -594,11 +595,20 @@ export default function HospitalsPage() {
     },
   });
 
-  const filteredHospitals = hospitals.filter((hospital) =>
-    hospital.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    hospital.city?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    hospital.region?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const countryCounts = hospitals.reduce((acc, h) => {
+    acc[h.countryCode] = (acc[h.countryCode] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const filteredHospitals = hospitals.filter((hospital) => {
+    const matchesCountry = countryTab === "ALL" || hospital.countryCode === countryTab;
+    const matchesSearch = 
+      hospital.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      hospital.city?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      hospital.region?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      hospital.streetNumber?.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCountry && matchesSearch;
+  });
 
   const getUserName = (userId: string | null) => {
     if (!userId) return "-";
@@ -744,7 +754,34 @@ export default function HospitalsPage() {
 
         <TabsContent value="hospital" className="mt-6">
           <Card>
-            <CardHeader className="pb-4">
+            <CardHeader className="pb-4 space-y-4">
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant={countryTab === "ALL" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCountryTab("ALL")}
+                  data-testid="tab-country-all"
+                >
+                  Všetky
+                  <Badge variant="secondary" className="ml-2">{hospitals.length}</Badge>
+                </Button>
+                {COUNTRIES.map((country) => {
+                  const count = countryCounts[country.code] || 0;
+                  if (count === 0) return null;
+                  return (
+                    <Button
+                      key={country.code}
+                      variant={countryTab === country.code ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCountryTab(country.code)}
+                      data-testid={`tab-country-${country.code}`}
+                    >
+                      {country.flag} {country.code}
+                      <Badge variant="secondary" className="ml-2">{count}</Badge>
+                    </Button>
+                  );
+                })}
+              </div>
               <div className="flex items-center gap-4">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -755,6 +792,9 @@ export default function HospitalsPage() {
                     className="pl-10"
                     data-testid="input-search-hospitals"
                   />
+                </div>
+                <div className="text-sm text-muted-foreground whitespace-nowrap">
+                  {filteredHospitals.length} z {hospitals.length} nemocníc
                 </div>
               </div>
             </CardHeader>
