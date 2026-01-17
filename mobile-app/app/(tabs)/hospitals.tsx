@@ -1,56 +1,103 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
-import { useState } from 'react';
+import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator, Linking, Platform, RefreshControl } from 'react-native';
+import { useState, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useHospitals } from '@/hooks/useHospitals';
 import { Colors, Spacing, FontSizes } from '@/constants/colors';
 
 interface Hospital {
   id: string;
   name: string;
-  city: string;
-  address: string;
+  city?: string;
+  address?: string;
   contactPerson?: string;
+  phone?: string;
+  email?: string;
+  latitude?: string;
+  longitude?: string;
 }
 
 export default function HospitalsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const { translations } = useTranslation();
+  const { data: hospitals = [], isLoading, error, refetch } = useHospitals();
+  const [refreshing, setRefreshing] = useState(false);
 
-  const hospitals: Hospital[] = [
-    { id: '1', name: 'FN Bratislava', city: 'Bratislava', address: 'Antolská 11', contactPerson: 'Dr. Novak' },
-    { id: '2', name: 'NsP Trnava', city: 'Trnava', address: 'A. Žarnova 11', contactPerson: 'Dr. Kováč' },
-    { id: '3', name: 'Nemocnica sv. Michala', city: 'Bratislava', address: 'Satinského 1' },
-    { id: '4', name: 'FN Košice', city: 'Košice', address: 'Trieda SNP 1', contactPerson: 'Dr. Horváth' },
-    { id: '5', name: 'NsP Nitra', city: 'Nitra', address: 'Špitálska 6' },
-  ];
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  }, [refetch]);
+
+  const openMap = (hospital: Hospital) => {
+    if (hospital.latitude && hospital.longitude) {
+      const lat = hospital.latitude;
+      const lng = hospital.longitude;
+      const label = encodeURIComponent(hospital.name);
+      const url = Platform.select({
+        ios: `maps:0,0?q=${label}@${lat},${lng}`,
+        android: `geo:${lat},${lng}?q=${lat},${lng}(${label})`,
+      });
+      if (url) Linking.openURL(url);
+    } else if (hospital.address && hospital.city) {
+      const address = encodeURIComponent(`${hospital.address}, ${hospital.city}`);
+      const url = Platform.select({
+        ios: `maps:0,0?q=${address}`,
+        android: `geo:0,0?q=${address}`,
+      });
+      if (url) Linking.openURL(url);
+    }
+  };
+
+  const callHospital = (phone: string) => {
+    Linking.openURL(`tel:${phone}`);
+  };
 
   const filteredHospitals = hospitals.filter(
     (h) =>
       h.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      h.city.toLowerCase().includes(searchQuery.toLowerCase())
+      (h.city?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+      (h.address?.toLowerCase() || '').includes(searchQuery.toLowerCase())
   );
 
   const renderHospital = ({ item }: { item: Hospital }) => (
-    <TouchableOpacity testID={`card-hospital-${item.id}`}>
-      <Card style={styles.hospitalCard}>
-        <View style={styles.hospitalIcon}>
-          <Ionicons name="business" size={24} color={Colors.primary} />
-        </View>
-        <View style={styles.hospitalInfo}>
-          <Text style={styles.hospitalName}>{item.name}</Text>
-          <Text style={styles.hospitalAddress}>{item.address}, {item.city}</Text>
-          {item.contactPerson && (
-            <Text style={styles.hospitalContact}>{item.contactPerson}</Text>
-          )}
-        </View>
-        <TouchableOpacity style={styles.navigateButton}>
-          <Ionicons name="navigate" size={20} color={Colors.primary} />
-        </TouchableOpacity>
-      </Card>
-    </TouchableOpacity>
+    <Card style={styles.hospitalCard}>
+      <View style={styles.hospitalIcon}>
+        <Ionicons name="business" size={24} color={Colors.primary} />
+      </View>
+      <View style={styles.hospitalInfo}>
+        <Text style={styles.hospitalName} numberOfLines={2}>{item.name}</Text>
+        {(item.address || item.city) && (
+          <Text style={styles.hospitalAddress} numberOfLines={1}>
+            {[item.address, item.city].filter(Boolean).join(', ')}
+          </Text>
+        )}
+        {item.contactPerson && (
+          <Text style={styles.hospitalContact}>{item.contactPerson}</Text>
+        )}
+      </View>
+      <View style={styles.actionButtons}>
+        {item.phone && (
+          <Pressable 
+            style={styles.actionButton}
+            onPress={() => callHospital(item.phone!)}
+            android_ripple={{ color: Colors.border }}
+          >
+            <Ionicons name="call" size={18} color={Colors.primary} />
+          </Pressable>
+        )}
+        <Pressable 
+          style={styles.actionButton}
+          onPress={() => openMap(item)}
+          android_ripple={{ color: Colors.border }}
+        >
+          <Ionicons name="navigate" size={18} color={Colors.primary} />
+        </Pressable>
+      </View>
+    </Card>
   );
 
   return (
@@ -70,22 +117,49 @@ export default function HospitalsScreen() {
         />
       </View>
 
-      <FlatList
-        data={filteredHospitals}
-        renderItem={renderHospital}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="business-outline" size={48} color={Colors.textSecondary} />
-            <Text style={styles.emptyText}>{translations.hospitals.noHospitals}</Text>
-          </View>
-        }
-      />
-
-      <TouchableOpacity style={styles.fab} testID="button-add-hospital">
-        <Ionicons name="add" size={28} color={Colors.white} />
-      </TouchableOpacity>
+      {isLoading && !refreshing ? (
+        <View style={styles.loadingState}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.loadingText}>Načítavam nemocnice...</Text>
+        </View>
+      ) : error ? (
+        <View style={styles.emptyState}>
+          <Ionicons name="alert-circle-outline" size={48} color={Colors.error} />
+          <Text style={styles.emptyText}>Chyba pri načítavaní</Text>
+          <Pressable 
+            style={styles.retryButton}
+            onPress={() => refetch()}
+          >
+            <Text style={styles.retryText}>Skúsiť znova</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredHospitals}
+          renderItem={renderHospital}
+          keyExtractor={(item) => String(item.id)}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[Colors.primary]}
+              tintColor={Colors.primary}
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Ionicons name="business-outline" size={48} color={Colors.textSecondary} />
+              <Text style={styles.emptyText}>{translations.hospitals.noHospitals}</Text>
+            </View>
+          }
+          ListHeaderComponent={
+            hospitals.length > 0 ? (
+              <Text style={styles.countText}>{filteredHospitals.length} z {hospitals.length} nemocníc</Text>
+            ) : null
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -155,18 +229,53 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     marginTop: Spacing.xs,
   },
-  navigateButton: {
+  actionButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  actionButton: {
     padding: Spacing.sm,
+    borderRadius: 20,
+    backgroundColor: Colors.surface,
   },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: Spacing.xxl,
+    flex: 1,
   },
   emptyText: {
     fontSize: FontSizes.md,
     color: Colors.textSecondary,
     marginTop: Spacing.md,
+  },
+  loadingState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    fontSize: FontSizes.md,
+    color: Colors.textSecondary,
+    marginTop: Spacing.md,
+  },
+  retryButton: {
+    marginTop: Spacing.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: Colors.primary,
+    borderRadius: 8,
+  },
+  retryText: {
+    color: Colors.white,
+    fontSize: FontSizes.md,
+    fontWeight: '600',
+  },
+  countText: {
+    fontSize: FontSizes.sm,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.sm,
   },
   fab: {
     position: 'absolute',
