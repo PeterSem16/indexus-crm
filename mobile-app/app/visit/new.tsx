@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList, Alert, Pressable, Platform } from 'react-native';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -68,13 +68,17 @@ export default function NewVisitScreen() {
   const renderHospitalItem = ({ item }: { item: { id: string | number; name: string; city?: string } }) => {
     const itemId = String(item.id);
     return (
-    <TouchableOpacity
-      style={styles.hospitalItem}
+    <Pressable
+      style={({ pressed }) => [
+        styles.hospitalItem,
+        pressed && styles.hospitalItemPressed
+      ]}
       onPress={() => {
         console.log('[NewVisitScreen] Selected hospital:', item.name, 'id:', itemId);
         setSelectedHospitalId(itemId);
         setShowHospitalPicker(false);
       }}
+      android_ripple={{ color: Colors.border }}
       testID={`hospital-item-${itemId}`}
     >
       <Ionicons name="business" size={20} color={Colors.primary} />
@@ -85,7 +89,7 @@ export default function NewVisitScreen() {
       {selectedHospitalId === itemId && (
         <Ionicons name="checkmark" size={20} color={Colors.primary} />
       )}
-    </TouchableOpacity>
+    </Pressable>
   );
   };
 
@@ -232,8 +236,12 @@ export default function NewVisitScreen() {
               <FlatList
                 data={hospitals}
                 renderItem={renderHospitalItem}
-                keyExtractor={(item) => item.id}
+                keyExtractor={(item) => String(item.id)}
                 style={styles.hospitalList}
+                nestedScrollEnabled={true}
+                removeClippedSubviews={Platform.OS === 'android'}
+                initialNumToRender={20}
+                showsVerticalScrollIndicator={true}
               />
             )}
           </View>
@@ -387,6 +395,10 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
+    backgroundColor: Colors.white,
+  },
+  hospitalItemPressed: {
+    backgroundColor: Colors.background,
   },
   hospitalItemText: {
     flex: 1,
