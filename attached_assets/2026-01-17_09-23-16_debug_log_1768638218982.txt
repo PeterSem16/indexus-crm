@@ -1,0 +1,535 @@
+I/FA      ( 2351): App measurement initialized, version: 75066
+
+I/FA      ( 2351): To enable debug logging run: adb shell setprop log.tag.FA VERBOSE
+
+I/FA      ( 2351): To enable faster debug mode event logging run:
+
+I/FA      ( 2351):   adb shell setprop debug.firebase.analytics.app com.google.android.apps.youtube.music
+
+I/FA      ( 2390): App measurement initialized, version: 75066
+
+I/FA      ( 2390): To enable debug logging run: adb shell setprop log.tag.FA VERBOSE
+
+I/FA      ( 2390): To enable faster debug mode event logging run:
+
+I/FA      ( 2390):   adb shell setprop debug.firebase.analytics.app com.google.android.youtube
+
+I/FA-SVC  ( 3472): App measurement initialized, version: 225014
+
+I/FA-SVC  ( 3472): Install Referrer Reporter is not available
+
+I/FA      ( 3838): App measurement initialized, version: 75066
+
+I/FA      ( 3838): To enable debug logging run: adb shell setprop log.tag.FA VERBOSE
+
+I/FA      ( 3838): To enable faster debug mode event logging run:
+
+I/FA      ( 3838):   adb shell setprop debug.firebase.analytics.app com.google.android.googlequicksearchbox
+
+I/FA      ( 3838): Tag Manager is not found and thus will not be used
+
+I/FA-SVC  ( 3472): Install Referrer Reporter is not available
+
+W/FA-SVC  ( 3472): Storing bundle outside of the max uploading time span. appId, now, timestamp: com.google.android.googlequicksearchbox, 1768622327601, 1687351003595
+
+W/FA-SVC  ( 3472): Storing bundle outside of the max uploading time span. appId, now, timestamp: com.google.android.youtube, 1768622328561, 1685965631014
+
+I/FA      ( 5128): App measurement initialized, version: 75066
+
+I/FA      ( 5128): To enable debug logging run: adb shell setprop log.tag.FA VERBOSE
+
+I/FA      ( 5128): To enable faster debug mode event logging run:
+
+I/FA      ( 5128):   adb shell setprop debug.firebase.analytics.app com.google.android.apps.youtube.music
+
+I/FA-SVC  ( 3472): Install Referrer Reporter is not available
+
+W/FA-SVC  ( 3472): Storing bundle outside of the max uploading time span. appId, now, timestamp: com.google.android.apps.youtube.music, 1768622338616, 1685965622346
+
+I/FA-SVC  ( 6017): App measurement initialized, version: 225014
+
+D/CompatibilityChangeReporter( 7873): Compat change id reported: 171979766; UID 10170; state: ENABLED
+
+D/nativeloader( 7873): Configuring classloader-namespace for other apk /system/framework/org.apache.http.legacy.jar. target_sdk_version=34, uses_libraries=ALL, library_path=/data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/lib/x86_64:/data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk!/lib/x86_64, permitted_path=/data:/mnt/expand:/data/user/0/com.cordbloodcenter.indexusconnect
+
+D/nativeloader( 7873): Configuring classloader-namespace for other apk /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk. target_sdk_version=34, uses_libraries=, library_path=/data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/lib/x86_64:/data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk!/lib/x86_64, permitted_path=/data:/mnt/expand:/data/user/0/com.cordbloodcenter.indexusconnect
+
+V/GraphicsEnvironment( 7873): ANGLE Developer option for 'com.cordbloodcenter.indexusconnect' set to: 'default'
+
+V/GraphicsEnvironment( 7873): ANGLE GameManagerService for com.cordbloodcenter.indexusconnect: false
+
+V/GraphicsEnvironment( 7873): Neither updatable production driver nor prerelease driver is supported.
+
+D/NetworkSecurityConfig( 7873): No Network Security Config specified, using platform default
+
+D/NetworkSecurityConfig( 7873): No Network Security Config specified, using platform default
+
+W/FirebaseApp( 7873): Default FirebaseApp failed to initialize because no default options were found. This usually means that com.google.gms:google-services was not applied to your gradle project.
+
+I/FirebaseInitProvider( 7873): FirebaseApp initialization unsuccessful
+
+D/WM-WrkMgrInitializer( 7873): Initializing WorkManager with default configuration.
+
+V/SoLoader( 7873): Init SoLoader delegate
+
+D/AppCompatDelegate( 7873): Checking for metadata for AppLocalesMetadataHolderService : Service not found
+
+V/SoLoader( 7873): libhermes.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/lib/x86_64
+
+V/SoLoader( 7873): libjsi.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/lib/x86_64
+
+V/SoLoader( 7873): libfolly_runtime.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/lib/x86_64
+
+V/SoLoader( 7873): libglog.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/lib/x86_64
+
+V/SoLoader( 7873): libm.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/lib/x86_64
+
+V/SoLoader( 7873): libm.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk!/lib/x86_64
+
+D/SoLoader( 7873): libm.so found on /system/lib64
+
+D/SoLoader( 7873): libm.so loaded implicitly
+
+V/SoLoader( 7873): libc++_shared.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/lib/x86_64
+
+V/SoLoader( 7873): libc.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/lib/x86_64
+
+V/SoLoader( 7873): libc.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk!/lib/x86_64
+
+D/SoLoader( 7873): libc.so found on /system/lib64
+
+D/SoLoader( 7873): libc.so loaded implicitly
+
+V/SoLoader( 7873): libdl.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/lib/x86_64
+
+V/SoLoader( 7873): libdl.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk!/lib/x86_64
+
+D/SoLoader( 7873): libdl.so found on /system/lib64
+
+D/SoLoader( 7873): libdl.so loaded implicitly
+
+D/SoLoader( 7873): libc++_shared.so found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk!/lib/x86_64
+
+D/SoLoader( 7873): libglog.so found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk!/lib/x86_64
+
+D/SoLoader( 7873): libfolly_runtime.so found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk!/lib/x86_64
+
+D/SoLoader( 7873): libjsi.so found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk!/lib/x86_64
+
+V/SoLoader( 7873): libfbjni.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/lib/x86_64
+
+V/SoLoader( 7873): libandroid.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/lib/x86_64
+
+V/SoLoader( 7873): libandroid.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk!/lib/x86_64
+
+D/SoLoader( 7873): libandroid.so found on /system/lib64
+
+D/SoLoader( 7873): libandroid.so loaded implicitly
+
+V/SoLoader( 7873): liblog.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/lib/x86_64
+
+V/SoLoader( 7873): liblog.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk!/lib/x86_64
+
+D/SoLoader( 7873): liblog.so found on /system/lib64
+
+D/SoLoader( 7873): liblog.so loaded implicitly
+
+D/SoLoader( 7873): libfbjni.so found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk!/lib/x86_64
+
+D/SoLoader( 7873): libhermes.so found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk!/lib/x86_64
+
+V/SoLoader( 7873): libhermes_executor.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/lib/x86_64
+
+V/SoLoader( 7873): libreactnativejni.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/lib/x86_64
+
+V/SoLoader( 7873): libreact_render_runtimescheduler.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/lib/x86_64
+
+V/SoLoader( 7873): libreact_render_core.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/lib/x86_64
+
+V/SoLoader( 7873): liblogger.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/lib/x86_64
+
+D/SoLoader( 7873): liblogger.so found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk!/lib/x86_64
+
+V/SoLoader( 7873): libreact_config.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/lib/x86_64
+
+D/SoLoader( 7873): libreact_config.so found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk!/lib/x86_64
+
+V/SoLoader( 7873): libreact_render_debug.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/lib/x86_64
+
+D/SoLoader( 7873): libreact_render_debug.so found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk!/lib/x86_64
+
+V/SoLoader( 7873): libreact_render_graphics.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/lib/x86_64
+
+V/SoLoader( 7873): libfb.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/lib/x86_64
+
+D/SoLoader( 7873): libfb.so found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk!/lib/x86_64
+
+V/SoLoader( 7873): libreact_utils.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/lib/x86_64
+
+V/SoLoader( 7873): libglog_init.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/lib/x86_64
+
+D/SoLoader( 7873): libglog_init.so found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk!/lib/x86_64
+
+V/SoLoader( 7873): libreact_debug.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/lib/x86_64
+
+D/SoLoader( 7873): libreact_debug.so found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk!/lib/x86_64
+
+D/SoLoader( 7873): libreact_utils.so found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk!/lib/x86_64
+
+D/SoLoader( 7873): libreact_render_graphics.so found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk!/lib/x86_64
+
+V/SoLoader( 7873): libreact_render_mapbuffer.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/lib/x86_64
+
+D/SoLoader( 7873): libreact_render_mapbuffer.so found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk!/lib/x86_64
+
+D/SoLoader( 7873): libreact_render_core.so found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk!/lib/x86_64
+
+V/SoLoader( 7873): libruntimeexecutor.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/lib/x86_64
+
+D/SoLoader( 7873): libruntimeexecutor.so found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk!/lib/x86_64
+
+D/SoLoader( 7873): libreact_render_runtimescheduler.so found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk!/lib/x86_64
+
+V/SoLoader( 7873): libyoga.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/lib/x86_64
+
+D/SoLoader( 7873): libyoga.so found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk!/lib/x86_64
+
+V/SoLoader( 7873): libreactperfloggerjni.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/lib/x86_64
+
+D/SoLoader( 7873): libreactperfloggerjni.so found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk!/lib/x86_64
+
+V/SoLoader( 7873): libjsinspector.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/lib/x86_64
+
+D/SoLoader( 7873): libjsinspector.so found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk!/lib/x86_64
+
+D/SoLoader( 7873): libreactnativejni.so found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk!/lib/x86_64
+
+D/SoLoader( 7873): libhermes_executor.so found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk!/lib/x86_64
+
+D/libEGL  ( 7873): loaded /vendor/lib64/egl/libEGL_emulation.so
+
+D/libEGL  ( 7873): loaded /vendor/lib64/egl/libGLESv1_CM_emulation.so
+
+D/libEGL  ( 7873): loaded /vendor/lib64/egl/libGLESv2_emulation.so
+
+D/CompatibilityChangeReporter( 7873): Compat change id reported: 160794467; UID 10170; state: ENABLED
+
+D/HostConnection( 7873): HostComposition ext ANDROID_EMU_CHECKSUM_HELPER_v1 ANDROID_EMU_native_sync_v2 ANDROID_EMU_native_sync_v3 ANDROID_EMU_native_sync_v4 ANDROID_EMU_dma_v1 ANDROID_EMU_direct_mem ANDROID_EMU_host_composition_v1 ANDROID_EMU_host_composition_v2 ANDROID_EMU_YUV_Cache ANDROID_EMU_has_shared_slots_host_memory_allocator ANDROID_EMU_sync_buffer_data ANDROID_EMU_read_color_buffer_dma ANDROID_EMU_hwc_multi_configs ANDROID_EMU_hwc_color_transform GL_OES_EGL_image_external_essl3 GL_OES_vertex_array_object GL_KHR_texture_compression_astc_ldr ANDROID_EMU_host_side_tracing ANDROID_EMU_gles_max_version_3_0 
+
+W/OpenGLRenderer( 7873): Failed to choose config with EGL_SWAP_BEHAVIOR_PRESERVED, retrying without...
+
+W/OpenGLRenderer( 7873): Failed to initialize 101010-2 format, error = EGL_SUCCESS
+
+D/EGL_emulation( 7873): eglCreateContext: 0x7b036e533910: maj 3 min 0 rcv 3
+
+D/EGL_emulation( 7873): eglMakeCurrent: 0x7b036e533910: ver 3 0 (tinfo 0x7b0586dff080) (first time)
+
+I/Gralloc4( 7873): mapper 4.x is not supported
+
+W/Gralloc4( 7873): allocator 4.x is not supported
+
+D/HostConnection( 7873): HostComposition ext ANDROID_EMU_CHECKSUM_HELPER_v1 ANDROID_EMU_native_sync_v2 ANDROID_EMU_native_sync_v3 ANDROID_EMU_native_sync_v4 ANDROID_EMU_dma_v1 ANDROID_EMU_direct_mem ANDROID_EMU_host_composition_v1 ANDROID_EMU_host_composition_v2 ANDROID_EMU_YUV_Cache ANDROID_EMU_has_shared_slots_host_memory_allocator ANDROID_EMU_sync_buffer_data ANDROID_EMU_read_color_buffer_dma ANDROID_EMU_hwc_multi_configs ANDROID_EMU_hwc_color_transform GL_OES_EGL_image_external_essl3 GL_OES_vertex_array_object GL_KHR_texture_compression_astc_ldr ANDROID_EMU_host_side_tracing ANDROID_EMU_gles_max_version_3_0 
+
+W/Parcel  ( 7873): Expecting binder but got null!
+
+I/ExpoModulesCore( 7873): ✅ AppContext was initialized
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.facebook.react.views.drawer.ReactDrawerLayoutManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.facebook.react.uimanager.LayoutShadowNode
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.facebook.react.views.scroll.ReactHorizontalScrollViewManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.facebook.react.views.scroll.ReactHorizontalScrollContainerViewManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.facebook.react.views.progressbar.ReactProgressBarViewManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.facebook.react.views.progressbar.ProgressBarShadowNode
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.facebook.react.views.scroll.ReactScrollViewManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.facebook.react.views.switchview.ReactSwitchManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.facebook.react.views.switchview.ReactSwitchManager$ReactSwitchShadowNode
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.facebook.react.views.swiperefresh.SwipeRefreshLayoutManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.facebook.react.views.text.frescosupport.FrescoBasedReactTextInlineImageViewManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.facebook.react.views.text.frescosupport.FrescoBasedReactTextInlineImageShadowNode
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.facebook.react.views.image.ReactImageManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.facebook.react.views.modal.ReactModalHostManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.facebook.react.views.modal.ModalHostShadowNode
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.facebook.react.views.text.ReactRawTextManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.facebook.react.views.text.ReactRawTextShadowNode
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.facebook.react.views.textinput.ReactTextInputManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.facebook.react.views.textinput.ReactTextInputShadowNode
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.facebook.react.views.text.ReactTextViewManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.facebook.react.views.text.ReactTextShadowNode
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.facebook.react.views.view.ReactViewManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.facebook.react.views.text.ReactVirtualTextViewManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.facebook.react.views.text.ReactVirtualTextShadowNode
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.facebook.react.views.unimplementedview.ReactUnimplementedViewManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class expo.modules.kotlin.views.GroupViewManagerWrapper
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.swmansion.gesturehandler.react.RNGestureHandlerRootViewManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.swmansion.gesturehandler.react.RNGestureHandlerButtonViewManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.rnmaps.maps.MapManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.rnmaps.maps.MapMarkerManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.rnmaps.maps.MapCalloutManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.rnmaps.maps.MapPolylineManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.rnmaps.maps.MapGradientPolylineManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.rnmaps.maps.MapPolygonManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.rnmaps.maps.MapCircleManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.rnmaps.maps.MapUrlTileManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.rnmaps.maps.MapWMSTileManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.rnmaps.maps.MapLocalTileManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.rnmaps.maps.MapOverlayManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.rnmaps.maps.MapHeatmapManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.th3rdwave.safeareacontext.SafeAreaProviderManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.th3rdwave.safeareacontext.SafeAreaViewManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.th3rdwave.safeareacontext.SafeAreaViewShadowNode
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.swmansion.rnscreens.ScreenContainerViewManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.swmansion.rnscreens.ScreenViewManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.swmansion.rnscreens.ScreenStackViewManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.swmansion.rnscreens.ScreenStackHeaderConfigViewManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.swmansion.rnscreens.ScreenStackHeaderSubviewManager
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.swmansion.rnscreens.SearchBarManager
+
+V/SoLoader( 7873): libexpo-modules-core.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/lib/x86_64
+
+V/SoLoader( 7873): libreact_nativemodule_core.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/lib/x86_64
+
+D/SoLoader( 7873): libreact_nativemodule_core.so found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk!/lib/x86_64
+
+D/SoLoader( 7873): libexpo-modules-core.so found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk!/lib/x86_64
+
+V/SoLoader( 7873): libturbomodulejsijni.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/lib/x86_64
+
+D/SoLoader( 7873): libturbomodulejsijni.so found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk!/lib/x86_64
+
+I/ExpoModulesCore( 7873): ✅ JSI interop was installed
+
+I/ExpoModulesCore( 7873): ✅ Constants were exported
+
+I/ReactNativeJS( 7873): Running "main
+
+V/AsyncStorageExpoMigration( 7873): No scoped database found
+
+W/ReactNativeJS( 7873): '[Layout children]: No route named "visit" exists in nested children:', [ '(auth)',
+
+W/ReactNativeJS( 7873):   '(tabs)',
+
+W/ReactNativeJS( 7873):   'visit/[id]',
+
+W/ReactNativeJS( 7873):   'visit/new',
+
+W/ReactNativeJS( 7873):   '_sitemap',
+
+W/ReactNativeJS( 7873):   '+not-found' ]
+
+W/unknown:ViewManagerPropertyUpdater( 7873): Could not find generated setter for class com.swmansion.rnscreens.ScreensShadowNode
+
+D/CompatibilityChangeReporter( 7873): Compat change id reported: 210923482; UID 10170; state: ENABLED
+
+W/ExpoModulesCore( 7873): Enum 'class expo.modules.filesystem.SessionType' should inherit from class expo.modules.kotlin.types.Enumerable.
+
+D/CompatibilityChangeReporter( 7873): Compat change id reported: 171228096; UID 10170; state: ENABLED
+
+W/unknown:ReactNative( 7873): Attempt to set local data for view with unknown tag: -1
+
+W/unknown:ReactNative( 7873): Attempt to set local data for view with unknown tag: -1
+
+W/unknown:ReactNative( 7873): Attempt to set local data for view with unknown tag: -1
+
+W/unknown:ReactNative( 7873): Attempt to set local data for view with unknown tag: -1
+
+W/unknown:ReactNative( 7873): Attempt to set local data for view with unknown tag: -1
+
+W/unknown:ReactNative( 7873): Attempt to set local data for view with unknown tag: -1
+
+I/FA      ( 8212): App measurement initialized, version: 75066
+
+I/FA      ( 8212): To enable debug logging run: adb shell setprop log.tag.FA VERBOSE
+
+I/FA      ( 8212): To enable faster debug mode event logging run:
+
+I/FA      ( 8212):   adb shell setprop debug.firebase.analytics.app com.google.android.apps.youtube.music
+
+D/EGL_emulation( 7873): app_time_stats: avg=41.56ms min=0.66ms max=1101.46ms count=48
+
+I/FA-SVC  ( 6926): App measurement initialized, version: 225014
+
+D/CompatibilityChangeReporter( 7873): Compat change id reported: 163400105; UID 10170; state: ENABLED
+
+D/InputMethodManager( 7873): showSoftInput() view=com.facebook.react.views.textinput.ReactEditText{5551843 VFED..CL. .F.P..ID 63,1062-1017,1224 #39 aid=1073741824} flags=0 reason=SHOW_SOFT_INPUT
+
+D/EGL_emulation( 7873): app_time_stats: avg=227.51ms min=12.90ms max=3813.65ms count=18
+
+I/AssistStructure( 7873): Flattened final assist data: 3320 bytes, containing 1 windows, 20 views
+
+W/OnBackInvokedCallback( 7873): OnBackInvokedCallback is not enabled for the application.
+
+W/OnBackInvokedCallback( 7873): Set 'android:enableOnBackInvokedCallback="true"' in the application manifest.
+
+I/FA      ( 8487): App measurement initialized, version: 75066
+
+I/FA      ( 8487): To enable debug logging run: adb shell setprop log.tag.FA VERBOSE
+
+I/FA      ( 8487): To enable faster debug mode event logging run:
+
+I/FA      ( 8487):   adb shell setprop debug.firebase.analytics.app com.google.android.youtube
+
+D/InsetsController( 7873): show(ime(), fromIme=true)
+
+D/EGL_emulation( 7873): app_time_stats: avg=169.63ms min=1.00ms max=540.47ms count=6
+
+D/EGL_emulation( 7873): app_time_stats: avg=254.77ms min=7.78ms max=500.26ms count=4
+
+W/.indexusconnect( 7873): Cleared Reference was only reachable from finalizer (only reported once)
+
+D/EGL_emulation( 7873): app_time_stats: avg=119.40ms min=17.23ms max=290.91ms count=9
+
+D/EGL_emulation( 7873): app_time_stats: avg=491.47ms min=474.32ms max=500.07ms count=3
+
+D/AutofillManager( 7873): Trigger fill request at view entered
+
+I/AssistStructure( 7873): Flattened final assist data: 3360 bytes, containing 1 windows, 20 views
+
+D/InputMethodManager( 7873): showSoftInput() view=com.facebook.react.views.textinput.ReactEditText{4c157f9 VFED..CL. .F.P..ID 63,985-1017,1148 #43 aid=1073741825} flags=0 reason=SHOW_SOFT_INPUT
+
+I/AssistStructure( 7873): Flattened final assist data: 3328 bytes, containing 1 windows, 20 views
+
+W/OnBackInvokedCallback( 7873): OnBackInvokedCallback is not enabled for the application.
+
+W/OnBackInvokedCallback( 7873): Set 'android:enableOnBackInvokedCallback="true"' in the application manifest.
+
+D/InsetsController( 7873): show(ime(), fromIme=true)
+
+D/InsetsController( 7873): show(ime(), fromIme=true)
+
+D/EGL_emulation( 7873): app_time_stats: avg=142.99ms min=14.84ms max=513.45ms count=7
+
+D/EGL_emulation( 7873): app_time_stats: avg=60.22ms min=15.36ms max=461.14ms count=19
+
+D/EGL_emulation( 7873): app_time_stats: avg=499.98ms min=499.90ms max=500.07ms count=2
+
+V/SoLoader( 7873): libreactnativeblob.so not found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/lib/x86_64
+
+D/SoLoader( 7873): libreactnativeblob.so found on /data/app/~~1n7FujHnM7Z-j9uTnvUVAA==/com.cordbloodcenter.indexusconnect-nsLrRw-12cK9KneSv8mdPQ==/base.apk!/lib/x86_64
+
+E/ImeBackDispatcher( 7873): Ime callback not found. Ignoring unregisterReceivedCallback. callbackId: 85074761
+
+I/WebViewFactory( 7873): Loading com.google.android.webview version 103.0.5060.71 (code 506007137)
+
+D/nativeloader( 7873): Configuring vendor-classloader-namespace for unbundled product apk /product/app/TrichromeLibrary/TrichromeLibrary.apk. target_sdk_version=33, uses_libraries=ALL, library_path=/product/app/WebViewGoogle/lib/x86_64:/product/app/WebViewGoogle/WebViewGoogle.apk!/lib/x86_64:/product/app/TrichromeLibrary/TrichromeLibrary.apk!/lib/x86_64:/product/lib64:/system/product/lib64, permitted_path=/data:/mnt/expand:/product/lib64:/system/product/lib64
+
+W/.indexusconnect( 7873): ClassLoaderContext shared library size mismatch. Expected=0, found=1 (PCL[] | PCL[]{PCL[/product/app/TrichromeLibrary/TrichromeLibrary.apk*3197987500]})
+
+D/nativeloader( 7873): Configuring vendor-classloader-namespace for unbundled product apk /product/app/WebViewGoogle/WebViewGoogle.apk. target_sdk_version=33, uses_libraries=, library_path=/product/app/WebViewGoogle/lib/x86_64:/product/app/WebViewGoogle/WebViewGoogle.apk!/lib/x86_64:/product/app/TrichromeLibrary/TrichromeLibrary.apk!/lib/x86_64:/product/lib64:/system/product/lib64, permitted_path=/data:/mnt/expand:/product/lib64:/system/product/lib64
+
+I/cr_WVCFactoryProvider( 7873): Loaded version=103.0.5060.71 minSdkVersion=29 isBundle=false multiprocess=true packageId=2
+
+I/cr_VariationsUtils( 7873): Failed reading seed file "/data/user/0/com.cordbloodcenter.indexusconnect/app_webview/variations_seed_new"
+
+I/cr_VariationsUtils( 7873): Failed reading seed file "/data/user/0/com.cordbloodcenter.indexusconnect/app_webview/variations_seed"
+
+I/cr_VariationsUtils( 7873): Requesting new seed from IVariationsSeedServer
+
+I/cr_LibraryLoader( 7873): Successfully loaded native library
+
+I/cr_CachingUmaRecorder( 7873): Flushed 8 samples from 8 histograms.
+
+D/TrafficStats( 7873): tagSocket(96) with statsTag=0xffffffff, statsUid=-1
+
+W/ReactNativeJS( 7873): '[Layout children]: No route named "visit" exists in nested children:', [ '(auth)',
+
+W/ReactNativeJS( 7873):   '(tabs)',
+
+W/ReactNativeJS( 7873):   'visit/[id]',
+
+W/ReactNativeJS( 7873):   'visit/new',
+
+W/ReactNativeJS( 7873):   '_sitemap',
+
+W/ReactNativeJS( 7873):   '+not-found' ]
+
+D/EGL_emulation( 7873): app_time_stats: avg=28.95ms min=2.08ms max=1099.48ms count=59
+
+D/EGL_emulation( 7873): app_time_stats: avg=68.46ms min=15.17ms max=896.55ms count=17
+
+D/EGL_emulation( 7873): app_time_stats: avg=785.32ms min=5.66ms max=1564.97ms count=2
+
+W/unknown:ReactNative( 7873): Attempt to set local data for view with unknown tag: -1
+
+W/unknown:ReactNative( 7873): Attempt to set local data for view with unknown tag: -1
+
+W/unknown:ReactNative( 7873): Attempt to set local data for view with unknown tag: -1
+
+W/unknown:ReactNative( 7873): Attempt to set local data for view with unknown tag: -1
+
+W/unknown:ReactNative( 7873): Attempt to set local data for view with unknown tag: -1
+
+W/unknown:ReactNative( 7873): Attempt to set local data for view with unknown tag: -1
+
+W/unknown:ReactNative( 7873): Attempt to set local data for view with unknown tag: -1
+
+W/unknown:ReactNative( 7873): Attempt to set local data for view with unknown tag: -1
+
+W/unknown:ReactNative( 7873): Attempt to set local data for view with unknown tag: -1
+
+D/EGL_emulation( 7873): app_time_stats: avg=127.83ms min=15.27ms max=1904.81ms count=17
+
+D/EGL_emulation( 7873): app_time_stats: avg=39.45ms min=1.28ms max=1099.89ms count=30
+
+D/EGL_emulation( 7873): app_time_stats: avg=80.40ms min=14.95ms max=1098.70ms count=17
+
+D/EGL_emulation( 7873): app_time_stats: avg=4109.37ms min=14.23ms max=65482.11ms count=16
+
+D/EGL_emulation( 7873): app_time_stats: avg=218.73ms min=15.21ms max=3116.05ms count=16
+
+D/EGL_emulation( 7873): app_time_stats: avg=62.70ms min=15.27ms max=581.86ms count=17
+
+I/FA      ( 9104): App measurement initialized, version: 75066
+
+I/FA      ( 9104): To enable debug logging run: adb shell setprop log.tag.FA VERBOSE
+
+I/FA      ( 9104): To enable faster debug mode event logging run:
+
+I/FA      ( 9104):   adb shell setprop debug.firebase.analytics.app com.google.android.apps.youtube.music

@@ -23,8 +23,10 @@ const VISIT_TYPES = [
 export default function NewVisitScreen() {
   const router = useRouter();
   const { translations } = useTranslation();
-  const { data: hospitals = [], isLoading: hospitalsLoading } = useHospitals();
+  const { data: hospitals = [], isLoading: hospitalsLoading, error: hospitalsError } = useHospitals();
   const createVisit = useCreateVisit();
+  
+  console.log('[NewVisitScreen] hospitals:', hospitals.length, 'loading:', hospitalsLoading, 'error:', hospitalsError);
   
   const [selectedHospitalId, setSelectedHospitalId] = useState<string>('');
   const [selectedType, setSelectedType] = useState<string>('1');

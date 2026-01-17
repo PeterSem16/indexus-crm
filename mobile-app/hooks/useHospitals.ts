@@ -20,18 +20,29 @@ export function useHospitals() {
   return useQuery({
     queryKey: ['hospitals'],
     queryFn: async () => {
+      console.log('[useHospitals] Fetching hospitals, isOnline:', isOnline);
+      
       if (isOnline) {
         try {
+          console.log('[useHospitals] Making API request to /api/mobile/hospitals');
           const hospitals = await api.get<Hospital[]>('/api/mobile/hospitals');
+          console.log('[useHospitals] API returned', hospitals.length, 'hospitals');
+          
           for (const hospital of hospitals) {
             await db.saveHospital(hospital);
           }
           return hospitals;
-        } catch {
-          return await db.getHospitals();
+        } catch (error) {
+          console.error('[useHospitals] API error, falling back to local DB:', error);
+          const localHospitals = await db.getHospitals();
+          console.log('[useHospitals] Local DB returned', localHospitals.length, 'hospitals');
+          return localHospitals;
         }
       }
-      return await db.getHospitals();
+      
+      const localHospitals = await db.getHospitals();
+      console.log('[useHospitals] Offline mode, local DB returned', localHospitals.length, 'hospitals');
+      return localHospitals;
     },
   });
 }
