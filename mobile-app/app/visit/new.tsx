@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList, Alert } from 'react-native';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,29 +7,81 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useHospitals } from '@/hooks/useHospitals';
+import { useCreateVisit } from '@/hooks/useVisits';
 import { Colors, Spacing, FontSizes } from '@/constants/colors';
 
 const VISIT_TYPES = [
-  { id: 'delivery', label: 'Delivery', icon: 'cube' },
-  { id: 'contract', label: 'Contract', icon: 'document-text' },
-  { id: 'followup', label: 'Follow-up', icon: 'refresh' },
-  { id: 'training', label: 'Training', icon: 'school' },
-  { id: 'other', label: 'Other', icon: 'ellipsis-horizontal' },
+  { id: '1', label: 'Personal Visit', icon: 'person' },
+  { id: '2', label: 'Phone Call', icon: 'call' },
+  { id: '3', label: 'Online Meeting', icon: 'videocam' },
+  { id: '4', label: 'Training', icon: 'school' },
+  { id: '5', label: 'Conference', icon: 'people' },
+  { id: '6', label: 'Other', icon: 'ellipsis-horizontal' },
 ];
 
 export default function NewVisitScreen() {
   const router = useRouter();
   const { translations } = useTranslation();
+  const { data: hospitals = [], isLoading: hospitalsLoading } = useHospitals();
+  const createVisit = useCreateVisit();
   
-  const [selectedHospital, setSelectedHospital] = useState<string>('');
-  const [selectedType, setSelectedType] = useState<string>('');
-  const [scheduledDate, setScheduledDate] = useState('');
-  const [scheduledTime, setScheduledTime] = useState('');
+  const [selectedHospitalId, setSelectedHospitalId] = useState<string>('');
+  const [selectedType, setSelectedType] = useState<string>('1');
+  const [scheduledDate, setScheduledDate] = useState(new Date().toISOString().split('T')[0]);
+  const [startTime, setStartTime] = useState('09:00');
+  const [endTime, setEndTime] = useState('10:00');
   const [notes, setNotes] = useState('');
+  const [showHospitalPicker, setShowHospitalPicker] = useState(false);
 
-  const handleSave = () => {
-    router.back();
+  const selectedHospital = hospitals.find(h => h.id === selectedHospitalId);
+
+  const handleSave = async () => {
+    if (!selectedType) {
+      Alert.alert('Error', 'Please select a visit type');
+      return;
+    }
+
+    try {
+      const startDateTime = new Date(`${scheduledDate}T${startTime}:00`);
+      const endDateTime = new Date(`${scheduledDate}T${endTime}:00`);
+
+      await createVisit.mutateAsync({
+        hospitalId: selectedHospitalId || undefined,
+        subject: selectedType,
+        startTime: startDateTime.toISOString(),
+        endTime: endDateTime.toISOString(),
+        remark: notes || undefined,
+        isAllDay: false,
+      });
+
+      Alert.alert('Success', 'Visit created successfully', [
+        { text: 'OK', onPress: () => router.back() }
+      ]);
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to create visit');
+    }
   };
+
+  const renderHospitalItem = ({ item }: { item: { id: string; name: string; city?: string } }) => (
+    <TouchableOpacity
+      style={styles.hospitalItem}
+      onPress={() => {
+        setSelectedHospitalId(item.id);
+        setShowHospitalPicker(false);
+      }}
+      testID={`hospital-item-${item.id}`}
+    >
+      <Ionicons name="business" size={20} color={Colors.primary} />
+      <View style={styles.hospitalItemText}>
+        <Text style={styles.hospitalName}>{item.name}</Text>
+        {item.city && <Text style={styles.hospitalCity}>{item.city}</Text>}
+      </View>
+      {selectedHospitalId === item.id && (
+        <Ionicons name="checkmark" size={20} color={Colors.primary} />
+      )}
+    </TouchableOpacity>
+  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -44,10 +96,21 @@ export default function NewVisitScreen() {
       <ScrollView style={styles.content}>
         <Text style={styles.sectionTitle}>{translations.visits.hospital}</Text>
         <Card style={styles.hospitalSelector}>
-          <TouchableOpacity style={styles.selectorButton}>
+          <TouchableOpacity 
+            style={styles.selectorButton}
+            onPress={() => setShowHospitalPicker(true)}
+            testID="button-select-hospital"
+          >
             <Ionicons name="business" size={20} color={Colors.textSecondary} />
-            <Text style={styles.selectorText}>
-              {selectedHospital || 'Select hospital'}
+            <Text style={[
+              styles.selectorText,
+              selectedHospital && styles.selectorTextSelected
+            ]}>
+              {hospitalsLoading 
+                ? 'Loading hospitals...' 
+                : selectedHospital 
+                  ? selectedHospital.name 
+                  : 'Select hospital'}
             </Text>
             <Ionicons name="chevron-down" size={20} color={Colors.textSecondary} />
           </TouchableOpacity>
@@ -85,18 +148,27 @@ export default function NewVisitScreen() {
         <Text style={styles.sectionTitle}>{translations.visits.scheduledTime}</Text>
         <View style={styles.dateTimeRow}>
           <Input
-            placeholder="Date"
+            placeholder="Date (YYYY-MM-DD)"
             value={scheduledDate}
             onChangeText={setScheduledDate}
             containerStyle={styles.dateInput}
             testID="input-date"
           />
+        </View>
+        <View style={styles.dateTimeRow}>
           <Input
-            placeholder="Time"
-            value={scheduledTime}
-            onChangeText={setScheduledTime}
+            placeholder="Start (HH:MM)"
+            value={startTime}
+            onChangeText={setStartTime}
             containerStyle={styles.timeInput}
-            testID="input-time"
+            testID="input-start-time"
+          />
+          <Input
+            placeholder="End (HH:MM)"
+            value={endTime}
+            onChangeText={setEndTime}
+            containerStyle={styles.timeInput}
+            testID="input-end-time"
           />
         </View>
 
@@ -122,10 +194,45 @@ export default function NewVisitScreen() {
         <Button
           title={translations.common.save}
           onPress={handleSave}
+          loading={createVisit.isPending}
           style={styles.saveButton}
           testID="button-save-visit"
         />
       </View>
+
+      <Modal
+        visible={showHospitalPicker}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowHospitalPicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Hospital</Text>
+              <TouchableOpacity 
+                onPress={() => setShowHospitalPicker(false)}
+                testID="button-close-hospital-picker"
+              >
+                <Ionicons name="close" size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+            {hospitals.length === 0 && !hospitalsLoading ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="business-outline" size={48} color={Colors.textSecondary} />
+                <Text style={styles.emptyText}>No hospitals available</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={hospitals}
+                renderItem={renderHospitalItem}
+                keyExtractor={(item) => item.id}
+                style={styles.hospitalList}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -180,6 +287,9 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginLeft: Spacing.md,
   },
+  selectorTextSelected: {
+    color: Colors.text,
+  },
   typeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -203,6 +313,7 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.sm,
     color: Colors.text,
     marginTop: Spacing.sm,
+    textAlign: 'center',
   },
   typeLabelSelected: {
     color: Colors.white,
@@ -212,8 +323,8 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   dateInput: {
-    flex: 2,
-    marginBottom: 0,
+    flex: 1,
+    marginBottom: Spacing.sm,
   },
   timeInput: {
     flex: 1,
@@ -236,5 +347,62 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     flex: 2,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '70%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  modalTitle: {
+    fontSize: FontSizes.lg,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  hospitalList: {
+    flex: 1,
+  },
+  hospitalItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  hospitalItemText: {
+    flex: 1,
+    marginLeft: Spacing.md,
+  },
+  hospitalName: {
+    fontSize: FontSizes.md,
+    fontWeight: '500',
+    color: Colors.text,
+  },
+  hospitalCity: {
+    fontSize: FontSizes.sm,
+    color: Colors.textSecondary,
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: Spacing.xl,
+  },
+  emptyText: {
+    fontSize: FontSizes.md,
+    color: Colors.textSecondary,
+    marginTop: Spacing.md,
   },
 });

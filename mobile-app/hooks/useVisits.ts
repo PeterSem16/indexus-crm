@@ -6,15 +6,33 @@ import { useSyncStore } from '@/stores/syncStore';
 
 interface VisitEvent {
   id: string;
+  collaboratorId?: string;
+  countryCode?: string;
   hospitalId?: string;
   hospitalName?: string;
+  subject: string;
+  startTime: string;
+  endTime: string;
+  isAllDay?: boolean;
+  latitude?: number;
+  longitude?: number;
+  locationAddress?: string;
+  remark?: string;
+  remarkVoiceUrl?: string;
+  remarkDetail?: string;
   visitType?: string;
-  status: string;
-  scheduledStart?: string;
-  scheduledEnd?: string;
-  actualStart?: string;
-  actualEnd?: string;
-  notes?: string;
+  place?: string;
+  isCancelled?: boolean;
+  isNotRealized?: boolean;
+}
+
+interface CreateVisitInput {
+  hospitalId?: string;
+  subject: string;
+  startTime: string;
+  endTime: string;
+  isAllDay?: boolean;
+  remark?: string;
 }
 
 export function useVisits(date?: string) {
@@ -52,12 +70,12 @@ export function useCreateVisit() {
   const isOnline = useSyncStore((state) => state.isOnline);
   
   return useMutation({
-    mutationFn: async (visit: Omit<VisitEvent, 'id' | 'status'>) => {
+    mutationFn: async (visit: CreateVisitInput) => {
       if (isOnline) {
         return await api.post<VisitEvent>('/api/mobile/visit-events', visit);
       }
       const id = await createVisitOffline(visit);
-      return { id, ...visit, status: 'scheduled' } as VisitEvent;
+      return { id, ...visit } as VisitEvent;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['visits'] });
