@@ -36,7 +36,7 @@ export default function NewVisitScreen() {
   const [notes, setNotes] = useState('');
   const [showHospitalPicker, setShowHospitalPicker] = useState(false);
 
-  const selectedHospital = hospitals.find(h => h.id === selectedHospitalId);
+  const selectedHospital = hospitals.find(h => String(h.id) === selectedHospitalId);
 
   const handleSave = async () => {
     if (!selectedType) {
@@ -65,25 +65,29 @@ export default function NewVisitScreen() {
     }
   };
 
-  const renderHospitalItem = ({ item }: { item: { id: string; name: string; city?: string } }) => (
+  const renderHospitalItem = ({ item }: { item: { id: string | number; name: string; city?: string } }) => {
+    const itemId = String(item.id);
+    return (
     <TouchableOpacity
       style={styles.hospitalItem}
       onPress={() => {
-        setSelectedHospitalId(item.id);
+        console.log('[NewVisitScreen] Selected hospital:', item.name, 'id:', itemId);
+        setSelectedHospitalId(itemId);
         setShowHospitalPicker(false);
       }}
-      testID={`hospital-item-${item.id}`}
+      testID={`hospital-item-${itemId}`}
     >
       <Ionicons name="business" size={20} color={Colors.primary} />
       <View style={styles.hospitalItemText}>
         <Text style={styles.hospitalName}>{item.name}</Text>
         {item.city && <Text style={styles.hospitalCity}>{item.city}</Text>}
       </View>
-      {selectedHospitalId === item.id && (
+      {selectedHospitalId === itemId && (
         <Ionicons name="checkmark" size={20} color={Colors.primary} />
       )}
     </TouchableOpacity>
   );
+  };
 
   return (
     <SafeAreaView style={styles.container}>

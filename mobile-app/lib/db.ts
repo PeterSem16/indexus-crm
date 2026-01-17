@@ -131,7 +131,19 @@ export async function getHospitals(): Promise<any[]> {
         tx.executeSql(
           'SELECT * FROM hospitals ORDER BY name',
           [],
-          (_, { rows }) => resolve(rows._array),
+          (_, { rows }) => {
+            const hospitals = rows._array.map(row => ({
+              id: String(row.id),
+              name: row.name,
+              city: row.city,
+              address: row.address,
+              countryCode: row.country_code,
+              contactPerson: row.contact_person,
+              phone: row.phone,
+              email: row.email,
+            }));
+            resolve(hospitals);
+          },
           (_, error) => { reject(error); return false; }
         );
       },
