@@ -144,17 +144,22 @@ async function pullServerData(): Promise<void> {
 export async function createVisitOffline(visit: {
   hospitalId?: string;
   hospitalName?: string;
-  visitType?: string;
-  scheduledStart?: string;
-  scheduledEnd?: string;
-  notes?: string;
+  subject?: string;
+  startTime?: string;
+  endTime?: string;
+  remark?: string;
 }): Promise<string> {
   const id = generateUUID();
   
   await db.saveVisitEvent({
     id,
-    ...visit,
+    hospitalId: visit.hospitalId,
+    hospitalName: visit.hospitalName,
+    visitType: visit.subject,
     status: 'scheduled',
+    scheduledStart: visit.startTime,
+    scheduledEnd: visit.endTime,
+    notes: visit.remark,
   });
   
   await db.addToSyncQueue('visit', id, 'create', { id, ...visit });
@@ -182,21 +187,52 @@ function generateUUID(): string {
 }
 
 async function incrementRetryCount(id: number, currentCount: number): Promise<void> {
-  const database = await db.getDatabase();
-  await database.runAsync('UPDATE sync_queue SET retry_count = ? WHERE id = ?', [currentCount + 1, id]);
+  return new Promise((resolve, reject) => {
+    const database = db.getDatabase();
+    database.transaction(
+      (tx) => {
+        tx.executeSql('UPDATE sync_queue SET retry_count = ? WHERE id = ?', [currentCount + 1, id]);
+      },
+      (error) => reject(error),
+      () => resolve()
+    );
+  });
 }
 
 async function syncGpsTracks(visitEventId: string): Promise<void> {
-  const database = await db.getDatabase();
-  const tracks = await database.getAllAsync(
-    'SELECT * FROM gps_tracks WHERE visit_event_id = ?',
-    [visitEventId]
-  );
-  
-  if (tracks.length > 0) {
-    await api.post(`/api/mobile/visit-events/${visitEventId}/gps-tracks`, { tracks });
-    await database.runAsync('DELETE FROM gps_tracks WHERE visit_event_id = ?', [visitEventId]);
-  }
+  return new Promise(async (resolve, reject) => {
+    const database = db.getDatabase();
+    
+    database.transaction(
+      (tx) => {
+        tx.executeSql(
+          'SELECT * FROM gps_tracks WHERE visit_event_id = ?',
+          [visitEventId],
+          async (_, { rows }) => {
+            const tracks = rows._array;
+            if (tracks.length > 0) {
+              try {
+                await api.post(`/api/mobile/visit-events/${visitEventId}/gps-tracks`, { tracks });
+                database.transaction(
+                  (tx2) => {
+                    tx2.executeSql('DELETE FROM gps_tracks WHERE visit_event_id = ?', [visitEventId]);
+                  },
+                  (error) => reject(error),
+                  () => resolve()
+                );
+              } catch (error) {
+                reject(error);
+              }
+            } else {
+              resolve();
+            }
+          },
+          (_, error) => { reject(error); return false; }
+        );
+      },
+      (error) => reject(error)
+    );
+  });
 }
 
 function delay(ms: number): Promise<void> {

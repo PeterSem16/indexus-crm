@@ -4,7 +4,7 @@ import { Colors, Spacing, FontSizes } from '@/constants/colors';
 interface ButtonProps {
   title: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'destructive';
   size?: 'sm' | 'md' | 'lg';
   disabled?: boolean;
   loading?: boolean;
@@ -77,6 +77,9 @@ const styles = StyleSheet.create({
   ghost: {
     backgroundColor: 'transparent',
   },
+  destructive: {
+    backgroundColor: Colors.error,
+  },
   size_sm: {
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
@@ -106,6 +109,9 @@ const styles = StyleSheet.create({
   },
   text_ghost: {
     color: Colors.primary,
+  },
+  text_destructive: {
+    color: Colors.white,
   },
   textSize_sm: {
     fontSize: FontSizes.sm,
