@@ -41,6 +41,10 @@ type TranslationKeys = {
     brandName: string;
     appName: string;
     versionPrefix: string;
+    selectTime: string;
+    hour: string;
+    minute: string;
+    now: string;
   };
   auth: {
     login: string;
@@ -242,6 +246,10 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       brandName: 'INDEXUS',
       appName: 'Connect',
       versionPrefix: 'v',
+      selectTime: 'Vybrat cas',
+      hour: 'Hodina',
+      minute: 'Minuta',
+      now: 'Teraz',
     },
     auth: {
       login: 'Prihlasenie',
@@ -441,6 +449,10 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       brandName: 'INDEXUS',
       appName: 'Connect',
       versionPrefix: 'v',
+      selectTime: 'Vybrat cas',
+      hour: 'Hodina',
+      minute: 'Minuta',
+      now: 'Nyni',
     },
     auth: {
       login: 'Prihlaseni',
@@ -640,6 +652,10 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       brandName: 'INDEXUS',
       appName: 'Connect',
       versionPrefix: 'v',
+      selectTime: 'Ido kivalasztasa',
+      hour: 'Ora',
+      minute: 'Perc',
+      now: 'Most',
     },
     auth: {
       login: 'Bejelentkezes',
@@ -839,6 +855,10 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       brandName: 'INDEXUS',
       appName: 'Connect',
       versionPrefix: 'v',
+      selectTime: 'Uhrzeit wahlen',
+      hour: 'Stunde',
+      minute: 'Minute',
+      now: 'Jetzt',
     },
     auth: {
       login: 'Anmeldung',
@@ -1038,6 +1058,10 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       brandName: 'INDEXUS',
       appName: 'Connect',
       versionPrefix: 'v',
+      selectTime: 'Seleziona orario',
+      hour: 'Ora',
+      minute: 'Minuto',
+      now: 'Adesso',
     },
     auth: {
       login: 'Accesso',
@@ -1237,6 +1261,10 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       brandName: 'INDEXUS',
       appName: 'Connect',
       versionPrefix: 'v',
+      selectTime: 'Selectati ora',
+      hour: 'Ora',
+      minute: 'Minut',
+      now: 'Acum',
     },
     auth: {
       login: 'Autentificare',
@@ -1436,6 +1464,10 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       brandName: 'INDEXUS',
       appName: 'Connect',
       versionPrefix: 'v',
+      selectTime: 'Select time',
+      hour: 'Hour',
+      minute: 'Minute',
+      now: 'Now',
     },
     auth: {
       login: 'Login',

@@ -1,10 +1,11 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
-import { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert, TextInput, KeyboardAvoidingView, Platform, FlatList, ActivityIndicator } from 'react-native';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { DatePicker } from '@/components/ui/DatePicker';
+import { TimePicker } from '@/components/ui/TimePicker';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useHospitals } from '@/hooks/useHospitals';
 import { useCreateVisit } from '@/hooks/useVisits';
@@ -51,10 +52,21 @@ export default function NewVisitScreen() {
 
   const selectedHospital = hospitals.find(h => String(h.id) === selectedHospitalId);
 
-  const filteredHospitals = hospitals.filter(h => 
-    h.name.toLowerCase().includes(hospitalSearch.toLowerCase()) ||
-    (h.city && h.city.toLowerCase().includes(hospitalSearch.toLowerCase()))
-  );
+  const filteredHospitals = useMemo(() => {
+    if (!hospitals || hospitals.length === 0) return [];
+    if (!hospitalSearch.trim()) return hospitals;
+    const query = hospitalSearch.toLowerCase().trim();
+    return hospitals.filter(h => {
+      const name = h.name || '';
+      const city = h.city || '';
+      const street = h.streetNumber || '';
+      return (
+        name.toLowerCase().includes(query) ||
+        city.toLowerCase().includes(query) ||
+        street.toLowerCase().includes(query)
+      );
+    });
+  }, [hospitals, hospitalSearch]);
 
   const handleSelectHospital = (hospitalId: string) => {
     setSelectedHospitalId(hospitalId);
@@ -194,32 +206,18 @@ export default function NewVisitScreen() {
           </View>
           <View style={styles.timeRow}>
             <View style={styles.timeInputContainer}>
-              <Text style={styles.timeLabel}>{translations.visits.startTime}</Text>
-              <View style={styles.timeInput}>
-                <Ionicons name="time-outline" size={18} color={Colors.textSecondary} />
-                <TextInput
-                  style={styles.timeInputText}
-                  value={startTime}
-                  onChangeText={setStartTime}
-                  placeholder="09:00"
-                  placeholderTextColor={Colors.textSecondary}
-                  testID="input-start-time"
-                />
-              </View>
+              <TimePicker
+                value={startTime}
+                onChange={setStartTime}
+                label={translations.visits.startTime}
+              />
             </View>
             <View style={styles.timeInputContainer}>
-              <Text style={styles.timeLabel}>{translations.visits.endTime}</Text>
-              <View style={styles.timeInput}>
-                <Ionicons name="time-outline" size={18} color={Colors.textSecondary} />
-                <TextInput
-                  style={styles.timeInputText}
-                  value={endTime}
-                  onChangeText={setEndTime}
-                  placeholder="10:00"
-                  placeholderTextColor={Colors.textSecondary}
-                  testID="input-end-time"
-                />
-              </View>
+              <TimePicker
+                value={endTime}
+                onChange={setEndTime}
+                label={translations.visits.endTime}
+              />
             </View>
           </View>
 
@@ -310,24 +308,33 @@ export default function NewVisitScreen() {
               )}
             </View>
 
-            <ScrollView 
-              style={styles.hospitalList}
-              showsVerticalScrollIndicator={true}
-              keyboardShouldPersistTaps="handled"
-            >
-              {filteredHospitals.length === 0 ? (
-                <View style={styles.emptyState}>
-                  <Ionicons name="business-outline" size={48} color={Colors.textSecondary} />
-                  <Text style={styles.emptyText}>{translations.visits.noHospitalsAvailable}</Text>
-                </View>
-              ) : (
-                filteredHospitals.map((hospital) => {
+            {hospitalsLoading ? (
+              <View style={styles.loadingState}>
+                <ActivityIndicator size="large" color={Colors.primary} />
+                <Text style={styles.loadingText}>{translations.visits.loadingHospitals}</Text>
+              </View>
+            ) : filteredHospitals.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="business-outline" size={48} color={Colors.textSecondary} />
+                <Text style={styles.emptyText}>
+                  {hospitalSearch.trim() 
+                    ? translations.common.noResults 
+                    : translations.visits.noHospitalsAvailable}
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={filteredHospitals}
+                keyExtractor={(item) => String(item.id)}
+                style={styles.hospitalList}
+                showsVerticalScrollIndicator={true}
+                keyboardShouldPersistTaps="handled"
+                renderItem={({ item: hospital }) => {
                   const hospitalId = String(hospital.id);
                   const isSelected = selectedHospitalId === hospitalId;
                   
                   return (
                     <TouchableOpacity
-                      key={hospitalId}
                       style={[
                         styles.hospitalItem,
                         isSelected && styles.hospitalItemSelected
@@ -364,9 +371,9 @@ export default function NewVisitScreen() {
                       )}
                     </TouchableOpacity>
                   );
-                })
-              )}
-            </ScrollView>
+                }}
+              />
+            )}
           </View>
         </View>
       </Modal>
@@ -668,6 +675,16 @@ const styles = StyleSheet.create({
   },
   checkmarkContainer: {
     marginLeft: Spacing.sm,
+  },
+  loadingState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.xxl,
+  },
+  loadingText: {
+    fontSize: FontSizes.md,
+    color: Colors.textSecondary,
+    marginTop: Spacing.md,
   },
   emptyState: {
     alignItems: 'center',
