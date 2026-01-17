@@ -308,72 +308,74 @@ export default function NewVisitScreen() {
               )}
             </View>
 
-            {hospitalsLoading ? (
-              <View style={styles.loadingState}>
-                <ActivityIndicator size="large" color={Colors.primary} />
-                <Text style={styles.loadingText}>{translations.visits.loadingHospitals}</Text>
-              </View>
-            ) : filteredHospitals.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Ionicons name="business-outline" size={48} color={Colors.textSecondary} />
-                <Text style={styles.emptyText}>
-                  {hospitalSearch.trim() 
-                    ? translations.common.noResults 
-                    : translations.visits.noHospitalsAvailable}
-                </Text>
-              </View>
-            ) : (
-              <FlatList
-                data={filteredHospitals}
-                keyExtractor={(item) => String(item.id)}
-                style={styles.hospitalList}
-                showsVerticalScrollIndicator={true}
-                keyboardShouldPersistTaps="handled"
-                renderItem={({ item: hospital }) => {
-                  const hospitalId = String(hospital.id);
-                  const isSelected = selectedHospitalId === hospitalId;
-                  
-                  return (
-                    <TouchableOpacity
-                      style={[
-                        styles.hospitalItem,
-                        isSelected && styles.hospitalItemSelected
-                      ]}
-                      onPress={() => handleSelectHospital(hospitalId)}
-                      activeOpacity={0.7}
-                      testID={`hospital-item-${hospitalId}`}
-                    >
-                      <View style={[
-                        styles.hospitalIconContainer,
-                        isSelected && styles.hospitalIconContainerSelected
-                      ]}>
-                        <Ionicons 
-                          name="business" 
-                          size={20} 
-                          color={isSelected ? Colors.white : Colors.primary} 
-                        />
-                      </View>
-                      <View style={styles.hospitalItemText}>
-                        <Text style={[
-                          styles.hospitalName,
-                          isSelected && styles.hospitalNameSelected
+            <View style={styles.hospitalListContainer}>
+              {hospitalsLoading ? (
+                <View style={styles.loadingState}>
+                  <ActivityIndicator size="large" color={Colors.primary} />
+                  <Text style={styles.loadingText}>{translations.visits.loadingHospitals}</Text>
+                </View>
+              ) : filteredHospitals.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Ionicons name="business-outline" size={48} color={Colors.textSecondary} />
+                  <Text style={styles.emptyText}>
+                    {hospitalSearch.trim() 
+                      ? translations.common.noResults 
+                      : translations.visits.noHospitalsAvailable}
+                  </Text>
+                </View>
+              ) : (
+                <FlatList
+                  data={filteredHospitals}
+                  keyExtractor={(item) => String(item.id)}
+                  contentContainerStyle={styles.hospitalListContent}
+                  showsVerticalScrollIndicator={true}
+                  keyboardShouldPersistTaps="handled"
+                  renderItem={({ item: hospital }) => {
+                    const hospitalId = String(hospital.id);
+                    const isSelected = selectedHospitalId === hospitalId;
+                    
+                    return (
+                      <TouchableOpacity
+                        style={[
+                          styles.hospitalItem,
+                          isSelected && styles.hospitalItemSelected
+                        ]}
+                        onPress={() => handleSelectHospital(hospitalId)}
+                        activeOpacity={0.7}
+                        testID={`hospital-item-${hospitalId}`}
+                      >
+                        <View style={[
+                          styles.hospitalIconContainer,
+                          isSelected && styles.hospitalIconContainerSelected
                         ]}>
-                          {hospital.name}
-                        </Text>
-                        {hospital.city && (
-                          <Text style={styles.hospitalCity}>{hospital.city}</Text>
-                        )}
-                      </View>
-                      {isSelected && (
-                        <View style={styles.checkmarkContainer}>
-                          <Ionicons name="checkmark-circle" size={24} color={Colors.primary} />
+                          <Ionicons 
+                            name="business" 
+                            size={20} 
+                            color={isSelected ? Colors.white : Colors.primary} 
+                          />
                         </View>
-                      )}
-                    </TouchableOpacity>
-                  );
-                }}
-              />
-            )}
+                        <View style={styles.hospitalItemText}>
+                          <Text style={[
+                            styles.hospitalName,
+                            isSelected && styles.hospitalNameSelected
+                          ]}>
+                            {hospital.name || '---'}
+                          </Text>
+                          {hospital.city && (
+                            <Text style={styles.hospitalCity}>{hospital.city}</Text>
+                          )}
+                        </View>
+                        {isSelected && (
+                          <View style={styles.checkmarkContainer}>
+                            <Ionicons name="checkmark-circle" size={24} color={Colors.primary} />
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  }}
+                />
+              )}
+            </View>
           </View>
         </View>
       </Modal>
@@ -627,9 +629,13 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.md,
     color: Colors.text,
   },
-  hospitalList: {
+  hospitalListContainer: {
     flex: 1,
+    minHeight: 200,
+  },
+  hospitalListContent: {
     paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.lg,
   },
   hospitalItem: {
     flexDirection: 'row',
