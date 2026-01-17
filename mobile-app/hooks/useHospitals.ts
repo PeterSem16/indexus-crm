@@ -3,15 +3,24 @@ import { api } from '@/lib/api';
 import * as db from '@/lib/db';
 import { useSyncStore } from '@/stores/syncStore';
 
-interface Hospital {
+export interface Hospital {
   id: string;
   name: string;
+  fullName?: string;
   city?: string;
   address?: string;
+  streetNumber?: string;
+  postalCode?: string;
+  region?: string;
   countryCode?: string;
   contactPerson?: string;
   phone?: string;
   email?: string;
+  latitude?: string;
+  longitude?: string;
+  isActive?: boolean;
+  svetZdravia?: boolean;
+  autoRecruiting?: boolean;
 }
 
 export function useHospitals() {

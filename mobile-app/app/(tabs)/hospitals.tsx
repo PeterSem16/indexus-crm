@@ -1,27 +1,16 @@
 import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator, Linking, Platform, RefreshControl } from 'react-native';
 import { useState, useCallback, useMemo } from 'react';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { useTranslation } from '@/hooks/useTranslation';
-import { useHospitals } from '@/hooks/useHospitals';
+import { useHospitals, Hospital } from '@/hooks/useHospitals';
 import { Colors, Spacing, FontSizes } from '@/constants/colors';
 
-interface Hospital {
-  id: string;
-  name: string;
-  city?: string;
-  address?: string;
-  contactPerson?: string;
-  phone?: string;
-  email?: string;
-  latitude?: string;
-  longitude?: string;
-  countryCode?: string;
-}
-
 export default function HospitalsScreen() {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const { translations } = useTranslation();
   const { data: hospitals = [], isLoading, error, refetch } = useHospitals();
@@ -43,8 +32,8 @@ export default function HospitalsScreen() {
         android: `geo:${lat},${lng}?q=${lat},${lng}(${label})`,
       });
       if (url) Linking.openURL(url);
-    } else if (hospital.address && hospital.city) {
-      const address = encodeURIComponent(`${hospital.address}, ${hospital.city}`);
+    } else if (hospital.streetNumber && hospital.city) {
+      const address = encodeURIComponent(`${hospital.streetNumber}, ${hospital.city}`);
       const url = Platform.select({
         ios: `maps:0,0?q=${address}`,
         android: `geo:0,0?q=${address}`,
@@ -64,47 +53,64 @@ export default function HospitalsScreen() {
     return hospitals.filter((h) =>
       h.name.toLowerCase().includes(query) ||
       (h.city?.toLowerCase() || '').includes(query) ||
-      (h.address?.toLowerCase() || '').includes(query) ||
+      (h.streetNumber?.toLowerCase() || '').includes(query) ||
+      (h.region?.toLowerCase() || '').includes(query) ||
       (h.phone?.toLowerCase() || '').includes(query) ||
       (h.email?.toLowerCase() || '').includes(query)
     );
   }, [hospitals, searchQuery]);
 
+  const navigateToDetail = (hospitalId: string) => {
+    router.push(`/hospital/${hospitalId}`);
+  };
+
   const renderHospital = ({ item }: { item: Hospital }) => (
-    <Card style={styles.hospitalCard}>
-      <View style={styles.hospitalIcon}>
-        <Ionicons name="business" size={24} color={Colors.primary} />
-      </View>
-      <View style={styles.hospitalInfo}>
-        <Text style={styles.hospitalName} numberOfLines={2}>{item.name}</Text>
-        {(item.address || item.city) && (
-          <Text style={styles.hospitalAddress} numberOfLines={1}>
-            {[item.address, item.city].filter(Boolean).join(', ')}
-          </Text>
-        )}
-        {item.email && (
-          <Text style={styles.hospitalEmail} numberOfLines={1}>{item.email}</Text>
-        )}
-      </View>
-      <View style={styles.actionButtons}>
-        {item.phone && (
+    <Pressable 
+      onPress={() => navigateToDetail(String(item.id))}
+      testID={`hospital-card-${item.id}`}
+    >
+      <Card style={styles.hospitalCard}>
+        <View style={styles.hospitalIcon}>
+          <Ionicons name="business" size={24} color={Colors.primary} />
+        </View>
+        <View style={styles.hospitalInfo}>
+          <Text style={styles.hospitalName} numberOfLines={2}>{item.name}</Text>
+          {(item.streetNumber || item.city) && (
+            <Text style={styles.hospitalAddress} numberOfLines={1}>
+              {[item.streetNumber, item.city].filter(Boolean).join(', ')}
+            </Text>
+          )}
+          {item.email && (
+            <Text style={styles.hospitalEmail} numberOfLines={1}>{item.email}</Text>
+          )}
+        </View>
+        <View style={styles.actionButtons}>
+          {item.phone && (
+            <Pressable 
+              style={styles.actionButton}
+              onPress={(e) => {
+                e.stopPropagation();
+                callHospital(item.phone!);
+              }}
+              android_ripple={{ color: Colors.border }}
+            >
+              <Ionicons name="call" size={18} color={Colors.primary} />
+            </Pressable>
+          )}
           <Pressable 
             style={styles.actionButton}
-            onPress={() => callHospital(item.phone!)}
+            onPress={(e) => {
+              e.stopPropagation();
+              openMap(item);
+            }}
             android_ripple={{ color: Colors.border }}
           >
-            <Ionicons name="call" size={18} color={Colors.primary} />
+            <Ionicons name="navigate" size={18} color={Colors.primary} />
           </Pressable>
-        )}
-        <Pressable 
-          style={styles.actionButton}
-          onPress={() => openMap(item)}
-          android_ripple={{ color: Colors.border }}
-        >
-          <Ionicons name="navigate" size={18} color={Colors.primary} />
-        </Pressable>
-      </View>
-    </Card>
+          <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
+        </View>
+      </Card>
+    </Pressable>
   );
 
   return (
