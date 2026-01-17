@@ -3,13 +3,16 @@ import { useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Card } from '@/components/ui/Card';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/hooks/useAuth';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useVisits } from '@/hooks/useVisits';
 import { useSyncStore } from '@/stores/syncStore';
 import { syncAll } from '@/lib/sync';
 import { Colors, Spacing, FontSizes } from '@/constants/colors';
+import Constants from 'expo-constants';
+
+const APP_VERSION = Constants.expoConfig?.version || '1.1.0';
 
 export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
@@ -27,19 +30,9 @@ export default function DashboardScreen() {
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    const greetings: Record<string, { morning: string; day: string; evening: string }> = {
-      sk: { morning: 'Dobré ráno', day: 'Dobrý deň', evening: 'Dobrý večer' },
-      cs: { morning: 'Dobré ráno', day: 'Dobrý den', evening: 'Dobrý večer' },
-      hu: { morning: 'Jó reggelt', day: 'Jó napot', evening: 'Jó estét' },
-      de: { morning: 'Guten Morgen', day: 'Guten Tag', evening: 'Guten Abend' },
-      it: { morning: 'Buongiorno', day: 'Buon pomeriggio', evening: 'Buonasera' },
-      ro: { morning: 'Bună dimineața', day: 'Bună ziua', evening: 'Bună seara' },
-      en: { morning: 'Good morning', day: 'Good afternoon', evening: 'Good evening' },
-    };
-    const lang = greetings[language] || greetings.en;
-    if (hour < 12) return lang.morning;
-    if (hour < 18) return lang.day;
-    return lang.evening;
+    if (hour < 12) return translations.common.goodMorning;
+    if (hour < 18) return translations.common.goodAfternoon;
+    return translations.common.goodEvening;
   };
 
   const todayVisits = visits?.filter((v: any) => {
@@ -47,83 +40,206 @@ export default function DashboardScreen() {
     return visitDate === new Date().toDateString();
   }) || [];
 
+  const upcomingVisits = visits?.filter((v: any) => {
+    const visitDate = new Date(v.scheduledStart || v.scheduled_start);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return visitDate >= today && v.status !== 'completed';
+  }).slice(0, 5) || [];
+
+  const completedVisits = visits?.filter((v: any) => v.status === 'completed') || [];
+
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>{getGreeting()}, {user?.firstName}!</Text>
-          {!isOnline && (
-            <View style={styles.offlineIndicator}>
-              <Ionicons name="cloud-offline" size={14} color={Colors.warning} />
-              <Text style={styles.offlineText}>{translations.common.offline}</Text>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[Colors.primary, Colors.primaryDark, '#2A0515']}
+        style={styles.headerGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <SafeAreaView edges={['top']}>
+          <View style={styles.header}>
+            <View style={styles.headerLeft}>
+              <View style={styles.avatarContainer}>
+                <Text style={styles.avatarText}>
+                  {user?.firstName?.[0]}{user?.lastName?.[0]}
+                </Text>
+              </View>
+              <View style={styles.greetingContainer}>
+                <Text style={styles.greeting}>{getGreeting()}</Text>
+                <Text style={styles.userName}>{user?.firstName} {user?.lastName}</Text>
+              </View>
             </View>
-          )}
-        </View>
-        {pendingCount > 0 && (
-          <View style={styles.syncBadge}>
-            <Ionicons name="sync" size={14} color={Colors.white} />
-            <Text style={styles.syncBadgeText}>{pendingCount}</Text>
+            <View style={styles.headerRight}>
+              {!isOnline && (
+                <View style={styles.offlineBadge}>
+                  <Ionicons name="cloud-offline" size={16} color={Colors.white} />
+                </View>
+              )}
+              {pendingCount > 0 && (
+                <View style={styles.syncBadge}>
+                  <Ionicons name="sync" size={14} color={Colors.white} />
+                  <Text style={styles.syncBadgeText}>{pendingCount}</Text>
+                </View>
+              )}
+            </View>
           </View>
-        )}
-      </View>
+
+          <View style={styles.statsContainer}>
+            <View style={styles.statBox}>
+              <Text style={styles.statNumber}>{todayVisits.length}</Text>
+              <Text style={styles.statLabel}>{translations.visits.today}</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statBox}>
+              <Text style={styles.statNumber}>{upcomingVisits.length}</Text>
+              <Text style={styles.statLabel}>{translations.visits.upcoming}</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statBox}>
+              <Text style={styles.statNumber}>{completedVisits.length}</Text>
+              <Text style={styles.statLabel}>{translations.visits.completed}</Text>
+            </View>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
 
       <ScrollView
         style={styles.content}
+        contentContainerStyle={styles.contentContainer}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
         }
+        showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.sectionTitle}>{translations.visits.today}</Text>
-        
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>{translations.visits.today}</Text>
+          <Link href="/visits" asChild>
+            <TouchableOpacity style={styles.seeAllButton}>
+              <Text style={styles.seeAllText}>{translations.common.viewAll}</Text>
+              <Ionicons name="chevron-forward" size={16} color={Colors.primary} />
+            </TouchableOpacity>
+          </Link>
+        </View>
+
         {visitsLoading ? (
-          <ActivityIndicator color={Colors.primary} />
+          <View style={styles.loadingCard}>
+            <ActivityIndicator color={Colors.primary} size="large" />
+          </View>
         ) : todayVisits.length === 0 ? (
-          <Card style={styles.emptyCard}>
-            <Text style={styles.emptyText}>{translations.visits.noVisits}</Text>
-          </Card>
+          <View style={styles.emptyCard}>
+            <View style={styles.emptyIconContainer}>
+              <Ionicons name="calendar-outline" size={40} color={Colors.primaryLight} />
+            </View>
+            <Text style={styles.emptyTitle}>{translations.visits.noVisits}</Text>
+            <Text style={styles.emptySubtitle}>{translations.visits.noVisitsToday}</Text>
+            <Link href="/visit/new" asChild>
+              <TouchableOpacity style={styles.emptyButton}>
+                <Ionicons name="add" size={20} color={Colors.white} />
+                <Text style={styles.emptyButtonText}>{translations.visits.newVisit}</Text>
+              </TouchableOpacity>
+            </Link>
+          </View>
         ) : (
-          todayVisits.map((visit: any) => (
+          todayVisits.map((visit: any, index: number) => (
             <Link key={visit.id} href={`/visit/${visit.id}`} asChild>
-              <TouchableOpacity>
-                <Card style={styles.visitCard}>
-                  <View style={styles.visitTime}>
+              <TouchableOpacity style={styles.visitCard} activeOpacity={0.7}>
+                <View style={styles.visitTimeContainer}>
+                  <LinearGradient
+                    colors={[Colors.primary, Colors.primaryDark]}
+                    style={styles.visitTimeGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
                     <Text style={styles.visitTimeText}>
                       {new Date(visit.scheduledStart || visit.scheduled_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </Text>
-                  </View>
-                  <View style={styles.visitInfo}>
-                    <Text style={styles.visitHospital}>{visit.hospitalName || visit.hospital_name}</Text>
-                    <Text style={styles.visitType}>{visit.visitType || visit.visit_type}</Text>
-                  </View>
+                  </LinearGradient>
+                </View>
+                <View style={styles.visitInfo}>
+                  <Text style={styles.visitHospital} numberOfLines={1}>
+                    {visit.hospitalName || visit.hospital_name || translations.visits.unknownHospital}
+                  </Text>
+                  <Text style={styles.visitType} numberOfLines={1}>
+                    {visit.visitType || visit.visit_type || visit.subject}
+                  </Text>
+                </View>
+                <View style={styles.visitArrow}>
                   <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
-                </Card>
+                </View>
               </TouchableOpacity>
             </Link>
           ))
         )}
 
-        <Text style={styles.sectionTitle}>{translations.profile.settings}</Text>
-        
-        <View style={styles.statsRow}>
-          <Card style={styles.statCard}>
-            <Text style={styles.statNumber}>{visits?.length || 0}</Text>
-            <Text style={styles.statLabel}>{translations.navigation.visits}</Text>
-          </Card>
-          <Card style={styles.statCard}>
-            {isSyncing ? (
-              <ActivityIndicator color={Colors.primary} />
-            ) : (
-              <Text style={styles.statNumber}>{pendingCount}</Text>
-            )}
-            <Text style={styles.statLabel}>{translations.common.pendingSync}</Text>
-          </Card>
-          <Card style={styles.statCard}>
-            <Text style={styles.statNumber}>{todayVisits.length}</Text>
-            <Text style={styles.statLabel}>{translations.visits.today}</Text>
-          </Card>
+        <View style={styles.quickActionsSection}>
+          <Text style={styles.sectionTitle}>{translations.common.quickActions}</Text>
+          <View style={styles.quickActionsGrid}>
+            <Link href="/visit/new" asChild>
+              <TouchableOpacity style={styles.quickActionCard}>
+                <LinearGradient
+                  colors={[Colors.primary, Colors.primaryDark]}
+                  style={styles.quickActionIcon}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <Ionicons name="add" size={24} color={Colors.white} />
+                </LinearGradient>
+                <Text style={styles.quickActionLabel}>{translations.visits.newVisit}</Text>
+              </TouchableOpacity>
+            </Link>
+            <Link href="/visits" asChild>
+              <TouchableOpacity style={styles.quickActionCard}>
+                <LinearGradient
+                  colors={[Colors.info, '#1565C0']}
+                  style={styles.quickActionIcon}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <Ionicons name="calendar" size={24} color={Colors.white} />
+                </LinearGradient>
+                <Text style={styles.quickActionLabel}>{translations.navigation.visits}</Text>
+              </TouchableOpacity>
+            </Link>
+            <TouchableOpacity 
+              style={styles.quickActionCard}
+              onPress={onRefresh}
+            >
+              <LinearGradient
+                colors={[Colors.success, '#2E7D32']}
+                style={styles.quickActionIcon}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                {isSyncing ? (
+                  <ActivityIndicator color={Colors.white} size="small" />
+                ) : (
+                  <Ionicons name="sync" size={24} color={Colors.white} />
+                )}
+              </LinearGradient>
+              <Text style={styles.quickActionLabel}>{translations.common.sync}</Text>
+            </TouchableOpacity>
+            <Link href="/profile" asChild>
+              <TouchableOpacity style={styles.quickActionCard}>
+                <LinearGradient
+                  colors={[Colors.secondary, '#B8941F']}
+                  style={styles.quickActionIcon}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <Ionicons name="person" size={24} color={Colors.white} />
+                </LinearGradient>
+                <Text style={styles.quickActionLabel}>{translations.profile.title}</Text>
+              </TouchableOpacity>
+            </Link>
+          </View>
+        </View>
+
+        <View style={styles.versionContainer}>
+          <Text style={styles.versionText}>{translations.common.versionPrefix}{APP_VERSION}</Text>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -132,70 +248,216 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
+  headerGradient: {
+    paddingBottom: Spacing.lg,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: Spacing.md,
-    backgroundColor: Colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm,
   },
-  greeting: {
-    fontSize: FontSizes.xl,
-    fontWeight: 'bold',
-    color: Colors.text,
-  },
-  offlineIndicator: {
+  headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: Spacing.xs,
   },
-  offlineText: {
-    fontSize: FontSizes.xs,
-    color: Colors.warning,
-    marginLeft: Spacing.xs,
+  avatarContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  avatarText: {
+    color: Colors.white,
+    fontSize: FontSizes.lg,
+    fontWeight: 'bold',
+  },
+  greetingContainer: {
+    marginLeft: Spacing.md,
+  },
+  greeting: {
+    fontSize: FontSizes.sm,
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  userName: {
+    fontSize: FontSizes.lg,
+    fontWeight: 'bold',
+    color: Colors.white,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  offlineBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 152, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   syncBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.primary,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
-    borderRadius: 12,
+    borderRadius: 16,
+    gap: 4,
   },
   syncBadgeText: {
     color: Colors.white,
     fontSize: FontSizes.xs,
-    marginLeft: Spacing.xs,
+    fontWeight: '600',
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 16,
+    paddingVertical: Spacing.md,
+  },
+  statBox: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statNumber: {
+    fontSize: FontSizes.xxl,
+    fontWeight: 'bold',
+    color: Colors.white,
+  },
+  statLabel: {
+    fontSize: FontSizes.xs,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 2,
+  },
+  statDivider: {
+    width: 1,
+    height: '70%',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
   content: {
     flex: 1,
-    padding: Spacing.md,
+    marginTop: -Spacing.md,
+  },
+  contentContainer: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.xxl,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
   },
   sectionTitle: {
     fontSize: FontSizes.lg,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  seeAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  seeAllText: {
+    fontSize: FontSizes.sm,
+    color: Colors.primary,
+    fontWeight: '600',
+  },
+  loadingCard: {
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    padding: Spacing.xl,
+    alignItems: 'center',
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  emptyCard: {
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    padding: Spacing.xl,
+    alignItems: 'center',
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  emptyIconContainer: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(107, 28, 59, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  emptyTitle: {
+    fontSize: FontSizes.lg,
     fontWeight: '600',
     color: Colors.text,
-    marginBottom: Spacing.sm,
-    marginTop: Spacing.md,
+    marginBottom: Spacing.xs,
+  },
+  emptySubtitle: {
+    fontSize: FontSizes.sm,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: Spacing.lg,
+  },
+  emptyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primary,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: 24,
+    gap: Spacing.xs,
+  },
+  emptyButtonText: {
+    color: Colors.white,
+    fontSize: FontSizes.md,
+    fontWeight: '600',
   },
   visitCard: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    padding: Spacing.md,
     marginBottom: Spacing.sm,
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  visitTime: {
-    backgroundColor: Colors.primary,
+  visitTimeContainer: {
+    marginRight: Spacing.md,
+  },
+  visitTimeGradient: {
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
-    borderRadius: 4,
-    marginRight: Spacing.md,
+    borderRadius: 8,
+    minWidth: 60,
+    alignItems: 'center',
   },
   visitTimeText: {
     color: Colors.white,
     fontSize: FontSizes.sm,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   visitInfo: {
     flex: 1,
@@ -204,40 +466,56 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.md,
     fontWeight: '600',
     color: Colors.text,
+    marginBottom: 2,
   },
   visitType: {
     fontSize: FontSizes.sm,
     color: Colors.textSecondary,
   },
-  statsRow: {
+  visitArrow: {
+    marginLeft: Spacing.sm,
+  },
+  quickActionsSection: {
+    marginTop: Spacing.xl,
+  },
+  quickActionsGrid: {
     flexDirection: 'row',
-    gap: Spacing.sm,
+    flexWrap: 'wrap',
+    marginTop: Spacing.md,
+    gap: Spacing.md,
   },
-  statCard: {
-    flex: 1,
-    alignItems: 'center',
+  quickActionCard: {
+    width: '47%',
+    backgroundColor: Colors.white,
+    borderRadius: 16,
     padding: Spacing.md,
+    alignItems: 'center',
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  statNumber: {
-    fontSize: FontSizes.xxl,
-    fontWeight: 'bold',
-    color: Colors.primary,
+  quickActionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
   },
-  statLabel: {
+  quickActionLabel: {
     fontSize: FontSizes.sm,
+    fontWeight: '600',
     color: Colors.text,
     textAlign: 'center',
   },
-  statSubtext: {
-    fontSize: FontSizes.xs,
-    color: Colors.textSecondary,
-  },
-  emptyCard: {
-    padding: Spacing.lg,
+  versionContainer: {
+    marginTop: Spacing.xl,
     alignItems: 'center',
   },
-  emptyText: {
+  versionText: {
+    fontSize: FontSizes.xs,
     color: Colors.textSecondary,
-    fontSize: FontSizes.md,
   },
 });

@@ -1,33 +1,44 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, FlatList, Alert, Pressable, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Input } from '@/components/ui/Input';
-import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
+import { LinearGradient } from 'expo-linear-gradient';
 import { DatePicker } from '@/components/ui/DatePicker';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useHospitals } from '@/hooks/useHospitals';
 import { useCreateVisit } from '@/hooks/useVisits';
 import { Colors, Spacing, FontSizes } from '@/constants/colors';
 
-const VISIT_TYPES = [
-  { id: '1', label: 'Personal Visit', icon: 'person' },
-  { id: '2', label: 'Phone Call', icon: 'call' },
-  { id: '3', label: 'Online Meeting', icon: 'videocam' },
-  { id: '4', label: 'Training', icon: 'school' },
-  { id: '5', label: 'Conference', icon: 'people' },
-  { id: '6', label: 'Other', icon: 'ellipsis-horizontal' },
+type VisitType = {
+  id: string;
+  labelKey: keyof typeof VISIT_TYPE_KEYS;
+  icon: string;
+};
+
+const VISIT_TYPE_KEYS = {
+  personalVisit: 'personalVisit',
+  phoneCall: 'phoneCall',
+  onlineMeeting: 'onlineMeeting',
+  training: 'training',
+  conference: 'conference',
+  other: 'other',
+} as const;
+
+const VISIT_TYPES: VisitType[] = [
+  { id: '1', labelKey: 'personalVisit', icon: 'person' },
+  { id: '2', labelKey: 'phoneCall', icon: 'call' },
+  { id: '3', labelKey: 'onlineMeeting', icon: 'videocam' },
+  { id: '4', labelKey: 'training', icon: 'school' },
+  { id: '5', labelKey: 'conference', icon: 'people' },
+  { id: '6', labelKey: 'other', icon: 'ellipsis-horizontal' },
 ];
 
 export default function NewVisitScreen() {
   const router = useRouter();
   const { translations } = useTranslation();
-  const { data: hospitals = [], isLoading: hospitalsLoading, error: hospitalsError } = useHospitals();
+  const { data: hospitals = [], isLoading: hospitalsLoading } = useHospitals();
   const createVisit = useCreateVisit();
-  
-  console.log('[NewVisitScreen] hospitals:', hospitals.length, 'loading:', hospitalsLoading, 'error:', hospitalsError);
   
   const [selectedHospitalId, setSelectedHospitalId] = useState<string>('');
   const [selectedType, setSelectedType] = useState<string>('1');
@@ -36,16 +47,24 @@ export default function NewVisitScreen() {
   const [endTime, setEndTime] = useState('10:00');
   const [notes, setNotes] = useState('');
   const [showHospitalPicker, setShowHospitalPicker] = useState(false);
-  
-  useEffect(() => {
-    console.log('[NewVisitScreen] Hospitals loaded:', hospitals.length);
-  }, [hospitals]);
+  const [hospitalSearch, setHospitalSearch] = useState('');
 
   const selectedHospital = hospitals.find(h => String(h.id) === selectedHospitalId);
 
+  const filteredHospitals = hospitals.filter(h => 
+    h.name.toLowerCase().includes(hospitalSearch.toLowerCase()) ||
+    (h.city && h.city.toLowerCase().includes(hospitalSearch.toLowerCase()))
+  );
+
+  const handleSelectHospital = (hospitalId: string) => {
+    setSelectedHospitalId(hospitalId);
+    setShowHospitalPicker(false);
+    setHospitalSearch('');
+  };
+
   const handleSave = async () => {
     if (!selectedType) {
-      Alert.alert('Error', 'Please select a visit type');
+      Alert.alert(translations.common.error, translations.visits.visitType);
       return;
     }
 
@@ -54,167 +73,203 @@ export default function NewVisitScreen() {
       const startDateTime = new Date(`${dateStr}T${startTime}:00`);
       const endDateTime = new Date(`${dateStr}T${endTime}:00`);
 
+      const selectedTypeObj = VISIT_TYPES.find(t => t.id === selectedType);
+      const visitTypeLabel = selectedTypeObj ? translations.visits[selectedTypeObj.labelKey] : '';
+
       await createVisit.mutateAsync({
         hospitalId: selectedHospitalId || undefined,
-        subject: selectedType,
+        subject: visitTypeLabel,
         startTime: startDateTime.toISOString(),
         endTime: endDateTime.toISOString(),
         remark: notes || undefined,
         isAllDay: false,
       });
 
-      Alert.alert('Success', 'Visit created successfully', [
-        { text: 'OK', onPress: () => router.back() }
+      Alert.alert(translations.common.done, translations.visits.newVisit, [
+        { text: translations.common.ok, onPress: () => router.back() }
       ]);
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to create visit');
+      Alert.alert(translations.common.error, error.message);
     }
   };
 
-  const renderHospitalItem = ({ item }: { item: { id: string | number; name: string; city?: string } }) => {
-    const itemId = String(item.id);
-    return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.hospitalItem,
-        pressed && styles.hospitalItemPressed
-      ]}
-      onPress={() => {
-        console.log('[NewVisitScreen] Selected hospital:', item.name, 'id:', itemId);
-        setSelectedHospitalId(itemId);
-        setShowHospitalPicker(false);
-      }}
-      android_ripple={{ color: Colors.border }}
-      testID={`hospital-item-${itemId}`}
-    >
-      <Ionicons name="business" size={20} color={Colors.primary} />
-      <View style={styles.hospitalItemText}>
-        <Text style={styles.hospitalName}>{item.name}</Text>
-        {item.city && <Text style={styles.hospitalCity}>{item.city}</Text>}
-      </View>
-      {selectedHospitalId === itemId && (
-        <Ionicons name="checkmark" size={20} color={Colors.primary} />
-      )}
-    </Pressable>
-  );
-  };
-
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="close" size={24} color={Colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.title}>{translations.visits.newVisit}</Text>
-        <View style={styles.placeholder} />
-      </View>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[Colors.primary, Colors.primaryDark]}
+        style={styles.headerGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <SafeAreaView edges={['top']}>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
+              <Ionicons name="close" size={24} color={Colors.white} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>{translations.visits.newVisit}</Text>
+            <View style={styles.headerButton} />
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
 
-      <ScrollView style={styles.content}>
-        <Text style={styles.sectionTitle}>{translations.visits.hospital}</Text>
-        <Card style={styles.hospitalSelector}>
+      <KeyboardAvoidingView 
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView 
+          style={styles.content}
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={styles.sectionTitle}>{translations.visits.hospital}</Text>
           <TouchableOpacity 
-            style={styles.selectorButton}
+            style={styles.selectorCard}
             onPress={() => setShowHospitalPicker(true)}
             testID="button-select-hospital"
           >
-            <Ionicons name="business" size={20} color={Colors.textSecondary} />
-            <Text style={[
-              styles.selectorText,
-              selectedHospital && styles.selectorTextSelected
-            ]}>
-              {hospitalsLoading 
-                ? 'Loading hospitals...' 
-                : selectedHospital 
-                  ? selectedHospital.name 
-                  : 'Select hospital'}
-            </Text>
-            <Ionicons name="chevron-down" size={20} color={Colors.textSecondary} />
-          </TouchableOpacity>
-        </Card>
-
-        <Text style={styles.sectionTitle}>{translations.visits.visitType}</Text>
-        <View style={styles.typeGrid}>
-          {VISIT_TYPES.map((type) => (
-            <TouchableOpacity
-              key={type.id}
-              style={[
-                styles.typeCard,
-                selectedType === type.id && styles.typeCardSelected,
-              ]}
-              onPress={() => setSelectedType(type.id)}
-              testID={`button-type-${type.id}`}
-            >
-              <Ionicons 
-                name={type.icon as any} 
-                size={24} 
-                color={selectedType === type.id ? Colors.white : Colors.primary} 
-              />
-              <Text 
-                style={[
-                  styles.typeLabel,
-                  selectedType === type.id && styles.typeLabelSelected,
-                ]}
-              >
-                {type.label}
+            <View style={styles.selectorIconContainer}>
+              <Ionicons name="business" size={20} color={Colors.primary} />
+            </View>
+            <View style={styles.selectorContent}>
+              <Text style={[
+                styles.selectorText,
+                selectedHospital && styles.selectorTextSelected
+              ]}>
+                {hospitalsLoading 
+                  ? translations.visits.loadingHospitals
+                  : selectedHospital 
+                    ? selectedHospital.name 
+                    : translations.visits.selectHospital}
               </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+              {selectedHospital?.city && (
+                <Text style={styles.selectorSubtext}>{selectedHospital.city}</Text>
+              )}
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
+          </TouchableOpacity>
 
-        <Text style={styles.sectionTitle}>{translations.visits.scheduledTime}</Text>
-        <View style={styles.dateTimeRow}>
-          <View style={styles.dateInput}>
+          <Text style={styles.sectionTitle}>{translations.visits.visitType}</Text>
+          <View style={styles.typeGrid}>
+            {VISIT_TYPES.map((type) => (
+              <TouchableOpacity
+                key={type.id}
+                style={[
+                  styles.typeCard,
+                  selectedType === type.id && styles.typeCardSelected,
+                ]}
+                onPress={() => setSelectedType(type.id)}
+                testID={`button-type-${type.id}`}
+              >
+                {selectedType === type.id ? (
+                  <LinearGradient
+                    colors={[Colors.primary, Colors.primaryDark]}
+                    style={styles.typeCardGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <Ionicons name={type.icon as any} size={24} color={Colors.white} />
+                    <Text style={styles.typeLabelSelected}>
+                      {translations.visits[type.labelKey]}
+                    </Text>
+                  </LinearGradient>
+                ) : (
+                  <>
+                    <Ionicons name={type.icon as any} size={24} color={Colors.primary} />
+                    <Text style={styles.typeLabel}>
+                      {translations.visits[type.labelKey]}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={styles.sectionTitle}>{translations.visits.scheduledTime}</Text>
+          <View style={styles.dateTimeContainer}>
             <DatePicker
               value={scheduledDate}
               onChange={setScheduledDate}
-              label="Date"
+              label={translations.visits.date}
             />
           </View>
-        </View>
-        <View style={styles.dateTimeRow}>
-          <Input
-            placeholder="Start (HH:MM)"
-            value={startTime}
-            onChangeText={setStartTime}
-            containerStyle={styles.timeInput}
-            testID="input-start-time"
-          />
-          <Input
-            placeholder="End (HH:MM)"
-            value={endTime}
-            onChangeText={setEndTime}
-            containerStyle={styles.timeInput}
-            testID="input-end-time"
-          />
-        </View>
+          <View style={styles.timeRow}>
+            <View style={styles.timeInputContainer}>
+              <Text style={styles.timeLabel}>{translations.visits.startTime}</Text>
+              <View style={styles.timeInput}>
+                <Ionicons name="time-outline" size={18} color={Colors.textSecondary} />
+                <TextInput
+                  style={styles.timeInputText}
+                  value={startTime}
+                  onChangeText={setStartTime}
+                  placeholder="09:00"
+                  placeholderTextColor={Colors.textSecondary}
+                  testID="input-start-time"
+                />
+              </View>
+            </View>
+            <View style={styles.timeInputContainer}>
+              <Text style={styles.timeLabel}>{translations.visits.endTime}</Text>
+              <View style={styles.timeInput}>
+                <Ionicons name="time-outline" size={18} color={Colors.textSecondary} />
+                <TextInput
+                  style={styles.timeInputText}
+                  value={endTime}
+                  onChangeText={setEndTime}
+                  placeholder="10:00"
+                  placeholderTextColor={Colors.textSecondary}
+                  testID="input-end-time"
+                />
+              </View>
+            </View>
+          </View>
 
-        <Text style={styles.sectionTitle}>{translations.visits.notes}</Text>
-        <Input
-          placeholder="Add notes about this visit..."
-          value={notes}
-          onChangeText={setNotes}
-          multiline
-          numberOfLines={4}
-          style={styles.notesInput}
-          testID="input-notes"
-        />
-      </ScrollView>
+          <Text style={styles.sectionTitle}>{translations.visits.notes}</Text>
+          <View style={styles.notesContainer}>
+            <TextInput
+              style={styles.notesInput}
+              placeholder={translations.visits.addNotes}
+              placeholderTextColor={Colors.textSecondary}
+              value={notes}
+              onChangeText={setNotes}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+              testID="input-notes"
+            />
+          </View>
+        </ScrollView>
 
-      <View style={styles.footer}>
-        <Button
-          title={translations.common.cancel}
-          onPress={() => router.back()}
-          variant="outline"
-          style={styles.cancelButton}
-        />
-        <Button
-          title={translations.common.save}
-          onPress={handleSave}
-          loading={createVisit.isPending}
-          style={styles.saveButton}
-          testID="button-save-visit"
-        />
-      </View>
+        <View style={styles.footer}>
+          <TouchableOpacity 
+            style={styles.cancelButton} 
+            onPress={() => router.back()}
+          >
+            <Text style={styles.cancelButtonText}>{translations.common.cancel}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.saveButton}
+            onPress={handleSave}
+            disabled={createVisit.isPending}
+            testID="button-save-visit"
+          >
+            <LinearGradient
+              colors={[Colors.primary, Colors.primaryDark]}
+              style={styles.saveButtonGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              {createVisit.isPending ? (
+                <Text style={styles.saveButtonText}>{translations.common.loading}</Text>
+              ) : (
+                <>
+                  <Ionicons name="checkmark" size={20} color={Colors.white} />
+                  <Text style={styles.saveButtonText}>{translations.common.save}</Text>
+                </>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
 
       <Modal
         visible={showHospitalPicker}
@@ -225,35 +280,97 @@ export default function NewVisitScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Hospital</Text>
+              <Text style={styles.modalTitle}>{translations.visits.selectHospital}</Text>
               <TouchableOpacity 
-                onPress={() => setShowHospitalPicker(false)}
+                onPress={() => {
+                  setShowHospitalPicker(false);
+                  setHospitalSearch('');
+                }}
+                style={styles.modalCloseButton}
                 testID="button-close-hospital-picker"
               >
                 <Ionicons name="close" size={24} color={Colors.text} />
               </TouchableOpacity>
             </View>
-            {hospitals.length === 0 && !hospitalsLoading ? (
-              <View style={styles.emptyState}>
-                <Ionicons name="business-outline" size={48} color={Colors.textSecondary} />
-                <Text style={styles.emptyText}>No hospitals available</Text>
-              </View>
-            ) : (
-              <FlatList
-                data={hospitals}
-                renderItem={renderHospitalItem}
-                keyExtractor={(item) => String(item.id)}
-                style={styles.hospitalList}
-                nestedScrollEnabled={true}
-                removeClippedSubviews={Platform.OS === 'android'}
-                initialNumToRender={20}
-                showsVerticalScrollIndicator={true}
+            
+            <View style={styles.searchContainer}>
+              <Ionicons name="search" size={20} color={Colors.textSecondary} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder={translations.common.search}
+                placeholderTextColor={Colors.textSecondary}
+                value={hospitalSearch}
+                onChangeText={setHospitalSearch}
+                autoFocus
               />
-            )}
+              {hospitalSearch.length > 0 && (
+                <TouchableOpacity onPress={() => setHospitalSearch('')}>
+                  <Ionicons name="close-circle" size={20} color={Colors.textSecondary} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <ScrollView 
+              style={styles.hospitalList}
+              showsVerticalScrollIndicator={true}
+              keyboardShouldPersistTaps="handled"
+            >
+              {filteredHospitals.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Ionicons name="business-outline" size={48} color={Colors.textSecondary} />
+                  <Text style={styles.emptyText}>{translations.visits.noHospitalsAvailable}</Text>
+                </View>
+              ) : (
+                filteredHospitals.map((hospital) => {
+                  const hospitalId = String(hospital.id);
+                  const isSelected = selectedHospitalId === hospitalId;
+                  
+                  return (
+                    <TouchableOpacity
+                      key={hospitalId}
+                      style={[
+                        styles.hospitalItem,
+                        isSelected && styles.hospitalItemSelected
+                      ]}
+                      onPress={() => handleSelectHospital(hospitalId)}
+                      activeOpacity={0.7}
+                      testID={`hospital-item-${hospitalId}`}
+                    >
+                      <View style={[
+                        styles.hospitalIconContainer,
+                        isSelected && styles.hospitalIconContainerSelected
+                      ]}>
+                        <Ionicons 
+                          name="business" 
+                          size={20} 
+                          color={isSelected ? Colors.white : Colors.primary} 
+                        />
+                      </View>
+                      <View style={styles.hospitalItemText}>
+                        <Text style={[
+                          styles.hospitalName,
+                          isSelected && styles.hospitalNameSelected
+                        ]}>
+                          {hospital.name}
+                        </Text>
+                        {hospital.city && (
+                          <Text style={styles.hospitalCity}>{hospital.city}</Text>
+                        )}
+                      </View>
+                      {isSelected && (
+                        <View style={styles.checkmarkContainer}>
+                          <Ionicons name="checkmark-circle" size={24} color={Colors.primary} />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+            </ScrollView>
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -262,29 +379,35 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
+  headerGradient: {
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: Spacing.md,
-    backgroundColor: Colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
   },
-  backButton: {
-    padding: Spacing.xs,
+  headerButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  title: {
+  headerTitle: {
     fontSize: FontSizes.lg,
     fontWeight: '600',
-    color: Colors.text,
+    color: Colors.white,
   },
-  placeholder: {
-    width: 32,
+  keyboardView: {
+    flex: 1,
   },
   content: {
     flex: 1,
-    padding: Spacing.md,
+  },
+  contentContainer: {
+    padding: Spacing.lg,
+    paddingBottom: Spacing.xxl,
   },
   sectionTitle: {
     fontSize: FontSizes.md,
@@ -293,22 +416,42 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
     marginTop: Spacing.md,
   },
-  hospitalSelector: {
-    padding: 0,
-  },
-  selectorButton: {
+  selectorCard: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: Colors.white,
+    borderRadius: 12,
     padding: Spacing.md,
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  selectorIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(107, 28, 59, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: Spacing.md,
+  },
+  selectorContent: {
+    flex: 1,
   },
   selectorText: {
-    flex: 1,
     fontSize: FontSizes.md,
     color: Colors.textSecondary,
-    marginLeft: Spacing.md,
   },
   selectorTextSelected: {
     color: Colors.text,
+    fontWeight: '600',
+  },
+  selectorSubtext: {
+    fontSize: FontSizes.sm,
+    color: Colors.textSecondary,
+    marginTop: 2,
   },
   typeGrid: {
     flexDirection: 'row',
@@ -324,35 +467,74 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: Colors.border,
+    overflow: 'hidden',
   },
   typeCardSelected: {
-    backgroundColor: Colors.primary,
     borderColor: Colors.primary,
+    borderWidth: 0,
+  },
+  typeCardGradient: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   typeLabel: {
-    fontSize: FontSizes.sm,
+    fontSize: FontSizes.xs,
     color: Colors.text,
-    marginTop: Spacing.sm,
+    marginTop: Spacing.xs,
     textAlign: 'center',
+    paddingHorizontal: Spacing.xs,
   },
   typeLabelSelected: {
+    fontSize: FontSizes.xs,
     color: Colors.white,
+    marginTop: Spacing.xs,
+    textAlign: 'center',
+    paddingHorizontal: Spacing.xs,
   },
-  dateTimeRow: {
+  dateTimeContainer: {
+    marginBottom: Spacing.sm,
+  },
+  timeRow: {
     flexDirection: 'row',
     gap: Spacing.md,
   },
-  dateInput: {
+  timeInputContainer: {
     flex: 1,
-    marginBottom: Spacing.sm,
+  },
+  timeLabel: {
+    fontSize: FontSizes.sm,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.xs,
   },
   timeInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: Spacing.sm,
+  },
+  timeInputText: {
     flex: 1,
-    marginBottom: 0,
+    fontSize: FontSizes.md,
+    color: Colors.text,
+  },
+  notesContainer: {
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    overflow: 'hidden',
   },
   notesInput: {
-    height: 100,
-    textAlignVertical: 'top',
+    padding: Spacing.md,
+    fontSize: FontSizes.md,
+    color: Colors.text,
+    minHeight: 100,
   },
   footer: {
     flexDirection: 'row',
@@ -364,9 +546,33 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontSize: FontSizes.md,
+    fontWeight: '600',
+    color: Colors.textSecondary,
   },
   saveButton: {
     flex: 2,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  saveButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.md,
+    gap: Spacing.sm,
+  },
+  saveButtonText: {
+    fontSize: FontSizes.md,
+    fontWeight: '600',
+    color: Colors.white,
   },
   modalOverlay: {
     flex: 1,
@@ -375,54 +581,98 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: Colors.white,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '70%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '80%',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: Spacing.md,
+    padding: Spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
   modalTitle: {
     fontSize: FontSizes.lg,
-    fontWeight: '600',
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  modalCloseButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    marginHorizontal: Spacing.lg,
+    marginVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    borderRadius: 12,
+    gap: Spacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    fontSize: FontSizes.md,
     color: Colors.text,
   },
   hospitalList: {
     flex: 1,
+    paddingHorizontal: Spacing.lg,
   },
   hospitalItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-    backgroundColor: Colors.white,
+    marginBottom: Spacing.sm,
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
   },
-  hospitalItemPressed: {
-    backgroundColor: Colors.background,
+  hospitalItemSelected: {
+    backgroundColor: 'rgba(107, 28, 59, 0.1)',
+    borderWidth: 1,
+    borderColor: Colors.primary,
+  },
+  hospitalIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(107, 28, 59, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: Spacing.md,
+  },
+  hospitalIconContainerSelected: {
+    backgroundColor: Colors.primary,
   },
   hospitalItemText: {
     flex: 1,
-    marginLeft: Spacing.md,
   },
   hospitalName: {
     fontSize: FontSizes.md,
     fontWeight: '500',
     color: Colors.text,
   },
+  hospitalNameSelected: {
+    fontWeight: '600',
+    color: Colors.primary,
+  },
   hospitalCity: {
     fontSize: FontSizes.sm,
     color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  checkmarkContainer: {
+    marginLeft: Spacing.sm,
   },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: Spacing.xl,
+    paddingVertical: Spacing.xxl,
   },
   emptyText: {
     fontSize: FontSizes.md,

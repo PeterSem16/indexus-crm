@@ -1,11 +1,10 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
-import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useVisit, useStartVisit, useEndVisit } from '@/hooks/useVisits';
 import { Colors, Spacing, FontSizes } from '@/constants/colors';
@@ -13,18 +12,26 @@ import { Colors, Spacing, FontSizes } from '@/constants/colors';
 export default function VisitDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { translations } = useTranslation();
+  const { translations, language } = useTranslation();
   const { data: visit, isLoading, refetch } = useVisit(id || '');
   const startVisitMutation = useStartVisit();
   const endVisitMutation = useEndVisit();
   
   const [isGettingLocation, setIsGettingLocation] = useState(false);
 
+  const getLocale = () => {
+    const locales: Record<string, string> = {
+      sk: 'sk-SK', cs: 'cs-CZ', hu: 'hu-HU', 
+      de: 'de-DE', it: 'it-IT', ro: 'ro-RO', en: 'en-US'
+    };
+    return locales[language] || 'en-US';
+  };
+
   const getLocation = async (): Promise<{ latitude: number; longitude: number } | null> => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Location permission is required');
+        Alert.alert(translations.common.error, translations.common.locationPermissionRequired);
         return null;
       }
       
@@ -37,7 +44,7 @@ export default function VisitDetailScreen() {
         longitude: location.coords.longitude,
       };
     } catch (error) {
-      Alert.alert('Error', 'Failed to get location');
+      Alert.alert(translations.common.error, translations.common.locationError);
       return null;
     }
   };
@@ -58,9 +65,9 @@ export default function VisitDetailScreen() {
         longitude: location.longitude,
       });
       refetch();
-      Alert.alert('Success', 'Visit started');
+      Alert.alert(translations.common.done, translations.visits.inProgress);
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to start visit');
+      Alert.alert(translations.common.error, error.message);
     }
   };
 
@@ -68,12 +75,12 @@ export default function VisitDetailScreen() {
     if (!visit?.id) return;
     
     Alert.alert(
-      'End Visit',
-      'Are you sure you want to end this visit?',
+      translations.visits.endVisit,
+      translations.visits.endVisitConfirm,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: translations.common.cancel, style: 'cancel' },
         {
-          text: 'End Visit',
+          text: translations.visits.endVisit,
           style: 'destructive',
           onPress: async () => {
             setIsGettingLocation(true);
@@ -89,9 +96,9 @@ export default function VisitDetailScreen() {
                 longitude: location.longitude,
               });
               refetch();
-              Alert.alert('Success', 'Visit completed');
+              Alert.alert(translations.common.done, translations.visits.visitCompleted);
             } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to end visit');
+              Alert.alert(translations.common.error, error.message);
             }
           },
         },
@@ -111,23 +118,23 @@ export default function VisitDetailScreen() {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'completed': return 'Completed';
-      case 'in_progress': return 'In Progress';
-      case 'cancelled': return 'Cancelled';
-      case 'not_realized': return 'Not Realized';
-      case 'scheduled': return 'Scheduled';
+      case 'completed': return translations.visits.completed;
+      case 'in_progress': return translations.visits.inProgress;
+      case 'cancelled': return translations.visits.cancelled;
+      case 'not_realized': return translations.visits.notRealized;
+      case 'scheduled': return translations.visits.scheduled;
       default: return status;
     }
   };
 
   const formatTime = (dateString: string | undefined) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (!dateString) return translations.common.notAvailable;
+    return new Date(dateString).toLocaleTimeString(getLocale(), { hour: '2-digit', minute: '2-digit' });
   };
 
   const formatDate = (dateString: string | undefined) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('sk-SK', {
+    if (!dateString) return translations.common.notAvailable;
+    return new Date(dateString).toLocaleDateString(getLocale(), {
       weekday: 'long',
       day: 'numeric',
       month: 'long',
@@ -137,30 +144,55 @@ export default function VisitDetailScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
+        <LinearGradient
+          colors={[Colors.primary, Colors.primaryDark]}
+          style={styles.headerGradient}
+        >
+          <SafeAreaView edges={['top']}>
+            <View style={styles.header}>
+              <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
+                <Ionicons name="chevron-back" size={24} color={Colors.white} />
+              </TouchableOpacity>
+              <Text style={styles.headerTitle}>{translations.visits.visitDetails}</Text>
+              <View style={styles.headerButton} />
+            </View>
+          </SafeAreaView>
+        </LinearGradient>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.primary} />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (!visit) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={24} color={Colors.text} />
+      <View style={styles.container}>
+        <LinearGradient
+          colors={[Colors.primary, Colors.primaryDark]}
+          style={styles.headerGradient}
+        >
+          <SafeAreaView edges={['top']}>
+            <View style={styles.header}>
+              <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
+                <Ionicons name="chevron-back" size={24} color={Colors.white} />
+              </TouchableOpacity>
+              <Text style={styles.headerTitle}>{translations.visits.visitDetails}</Text>
+              <View style={styles.headerButton} />
+            </View>
+          </SafeAreaView>
+        </LinearGradient>
+        <View style={styles.errorContainer}>
+          <View style={styles.errorIconContainer}>
+            <Ionicons name="alert-circle-outline" size={64} color={Colors.primaryLight} />
+          </View>
+          <Text style={styles.errorTitle}>{translations.visits.visitNotFound}</Text>
+          <TouchableOpacity style={styles.errorButton} onPress={() => router.back()}>
+            <Text style={styles.errorButtonText}>{translations.visits.goBack}</Text>
           </TouchableOpacity>
-          <Text style={styles.title}>Visit Details</Text>
-          <View style={styles.menuButton} />
         </View>
-        <View style={styles.loadingContainer}>
-          <Ionicons name="alert-circle-outline" size={64} color={Colors.textSecondary} />
-          <Text style={styles.errorText}>Visit not found</Text>
-          <Button title="Go Back" onPress={() => router.back()} style={styles.errorButton} />
-        </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -173,168 +205,238 @@ export default function VisitDetailScreen() {
   const isInactive = isCancelled || isNotRealized;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color={Colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.title}>Visit Details</Text>
-        <TouchableOpacity style={styles.menuButton}>
-          <Ionicons name="ellipsis-vertical" size={24} color={Colors.text} />
-        </TouchableOpacity>
-      </View>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[Colors.primary, Colors.primaryDark]}
+        style={styles.headerGradient}
+      >
+        <SafeAreaView edges={['top']}>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
+              <Ionicons name="chevron-back" size={24} color={Colors.white} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>{translations.visits.visitDetails}</Text>
+            <TouchableOpacity style={styles.headerButton}>
+              <Ionicons name="ellipsis-vertical" size={24} color={Colors.white} />
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
 
-      <ScrollView style={styles.content}>
-        <Card style={styles.mainCard}>
-          <View style={styles.statusBadge}>
+      <ScrollView 
+        style={styles.content}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.statusCard}>
+          <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(status)}20` }]}>
             <View style={[styles.statusDot, { backgroundColor: getStatusColor(status) }]} />
             <Text style={[styles.statusText, { color: getStatusColor(status) }]}>
               {getStatusLabel(status)}
             </Text>
           </View>
+        </View>
 
+        <View style={styles.mainCard}>
           <View style={styles.hospitalHeader}>
-            <View style={styles.hospitalIcon}>
-              <Ionicons name="business" size={32} color={Colors.primary} />
+            <View style={styles.hospitalIconContainer}>
+              <Ionicons name="business" size={28} color={Colors.primary} />
             </View>
             <View style={styles.hospitalInfo}>
               <Text style={styles.hospitalName}>
-                {visit.hospital_name || visit.hospitalName || 'Unknown Hospital'}
+                {visit.hospital_name || visit.hospitalName || translations.visits.unknownHospital}
               </Text>
-              <Text style={styles.hospitalAddress}>
-                {visit.subject || visit.visit_type || visit.visitType || 'Visit'}
+              <Text style={styles.visitTypeText}>
+                {visit.subject || visit.visit_type || visit.visitType || translations.navigation.visits}
               </Text>
             </View>
           </View>
 
-          <View style={styles.detailsGrid}>
+          <View style={styles.divider} />
+
+          <View style={styles.detailsRow}>
             <View style={styles.detailItem}>
-              <Ionicons name="calendar" size={20} color={Colors.textSecondary} />
-              <Text style={styles.detailLabel}>Date</Text>
-              <Text style={styles.detailValue}>
-                {formatDate(visit.scheduled_start || visit.scheduledStart || visit.startTime)}
-              </Text>
+              <View style={styles.detailIconContainer}>
+                <Ionicons name="calendar" size={18} color={Colors.primary} />
+              </View>
+              <View>
+                <Text style={styles.detailLabel}>{translations.visits.date}</Text>
+                <Text style={styles.detailValue}>
+                  {formatDate(visit.scheduled_start || visit.scheduledStart || visit.startTime)}
+                </Text>
+              </View>
             </View>
+          </View>
+
+          <View style={styles.detailsRow}>
             <View style={styles.detailItem}>
-              <Ionicons name="time" size={20} color={Colors.textSecondary} />
-              <Text style={styles.detailLabel}>{translations.visits.scheduledTime}</Text>
-              <Text style={styles.detailValue}>
-                {formatTime(visit.scheduled_start || visit.scheduledStart || visit.startTime)}
-              </Text>
+              <View style={styles.detailIconContainer}>
+                <Ionicons name="time" size={18} color={Colors.primary} />
+              </View>
+              <View>
+                <Text style={styles.detailLabel}>{translations.visits.scheduledTime}</Text>
+                <Text style={styles.detailValue}>
+                  {formatTime(visit.scheduled_start || visit.scheduledStart || visit.startTime)}
+                </Text>
+              </View>
             </View>
           </View>
 
           {(visit.actual_start || visit.actualStart) && (
-            <View style={styles.actualTimes}>
-              <View style={styles.actualTimeItem}>
-                <Ionicons name="play-circle" size={18} color={Colors.success} />
-                <Text style={styles.actualTimeLabel}>Started:</Text>
-                <Text style={styles.actualTimeValue}>
-                  {formatTime(visit.actual_start || visit.actualStart)}
-                </Text>
-              </View>
-              {(visit.actual_end || visit.actualEnd) && (
+            <>
+              <View style={styles.divider} />
+              <View style={styles.actualTimesContainer}>
                 <View style={styles.actualTimeItem}>
-                  <Ionicons name="stop-circle" size={18} color={Colors.error} />
-                  <Text style={styles.actualTimeLabel}>Ended:</Text>
+                  <Ionicons name="play-circle" size={20} color={Colors.success} />
+                  <Text style={styles.actualTimeLabel}>{translations.visits.startLocation}:</Text>
                   <Text style={styles.actualTimeValue}>
-                    {formatTime(visit.actual_end || visit.actualEnd)}
+                    {formatTime(visit.actual_start || visit.actualStart)}
                   </Text>
                 </View>
-              )}
-            </View>
+                {(visit.actual_end || visit.actualEnd) && (
+                  <View style={styles.actualTimeItem}>
+                    <Ionicons name="stop-circle" size={20} color={Colors.error} />
+                    <Text style={styles.actualTimeLabel}>{translations.visits.endLocation}:</Text>
+                    <Text style={styles.actualTimeValue}>
+                      {formatTime(visit.actual_end || visit.actualEnd)}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </>
           )}
-        </Card>
+        </View>
 
         {(visit.notes || visit.remark) && (
-          <Card style={styles.notesCard}>
-            <Text style={styles.notesTitle}>{translations.visits.notes}</Text>
+          <View style={styles.notesCard}>
+            <View style={styles.cardHeader}>
+              <Ionicons name="document-text" size={20} color={Colors.primary} />
+              <Text style={styles.cardTitle}>{translations.visits.notes}</Text>
+            </View>
             <Text style={styles.notesText}>{visit.notes || visit.remark}</Text>
-          </Card>
+          </View>
         )}
 
-        <Card style={styles.voiceNotesCard}>
-          <View style={styles.voiceNotesHeader}>
-            <Text style={styles.voiceNotesTitle}>{translations.visits.voiceNote}</Text>
+        <View style={styles.voiceNotesCard}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="mic" size={20} color={Colors.primary} />
+            <Text style={styles.cardTitle}>{translations.visits.voiceNote}</Text>
             {isInProgress && (
               <TouchableOpacity style={styles.addVoiceButton} testID="button-add-voice-note">
-                <Ionicons name="mic" size={20} color={Colors.white} />
+                <Ionicons name="add" size={20} color={Colors.white} />
               </TouchableOpacity>
             )}
           </View>
           <View style={styles.emptyVoiceNotes}>
             <Ionicons name="mic-off" size={32} color={Colors.textSecondary} />
-            <Text style={styles.emptyVoiceText}>No voice notes yet</Text>
+            <Text style={styles.emptyText}>{translations.visits.noVoiceNotes}</Text>
           </View>
-        </Card>
+        </View>
 
-        <Card style={styles.gpsCard}>
-          <View style={styles.gpsHeader}>
+        <View style={styles.gpsCard}>
+          <View style={styles.cardHeader}>
             <Ionicons name="location" size={20} color={Colors.primary} />
-            <Text style={styles.gpsTitle}>GPS Tracking</Text>
+            <Text style={styles.cardTitle}>{translations.visits.gpsTracking}</Text>
           </View>
           {isInProgress ? (
             <View style={styles.gpsActive}>
               <View style={styles.gpsPulse} />
-              <Text style={styles.gpsActiveText}>GPS tracking active</Text>
+              <Text style={styles.gpsActiveText}>{translations.visits.gpsActive}</Text>
             </View>
           ) : isCompleted ? (
-            <View>
+            <View style={styles.gpsCompleted}>
               {(visit.start_latitude || visit.startLatitude) && (
-                <Text style={styles.gpsText}>
-                  Start: {visit.start_latitude || visit.startLatitude}, {visit.start_longitude || visit.startLongitude}
-                </Text>
+                <View style={styles.gpsRow}>
+                  <Ionicons name="navigate" size={16} color={Colors.success} />
+                  <Text style={styles.gpsText}>
+                    {translations.visits.startLocation}: {(visit.start_latitude || visit.startLatitude)?.toFixed(4)}, {(visit.start_longitude || visit.startLongitude)?.toFixed(4)}
+                  </Text>
+                </View>
               )}
               {(visit.end_latitude || visit.endLatitude) && (
-                <Text style={styles.gpsText}>
-                  End: {visit.end_latitude || visit.endLatitude}, {visit.end_longitude || visit.endLongitude}
-                </Text>
+                <View style={styles.gpsRow}>
+                  <Ionicons name="flag" size={16} color={Colors.error} />
+                  <Text style={styles.gpsText}>
+                    {translations.visits.endLocation}: {(visit.end_latitude || visit.endLatitude)?.toFixed(4)}, {(visit.end_longitude || visit.endLongitude)?.toFixed(4)}
+                  </Text>
+                </View>
               )}
             </View>
           ) : (
-            <Text style={styles.gpsText}>GPS tracking will start when you begin the visit</Text>
+            <Text style={styles.gpsInactiveText}>{translations.visits.gpsWillStart}</Text>
           )}
-        </Card>
+        </View>
       </ScrollView>
 
       <View style={styles.footer}>
         {isScheduled && !isInactive && (
-          <Button
-            title={isGettingLocation ? 'Getting Location...' : translations.visits.startVisit}
+          <TouchableOpacity
+            style={styles.startButton}
             onPress={handleStartVisit}
-            loading={startVisitMutation.isPending || isGettingLocation}
+            disabled={startVisitMutation.isPending || isGettingLocation}
             testID="button-start-visit"
-          />
+          >
+            <LinearGradient
+              colors={[Colors.success, '#2E7D32']}
+              style={styles.actionButtonGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              {(startVisitMutation.isPending || isGettingLocation) ? (
+                <ActivityIndicator color={Colors.white} />
+              ) : (
+                <>
+                  <Ionicons name="play" size={20} color={Colors.white} />
+                  <Text style={styles.actionButtonText}>{translations.visits.startVisit}</Text>
+                </>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
         )}
         {isInProgress && !isInactive && (
-          <Button
-            title={isGettingLocation ? 'Getting Location...' : translations.visits.endVisit}
+          <TouchableOpacity
+            style={styles.endButton}
             onPress={handleEndVisit}
-            loading={endVisitMutation.isPending || isGettingLocation}
-            variant="destructive"
+            disabled={endVisitMutation.isPending || isGettingLocation}
             testID="button-end-visit"
-          />
+          >
+            <LinearGradient
+              colors={[Colors.error, '#C62828']}
+              style={styles.actionButtonGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              {(endVisitMutation.isPending || isGettingLocation) ? (
+                <ActivityIndicator color={Colors.white} />
+              ) : (
+                <>
+                  <Ionicons name="stop" size={20} color={Colors.white} />
+                  <Text style={styles.actionButtonText}>{translations.visits.endVisit}</Text>
+                </>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
         )}
         {isCompleted && (
           <View style={styles.completedBanner}>
             <Ionicons name="checkmark-circle" size={24} color={Colors.success} />
-            <Text style={styles.completedText}>Visit Completed</Text>
+            <Text style={styles.completedText}>{translations.visits.visitCompleted}</Text>
           </View>
         )}
         {isCancelled && (
           <View style={styles.cancelledBanner}>
             <Ionicons name="close-circle" size={24} color={Colors.error} />
-            <Text style={styles.cancelledText}>Visit Cancelled</Text>
+            <Text style={styles.cancelledText}>{translations.visits.visitCancelled}</Text>
           </View>
         )}
         {isNotRealized && (
           <View style={styles.cancelledBanner}>
             <Ionicons name="alert-circle" size={24} color={Colors.textSecondary} />
-            <Text style={styles.cancelledText}>Visit Not Realized</Text>
+            <Text style={styles.cancelledText}>{translations.visits.visitNotRealized}</Text>
           </View>
         )}
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -343,72 +445,111 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  errorText: {
-    fontSize: FontSizes.lg,
-    color: Colors.textSecondary,
-    marginTop: Spacing.md,
-  },
-  errorButton: {
-    marginTop: Spacing.lg,
+  headerGradient: {
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: Spacing.md,
-    backgroundColor: Colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
   },
-  backButton: {
-    padding: Spacing.xs,
+  headerButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  title: {
+  headerTitle: {
+    fontSize: FontSizes.lg,
+    fontWeight: '600',
+    color: Colors.white,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.xl,
+  },
+  errorIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(107, 28, 59, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: Spacing.lg,
+  },
+  errorTitle: {
     fontSize: FontSizes.lg,
     fontWeight: '600',
     color: Colors.text,
+    marginBottom: Spacing.lg,
   },
-  menuButton: {
-    padding: Spacing.xs,
-    width: 32,
+  errorButton: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.md,
+    borderRadius: 12,
+  },
+  errorButtonText: {
+    color: Colors.white,
+    fontSize: FontSizes.md,
+    fontWeight: '600',
   },
   content: {
     flex: 1,
-    padding: Spacing.md,
   },
-  mainCard: {
+  contentContainer: {
+    padding: Spacing.lg,
+    paddingBottom: Spacing.xxl,
+  },
+  statusCard: {
     marginBottom: Spacing.md,
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.md,
+    alignSelf: 'flex-start',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: 20,
+    gap: Spacing.sm,
   },
   statusDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    marginRight: Spacing.sm,
   },
   statusText: {
     fontSize: FontSizes.sm,
     fontWeight: '600',
   },
+  mainCard: {
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    padding: Spacing.lg,
+    marginBottom: Spacing.md,
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
   hospitalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.lg,
   },
-  hospitalIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: Colors.surface,
+  hospitalIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(107, 28, 59, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: Spacing.md,
@@ -418,88 +559,105 @@ const styles = StyleSheet.create({
   },
   hospitalName: {
     fontSize: FontSizes.lg,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.text,
   },
-  hospitalAddress: {
+  visitTypeText: {
     fontSize: FontSizes.sm,
     color: Colors.textSecondary,
-    marginTop: Spacing.xs,
+    marginTop: 2,
   },
-  detailsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+  divider: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginVertical: Spacing.md,
+  },
+  detailsRow: {
+    marginBottom: Spacing.sm,
   },
   detailItem: {
+    flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+  },
+  detailIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(107, 28, 59, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: Spacing.md,
   },
   detailLabel: {
     fontSize: FontSizes.xs,
     color: Colors.textSecondary,
-    marginTop: Spacing.xs,
   },
   detailValue: {
-    fontSize: FontSizes.sm,
+    fontSize: FontSizes.md,
     fontWeight: '600',
     color: Colors.text,
-    marginTop: Spacing.xs,
-    textAlign: 'center',
+    marginTop: 2,
   },
-  actualTimes: {
-    marginTop: Spacing.md,
-    paddingTop: Spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
+  actualTimesContainer: {
+    gap: Spacing.sm,
   },
   actualTimeItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.xs,
+    gap: Spacing.sm,
   },
   actualTimeLabel: {
     fontSize: FontSizes.sm,
     color: Colors.textSecondary,
-    marginLeft: Spacing.sm,
   },
   actualTimeValue: {
     fontSize: FontSizes.sm,
     fontWeight: '600',
     color: Colors.text,
-    marginLeft: Spacing.xs,
   },
   notesCard: {
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    padding: Spacing.lg,
     marginBottom: Spacing.md,
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  notesTitle: {
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+    gap: Spacing.sm,
+  },
+  cardTitle: {
+    flex: 1,
     fontSize: FontSizes.md,
     fontWeight: '600',
     color: Colors.text,
-    marginBottom: Spacing.sm,
   },
   notesText: {
     fontSize: FontSizes.sm,
     color: Colors.textSecondary,
-    lineHeight: 20,
+    lineHeight: 22,
   },
   voiceNotesCard: {
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    padding: Spacing.lg,
     marginBottom: Spacing.md,
-  },
-  voiceNotesHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.md,
-  },
-  voiceNotesTitle: {
-    fontSize: FontSizes.md,
-    fontWeight: '600',
-    color: Colors.text,
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
   },
   addVoiceButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
@@ -508,44 +666,53 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: Spacing.lg,
   },
-  emptyVoiceText: {
+  emptyText: {
     fontSize: FontSizes.sm,
     color: Colors.textSecondary,
     marginTop: Spacing.sm,
   },
   gpsCard: {
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    padding: Spacing.lg,
     marginBottom: Spacing.md,
-  },
-  gpsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: Spacing.sm,
-  },
-  gpsTitle: {
-    fontSize: FontSizes.md,
-    fontWeight: '600',
-    color: Colors.text,
-    marginLeft: Spacing.sm,
-  },
-  gpsText: {
-    fontSize: FontSizes.sm,
-    color: Colors.textSecondary,
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
   },
   gpsActive: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: Spacing.sm,
   },
   gpsPulse: {
     width: 12,
     height: 12,
     borderRadius: 6,
     backgroundColor: Colors.success,
-    marginRight: Spacing.sm,
   },
   gpsActiveText: {
     fontSize: FontSizes.sm,
     color: Colors.success,
     fontWeight: '600',
+  },
+  gpsCompleted: {
+    gap: Spacing.sm,
+  },
+  gpsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  gpsText: {
+    fontSize: FontSizes.sm,
+    color: Colors.textSecondary,
+  },
+  gpsInactiveText: {
+    fontSize: FontSizes.sm,
+    color: Colors.textSecondary,
   },
   footer: {
     padding: Spacing.md,
@@ -553,28 +720,48 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: Colors.border,
   },
+  startButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  endButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  actionButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.md,
+    gap: Spacing.sm,
+  },
+  actionButtonText: {
+    fontSize: FontSizes.md,
+    fontWeight: '600',
+    color: Colors.white,
+  },
   completedBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: Spacing.md,
+    paddingVertical: Spacing.md,
+    gap: Spacing.sm,
   },
   completedText: {
     fontSize: FontSizes.md,
     fontWeight: '600',
     color: Colors.success,
-    marginLeft: Spacing.sm,
   },
   cancelledBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: Spacing.md,
+    paddingVertical: Spacing.md,
+    gap: Spacing.sm,
   },
   cancelledText: {
     fontSize: FontSizes.md,
     fontWeight: '600',
     color: Colors.textSecondary,
-    marginLeft: Spacing.sm,
   },
 });

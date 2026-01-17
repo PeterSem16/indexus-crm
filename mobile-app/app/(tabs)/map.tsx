@@ -30,7 +30,7 @@ export default function MapScreen() {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
-          setLocationError('Location permission denied');
+          setLocationError(translations.map.locationPermissionDenied);
           return;
         }
 
@@ -44,10 +44,10 @@ export default function MapScreen() {
         });
       } catch (error) {
         console.log('Location error:', error);
-        setLocationError('Failed to get location');
+        setLocationError(translations.map.failedToGetLocation);
       }
     })();
-  }, []);
+  }, [translations.map.locationPermissionDenied, translations.map.failedToGetLocation]);
 
   const getVisitStatus = (hospitalId: string): string | null => {
     const visit = visits.find((v: any) => 
@@ -77,7 +77,7 @@ export default function MapScreen() {
     id: String(hospital.id),
     lat: parseFloat(hospital.latitude),
     lng: parseFloat(hospital.longitude),
-    name: hospital.name || 'Hospital',
+    name: hospital.name || translations.map.hospital,
     city: hospital.city || '',
     color: getMarkerColor(getVisitStatus(String(hospital.id))),
   })));
@@ -116,7 +116,7 @@ export default function MapScreen() {
     var map = L.map('map').setView([${centerLat}, ${centerLng}], 8);
     
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors',
+      attribution: '${translations.map.mapAttribution}',
       maxZoom: 19
     }).addTo(map);
 
@@ -130,7 +130,7 @@ export default function MapScreen() {
     });
     L.marker([${userLocation.latitude}, ${userLocation.longitude}], { icon: userIcon })
       .addTo(map)
-      .bindPopup('Your location');
+      .bindPopup('${translations.map.yourLocation}');
     ` : ''}
 
     // Hospital markers
@@ -168,7 +168,7 @@ export default function MapScreen() {
         {isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={Colors.primary} />
-            <Text style={styles.loadingText}>Loading map...</Text>
+            <Text style={styles.loadingText}>{translations.map.loadingMap}</Text>
           </View>
         ) : (
           <WebView
@@ -191,19 +191,19 @@ export default function MapScreen() {
       <View style={styles.legend}>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: Colors.success }]} />
-          <Text style={styles.legendText}>Completed</Text>
+          <Text style={styles.legendText}>{translations.map.completed}</Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: Colors.warning }]} />
-          <Text style={styles.legendText}>In Progress</Text>
+          <Text style={styles.legendText}>{translations.map.inProgress}</Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: Colors.info }]} />
-          <Text style={styles.legendText}>Scheduled</Text>
+          <Text style={styles.legendText}>{translations.map.scheduled}</Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: Colors.primary }]} />
-          <Text style={styles.legendText}>Hospital</Text>
+          <Text style={styles.legendText}>{translations.map.hospital}</Text>
         </View>
       </View>
 
@@ -211,10 +211,7 @@ export default function MapScreen() {
         <View style={styles.emptyOverlay}>
           <View style={styles.emptyCard}>
             <Ionicons name="location-outline" size={48} color={Colors.textSecondary} />
-            <Text style={styles.emptyText}>No hospitals with location data</Text>
-            <Text style={styles.emptySubtext}>
-              Hospitals will appear on the map when they have GPS coordinates
-            </Text>
+            <Text style={styles.emptyText}>{translations.map.noHospitalsWithLocation}</Text>
           </View>
         </View>
       )}

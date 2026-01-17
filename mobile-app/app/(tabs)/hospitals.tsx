@@ -111,13 +111,13 @@ export default function HospitalsScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>{translations.hospitals.title}</Text>
-        <Text style={styles.subtitle}>Nemocnice vo vašej krajine</Text>
+        <Text style={styles.subtitle}>{translations.hospitals.subtitle}</Text>
       </View>
 
       <View style={styles.searchContainer}>
         <Ionicons name="search" size={20} color={Colors.textSecondary} style={styles.searchIcon} />
         <Input
-          placeholder="Hľadať podľa názvu, mesta, adresy..."
+          placeholder={translations.hospitals.searchPlaceholder}
           value={searchQuery}
           onChangeText={setSearchQuery}
           containerStyle={styles.searchInput}
@@ -136,17 +136,17 @@ export default function HospitalsScreen() {
       {isLoading && !refreshing ? (
         <View style={styles.loadingState}>
           <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingText}>Načítavam nemocnice...</Text>
+          <Text style={styles.loadingText}>{translations.hospitals.loadingHospitals}</Text>
         </View>
       ) : error ? (
         <View style={styles.emptyState}>
           <Ionicons name="alert-circle-outline" size={48} color={Colors.error} />
-          <Text style={styles.emptyText}>Chyba pri načítavaní</Text>
+          <Text style={styles.emptyText}>{translations.hospitals.loadError}</Text>
           <Pressable 
             style={styles.retryButton}
             onPress={() => refetch()}
           >
-            <Text style={styles.retryText}>Skúsiť znova</Text>
+            <Text style={styles.retryText}>{translations.hospitals.retryText}</Text>
           </Pressable>
         </View>
       ) : (
@@ -167,21 +167,21 @@ export default function HospitalsScreen() {
             <View style={styles.emptyState}>
               <Ionicons name="business-outline" size={48} color={Colors.textSecondary} />
               <Text style={styles.emptyText}>
-                {searchQuery ? 'Žiadne výsledky' : translations.hospitals.noHospitals}
+                {searchQuery ? translations.hospitals.noResults : translations.hospitals.noHospitals}
               </Text>
               {searchQuery && (
                 <Pressable 
                   style={styles.clearSearchButton}
                   onPress={() => setSearchQuery('')}
                 >
-                  <Text style={styles.clearSearchText}>Vymazať filter</Text>
+                  <Text style={styles.clearSearchText}>{translations.hospitals.clearFilter}</Text>
                 </Pressable>
               )}
             </View>
           }
           ListHeaderComponent={
             <Text style={styles.countText}>
-              {filteredHospitals.length} {filteredHospitals.length === 1 ? 'nemocnica' : 'nemocníc'}
+              {filteredHospitals.length} {filteredHospitals.length === 1 ? translations.hospitals.hospitalCount : translations.hospitals.hospitalsCount}
             </Text>
           }
         />

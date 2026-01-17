@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { Button } from '@/components/ui/Button';
+import Constants from 'expo-constants';
 import { Input } from '@/components/ui/Input';
 import { useAuth } from '@/hooks/useAuth';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -10,17 +10,9 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { Colors, Spacing, FontSizes } from '@/constants/colors';
 import { SUPPORTED_LANGUAGES, SupportedLanguage } from '@/constants/config';
 
-const { width, height } = Dimensions.get('window');
+const APP_VERSION = Constants.expoConfig?.version || '1.1.0';
 
-const LANGUAGE_CODES: Record<SupportedLanguage, string> = {
-  sk: 'SK',
-  cs: 'CZ',
-  hu: 'HU',
-  de: 'DE',
-  it: 'IT',
-  ro: 'RO',
-  en: 'EN',
-};
+const { width, height } = Dimensions.get('window');
 
 export default function LoginScreen() {
   const [username, setUsername] = useState('');
@@ -69,8 +61,8 @@ export default function LoginScreen() {
               <View style={styles.logoPulse} />
             </View>
             
-            <Text style={styles.brandName}>INDEXUS</Text>
-            <Text style={styles.appName}>Connect</Text>
+            <Text style={styles.brandName}>{translations.common.brandName}</Text>
+            <Text style={styles.appName}>{translations.common.appName}</Text>
             <Text style={styles.tagline}>{translations.auth.appDescription}</Text>
             
             <View style={styles.featuresRow}>
@@ -180,14 +172,14 @@ export default function LoginScreen() {
                   <Text style={[
                     styles.languageCode,
                     language === lang && styles.languageCodeActive,
-                  ]}>{LANGUAGE_CODES[lang]}</Text>
+                  ]}>{translations.languageCodes[lang]}</Text>
                 </TouchableOpacity>
               ))}
             </View>
           </View>
 
           <View style={styles.footer}>
-            <Text style={styles.versionText}>v1.0.0</Text>
+            <Text style={styles.versionText}>{translations.common.versionPrefix}{APP_VERSION}</Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
