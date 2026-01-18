@@ -131,19 +131,36 @@ export default function VisitEventsPage() {
     ? eventsForCurrentView 
     : eventsForCurrentView.filter(e => e.collaboratorId === selectedCollaborator);
 
+  // Validate that coordinates are real (not 0,0 or NaN)
+  const isValidCoordinate = (lat: number, lng: number) => {
+    return !isNaN(lat) && !isNaN(lng) && !(lat === 0 && lng === 0) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+  };
+
   // Get effective GPS coordinates for an event (prefer end coordinates for completed, then start, then legacy)
   const getEventCoordinates = (e: VisitEvent) => {
     // For completed visits, prefer end coordinates
     if (e.endLatitude && e.endLongitude) {
-      return { lat: parseFloat(String(e.endLatitude)), lng: parseFloat(String(e.endLongitude)) };
+      const lat = parseFloat(String(e.endLatitude));
+      const lng = parseFloat(String(e.endLongitude));
+      if (isValidCoordinate(lat, lng)) {
+        return { lat, lng };
+      }
     }
     // For in-progress visits, use start coordinates
     if (e.startLatitude && e.startLongitude) {
-      return { lat: parseFloat(String(e.startLatitude)), lng: parseFloat(String(e.startLongitude)) };
+      const lat = parseFloat(String(e.startLatitude));
+      const lng = parseFloat(String(e.startLongitude));
+      if (isValidCoordinate(lat, lng)) {
+        return { lat, lng };
+      }
     }
     // Fallback to legacy latitude/longitude
     if (e.latitude && e.longitude) {
-      return { lat: parseFloat(String(e.latitude)), lng: parseFloat(String(e.longitude)) };
+      const lat = parseFloat(String(e.latitude));
+      const lng = parseFloat(String(e.longitude));
+      if (isValidCoordinate(lat, lng)) {
+        return { lat, lng };
+      }
     }
     return null;
   };
@@ -527,12 +544,17 @@ export default function VisitEventsPage() {
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
-                {eventsWithLocation.map(event => {
+                {eventsWithLocation.map((event, index) => {
                   const coords = getEventCoordinates(event)!;
+                  // Add small offset for overlapping markers (spiral pattern)
+                  const offsetAngle = (index * 137.5) * (Math.PI / 180);
+                  const offsetDistance = 0.0001 * Math.floor(index / 6);
+                  const offsetLat = coords.lat + Math.cos(offsetAngle) * offsetDistance;
+                  const offsetLng = coords.lng + Math.sin(offsetAngle) * offsetDistance;
                   return (
                   <Marker 
                     key={event.id} 
-                    position={[coords.lat, coords.lng]}
+                    position={[offsetLat, offsetLng]}
                   >
                     <Popup>
                       <div className="min-w-[200px]">
