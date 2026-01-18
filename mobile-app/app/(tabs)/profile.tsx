@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch, Modal } from 'react-native';
+import { useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,6 +20,7 @@ export default function ProfileScreen() {
   const notificationsEnabled = useSettingsStore((state) => state.notificationsEnabled);
   const setNotificationsEnabled = useSettingsStore((state) => state.setNotificationsEnabled);
   const { lastSyncAt, pendingCount, isOnline } = useSyncStore();
+  const [showLanguagePicker, setShowLanguagePicker] = useState(false);
 
   const handleLogout = () => {
     Alert.alert(
@@ -31,17 +33,9 @@ export default function ProfileScreen() {
     );
   };
 
-  const handleLanguageSelect = () => {
-    const options = SUPPORTED_LANGUAGES.map((lang) => ({
-      text: `${translations.languageCodes[lang]} - ${translations.languages[lang]}`,
-      onPress: () => setLanguage(lang),
-    }));
-    
-    Alert.alert(
-      translations.profile.selectLanguage,
-      '',
-      [...options, { text: translations.common.cancel, style: 'cancel' }]
-    );
+  const handleLanguageSelect = (lang: SupportedLanguage) => {
+    setLanguage(lang);
+    setShowLanguagePicker(false);
   };
 
   const formatLastSync = () => {
@@ -116,7 +110,7 @@ export default function ProfileScreen() {
         <View style={styles.settingsCard}>
           <TouchableOpacity 
             style={styles.settingsItem} 
-            onPress={handleLanguageSelect}
+            onPress={() => setShowLanguagePicker(true)}
             testID="button-change-language"
           >
             <View style={styles.settingsIconContainer}>
@@ -200,6 +194,65 @@ export default function ProfileScreen() {
 
         <View style={styles.footerSpace} />
       </ScrollView>
+
+      <Modal
+        visible={showLanguagePicker}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowLanguagePicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{translations.profile.selectLanguage}</Text>
+              <TouchableOpacity 
+                onPress={() => setShowLanguagePicker(false)}
+                style={styles.modalCloseButton}
+                testID="button-close-language-picker"
+              >
+                <Ionicons name="close" size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.languageListContainer} contentContainerStyle={styles.languageListContent}>
+              {SUPPORTED_LANGUAGES.map((lang) => (
+                <TouchableOpacity
+                  key={lang}
+                  style={[
+                    styles.languageItem,
+                    language === lang && styles.languageItemSelected
+                  ]}
+                  onPress={() => handleLanguageSelect(lang)}
+                  testID={`button-select-language-${lang}`}
+                >
+                  <View style={[
+                    styles.languageIconContainer,
+                    language === lang && styles.languageIconContainerSelected
+                  ]}>
+                    <Text style={[
+                      styles.languageCode,
+                      language === lang && styles.languageCodeSelected
+                    ]}>
+                      {translations.languageCodes[lang]}
+                    </Text>
+                  </View>
+                  <View style={styles.languageItemText}>
+                    <Text style={[
+                      styles.languageName,
+                      language === lang && styles.languageNameSelected
+                    ]}>
+                      {translations.languages[lang]}
+                    </Text>
+                  </View>
+                  {language === lang && (
+                    <Ionicons name="checkmark-circle" size={24} color={Colors.primary} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -428,5 +481,90 @@ const styles = StyleSheet.create({
   },
   footerSpace: {
     height: Spacing.xxl,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '70%',
+    minHeight: 400,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  modalTitle: {
+    fontSize: FontSizes.lg,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  modalCloseButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  languageListContainer: {
+    flex: 1,
+    minHeight: 300,
+  },
+  languageListContent: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    paddingBottom: Spacing.xxl,
+  },
+  languageItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+  },
+  languageItemSelected: {
+    backgroundColor: 'rgba(107, 28, 59, 0.1)',
+    borderWidth: 1,
+    borderColor: Colors.primary,
+  },
+  languageIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(107, 28, 59, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: Spacing.md,
+  },
+  languageIconContainerSelected: {
+    backgroundColor: Colors.primary,
+  },
+  languageCode: {
+    fontSize: FontSizes.md,
+    fontWeight: '700',
+    color: Colors.primary,
+  },
+  languageCodeSelected: {
+    color: Colors.white,
+  },
+  languageItemText: {
+    flex: 1,
+  },
+  languageName: {
+    fontSize: FontSizes.md,
+    fontWeight: '500',
+    color: Colors.text,
+  },
+  languageNameSelected: {
+    fontWeight: '600',
+    color: Colors.primary,
   },
 });

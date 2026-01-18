@@ -838,6 +838,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '80%',
+    minHeight: 400,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -876,7 +877,8 @@ const styles = StyleSheet.create({
   },
   hospitalListContainer: {
     flex: 1,
-    minHeight: 200,
+    minHeight: 300,
+    maxHeight: 500,
   },
   hospitalListContent: {
     paddingHorizontal: Spacing.lg,
