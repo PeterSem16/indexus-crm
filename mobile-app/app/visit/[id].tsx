@@ -15,7 +15,7 @@ export default function VisitDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { translations, language } = useTranslation();
-  const { data: visit, isLoading, refetch } = useVisit(id || '');
+  const { data: visit, isLoading } = useVisit(id || '');
   const startVisitMutation = useStartVisit();
   const endVisitMutation = useEndVisit();
   const cancelVisitMutation = useCancelVisit();
@@ -70,7 +70,6 @@ export default function VisitDetailScreen() {
         latitude: location.latitude,
         longitude: location.longitude,
       });
-      refetch();
       Alert.alert(translations.common.done, translations.visits.inProgress);
     } catch (error: any) {
       Alert.alert(translations.common.error, error.message);
@@ -101,7 +100,6 @@ export default function VisitDetailScreen() {
                 latitude: location.latitude,
                 longitude: location.longitude,
               });
-              refetch();
               Alert.alert(translations.common.done, translations.visits.visitCompleted);
             } catch (error: any) {
               Alert.alert(translations.common.error, error.message);
@@ -130,7 +128,6 @@ export default function VisitDetailScreen() {
       }
       setShowCancelModal(false);
       setCancelReason('');
-      refetch();
     } catch (error: any) {
       Alert.alert(translations.common.error, error.message);
     }

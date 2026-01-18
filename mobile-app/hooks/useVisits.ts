@@ -71,6 +71,36 @@ function mapServerVisitToLocal(visit: any): Parameters<typeof db.saveVisitEvent>
   };
 }
 
+function mergeVisitPreservingLocal(serverVisit: any, localVisit: any): Parameters<typeof db.saveVisitEvent>[0] {
+  const mapped = mapServerVisitToLocal(serverVisit);
+  if (!localVisit) return mapped;
+  
+  if (isLocalStatusMoreAdvanced(localVisit.status, mapped.status || 'scheduled')) {
+    return {
+      ...mapped,
+      status: localVisit.status,
+      actualStart: localVisit.actualStart || mapped.actualStart,
+      actualEnd: localVisit.actualEnd || mapped.actualEnd,
+      startLatitude: localVisit.startLatitude || mapped.startLatitude,
+      startLongitude: localVisit.startLongitude || mapped.startLongitude,
+      endLatitude: localVisit.endLatitude || mapped.endLatitude,
+      endLongitude: localVisit.endLongitude || mapped.endLongitude,
+      isCancelled: localVisit.isCancelled || mapped.isCancelled,
+      isNotRealized: localVisit.isNotRealized || mapped.isNotRealized,
+    };
+  }
+  
+  return {
+    ...mapped,
+    actualStart: mapped.actualStart || localVisit.actualStart,
+    actualEnd: mapped.actualEnd || localVisit.actualEnd,
+    startLatitude: mapped.startLatitude || localVisit.startLatitude,
+    startLongitude: mapped.startLongitude || localVisit.startLongitude,
+    endLatitude: mapped.endLatitude || localVisit.endLatitude,
+    endLongitude: mapped.endLongitude || localVisit.endLongitude,
+  };
+}
+
 interface CreateVisitInput {
   hospitalId?: string;
   hospitalName?: string;
@@ -90,12 +120,20 @@ export function useVisits(date?: string) {
   return useQuery({
     queryKey: ['visits', date],
     queryFn: async () => {
+      const allLocalVisits = await db.getVisitEvents();
+      const localVisitMap = new Map<string, any>();
+      for (const v of allLocalVisits) {
+        localVisitMap.set(String(v.id), v);
+      }
+      
       if (isOnline) {
         try {
           const visits = await api.get<VisitEvent[]>('/api/mobile/visit-events');
           if (visits && Array.isArray(visits)) {
             for (const visit of visits) {
-              await db.saveVisitEvent(mapServerVisitToLocal(visit));
+              const localVisit = localVisitMap.get(String(visit.id));
+              const merged = mergeVisitPreservingLocal(visit, localVisit);
+              await db.saveVisitEvent(merged);
             }
           }
           return await db.getVisitEvents(date);
@@ -123,11 +161,8 @@ export function useVisit(id: string) {
         try {
           const serverVisit = await api.get<VisitEvent>(`/api/mobile/visit-events/${id}`);
           if (serverVisit) {
-            const mapped = mapServerVisitToLocal(serverVisit);
-            if (localVisit && isLocalStatusMoreAdvanced(localVisit.status, mapped.status || 'scheduled')) {
-              return localVisit;
-            }
-            await db.saveVisitEvent(mapped);
+            const merged = mergeVisitPreservingLocal(serverVisit, localVisit);
+            await db.saveVisitEvent(merged);
             return await db.getVisitEvents().then(visits => 
               visits.find((v: any) => String(v.id) === String(id))
             );
@@ -290,18 +325,41 @@ export function useCancelVisit() {
   
   return useMutation({
     mutationFn: async (id: string) => {
+      await db.cancelVisit(id);
       if (isOnline) {
         try {
-          return await api.put<VisitEvent>(`/api/mobile/visit-events/${id}`, { status: 'cancelled', isCancelled: true });
+          await api.put<VisitEvent>(`/api/mobile/visit-events/${id}`, { status: 'cancelled', isCancelled: true });
         } catch {
-          await db.cancelVisit(id);
-          return { id };
         }
       }
-      await db.cancelVisit(id);
-      return { id };
+      return { id, status: 'cancelled' };
     },
-    onSuccess: (_, id) => {
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ['visit', id] });
+      await queryClient.cancelQueries({ queryKey: ['visits'] });
+      
+      const previousVisit = queryClient.getQueryData(['visit', id]);
+      const previousVisits = queryClient.getQueryData(['visits']);
+      
+      queryClient.setQueryData(['visit', id], (old: any) => 
+        old ? { ...old, status: 'cancelled', isCancelled: true } : old
+      );
+      
+      queryClient.setQueryData(['visits'], (old: any[]) => 
+        old?.map(v => String(v.id) === id ? { ...v, status: 'cancelled', isCancelled: true } : v)
+      );
+      
+      return { previousVisit, previousVisits };
+    },
+    onError: (err, id, context) => {
+      if (context?.previousVisit) {
+        queryClient.setQueryData(['visit', id], context.previousVisit);
+      }
+      if (context?.previousVisits) {
+        queryClient.setQueryData(['visits'], context.previousVisits);
+      }
+    },
+    onSettled: (_, __, id) => {
       queryClient.invalidateQueries({ queryKey: ['visits'] });
       queryClient.invalidateQueries({ queryKey: ['visit', id] });
     },
@@ -314,18 +372,41 @@ export function useMarkVisitNotRealized() {
   
   return useMutation({
     mutationFn: async (id: string) => {
+      await db.markVisitNotRealized(id);
       if (isOnline) {
         try {
-          return await api.put<VisitEvent>(`/api/mobile/visit-events/${id}`, { status: 'not_realized', isNotRealized: true });
+          await api.put<VisitEvent>(`/api/mobile/visit-events/${id}`, { status: 'not_realized', isNotRealized: true });
         } catch {
-          await db.markVisitNotRealized(id);
-          return { id };
         }
       }
-      await db.markVisitNotRealized(id);
-      return { id };
+      return { id, status: 'not_realized' };
     },
-    onSuccess: (_, id) => {
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ['visit', id] });
+      await queryClient.cancelQueries({ queryKey: ['visits'] });
+      
+      const previousVisit = queryClient.getQueryData(['visit', id]);
+      const previousVisits = queryClient.getQueryData(['visits']);
+      
+      queryClient.setQueryData(['visit', id], (old: any) => 
+        old ? { ...old, status: 'not_realized', isNotRealized: true } : old
+      );
+      
+      queryClient.setQueryData(['visits'], (old: any[]) => 
+        old?.map(v => String(v.id) === id ? { ...v, status: 'not_realized', isNotRealized: true } : v)
+      );
+      
+      return { previousVisit, previousVisits };
+    },
+    onError: (err, id, context) => {
+      if (context?.previousVisit) {
+        queryClient.setQueryData(['visit', id], context.previousVisit);
+      }
+      if (context?.previousVisits) {
+        queryClient.setQueryData(['visits'], context.previousVisits);
+      }
+    },
+    onSettled: (_, __, id) => {
       queryClient.invalidateQueries({ queryKey: ['visits'] });
       queryClient.invalidateQueries({ queryKey: ['visit', id] });
     },
