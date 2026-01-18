@@ -22,7 +22,7 @@ export default function VisitsScreen() {
   const [viewMode, setViewMode] = useState<ViewMode>('calendar');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const { translations } = useTranslation();
+  const { translations, language } = useTranslation();
   const { data: visits = [], isLoading, refetch } = useVisits();
 
   const handleMonthChange = (direction: 'prev' | 'next') => {

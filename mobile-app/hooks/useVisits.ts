@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import * as db from '@/lib/db';
-import { createVisitOffline, updateVisitOffline, syncAll } from '@/lib/sync';
+import { createVisitOffline, updateVisitOffline, syncAll, syncPendingChanges } from '@/lib/sync';
 import { useSyncStore } from '@/stores/syncStore';
 
 interface VisitEvent {
@@ -197,16 +197,40 @@ export function useStartVisit() {
   return useMutation({
     mutationFn: async ({ id, latitude, longitude }: { id: string; latitude: number; longitude: number }) => {
       await db.startVisit(id, latitude, longitude);
-      return { id };
+      return { id, status: 'in_progress', actualStart: new Date().toISOString(), startLatitude: latitude, startLongitude: longitude };
     },
-    onSuccess: async (_, variables) => {
+    onMutate: async (variables) => {
+      await queryClient.cancelQueries({ queryKey: ['visit', variables.id] });
+      await queryClient.cancelQueries({ queryKey: ['visits'] });
+      
+      const previousVisit = queryClient.getQueryData(['visit', variables.id]);
+      const previousVisits = queryClient.getQueryData(['visits']);
+      
+      queryClient.setQueryData(['visit', variables.id], (old: any) => 
+        old ? { ...old, status: 'in_progress', actualStart: new Date().toISOString() } : old
+      );
+      
+      queryClient.setQueryData(['visits'], (old: any[]) => 
+        old?.map(v => String(v.id) === variables.id ? { ...v, status: 'in_progress' } : v)
+      );
+      
+      return { previousVisit, previousVisits };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousVisit) {
+        queryClient.setQueryData(['visit', variables.id], context.previousVisit);
+      }
+      if (context?.previousVisits) {
+        queryClient.setQueryData(['visits'], context.previousVisits);
+      }
+    },
+    onSettled: async (_, __, variables) => {
       queryClient.invalidateQueries({ queryKey: ['visits'] });
       queryClient.invalidateQueries({ queryKey: ['visit', variables.id] });
       if (isOnline) {
         try {
-          await syncAll();
+          await syncPendingChanges();
         } catch (e) {
-          // Sync will retry later
         }
       }
     },
@@ -220,16 +244,40 @@ export function useEndVisit() {
   return useMutation({
     mutationFn: async ({ id, latitude, longitude }: { id: string; latitude: number; longitude: number }) => {
       await db.endVisit(id, latitude, longitude);
-      return { id };
+      return { id, status: 'completed', actualEnd: new Date().toISOString(), endLatitude: latitude, endLongitude: longitude };
     },
-    onSuccess: async (_, variables) => {
+    onMutate: async (variables) => {
+      await queryClient.cancelQueries({ queryKey: ['visit', variables.id] });
+      await queryClient.cancelQueries({ queryKey: ['visits'] });
+      
+      const previousVisit = queryClient.getQueryData(['visit', variables.id]);
+      const previousVisits = queryClient.getQueryData(['visits']);
+      
+      queryClient.setQueryData(['visit', variables.id], (old: any) => 
+        old ? { ...old, status: 'completed', actualEnd: new Date().toISOString() } : old
+      );
+      
+      queryClient.setQueryData(['visits'], (old: any[]) => 
+        old?.map(v => String(v.id) === variables.id ? { ...v, status: 'completed' } : v)
+      );
+      
+      return { previousVisit, previousVisits };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousVisit) {
+        queryClient.setQueryData(['visit', variables.id], context.previousVisit);
+      }
+      if (context?.previousVisits) {
+        queryClient.setQueryData(['visits'], context.previousVisits);
+      }
+    },
+    onSettled: async (_, __, variables) => {
       queryClient.invalidateQueries({ queryKey: ['visits'] });
       queryClient.invalidateQueries({ queryKey: ['visit', variables.id] });
       if (isOnline) {
         try {
-          await syncAll();
+          await syncPendingChanges();
         } catch (e) {
-          // Sync will retry later
         }
       }
     },

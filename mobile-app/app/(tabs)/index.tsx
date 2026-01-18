@@ -10,6 +10,8 @@ import { useVisits } from '@/hooks/useVisits';
 import { useSyncStore } from '@/stores/syncStore';
 import { syncAll } from '@/lib/sync';
 import { Colors, Spacing, FontSizes } from '@/constants/colors';
+import { getVisitTypeName } from '@/lib/visitTypes';
+import { SupportedLanguage } from '@/constants/config';
 import Constants from 'expo-constants';
 
 const APP_VERSION = Constants.expoConfig?.version || '1.1.0';
@@ -17,7 +19,7 @@ const APP_VERSION = Constants.expoConfig?.version || '1.1.0';
 export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const { user } = useAuth();
-  const { translations, language } = useTranslation();
+  const { translations, language: currentLanguage } = useTranslation();
   const { pendingCount, isOnline, isSyncing } = useSyncStore();
   const { data: visits, isLoading: visitsLoading, refetch: refetchVisits } = useVisits();
 
@@ -161,7 +163,7 @@ export default function DashboardScreen() {
                     {visit.hospitalName || visit.hospital_name || translations.visits.unknownHospital}
                   </Text>
                   <Text style={styles.visitType} numberOfLines={1}>
-                    {visit.visitType || visit.visit_type || visit.subject}
+                    {getVisitTypeName(visit.visitType || visit.visit_type, currentLanguage as SupportedLanguage) || visit.subject || translations.navigation.visits}
                   </Text>
                 </View>
                 <View style={styles.visitArrow}>

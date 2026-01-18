@@ -38,7 +38,7 @@ export async function syncAll(): Promise<void> {
   }
 }
 
-async function syncPendingChanges(): Promise<void> {
+export async function syncPendingChanges(): Promise<void> {
   const queue = await db.getSyncQueue();
   
   for (const item of queue) {

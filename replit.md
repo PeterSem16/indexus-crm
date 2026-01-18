@@ -175,8 +175,10 @@ Files are served via:
 ### Overview
 INDEXUS Connect is a React Native (Expo) mobile application for field representatives (collaborators) to manage hospital visits, track GPS location, and manage visit events.
 
-### Current Version: 1.1.10
-- **Visit Lifecycle Fix**: Start/end visit properly transitions status (scheduled -> in_progress -> completed)
+### Current Version: 1.1.11
+- **Home Page Visit Type Fix**: Visit types on home page now show localized names instead of numeric codes
+- **Visits Page Crash Fix**: Fixed crash when opening visits tab (missing language variable)
+- **Visit Lifecycle Improvement**: Only push changes to server after start/end visit, don't pull stale data back
 - **GPS Sync Fix**: Visit start/end GPS coordinates now sync to server immediately and show on CRM map
 - **Visit Type Display Fix**: Visit types now show localized names instead of numeric codes
 - **Place Name Translation**: Place options show localized names in all supported languages
