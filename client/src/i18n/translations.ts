@@ -81,6 +81,7 @@ export interface Translations {
     last7days: string;
     last30days: string;
     allTime: string;
+    more: string;
   };
   advancedFilters: {
     title: string;
@@ -106,6 +107,43 @@ export interface Translations {
     changedField: string;
     from: string;
     to: string;
+  };
+  visitEvents?: {
+    visitsTab: string;
+    calendar: string;
+    list: string;
+    map: string;
+    title: string;
+    scheduledVisits: string;
+    noVisitsScheduled: string;
+    visitDetails: string;
+    hospital: string;
+    collaborator: string;
+    visitType: string;
+    place: string;
+    remarkDetail: string;
+    scheduledTime: string;
+    status: string;
+    notes: string;
+    filterByCollaborator: string;
+    allCollaborators: string;
+    searchPlaceholder: string;
+    listTitle: string;
+    noEvents: string;
+    cancelled: string;
+    mapTitle: string;
+    noLocations: string;
+    mapPlaceholder: string;
+    eventsWithLocation: string;
+    description: string;
+    eventsCount: string;
+    eventDetail: string;
+    subject: string;
+    time: string;
+    location: string;
+    remark: string;
+    notRealized: string;
+    fromMobile: string;
   };
   quickCreate: {
     title: string;
@@ -1542,6 +1580,7 @@ export const translations: Record<Locale, Translations> = {
       last7days: 'Last 7 days',
       last30days: 'Last 30 days',
       allTime: 'All time',
+      more: 'more',
     },
     advancedFilters: {
       title: 'Advanced Filters',
@@ -1567,6 +1606,43 @@ export const translations: Record<Locale, Translations> = {
       changedField: 'Changed field',
       from: 'from',
       to: 'to',
+    },
+    visitEvents: {
+      visitsTab: 'Visits',
+      calendar: 'Calendar',
+      list: 'List',
+      map: 'Map',
+      title: 'Visit Events',
+      scheduledVisits: 'Scheduled Visits',
+      noVisitsScheduled: 'No visits scheduled',
+      visitDetails: 'Visit Details',
+      hospital: 'Hospital',
+      collaborator: 'Collaborator',
+      visitType: 'Visit Type',
+      place: 'Place',
+      remarkDetail: 'Remark Detail',
+      scheduledTime: 'Scheduled Time',
+      status: 'Status',
+      notes: 'Notes',
+      filterByCollaborator: 'Filter by Collaborator',
+      allCollaborators: 'All Collaborators',
+      searchPlaceholder: 'Search visits...',
+      listTitle: 'Visit List',
+      noEvents: 'No events',
+      cancelled: 'Cancelled',
+      mapTitle: 'Visit Map',
+      noLocations: 'No locations',
+      mapPlaceholder: 'Map view placeholder',
+      eventsWithLocation: 'Events with location',
+      description: 'Description',
+      eventsCount: 'events',
+      eventDetail: 'Event Detail',
+      subject: 'Subject',
+      time: 'Time',
+      location: 'Location',
+      remark: 'Remark',
+      notRealized: 'Not Realized',
+      fromMobile: 'From mobile app',
     },
     quickCreate: {
       title: 'Quick Create',
@@ -3115,6 +3191,7 @@ export const translations: Record<Locale, Translations> = {
       last7days: 'Posledných 7 dní',
       last30days: 'Posledných 30 dní',
       allTime: 'Celé obdobie',
+      more: 'viac',
     },
     advancedFilters: {
       title: 'Pokročilé filtre',
@@ -3140,6 +3217,43 @@ export const translations: Record<Locale, Translations> = {
       changedField: 'Zmenené pole',
       from: 'z',
       to: 'na',
+    },
+    visitEvents: {
+      visitsTab: 'Návštevy',
+      calendar: 'Kalendár',
+      list: 'Zoznam',
+      map: 'Mapa',
+      title: 'Návštevy',
+      scheduledVisits: 'Plánované návštevy',
+      noVisitsScheduled: 'Žiadne naplánované návštevy',
+      visitDetails: 'Detail návštevy',
+      hospital: 'Nemocnica',
+      collaborator: 'Spolupracovník',
+      visitType: 'Typ návštevy',
+      place: 'Miesto',
+      remarkDetail: 'Detail poznámky',
+      scheduledTime: 'Plánovaný čas',
+      status: 'Stav',
+      notes: 'Poznámky',
+      filterByCollaborator: 'Filtrovať podľa spolupracovníka',
+      allCollaborators: 'Všetci spolupracovníci',
+      searchPlaceholder: 'Hľadať návštevy...',
+      listTitle: 'Zoznam návštev',
+      noEvents: 'Žiadne udalosti',
+      cancelled: 'Zrušené',
+      mapTitle: 'Mapa návštev',
+      noLocations: 'Žiadne lokality',
+      mapPlaceholder: 'Náhľad mapy',
+      eventsWithLocation: 'Udalosti s polohou',
+      description: 'Popis',
+      eventsCount: 'udalostí',
+      eventDetail: 'Detail udalosti',
+      subject: 'Predmet',
+      time: 'Čas',
+      location: 'Poloha',
+      remark: 'Poznámka',
+      notRealized: 'Nerealizované',
+      fromMobile: 'Z mobilnej aplikácie',
     },
     quickCreate: {
       title: 'Rýchle vytvorenie',
@@ -4683,6 +4797,7 @@ export const translations: Record<Locale, Translations> = {
       last7days: 'Posledních 7 dní',
       last30days: 'Posledních 30 dní',
       allTime: 'Celé období',
+      more: 'více',
     },
     advancedFilters: {
       title: 'Pokročilé filtry',
@@ -4708,6 +4823,43 @@ export const translations: Record<Locale, Translations> = {
       changedField: 'Změněné pole',
       from: 'z',
       to: 'na',
+    },
+    visitEvents: {
+      visitsTab: 'Návštěvy',
+      calendar: 'Kalendář',
+      list: 'Seznam',
+      map: 'Mapa',
+      title: 'Návštěvy',
+      scheduledVisits: 'Plánované návštěvy',
+      noVisitsScheduled: 'Žádné naplánované návštěvy',
+      visitDetails: 'Detail návštěvy',
+      hospital: 'Nemocnice',
+      collaborator: 'Spolupracovník',
+      visitType: 'Typ návštěvy',
+      place: 'Místo',
+      remarkDetail: 'Detail poznámky',
+      scheduledTime: 'Plánovaný čas',
+      status: 'Stav',
+      notes: 'Poznámky',
+      filterByCollaborator: 'Filtrovat podle spolupracovníka',
+      allCollaborators: 'Všichni spolupracovníci',
+      searchPlaceholder: 'Hledat návštěvy...',
+      listTitle: 'Seznam návštěv',
+      noEvents: 'Žádné události',
+      cancelled: 'Zrušeno',
+      mapTitle: 'Mapa návštěv',
+      noLocations: 'Žádné lokality',
+      mapPlaceholder: 'Náhled mapy',
+      eventsWithLocation: 'Události s polohou',
+      description: 'Popis',
+      eventsCount: 'událostí',
+      eventDetail: 'Detail události',
+      subject: 'Předmět',
+      time: 'Čas',
+      location: 'Poloha',
+      remark: 'Poznámka',
+      notRealized: 'Nerealizováno',
+      fromMobile: 'Z mobilní aplikace',
     },
     quickCreate: {
       title: 'Rychlé vytvoření',
@@ -6214,6 +6366,7 @@ export const translations: Record<Locale, Translations> = {
       last7days: 'Utolsó 7 nap',
       last30days: 'Utolsó 30 nap',
       allTime: 'Teljes időszak',
+      more: 'több',
     },
     advancedFilters: {
       title: 'Speciális szűrők',
@@ -6239,6 +6392,43 @@ export const translations: Record<Locale, Translations> = {
       changedField: 'Változott mező',
       from: 'ról',
       to: 'ra',
+    },
+    visitEvents: {
+      visitsTab: 'Látogatások',
+      calendar: 'Naptár',
+      list: 'Lista',
+      map: 'Térkép',
+      title: 'Látogatások',
+      scheduledVisits: 'Tervezett látogatások',
+      noVisitsScheduled: 'Nincsenek tervezett látogatások',
+      visitDetails: 'Látogatás részletei',
+      hospital: 'Kórház',
+      collaborator: 'Munkatárs',
+      visitType: 'Látogatás típusa',
+      place: 'Hely',
+      remarkDetail: 'Megjegyzés részlete',
+      scheduledTime: 'Tervezett idő',
+      status: 'Állapot',
+      notes: 'Megjegyzések',
+      filterByCollaborator: 'Szűrés munkatárs szerint',
+      allCollaborators: 'Összes munkatárs',
+      searchPlaceholder: 'Látogatások keresése...',
+      listTitle: 'Látogatások listája',
+      noEvents: 'Nincs esemény',
+      cancelled: 'Törölve',
+      mapTitle: 'Látogatások térképe',
+      noLocations: 'Nincs helyszín',
+      mapPlaceholder: 'Térkép nézet',
+      eventsWithLocation: 'Események helyszínnel',
+      description: 'Leírás',
+      eventsCount: 'esemény',
+      eventDetail: 'Esemény részletei',
+      subject: 'Tárgy',
+      time: 'Idő',
+      location: 'Helyszín',
+      remark: 'Megjegyzés',
+      notRealized: 'Nem valósult meg',
+      fromMobile: 'Mobilalkalmazásból',
     },
     quickCreate: {
       title: 'Gyors létrehozás',
@@ -7745,6 +7935,7 @@ export const translations: Record<Locale, Translations> = {
       last7days: 'Ultimele 7 zile',
       last30days: 'Ultimele 30 zile',
       allTime: 'Tot timpul',
+      more: 'mai mult',
     },
     advancedFilters: {
       title: 'Filtre avansate',
@@ -7770,6 +7961,43 @@ export const translations: Record<Locale, Translations> = {
       changedField: 'Câmp modificat',
       from: 'de la',
       to: 'la',
+    },
+    visitEvents: {
+      visitsTab: 'Vizite',
+      calendar: 'Calendar',
+      list: 'Listă',
+      map: 'Hartă',
+      title: 'Vizite',
+      scheduledVisits: 'Vizite programate',
+      noVisitsScheduled: 'Nicio vizită programată',
+      visitDetails: 'Detalii vizită',
+      hospital: 'Spital',
+      collaborator: 'Colaborator',
+      visitType: 'Tip vizită',
+      place: 'Loc',
+      remarkDetail: 'Detaliu observație',
+      scheduledTime: 'Oră programată',
+      status: 'Status',
+      notes: 'Note',
+      filterByCollaborator: 'Filtrare după colaborator',
+      allCollaborators: 'Toți colaboratorii',
+      searchPlaceholder: 'Căutare vizite...',
+      listTitle: 'Lista vizitelor',
+      noEvents: 'Niciun eveniment',
+      cancelled: 'Anulat',
+      mapTitle: 'Harta vizitelor',
+      noLocations: 'Nicio locație',
+      mapPlaceholder: 'Vizualizare hartă',
+      eventsWithLocation: 'Evenimente cu locație',
+      description: 'Descriere',
+      eventsCount: 'evenimente',
+      eventDetail: 'Detalii eveniment',
+      subject: 'Subiect',
+      time: 'Ora',
+      location: 'Locație',
+      remark: 'Observație',
+      notRealized: 'Nerealizat',
+      fromMobile: 'Din aplicația mobilă',
     },
     quickCreate: {
       title: 'Creare rapidă',
@@ -9276,6 +9504,7 @@ export const translations: Record<Locale, Translations> = {
       last7days: 'Ultimi 7 giorni',
       last30days: 'Ultimi 30 giorni',
       allTime: 'Tutto il tempo',
+      more: 'altro',
     },
     advancedFilters: {
       title: 'Filtri avanzati',
@@ -9301,6 +9530,43 @@ export const translations: Record<Locale, Translations> = {
       changedField: 'Campo modificato',
       from: 'da',
       to: 'a',
+    },
+    visitEvents: {
+      visitsTab: 'Visite',
+      calendar: 'Calendario',
+      list: 'Elenco',
+      map: 'Mappa',
+      title: 'Visite',
+      scheduledVisits: 'Visite programmate',
+      noVisitsScheduled: 'Nessuna visita programmata',
+      visitDetails: 'Dettagli visita',
+      hospital: 'Ospedale',
+      collaborator: 'Collaboratore',
+      visitType: 'Tipo di visita',
+      place: 'Luogo',
+      remarkDetail: 'Dettaglio nota',
+      scheduledTime: 'Orario programmato',
+      status: 'Stato',
+      notes: 'Note',
+      filterByCollaborator: 'Filtra per collaboratore',
+      allCollaborators: 'Tutti i collaboratori',
+      searchPlaceholder: 'Cerca visite...',
+      listTitle: 'Elenco visite',
+      noEvents: 'Nessun evento',
+      cancelled: 'Annullato',
+      mapTitle: 'Mappa visite',
+      noLocations: 'Nessuna località',
+      mapPlaceholder: 'Vista mappa',
+      eventsWithLocation: 'Eventi con posizione',
+      description: 'Descrizione',
+      eventsCount: 'eventi',
+      eventDetail: 'Dettaglio evento',
+      subject: 'Oggetto',
+      time: 'Orario',
+      location: 'Posizione',
+      remark: 'Nota',
+      notRealized: 'Non realizzato',
+      fromMobile: 'Da app mobile',
     },
     quickCreate: {
       title: 'Creazione rapida',
@@ -10807,6 +11073,7 @@ export const translations: Record<Locale, Translations> = {
       last7days: 'Letzte 7 Tage',
       last30days: 'Letzte 30 Tage',
       allTime: 'Gesamtzeitraum',
+      more: 'mehr',
     },
     advancedFilters: {
       title: 'Erweiterte Filter',
@@ -10832,6 +11099,43 @@ export const translations: Record<Locale, Translations> = {
       changedField: 'Geändertes Feld',
       from: 'von',
       to: 'zu',
+    },
+    visitEvents: {
+      visitsTab: 'Besuche',
+      calendar: 'Kalender',
+      list: 'Liste',
+      map: 'Karte',
+      title: 'Besuche',
+      scheduledVisits: 'Geplante Besuche',
+      noVisitsScheduled: 'Keine geplanten Besuche',
+      visitDetails: 'Besuchsdetails',
+      hospital: 'Krankenhaus',
+      collaborator: 'Mitarbeiter',
+      visitType: 'Besuchsart',
+      place: 'Ort',
+      remarkDetail: 'Bemerkungsdetail',
+      scheduledTime: 'Geplante Zeit',
+      status: 'Status',
+      notes: 'Notizen',
+      filterByCollaborator: 'Nach Mitarbeiter filtern',
+      allCollaborators: 'Alle Mitarbeiter',
+      searchPlaceholder: 'Besuche suchen...',
+      listTitle: 'Besuchsliste',
+      noEvents: 'Keine Ereignisse',
+      cancelled: 'Storniert',
+      mapTitle: 'Besuchskarte',
+      noLocations: 'Keine Standorte',
+      mapPlaceholder: 'Kartenansicht',
+      eventsWithLocation: 'Ereignisse mit Standort',
+      description: 'Beschreibung',
+      eventsCount: 'Ereignisse',
+      eventDetail: 'Ereignisdetail',
+      subject: 'Betreff',
+      time: 'Zeit',
+      location: 'Standort',
+      remark: 'Bemerkung',
+      notRealized: 'Nicht realisiert',
+      fromMobile: 'Aus mobiler App',
     },
     quickCreate: {
       title: 'Schnell erstellen',
