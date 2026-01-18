@@ -39,6 +39,7 @@ function initializeDatabase(database: SQLite.SQLiteDatabase): void {
         hospital_name TEXT,
         visit_type TEXT,
         place TEXT,
+        remark_detail TEXT,
         status TEXT DEFAULT 'scheduled',
         scheduled_start TEXT,
         scheduled_end TEXT,
@@ -60,6 +61,7 @@ function initializeDatabase(database: SQLite.SQLiteDatabase): void {
     tx.executeSql('ALTER TABLE visit_events ADD COLUMN place TEXT', [], () => {}, () => false);
     tx.executeSql('ALTER TABLE visit_events ADD COLUMN is_cancelled INTEGER DEFAULT 0', [], () => {}, () => false);
     tx.executeSql('ALTER TABLE visit_events ADD COLUMN is_not_realized INTEGER DEFAULT 0', [], () => {}, () => false);
+    tx.executeSql('ALTER TABLE visit_events ADD COLUMN remark_detail TEXT', [], () => {}, () => false);
 
     tx.executeSql(`
       CREATE TABLE IF NOT EXISTS voice_notes (
@@ -165,6 +167,7 @@ export async function saveVisitEvent(visit: {
   hospitalName?: string;
   visitType?: string;
   place?: string;
+  remarkDetail?: string;
   status?: string;
   scheduledStart?: string;
   scheduledEnd?: string;
@@ -177,11 +180,11 @@ export async function saveVisitEvent(visit: {
     database.transaction(
       (tx) => {
         tx.executeSql(
-          `INSERT OR REPLACE INTO visit_events (id, hospital_id, hospital_name, visit_type, place, status, scheduled_start, scheduled_end, notes, is_cancelled, is_not_realized, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+          `INSERT OR REPLACE INTO visit_events (id, hospital_id, hospital_name, visit_type, place, remark_detail, status, scheduled_start, scheduled_end, notes, is_cancelled, is_not_realized, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
           [visit.id, visit.hospitalId || null, visit.hospitalName || null, visit.visitType || null, visit.place || null,
-           visit.status || 'scheduled', visit.scheduledStart || null, visit.scheduledEnd || null, visit.notes || null,
-           visit.isCancelled ? 1 : 0, visit.isNotRealized ? 1 : 0]
+           visit.remarkDetail || null, visit.status || 'scheduled', visit.scheduledStart || null, visit.scheduledEnd || null, 
+           visit.notes || null, visit.isCancelled ? 1 : 0, visit.isNotRealized ? 1 : 0]
         );
       },
       (error) => reject(error),

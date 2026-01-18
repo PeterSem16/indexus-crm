@@ -132,6 +132,7 @@ async function pullServerData(): Promise<void> {
         hospitalName: visit.hospitalName,
         visitType: visit.visitType,
         place: visit.place,
+        remarkDetail: visit.remarkDetail,
         status: visit.status,
         scheduledStart: visit.scheduledStart,
         scheduledEnd: visit.scheduledEnd,
@@ -153,6 +154,7 @@ export async function createVisitOffline(visit: {
   remark?: string;
   visitType?: string;
   place?: string;
+  remarkDetail?: string;
 }): Promise<string> {
   const id = generateUUID();
   
@@ -162,6 +164,7 @@ export async function createVisitOffline(visit: {
     hospitalName: visit.hospitalName,
     visitType: visit.visitType || visit.subject,
     place: visit.place,
+    remarkDetail: visit.remarkDetail,
     status: 'scheduled',
     scheduledStart: visit.startTime,
     scheduledEnd: visit.endTime,

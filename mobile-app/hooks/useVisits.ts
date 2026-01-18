@@ -35,6 +35,7 @@ interface CreateVisitInput {
   remark?: string;
   visitType?: string;
   place?: string;
+  remarkDetail?: string;
 }
 
 export function useVisits(date?: string) {

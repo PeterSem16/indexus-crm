@@ -75,6 +75,22 @@ const PLACE_TYPES: PlaceType[] = [
   { id: '6', labelKey: 'placePhoneVideo', icon: 'call' },
 ];
 
+type RemarkDetailType = {
+  id: string;
+  labelKey: string;
+  icon: string;
+};
+
+const REMARK_DETAIL_TYPES: RemarkDetailType[] = [
+  { id: '1', labelKey: 'remarkPrice', icon: 'pricetag' },
+  { id: '2', labelKey: 'remarkCompetitors', icon: 'people' },
+  { id: '3', labelKey: 'remarkDoctor', icon: 'medkit' },
+  { id: '4', labelKey: 'remarkResident', icon: 'school' },
+  { id: '5', labelKey: 'remarkMidwife', icon: 'woman' },
+  { id: '6', labelKey: 'remarkBusinessPartner', icon: 'briefcase' },
+  { id: '7', labelKey: 'remarkOther', icon: 'ellipsis-horizontal' },
+];
+
 export default function NewVisitScreen() {
   const router = useRouter();
   const { translations } = useTranslation();
@@ -84,16 +100,19 @@ export default function NewVisitScreen() {
   const [selectedHospitalId, setSelectedHospitalId] = useState<string>('');
   const [selectedType, setSelectedType] = useState<string>('1');
   const [selectedPlace, setSelectedPlace] = useState<string>('1');
+  const [selectedRemarkDetail, setSelectedRemarkDetail] = useState<string>('');
   const [scheduledDate, setScheduledDate] = useState(new Date());
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('10:00');
   const [notes, setNotes] = useState('');
   const [showHospitalPicker, setShowHospitalPicker] = useState(false);
   const [showPlacePicker, setShowPlacePicker] = useState(false);
+  const [showRemarkDetailPicker, setShowRemarkDetailPicker] = useState(false);
   const [hospitalSearch, setHospitalSearch] = useState('');
 
   const selectedHospital = hospitals.find(h => String(h.id) === selectedHospitalId);
   const selectedPlaceObj = PLACE_TYPES.find(p => p.id === selectedPlace);
+  const selectedRemarkDetailObj = REMARK_DETAIL_TYPES.find(r => r.id === selectedRemarkDetail);
 
   const filteredHospitals = useMemo(() => {
     if (!hospitals || hospitals.length === 0) return [];
@@ -142,6 +161,7 @@ export default function NewVisitScreen() {
         isAllDay: false,
         visitType: selectedType,
         place: selectedPlace,
+        remarkDetail: selectedRemarkDetail || undefined,
       });
 
       Alert.alert(translations.common.done, translations.visits.newVisit, [
@@ -245,26 +265,30 @@ export default function NewVisitScreen() {
 
           <Text style={styles.sectionTitle}>{translations.visits.place}</Text>
           <TouchableOpacity 
-            style={styles.hospitalSelector}
+            style={styles.selectorCard}
             onPress={() => setShowPlacePicker(true)}
             activeOpacity={0.7}
-            data-testid="button-select-place"
+            testID="button-select-place"
           >
-            <View style={styles.hospitalSelectorContent}>
+            <View style={styles.selectorIconContainer}>
               <Ionicons 
                 name={selectedPlaceObj?.icon as any || 'location'} 
                 size={20} 
                 color={Colors.primary} 
-                style={styles.hospitalIcon}
               />
-              <Text style={styles.hospitalSelectorText}>
+            </View>
+            <View style={styles.selectorContent}>
+              <Text style={[
+                styles.selectorText,
+                selectedPlaceObj && styles.selectorTextSelected
+              ]}>
                 {selectedPlaceObj 
                   ? translations.visits[selectedPlaceObj.labelKey]
                   : translations.visits.selectPlace
                 }
               </Text>
             </View>
-            <Ionicons name="chevron-down" size={20} color={Colors.textSecondary} />
+            <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
           </TouchableOpacity>
 
           <Text style={styles.sectionTitle}>{translations.visits.scheduledTime}</Text>
@@ -291,6 +315,34 @@ export default function NewVisitScreen() {
               />
             </View>
           </View>
+
+          <Text style={styles.sectionTitle}>{translations.visits.remarkDetail || 'Remark Detail'}</Text>
+          <TouchableOpacity 
+            style={styles.selectorCard}
+            onPress={() => setShowRemarkDetailPicker(true)}
+            activeOpacity={0.7}
+            testID="button-select-remark-detail"
+          >
+            <View style={styles.selectorIconContainer}>
+              <Ionicons 
+                name={selectedRemarkDetailObj?.icon as any || 'chatbubble-ellipses'} 
+                size={20} 
+                color={Colors.primary} 
+              />
+            </View>
+            <View style={styles.selectorContent}>
+              <Text style={[
+                styles.selectorText,
+                selectedRemarkDetailObj && styles.selectorTextSelected
+              ]}>
+                {selectedRemarkDetailObj 
+                  ? (translations.visits as any)[selectedRemarkDetailObj.labelKey]
+                  : translations.visits.selectRemarkDetail || 'Select remark detail'
+                }
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
+          </TouchableOpacity>
 
           <Text style={styles.sectionTitle}>{translations.visits.notes}</Text>
           <View style={styles.notesContainer}>
@@ -470,7 +522,7 @@ export default function NewVisitScreen() {
               </TouchableOpacity>
             </View>
             
-            <ScrollView style={styles.hospitalListContainer}>
+            <ScrollView style={styles.hospitalListContainer} contentContainerStyle={styles.hospitalListContent}>
               {PLACE_TYPES.map((place) => (
                 <TouchableOpacity
                   key={place.id}
@@ -484,27 +536,86 @@ export default function NewVisitScreen() {
                   }}
                   testID={`button-select-place-${place.id}`}
                 >
-                  <View style={styles.hospitalItemContent}>
-                    <View style={[
-                      styles.hospitalIconContainer,
-                      selectedPlace === place.id && styles.hospitalIconContainerSelected
+                  <View style={[
+                    styles.hospitalIconContainer,
+                    selectedPlace === place.id && styles.hospitalIconContainerSelected
+                  ]}>
+                    <Ionicons 
+                      name={place.icon as any} 
+                      size={24} 
+                      color={selectedPlace === place.id ? Colors.white : Colors.primary} 
+                    />
+                  </View>
+                  <View style={styles.hospitalItemText}>
+                    <Text style={[
+                      styles.hospitalName,
+                      selectedPlace === place.id && styles.hospitalNameSelected
                     ]}>
-                      <Ionicons 
-                        name={place.icon as any} 
-                        size={24} 
-                        color={selectedPlace === place.id ? Colors.white : Colors.primary} 
-                      />
-                    </View>
-                    <View style={styles.hospitalItemText}>
-                      <Text style={[
-                        styles.hospitalName,
-                        selectedPlace === place.id && styles.hospitalNameSelected
-                      ]}>
-                        {translations.visits[place.labelKey]}
-                      </Text>
-                    </View>
+                      {translations.visits[place.labelKey]}
+                    </Text>
                   </View>
                   {selectedPlace === place.id && (
+                    <Ionicons name="checkmark-circle" size={24} color={Colors.primary} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showRemarkDetailPicker}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowRemarkDetailPicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{translations.visits.selectRemarkDetail || 'Select Remark Detail'}</Text>
+              <TouchableOpacity 
+                onPress={() => setShowRemarkDetailPicker(false)}
+                style={styles.modalCloseButton}
+                testID="button-close-remark-detail-picker"
+              >
+                <Ionicons name="close" size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.hospitalListContainer} contentContainerStyle={styles.hospitalListContent}>
+              {REMARK_DETAIL_TYPES.map((remarkDetail) => (
+                <TouchableOpacity
+                  key={remarkDetail.id}
+                  style={[
+                    styles.hospitalItem,
+                    selectedRemarkDetail === remarkDetail.id && styles.hospitalItemSelected
+                  ]}
+                  onPress={() => {
+                    setSelectedRemarkDetail(remarkDetail.id);
+                    setShowRemarkDetailPicker(false);
+                  }}
+                  testID={`button-select-remark-detail-${remarkDetail.id}`}
+                >
+                  <View style={[
+                    styles.hospitalIconContainer,
+                    selectedRemarkDetail === remarkDetail.id && styles.hospitalIconContainerSelected
+                  ]}>
+                    <Ionicons 
+                      name={remarkDetail.icon as any} 
+                      size={24} 
+                      color={selectedRemarkDetail === remarkDetail.id ? Colors.white : Colors.primary} 
+                    />
+                  </View>
+                  <View style={styles.hospitalItemText}>
+                    <Text style={[
+                      styles.hospitalName,
+                      selectedRemarkDetail === remarkDetail.id && styles.hospitalNameSelected
+                    ]}>
+                      {(translations.visits as any)[remarkDetail.labelKey] || remarkDetail.labelKey}
+                    </Text>
+                  </View>
+                  {selectedRemarkDetail === remarkDetail.id && (
                     <Ionicons name="checkmark-circle" size={24} color={Colors.primary} />
                   )}
                 </TouchableOpacity>
