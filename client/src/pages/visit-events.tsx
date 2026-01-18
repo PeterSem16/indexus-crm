@@ -99,7 +99,7 @@ export default function VisitEventsPage() {
       return res.json();
     },
     refetchInterval: 30000,
-    enabled: pageView === "activityLog",
+    enabled: pageView === "activityLog" || viewMode === "map",
   });
 
   const { data: collaborators = [] } = useQuery<Collaborator[]>({
@@ -124,9 +124,12 @@ export default function VisitEventsPage() {
     refetchInterval: 30000,
   });
 
+  // Use allVisitEvents for map view (no date filter), visitEvents for calendar/list views
+  const eventsForCurrentView = viewMode === "map" ? allVisitEvents : visitEvents;
+  
   const filteredEvents = selectedCollaborator === "all" 
-    ? visitEvents 
-    : visitEvents.filter(e => e.collaboratorId === selectedCollaborator);
+    ? eventsForCurrentView 
+    : eventsForCurrentView.filter(e => e.collaboratorId === selectedCollaborator);
 
   // Get effective GPS coordinates for an event (prefer end coordinates for completed, then start, then legacy)
   const getEventCoordinates = (e: VisitEvent) => {
