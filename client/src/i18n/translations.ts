@@ -19,6 +19,7 @@ export interface Translations {
     hospitals: string;
     collaborators: string;
     visitEvents: string;
+    activityLog: string;
     campaigns: string;
     tasks: string;
     contracts: string;
@@ -71,6 +72,15 @@ export interface Translations {
     default: string;
     unknown: string;
     noResults: string;
+    scheduled: string;
+    completed: string;
+    cancelled: string;
+    started: string;
+    notRealized: string;
+    today: string;
+    last7days: string;
+    last30days: string;
+    allTime: string;
   };
   advancedFilters: {
     title: string;
@@ -1470,6 +1480,7 @@ export const translations: Record<Locale, Translations> = {
       hospitals: 'Hospitals',
       collaborators: 'Collaborators',
       visitEvents: 'INDEXUS Connect',
+      activityLog: 'Activity Log',
       campaigns: 'Campaigns',
       tasks: 'Tasks',
       contracts: 'Contracts',
@@ -1522,6 +1533,15 @@ export const translations: Record<Locale, Translations> = {
       default: 'Default',
       unknown: 'Unknown',
       noResults: 'No results found',
+      scheduled: 'Scheduled',
+      completed: 'Completed',
+      cancelled: 'Cancelled',
+      started: 'Started',
+      notRealized: 'Not Realized',
+      today: 'Today',
+      last7days: 'Last 7 days',
+      last30days: 'Last 30 days',
+      allTime: 'All time',
     },
     advancedFilters: {
       title: 'Advanced Filters',
@@ -3033,6 +3053,7 @@ export const translations: Record<Locale, Translations> = {
       hospitals: 'Nemocnice',
       collaborators: 'Spolupracovníci',
       visitEvents: 'INDEXUS Connect',
+      activityLog: 'Log aktivit',
       campaigns: 'Kampane',
       tasks: 'Úlohy',
       contracts: 'Zmluvy',
@@ -3085,6 +3106,15 @@ export const translations: Record<Locale, Translations> = {
       default: 'Predvolené',
       unknown: 'Neznáme',
       noResults: 'Žiadne výsledky',
+      scheduled: 'Naplánované',
+      completed: 'Dokončené',
+      cancelled: 'Zrušené',
+      started: 'Začaté',
+      notRealized: 'Nerealizované',
+      today: 'Dnes',
+      last7days: 'Posledných 7 dní',
+      last30days: 'Posledných 30 dní',
+      allTime: 'Celé obdobie',
     },
     advancedFilters: {
       title: 'Pokročilé filtre',
@@ -4591,6 +4621,7 @@ export const translations: Record<Locale, Translations> = {
       hospitals: 'Nemocnice',
       collaborators: 'Spolupracovníci',
       visitEvents: 'INDEXUS Connect',
+      activityLog: 'Log aktivit',
       campaigns: 'Kampaně',
       tasks: 'Úkoly',
       contracts: 'Smlouvy',
@@ -4643,6 +4674,15 @@ export const translations: Record<Locale, Translations> = {
       default: 'Výchozí',
       unknown: 'Neznámé',
       noResults: 'Žádné výsledky',
+      scheduled: 'Naplánováno',
+      completed: 'Dokončeno',
+      cancelled: 'Zrušeno',
+      started: 'Zahájeno',
+      notRealized: 'Nerealizováno',
+      today: 'Dnes',
+      last7days: 'Posledních 7 dní',
+      last30days: 'Posledních 30 dní',
+      allTime: 'Celé období',
     },
     advancedFilters: {
       title: 'Pokročilé filtry',
@@ -6112,6 +6152,7 @@ export const translations: Record<Locale, Translations> = {
       hospitals: 'Kórházak',
       collaborators: 'Munkatársak',
       visitEvents: 'INDEXUS Connect',
+      activityLog: 'Tevékenységnapló',
       campaigns: 'Kampányok',
       tasks: 'Feladatok',
       contracts: 'Szerződések',
@@ -6164,6 +6205,15 @@ export const translations: Record<Locale, Translations> = {
       default: 'Alapértelmezett',
       unknown: 'Ismeretlen',
       noResults: 'Nincs találat',
+      scheduled: 'Ütemezett',
+      completed: 'Befejezett',
+      cancelled: 'Lemondva',
+      started: 'Elkezdődött',
+      notRealized: 'Nem valósult meg',
+      today: 'Ma',
+      last7days: 'Utolsó 7 nap',
+      last30days: 'Utolsó 30 nap',
+      allTime: 'Teljes időszak',
     },
     advancedFilters: {
       title: 'Speciális szűrők',
@@ -7633,6 +7683,7 @@ export const translations: Record<Locale, Translations> = {
       hospitals: 'Spitale',
       collaborators: 'Colaboratori',
       visitEvents: 'INDEXUS Connect',
+      activityLog: 'Jurnal activitate',
       campaigns: 'Campanii',
       tasks: 'Sarcini',
       contracts: 'Contracte',
@@ -7685,6 +7736,15 @@ export const translations: Record<Locale, Translations> = {
       default: 'Implicit',
       unknown: 'Necunoscut',
       noResults: 'Niciun rezultat',
+      scheduled: 'Programat',
+      completed: 'Finalizat',
+      cancelled: 'Anulat',
+      started: 'Început',
+      notRealized: 'Nerealizat',
+      today: 'Astăzi',
+      last7days: 'Ultimele 7 zile',
+      last30days: 'Ultimele 30 zile',
+      allTime: 'Tot timpul',
     },
     advancedFilters: {
       title: 'Filtre avansate',
@@ -9154,6 +9214,7 @@ export const translations: Record<Locale, Translations> = {
       hospitals: 'Ospedali',
       collaborators: 'Collaboratori',
       visitEvents: 'INDEXUS Connect',
+      activityLog: 'Registro attività',
       campaigns: 'Campagne',
       tasks: 'Attività',
       contracts: 'Contratti',
@@ -9206,6 +9267,15 @@ export const translations: Record<Locale, Translations> = {
       default: 'Predefinito',
       unknown: 'Sconosciuto',
       noResults: 'Nessun risultato',
+      scheduled: 'Programmato',
+      completed: 'Completato',
+      cancelled: 'Annullato',
+      started: 'Iniziato',
+      notRealized: 'Non realizzato',
+      today: 'Oggi',
+      last7days: 'Ultimi 7 giorni',
+      last30days: 'Ultimi 30 giorni',
+      allTime: 'Tutto il tempo',
     },
     advancedFilters: {
       title: 'Filtri avanzati',
@@ -10675,6 +10745,7 @@ export const translations: Record<Locale, Translations> = {
       hospitals: 'Krankenhäuser',
       collaborators: 'Mitarbeiter',
       visitEvents: 'INDEXUS Connect',
+      activityLog: 'Aktivitätsprotokoll',
       campaigns: 'Kampagnen',
       tasks: 'Aufgaben',
       contracts: 'Verträge',
@@ -10727,6 +10798,15 @@ export const translations: Record<Locale, Translations> = {
       default: 'Standard',
       unknown: 'Unbekannt',
       noResults: 'Keine Ergebnisse',
+      scheduled: 'Geplant',
+      completed: 'Abgeschlossen',
+      cancelled: 'Storniert',
+      started: 'Gestartet',
+      notRealized: 'Nicht realisiert',
+      today: 'Heute',
+      last7days: 'Letzte 7 Tage',
+      last30days: 'Letzte 30 Tage',
+      allTime: 'Gesamtzeitraum',
     },
     advancedFilters: {
       title: 'Erweiterte Filter',
