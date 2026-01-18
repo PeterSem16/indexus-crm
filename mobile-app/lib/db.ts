@@ -198,18 +198,42 @@ export async function getVisitEvents(date?: string): Promise<any[]> {
     const database = getDatabase();
     database.transaction(
       (tx) => {
+        const mapRow = (row: any) => ({
+          id: row.id,
+          hospitalId: row.hospital_id,
+          hospitalName: row.hospital_name,
+          visitType: row.visit_type,
+          place: row.place,
+          remarkDetail: row.remark_detail,
+          status: row.status,
+          scheduledStart: row.scheduled_start,
+          scheduledEnd: row.scheduled_end,
+          actualStart: row.actual_start,
+          actualEnd: row.actual_end,
+          startLatitude: row.start_latitude,
+          startLongitude: row.start_longitude,
+          endLatitude: row.end_latitude,
+          endLongitude: row.end_longitude,
+          notes: row.notes,
+          isCancelled: row.is_cancelled === 1,
+          isNotRealized: row.is_not_realized === 1,
+          synced: row.synced === 1,
+          updatedAt: row.updated_at,
+          createdAt: row.created_at,
+        });
+        
         if (date) {
           tx.executeSql(
             `SELECT * FROM visit_events WHERE date(scheduled_start) = ? ORDER BY scheduled_start`,
             [date],
-            (_, { rows }) => resolve(rows._array),
+            (_, { rows }) => resolve(rows._array.map(mapRow)),
             (_, error) => { reject(error); return false; }
           );
         } else {
           tx.executeSql(
             'SELECT * FROM visit_events ORDER BY scheduled_start DESC',
             [],
-            (_, { rows }) => resolve(rows._array),
+            (_, { rows }) => resolve(rows._array.map(mapRow)),
             (_, error) => { reject(error); return false; }
           );
         }

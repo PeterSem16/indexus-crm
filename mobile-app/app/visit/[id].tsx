@@ -281,10 +281,10 @@ export default function VisitDetailScreen() {
             </View>
             <View style={styles.hospitalInfo}>
               <Text style={styles.hospitalName}>
-                {visit.hospital_name || visit.hospitalName || translations.visits.unknownHospital}
+                {visit.hospitalName || translations.visits.unknownHospital}
               </Text>
               <Text style={styles.visitTypeText}>
-                {visit.subject || visit.visit_type || visit.visitType || translations.navigation.visits}
+                {visit.visitType || visit.subject || translations.navigation.visits}
               </Text>
               {(visit.place) && (
                 <Text style={styles.placeText}>
@@ -306,7 +306,7 @@ export default function VisitDetailScreen() {
               <View>
                 <Text style={styles.detailLabel}>{translations.visits.date}</Text>
                 <Text style={styles.detailValue}>
-                  {formatDate(visit.scheduled_start || visit.scheduledStart || visit.startTime)}
+                  {formatDate(visit.scheduledStart)}
                 </Text>
               </View>
             </View>
@@ -320,13 +320,13 @@ export default function VisitDetailScreen() {
               <View>
                 <Text style={styles.detailLabel}>{translations.visits.scheduledTime}</Text>
                 <Text style={styles.detailValue}>
-                  {formatTime(visit.scheduled_start || visit.scheduledStart || visit.startTime)}
+                  {formatTime(visit.scheduledStart)}
                 </Text>
               </View>
             </View>
           </View>
 
-          {(visit.actual_start || visit.actualStart) && (
+          {visit.actualStart && (
             <>
               <View style={styles.divider} />
               <View style={styles.actualTimesContainer}>
@@ -334,15 +334,15 @@ export default function VisitDetailScreen() {
                   <Ionicons name="play-circle" size={20} color={Colors.success} />
                   <Text style={styles.actualTimeLabel}>{translations.visits.startLocation}:</Text>
                   <Text style={styles.actualTimeValue}>
-                    {formatTime(visit.actual_start || visit.actualStart)}
+                    {formatTime(visit.actualStart)}
                   </Text>
                 </View>
-                {(visit.actual_end || visit.actualEnd) && (
+                {visit.actualEnd && (
                   <View style={styles.actualTimeItem}>
                     <Ionicons name="stop-circle" size={20} color={Colors.error} />
                     <Text style={styles.actualTimeLabel}>{translations.visits.endLocation}:</Text>
                     <Text style={styles.actualTimeValue}>
-                      {formatTime(visit.actual_end || visit.actualEnd)}
+                      {formatTime(visit.actualEnd)}
                     </Text>
                   </View>
                 )}

@@ -40,7 +40,7 @@ export default function VisitsScreen() {
 
   const getVisitsForDate = (date: Date) => {
     return visits.filter((v: any) => {
-      const dateStr = v.startTime || v.scheduledStart || v.scheduled_start;
+      const dateStr = v.scheduledStart;
       if (!dateStr) return false;
       const visitDate = new Date(dateStr);
       if (isNaN(visitDate.getTime())) return false;
@@ -175,12 +175,12 @@ export default function VisitsScreen() {
                   <View style={styles.visitLeft}>
                     <View style={[styles.statusDot, { backgroundColor: getStatusColor(visit.status) }]} />
                     <Text style={styles.visitTime}>
-                      {new Date(visit.startTime || visit.scheduledStart || visit.scheduled_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {visit.scheduledStart ? new Date(visit.scheduledStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
                     </Text>
                   </View>
                   <View style={styles.visitInfo}>
-                    <Text style={styles.visitHospital}>{visit.hospitalName || visit.hospital_name || 'N/A'}</Text>
-                    <Text style={styles.visitType}>{visit.subject || visit.visitType || visit.visit_type || 'N/A'}</Text>
+                    <Text style={styles.visitHospital}>{visit.hospitalName || 'N/A'}</Text>
+                    <Text style={styles.visitType}>{visit.visitType || visit.subject || 'N/A'}</Text>
                   </View>
                   <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
                 </Card>
@@ -194,7 +194,7 @@ export default function VisitsScreen() {
 
   const renderList = () => {
     const groupedVisits = visits.reduce((acc: any, visit: any) => {
-      const dateStr = visit.startTime || visit.scheduledStart || visit.scheduled_start;
+      const dateStr = visit.scheduledStart;
       if (!dateStr) return acc;
       const parsedDate = new Date(dateStr);
       if (isNaN(parsedDate.getTime())) return acc;
@@ -230,12 +230,12 @@ export default function VisitsScreen() {
                       <View style={styles.visitLeft}>
                         <View style={[styles.statusDot, { backgroundColor: getStatusColor(visit.status) }]} />
                         <Text style={styles.visitTime}>
-                          {new Date(visit.startTime || visit.scheduledStart || visit.scheduled_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {visit.scheduledStart ? new Date(visit.scheduledStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
                         </Text>
                       </View>
                       <View style={styles.visitInfo}>
-                        <Text style={styles.visitHospital}>{visit.hospitalName || visit.hospital_name || 'N/A'}</Text>
-                        <Text style={styles.visitType}>{visit.subject || visit.visitType || visit.visit_type || 'N/A'}</Text>
+                        <Text style={styles.visitHospital}>{visit.hospitalName || 'N/A'}</Text>
+                        <Text style={styles.visitType}>{visit.visitType || visit.subject || 'N/A'}</Text>
                       </View>
                       <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
                     </Card>

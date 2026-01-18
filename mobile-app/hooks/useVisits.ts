@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import * as db from '@/lib/db';
-import { createVisitOffline, updateVisitOffline } from '@/lib/sync';
+import { createVisitOffline, updateVisitOffline, syncAll } from '@/lib/sync';
 import { useSyncStore } from '@/stores/syncStore';
 
 interface VisitEvent {
@@ -89,13 +89,25 @@ export function useCreateVisit() {
   return useMutation({
     mutationFn: async (visit: CreateVisitInput) => {
       if (isOnline) {
-        return await api.post<VisitEvent>('/api/mobile/visit-events', visit);
+        try {
+          const result = await api.post<VisitEvent>('/api/mobile/visit-events', visit);
+          return result;
+        } catch (error) {
+          const id = await createVisitOffline(visit);
+          return { id, ...visit } as VisitEvent;
+        }
       }
       const id = await createVisitOffline(visit);
       return { id, ...visit } as VisitEvent;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['visits'] });
+      try {
+        await syncAll();
+      } catch (e) {
+        // Sync failed, will retry later
+      }
+      queryClient.refetchQueries({ queryKey: ['visits'] });
     },
   });
 }
