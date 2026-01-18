@@ -125,15 +125,37 @@ async function pullServerData(): Promise<void> {
   
   try {
     const visits = await api.get<any[]>('/api/mobile/visit-events');
+    const localVisits = await db.getVisitEvents();
+    const localVisitMap = new Map(localVisits.map(v => [String(v.id), v]));
+    
+    const STATUS_PRIORITY: Record<string, number> = {
+      scheduled: 1,
+      in_progress: 2,
+      completed: 3,
+      cancelled: 4,
+      not_realized: 5,
+    };
+    
     for (const visit of visits) {
+      const localVisit = localVisitMap.get(String(visit.id));
+      const serverStatus = visit.status || (visit.isCancelled ? 'cancelled' : visit.isNotRealized ? 'not_realized' : 'scheduled');
+      
+      if (localVisit) {
+        const localPriority = STATUS_PRIORITY[localVisit.status] || 0;
+        const serverPriority = STATUS_PRIORITY[serverStatus] || 0;
+        if (localPriority > serverPriority) {
+          continue;
+        }
+      }
+      
       await db.saveVisitEvent({
-        id: visit.id,
+        id: String(visit.id),
         hospitalId: visit.hospitalId,
         hospitalName: visit.hospitalName,
         visitType: visit.visitType,
         place: visit.place,
         remarkDetail: visit.remarkDetail,
-        status: visit.status,
+        status: serverStatus,
         scheduledStart: visit.scheduledStart || visit.startTime,
         scheduledEnd: visit.scheduledEnd || visit.endTime,
         actualStart: visit.actualStart,

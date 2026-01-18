@@ -8,15 +8,8 @@ import * as Location from 'expo-location';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useVisit, useStartVisit, useEndVisit, useCancelVisit, useMarkVisitNotRealized } from '@/hooks/useVisits';
 import { Colors, Spacing, FontSizes } from '@/constants/colors';
-
-const PLACE_LABELS: Record<string, keyof any> = {
-  '1': 'placeObstetrics',
-  '2': 'placePrivateOffice',
-  '3': 'placeStateOffice',
-  '4': 'placeHospitalManagement',
-  '5': 'placeOther',
-  '6': 'placePhoneVideo',
-};
+import { getVisitTypeName, getPlaceName } from '@/lib/visitTypes';
+import { SupportedLanguage } from '@/constants/config';
 
 export default function VisitDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -284,13 +277,11 @@ export default function VisitDetailScreen() {
                 {visit.hospitalName || translations.visits.unknownHospital}
               </Text>
               <Text style={styles.visitTypeText}>
-                {visit.visitType || visit.subject || translations.navigation.visits}
+                {getVisitTypeName(visit.visitType, language as SupportedLanguage) || visit.subject || translations.navigation.visits}
               </Text>
               {(visit.place) && (
                 <Text style={styles.placeText}>
-                  {PLACE_LABELS[visit.place] 
-                    ? (translations.visits as any)[PLACE_LABELS[visit.place]] 
-                    : visit.place}
+                  {getPlaceName(visit.place, language as SupportedLanguage)}
                 </Text>
               )}
             </View>

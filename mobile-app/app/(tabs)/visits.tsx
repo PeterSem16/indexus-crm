@@ -7,6 +7,8 @@ import { Card } from '@/components/ui/Card';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useVisits } from '@/hooks/useVisits';
 import { Colors, Spacing, FontSizes } from '@/constants/colors';
+import { getVisitTypeName } from '@/lib/visitTypes';
+import { SupportedLanguage } from '@/constants/config';
 
 type ViewMode = 'calendar' | 'list';
 
@@ -179,8 +181,8 @@ export default function VisitsScreen() {
                     </Text>
                   </View>
                   <View style={styles.visitInfo}>
-                    <Text style={styles.visitHospital}>{visit.hospitalName || 'N/A'}</Text>
-                    <Text style={styles.visitType}>{visit.visitType || visit.subject || 'N/A'}</Text>
+                    <Text style={styles.visitHospital}>{visit.hospitalName || translations.visits.unknownHospital}</Text>
+                    <Text style={styles.visitType}>{getVisitTypeName(visit.visitType, language as SupportedLanguage) || visit.subject || translations.navigation.visits}</Text>
                   </View>
                   <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
                 </Card>
@@ -234,8 +236,8 @@ export default function VisitsScreen() {
                         </Text>
                       </View>
                       <View style={styles.visitInfo}>
-                        <Text style={styles.visitHospital}>{visit.hospitalName || 'N/A'}</Text>
-                        <Text style={styles.visitType}>{visit.visitType || visit.subject || 'N/A'}</Text>
+                        <Text style={styles.visitHospital}>{visit.hospitalName || translations.visits.unknownHospital}</Text>
+                        <Text style={styles.visitType}>{getVisitTypeName(visit.visitType, language as SupportedLanguage) || visit.subject || translations.navigation.visits}</Text>
                       </View>
                       <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
                     </Card>

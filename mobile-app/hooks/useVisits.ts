@@ -33,6 +33,44 @@ interface VisitEvent {
   isNotRealized?: boolean;
 }
 
+const STATUS_PRIORITY: Record<string, number> = {
+  scheduled: 1,
+  in_progress: 2,
+  completed: 3,
+  cancelled: 4,
+  not_realized: 5,
+};
+
+function isLocalStatusMoreAdvanced(localStatus: string | undefined, serverStatus: string): boolean {
+  if (!localStatus) return false;
+  const localPriority = STATUS_PRIORITY[localStatus] || 0;
+  const serverPriority = STATUS_PRIORITY[serverStatus] || 0;
+  return localPriority > serverPriority;
+}
+
+function mapServerVisitToLocal(visit: any): Parameters<typeof db.saveVisitEvent>[0] {
+  return {
+    id: String(visit.id),
+    hospitalId: visit.hospitalId,
+    hospitalName: visit.hospitalName,
+    visitType: visit.visitType || visit.subject,
+    place: visit.place,
+    remarkDetail: visit.remarkDetail,
+    status: visit.status || (visit.isCancelled ? 'cancelled' : visit.isNotRealized ? 'not_realized' : 'scheduled'),
+    scheduledStart: visit.scheduledStart || visit.startTime,
+    scheduledEnd: visit.scheduledEnd || visit.endTime,
+    actualStart: visit.actualStart,
+    actualEnd: visit.actualEnd,
+    startLatitude: visit.startLatitude,
+    startLongitude: visit.startLongitude,
+    endLatitude: visit.endLatitude,
+    endLongitude: visit.endLongitude,
+    notes: visit.notes || visit.remark,
+    isCancelled: visit.isCancelled,
+    isNotRealized: visit.isNotRealized,
+  };
+}
+
 interface CreateVisitInput {
   hospitalId?: string;
   hospitalName?: string;
@@ -57,26 +95,7 @@ export function useVisits(date?: string) {
           const visits = await api.get<VisitEvent[]>('/api/mobile/visit-events');
           if (visits && Array.isArray(visits)) {
             for (const visit of visits) {
-              await db.saveVisitEvent({
-                id: String(visit.id),
-                hospitalId: visit.hospitalId,
-                hospitalName: visit.hospitalName,
-                visitType: visit.visitType || visit.subject,
-                place: visit.place,
-                remarkDetail: visit.remarkDetail,
-                status: visit.status || (visit.isCancelled ? 'cancelled' : visit.isNotRealized ? 'not_realized' : 'scheduled'),
-                scheduledStart: visit.startTime,
-                scheduledEnd: visit.endTime,
-                actualStart: visit.actualStart,
-                actualEnd: visit.actualEnd,
-                startLatitude: visit.startLatitude,
-                startLongitude: visit.startLongitude,
-                endLatitude: visit.endLatitude,
-                endLongitude: visit.endLongitude,
-                notes: visit.remark,
-                isCancelled: visit.isCancelled,
-                isNotRealized: visit.isNotRealized,
-              });
+              await db.saveVisitEvent(mapServerVisitToLocal(visit));
             }
           }
           return await db.getVisitEvents(date);
@@ -97,19 +116,26 @@ export function useVisit(id: string) {
   return useQuery({
     queryKey: ['visit', id],
     queryFn: async () => {
+      const localVisits = await db.getVisitEvents();
+      const localVisit = localVisits.find((v: any) => String(v.id) === String(id));
+      
       if (isOnline) {
         try {
-          const visit = await api.get<VisitEvent>(`/api/mobile/visit-events/${id}`);
-          if (visit) {
-            await db.saveVisitEvent(visit);
-            return visit;
+          const serverVisit = await api.get<VisitEvent>(`/api/mobile/visit-events/${id}`);
+          if (serverVisit) {
+            const mapped = mapServerVisitToLocal(serverVisit);
+            if (localVisit && isLocalStatusMoreAdvanced(localVisit.status, mapped.status || 'scheduled')) {
+              return localVisit;
+            }
+            await db.saveVisitEvent(mapped);
+            return await db.getVisitEvents().then(visits => 
+              visits.find((v: any) => String(v.id) === String(id))
+            );
           }
         } catch (error) {
-          console.log('[useVisit] API error, falling back to local DB');
         }
       }
-      const visits = await db.getVisitEvents();
-      return visits.find((v: any) => String(v.id) === String(id));
+      return localVisit;
     },
     enabled: !!id,
   });
