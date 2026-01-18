@@ -38,6 +38,7 @@ function initializeDatabase(database: SQLite.SQLiteDatabase): void {
         hospital_id TEXT,
         hospital_name TEXT,
         visit_type TEXT,
+        place TEXT,
         status TEXT DEFAULT 'scheduled',
         scheduled_start TEXT,
         scheduled_end TEXT,
@@ -48,11 +49,17 @@ function initializeDatabase(database: SQLite.SQLiteDatabase): void {
         end_latitude REAL,
         end_longitude REAL,
         notes TEXT,
+        is_cancelled INTEGER DEFAULT 0,
+        is_not_realized INTEGER DEFAULT 0,
         synced INTEGER DEFAULT 0,
         updated_at TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    tx.executeSql('ALTER TABLE visit_events ADD COLUMN place TEXT', [], () => {}, () => false);
+    tx.executeSql('ALTER TABLE visit_events ADD COLUMN is_cancelled INTEGER DEFAULT 0', [], () => {}, () => false);
+    tx.executeSql('ALTER TABLE visit_events ADD COLUMN is_not_realized INTEGER DEFAULT 0', [], () => {}, () => false);
 
     tx.executeSql(`
       CREATE TABLE IF NOT EXISTS voice_notes (
@@ -157,20 +164,24 @@ export async function saveVisitEvent(visit: {
   hospitalId?: string;
   hospitalName?: string;
   visitType?: string;
+  place?: string;
   status?: string;
   scheduledStart?: string;
   scheduledEnd?: string;
   notes?: string;
+  isCancelled?: boolean;
+  isNotRealized?: boolean;
 }): Promise<void> {
   return new Promise((resolve, reject) => {
     const database = getDatabase();
     database.transaction(
       (tx) => {
         tx.executeSql(
-          `INSERT OR REPLACE INTO visit_events (id, hospital_id, hospital_name, visit_type, status, scheduled_start, scheduled_end, notes, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-          [visit.id, visit.hospitalId || null, visit.hospitalName || null, visit.visitType || null,
-           visit.status || 'scheduled', visit.scheduledStart || null, visit.scheduledEnd || null, visit.notes || null]
+          `INSERT OR REPLACE INTO visit_events (id, hospital_id, hospital_name, visit_type, place, status, scheduled_start, scheduled_end, notes, is_cancelled, is_not_realized, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+          [visit.id, visit.hospitalId || null, visit.hospitalName || null, visit.visitType || null, visit.place || null,
+           visit.status || 'scheduled', visit.scheduledStart || null, visit.scheduledEnd || null, visit.notes || null,
+           visit.isCancelled ? 1 : 0, visit.isNotRealized ? 1 : 0]
         );
       },
       (error) => reject(error),
@@ -231,6 +242,48 @@ export async function endVisit(visitId: string, latitude: number, longitude: num
           `UPDATE visit_events SET status = 'completed', actual_end = datetime('now'), end_latitude = ?, end_longitude = ?, updated_at = datetime('now')
            WHERE id = ?`,
           [latitude, longitude, visitId]
+        );
+      },
+      (error) => reject(error),
+      () => resolve()
+    );
+  });
+}
+
+export async function cancelVisit(visitId: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const database = getDatabase();
+    database.transaction(
+      (tx) => {
+        tx.executeSql(
+          `UPDATE visit_events SET status = 'cancelled', is_cancelled = 1, synced = 0, updated_at = datetime('now')
+           WHERE id = ?`,
+          [visitId]
+        );
+        tx.executeSql(
+          `INSERT INTO sync_queue (entity_type, entity_id, action, payload) VALUES (?, ?, ?, ?)`,
+          ['visit', visitId, 'update', JSON.stringify({ status: 'cancelled', isCancelled: true })]
+        );
+      },
+      (error) => reject(error),
+      () => resolve()
+    );
+  });
+}
+
+export async function markVisitNotRealized(visitId: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const database = getDatabase();
+    database.transaction(
+      (tx) => {
+        tx.executeSql(
+          `UPDATE visit_events SET status = 'not_realized', is_not_realized = 1, synced = 0, updated_at = datetime('now')
+           WHERE id = ?`,
+          [visitId]
+        );
+        tx.executeSql(
+          `INSERT INTO sync_queue (entity_type, entity_id, action, payload) VALUES (?, ?, ?, ?)`,
+          ['visit', visitId, 'update', JSON.stringify({ status: 'not_realized', isNotRealized: true })]
         );
       },
       (error) => reject(error),

@@ -6,8 +6,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import { useTranslation } from '@/hooks/useTranslation';
-import { useVisit, useStartVisit, useEndVisit } from '@/hooks/useVisits';
+import { useVisit, useStartVisit, useEndVisit, useCancelVisit, useMarkVisitNotRealized } from '@/hooks/useVisits';
 import { Colors, Spacing, FontSizes } from '@/constants/colors';
+
+const PLACE_LABELS: Record<string, keyof any> = {
+  '1': 'placeObstetrics',
+  '2': 'placePrivateOffice',
+  '3': 'placeStateOffice',
+  '4': 'placeHospitalManagement',
+  '5': 'placeOther',
+  '6': 'placePhoneVideo',
+};
 
 export default function VisitDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -16,6 +25,8 @@ export default function VisitDetailScreen() {
   const { data: visit, isLoading, refetch } = useVisit(id || '');
   const startVisitMutation = useStartVisit();
   const endVisitMutation = useEndVisit();
+  const cancelVisitMutation = useCancelVisit();
+  const markNotRealizedMutation = useMarkVisitNotRealized();
   
   const [isGettingLocation, setIsGettingLocation] = useState(false);
 
@@ -97,6 +108,43 @@ export default function VisitDetailScreen() {
               });
               refetch();
               Alert.alert(translations.common.done, translations.visits.visitCompleted);
+            } catch (error: any) {
+              Alert.alert(translations.common.error, error.message);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleCancelVisit = () => {
+    if (!visit?.id) return;
+    
+    Alert.alert(
+      translations.visits.cancelEvent,
+      translations.visits.cancelEventConfirm,
+      [
+        { text: translations.common.cancel, style: 'cancel' },
+        {
+          text: translations.visits.cancelled,
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await cancelVisitMutation.mutateAsync(visit.id);
+              refetch();
+              Alert.alert(translations.common.done, translations.visits.visitCancelled);
+            } catch (error: any) {
+              Alert.alert(translations.common.error, error.message);
+            }
+          },
+        },
+        {
+          text: translations.visits.notRealized,
+          onPress: async () => {
+            try {
+              await markNotRealizedMutation.mutateAsync(visit.id);
+              refetch();
+              Alert.alert(translations.common.done, translations.visits.visitNotRealized);
             } catch (error: any) {
               Alert.alert(translations.common.error, error.message);
             }
@@ -249,6 +297,13 @@ export default function VisitDetailScreen() {
               <Text style={styles.visitTypeText}>
                 {visit.subject || visit.visit_type || visit.visitType || translations.navigation.visits}
               </Text>
+              {(visit.place) && (
+                <Text style={styles.placeText}>
+                  {PLACE_LABELS[visit.place] 
+                    ? (translations.visits as any)[PLACE_LABELS[visit.place]] 
+                    : visit.place}
+                </Text>
+              )}
             </View>
           </View>
 
@@ -317,22 +372,6 @@ export default function VisitDetailScreen() {
           </View>
         )}
 
-        <View style={styles.voiceNotesCard}>
-          <View style={styles.cardHeader}>
-            <Ionicons name="mic" size={20} color={Colors.primary} />
-            <Text style={styles.cardTitle}>{translations.visits.voiceNote}</Text>
-            {isInProgress && (
-              <TouchableOpacity style={styles.addVoiceButton} testID="button-add-voice-note">
-                <Ionicons name="add" size={20} color={Colors.white} />
-              </TouchableOpacity>
-            )}
-          </View>
-          <View style={styles.emptyVoiceNotes}>
-            <Ionicons name="mic-off" size={32} color={Colors.textSecondary} />
-            <Text style={styles.emptyText}>{translations.visits.noVoiceNotes}</Text>
-          </View>
-        </View>
-
         <View style={styles.gpsCard}>
           <View style={styles.cardHeader}>
             <Ionicons name="location" size={20} color={Colors.primary} />
@@ -369,53 +408,66 @@ export default function VisitDetailScreen() {
       </ScrollView>
 
       <View style={styles.footer}>
-        {isScheduled && !isInactive && (
-          <TouchableOpacity
-            style={styles.startButton}
-            onPress={handleStartVisit}
-            disabled={startVisitMutation.isPending || isGettingLocation}
-            testID="button-start-visit"
-          >
-            <LinearGradient
-              colors={[Colors.success, '#2E7D32']}
-              style={styles.actionButtonGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+        {(isScheduled || isInProgress) && !isInactive && (
+          <View style={styles.footerButtons}>
+            {isScheduled && (
+              <TouchableOpacity
+                style={styles.startButton}
+                onPress={handleStartVisit}
+                disabled={startVisitMutation.isPending || isGettingLocation}
+                testID="button-start-visit"
+              >
+                <LinearGradient
+                  colors={[Colors.success, '#2E7D32']}
+                  style={styles.actionButtonGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  {(startVisitMutation.isPending || isGettingLocation) ? (
+                    <ActivityIndicator color={Colors.white} />
+                  ) : (
+                    <>
+                      <Ionicons name="play" size={20} color={Colors.white} />
+                      <Text style={styles.actionButtonText}>{translations.visits.startVisit}</Text>
+                    </>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
+            {isInProgress && (
+              <TouchableOpacity
+                style={styles.endButton}
+                onPress={handleEndVisit}
+                disabled={endVisitMutation.isPending || isGettingLocation}
+                testID="button-end-visit"
+              >
+                <LinearGradient
+                  colors={[Colors.error, '#C62828']}
+                  style={styles.actionButtonGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  {(endVisitMutation.isPending || isGettingLocation) ? (
+                    <ActivityIndicator color={Colors.white} />
+                  ) : (
+                    <>
+                      <Ionicons name="stop" size={20} color={Colors.white} />
+                      <Text style={styles.actionButtonText}>{translations.visits.endVisit}</Text>
+                    </>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={handleCancelVisit}
+              disabled={cancelVisitMutation.isPending || markNotRealizedMutation.isPending}
+              testID="button-cancel-event"
             >
-              {(startVisitMutation.isPending || isGettingLocation) ? (
-                <ActivityIndicator color={Colors.white} />
-              ) : (
-                <>
-                  <Ionicons name="play" size={20} color={Colors.white} />
-                  <Text style={styles.actionButtonText}>{translations.visits.startVisit}</Text>
-                </>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
-        )}
-        {isInProgress && !isInactive && (
-          <TouchableOpacity
-            style={styles.endButton}
-            onPress={handleEndVisit}
-            disabled={endVisitMutation.isPending || isGettingLocation}
-            testID="button-end-visit"
-          >
-            <LinearGradient
-              colors={[Colors.error, '#C62828']}
-              style={styles.actionButtonGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              {(endVisitMutation.isPending || isGettingLocation) ? (
-                <ActivityIndicator color={Colors.white} />
-              ) : (
-                <>
-                  <Ionicons name="stop" size={20} color={Colors.white} />
-                  <Text style={styles.actionButtonText}>{translations.visits.endVisit}</Text>
-                </>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
+              <Ionicons name="close-circle-outline" size={20} color={Colors.error} />
+              <Text style={styles.cancelButtonText}>{translations.visits.cancelEvent}</Text>
+            </TouchableOpacity>
+          </View>
         )}
         {isCompleted && (
           <View style={styles.completedBanner}>
@@ -566,6 +618,12 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.sm,
     color: Colors.textSecondary,
     marginTop: 2,
+  },
+  placeText: {
+    fontSize: FontSizes.xs,
+    color: Colors.primary,
+    marginTop: 4,
+    fontStyle: 'italic',
   },
   divider: {
     height: 1,
@@ -720,6 +778,9 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: Colors.border,
   },
+  footerButtons: {
+    gap: Spacing.sm,
+  },
   startButton: {
     borderRadius: 12,
     overflow: 'hidden',
@@ -751,6 +812,22 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.md,
     fontWeight: '600',
     color: Colors.success,
+  },
+  cancelButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.sm,
+    gap: Spacing.xs,
+    borderWidth: 1,
+    borderColor: Colors.error,
+    borderRadius: 12,
+    backgroundColor: 'transparent',
+  },
+  cancelButtonText: {
+    fontSize: FontSizes.sm,
+    fontWeight: '500',
+    color: Colors.error,
   },
   cancelledBanner: {
     flexDirection: 'row',

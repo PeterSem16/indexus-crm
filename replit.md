@@ -173,7 +173,13 @@ Files are served via:
 ## INDEXUS Connect Mobile Application
 
 ### Overview
-INDEXUS Connect is a React Native (Expo) mobile application for field representatives (collaborators) to manage hospital visits, track GPS location, and record voice notes.
+INDEXUS Connect is a React Native (Expo) mobile application for field representatives (collaborators) to manage hospital visits, track GPS location, and manage visit events.
+
+### Current Version: 1.1.4
+- **14 Visit Types**: Personal visit, phone call, online meeting, training, conference, examination of problematic collection, hospital kit delivery, pregnancy lecture, group lectures for midwives/doctors, contract management (hospital/doctor/business partner), other
+- **6 Place Options**: Obstetrics department, private office, state office, hospital management, phone/video, other
+- **Event Cancellation**: Cancel events with "Cancelled" or "Not Realized" status options
+- **Voice Notes**: Removed from visit detail screen (backend support still available)
 
 ### Mobile API Endpoints
 All mobile endpoints require JWT Bearer token authentication:
@@ -212,6 +218,8 @@ Complete mobile app design specification: `docs/INDEXUS_CONNECT_MOBILE_APP.md`
 ### Key Features
 - Offline-first architecture with SQLite local storage
 - GPS tracking during active visits
-- Voice note recording with automatic transcription
+- 14 expanded visit types with place selection
+- Event cancellation with "Cancelled" / "Not Realized" options
 - Multi-language support (SK, CZ, HU, DE, IT, RO, EN)
 - Push notifications for visit reminders
+- Local Android builds on headless Ubuntu server (SSH-only)

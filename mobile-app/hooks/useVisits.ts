@@ -33,6 +33,8 @@ interface CreateVisitInput {
   endTime: string;
   isAllDay?: boolean;
   remark?: string;
+  visitType?: string;
+  place?: string;
 }
 
 export function useVisits(date?: string) {
@@ -141,6 +143,54 @@ export function useEndVisit() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['visits'] });
       queryClient.invalidateQueries({ queryKey: ['visit', variables.id] });
+    },
+  });
+}
+
+export function useCancelVisit() {
+  const queryClient = useQueryClient();
+  const isOnline = useSyncStore((state) => state.isOnline);
+  
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (isOnline) {
+        try {
+          return await api.put<VisitEvent>(`/api/mobile/visit-events/${id}`, { status: 'cancelled', isCancelled: true });
+        } catch {
+          await db.cancelVisit(id);
+          return { id };
+        }
+      }
+      await db.cancelVisit(id);
+      return { id };
+    },
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['visits'] });
+      queryClient.invalidateQueries({ queryKey: ['visit', id] });
+    },
+  });
+}
+
+export function useMarkVisitNotRealized() {
+  const queryClient = useQueryClient();
+  const isOnline = useSyncStore((state) => state.isOnline);
+  
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (isOnline) {
+        try {
+          return await api.put<VisitEvent>(`/api/mobile/visit-events/${id}`, { status: 'not_realized', isNotRealized: true });
+        } catch {
+          await db.markVisitNotRealized(id);
+          return { id };
+        }
+      }
+      await db.markVisitNotRealized(id);
+      return { id };
+    },
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['visits'] });
+      queryClient.invalidateQueries({ queryKey: ['visit', id] });
     },
   });
 }

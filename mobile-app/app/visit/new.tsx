@@ -17,6 +17,12 @@ type VisitType = {
   icon: string;
 };
 
+type PlaceType = {
+  id: string;
+  labelKey: keyof typeof PLACE_KEYS;
+  icon: string;
+};
+
 const VISIT_TYPE_KEYS = {
   personalVisit: 'personalVisit',
   phoneCall: 'phoneCall',
@@ -24,6 +30,23 @@ const VISIT_TYPE_KEYS = {
   training: 'training',
   conference: 'conference',
   other: 'other',
+  examinationProblematicCollection: 'examinationProblematicCollection',
+  hospitalKitDelivery: 'hospitalKitDelivery',
+  pregnancyLecture: 'pregnancyLecture',
+  midwivesLecture: 'midwivesLecture',
+  doctorsLecture: 'doctorsLecture',
+  hospitalContractManagement: 'hospitalContractManagement',
+  doctorContractManagement: 'doctorContractManagement',
+  businessPartnerContractManagement: 'businessPartnerContractManagement',
+} as const;
+
+const PLACE_KEYS = {
+  placeObstetrics: 'placeObstetrics',
+  placePrivateOffice: 'placePrivateOffice',
+  placeStateOffice: 'placeStateOffice',
+  placeHospitalManagement: 'placeHospitalManagement',
+  placeOther: 'placeOther',
+  placePhoneVideo: 'placePhoneVideo',
 } as const;
 
 const VISIT_TYPES: VisitType[] = [
@@ -33,6 +56,23 @@ const VISIT_TYPES: VisitType[] = [
   { id: '4', labelKey: 'training', icon: 'school' },
   { id: '5', labelKey: 'conference', icon: 'people' },
   { id: '6', labelKey: 'other', icon: 'ellipsis-horizontal' },
+  { id: '7', labelKey: 'examinationProblematicCollection', icon: 'flask' },
+  { id: '8', labelKey: 'hospitalKitDelivery', icon: 'cube' },
+  { id: '9', labelKey: 'pregnancyLecture', icon: 'woman' },
+  { id: '10', labelKey: 'midwivesLecture', icon: 'medkit' },
+  { id: '11', labelKey: 'doctorsLecture', icon: 'medical' },
+  { id: '12', labelKey: 'hospitalContractManagement', icon: 'document-text' },
+  { id: '13', labelKey: 'doctorContractManagement', icon: 'clipboard' },
+  { id: '14', labelKey: 'businessPartnerContractManagement', icon: 'briefcase' },
+];
+
+const PLACE_TYPES: PlaceType[] = [
+  { id: '1', labelKey: 'placeObstetrics', icon: 'business' },
+  { id: '2', labelKey: 'placePrivateOffice', icon: 'home' },
+  { id: '3', labelKey: 'placeStateOffice', icon: 'storefront' },
+  { id: '4', labelKey: 'placeHospitalManagement', icon: 'people' },
+  { id: '5', labelKey: 'placeOther', icon: 'location' },
+  { id: '6', labelKey: 'placePhoneVideo', icon: 'call' },
 ];
 
 export default function NewVisitScreen() {
@@ -43,14 +83,17 @@ export default function NewVisitScreen() {
   
   const [selectedHospitalId, setSelectedHospitalId] = useState<string>('');
   const [selectedType, setSelectedType] = useState<string>('1');
+  const [selectedPlace, setSelectedPlace] = useState<string>('1');
   const [scheduledDate, setScheduledDate] = useState(new Date());
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('10:00');
   const [notes, setNotes] = useState('');
   const [showHospitalPicker, setShowHospitalPicker] = useState(false);
+  const [showPlacePicker, setShowPlacePicker] = useState(false);
   const [hospitalSearch, setHospitalSearch] = useState('');
 
   const selectedHospital = hospitals.find(h => String(h.id) === selectedHospitalId);
+  const selectedPlaceObj = PLACE_TYPES.find(p => p.id === selectedPlace);
 
   const filteredHospitals = useMemo(() => {
     if (!hospitals || hospitals.length === 0) return [];
@@ -88,6 +131,8 @@ export default function NewVisitScreen() {
       const selectedTypeObj = VISIT_TYPES.find(t => t.id === selectedType);
       const visitTypeLabel = selectedTypeObj ? translations.visits[selectedTypeObj.labelKey] : '';
 
+      const selectedPlaceLabel = selectedPlaceObj ? translations.visits[selectedPlaceObj.labelKey] : '';
+      
       await createVisit.mutateAsync({
         hospitalId: selectedHospitalId || undefined,
         subject: visitTypeLabel,
@@ -95,6 +140,8 @@ export default function NewVisitScreen() {
         endTime: endDateTime.toISOString(),
         remark: notes || undefined,
         isAllDay: false,
+        visitType: selectedType,
+        place: selectedPlace,
       });
 
       Alert.alert(translations.common.done, translations.visits.newVisit, [
@@ -195,6 +242,30 @@ export default function NewVisitScreen() {
               </TouchableOpacity>
             ))}
           </View>
+
+          <Text style={styles.sectionTitle}>{translations.visits.place}</Text>
+          <TouchableOpacity 
+            style={styles.hospitalSelector}
+            onPress={() => setShowPlacePicker(true)}
+            activeOpacity={0.7}
+            data-testid="button-select-place"
+          >
+            <View style={styles.hospitalSelectorContent}>
+              <Ionicons 
+                name={selectedPlaceObj?.icon as any || 'location'} 
+                size={20} 
+                color={Colors.primary} 
+                style={styles.hospitalIcon}
+              />
+              <Text style={styles.hospitalSelectorText}>
+                {selectedPlaceObj 
+                  ? translations.visits[selectedPlaceObj.labelKey]
+                  : translations.visits.selectPlace
+                }
+              </Text>
+            </View>
+            <Ionicons name="chevron-down" size={20} color={Colors.textSecondary} />
+          </TouchableOpacity>
 
           <Text style={styles.sectionTitle}>{translations.visits.scheduledTime}</Text>
           <View style={styles.dateTimeContainer}>
@@ -376,6 +447,69 @@ export default function NewVisitScreen() {
                 />
               )}
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showPlacePicker}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowPlacePicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{translations.visits.selectPlace}</Text>
+              <TouchableOpacity 
+                onPress={() => setShowPlacePicker(false)}
+                style={styles.modalCloseButton}
+                testID="button-close-place-picker"
+              >
+                <Ionicons name="close" size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.hospitalListContainer}>
+              {PLACE_TYPES.map((place) => (
+                <TouchableOpacity
+                  key={place.id}
+                  style={[
+                    styles.hospitalItem,
+                    selectedPlace === place.id && styles.hospitalItemSelected
+                  ]}
+                  onPress={() => {
+                    setSelectedPlace(place.id);
+                    setShowPlacePicker(false);
+                  }}
+                  testID={`button-select-place-${place.id}`}
+                >
+                  <View style={styles.hospitalItemContent}>
+                    <View style={[
+                      styles.hospitalIconContainer,
+                      selectedPlace === place.id && styles.hospitalIconContainerSelected
+                    ]}>
+                      <Ionicons 
+                        name={place.icon as any} 
+                        size={24} 
+                        color={selectedPlace === place.id ? Colors.white : Colors.primary} 
+                      />
+                    </View>
+                    <View style={styles.hospitalItemText}>
+                      <Text style={[
+                        styles.hospitalName,
+                        selectedPlace === place.id && styles.hospitalNameSelected
+                      ]}>
+                        {translations.visits[place.labelKey]}
+                      </Text>
+                    </View>
+                  </View>
+                  {selectedPlace === place.id && (
+                    <Ionicons name="checkmark-circle" size={24} color={Colors.primary} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
         </View>
       </Modal>

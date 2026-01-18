@@ -131,10 +131,13 @@ async function pullServerData(): Promise<void> {
         hospitalId: visit.hospitalId,
         hospitalName: visit.hospitalName,
         visitType: visit.visitType,
+        place: visit.place,
         status: visit.status,
         scheduledStart: visit.scheduledStart,
         scheduledEnd: visit.scheduledEnd,
         notes: visit.notes,
+        isCancelled: visit.isCancelled,
+        isNotRealized: visit.isNotRealized,
       });
     }
   } catch (error) {
@@ -148,6 +151,8 @@ export async function createVisitOffline(visit: {
   startTime?: string;
   endTime?: string;
   remark?: string;
+  visitType?: string;
+  place?: string;
 }): Promise<string> {
   const id = generateUUID();
   
@@ -155,7 +160,8 @@ export async function createVisitOffline(visit: {
     id,
     hospitalId: visit.hospitalId,
     hospitalName: visit.hospitalName,
-    visitType: visit.subject,
+    visitType: visit.visitType || visit.subject,
+    place: visit.place,
     status: 'scheduled',
     scheduledStart: visit.startTime,
     scheduledEnd: visit.endTime,

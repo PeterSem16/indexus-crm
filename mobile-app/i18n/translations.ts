@@ -92,6 +92,14 @@ type TranslationKeys = {
     training: string;
     conference: string;
     other: string;
+    examinationProblematicCollection: string;
+    hospitalKitDelivery: string;
+    pregnancyLecture: string;
+    midwivesLecture: string;
+    doctorsLecture: string;
+    hospitalContractManagement: string;
+    doctorContractManagement: string;
+    businessPartnerContractManagement: string;
     startTime: string;
     endTime: string;
     addNotes: string;
@@ -113,6 +121,16 @@ type TranslationKeys = {
     cancelled: string;
     notRealized: string;
     endVisitConfirm: string;
+    place: string;
+    selectPlace: string;
+    placeObstetrics: string;
+    placePrivateOffice: string;
+    placeStateOffice: string;
+    placeHospitalManagement: string;
+    placeOther: string;
+    placePhoneVideo: string;
+    cancelEvent: string;
+    cancelEventConfirm: string;
   };
   hospitals: {
     title: string;
@@ -297,6 +315,14 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       training: 'Skolenie',
       conference: 'Konferencia',
       other: 'Ine',
+      examinationProblematicCollection: 'Setrenie problematickeho odberu',
+      hospitalKitDelivery: 'Dodanie nemocnicneho setu',
+      pregnancyLecture: 'Prednaska pre tehotne',
+      midwivesLecture: 'Skupinova prednaska pre porodne asistentky',
+      doctorsLecture: 'Skupinova prednaska pre lekarov',
+      hospitalContractManagement: 'Sprava nemocnicnej zmluvy',
+      doctorContractManagement: 'Sprava lekarskej zmluvy',
+      businessPartnerContractManagement: 'Sprava zmluvy obchodneho partnera',
       startTime: 'Zaciatok',
       endTime: 'Koniec',
       addNotes: 'Pridat poznamky k navsteve...',
@@ -318,6 +344,16 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       cancelled: 'Zrusena',
       notRealized: 'Neuskutocnena',
       endVisitConfirm: 'Naozaj chcete ukoncit tuto navstevu?',
+      place: 'Miesto',
+      selectPlace: 'Vybrat miesto',
+      placeObstetrics: 'Porodnicke oddelenie nemocnice',
+      placePrivateOffice: 'Sukromna lekarska ambulancia',
+      placeStateOffice: 'Statna lekarska ambulancia',
+      placeHospitalManagement: 'Oddelenie vedenia nemocnice',
+      placeOther: 'Ine',
+      placePhoneVideo: 'Telefonat / Videokonferencia',
+      cancelEvent: 'Zrusit udalost',
+      cancelEventConfirm: 'Naozaj chcete zrusit tuto udalost?',
     },
     hospitals: {
       title: 'Nemocnice',
@@ -500,6 +536,14 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       training: 'Skoleni',
       conference: 'Konference',
       other: 'Jine',
+      examinationProblematicCollection: 'Setreni problematickeho odberu',
+      hospitalKitDelivery: 'Dodani nemocnicniho setu',
+      pregnancyLecture: 'Prednaska pro tehotne',
+      midwivesLecture: 'Skupinova prednaska pro porodne asistentky',
+      doctorsLecture: 'Skupinova prednaska pro lekare',
+      hospitalContractManagement: 'Sprava nemocnicni smlouvy',
+      doctorContractManagement: 'Sprava lekarske smlouvy',
+      businessPartnerContractManagement: 'Sprava smlouvy obchodniho partnera',
       startTime: 'Zacatek',
       endTime: 'Konec',
       addNotes: 'Pridat poznamky k navsteve...',
@@ -521,6 +565,16 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       cancelled: 'Zrusena',
       notRealized: 'Neuskutecnena',
       endVisitConfirm: 'Opravdu chcete ukoncit tuto navstevu?',
+      place: 'Misto',
+      selectPlace: 'Vybrat misto',
+      placeObstetrics: 'Porodnicke oddeleni nemocnice',
+      placePrivateOffice: 'Soukroma lekarska ordinace',
+      placeStateOffice: 'Statni lekarska ordinace',
+      placeHospitalManagement: 'Oddeleni vedeni nemocnice',
+      placeOther: 'Jine',
+      placePhoneVideo: 'Telefonat / Videokonference',
+      cancelEvent: 'Zrusit udalost',
+      cancelEventConfirm: 'Opravdu chcete zrusit tuto udalost?',
     },
     hospitals: {
       title: 'Nemocnice',
@@ -703,6 +757,14 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       training: 'Kepzes',
       conference: 'Konferencia',
       other: 'Egyeb',
+      examinationProblematicCollection: 'Problemas gyujtes vizsgalata',
+      hospitalKitDelivery: 'Korhazi keszlet szallitas',
+      pregnancyLecture: 'Eloadas varandosoknak',
+      midwivesLecture: 'Csoportos eloadas szulesznoknek',
+      doctorsLecture: 'Csoportos eloadas orvosoknak',
+      hospitalContractManagement: 'Korhazi szerzodes kezeles',
+      doctorContractManagement: 'Orvosi szerzodes kezeles',
+      businessPartnerContractManagement: 'Uzleti partner szerzodes kezeles',
       startTime: 'Kezdes',
       endTime: 'Befejezes',
       addNotes: 'Jegyzetek hozzaadasa...',
@@ -724,6 +786,16 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       cancelled: 'Lemondott',
       notRealized: 'Nem megvalosult',
       endVisitConfirm: 'Biztosan befejezi ezt a latogatast?',
+      place: 'Helyszin',
+      selectPlace: 'Helyszin valasztasa',
+      placeObstetrics: 'Korhaz szuleszeti osztalya',
+      placePrivateOffice: 'Maganrendelo',
+      placeStateOffice: 'Allami szakrendelo',
+      placeHospitalManagement: 'Korhaz vezetosegi osztalya',
+      placeOther: 'Egyeb',
+      placePhoneVideo: 'Telefonhivas / Videokonferencia',
+      cancelEvent: 'Esemeny lemondasa',
+      cancelEventConfirm: 'Biztosan le szeretne mondani ezt az esemenyt?',
     },
     hospitals: {
       title: 'Korhazak',
@@ -906,6 +978,14 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       training: 'Schulung',
       conference: 'Konferenz',
       other: 'Sonstiges',
+      examinationProblematicCollection: 'Untersuchung problematischer Entnahme',
+      hospitalKitDelivery: 'Krankenhauskit-Lieferung',
+      pregnancyLecture: 'Vortrag fur Schwangere',
+      midwivesLecture: 'Gruppenvortrag fur Hebammen',
+      doctorsLecture: 'Gruppenvortrag fur Arzte',
+      hospitalContractManagement: 'Krankenhausvertragsmanagement',
+      doctorContractManagement: 'Arztvertragsmanagement',
+      businessPartnerContractManagement: 'Geschaftspartnervertragsmanagement',
       startTime: 'Beginn',
       endTime: 'Ende',
       addNotes: 'Notizen zum Besuch hinzufugen...',
@@ -926,6 +1006,16 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       inProgress: 'In Bearbeitung',
       cancelled: 'Abgesagt',
       notRealized: 'Nicht realisiert',
+      place: 'Ort',
+      selectPlace: 'Ort auswahlen',
+      placeObstetrics: 'Geburtshilfeabteilung des Krankenhauses',
+      placePrivateOffice: 'Private Arztpraxis',
+      placeStateOffice: 'Staatliche Arztpraxis',
+      placeHospitalManagement: 'Krankenhausverwaltung',
+      placeOther: 'Sonstiges',
+      placePhoneVideo: 'Telefonat / Videokonferenz',
+      cancelEvent: 'Termin absagen',
+      cancelEventConfirm: 'Mochten Sie diesen Termin wirklich absagen?',
       endVisitConfirm: 'Mochten Sie diesen Besuch wirklich beenden?',
     },
     hospitals: {
@@ -1109,6 +1199,14 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       training: 'Formazione',
       conference: 'Conferenza',
       other: 'Altro',
+      examinationProblematicCollection: 'Esame raccolta problematica',
+      hospitalKitDelivery: 'Consegna kit ospedaliero',
+      pregnancyLecture: 'Conferenza per gestanti',
+      midwivesLecture: 'Conferenza di gruppo per ostetriche',
+      doctorsLecture: 'Conferenza di gruppo per medici',
+      hospitalContractManagement: 'Gestione contratto ospedaliero',
+      doctorContractManagement: 'Gestione contratto medico',
+      businessPartnerContractManagement: 'Gestione contratto partner commerciale',
       startTime: 'Inizio',
       endTime: 'Fine',
       addNotes: 'Aggiungi note alla visita...',
@@ -1129,6 +1227,16 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       inProgress: 'In corso',
       cancelled: 'Annullata',
       notRealized: 'Non realizzata',
+      place: 'Luogo',
+      selectPlace: 'Seleziona luogo',
+      placeObstetrics: 'Reparto di ostetricia ospedaliero',
+      placePrivateOffice: 'Studio medico privato',
+      placeStateOffice: 'Ambulatorio statale',
+      placeHospitalManagement: 'Direzione ospedaliera',
+      placeOther: 'Altro',
+      placePhoneVideo: 'Telefonata / Videoconferenza',
+      cancelEvent: 'Annulla evento',
+      cancelEventConfirm: 'Sei sicuro di voler annullare questo evento?',
       endVisitConfirm: 'Sei sicuro di voler terminare questa visita?',
     },
     hospitals: {
@@ -1312,6 +1420,14 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       training: 'Training',
       conference: 'Conferinta',
       other: 'Altele',
+      examinationProblematicCollection: 'Examinare colectie problematica',
+      hospitalKitDelivery: 'Livrare kit spital',
+      pregnancyLecture: 'Prelegere pentru gravide',
+      midwivesLecture: 'Prelegere de grup pentru moase',
+      doctorsLecture: 'Prelegere de grup pentru medici',
+      hospitalContractManagement: 'Gestionare contract spital',
+      doctorContractManagement: 'Gestionare contract medic',
+      businessPartnerContractManagement: 'Gestionare contract partener de afaceri',
       startTime: 'Inceput',
       endTime: 'Sfarsit',
       addNotes: 'Adaugati note la vizita...',
@@ -1332,6 +1448,16 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       inProgress: 'In desfasurare',
       cancelled: 'Anulata',
       notRealized: 'Nerealizata',
+      place: 'Loc',
+      selectPlace: 'Selecteaza locul',
+      placeObstetrics: 'Sectia de obstetrica a spitalului',
+      placePrivateOffice: 'Cabinet medical privat',
+      placeStateOffice: 'Cabinet medical de stat',
+      placeHospitalManagement: 'Departamentul de management al spitalului',
+      placeOther: 'Altele',
+      placePhoneVideo: 'Apel telefonic / Videoconferinta',
+      cancelEvent: 'Anuleaza evenimentul',
+      cancelEventConfirm: 'Sigur doriti sa anulati acest eveniment?',
       endVisitConfirm: 'Sigur doriti sa incheiati aceasta vizita?',
     },
     hospitals: {
@@ -1515,6 +1641,14 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       training: 'Training',
       conference: 'Conference',
       other: 'Other',
+      examinationProblematicCollection: 'Examination of problematic collection',
+      hospitalKitDelivery: 'Hospital kit delivery',
+      pregnancyLecture: 'Pregnancy preparation lecture',
+      midwivesLecture: 'Group lecture for midwives',
+      doctorsLecture: 'Group lecture for doctors',
+      hospitalContractManagement: 'Hospital contract management',
+      doctorContractManagement: 'Doctor contract management',
+      businessPartnerContractManagement: 'Business partner contract management',
       startTime: 'Start Time',
       endTime: 'End Time',
       addNotes: 'Add notes about this visit...',
@@ -1535,6 +1669,16 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       inProgress: 'In Progress',
       cancelled: 'Cancelled',
       notRealized: 'Not Realized',
+      place: 'Place',
+      selectPlace: 'Select place',
+      placeObstetrics: 'Department of Obstetrics, Hospital',
+      placePrivateOffice: 'Private doctor\'s office',
+      placeStateOffice: 'State doctor\'s office',
+      placeHospitalManagement: 'Hospital management department',
+      placeOther: 'Other',
+      placePhoneVideo: 'Phone call / Video conference',
+      cancelEvent: 'Cancel event',
+      cancelEventConfirm: 'Are you sure you want to cancel this event?',
       endVisitConfirm: 'Are you sure you want to end this visit?',
     },
     hospitals: {
