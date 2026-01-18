@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
 import { useCountryFilter } from "@/contexts/country-filter-context";
@@ -21,6 +21,17 @@ import {
 import { Link } from "wouter";
 import type { VisitEvent, Collaborator, Hospital } from "@shared/schema";
 import { VISIT_SUBJECTS, REMARK_DETAIL_OPTIONS, VISIT_PLACE_OPTIONS } from "@shared/schema";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+
+// Fix for default marker icons in Leaflet with bundlers
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+});
 
 type PageView = "visits" | "activityLog";
 type ActivityType = "all" | "visit_scheduled" | "visit_started" | "visit_completed" | "visit_cancelled" | "login";
@@ -116,6 +127,22 @@ export default function VisitEventsPage() {
   const filteredEvents = selectedCollaborator === "all" 
     ? visitEvents 
     : visitEvents.filter(e => e.collaboratorId === selectedCollaborator);
+
+  // Events with GPS locations for map view - computed at top level
+  const eventsWithLocation = useMemo(() => 
+    filteredEvents.filter(e => e.latitude && e.longitude),
+    [filteredEvents]
+  );
+
+  // Calculate map center from events or use default (Slovakia center)
+  const mapCenter = useMemo(() => {
+    if (eventsWithLocation.length === 0) {
+      return { lat: 48.669, lng: 19.699 }; // Slovakia center
+    }
+    const avgLat = eventsWithLocation.reduce((sum, e) => sum + parseFloat(String(e.latitude)), 0) / eventsWithLocation.length;
+    const avgLng = eventsWithLocation.reduce((sum, e) => sum + parseFloat(String(e.longitude)), 0) / eventsWithLocation.length;
+    return { lat: avgLat, lng: avgLng };
+  }, [eventsWithLocation]);
 
   const getSubjectLabel = (code: string) => {
     const subject = VISIT_SUBJECTS.find(s => s.code === code);
@@ -417,48 +444,82 @@ export default function VisitEventsPage() {
     </Card>
   );
 
-  const renderMapView = () => {
-    const eventsWithLocation = filteredEvents.filter(e => e.latitude && e.longitude);
-    
-    return (
-      <Card>
-        <CardHeader>
+  const renderMapView = () => (
+    <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-2">
           <CardTitle className="flex items-center gap-2">
             <MapIcon className="h-5 w-5" />
             {t.visitEvents?.mapTitle || "Mapa návštev"}
           </CardTitle>
+          <Badge variant="secondary">
+            {eventsWithLocation.length} {t.visitEvents?.eventsWithLocation || "návštev s GPS"}
+          </Badge>
         </CardHeader>
         <CardContent>
           {eventsWithLocation.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              {t.visitEvents?.noLocations || "Žiadne návštevy s GPS lokalizáciou"}
+              <MapIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
+              <p>{t.visitEvents?.noLocations || "Žiadne návštevy s GPS lokalizáciou"}</p>
             </div>
           ) : (
-            <div className="relative h-[500px] bg-muted rounded-lg flex items-center justify-center">
-              <div className="text-center text-muted-foreground">
-                <MapIcon className="h-12 w-12 mx-auto mb-2" />
-                <p>{t.visitEvents?.mapPlaceholder || "Mapová integrácia"}</p>
-                <p className="text-sm mt-2">
-                  {eventsWithLocation.length} {t.visitEvents?.eventsWithLocation || "návštev s GPS lokalizáciou"}
-                </p>
-                <div className="mt-4 space-y-2 text-left max-w-md mx-auto">
-                  {eventsWithLocation.slice(0, 5).map(event => (
-                    <div key={event.id} className="p-2 bg-background rounded border text-sm">
-                      <div className="font-medium">{getCollaboratorName(event.collaboratorId)}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {event.latitude}, {event.longitude}
+            <div className="relative h-[500px] rounded-lg overflow-hidden border">
+              <MapContainer
+                center={[mapCenter.lat, mapCenter.lng]}
+                zoom={8}
+                style={{ height: "100%", width: "100%" }}
+                scrollWheelZoom={true}
+              >
+                <TileLayer
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                {eventsWithLocation.map(event => (
+                  <Marker 
+                    key={event.id} 
+                    position={[parseFloat(String(event.latitude)), parseFloat(String(event.longitude))]}
+                  >
+                    <Popup>
+                      <div className="min-w-[200px]">
+                        <div className="font-semibold text-sm mb-1">{getSubjectLabel(event.subject)}</div>
+                        <div className="text-xs text-gray-600 mb-1">
+                          <User className="h-3 w-3 inline mr-1" />
+                          {getCollaboratorName(event.collaboratorId)}
+                        </div>
+                        <div className="text-xs text-gray-600 mb-1">
+                          <Clock className="h-3 w-3 inline mr-1" />
+                          {format(new Date(event.startTime), "dd.MM.yyyy HH:mm", { locale: dateFnsLocale })}
+                        </div>
+                        {event.hospitalId && (
+                          <div className="text-xs text-gray-600 mb-1">
+                            <Building2 className="h-3 w-3 inline mr-1" />
+                            {getHospitalName(event.hospitalId)}
+                          </div>
+                        )}
+                        {event.locationAddress && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            <MapPin className="h-3 w-3 inline mr-1" />
+                            {event.locationAddress}
+                          </div>
+                        )}
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="mt-2 w-full text-xs"
+                          onClick={() => setSelectedEvent(event)}
+                        >
+                          <Eye className="h-3 w-3 mr-1" />
+                          {t.common?.detail || "Detail"}
+                        </Button>
                       </div>
-                      <div className="text-xs">{event.locationAddress || "Adresa neznáma"}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+                    </Popup>
+                  </Marker>
+                ))}
+              </MapContainer>
             </div>
           )}
         </CardContent>
-      </Card>
-    );
-  };
+    </Card>
+  );
 
   const renderActivityLogView = () => (
     <div className="space-y-6" data-testid="activity-log-container">

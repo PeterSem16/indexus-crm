@@ -7410,7 +7410,18 @@ export async function registerRoutes(
       }
       
       const events = await storage.getVisitEventsByCollaborator(tokenData.collaboratorId);
-      res.json(events);
+      
+      // Batch fetch all hospitals for the collaborator's country to avoid N+1 queries
+      const allHospitals = await storage.getHospitalsByCountry(collaborator.countryCode ? [collaborator.countryCode] : []);
+      const hospitalMap = new Map(allHospitals.map(h => [h.id, h.name]));
+      
+      // Enrich events with hospital names from the map
+      const enrichedEvents = events.map((event) => ({
+        ...event,
+        hospitalName: event.hospitalId ? hospitalMap.get(event.hospitalId) || null : null,
+      }));
+      
+      res.json(enrichedEvents);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch visit events" });
     }
