@@ -63,6 +63,7 @@ type TranslationKeys = {
     visits: string;
     hospitals: string;
     map: string;
+    reports: string;
     profile: string;
   };
   visits: {
@@ -231,6 +232,29 @@ type TranslationKeys = {
     ro: string;
     en: string;
   };
+  reports: {
+    title: string;
+    subtitle: string;
+    monthlyVisitSummary: string;
+    monthlyVisitSummaryDesc: string;
+    hospitalActivity: string;
+    hospitalActivityDesc: string;
+    visitHours: string;
+    visitHoursDesc: string;
+    download: string;
+    downloading: string;
+    downloadSuccess: string;
+    downloadError: string;
+    noData: string;
+    selectPeriod: string;
+    thisMonth: string;
+    lastMonth: string;
+    last3Months: string;
+    customRange: string;
+    generating: string;
+    shareReport: string;
+    openReport: string;
+  };
 };
 
 const translations: Record<SupportedLanguage, TranslationKeys> = {
@@ -297,6 +321,7 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       visits: 'Navstevy',
       hospitals: 'Nemocnice',
       map: 'Mapa',
+      reports: 'Reporty',
       profile: 'Profil',
     },
     visits: {
@@ -465,6 +490,29 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       ro: 'RO',
       en: 'EN',
     },
+    reports: {
+      title: 'Reporty',
+      subtitle: 'Stiahnut reporty o Vasej aktivite',
+      monthlyVisitSummary: 'Mesacny prehlad navstev',
+      monthlyVisitSummaryDesc: 'Suhrn vsetkych navstev za vybrany mesiac',
+      hospitalActivity: 'Aktivita podla nemocnic',
+      hospitalActivityDesc: 'Pocet navstev v jednotlivych nemocniciach',
+      visitHours: 'Odpracovane hodiny',
+      visitHoursDesc: 'Celkovy cas straveny na navstevach',
+      download: 'Stiahnut',
+      downloading: 'Stahuje sa...',
+      downloadSuccess: 'Report bol uspesne stiahnuty',
+      downloadError: 'Nepodarilo sa stiahnut report',
+      noData: 'Ziadne data pre vybranu obdobie',
+      selectPeriod: 'Vybrat obdobie',
+      thisMonth: 'Tento mesiac',
+      lastMonth: 'Minuly mesiac',
+      last3Months: 'Posledne 3 mesiace',
+      customRange: 'Vlastne obdobie',
+      generating: 'Generujem report...',
+      shareReport: 'Zdielat report',
+      openReport: 'Otvorit report',
+    },
   },
   cs: {
     common: {
@@ -529,6 +577,7 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       visits: 'Navstevy',
       hospitals: 'Nemocnice',
       map: 'Mapa',
+      reports: 'Reporty',
       profile: 'Profil',
     },
     visits: {
@@ -697,6 +746,29 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       ro: 'RO',
       en: 'EN',
     },
+    reports: {
+      title: 'Reporty',
+      subtitle: 'Stahnout reporty o vasi aktivite',
+      monthlyVisitSummary: 'Mesicni prehled navstev',
+      monthlyVisitSummaryDesc: 'Souhrn vsech navstev za vybrany mesic',
+      hospitalActivity: 'Aktivita podle nemocnic',
+      hospitalActivityDesc: 'Pocet navstev v jednotlivych nemocnicich',
+      visitHours: 'Odpracovane hodiny',
+      visitHoursDesc: 'Celkovy cas straveny na navstevach',
+      download: 'Stahnout',
+      downloading: 'Stahuje se...',
+      downloadSuccess: 'Report byl uspesne stazen',
+      downloadError: 'Nepodarilo se stahnout report',
+      noData: 'Zadne data pro vybrane obdobi',
+      selectPeriod: 'Vybrat obdobi',
+      thisMonth: 'Tento mesic',
+      lastMonth: 'Minuly mesic',
+      last3Months: 'Poslednich 3 mesice',
+      customRange: 'Vlastni obdobi',
+      generating: 'Generuji report...',
+      shareReport: 'Sdilet report',
+      openReport: 'Otevrit report',
+    },
   },
   hu: {
     common: {
@@ -761,6 +833,7 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       visits: 'Latogatasok',
       hospitals: 'Korhazak',
       map: 'Terkep',
+      reports: 'Jelentes',
       profile: 'Profil',
     },
     visits: {
@@ -929,6 +1002,29 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       ro: 'RO',
       en: 'EN',
     },
+    reports: {
+      title: 'Jelentesek',
+      subtitle: 'Jelentesek letoltese a tevekenysegerol',
+      monthlyVisitSummary: 'Havi latogatas osszegzes',
+      monthlyVisitSummaryDesc: 'Osszes latogatas osszefoglaloja a kivalasztott honapban',
+      hospitalActivity: 'Korhazi aktivitas',
+      hospitalActivityDesc: 'Latogatasok szama korhazankent',
+      visitHours: 'Ledolgozott orak',
+      visitHoursDesc: 'Latogatasokra forditott osszes ido',
+      download: 'Letoltes',
+      downloading: 'Letoltes...',
+      downloadSuccess: 'A jelentes sikeresen letoltve',
+      downloadError: 'Nem sikerult letolteni a jelentest',
+      noData: 'Nincs adat a kivalasztott idoszakra',
+      selectPeriod: 'Idoszak kivalasztasa',
+      thisMonth: 'Ebben a honapban',
+      lastMonth: 'Elozo honap',
+      last3Months: 'Utolso 3 honap',
+      customRange: 'Egyedi idoszak',
+      generating: 'Jelentes generalasa...',
+      shareReport: 'Jelentes megosztasa',
+      openReport: 'Jelentes megnyitasa',
+    },
   },
   de: {
     common: {
@@ -993,6 +1089,7 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       visits: 'Besuche',
       hospitals: 'Krankenhauser',
       map: 'Karte',
+      reports: 'Berichte',
       profile: 'Profil',
     },
     visits: {
@@ -1161,6 +1258,29 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       ro: 'RO',
       en: 'EN',
     },
+    reports: {
+      title: 'Berichte',
+      subtitle: 'Berichte uber Ihre Aktivitaten herunterladen',
+      monthlyVisitSummary: 'Monatliche Besuchsubersicht',
+      monthlyVisitSummaryDesc: 'Zusammenfassung aller Besuche fur den ausgewahlten Monat',
+      hospitalActivity: 'Aktivitat nach Krankenhaus',
+      hospitalActivityDesc: 'Anzahl der Besuche pro Krankenhaus',
+      visitHours: 'Arbeitsstunden',
+      visitHoursDesc: 'Gesamte fur Besuche aufgewendete Zeit',
+      download: 'Herunterladen',
+      downloading: 'Wird heruntergeladen...',
+      downloadSuccess: 'Bericht erfolgreich heruntergeladen',
+      downloadError: 'Bericht konnte nicht heruntergeladen werden',
+      noData: 'Keine Daten fur den ausgewahlten Zeitraum',
+      selectPeriod: 'Zeitraum auswahlen',
+      thisMonth: 'Dieser Monat',
+      lastMonth: 'Letzter Monat',
+      last3Months: 'Letzte 3 Monate',
+      customRange: 'Benutzerdefinierter Zeitraum',
+      generating: 'Bericht wird erstellt...',
+      shareReport: 'Bericht teilen',
+      openReport: 'Bericht offnen',
+    },
   },
   it: {
     common: {
@@ -1225,6 +1345,7 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       visits: 'Visite',
       hospitals: 'Ospedali',
       map: 'Mappa',
+      reports: 'Report',
       profile: 'Profilo',
     },
     visits: {
@@ -1393,6 +1514,29 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       ro: 'RO',
       en: 'EN',
     },
+    reports: {
+      title: 'Report',
+      subtitle: 'Scarica report sulle tue attivita',
+      monthlyVisitSummary: 'Riepilogo visite mensile',
+      monthlyVisitSummaryDesc: 'Riepilogo di tutte le visite per il mese selezionato',
+      hospitalActivity: 'Attivita per ospedale',
+      hospitalActivityDesc: 'Numero di visite per ospedale',
+      visitHours: 'Ore lavorate',
+      visitHoursDesc: 'Tempo totale dedicato alle visite',
+      download: 'Scarica',
+      downloading: 'Download in corso...',
+      downloadSuccess: 'Report scaricato con successo',
+      downloadError: 'Impossibile scaricare il report',
+      noData: 'Nessun dato per il periodo selezionato',
+      selectPeriod: 'Seleziona periodo',
+      thisMonth: 'Questo mese',
+      lastMonth: 'Mese scorso',
+      last3Months: 'Ultimi 3 mesi',
+      customRange: 'Periodo personalizzato',
+      generating: 'Generazione report...',
+      shareReport: 'Condividi report',
+      openReport: 'Apri report',
+    },
   },
   ro: {
     common: {
@@ -1457,6 +1601,7 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       visits: 'Vizite',
       hospitals: 'Spitale',
       map: 'Harta',
+      reports: 'Rapoarte',
       profile: 'Profil',
     },
     visits: {
@@ -1625,6 +1770,29 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       ro: 'RO',
       en: 'EN',
     },
+    reports: {
+      title: 'Rapoarte',
+      subtitle: 'Descarca rapoarte despre activitatea ta',
+      monthlyVisitSummary: 'Rezumat lunar vizite',
+      monthlyVisitSummaryDesc: 'Rezumatul tuturor vizitelor pentru luna selectata',
+      hospitalActivity: 'Activitate pe spitale',
+      hospitalActivityDesc: 'Numarul de vizite pentru fiecare spital',
+      visitHours: 'Ore lucrate',
+      visitHoursDesc: 'Timp total petrecut in vizite',
+      download: 'Descarca',
+      downloading: 'Se descarca...',
+      downloadSuccess: 'Raportul a fost descarcat cu succes',
+      downloadError: 'Nu s-a putut descarca raportul',
+      noData: 'Nu exista date pentru perioada selectata',
+      selectPeriod: 'Selecteaza perioada',
+      thisMonth: 'Luna aceasta',
+      lastMonth: 'Luna trecuta',
+      last3Months: 'Ultimele 3 luni',
+      customRange: 'Perioada personalizata',
+      generating: 'Se genereaza raportul...',
+      shareReport: 'Distribuie raportul',
+      openReport: 'Deschide raportul',
+    },
   },
   en: {
     common: {
@@ -1689,6 +1857,7 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       visits: 'Visits',
       hospitals: 'Hospitals',
       map: 'Map',
+      reports: 'Reports',
       profile: 'Profile',
     },
     visits: {
@@ -1856,6 +2025,29 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       it: 'IT',
       ro: 'RO',
       en: 'EN',
+    },
+    reports: {
+      title: 'Reports',
+      subtitle: 'Download reports about your activity',
+      monthlyVisitSummary: 'Monthly Visit Summary',
+      monthlyVisitSummaryDesc: 'Summary of all visits for the selected month',
+      hospitalActivity: 'Hospital Activity',
+      hospitalActivityDesc: 'Number of visits per hospital',
+      visitHours: 'Work Hours',
+      visitHoursDesc: 'Total time spent on visits',
+      download: 'Download',
+      downloading: 'Downloading...',
+      downloadSuccess: 'Report downloaded successfully',
+      downloadError: 'Failed to download report',
+      noData: 'No data for selected period',
+      selectPeriod: 'Select Period',
+      thisMonth: 'This Month',
+      lastMonth: 'Last Month',
+      last3Months: 'Last 3 Months',
+      customRange: 'Custom Range',
+      generating: 'Generating report...',
+      shareReport: 'Share Report',
+      openReport: 'Open Report',
     },
   },
 };
