@@ -140,6 +140,8 @@ type TranslationKeys = {
     remarkOther: string;
     cancelEvent: string;
     cancelEventConfirm: string;
+    cancelReason: string;
+    enterCancelReason: string;
   };
   hospitals: {
     title: string;
@@ -372,6 +374,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       remarkOther: 'Ine',
       cancelEvent: 'Zrusit udalost',
       cancelEventConfirm: 'Naozaj chcete zrusit tuto udalost?',
+      cancelReason: 'Dovod zrusenia',
+      enterCancelReason: 'Zadajte dovod...',
     },
     hospitals: {
       title: 'Nemocnice',
@@ -602,6 +606,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       remarkOther: 'Jine',
       cancelEvent: 'Zrusit udalost',
       cancelEventConfirm: 'Opravdu chcete zrusit tuto udalost?',
+      cancelReason: 'Duvod zruseni',
+      enterCancelReason: 'Zadejte duvod...',
     },
     hospitals: {
       title: 'Nemocnice',
@@ -832,6 +838,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       remarkOther: 'Egyeb',
       cancelEvent: 'Esemeny lemondasa',
       cancelEventConfirm: 'Biztosan le szeretne mondani ezt az esemenyt?',
+      cancelReason: 'Lemondas oka',
+      enterCancelReason: 'Adja meg az okot...',
     },
     hospitals: {
       title: 'Korhazak',
@@ -1061,6 +1069,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       remarkOther: 'Sonstiges',
       cancelEvent: 'Termin absagen',
       cancelEventConfirm: 'Mochten Sie diesen Termin wirklich absagen?',
+      cancelReason: 'Grund der Stornierung',
+      enterCancelReason: 'Grund eingeben...',
       endVisitConfirm: 'Mochten Sie diesen Besuch wirklich beenden?',
     },
     hospitals: {
@@ -1291,6 +1301,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       remarkOther: 'Altro',
       cancelEvent: 'Annulla evento',
       cancelEventConfirm: 'Sei sicuro di voler annullare questo evento?',
+      cancelReason: 'Motivo della cancellazione',
+      enterCancelReason: 'Inserisci motivo...',
       endVisitConfirm: 'Sei sicuro di voler terminare questa visita?',
     },
     hospitals: {
@@ -1521,6 +1533,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       remarkOther: 'Altele',
       cancelEvent: 'Anuleaza evenimentul',
       cancelEventConfirm: 'Sigur doriti sa anulati acest eveniment?',
+      cancelReason: 'Motivul anularii',
+      enterCancelReason: 'Introduceti motivul...',
       endVisitConfirm: 'Sigur doriti sa incheiati aceasta vizita?',
     },
     hospitals: {
@@ -1751,6 +1765,8 @@ const translations: Record<SupportedLanguage, TranslationKeys> = {
       remarkOther: 'Other',
       cancelEvent: 'Cancel event',
       cancelEventConfirm: 'Are you sure you want to cancel this event?',
+      cancelReason: 'Reason for cancellation',
+      enterCancelReason: 'Enter reason...',
       endVisitConfirm: 'Are you sure you want to end this visit?',
     },
     hospitals: {

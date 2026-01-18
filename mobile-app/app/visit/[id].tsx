@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Modal, TextInput } from 'react-native';
 import { useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -29,6 +29,8 @@ export default function VisitDetailScreen() {
   const markNotRealizedMutation = useMarkVisitNotRealized();
   
   const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
 
   const getLocale = () => {
     const locales: Record<string, string> = {
@@ -119,39 +121,26 @@ export default function VisitDetailScreen() {
 
   const handleCancelVisit = () => {
     if (!visit?.id) return;
+    setShowCancelModal(true);
+  };
+
+  const handleConfirmCancel = async (status: 'cancelled' | 'not_realized') => {
+    if (!visit?.id) return;
     
-    Alert.alert(
-      translations.visits.cancelEvent,
-      translations.visits.cancelEventConfirm,
-      [
-        { text: translations.common.cancel, style: 'cancel' },
-        {
-          text: translations.visits.cancelled,
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await cancelVisitMutation.mutateAsync(visit.id);
-              refetch();
-              Alert.alert(translations.common.done, translations.visits.visitCancelled);
-            } catch (error: any) {
-              Alert.alert(translations.common.error, error.message);
-            }
-          },
-        },
-        {
-          text: translations.visits.notRealized,
-          onPress: async () => {
-            try {
-              await markNotRealizedMutation.mutateAsync(visit.id);
-              refetch();
-              Alert.alert(translations.common.done, translations.visits.visitNotRealized);
-            } catch (error: any) {
-              Alert.alert(translations.common.error, error.message);
-            }
-          },
-        },
-      ]
-    );
+    try {
+      if (status === 'cancelled') {
+        await cancelVisitMutation.mutateAsync(visit.id);
+        Alert.alert(translations.common.done, translations.visits.visitCancelled);
+      } else {
+        await markNotRealizedMutation.mutateAsync(visit.id);
+        Alert.alert(translations.common.done, translations.visits.visitNotRealized);
+      }
+      setShowCancelModal(false);
+      setCancelReason('');
+      refetch();
+    } catch (error: any) {
+      Alert.alert(translations.common.error, error.message);
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -488,6 +477,74 @@ export default function VisitDetailScreen() {
           </View>
         )}
       </View>
+
+      <Modal
+        visible={showCancelModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowCancelModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{translations.visits.cancelEvent}</Text>
+              <TouchableOpacity 
+                onPress={() => {
+                  setShowCancelModal(false);
+                  setCancelReason('');
+                }}
+                style={styles.modalCloseButton}
+                testID="button-close-cancel-modal"
+              >
+                <Ionicons name="close" size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.modalBody}>
+              <Text style={styles.cancelReasonLabel}>{translations.visits.cancelReason}</Text>
+              <TextInput
+                style={styles.cancelReasonInput}
+                placeholder={translations.visits.enterCancelReason}
+                placeholderTextColor={Colors.textSecondary}
+                value={cancelReason}
+                onChangeText={setCancelReason}
+                multiline
+                numberOfLines={3}
+                testID="input-cancel-reason"
+              />
+              
+              <View style={styles.cancelButtonsContainer}>
+                <TouchableOpacity
+                  style={styles.cancelOptionButton}
+                  onPress={() => handleConfirmCancel('cancelled')}
+                  disabled={cancelVisitMutation.isPending}
+                  testID="button-confirm-cancelled"
+                >
+                  <LinearGradient
+                    colors={[Colors.error, '#C62828']}
+                    style={styles.cancelOptionGradient}
+                  >
+                    <Ionicons name="close-circle" size={20} color={Colors.white} />
+                    <Text style={styles.cancelOptionText}>{translations.visits.cancelled}</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={styles.cancelOptionButton}
+                  onPress={() => handleConfirmCancel('not_realized')}
+                  disabled={markNotRealizedMutation.isPending}
+                  testID="button-confirm-not-realized"
+                >
+                  <View style={styles.notRealizedButton}>
+                    <Ionicons name="alert-circle" size={20} color={Colors.textSecondary} />
+                    <Text style={styles.notRealizedText}>{translations.visits.notRealized}</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -837,6 +894,89 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   cancelledText: {
+    fontSize: FontSizes.md,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    minHeight: 350,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  modalTitle: {
+    fontSize: FontSizes.lg,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  modalCloseButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalBody: {
+    padding: Spacing.lg,
+  },
+  cancelReasonLabel: {
+    fontSize: FontSizes.md,
+    fontWeight: '600',
+    color: Colors.text,
+    marginBottom: Spacing.sm,
+  },
+  cancelReasonInput: {
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    padding: Spacing.md,
+    fontSize: FontSizes.md,
+    color: Colors.text,
+    minHeight: 100,
+    textAlignVertical: 'top',
+    marginBottom: Spacing.lg,
+  },
+  cancelButtonsContainer: {
+    gap: Spacing.md,
+  },
+  cancelOptionButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  cancelOptionGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.md,
+    gap: Spacing.sm,
+  },
+  cancelOptionText: {
+    fontSize: FontSizes.md,
+    fontWeight: '600',
+    color: Colors.white,
+  },
+  notRealizedButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.md,
+    gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 12,
+  },
+  notRealizedText: {
     fontSize: FontSizes.md,
     fontWeight: '600',
     color: Colors.textSecondary,

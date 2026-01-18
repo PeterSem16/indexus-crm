@@ -154,6 +154,7 @@ export default function NewVisitScreen() {
       
       await createVisit.mutateAsync({
         hospitalId: selectedHospitalId || undefined,
+        hospitalName: selectedHospital?.name || undefined,
         subject: visitTypeLabel,
         startTime: startDateTime.toISOString(),
         endTime: endDateTime.toISOString(),
@@ -316,7 +317,7 @@ export default function NewVisitScreen() {
             </View>
           </View>
 
-          <Text style={styles.sectionTitle}>{translations.visits.remarkDetail || 'Remark Detail'}</Text>
+          <Text style={styles.sectionTitle}>{translations.visits.remarkDetail}</Text>
           <TouchableOpacity 
             style={styles.selectorCard}
             onPress={() => setShowRemarkDetailPicker(true)}
@@ -337,7 +338,7 @@ export default function NewVisitScreen() {
               ]}>
                 {selectedRemarkDetailObj 
                   ? (translations.visits as any)[selectedRemarkDetailObj.labelKey]
-                  : translations.visits.selectRemarkDetail || 'Select remark detail'
+                  : translations.visits.selectRemarkDetail
                 }
               </Text>
             </View>
@@ -573,7 +574,7 @@ export default function NewVisitScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{translations.visits.selectRemarkDetail || 'Select Remark Detail'}</Text>
+              <Text style={styles.modalTitle}>{translations.visits.selectRemarkDetail}</Text>
               <TouchableOpacity 
                 onPress={() => setShowRemarkDetailPicker(false)}
                 style={styles.modalCloseButton}
@@ -837,8 +838,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: '80%',
-    minHeight: 400,
+    maxHeight: '85%',
+    minHeight: 450,
   },
   modalHeader: {
     flexDirection: 'row',

@@ -28,6 +28,7 @@ interface VisitEvent {
 
 interface CreateVisitInput {
   hospitalId?: string;
+  hospitalName?: string;
   subject: string;
   startTime: string;
   endTime: string;
