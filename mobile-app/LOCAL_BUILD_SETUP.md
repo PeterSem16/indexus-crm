@@ -48,6 +48,16 @@ chmod +x build-android.sh
 
 Files are named: `indexus-connect-v{VERSION}-{TIMESTAMP}.apk`
 
+### 4. Deploy APK (Optional)
+
+After building, deploy the APK to the production directory:
+
+```bash
+./deploy-apk.sh
+```
+
+This copies the latest APK from `builds/` to `/var/www/indexus-crm/data/mobil-app/indexus-connect.apk`, overwriting any existing file.
+
 ## Build Profiles
 
 | Profile | Command | Output | Use Case |
@@ -120,6 +130,7 @@ rm -rf ~/android-sdk/cmdline-tools
 ```
 mobile-app/
 ├── build-android.sh          # Main build script
+├── deploy-apk.sh             # Deploy APK to production directory
 ├── scripts/
 │   └── setup-android-sdk.sh  # One-time setup script
 ├── builds/                   # Output directory (created on first build)
