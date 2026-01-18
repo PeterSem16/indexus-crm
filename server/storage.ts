@@ -2318,6 +2318,8 @@ export class DatabaseStorage implements IStorage {
     const updateData: any = { ...data, updatedAt: new Date() };
     if (data.startTime) updateData.startTime = new Date(data.startTime);
     if (data.endTime) updateData.endTime = new Date(data.endTime);
+    if (data.actualStart) updateData.actualStart = new Date(data.actualStart);
+    if (data.actualEnd) updateData.actualEnd = new Date(data.actualEnd);
     const [updated] = await db.update(visitEvents)
       .set(updateData)
       .where(eq(visitEvents.id, id))
