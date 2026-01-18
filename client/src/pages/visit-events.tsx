@@ -535,8 +535,9 @@ export default function VisitEventsPage() {
           ) : (
             <div className="relative h-[500px] rounded-lg overflow-hidden border">
               <MapContainer
+                key={`map-${eventsWithLocation.length}-${mapCenter.lat.toFixed(4)}-${mapCenter.lng.toFixed(4)}`}
                 center={[mapCenter.lat, mapCenter.lng]}
-                zoom={8}
+                zoom={10}
                 style={{ height: "100%", width: "100%" }}
                 scrollWheelZoom={true}
               >
@@ -548,7 +549,7 @@ export default function VisitEventsPage() {
                   const coords = getEventCoordinates(event)!;
                   // Add small offset for overlapping markers (spiral pattern)
                   const offsetAngle = (index * 137.5) * (Math.PI / 180);
-                  const offsetDistance = 0.0001 * Math.floor(index / 6);
+                  const offsetDistance = 0.001 * (index > 0 ? 1 + Math.floor(index / 8) : 0);
                   const offsetLat = coords.lat + Math.cos(offsetAngle) * offsetDistance;
                   const offsetLng = coords.lng + Math.sin(offsetAngle) * offsetDistance;
                   return (
