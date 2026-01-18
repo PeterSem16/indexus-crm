@@ -7234,8 +7234,8 @@ export async function registerRoutes(
     console.warn("[Mobile API] Warning: SESSION_SECRET not set, mobile API will reject all requests");
   }
   
-  // Helper to extract collaborator from JWT token
-  async function getMobileCollaboratorFromToken(req: any): Promise<{ collaboratorId: string } | null> {
+  // Helper to extract collaborator from JWT token and update last active timestamp
+  async function getMobileCollaboratorFromToken(req: any, updateActivity: boolean = true): Promise<{ collaboratorId: string } | null> {
     if (!MOBILE_JWT_SECRET) {
       return null; // Fail-secure if no secret configured
     }
@@ -7247,6 +7247,14 @@ export async function registerRoutes(
       const jwt = await import("jsonwebtoken");
       const token = authHeader.split(" ")[1];
       const decoded = jwt.default.verify(token, MOBILE_JWT_SECRET) as { collaboratorId: string };
+      
+      // Update last active timestamp (fire and forget - don't await)
+      if (updateActivity && decoded.collaboratorId) {
+        storage.updateCollaborator(decoded.collaboratorId, { 
+          mobileLastActiveAt: new Date() 
+        }).catch(() => {});
+      }
+      
       return decoded;
     } catch (error) {
       return null;

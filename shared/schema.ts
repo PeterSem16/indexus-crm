@@ -1605,6 +1605,7 @@ export const collaborators = pgTable("collaborators", {
   mobilePasswordHash: text("mobile_password_hash"),
   canEditHospitals: boolean("can_edit_hospitals").notNull().default(false), // Permission to add/edit hospitals
   lastMobileLogin: timestamp("last_mobile_login"),
+  mobileLastActiveAt: timestamp("mobile_last_active_at"), // Updated on every mobile API request
   
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),

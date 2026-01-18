@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, User, MapPin, FileText, Award, Gift, Activity, ClipboardList, Upload, Download, Eye, X, Filter, ListChecks, FileEdit } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, User, MapPin, FileText, Award, Gift, Activity, ClipboardList, Upload, Download, Eye, X, Filter, ListChecks, FileEdit, Smartphone } from "lucide-react";
 import { CollaboratorFormWizard } from "@/components/collaborator-form-wizard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -1795,14 +1795,25 @@ export default function CollaboratorsPage() {
       cell: (c: Collaborator) => getCollaboratorTypeName(c.collaboratorType),
     },
     {
-      key: "phone",
-      header: t.common.phone,
-      cell: (c: Collaborator) => c.phone || c.mobile || "-",
-    },
-    {
-      key: "email",
-      header: t.common.email,
-      cell: (c: Collaborator) => c.email || "-",
+      key: "mobileApp",
+      header: "INDEXUS Connect",
+      cell: (c: Collaborator) => {
+        if (!c.mobileAppEnabled) {
+          return <span className="text-muted-foreground">-</span>;
+        }
+        const isOnline = c.mobileLastActiveAt && 
+          new Date(c.mobileLastActiveAt).getTime() > Date.now() - 5 * 60 * 1000;
+        return (
+          <div className="flex items-center gap-2">
+            <Smartphone className="h-4 w-4 text-primary" />
+            {isOnline && (
+              <Badge variant="default" className="bg-green-600 text-white text-xs px-1.5 py-0.5">
+                Online
+              </Badge>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: "status",
