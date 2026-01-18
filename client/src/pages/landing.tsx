@@ -373,7 +373,7 @@ export default function LandingPage() {
                   <Button
                     variant="outline"
                     className="w-full gap-2"
-                    onClick={() => window.open('/mobile-app/indexus-connect.apk', '_blank')}
+                    onClick={() => window.open('/data/mobil-app/indexus-connect-latest.apk', '_blank')}
                     data-testid="button-download-android"
                   >
                     <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
