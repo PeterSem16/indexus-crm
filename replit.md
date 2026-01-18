@@ -226,3 +226,21 @@ Complete mobile app design specification: `docs/INDEXUS_CONNECT_MOBILE_APP.md`
 - Multi-language support (SK, CZ, HU, DE, IT, RO, EN)
 - Push notifications for visit reminders
 - Local Android builds on headless Ubuntu server (SSH-only)
+
+### Android APK Build Procedure
+To build a new Android APK on the Ubuntu production server:
+
+```bash
+# Navigate to mobile app directory and pull latest changes
+cd /var/www/indexus-crm/mobile-app
+git pull origin main
+grep version app.json  # Verify version number
+
+# Clean cache and rebuild
+rm -rf node_modules/.cache android/app/build android/.gradle
+npm install
+eas build --platform android --profile preview --local --clear-cache
+
+# Deploy the APK
+./deploy-apk.sh
+```
