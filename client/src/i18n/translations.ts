@@ -62,6 +62,8 @@ export interface Translations {
     downloading: string;
     downloadSuccess: string;
     downloadError: string;
+    refreshData: string;
+    dataRefreshed: string;
   };
   common: {
     save: string;
@@ -1596,6 +1598,8 @@ export const translations: Record<Locale, Translations> = {
       downloading: 'Downloading...',
       downloadSuccess: 'Report downloaded successfully',
       downloadError: 'Failed to download report',
+      refreshData: 'Refresh',
+      dataRefreshed: 'Data refreshed successfully',
     },
     common: {
       save: 'Save',
@@ -3242,6 +3246,8 @@ export const translations: Record<Locale, Translations> = {
       downloading: 'Stahuje sa...',
       downloadSuccess: 'Report bol uspesne stiahnuty',
       downloadError: 'Nepodarilo sa stiahnut report',
+      refreshData: 'Obnovit',
+      dataRefreshed: 'Data boli uspesne obnovene',
     },
     common: {
       save: 'Uložiť',
@@ -4883,6 +4889,8 @@ export const translations: Record<Locale, Translations> = {
       downloading: 'Stahuje se...',
       downloadSuccess: 'Report byl uspesne stazen',
       downloadError: 'Nepodarilo se stahnout report',
+      refreshData: 'Obnovit',
+      dataRefreshed: 'Data byla uspesne obnovena',
     },
     common: {
       save: 'Uložit',
@@ -6487,6 +6495,8 @@ export const translations: Record<Locale, Translations> = {
       downloading: 'Letöltés...',
       downloadSuccess: 'Jelentés sikeresen letöltve',
       downloadError: 'Nem sikerült letölteni a jelentést',
+      refreshData: 'Frissites',
+      dataRefreshed: 'Az adatok sikeresen frissitve',
     },
     common: {
       save: 'Mentés',
@@ -8091,6 +8101,8 @@ export const translations: Record<Locale, Translations> = {
       downloading: 'Se descarca...',
       downloadSuccess: 'Raportul a fost descarcat cu succes',
       downloadError: 'Nu s-a putut descarca raportul',
+      refreshData: 'Reimprospatare',
+      dataRefreshed: 'Datele au fost reimprospatate cu succes',
     },
     common: {
       save: 'Salvare',
@@ -9695,6 +9707,8 @@ export const translations: Record<Locale, Translations> = {
       downloading: 'Download in corso...',
       downloadSuccess: 'Report scaricato con successo',
       downloadError: 'Impossibile scaricare il report',
+      refreshData: 'Aggiorna',
+      dataRefreshed: 'Dati aggiornati con successo',
     },
     common: {
       save: 'Salva',
@@ -11299,6 +11313,8 @@ export const translations: Record<Locale, Translations> = {
       downloading: 'Wird heruntergeladen...',
       downloadSuccess: 'Bericht erfolgreich heruntergeladen',
       downloadError: 'Bericht konnte nicht heruntergeladen werden',
+      refreshData: 'Aktualisieren',
+      dataRefreshed: 'Daten erfolgreich aktualisiert',
     },
     common: {
       save: 'Speichern',

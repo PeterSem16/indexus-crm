@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Download, FileText, Calendar, Building2, Clock, Users, Filter, BarChart3, TrendingUp, PieChart, FileSpreadsheet } from "lucide-react";
+import { Download, FileText, Calendar, Building2, Clock, Users, Filter, BarChart3, TrendingUp, PieChart, FileSpreadsheet, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
@@ -76,18 +76,42 @@ export default function CollaboratorReportsPage() {
   const [period, setPeriod] = useState<PeriodType>('this_month');
   const [selectedCollaborator, setSelectedCollaborator] = useState<string>('all');
   const [isDownloading, setIsDownloading] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const { data: collaborators = [], isLoading: collaboratorsLoading } = useQuery<Collaborator[]>({
+  const { data: collaborators = [], isLoading: collaboratorsLoading, refetch: refetchCollaborators } = useQuery<Collaborator[]>({
     queryKey: ["/api/collaborators"],
   });
 
-  const { data: visitEvents = [], isLoading: eventsLoading } = useQuery<VisitEvent[]>({
+  const { data: visitEvents = [], isLoading: eventsLoading, refetch: refetchEvents } = useQuery<VisitEvent[]>({
     queryKey: ["/api/visit-events"],
   });
 
-  const { data: hospitals = [] } = useQuery<Hospital[]>({
+  const { data: hospitals = [], refetch: refetchHospitals } = useQuery<Hospital[]>({
     queryKey: ["/api/hospitals"],
   });
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        refetchCollaborators(),
+        refetchEvents(),
+        refetchHospitals(),
+      ]);
+      toast({
+        title: t.common.success,
+        description: t.collaboratorReports.dataRefreshed || 'Data refreshed',
+      });
+    } catch {
+      toast({
+        title: t.common.error,
+        description: t.common.error,
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const getStartDate = (periodType: PeriodType): Date => {
     const now = new Date();
@@ -414,6 +438,18 @@ export default function CollaboratorReportsPage() {
                 </div>
               </div>
             )}
+
+            <div className="flex items-end ml-auto">
+              <Button
+                variant="outline"
+                onClick={handleRefresh}
+                disabled={isRefreshing || isLoading}
+                data-testid="button-refresh-data"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                {t.collaboratorReports.refreshData || 'Refresh'}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
