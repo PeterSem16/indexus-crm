@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Download, FileText, Calendar, Building2, Clock, Users, Filter, BarChart3, TrendingUp, PieChart } from "lucide-react";
+import { Download, FileText, Calendar, Building2, Clock, Users, Filter, BarChart3, TrendingUp, PieChart, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
@@ -75,7 +75,7 @@ export default function CollaboratorReportsPage() {
   const { toast } = useToast();
   const [period, setPeriod] = useState<PeriodType>('this_month');
   const [selectedCollaborator, setSelectedCollaborator] = useState<string>('all');
-  const [isDownloading, setIsDownloading] = useState<ReportType | null>(null);
+  const [isDownloading, setIsDownloading] = useState<string | null>(null);
 
   const { data: collaborators = [], isLoading: collaboratorsLoading } = useQuery<Collaborator[]>({
     queryKey: ["/api/collaborators"],
@@ -268,8 +268,9 @@ export default function CollaboratorReportsPage() {
     ].filter(d => d.value > 0);
   }, [stats, statusLabels]);
 
-  const handleDownload = async (reportType: ReportType) => {
-    setIsDownloading(reportType);
+  const handleDownload = async (reportType: ReportType, format: 'csv' | 'excel' = 'csv') => {
+    const downloadKey = `${reportType}_${format}`;
+    setIsDownloading(downloadKey);
     try {
       const params = new URLSearchParams({
         period,
@@ -277,7 +278,11 @@ export default function CollaboratorReportsPage() {
         countries: selectedCountries.join(','),
       });
       
-      const response = await fetch(`/api/collaborator-reports/${reportType}?${params}`, {
+      const endpoint = format === 'excel' 
+        ? `/api/collaborator-reports/${reportType}/excel?${params}`
+        : `/api/collaborator-reports/${reportType}?${params}`;
+      
+      const response = await fetch(endpoint, {
         credentials: 'include',
       });
 
@@ -289,7 +294,7 @@ export default function CollaboratorReportsPage() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${reportType}_${period}_${Date.now()}.csv`;
+      a.download = `${reportType}_${period}_${Date.now()}.${format === 'excel' ? 'xlsx' : 'csv'}`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -635,16 +640,27 @@ export default function CollaboratorReportsPage() {
               </CardTitle>
               <CardDescription className="text-xs">{report.description}</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-2">
               <Button
-                onClick={() => handleDownload(report.id)}
+                onClick={() => handleDownload(report.id, 'csv')}
                 disabled={isDownloading !== null}
                 className="w-full"
                 size="sm"
-                data-testid={`button-download-${report.id}`}
+                variant="outline"
+                data-testid={`button-download-csv-${report.id}`}
               >
                 <Download className="h-4 w-4 mr-2" />
-                {isDownloading === report.id ? t.collaboratorReports.downloading : t.collaboratorReports.downloadCsv}
+                {isDownloading === `${report.id}_csv` ? t.collaboratorReports.downloading : t.collaboratorReports.downloadCsv}
+              </Button>
+              <Button
+                onClick={() => handleDownload(report.id, 'excel')}
+                disabled={isDownloading !== null}
+                className="w-full"
+                size="sm"
+                data-testid={`button-download-excel-${report.id}`}
+              >
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                {isDownloading === `${report.id}_excel` ? t.collaboratorReports.downloading : 'Excel'}
               </Button>
             </CardContent>
           </Card>

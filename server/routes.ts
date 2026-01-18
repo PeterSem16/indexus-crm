@@ -48,6 +48,7 @@ import { convertPdfToDocx, isConverterAvailable } from "./pdf-to-docx-converter"
 import mammoth from "mammoth";
 import { PDFDocument as PDFLibDocument, rgb, degrees, StandardFonts } from "pdf-lib";
 import { notificationService } from "./lib/notification-service";
+import * as XLSX from "xlsx";
 import { STORAGE_PATHS, ensureAllDirectoriesExist, getPublicUrl, DATA_ROOT } from "./config/storage-paths";
 
 // Initialize all storage directories
@@ -8080,6 +8081,203 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Collaborator report generation error:", error);
       res.status(500).json({ error: "Failed to generate report" });
+    }
+  });
+
+  // Excel export for collaborator reports
+  app.get("/api/collaborator-reports/:reportType/excel", requireAuth, async (req, res) => {
+    try {
+      const { reportType } = req.params;
+      const { period, collaboratorId, countries } = req.query;
+
+      const now = new Date();
+      let startDate: Date;
+      let endDate: Date = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+
+      switch (period) {
+        case 'last_month':
+          startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+          break;
+        case 'last_3_months':
+          startDate = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+          break;
+        case 'this_year':
+          startDate = new Date(now.getFullYear(), 0, 1);
+          break;
+        case 'this_month':
+        default:
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          break;
+      }
+
+      const collaborators = await storage.getCollaborators();
+      const countryCodes = countries ? (countries as string).split(',').filter(Boolean) : [];
+      
+      const filteredCollaborators = countryCodes.length > 0
+        ? collaborators.filter(c => countryCodes.includes(c.countryCode))
+        : collaborators;
+
+      const visitEvents = await storage.getVisitEventsByDateRange(startDate, endDate, countryCodes.length > 0 ? countryCodes : undefined);
+      const hospitals = await storage.getHospitals();
+      const hospitalMap = new Map(hospitals.map(h => [h.id, h]));
+      const collaboratorMap = new Map(filteredCollaborators.map(c => [c.id, c]));
+
+      const filteredEvents = collaboratorId && collaboratorId !== 'all'
+        ? visitEvents.filter(e => e.collaboratorId === collaboratorId)
+        : visitEvents.filter(e => collaboratorMap.has(e.collaboratorId || ''));
+
+      let data: any[] = [];
+      let sheetName = 'Report';
+
+      if (reportType === 'activity_summary') {
+        sheetName = 'Activity Summary';
+        const collabStats = new Map<string, { name: string; country: string; total: number; completed: number; cancelled: number; hours: number }>();
+        
+        for (const event of filteredEvents) {
+          const collab = collaboratorMap.get(event.collaboratorId || '');
+          if (!collab) continue;
+          
+          if (!collabStats.has(collab.id)) {
+            collabStats.set(collab.id, {
+              name: `${collab.firstName} ${collab.lastName}`,
+              country: collab.countryCode,
+              total: 0,
+              completed: 0,
+              cancelled: 0,
+              hours: 0,
+            });
+          }
+          
+          const stats = collabStats.get(collab.id)!;
+          stats.total++;
+          if (event.status === 'completed') {
+            stats.completed++;
+            if (event.actualStart && event.actualEnd) {
+              stats.hours += (new Date(event.actualEnd).getTime() - new Date(event.actualStart).getTime()) / 3600000;
+            }
+          }
+          if (event.isCancelled || event.status === 'cancelled') stats.cancelled++;
+        }
+
+        data = Array.from(collabStats.values()).map(s => ({
+          'Collaborator': s.name,
+          'Country': s.country,
+          'Total Visits': s.total,
+          'Completed': s.completed,
+          'Cancelled': s.cancelled,
+          'Hours Worked': Number(s.hours.toFixed(2)),
+        }));
+      } else if (reportType === 'visit_statistics') {
+        sheetName = 'Visit Statistics';
+        data = filteredEvents.map(event => {
+          const collab = collaboratorMap.get(event.collaboratorId || '');
+          const hospital = hospitalMap.get(event.hospitalId || '');
+          const eventDate = event.actualStart || event.startTime;
+          const date = eventDate ? new Date(eventDate).toISOString().split('T')[0] : '';
+          const status = event.status || (event.isCancelled ? 'cancelled' : event.isNotRealized ? 'not_realized' : 'scheduled');
+          
+          let duration = 0;
+          if (event.actualStart && event.actualEnd) {
+            duration = Math.round((new Date(event.actualEnd).getTime() - new Date(event.actualStart).getTime()) / 60000);
+          }
+          
+          return {
+            'Date': date,
+            'Collaborator': collab ? `${collab.firstName} ${collab.lastName}` : '',
+            'Hospital': hospital?.name || '',
+            'Visit Type': event.visitType || '',
+            'Status': status,
+            'Duration (min)': duration,
+            'Notes': event.notes || '',
+          };
+        });
+      } else if (reportType === 'performance_metrics') {
+        sheetName = 'Performance Metrics';
+        const collabPerf = new Map<string, { name: string; country: string; total: number; completed: number; totalDuration: number; hospitals: Set<string> }>();
+        
+        for (const event of filteredEvents) {
+          const collab = collaboratorMap.get(event.collaboratorId || '');
+          if (!collab) continue;
+          
+          if (!collabPerf.has(collab.id)) {
+            collabPerf.set(collab.id, {
+              name: `${collab.firstName} ${collab.lastName}`,
+              country: collab.countryCode,
+              total: 0,
+              completed: 0,
+              totalDuration: 0,
+              hospitals: new Set(),
+            });
+          }
+          
+          const perf = collabPerf.get(collab.id)!;
+          perf.total++;
+          if (event.hospitalId) perf.hospitals.add(event.hospitalId);
+          
+          if (event.status === 'completed') {
+            perf.completed++;
+            if (event.actualStart && event.actualEnd) {
+              perf.totalDuration += (new Date(event.actualEnd).getTime() - new Date(event.actualStart).getTime()) / 60000;
+            }
+          }
+        }
+
+        data = Array.from(collabPerf.values()).map(p => ({
+          'Collaborator': p.name,
+          'Country': p.country,
+          'Visits This Period': p.total,
+          'Completion Rate (%)': p.total > 0 ? Math.round((p.completed / p.total) * 100) : 0,
+          'Avg Visit Duration (min)': p.completed > 0 ? Math.round(p.totalDuration / p.completed) : 0,
+          'Hospitals Covered': p.hospitals.size,
+        }));
+      } else if (reportType === 'hospital_coverage') {
+        sheetName = 'Hospital Coverage';
+        const hospitalStats = new Map<string, { name: string; country: string; total: number; collaborators: Set<string>; completed: number }>();
+        
+        for (const event of filteredEvents) {
+          const hospital = hospitalMap.get(event.hospitalId || '');
+          if (!hospital) continue;
+          
+          if (!hospitalStats.has(hospital.id)) {
+            hospitalStats.set(hospital.id, {
+              name: hospital.name,
+              country: hospital.countryCode,
+              total: 0,
+              collaborators: new Set(),
+              completed: 0,
+            });
+          }
+          
+          const stats = hospitalStats.get(hospital.id)!;
+          stats.total++;
+          if (event.collaboratorId) stats.collaborators.add(event.collaboratorId);
+          if (event.status === 'completed') stats.completed++;
+        }
+
+        data = Array.from(hospitalStats.values()).map(s => ({
+          'Hospital': s.name,
+          'Country': s.country,
+          'Total Visits': s.total,
+          'Unique Collaborators': s.collaborators.size,
+          'Completed Visits': s.completed,
+        }));
+      } else {
+        return res.status(400).json({ error: "Invalid report type" });
+      }
+
+      const worksheet = XLSX.utils.json_to_sheet(data);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+
+      const excelBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${reportType}_${period}.xlsx"`);
+      res.send(excelBuffer);
+    } catch (error) {
+      console.error("Collaborator Excel report generation error:", error);
+      res.status(500).json({ error: "Failed to generate Excel report" });
     }
   });
 
