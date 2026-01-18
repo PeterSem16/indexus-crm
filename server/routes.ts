@@ -7478,9 +7478,94 @@ export async function registerRoutes(
         return res.status(403).json({ error: "Not authorized to update this event" });
       }
       
-      const event = await storage.updateVisitEvent(req.params.id, req.body);
+      const previousStatus = existingEvent.status;
+      const newStatus = req.body.status;
+      
+      const event = await storage.updateVisitEvent(req.params.id, {
+        ...req.body,
+        syncedFromMobile: true,
+      });
       if (!event) {
         return res.status(404).json({ error: "Visit event not found" });
+      }
+      
+      // Log activity based on status change
+      const collaboratorName = `${collaborator.firstName} ${collaborator.lastName}`;
+      const hospital = event.hospitalId ? await storage.getHospital(event.hospitalId) : null;
+      const hospitalName = hospital?.name || "Unknown";
+      
+      if (newStatus && newStatus !== previousStatus) {
+        if (newStatus === 'in_progress') {
+          await logActivity(
+            null,
+            "visit_started",
+            "visit_event",
+            event.id,
+            `${hospitalName} - ${collaboratorName}`,
+            { 
+              collaboratorId: collaborator.id,
+              collaboratorName,
+              hospitalName,
+              visitType: event.subject,
+              startLatitude: req.body.startLatitude,
+              startLongitude: req.body.startLongitude,
+              actualStart: req.body.actualStart,
+              syncedFromMobile: true
+            },
+            req.ip
+          );
+        } else if (newStatus === 'completed') {
+          await logActivity(
+            null,
+            "visit_completed",
+            "visit_event",
+            event.id,
+            `${hospitalName} - ${collaboratorName}`,
+            { 
+              collaboratorId: collaborator.id,
+              collaboratorName,
+              hospitalName,
+              visitType: event.subject,
+              endLatitude: req.body.endLatitude,
+              endLongitude: req.body.endLongitude,
+              actualEnd: req.body.actualEnd,
+              syncedFromMobile: true
+            },
+            req.ip
+          );
+        } else if (newStatus === 'cancelled') {
+          await logActivity(
+            null,
+            "visit_cancelled",
+            "visit_event",
+            event.id,
+            `${hospitalName} - ${collaboratorName}`,
+            { 
+              collaboratorId: collaborator.id,
+              collaboratorName,
+              hospitalName,
+              visitType: event.subject,
+              syncedFromMobile: true
+            },
+            req.ip
+          );
+        } else if (newStatus === 'not_realized') {
+          await logActivity(
+            null,
+            "visit_not_realized",
+            "visit_event",
+            event.id,
+            `${hospitalName} - ${collaboratorName}`,
+            { 
+              collaboratorId: collaborator.id,
+              collaboratorName,
+              hospitalName,
+              visitType: event.subject,
+              syncedFromMobile: true
+            },
+            req.ip
+          );
+        }
       }
       
       res.json(event);

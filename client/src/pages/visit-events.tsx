@@ -212,6 +212,7 @@ export default function VisitEventsPage() {
       const collaboratorName = getCollaboratorName(event.collaboratorId);
       const hospitalName = getHospitalName(event.hospitalId);
 
+      // Visit scheduled
       items.push({
         id: `${event.id}-scheduled`,
         type: "visit_scheduled",
@@ -226,7 +227,38 @@ export default function VisitEventsPage() {
         },
       });
 
-      if (event.isCancelled) {
+      // Visit started (has actualStart)
+      if (event.actualStart && !event.isCancelled && !event.isNotRealized) {
+        items.push({
+          id: `${event.id}-started`,
+          type: "visit_started",
+          collaboratorId: event.collaboratorId,
+          collaboratorName,
+          timestamp: new Date(event.actualStart),
+          details: {
+            hospitalName: hospitalName || undefined,
+            visitType: event.subject ? getSubjectLabel(event.subject) : undefined,
+          },
+        });
+      }
+
+      // Visit completed (status === 'completed' or has actualEnd)
+      if ((event.status === 'completed' || event.actualEnd) && !event.isCancelled && !event.isNotRealized) {
+        items.push({
+          id: `${event.id}-completed`,
+          type: "visit_completed",
+          collaboratorId: event.collaboratorId,
+          collaboratorName,
+          timestamp: event.actualEnd ? new Date(event.actualEnd) : new Date(event.updatedAt || event.createdAt),
+          details: {
+            hospitalName: hospitalName || undefined,
+            visitType: event.subject ? getSubjectLabel(event.subject) : undefined,
+          },
+        });
+      }
+
+      // Visit cancelled
+      if (event.isCancelled || event.status === 'cancelled') {
         items.push({
           id: `${event.id}-cancelled`,
           type: "visit_cancelled",
@@ -237,7 +269,8 @@ export default function VisitEventsPage() {
         });
       }
 
-      if (event.isNotRealized) {
+      // Visit not realized
+      if (event.isNotRealized || event.status === 'not_realized') {
         items.push({
           id: `${event.id}-not-realized`,
           type: "visit_not_realized",

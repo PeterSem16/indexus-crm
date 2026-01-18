@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
 import { useCountryFilter } from "@/contexts/country-filter-context";
 import { format, parseISO, isWithinInterval, startOfDay, endOfDay, subDays } from "date-fns";
-import { sk, cs, hu, ro, it, de, enUS } from "date-fns/locale";
+import { sk, cs, hu, ro, it, de, enUS, type Locale } from "date-fns/locale";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -112,6 +112,7 @@ export default function CollaboratorActivityLogPage() {
       const collaboratorName = getCollaboratorName(event.collaboratorId);
       const hospitalName = getHospitalName(event.hospitalId);
 
+      // Visit scheduled
       items.push({
         id: `${event.id}-scheduled`,
         type: "visit_scheduled",
@@ -125,7 +126,38 @@ export default function CollaboratorActivityLogPage() {
         },
       });
 
-      if (event.isCancelled) {
+      // Visit started (has actualStart)
+      if (event.actualStart && !event.isCancelled && !event.isNotRealized) {
+        items.push({
+          id: `${event.id}-started`,
+          type: "visit_started",
+          collaboratorId: event.collaboratorId,
+          collaboratorName,
+          timestamp: new Date(event.actualStart),
+          details: {
+            hospitalName: hospitalName || undefined,
+            visitType: event.subject ? getSubjectLabel(event.subject) : undefined,
+          },
+        });
+      }
+
+      // Visit completed (status === 'completed' or has actualEnd)
+      if ((event.status === 'completed' || event.actualEnd) && !event.isCancelled && !event.isNotRealized) {
+        items.push({
+          id: `${event.id}-completed`,
+          type: "visit_completed",
+          collaboratorId: event.collaboratorId,
+          collaboratorName,
+          timestamp: event.actualEnd ? new Date(event.actualEnd) : new Date(event.updatedAt),
+          details: {
+            hospitalName: hospitalName || undefined,
+            visitType: event.subject ? getSubjectLabel(event.subject) : undefined,
+          },
+        });
+      }
+
+      // Visit cancelled
+      if (event.isCancelled || event.status === 'cancelled') {
         items.push({
           id: `${event.id}-cancelled`,
           type: "visit_cancelled",
@@ -135,12 +167,13 @@ export default function CollaboratorActivityLogPage() {
           details: {
             hospitalName: hospitalName || undefined,
             visitType: event.subject ? getSubjectLabel(event.subject) : undefined,
-            reason: event.cancelReason || undefined,
+            reason: (event as any).cancelReason || undefined,
           },
         });
       }
 
-      if (event.isNotRealized) {
+      // Visit not realized
+      if (event.isNotRealized || event.status === 'not_realized') {
         items.push({
           id: `${event.id}-not-realized`,
           type: "visit_not_realized",
@@ -150,26 +183,9 @@ export default function CollaboratorActivityLogPage() {
           details: {
             hospitalName: hospitalName || undefined,
             visitType: event.subject ? getSubjectLabel(event.subject) : undefined,
-            reason: event.cancelReason || undefined,
+            reason: (event as any).cancelReason || undefined,
           },
         });
-      }
-
-      if (event.latitude && event.longitude && !event.isCancelled && !event.isNotRealized) {
-        const startTime = new Date(event.startTime);
-        if (startTime <= new Date()) {
-          items.push({
-            id: `${event.id}-completed`,
-            type: "visit_completed",
-            collaboratorId: event.collaboratorId,
-            collaboratorName,
-            timestamp: new Date(event.endTime),
-            details: {
-              hospitalName: hospitalName || undefined,
-              visitType: event.subject ? getSubjectLabel(event.subject) : undefined,
-            },
-          });
-        }
       }
     });
 
@@ -271,7 +287,6 @@ export default function CollaboratorActivityLogPage() {
     <div className="flex flex-col h-full" data-testid="collaborator-activity-log-page">
       <PageHeader
         title={t.nav.activityLog}
-        subtitle={t.nav.visitEvents}
         icon={Activity}
       />
 
@@ -356,7 +371,7 @@ export default function CollaboratorActivityLogPage() {
               <Select value={dateRange} onValueChange={(v) => setDateRange(v as DateRange)}>
                 <SelectTrigger className="w-[150px]" data-testid="select-date-range">
                   <Calendar className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder={t.common.date} />
+                  <SelectValue placeholder={t.common.dateFrom} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="today">{t.common.today}</SelectItem>
