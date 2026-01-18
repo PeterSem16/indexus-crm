@@ -1827,7 +1827,20 @@ export const visitEvents = pgTable("visit_events", {
   // Place (1-6)
   place: text("place"),
   
-  // Status
+  // Visit execution status and actual times
+  status: text("status").notNull().default("scheduled"), // scheduled, in_progress, completed, cancelled, not_realized
+  actualStart: timestamp("actual_start"),
+  actualEnd: timestamp("actual_end"),
+  
+  // GPS coordinates at start
+  startLatitude: decimal("start_latitude", { precision: 10, scale: 7 }),
+  startLongitude: decimal("start_longitude", { precision: 10, scale: 7 }),
+  
+  // GPS coordinates at end (completion)
+  endLatitude: decimal("end_latitude", { precision: 10, scale: 7 }),
+  endLongitude: decimal("end_longitude", { precision: 10, scale: 7 }),
+  
+  // Legacy status flags
   isCancelled: boolean("is_cancelled").notNull().default(false),
   isNotRealized: boolean("is_not_realized").notNull().default(false),
   

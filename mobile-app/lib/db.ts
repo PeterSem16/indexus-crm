@@ -171,6 +171,12 @@ export async function saveVisitEvent(visit: {
   status?: string;
   scheduledStart?: string;
   scheduledEnd?: string;
+  actualStart?: string;
+  actualEnd?: string;
+  startLatitude?: number;
+  startLongitude?: number;
+  endLatitude?: number;
+  endLongitude?: number;
   notes?: string;
   isCancelled?: boolean;
   isNotRealized?: boolean;
@@ -180,10 +186,12 @@ export async function saveVisitEvent(visit: {
     database.transaction(
       (tx) => {
         tx.executeSql(
-          `INSERT OR REPLACE INTO visit_events (id, hospital_id, hospital_name, visit_type, place, remark_detail, status, scheduled_start, scheduled_end, notes, is_cancelled, is_not_realized, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+          `INSERT OR REPLACE INTO visit_events (id, hospital_id, hospital_name, visit_type, place, remark_detail, status, scheduled_start, scheduled_end, actual_start, actual_end, start_latitude, start_longitude, end_latitude, end_longitude, notes, is_cancelled, is_not_realized, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
           [visit.id, visit.hospitalId || null, visit.hospitalName || null, visit.visitType || null, visit.place || null,
-           visit.remarkDetail || null, visit.status || 'scheduled', visit.scheduledStart || null, visit.scheduledEnd || null, 
+           visit.remarkDetail || null, visit.status || 'scheduled', visit.scheduledStart || null, visit.scheduledEnd || null,
+           visit.actualStart || null, visit.actualEnd || null,
+           visit.startLatitude || null, visit.startLongitude || null, visit.endLatitude || null, visit.endLongitude || null,
            visit.notes || null, visit.isCancelled ? 1 : 0, visit.isNotRealized ? 1 : 0]
         );
       },
@@ -246,12 +254,22 @@ export async function getVisitEvents(date?: string): Promise<any[]> {
 export async function startVisit(visitId: string, latitude: number, longitude: number): Promise<void> {
   return new Promise((resolve, reject) => {
     const database = getDatabase();
+    const now = new Date().toISOString();
     database.transaction(
       (tx) => {
         tx.executeSql(
-          `UPDATE visit_events SET status = 'in_progress', actual_start = datetime('now'), start_latitude = ?, start_longitude = ?, updated_at = datetime('now')
+          `UPDATE visit_events SET status = 'in_progress', actual_start = ?, start_latitude = ?, start_longitude = ?, synced = 0, updated_at = datetime('now')
            WHERE id = ?`,
-          [latitude, longitude, visitId]
+          [now, latitude, longitude, visitId]
+        );
+        tx.executeSql(
+          `INSERT INTO sync_queue (entity_type, entity_id, action, payload) VALUES (?, ?, ?, ?)`,
+          ['visit', visitId, 'update', JSON.stringify({ 
+            status: 'in_progress', 
+            actualStart: now,
+            startLatitude: latitude, 
+            startLongitude: longitude 
+          })]
         );
       },
       (error) => reject(error),
@@ -263,12 +281,22 @@ export async function startVisit(visitId: string, latitude: number, longitude: n
 export async function endVisit(visitId: string, latitude: number, longitude: number): Promise<void> {
   return new Promise((resolve, reject) => {
     const database = getDatabase();
+    const now = new Date().toISOString();
     database.transaction(
       (tx) => {
         tx.executeSql(
-          `UPDATE visit_events SET status = 'completed', actual_end = datetime('now'), end_latitude = ?, end_longitude = ?, updated_at = datetime('now')
+          `UPDATE visit_events SET status = 'completed', actual_end = ?, end_latitude = ?, end_longitude = ?, synced = 0, updated_at = datetime('now')
            WHERE id = ?`,
-          [latitude, longitude, visitId]
+          [now, latitude, longitude, visitId]
+        );
+        tx.executeSql(
+          `INSERT INTO sync_queue (entity_type, entity_id, action, payload) VALUES (?, ?, ?, ?)`,
+          ['visit', visitId, 'update', JSON.stringify({ 
+            status: 'completed', 
+            actualEnd: now,
+            endLatitude: latitude, 
+            endLongitude: longitude 
+          })]
         );
       },
       (error) => reject(error),

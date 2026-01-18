@@ -128,9 +128,26 @@ export default function VisitEventsPage() {
     ? visitEvents 
     : visitEvents.filter(e => e.collaboratorId === selectedCollaborator);
 
+  // Get effective GPS coordinates for an event (prefer end coordinates for completed, then start, then legacy)
+  const getEventCoordinates = (e: VisitEvent) => {
+    // For completed visits, prefer end coordinates
+    if (e.endLatitude && e.endLongitude) {
+      return { lat: parseFloat(String(e.endLatitude)), lng: parseFloat(String(e.endLongitude)) };
+    }
+    // For in-progress visits, use start coordinates
+    if (e.startLatitude && e.startLongitude) {
+      return { lat: parseFloat(String(e.startLatitude)), lng: parseFloat(String(e.startLongitude)) };
+    }
+    // Fallback to legacy latitude/longitude
+    if (e.latitude && e.longitude) {
+      return { lat: parseFloat(String(e.latitude)), lng: parseFloat(String(e.longitude)) };
+    }
+    return null;
+  };
+
   // Events with GPS locations for map view - computed at top level
   const eventsWithLocation = useMemo(() => 
-    filteredEvents.filter(e => e.latitude && e.longitude),
+    filteredEvents.filter(e => getEventCoordinates(e) !== null),
     [filteredEvents]
   );
 
@@ -139,8 +156,9 @@ export default function VisitEventsPage() {
     if (eventsWithLocation.length === 0) {
       return { lat: 48.669, lng: 19.699 }; // Slovakia center
     }
-    const avgLat = eventsWithLocation.reduce((sum, e) => sum + parseFloat(String(e.latitude)), 0) / eventsWithLocation.length;
-    const avgLng = eventsWithLocation.reduce((sum, e) => sum + parseFloat(String(e.longitude)), 0) / eventsWithLocation.length;
+    const coords = eventsWithLocation.map(e => getEventCoordinates(e)!);
+    const avgLat = coords.reduce((sum, c) => sum + c.lat, 0) / coords.length;
+    const avgLng = coords.reduce((sum, c) => sum + c.lng, 0) / coords.length;
     return { lat: avgLat, lng: avgLng };
   }, [eventsWithLocation]);
 
@@ -428,7 +446,7 @@ export default function VisitEventsPage() {
                         Mobile
                       </Badge>
                     )}
-                    {event.latitude && event.longitude && (
+                    {(event.endLatitude || event.startLatitude || event.latitude) && (
                       <Badge variant="outline">
                         <MapPin className="h-3 w-3 mr-1" />
                         GPS
@@ -473,10 +491,12 @@ export default function VisitEventsPage() {
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
-                {eventsWithLocation.map(event => (
+                {eventsWithLocation.map(event => {
+                  const coords = getEventCoordinates(event)!;
+                  return (
                   <Marker 
                     key={event.id} 
-                    position={[parseFloat(String(event.latitude)), parseFloat(String(event.longitude))]}
+                    position={[coords.lat, coords.lng]}
                   >
                     <Popup>
                       <div className="min-w-[200px]">
@@ -513,7 +533,8 @@ export default function VisitEventsPage() {
                       </div>
                     </Popup>
                   </Marker>
-                ))}
+                  );
+                })}
               </MapContainer>
             </div>
           )}

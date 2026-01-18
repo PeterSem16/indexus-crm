@@ -22,6 +22,13 @@ interface VisitEvent {
   remarkDetail?: string;
   visitType?: string;
   place?: string;
+  status?: string;
+  actualStart?: string;
+  actualEnd?: string;
+  startLatitude?: number;
+  startLongitude?: number;
+  endLatitude?: number;
+  endLongitude?: number;
   isCancelled?: boolean;
   isNotRealized?: boolean;
 }
@@ -57,9 +64,15 @@ export function useVisits(date?: string) {
                 visitType: visit.visitType || visit.subject,
                 place: visit.place,
                 remarkDetail: visit.remarkDetail,
-                status: visit.isCancelled ? 'cancelled' : visit.isNotRealized ? 'not_realized' : 'scheduled',
+                status: visit.status || (visit.isCancelled ? 'cancelled' : visit.isNotRealized ? 'not_realized' : 'scheduled'),
                 scheduledStart: visit.startTime,
                 scheduledEnd: visit.endTime,
+                actualStart: visit.actualStart,
+                actualEnd: visit.actualEnd,
+                startLatitude: visit.startLatitude,
+                startLongitude: visit.startLongitude,
+                endLatitude: visit.endLatitude,
+                endLongitude: visit.endLongitude,
                 notes: visit.remark,
                 isCancelled: visit.isCancelled,
                 isNotRealized: visit.isNotRealized,
@@ -153,30 +166,46 @@ export function useUpdateVisit() {
 
 export function useStartVisit() {
   const queryClient = useQueryClient();
+  const isOnline = useSyncStore((state) => state.isOnline);
   
   return useMutation({
     mutationFn: async ({ id, latitude, longitude }: { id: string; latitude: number; longitude: number }) => {
       await db.startVisit(id, latitude, longitude);
       return { id };
     },
-    onSuccess: (_, variables) => {
+    onSuccess: async (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['visits'] });
       queryClient.invalidateQueries({ queryKey: ['visit', variables.id] });
+      if (isOnline) {
+        try {
+          await syncAll();
+        } catch (e) {
+          // Sync will retry later
+        }
+      }
     },
   });
 }
 
 export function useEndVisit() {
   const queryClient = useQueryClient();
+  const isOnline = useSyncStore((state) => state.isOnline);
   
   return useMutation({
     mutationFn: async ({ id, latitude, longitude }: { id: string; latitude: number; longitude: number }) => {
       await db.endVisit(id, latitude, longitude);
       return { id };
     },
-    onSuccess: (_, variables) => {
+    onSuccess: async (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['visits'] });
       queryClient.invalidateQueries({ queryKey: ['visit', variables.id] });
+      if (isOnline) {
+        try {
+          await syncAll();
+        } catch (e) {
+          // Sync will retry later
+        }
+      }
     },
   });
 }
