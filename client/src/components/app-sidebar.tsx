@@ -67,9 +67,6 @@ export function AppSidebar() {
   const mainNavItems = [
     { title: t.nav.dashboard, url: "/", icon: LayoutDashboard, testId: "dashboard", moduleKey: "dashboard" },
     { title: t.nav.hospitals, url: "/hospitals", icon: Building2, testId: "hospitals", moduleKey: "hospitals" },
-    { title: t.nav.collaborators, url: "/collaborators", icon: Handshake, testId: "collaborators", moduleKey: "collaborators" },
-    { title: t.nav.collaboratorReports, url: "/collaborator-reports", icon: BarChart3, testId: "collaborator-reports", moduleKey: "collaborators" },
-    { title: t.nav.visitEvents, url: "/visit-events", icon: MapPin, testId: "visit-events", moduleKey: "visitEvents" },
     { title: t.nav.invoices, url: "/invoices", icon: FileText, testId: "invoices", moduleKey: "invoices" },
     { title: t.nav.campaigns, url: "/campaigns", icon: Megaphone, testId: "campaigns", moduleKey: "campaigns" },
     { title: "Pipeline", url: "/pipeline", icon: Kanban, testId: "pipeline", moduleKey: "pipeline" },
@@ -78,6 +75,12 @@ export function AppSidebar() {
   const customerSubItems = [
     { title: t.nav.customers, url: "/customers", testId: "customers", moduleKey: "customers" },
     { title: t.nav.contracts, url: "/contracts", testId: "contracts", moduleKey: "contracts" },
+  ];
+
+  const collaboratorSubItems = [
+    { title: t.nav.collaborators, url: "/collaborators", testId: "collaborators", moduleKey: "collaborators" },
+    { title: t.nav.visitEvents, url: "/visit-events", testId: "visit-events", moduleKey: "visitEvents" },
+    { title: t.nav.collaboratorReports, url: "/collaborator-reports", testId: "collaborator-reports", moduleKey: "collaborators" },
   ];
   
   const adminNavItems = [
@@ -155,6 +158,31 @@ export function AppSidebar() {
                   <CollapsibleContent>
                     <SidebarMenuSub>
                       {customerSubItems.filter(item => canAccessModule(item.moduleKey)).map((item) => (
+                        <SidebarMenuSubItem key={item.testId}>
+                          <SidebarMenuSubButton asChild isActive={location === item.url}>
+                            <Link href={item.url} data-testid={`nav-${item.testId}`}>
+                              <span>{item.title}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+
+              <Collapsible defaultOpen className="group/collapsible-collab">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton isActive={location === "/collaborators" || location === "/visit-events" || location === "/collaborator-reports"}>
+                      <Handshake className="h-4 w-4" />
+                      <span>{t.nav.collaborators}</span>
+                      <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible-collab:rotate-180" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {collaboratorSubItems.filter(item => canAccessModule(item.moduleKey)).map((item) => (
                         <SidebarMenuSubItem key={item.testId}>
                           <SidebarMenuSubButton asChild isActive={location === item.url}>
                             <Link href={item.url} data-testid={`nav-${item.testId}`}>
