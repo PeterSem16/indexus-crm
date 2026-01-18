@@ -48,13 +48,33 @@ export function useVisits(date?: string) {
       if (isOnline) {
         try {
           const visits = await api.get<VisitEvent[]>('/api/mobile/visit-events');
-          return visits;
+          if (visits && Array.isArray(visits)) {
+            for (const visit of visits) {
+              await db.saveVisitEvent({
+                id: String(visit.id),
+                hospitalId: visit.hospitalId,
+                hospitalName: visit.hospitalName,
+                visitType: visit.visitType || visit.subject,
+                place: visit.place,
+                remarkDetail: visit.remarkDetail,
+                status: visit.isCancelled ? 'cancelled' : visit.isNotRealized ? 'not_realized' : 'scheduled',
+                scheduledStart: visit.startTime,
+                scheduledEnd: visit.endTime,
+                notes: visit.remark,
+                isCancelled: visit.isCancelled,
+                isNotRealized: visit.isNotRealized,
+              });
+            }
+          }
+          return await db.getVisitEvents(date);
         } catch {
           return await db.getVisitEvents(date);
         }
       }
       return await db.getVisitEvents(date);
     },
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
   });
 }
 

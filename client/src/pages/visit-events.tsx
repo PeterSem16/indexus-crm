@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
 import { useCountryFilter } from "@/contexts/country-filter-context";
-import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval, isSameMonth, isSameDay, parseISO } from "date-fns";
-import { sk, cs, hu, ro, it, de, enUS } from "date-fns/locale";
+import { format, startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval, isSameMonth, isSameDay, parseISO, isWithinInterval, startOfDay, endOfDay, subDays } from "date-fns";
+import { sk, cs, hu, ro, it, de, enUS, type Locale } from "date-fns/locale";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,13 +11,36 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   Calendar, MapPin, ChevronLeft, ChevronRight, Clock, User, Building2, 
-  Phone, MessageSquare, Filter, List, Map as MapIcon, Eye, Smartphone
+  Phone, MessageSquare, Filter, List, Map as MapIcon, Eye, Smartphone,
+  Activity, Search, XCircle, CheckCircle, LogIn, AlertCircle
 } from "lucide-react";
 import { Link } from "wouter";
 import type { VisitEvent, Collaborator, Hospital } from "@shared/schema";
 import { VISIT_SUBJECTS, REMARK_DETAIL_OPTIONS, VISIT_PLACE_OPTIONS } from "@shared/schema";
+
+type PageView = "visits" | "activityLog";
+type ActivityType = "all" | "visit_scheduled" | "visit_started" | "visit_completed" | "visit_cancelled" | "login";
+type DateRange = "today" | "week" | "month" | "all";
+
+interface ActivityItem {
+  id: string;
+  type: "visit_scheduled" | "visit_started" | "visit_completed" | "visit_cancelled" | "visit_not_realized" | "login";
+  collaboratorId: string;
+  collaboratorName: string;
+  timestamp: Date;
+  details: {
+    hospitalName?: string;
+    visitType?: string;
+    place?: string;
+    remarkDetail?: string;
+    reason?: string;
+    deviceInfo?: string;
+  };
+}
 
 const dateLocales: Record<string, Locale> = {
   sk, cs, hu, ro, it, de, en: enUS
@@ -26,10 +49,14 @@ const dateLocales: Record<string, Locale> = {
 export default function VisitEventsPage() {
   const { locale, t } = useI18n();
   const { selectedCountries } = useCountryFilter();
+  const [pageView, setPageView] = useState<PageView>("visits");
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedEvent, setSelectedEvent] = useState<VisitEvent | null>(null);
   const [viewMode, setViewMode] = useState<"calendar" | "list" | "map">("calendar");
   const [selectedCollaborator, setSelectedCollaborator] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activityType, setActivityType] = useState<ActivityType>("all");
+  const [dateRange, setDateRange] = useState<DateRange>("week");
   
   const dateFnsLocale = dateLocales[locale] || enUS;
 
@@ -45,7 +72,23 @@ export default function VisitEventsPage() {
       const res = await fetch(`/api/visit-events?${params}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
-    }
+    },
+    refetchInterval: 30000,
+  });
+
+  const { data: allVisitEvents = [] } = useQuery<VisitEvent[]>({
+    queryKey: ["/api/visit-events", selectedCountries.join(","), "all"],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (selectedCountries.length > 0) {
+        params.set("countries", selectedCountries.join(","));
+      }
+      const res = await fetch(`/api/visit-events?${params}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+    refetchInterval: 30000,
+    enabled: pageView === "activityLog",
   });
 
   const { data: collaborators = [] } = useQuery<Collaborator[]>({
@@ -55,7 +98,8 @@ export default function VisitEventsPage() {
       const res = await fetch(`/api/collaborators${params}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
-    }
+    },
+    refetchInterval: 30000,
   });
 
   const { data: hospitals = [] } = useQuery<Hospital[]>({
@@ -65,7 +109,8 @@ export default function VisitEventsPage() {
       const res = await fetch(`/api/hospitals${params}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
-    }
+    },
+    refetchInterval: 30000,
   });
 
   const filteredEvents = selectedCollaborator === "all" 
@@ -115,6 +160,129 @@ export default function VisitEventsPage() {
       return isSameDay(eventDate, day);
     });
   };
+
+  const activities: ActivityItem[] = (() => {
+    const items: ActivityItem[] = [];
+    allVisitEvents.forEach((event) => {
+      const collaboratorName = getCollaboratorName(event.collaboratorId);
+      const hospitalName = getHospitalName(event.hospitalId);
+
+      items.push({
+        id: `${event.id}-scheduled`,
+        type: "visit_scheduled",
+        collaboratorId: event.collaboratorId,
+        collaboratorName,
+        timestamp: new Date(event.createdAt),
+        details: {
+          hospitalName: hospitalName || undefined,
+          visitType: event.subject ? getSubjectLabel(event.subject) : undefined,
+          place: event.place ? getPlaceLabel(event.place) : undefined,
+          remarkDetail: event.remarkDetail ? getRemarkDetailLabel(event.remarkDetail) : undefined,
+        },
+      });
+
+      if (event.isCancelled) {
+        items.push({
+          id: `${event.id}-cancelled`,
+          type: "visit_cancelled",
+          collaboratorId: event.collaboratorId,
+          collaboratorName,
+          timestamp: new Date(event.updatedAt || event.createdAt),
+          details: { hospitalName: hospitalName || undefined },
+        });
+      }
+
+      if (event.isNotRealized) {
+        items.push({
+          id: `${event.id}-not-realized`,
+          type: "visit_not_realized",
+          collaboratorId: event.collaboratorId,
+          collaboratorName,
+          timestamp: new Date(event.updatedAt || event.createdAt),
+          details: { hospitalName: hospitalName || undefined },
+        });
+      }
+    });
+
+    items.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    return items;
+  })();
+
+  const filteredActivities = (() => {
+    let filtered = activities;
+    if (selectedCollaborator !== "all") {
+      filtered = filtered.filter(a => a.collaboratorId === selectedCollaborator);
+    }
+    if (activityType !== "all") {
+      filtered = filtered.filter(a => a.type === activityType);
+    }
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      filtered = filtered.filter(a => 
+        a.collaboratorName.toLowerCase().includes(q) ||
+        a.details.hospitalName?.toLowerCase().includes(q) ||
+        a.details.visitType?.toLowerCase().includes(q)
+      );
+    }
+    const now = new Date();
+    if (dateRange === "today") {
+      const start = startOfDay(now);
+      const end = endOfDay(now);
+      filtered = filtered.filter(a => isWithinInterval(a.timestamp, { start, end }));
+    } else if (dateRange === "week") {
+      const start = startOfDay(subDays(now, 7));
+      const end = endOfDay(now);
+      filtered = filtered.filter(a => isWithinInterval(a.timestamp, { start, end }));
+    } else if (dateRange === "month") {
+      const start = startOfDay(subDays(now, 30));
+      const end = endOfDay(now);
+      filtered = filtered.filter(a => isWithinInterval(a.timestamp, { start, end }));
+    }
+    return filtered;
+  })();
+
+  const getActivityIcon = (type: ActivityItem["type"]) => {
+    switch (type) {
+      case "visit_scheduled": return <Calendar className="h-4 w-4" />;
+      case "visit_started": return <MapPin className="h-4 w-4" />;
+      case "visit_completed": return <CheckCircle className="h-4 w-4" />;
+      case "visit_cancelled": return <XCircle className="h-4 w-4" />;
+      case "visit_not_realized": return <AlertCircle className="h-4 w-4" />;
+      case "login": return <LogIn className="h-4 w-4" />;
+      default: return <Activity className="h-4 w-4" />;
+    }
+  };
+
+  const getActivityColor = (type: ActivityItem["type"]) => {
+    switch (type) {
+      case "visit_scheduled": return "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300";
+      case "visit_started": return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300";
+      case "visit_completed": return "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300";
+      case "visit_cancelled": return "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300";
+      case "visit_not_realized": return "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300";
+      case "login": return "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300";
+      default: return "bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300";
+    }
+  };
+
+  const getActivityLabel = (type: ActivityItem["type"]) => {
+    switch (type) {
+      case "visit_scheduled": return t.common?.scheduled || t.common?.unknown;
+      case "visit_started": return t.common?.started || t.common?.unknown;
+      case "visit_completed": return t.common?.completed || t.common?.unknown;
+      case "visit_cancelled": return t.common?.cancelled || t.common?.unknown;
+      case "visit_not_realized": return t.common?.notRealized || t.common?.unknown;
+      case "login": return "Login";
+      default: return t.common?.unknown;
+    }
+  };
+
+  const groupedActivities = filteredActivities.reduce((acc, activity) => {
+    const dateKey = format(activity.timestamp, "yyyy-MM-dd");
+    if (!acc[dateKey]) acc[dateKey] = [];
+    acc[dateKey].push(activity);
+    return acc;
+  }, {} as Record<string, ActivityItem[]>);
 
   const renderCalendarView = () => (
     <Card>
@@ -292,71 +460,217 @@ export default function VisitEventsPage() {
     );
   };
 
+  const renderActivityLogView = () => (
+    <div className="space-y-6" data-testid="activity-log-container">
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder={t.common?.search || "Search"}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+            data-testid="input-activity-search"
+          />
+        </div>
+        <Select value={selectedCollaborator} onValueChange={setSelectedCollaborator}>
+          <SelectTrigger className="w-[200px]" data-testid="select-activity-collaborator">
+            <SelectValue placeholder={t.visitEvents?.allCollaborators || t.common?.unknown} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t.visitEvents?.allCollaborators || t.common?.unknown}</SelectItem>
+            {collaborators.filter(c => c.mobileAppEnabled).map(collaborator => (
+              <SelectItem key={collaborator.id} value={collaborator.id}>
+                {collaborator.firstName} {collaborator.lastName}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={activityType} onValueChange={(v) => setActivityType(v as ActivityType)}>
+          <SelectTrigger className="w-[180px]" data-testid="select-activity-type">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t.common?.all || t.common?.unknown}</SelectItem>
+            <SelectItem value="visit_scheduled">{t.common?.scheduled || t.common?.unknown}</SelectItem>
+            <SelectItem value="visit_started">{t.common?.started || t.common?.unknown}</SelectItem>
+            <SelectItem value="visit_completed">{t.common?.completed || t.common?.unknown}</SelectItem>
+            <SelectItem value="visit_cancelled">{t.common?.cancelled || t.common?.unknown}</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={dateRange} onValueChange={(v) => setDateRange(v as DateRange)}>
+          <SelectTrigger className="w-[140px]" data-testid="select-date-range">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="today">{t.common?.today || t.common?.unknown}</SelectItem>
+            <SelectItem value="week">{t.common?.last7days || t.common?.unknown}</SelectItem>
+            <SelectItem value="month">{t.common?.last30days || t.common?.unknown}</SelectItem>
+            <SelectItem value="all">{t.common?.allTime || t.common?.unknown}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="h-5 w-5" />
+            {t.nav?.activityLog || t.common?.unknown}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="h-[600px]">
+            {Object.keys(groupedActivities).length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                {t.common?.noData || t.common?.unknown}
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {Object.keys(groupedActivities).sort().reverse().map(dateKey => (
+                  <div key={dateKey}>
+                    <div className="flex items-center gap-2 mb-3" data-testid={`date-header-${dateKey}`}>
+                      <Badge variant="outline" className="text-xs">
+                        {format(parseISO(dateKey), "EEEE, d. MMMM yyyy", { locale: dateFnsLocale })}
+                      </Badge>
+                      <div className="flex-1 h-px bg-border" />
+                    </div>
+                    <div className="space-y-2 ml-4 border-l-2 border-muted pl-4">
+                      {groupedActivities[dateKey].map(activity => (
+                        <div key={activity.id} className="relative" data-testid={`activity-item-${activity.id}`}>
+                          <div className="absolute -left-[21px] w-3 h-3 rounded-full bg-background border-2 border-primary" />
+                          <div className="p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="font-medium" data-testid={`activity-collaborator-${activity.id}`}>
+                                    {activity.collaboratorName}
+                                  </span>
+                                  <Badge className={`text-xs ${getActivityColor(activity.type)}`} data-testid={`activity-type-badge-${activity.id}`}>
+                                    {getActivityIcon(activity.type)}
+                                    <span className="ml-1">{getActivityLabel(activity.type)}</span>
+                                  </Badge>
+                                </div>
+                                {activity.details.hospitalName && (
+                                  <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1" data-testid={`activity-hospital-${activity.id}`}>
+                                    <Building2 className="h-3 w-3" />
+                                    {activity.details.hospitalName}
+                                  </div>
+                                )}
+                                {activity.details.visitType && (
+                                  <div className="text-sm text-muted-foreground" data-testid={`activity-visit-type-${activity.id}`}>
+                                    {activity.details.visitType}
+                                    {activity.details.place && ` - ${activity.details.place}`}
+                                  </div>
+                                )}
+                                {(activity.type === "visit_cancelled" || activity.type === "visit_not_realized") && activity.details.reason && (
+                                  <div className="mt-1 px-2 py-1 bg-red-50 dark:bg-red-950 rounded text-sm text-red-700 dark:text-red-300" data-testid={`activity-reason-${activity.id}`}>
+                                    {activity.details.reason}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="text-xs text-muted-foreground whitespace-nowrap" data-testid={`activity-time-${activity.id}`}>
+                                <Clock className="h-3 w-3 inline mr-1" />
+                                {format(activity.timestamp, "HH:mm", { locale: dateFnsLocale })}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </CardContent>
+      </Card>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       <PageHeader
-        title={t.visitEvents?.title || "INDEXUS Connect - Návštevy"}
-        description={t.visitEvents?.description || "Kalendár návštev reprezentantov s mapovou lokalizáciou"}
+        title={t.visitEvents?.title || "INDEXUS Connect"}
+        description={t.visitEvents?.description || t.common?.unknown}
       />
 
-      <div className="flex flex-wrap items-center gap-4">
-        <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "calendar" | "list" | "map")}>
-          <TabsList>
-            <TabsTrigger value="calendar" className="flex items-center gap-1">
-              <Calendar className="h-4 w-4" />
-              {t.visitEvents?.calendar || "Kalendár"}
-            </TabsTrigger>
-            <TabsTrigger value="list" className="flex items-center gap-1">
-              <List className="h-4 w-4" />
-              {t.visitEvents?.list || "Zoznam"}
-            </TabsTrigger>
-            <TabsTrigger value="map" className="flex items-center gap-1">
-              <MapIcon className="h-4 w-4" />
-              {t.visitEvents?.map || "Mapa"}
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+      <Tabs value={pageView} onValueChange={(v) => setPageView(v as PageView)} className="w-full">
+        <TabsList className="mb-4">
+          <TabsTrigger value="visits" className="flex items-center gap-1" data-testid="tab-visits">
+            <Calendar className="h-4 w-4" />
+            {t.visitEvents?.visitsTab || t.nav?.visitEvents || t.common?.unknown}
+          </TabsTrigger>
+          <TabsTrigger value="activityLog" className="flex items-center gap-1" data-testid="tab-activity-log">
+            <Activity className="h-4 w-4" />
+            {t.nav?.activityLog || t.common?.unknown}
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
 
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-muted-foreground" />
-          <Select value={selectedCollaborator} onValueChange={setSelectedCollaborator}>
-            <SelectTrigger className="w-[200px]" data-testid="select-collaborator-filter">
-              <SelectValue placeholder={t.visitEvents?.allCollaborators || "Všetci reprezentanti"} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t.visitEvents?.allCollaborators || "Všetci reprezentanti"}</SelectItem>
-              {collaborators.filter(c => c.mobileAppEnabled).map(collaborator => (
-                <SelectItem key={collaborator.id} value={collaborator.id}>
-                  {collaborator.firstName} {collaborator.lastName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <Link href="/mobile-preview">
-          <Button variant="outline" className="flex items-center gap-2" data-testid="button-mobile-preview">
-            <Smartphone className="h-4 w-4" />
-            Mobile Preview
-          </Button>
-        </Link>
-
-        <div className="ml-auto text-sm text-muted-foreground">
-          {filteredEvents.length} {t.visitEvents?.eventsCount || "návštev"}
-        </div>
-      </div>
-
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        </div>
-      ) : (
+      {pageView === "visits" && (
         <>
-          {viewMode === "calendar" && renderCalendarView()}
-          {viewMode === "list" && renderListView()}
-          {viewMode === "map" && renderMapView()}
+          <div className="flex flex-wrap items-center gap-4">
+            <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "calendar" | "list" | "map")}>
+              <TabsList>
+                <TabsTrigger value="calendar" className="flex items-center gap-1">
+                  <Calendar className="h-4 w-4" />
+                  {t.visitEvents?.calendar || t.common?.unknown}
+                </TabsTrigger>
+                <TabsTrigger value="list" className="flex items-center gap-1">
+                  <List className="h-4 w-4" />
+                  {t.visitEvents?.list || t.common?.unknown}
+                </TabsTrigger>
+                <TabsTrigger value="map" className="flex items-center gap-1">
+                  <MapIcon className="h-4 w-4" />
+                  {t.visitEvents?.map || t.common?.unknown}
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <Select value={selectedCollaborator} onValueChange={setSelectedCollaborator}>
+                <SelectTrigger className="w-[200px]" data-testid="select-collaborator-filter">
+                  <SelectValue placeholder={t.visitEvents?.allCollaborators || t.common?.unknown} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t.visitEvents?.allCollaborators || t.common?.unknown}</SelectItem>
+                  {collaborators.filter(c => c.mobileAppEnabled).map(collaborator => (
+                    <SelectItem key={collaborator.id} value={collaborator.id}>
+                      {collaborator.firstName} {collaborator.lastName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Link href="/mobile-preview">
+              <Button variant="outline" className="flex items-center gap-2" data-testid="button-mobile-preview">
+                <Smartphone className="h-4 w-4" />
+                Mobile Preview
+              </Button>
+            </Link>
+
+            <div className="ml-auto text-sm text-muted-foreground">
+              {filteredEvents.length} {t.visitEvents?.eventsCount || t.common?.unknown}
+            </div>
+          </div>
+
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : (
+            <>
+              {viewMode === "calendar" && renderCalendarView()}
+              {viewMode === "list" && renderListView()}
+              {viewMode === "map" && renderMapView()}
+            </>
+          )}
         </>
       )}
+
+      {pageView === "activityLog" && renderActivityLogView()}
 
       <Dialog open={!!selectedEvent} onOpenChange={() => setSelectedEvent(null)}>
         <DialogContent className="max-w-lg">

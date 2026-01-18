@@ -17,7 +17,7 @@ const MONTHS = [
 ];
 
 export default function VisitsScreen() {
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [viewMode, setViewMode] = useState<ViewMode>('calendar');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const { translations } = useTranslation();
