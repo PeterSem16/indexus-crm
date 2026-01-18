@@ -7812,16 +7812,16 @@ export async function registerRoutes(
       // Fetch visit events for this collaborator
       const visitEvents = await storage.getVisitEventsByCollaborator(tokenData.collaboratorId);
       const filteredEvents = visitEvents.filter(e => {
-        // Use actualStart for completed visits, scheduledStart otherwise
+        // Use actualStart for completed visits, startTime otherwise
         const eventDate = e.actualStart 
           ? new Date(e.actualStart) 
-          : (e.scheduledStart ? new Date(e.scheduledStart) : null);
+          : (e.startTime ? new Date(e.startTime) : null);
         return eventDate && eventDate >= startDate && eventDate <= endDate;
       });
 
       // Fetch hospitals for mapping
-      const hospitals = await storage.getHospitals();
-      const hospitalMap = new Map(hospitals.map(h => [h.id, h]));
+      const hospitals = await storage.getAllHospitals();
+      const hospitalMap = new Map(hospitals.map((h: any) => [h.id, h]));
 
       let csvContent = '';
       
@@ -7832,7 +7832,7 @@ export async function registerRoutes(
         for (const event of filteredEvents) {
           const hospital = hospitalMap.get(event.hospitalId || '') || { name: 'Unknown' };
           // Use ISO date format for consistency
-          const eventDate = event.actualStart || event.scheduledStart;
+          const eventDate = event.actualStart || event.startTime;
           const date = eventDate ? new Date(eventDate).toISOString().split('T')[0] : '';
           const status = event.status || (event.isCancelled ? 'cancelled' : event.isNotRealized ? 'not_realized' : 'scheduled');
           
@@ -7841,8 +7841,8 @@ export async function registerRoutes(
             duration = Math.round((new Date(event.actualEnd).getTime() - new Date(event.actualStart).getTime()) / 60000);
           }
           
-          const notes = (event.notes || '').replace(/"/g, '""').replace(/\n/g, ' ');
-          csvContent += `"${date}","${hospital.name}","${event.visitType || ''}","${status}",${duration},"${notes}"\n`;
+          const eventSubject = (event.subject || '').replace(/"/g, '""').replace(/\n/g, ' ');
+          csvContent += `"${date}","${hospital.name}","${event.visitType || ''}","${status}",${duration},"${eventSubject}"\n`;
         }
       } else if (reportType === 'hospital_activity') {
         // Hospital Activity Report
@@ -7935,17 +7935,17 @@ export async function registerRoutes(
       }
 
       // Fetch data
-      const collaborators = await storage.getCollaborators();
+      const collaborators = await storage.getAllCollaborators();
       const countryCodes = countries ? (countries as string).split(',').filter(Boolean) : [];
       
       const filteredCollaborators = countryCodes.length > 0
-        ? collaborators.filter(c => countryCodes.includes(c.countryCode))
+        ? collaborators.filter((c: any) => countryCodes.includes(c.countryCode))
         : collaborators;
 
       const visitEvents = await storage.getVisitEventsByDateRange(startDate, endDate, countryCodes.length > 0 ? countryCodes : undefined);
-      const hospitals = await storage.getHospitals();
-      const hospitalMap = new Map(hospitals.map(h => [h.id, h]));
-      const collaboratorMap = new Map(filteredCollaborators.map(c => [c.id, c]));
+      const hospitals = await storage.getAllHospitals();
+      const hospitalMap = new Map(hospitals.map((h: any) => [h.id, h]));
+      const collaboratorMap = new Map(filteredCollaborators.map((c: any) => [c.id, c]));
 
       // Filter by specific collaborator if requested
       const filteredEvents = collaboratorId && collaboratorId !== 'all'
@@ -7994,7 +7994,7 @@ export async function registerRoutes(
         for (const event of filteredEvents) {
           const collab = collaboratorMap.get(event.collaboratorId || '');
           const hospital = hospitalMap.get(event.hospitalId || '');
-          const eventDate = event.actualStart || event.scheduledStart;
+          const eventDate = event.actualStart || event.startTime;
           const date = eventDate ? new Date(eventDate).toISOString().split('T')[0] : '';
           const status = event.status || (event.isCancelled ? 'cancelled' : event.isNotRealized ? 'not_realized' : 'scheduled');
           
@@ -8003,8 +8003,8 @@ export async function registerRoutes(
             duration = Math.round((new Date(event.actualEnd).getTime() - new Date(event.actualStart).getTime()) / 60000);
           }
           
-          const notes = (event.notes || '').replace(/"/g, '""').replace(/\n/g, ' ');
-          csvContent += `"${date}","${collab?.firstName || ''} ${collab?.lastName || ''}","${hospital?.name || ''}","${event.visitType || ''}","${status}",${duration},"${notes}"\n`;
+          const eventSubject = (event.subject || '').replace(/"/g, '""').replace(/\n/g, ' ');
+          csvContent += `"${date}","${collab?.firstName || ''} ${collab?.lastName || ''}","${hospital?.name || ''}","${event.visitType || ''}","${status}",${duration},"${eventSubject}"\n`;
         }
       } else if (reportType === 'performance_metrics') {
         csvContent = 'Collaborator,Country,Visits This Period,Completion Rate (%),Avg Visit Duration (min),Hospitals Covered\n';
@@ -8111,17 +8111,17 @@ export async function registerRoutes(
           break;
       }
 
-      const collaborators = await storage.getCollaborators();
+      const collaborators = await storage.getAllCollaborators();
       const countryCodes = countries ? (countries as string).split(',').filter(Boolean) : [];
       
       const filteredCollaborators = countryCodes.length > 0
-        ? collaborators.filter(c => countryCodes.includes(c.countryCode))
+        ? collaborators.filter((c: any) => countryCodes.includes(c.countryCode))
         : collaborators;
 
       const visitEvents = await storage.getVisitEventsByDateRange(startDate, endDate, countryCodes.length > 0 ? countryCodes : undefined);
-      const hospitals = await storage.getHospitals();
-      const hospitalMap = new Map(hospitals.map(h => [h.id, h]));
-      const collaboratorMap = new Map(filteredCollaborators.map(c => [c.id, c]));
+      const hospitals = await storage.getAllHospitals();
+      const hospitalMap = new Map(hospitals.map((h: any) => [h.id, h]));
+      const collaboratorMap = new Map(filteredCollaborators.map((c: any) => [c.id, c]));
 
       const filteredEvents = collaboratorId && collaboratorId !== 'all'
         ? visitEvents.filter(e => e.collaboratorId === collaboratorId)
@@ -8135,7 +8135,7 @@ export async function registerRoutes(
         const collabStats = new Map<string, { name: string; country: string; total: number; completed: number; cancelled: number; hours: number }>();
         
         for (const event of filteredEvents) {
-          const collab = collaboratorMap.get(event.collaboratorId || '');
+          const collab: any = collaboratorMap.get(event.collaboratorId || '');
           if (!collab) continue;
           
           if (!collabStats.has(collab.id)) {
@@ -8171,8 +8171,8 @@ export async function registerRoutes(
       } else if (reportType === 'visit_statistics') {
         sheetName = 'Visit Statistics';
         data = filteredEvents.map(event => {
-          const collab = collaboratorMap.get(event.collaboratorId || '');
-          const hospital = hospitalMap.get(event.hospitalId || '');
+          const collab: any = collaboratorMap.get(event.collaboratorId || '');
+          const hospital: any = hospitalMap.get(event.hospitalId || '');
           const eventDate = event.actualStart || event.startTime;
           const date = eventDate ? new Date(eventDate).toISOString().split('T')[0] : '';
           const status = event.status || (event.isCancelled ? 'cancelled' : event.isNotRealized ? 'not_realized' : 'scheduled');
@@ -8189,7 +8189,7 @@ export async function registerRoutes(
             'Visit Type': event.visitType || '',
             'Status': status,
             'Duration (min)': duration,
-            'Notes': event.notes || '',
+            'Notes': event.subject || '',
           };
         });
       } else if (reportType === 'performance_metrics') {
@@ -8197,7 +8197,7 @@ export async function registerRoutes(
         const collabPerf = new Map<string, { name: string; country: string; total: number; completed: number; totalDuration: number; hospitals: Set<string> }>();
         
         for (const event of filteredEvents) {
-          const collab = collaboratorMap.get(event.collaboratorId || '');
+          const collab: any = collaboratorMap.get(event.collaboratorId || '');
           if (!collab) continue;
           
           if (!collabPerf.has(collab.id)) {
@@ -8236,7 +8236,7 @@ export async function registerRoutes(
         const hospitalStats = new Map<string, { name: string; country: string; total: number; collaborators: Set<string>; completed: number }>();
         
         for (const event of filteredEvents) {
-          const hospital = hospitalMap.get(event.hospitalId || '');
+          const hospital: any = hospitalMap.get(event.hospitalId || '');
           if (!hospital) continue;
           
           if (!hospitalStats.has(hospital.id)) {
