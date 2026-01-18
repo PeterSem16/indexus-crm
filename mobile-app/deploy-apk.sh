@@ -10,11 +10,28 @@ DEST_DIR="/var/www/indexus-crm/data/mobil-app"
 VERSION=$(grep '"version"' app.json | head -1 | cut -d'"' -f4)
 VERSION_CODE=$(grep '"versionCode"' app.json | head -1 | grep -o '[0-9]*')
 
-# Source APK - prefer fresh build from android directory
-SOURCE_APK="android/app/build/outputs/apk/release/app-release.apk"
+# Source APK - check multiple locations in order of preference:
+# 1. EAS local build output (build-*.apk in current directory)
+# 2. Android gradle build output
+# 3. Builds directory
 
-if [ ! -f "$SOURCE_APK" ]; then
-    # Fallback to builds directory
+SOURCE_APK=""
+
+# First, try EAS build output (most recent build-*.apk file)
+EAS_BUILD=$(ls -t build-*.apk 2>/dev/null | head -n 1)
+if [ -n "$EAS_BUILD" ] && [ -f "$EAS_BUILD" ]; then
+    SOURCE_APK="$EAS_BUILD"
+fi
+
+# Fallback to android gradle output
+if [ -z "$SOURCE_APK" ] || [ ! -f "$SOURCE_APK" ]; then
+    if [ -f "android/app/build/outputs/apk/release/app-release.apk" ]; then
+        SOURCE_APK="android/app/build/outputs/apk/release/app-release.apk"
+    fi
+fi
+
+# Fallback to builds directory
+if [ -z "$SOURCE_APK" ] || [ ! -f "$SOURCE_APK" ]; then
     SOURCE_APK=$(ls -t builds/*.apk 2>/dev/null | head -n 1)
 fi
 
