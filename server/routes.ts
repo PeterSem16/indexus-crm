@@ -7903,6 +7903,187 @@ export async function registerRoutes(
   });
 
   // ============================================================================
+  // INDEXUS Web - Collaborator Reports (CSV Export)
+  // ============================================================================
+
+  app.get("/api/collaborator-reports/:reportType", requireAuth, async (req, res) => {
+    try {
+      const { reportType } = req.params;
+      const { period, collaboratorId, countries } = req.query;
+
+      // Calculate date range based on period
+      const now = new Date();
+      let startDate: Date;
+      let endDate: Date = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+
+      switch (period) {
+        case 'last_month':
+          startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+          break;
+        case 'last_3_months':
+          startDate = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+          break;
+        case 'this_year':
+          startDate = new Date(now.getFullYear(), 0, 1);
+          break;
+        case 'this_month':
+        default:
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          break;
+      }
+
+      // Fetch data
+      const collaborators = await storage.getCollaborators();
+      const countryCodes = countries ? (countries as string).split(',').filter(Boolean) : [];
+      
+      const filteredCollaborators = countryCodes.length > 0
+        ? collaborators.filter(c => countryCodes.includes(c.countryCode))
+        : collaborators;
+
+      const visitEvents = await storage.getVisitEventsByDateRange(startDate, endDate, countryCodes.length > 0 ? countryCodes : undefined);
+      const hospitals = await storage.getHospitals();
+      const hospitalMap = new Map(hospitals.map(h => [h.id, h]));
+      const collaboratorMap = new Map(filteredCollaborators.map(c => [c.id, c]));
+
+      // Filter by specific collaborator if requested
+      const filteredEvents = collaboratorId && collaboratorId !== 'all'
+        ? visitEvents.filter(e => e.collaboratorId === collaboratorId)
+        : visitEvents.filter(e => collaboratorMap.has(e.collaboratorId || ''));
+
+      let csvContent = '';
+
+      if (reportType === 'activity_summary') {
+        csvContent = 'Collaborator,Country,Total Visits,Completed,Cancelled,Hours Worked\n';
+        
+        const collabStats = new Map<string, { name: string; country: string; total: number; completed: number; cancelled: number; hours: number }>();
+        
+        for (const event of filteredEvents) {
+          const collab = collaboratorMap.get(event.collaboratorId || '');
+          if (!collab) continue;
+          
+          if (!collabStats.has(collab.id)) {
+            collabStats.set(collab.id, {
+              name: `${collab.firstName} ${collab.lastName}`,
+              country: collab.countryCode,
+              total: 0,
+              completed: 0,
+              cancelled: 0,
+              hours: 0,
+            });
+          }
+          
+          const stats = collabStats.get(collab.id)!;
+          stats.total++;
+          if (event.status === 'completed') {
+            stats.completed++;
+            if (event.actualStart && event.actualEnd) {
+              stats.hours += (new Date(event.actualEnd).getTime() - new Date(event.actualStart).getTime()) / 3600000;
+            }
+          }
+          if (event.isCancelled || event.status === 'cancelled') stats.cancelled++;
+        }
+
+        for (const [, stats] of collabStats) {
+          csvContent += `"${stats.name}","${stats.country}",${stats.total},${stats.completed},${stats.cancelled},${stats.hours.toFixed(2)}\n`;
+        }
+      } else if (reportType === 'visit_statistics') {
+        csvContent = 'Date,Collaborator,Hospital,Visit Type,Status,Duration (min),Notes\n';
+        
+        for (const event of filteredEvents) {
+          const collab = collaboratorMap.get(event.collaboratorId || '');
+          const hospital = hospitalMap.get(event.hospitalId || '');
+          const eventDate = event.actualStart || event.scheduledStart;
+          const date = eventDate ? new Date(eventDate).toISOString().split('T')[0] : '';
+          const status = event.status || (event.isCancelled ? 'cancelled' : event.isNotRealized ? 'not_realized' : 'scheduled');
+          
+          let duration = 0;
+          if (event.actualStart && event.actualEnd) {
+            duration = Math.round((new Date(event.actualEnd).getTime() - new Date(event.actualStart).getTime()) / 60000);
+          }
+          
+          const notes = (event.notes || '').replace(/"/g, '""').replace(/\n/g, ' ');
+          csvContent += `"${date}","${collab?.firstName || ''} ${collab?.lastName || ''}","${hospital?.name || ''}","${event.visitType || ''}","${status}",${duration},"${notes}"\n`;
+        }
+      } else if (reportType === 'performance_metrics') {
+        csvContent = 'Collaborator,Country,Visits This Period,Completion Rate (%),Avg Visit Duration (min),Hospitals Covered\n';
+        
+        const collabPerf = new Map<string, { name: string; country: string; total: number; completed: number; totalDuration: number; hospitals: Set<string> }>();
+        
+        for (const event of filteredEvents) {
+          const collab = collaboratorMap.get(event.collaboratorId || '');
+          if (!collab) continue;
+          
+          if (!collabPerf.has(collab.id)) {
+            collabPerf.set(collab.id, {
+              name: `${collab.firstName} ${collab.lastName}`,
+              country: collab.countryCode,
+              total: 0,
+              completed: 0,
+              totalDuration: 0,
+              hospitals: new Set(),
+            });
+          }
+          
+          const perf = collabPerf.get(collab.id)!;
+          perf.total++;
+          if (event.hospitalId) perf.hospitals.add(event.hospitalId);
+          
+          if (event.status === 'completed') {
+            perf.completed++;
+            if (event.actualStart && event.actualEnd) {
+              perf.totalDuration += (new Date(event.actualEnd).getTime() - new Date(event.actualStart).getTime()) / 60000;
+            }
+          }
+        }
+
+        for (const [, perf] of collabPerf) {
+          const completionRate = perf.total > 0 ? Math.round((perf.completed / perf.total) * 100) : 0;
+          const avgDuration = perf.completed > 0 ? Math.round(perf.totalDuration / perf.completed) : 0;
+          csvContent += `"${perf.name}","${perf.country}",${perf.total},${completionRate},${avgDuration},${perf.hospitals.size}\n`;
+        }
+      } else if (reportType === 'hospital_coverage') {
+        csvContent = 'Hospital,Country,Total Visits,Unique Collaborators,Completed Visits\n';
+        
+        const hospitalStats = new Map<string, { name: string; country: string; total: number; collaborators: Set<string>; completed: number }>();
+        
+        for (const event of filteredEvents) {
+          const hospital = hospitalMap.get(event.hospitalId || '');
+          if (!hospital) continue;
+          
+          if (!hospitalStats.has(hospital.id)) {
+            hospitalStats.set(hospital.id, {
+              name: hospital.name,
+              country: hospital.countryCode,
+              total: 0,
+              collaborators: new Set(),
+              completed: 0,
+            });
+          }
+          
+          const stats = hospitalStats.get(hospital.id)!;
+          stats.total++;
+          if (event.collaboratorId) stats.collaborators.add(event.collaboratorId);
+          if (event.status === 'completed') stats.completed++;
+        }
+
+        for (const [, stats] of hospitalStats) {
+          csvContent += `"${stats.name}","${stats.country}",${stats.total},${stats.collaborators.size},${stats.completed}\n`;
+        }
+      } else {
+        return res.status(400).json({ error: "Invalid report type" });
+      }
+
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${reportType}_${period}.csv"`);
+      res.send(csvContent);
+    } catch (error) {
+      console.error("Collaborator report generation error:", error);
+      res.status(500).json({ error: "Failed to generate report" });
+    }
+  });
+
+  // ============================================================================
   // INDEXUS Web - Visit Events Calendar (for admins/managers)
   // ============================================================================
   

@@ -29,6 +29,7 @@ import SettingsPage from "@/pages/settings";
 import HospitalsPage from "@/pages/hospitals";
 import VisitEventsPage from "@/pages/visit-events";
 import CollaboratorsPage from "@/pages/collaborators";
+import CollaboratorReportsPage from "@/pages/collaborator-reports";
 import ConfiguratorPage from "@/pages/configurator";
 import CampaignsPage from "@/pages/campaigns";
 import CampaignDetailPage from "@/pages/campaign-detail";
@@ -140,6 +141,7 @@ function AuthenticatedApp() {
                     <Route path="/hospitals" component={HospitalsPage} />
                     <Route path="/visit-events" component={VisitEventsPage} />
                     <Route path="/collaborators" component={CollaboratorsPage} />
+                    <Route path="/collaborator-reports" component={CollaboratorReportsPage} />
                     <Route path="/campaigns" component={CampaignsPage} />
                     <Route path="/campaigns/:id" component={CampaignDetailPage} />
                     <Route path="/pipeline" component={PipelinePage} />

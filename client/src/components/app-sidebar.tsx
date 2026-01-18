@@ -19,7 +19,8 @@ import {
   Kanban,
   Mail,
   Network,
-  MapPin
+  MapPin,
+  BarChart3
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/contexts/permissions-context";
@@ -67,6 +68,7 @@ export function AppSidebar() {
     { title: t.nav.dashboard, url: "/", icon: LayoutDashboard, testId: "dashboard", moduleKey: "dashboard" },
     { title: t.nav.hospitals, url: "/hospitals", icon: Building2, testId: "hospitals", moduleKey: "hospitals" },
     { title: t.nav.collaborators, url: "/collaborators", icon: Handshake, testId: "collaborators", moduleKey: "collaborators" },
+    { title: t.nav.collaboratorReports, url: "/collaborator-reports", icon: BarChart3, testId: "collaborator-reports", moduleKey: "collaborators" },
     { title: t.nav.visitEvents, url: "/visit-events", icon: MapPin, testId: "visit-events", moduleKey: "visitEvents" },
     { title: t.nav.invoices, url: "/invoices", icon: FileText, testId: "invoices", moduleKey: "invoices" },
     { title: t.nav.campaigns, url: "/campaigns", icon: Megaphone, testId: "campaigns", moduleKey: "campaigns" },
