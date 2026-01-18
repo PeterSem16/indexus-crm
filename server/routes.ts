@@ -7776,6 +7776,133 @@ export async function registerRoutes(
   });
 
   // ============================================================================
+  // Mobile Reports API - Generate CSV reports for collaborators
+  // ============================================================================
+
+  app.get("/api/mobile/reports/:reportType", async (req, res) => {
+    try {
+      const tokenData = await getMobileCollaboratorFromToken(req);
+      if (!tokenData) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { reportType } = req.params;
+      const { period } = req.query;
+
+      // Calculate date range based on period
+      const now = new Date();
+      let startDate: Date;
+      let endDate: Date = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+
+      switch (period) {
+        case 'last_month':
+          startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+          break;
+        case 'last_3_months':
+          startDate = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+          break;
+        case 'this_month':
+        default:
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          break;
+      }
+
+      // Fetch visit events for this collaborator
+      const visitEvents = await storage.getVisitEventsByCollaborator(tokenData.collaboratorId);
+      const filteredEvents = visitEvents.filter(e => {
+        // Use actualStart for completed visits, scheduledStart otherwise
+        const eventDate = e.actualStart 
+          ? new Date(e.actualStart) 
+          : (e.scheduledStart ? new Date(e.scheduledStart) : null);
+        return eventDate && eventDate >= startDate && eventDate <= endDate;
+      });
+
+      // Fetch hospitals for mapping
+      const hospitals = await storage.getHospitals();
+      const hospitalMap = new Map(hospitals.map(h => [h.id, h]));
+
+      let csvContent = '';
+      
+      if (reportType === 'monthly_summary') {
+        // Monthly Visit Summary Report
+        csvContent = 'Date,Hospital,Visit Type,Status,Duration (min),Notes\n';
+        
+        for (const event of filteredEvents) {
+          const hospital = hospitalMap.get(event.hospitalId || '') || { name: 'Unknown' };
+          // Use ISO date format for consistency
+          const eventDate = event.actualStart || event.scheduledStart;
+          const date = eventDate ? new Date(eventDate).toISOString().split('T')[0] : '';
+          const status = event.status || (event.isCancelled ? 'cancelled' : event.isNotRealized ? 'not_realized' : 'scheduled');
+          
+          let duration = 0;
+          if (event.actualStart && event.actualEnd) {
+            duration = Math.round((new Date(event.actualEnd).getTime() - new Date(event.actualStart).getTime()) / 60000);
+          }
+          
+          const notes = (event.notes || '').replace(/"/g, '""').replace(/\n/g, ' ');
+          csvContent += `"${date}","${hospital.name}","${event.visitType || ''}","${status}",${duration},"${notes}"\n`;
+        }
+      } else if (reportType === 'hospital_activity') {
+        // Hospital Activity Report
+        const hospitalStats = new Map<string, { name: string; count: number; completed: number; cancelled: number }>();
+        
+        for (const event of filteredEvents) {
+          const hospital = hospitalMap.get(event.hospitalId || '');
+          const hospitalName = hospital?.name || 'Unknown';
+          const hospitalId = event.hospitalId || 'unknown';
+          
+          if (!hospitalStats.has(hospitalId)) {
+            hospitalStats.set(hospitalId, { name: hospitalName, count: 0, completed: 0, cancelled: 0 });
+          }
+          
+          const stats = hospitalStats.get(hospitalId)!;
+          stats.count++;
+          if (event.status === 'completed') stats.completed++;
+          if (event.isCancelled || event.status === 'cancelled') stats.cancelled++;
+        }
+        
+        csvContent = 'Hospital,Total Visits,Completed,Cancelled\n';
+        for (const [, stats] of hospitalStats) {
+          csvContent += `"${stats.name}",${stats.count},${stats.completed},${stats.cancelled}\n`;
+        }
+      } else if (reportType === 'visit_hours') {
+        // Visit Hours Report
+        const dailyHours = new Map<string, number>();
+        
+        for (const event of filteredEvents) {
+          if (event.actualStart && event.actualEnd) {
+            // Use ISO date format for consistency
+            const date = new Date(event.actualStart).toISOString().split('T')[0];
+            const duration = (new Date(event.actualEnd).getTime() - new Date(event.actualStart).getTime()) / 3600000;
+            dailyHours.set(date, (dailyHours.get(date) || 0) + duration);
+          }
+        }
+        
+        let totalHours = 0;
+        csvContent = 'Date,Hours Worked\n';
+        const sortedDates = Array.from(dailyHours.keys()).sort();
+        for (const date of sortedDates) {
+          const hours = dailyHours.get(date) || 0;
+          totalHours += hours;
+          csvContent += `"${date}",${hours.toFixed(2)}\n`;
+        }
+        csvContent += `"TOTAL",${totalHours.toFixed(2)}\n`;
+      } else {
+        return res.status(400).json({ error: "Invalid report type" });
+      }
+
+      // Send CSV response
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${reportType}_${period}.csv"`);
+      res.send(csvContent);
+    } catch (error) {
+      console.error("Report generation error:", error);
+      res.status(500).json({ error: "Failed to generate report" });
+    }
+  });
+
+  // ============================================================================
   // INDEXUS Web - Visit Events Calendar (for admins/managers)
   // ============================================================================
   
