@@ -120,6 +120,9 @@ export interface Translations {
     allTime: string;
     more: string;
     refresh: string;
+    next: string;
+    previous: string;
+    saving: string;
   };
   advancedFilters: {
     title: string;
@@ -632,8 +635,33 @@ export interface Translations {
     region: string;
     latitude: string;
     longitude: string;
-    note: string;
+    notes: string;
     count: string;
+    gpsNotSupported: string;
+    gpsLoaded: string;
+    gpsError: string;
+    gpsPermissionDenied: string;
+    gpsCoordinates: string;
+    getCurrentLocation: string;
+    showOnMap: string;
+    websitePreview: string;
+    openInNewTab: string;
+    isActive: string;
+    isActiveDesc: string;
+    steps: {
+      basic: string;
+      address: string;
+      web: string;
+      settings: string;
+      review: string;
+    };
+    stepsDesc: {
+      basic: string;
+      address: string;
+      web: string;
+      settings: string;
+      review: string;
+    };
   };
   collaborators: {
     title: string;
@@ -1683,6 +1711,9 @@ export const translations: Record<Locale, Translations> = {
       allTime: 'All time',
       refresh: 'Refresh',
       more: 'more',
+      next: 'Next',
+      previous: 'Previous',
+      saving: 'Saving...',
     },
     advancedFilters: {
       title: 'Advanced Filters',
@@ -2292,8 +2323,33 @@ export const translations: Record<Locale, Translations> = {
       region: 'Region',
       latitude: 'Latitude',
       longitude: 'Longitude',
-      note: 'Note',
+      notes: 'Notes',
       count: 'clinics',
+      gpsNotSupported: 'GPS is not supported in your browser',
+      gpsLoaded: 'GPS coordinates loaded',
+      gpsError: 'Could not get location',
+      gpsPermissionDenied: 'Location access denied',
+      gpsCoordinates: 'GPS Coordinates',
+      getCurrentLocation: 'Get current location',
+      showOnMap: 'Show on map',
+      websitePreview: 'Website preview',
+      openInNewTab: 'Open in new tab',
+      isActive: 'Active clinic',
+      isActiveDesc: 'Clinic is active and shown in lists',
+      steps: {
+        basic: 'Basic Info',
+        address: 'Address',
+        web: 'Web & Contact',
+        settings: 'Settings',
+        review: 'Review',
+      },
+      stepsDesc: {
+        basic: 'Name and doctor',
+        address: 'Address and GPS coordinates',
+        web: 'Website and contacts',
+        settings: 'Active status and notes',
+        review: 'Review details',
+      },
     },
     collaborators: {
       title: 'Collaborators',
@@ -3358,6 +3414,9 @@ export const translations: Record<Locale, Translations> = {
       allTime: 'Celé obdobie',
       refresh: 'Obnoviť',
       more: 'viac',
+      next: 'Ďalej',
+      previous: 'Späť',
+      saving: 'Ukladám...',
     },
     advancedFilters: {
       title: 'Pokročilé filtre',
@@ -3962,8 +4021,33 @@ export const translations: Record<Locale, Translations> = {
       region: 'Oblasť',
       latitude: 'Zemepisná šírka',
       longitude: 'Zemepisná dĺžka',
-      note: 'Poznámka',
+      notes: 'Poznámky',
       count: 'ambulancií',
+      gpsNotSupported: 'GPS nie je podporovaná vo vašom prehliadači',
+      gpsLoaded: 'GPS súradnice boli načítané',
+      gpsError: 'Nepodarilo sa získať polohu',
+      gpsPermissionDenied: 'Prístup k polohe bol zamietnutý',
+      gpsCoordinates: 'GPS súradnice',
+      getCurrentLocation: 'Získať aktuálnu polohu',
+      showOnMap: 'Zobraziť na mape',
+      websitePreview: 'Náhľad webstránky',
+      openInNewTab: 'Otvoriť v novom okne',
+      isActive: 'Aktívna ambulancia',
+      isActiveDesc: 'Ambulancia je aktívna a zobrazuje sa v zoznamoch',
+      steps: {
+        basic: 'Základné údaje',
+        address: 'Adresa',
+        web: 'Web a kontakt',
+        settings: 'Nastavenia',
+        review: 'Súhrn',
+      },
+      stepsDesc: {
+        basic: 'Názov a lekár',
+        address: 'Adresa a GPS súradnice',
+        web: 'Webová stránka a kontakty',
+        settings: 'Aktívny stav a poznámky',
+        review: 'Skontrolujte údaje',
+      },
     },
     collaborators: {
       title: 'Spolupracovníci',
@@ -5028,6 +5112,9 @@ export const translations: Record<Locale, Translations> = {
       allTime: 'Celé období',
       refresh: 'Obnovit',
       more: 'více',
+      next: 'Další',
+      previous: 'Zpět',
+      saving: 'Ukládám...',
     },
     advancedFilters: {
       title: 'Pokročilé filtry',
@@ -5632,8 +5719,33 @@ export const translations: Record<Locale, Translations> = {
       region: 'Oblast',
       latitude: 'Zeměpisná šířka',
       longitude: 'Zeměpisná délka',
-      note: 'Poznámka',
+      notes: 'Poznámky',
       count: 'ambulancí',
+      gpsNotSupported: 'GPS není podporována ve vašem prohlížeči',
+      gpsLoaded: 'GPS souřadnice byly načteny',
+      gpsError: 'Nepodařilo se získat polohu',
+      gpsPermissionDenied: 'Přístup k poloze byl zamítnut',
+      gpsCoordinates: 'GPS souřadnice',
+      getCurrentLocation: 'Získat aktuální polohu',
+      showOnMap: 'Zobrazit na mapě',
+      websitePreview: 'Náhled webové stránky',
+      openInNewTab: 'Otevřít v novém okně',
+      isActive: 'Aktivní ambulance',
+      isActiveDesc: 'Ambulance je aktivní a zobrazuje se v seznamech',
+      steps: {
+        basic: 'Základní údaje',
+        address: 'Adresa',
+        web: 'Web a kontakt',
+        settings: 'Nastavení',
+        review: 'Souhrn',
+      },
+      stepsDesc: {
+        basic: 'Název a lékař',
+        address: 'Adresa a GPS souřadnice',
+        web: 'Webová stránka a kontakty',
+        settings: 'Aktivní stav a poznámky',
+        review: 'Zkontrolujte údaje',
+      },
     },
     collaborators: {
       title: 'Spolupracovníci',
@@ -6661,6 +6773,9 @@ export const translations: Record<Locale, Translations> = {
       allTime: 'Teljes időszak',
       refresh: 'Frissítés',
       more: 'több',
+      next: 'Következő',
+      previous: 'Vissza',
+      saving: 'Mentés...',
     },
     advancedFilters: {
       title: 'Speciális szűrők',
@@ -7265,8 +7380,33 @@ export const translations: Record<Locale, Translations> = {
       region: 'Régió',
       latitude: 'Szélességi fok',
       longitude: 'Hosszúsági fok',
-      note: 'Jegyzet',
+      notes: 'Jegyzetek',
       count: 'rendelo',
+      gpsNotSupported: 'GPS nem támogatott a böngészőjében',
+      gpsLoaded: 'GPS koordináták betöltve',
+      gpsError: 'Nem sikerült lekérni a helyzetet',
+      gpsPermissionDenied: 'Helymeghatározás megtagadva',
+      gpsCoordinates: 'GPS koordináták',
+      getCurrentLocation: 'Aktuális helyzet lekérése',
+      showOnMap: 'Megjelenítés a térképen',
+      websitePreview: 'Weboldal előnézet',
+      openInNewTab: 'Megnyitás új ablakban',
+      isActive: 'Aktív rendelo',
+      isActiveDesc: 'A rendelo aktív és megjelenik a listákban',
+      steps: {
+        basic: 'Alapadatok',
+        address: 'Cím',
+        web: 'Web és kapcsolat',
+        settings: 'Beállítások',
+        review: 'Összefoglaló',
+      },
+      stepsDesc: {
+        basic: 'Név és orvos',
+        address: 'Cím és GPS koordináták',
+        web: 'Weboldal és kapcsolatok',
+        settings: 'Aktív állapot és jegyzetek',
+        review: 'Ellenorizze az adatokat',
+      },
     },
     collaborators: {
       title: 'Munkatársak',
@@ -8294,6 +8434,9 @@ export const translations: Record<Locale, Translations> = {
       allTime: 'Tot timpul',
       refresh: 'Reîmprospătare',
       more: 'mai mult',
+      next: 'Următorul',
+      previous: 'Înapoi',
+      saving: 'Se salvează...',
     },
     advancedFilters: {
       title: 'Filtre avansate',
@@ -8898,8 +9041,33 @@ export const translations: Record<Locale, Translations> = {
       region: 'Regiune',
       latitude: 'Latitudine',
       longitude: 'Longitudine',
-      note: 'Notă',
+      notes: 'Note',
       count: 'clinici',
+      gpsNotSupported: 'GPS nu este suportat în browserul dvs.',
+      gpsLoaded: 'Coordonate GPS încărcate',
+      gpsError: 'Nu s-a putut obține locația',
+      gpsPermissionDenied: 'Acces la locație refuzat',
+      gpsCoordinates: 'Coordonate GPS',
+      getCurrentLocation: 'Obține locația curentă',
+      showOnMap: 'Afișează pe hartă',
+      websitePreview: 'Previzualizare website',
+      openInNewTab: 'Deschide în fereastră nouă',
+      isActive: 'Clinică activă',
+      isActiveDesc: 'Clinica este activă și apare în liste',
+      steps: {
+        basic: 'Date de bază',
+        address: 'Adresă',
+        web: 'Web și contact',
+        settings: 'Setări',
+        review: 'Rezumat',
+      },
+      stepsDesc: {
+        basic: 'Nume și medic',
+        address: 'Adresă și coordonate GPS',
+        web: 'Website și contacte',
+        settings: 'Stare activă și note',
+        review: 'Verificați datele',
+      },
     },
     collaborators: {
       title: 'Colaboratori',
@@ -9927,6 +10095,9 @@ export const translations: Record<Locale, Translations> = {
       allTime: 'Tutto il tempo',
       refresh: 'Aggiorna',
       more: 'altro',
+      next: 'Avanti',
+      previous: 'Indietro',
+      saving: 'Salvataggio...',
     },
     advancedFilters: {
       title: 'Filtri avanzati',
@@ -10531,8 +10702,33 @@ export const translations: Record<Locale, Translations> = {
       region: 'Regione',
       latitude: 'Latitudine',
       longitude: 'Longitudine',
-      note: 'Nota',
+      notes: 'Note',
       count: 'cliniche',
+      gpsNotSupported: 'GPS non supportato nel tuo browser',
+      gpsLoaded: 'Coordinate GPS caricate',
+      gpsError: 'Impossibile ottenere la posizione',
+      gpsPermissionDenied: 'Accesso alla posizione negato',
+      gpsCoordinates: 'Coordinate GPS',
+      getCurrentLocation: 'Ottieni posizione attuale',
+      showOnMap: 'Mostra sulla mappa',
+      websitePreview: 'Anteprima sito web',
+      openInNewTab: 'Apri in nuova scheda',
+      isActive: 'Clinica attiva',
+      isActiveDesc: 'La clinica è attiva e appare negli elenchi',
+      steps: {
+        basic: 'Dati di base',
+        address: 'Indirizzo',
+        web: 'Web e contatto',
+        settings: 'Impostazioni',
+        review: 'Riepilogo',
+      },
+      stepsDesc: {
+        basic: 'Nome e medico',
+        address: 'Indirizzo e coordinate GPS',
+        web: 'Sito web e contatti',
+        settings: 'Stato attivo e note',
+        review: 'Verifica i dati',
+      },
     },
     collaborators: {
       title: 'Collaboratori',
@@ -11560,6 +11756,9 @@ export const translations: Record<Locale, Translations> = {
       allTime: 'Gesamtzeitraum',
       refresh: 'Aktualisieren',
       more: 'mehr',
+      next: 'Weiter',
+      previous: 'Zurück',
+      saving: 'Speichern...',
     },
     advancedFilters: {
       title: 'Erweiterte Filter',
@@ -12164,8 +12363,33 @@ export const translations: Record<Locale, Translations> = {
       region: 'Region',
       latitude: 'Breitengrad',
       longitude: 'Längengrad',
-      note: 'Notiz',
+      notes: 'Notizen',
       count: 'Praxen',
+      gpsNotSupported: 'GPS wird in Ihrem Browser nicht unterstützt',
+      gpsLoaded: 'GPS-Koordinaten geladen',
+      gpsError: 'Standort konnte nicht abgerufen werden',
+      gpsPermissionDenied: 'Zugriff auf Standort verweigert',
+      gpsCoordinates: 'GPS-Koordinaten',
+      getCurrentLocation: 'Aktuellen Standort abrufen',
+      showOnMap: 'Auf Karte anzeigen',
+      websitePreview: 'Website-Vorschau',
+      openInNewTab: 'In neuem Tab öffnen',
+      isActive: 'Aktive Praxis',
+      isActiveDesc: 'Praxis ist aktiv und wird in Listen angezeigt',
+      steps: {
+        basic: 'Grunddaten',
+        address: 'Adresse',
+        web: 'Web und Kontakt',
+        settings: 'Einstellungen',
+        review: 'Zusammenfassung',
+      },
+      stepsDesc: {
+        basic: 'Name und Arzt',
+        address: 'Adresse und GPS-Koordinaten',
+        web: 'Website und Kontakte',
+        settings: 'Aktiver Status und Notizen',
+        review: 'Daten überprüfen',
+      },
     },
     collaborators: {
       title: 'Mitarbeiter',

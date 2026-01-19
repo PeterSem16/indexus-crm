@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChecks, FileEdit, MapPin, Navigation, ExternalLink, Database, Loader2, Globe, Stethoscope, RefreshCw } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { HospitalFormWizard } from "@/components/hospital-form-wizard";
+import { ClinicFormWizard } from "@/components/clinic-form-wizard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -785,12 +786,12 @@ function ClinicForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="notes">{t.clinics.note}</Label>
+          <Label htmlFor="notes">{t.clinics.notes}</Label>
           <Input
             id="notes"
             value={formData.notes}
             onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-            placeholder={t.clinics.note}
+            placeholder={t.clinics.notes}
             data-testid="input-clinic-notes"
           />
         </div>
@@ -1063,13 +1064,11 @@ export default function HospitalsPage() {
         clinic.website ? (
           <Button
             variant="ghost"
-            size="sm"
-            className="p-0 h-auto text-primary hover:underline"
+            size="icon"
             onClick={() => window.open(getWebsiteUrl(clinic.website || ""), "_blank")}
             data-testid={`link-clinic-website-${clinic.id}`}
           >
-            <Globe className="h-4 w-4 mr-1" />
-            {clinic.website}
+            <Globe className="h-4 w-4" />
           </Button>
         ) : "-",
     },
@@ -1506,7 +1505,7 @@ export default function HospitalsPage() {
       </AlertDialog>
 
       <Dialog open={isClinicFormOpen} onOpenChange={setIsClinicFormOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Stethoscope className="h-5 w-5" />
@@ -1516,10 +1515,10 @@ export default function HospitalsPage() {
               {selectedClinic ? t.clinics.editClinic : t.clinics.addClinic}
             </DialogDescription>
           </DialogHeader>
-          <ClinicForm
-            clinic={selectedClinic}
-            onClose={() => setIsClinicFormOpen(false)}
+          <ClinicFormWizard
+            initialData={selectedClinic}
             onSuccess={() => setIsClinicFormOpen(false)}
+            onCancel={() => setIsClinicFormOpen(false)}
           />
         </DialogContent>
       </Dialog>
