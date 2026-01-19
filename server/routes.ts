@@ -7,7 +7,7 @@ import {
   insertProductSchema, insertCustomerProductSchema, insertBillingDetailsSchema,
   insertCustomerNoteSchema, insertActivityLogSchema, sendEmailSchema, sendSmsSchema,
   insertComplaintTypeSchema, insertCooperationTypeSchema, insertVipStatusSchema, insertHealthInsuranceSchema,
-  insertLaboratorySchema, insertHospitalSchema,
+  insertLaboratorySchema, insertHospitalSchema, insertClinicSchema,
   insertCollaboratorSchema, insertCollaboratorAddressSchema, insertCollaboratorOtherDataSchema, insertCollaboratorAgreementSchema,
   insertLeadScoringCriteriaSchema,
   insertServiceConfigurationSchema, insertServiceInstanceSchema, insertInvoiceTemplateSchema, insertInvoiceLayoutSchema,
@@ -6960,6 +6960,65 @@ export async function registerRoutes(
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete hospital" });
+    }
+  });
+
+  // Clinics (Ambulancie) routes
+  app.get("/api/clinics", requireAuth, async (req, res) => {
+    try {
+      const countryCodes = req.query.countries as string;
+      const clinicsList = countryCodes 
+        ? await storage.getClinicsByCountry(countryCodes.split(","))
+        : await storage.getAllClinics();
+      res.json(clinicsList);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch clinics" });
+    }
+  });
+
+  app.get("/api/clinics/:id", requireAuth, async (req, res) => {
+    try {
+      const clinic = await storage.getClinic(req.params.id);
+      if (!clinic) return res.status(404).json({ error: "Clinic not found" });
+      res.json(clinic);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch clinic" });
+    }
+  });
+
+  app.post("/api/clinics", requireAuth, async (req, res) => {
+    try {
+      const parsed = insertClinicSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid data", details: parsed.error.issues });
+      }
+      const clinic = await storage.createClinic(parsed.data);
+      await logActivity(req.session.user!.id, "create", "clinic", clinic.id, clinic.name);
+      res.status(201).json(clinic);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create clinic" });
+    }
+  });
+
+  app.put("/api/clinics/:id", requireAuth, async (req, res) => {
+    try {
+      const clinic = await storage.updateClinic(req.params.id, req.body);
+      if (!clinic) return res.status(404).json({ error: "Clinic not found" });
+      await logActivity(req.session.user!.id, "update", "clinic", clinic.id, clinic.name);
+      res.json(clinic);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update clinic" });
+    }
+  });
+
+  app.delete("/api/clinics/:id", requireAuth, async (req, res) => {
+    try {
+      const success = await storage.deleteClinic(req.params.id);
+      if (!success) return res.status(404).json({ error: "Clinic not found" });
+      await logActivity(req.session.user!.id, "delete", "clinic", req.params.id, "");
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete clinic" });
     }
   });
 

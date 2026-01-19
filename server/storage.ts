@@ -2,7 +2,7 @@ import {
   users, customers, products, customerProducts, invoices, billingDetails, invoiceItems,
   customerNotes, activityLogs, communicationMessages,
   complaintTypes, cooperationTypes, vipStatuses, healthInsuranceCompanies,
-  laboratories, hospitals, visitEvents, voiceNotes, mobilePushTokens,
+  laboratories, hospitals, clinics, visitEvents, voiceNotes, mobilePushTokens,
   collaborators, collaboratorAddresses, collaboratorOtherData, collaboratorAgreements,
   customerPotentialCases, leadScoringCriteria,
   serviceConfigurations, serviceInstances, numberRanges, invoiceTemplates, invoiceLayouts,
@@ -30,6 +30,7 @@ import {
   type HealthInsurance, type InsertHealthInsurance,
   type Laboratory, type InsertLaboratory,
   type Hospital, type InsertHospital,
+  type Clinic, type InsertClinic,
   type Collaborator, type InsertCollaborator,
   type CollaboratorAddress, type InsertCollaboratorAddress,
   type CollaboratorOtherData, type InsertCollaboratorOtherData,
@@ -365,6 +366,14 @@ export interface IStorage {
   createHospital(data: InsertHospital): Promise<Hospital>;
   updateHospital(id: string, data: Partial<InsertHospital>): Promise<Hospital | undefined>;
   deleteHospital(id: string): Promise<boolean>;
+
+  // Clinics (Ambulancie)
+  getClinic(id: string): Promise<Clinic | undefined>;
+  getAllClinics(): Promise<Clinic[]>;
+  getClinicsByCountry(countryCodes: string[]): Promise<Clinic[]>;
+  createClinic(data: InsertClinic): Promise<Clinic>;
+  updateClinic(id: string, data: Partial<InsertClinic>): Promise<Clinic | undefined>;
+  deleteClinic(id: string): Promise<boolean>;
 
   // Collaborators
   getCollaborator(id: string): Promise<Collaborator | undefined>;
@@ -2099,6 +2108,40 @@ export class DatabaseStorage implements IStorage {
 
   async deleteHospital(id: string): Promise<boolean> {
     const result = await db.delete(hospitals).where(eq(hospitals.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Clinics (Ambulancie)
+  async getClinic(id: string): Promise<Clinic | undefined> {
+    const [clinic] = await db.select().from(clinics).where(eq(clinics.id, id));
+    return clinic || undefined;
+  }
+
+  async getAllClinics(): Promise<Clinic[]> {
+    return db.select().from(clinics).orderBy(clinics.name);
+  }
+
+  async getClinicsByCountry(countryCodes: string[]): Promise<Clinic[]> {
+    if (countryCodes.length === 0) {
+      return this.getAllClinics();
+    }
+    return db.select().from(clinics)
+      .where(inArray(clinics.countryCode, countryCodes))
+      .orderBy(clinics.name);
+  }
+
+  async createClinic(data: InsertClinic): Promise<Clinic> {
+    const [created] = await db.insert(clinics).values(data).returning();
+    return created;
+  }
+
+  async updateClinic(id: string, data: Partial<InsertClinic>): Promise<Clinic | undefined> {
+    const [updated] = await db.update(clinics).set(data).where(eq(clinics.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteClinic(id: string): Promise<boolean> {
+    const result = await db.delete(clinics).where(eq(clinics.id, id)).returning();
     return result.length > 0;
   }
 
