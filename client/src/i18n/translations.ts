@@ -119,6 +119,7 @@ export interface Translations {
     last30days: string;
     allTime: string;
     more: string;
+    refresh: string;
   };
   advancedFilters: {
     title: string;
@@ -603,10 +604,36 @@ export interface Translations {
     rewardsDesc: string;
     tabs: {
       hospital: string;
+      clinics: string;
       agreements: string;
       templates: string;
       rewards: string;
     };
+  };
+  clinics: {
+    title: string;
+    description: string;
+    addClinic: string;
+    editClinic: string;
+    deleteClinic: string;
+    deleteConfirm: string;
+    searchPlaceholder: string;
+    noClinics: string;
+    name: string;
+    doctorName: string;
+    specialization: string;
+    website: string;
+    openWebsite: string;
+    phone: string;
+    email: string;
+    address: string;
+    city: string;
+    postalCode: string;
+    region: string;
+    latitude: string;
+    longitude: string;
+    note: string;
+    count: string;
   };
   collaborators: {
     title: string;
@@ -1654,6 +1681,7 @@ export const translations: Record<Locale, Translations> = {
       last7days: 'Last 7 days',
       last30days: 'Last 30 days',
       allTime: 'All time',
+      refresh: 'Refresh',
       more: 'more',
     },
     advancedFilters: {
@@ -2236,10 +2264,36 @@ export const translations: Record<Locale, Translations> = {
       rewardsDesc: 'Manage reward programs for hospitals',
       tabs: {
         hospital: 'Hospital',
+        clinics: 'Clinics',
         agreements: 'Agreements',
         templates: 'Templates',
         rewards: 'Rewards',
       },
+    },
+    clinics: {
+      title: 'Clinics',
+      description: 'Manage clinics and ambulatories',
+      addClinic: 'Add Clinic',
+      editClinic: 'Edit Clinic',
+      deleteClinic: 'Delete Clinic',
+      deleteConfirm: 'Are you sure you want to delete this clinic?',
+      searchPlaceholder: 'Search clinics...',
+      noClinics: 'No clinics found',
+      name: 'Name',
+      doctorName: 'Doctor Name',
+      specialization: 'Specialization',
+      website: 'Website',
+      openWebsite: 'Open Website',
+      phone: 'Phone',
+      email: 'Email',
+      address: 'Address',
+      city: 'City',
+      postalCode: 'Postal Code',
+      region: 'Region',
+      latitude: 'Latitude',
+      longitude: 'Longitude',
+      note: 'Note',
+      count: 'clinics',
     },
     collaborators: {
       title: 'Collaborators',
@@ -3302,6 +3356,7 @@ export const translations: Record<Locale, Translations> = {
       last7days: 'Posledných 7 dní',
       last30days: 'Posledných 30 dní',
       allTime: 'Celé obdobie',
+      refresh: 'Obnoviť',
       more: 'viac',
     },
     advancedFilters: {
@@ -3879,10 +3934,36 @@ export const translations: Record<Locale, Translations> = {
       rewardsDesc: 'Správa odmenových programov pre nemocnice',
       tabs: {
         hospital: 'Nemocnica',
+        clinics: 'Ambulancie',
         agreements: 'Dohody',
         templates: 'Šablóny',
         rewards: 'Odmeny',
       },
+    },
+    clinics: {
+      title: 'Ambulancie',
+      description: 'Správa ambulancií a gynekologických zariadení',
+      addClinic: 'Pridať ambulanciu',
+      editClinic: 'Upraviť ambulanciu',
+      deleteClinic: 'Odstrániť ambulanciu',
+      deleteConfirm: 'Naozaj chcete odstrániť túto ambulanciu?',
+      searchPlaceholder: 'Hľadať ambulancie...',
+      noClinics: 'Nenašli sa žiadne ambulancie',
+      name: 'Názov',
+      doctorName: 'Meno lekára',
+      specialization: 'Špecializácia',
+      website: 'Webstránka',
+      openWebsite: 'Otvoriť webstránku',
+      phone: 'Telefón',
+      email: 'E-mail',
+      address: 'Adresa',
+      city: 'Mesto',
+      postalCode: 'PSČ',
+      region: 'Oblasť',
+      latitude: 'Zemepisná šírka',
+      longitude: 'Zemepisná dĺžka',
+      note: 'Poznámka',
+      count: 'ambulancií',
     },
     collaborators: {
       title: 'Spolupracovníci',
@@ -4945,6 +5026,7 @@ export const translations: Record<Locale, Translations> = {
       last7days: 'Posledních 7 dní',
       last30days: 'Posledních 30 dní',
       allTime: 'Celé období',
+      refresh: 'Obnovit',
       more: 'více',
     },
     advancedFilters: {
@@ -5522,10 +5604,36 @@ export const translations: Record<Locale, Translations> = {
       rewardsDesc: 'Správa odměnových programů pro nemocnice',
       tabs: {
         hospital: 'Nemocnice',
+        clinics: 'Ambulance',
         agreements: 'Dohody',
         templates: 'Šablony',
         rewards: 'Odměny',
       },
+    },
+    clinics: {
+      title: 'Ambulance',
+      description: 'Správa ambulancí a gynekologických zařízení',
+      addClinic: 'Přidat ambulanci',
+      editClinic: 'Upravit ambulanci',
+      deleteClinic: 'Odstranit ambulanci',
+      deleteConfirm: 'Opravdu chcete odstranit tuto ambulanci?',
+      searchPlaceholder: 'Hledat ambulance...',
+      noClinics: 'Nebyly nalezeny žádné ambulance',
+      name: 'Název',
+      doctorName: 'Jméno lékaře',
+      specialization: 'Specializace',
+      website: 'Webová stránka',
+      openWebsite: 'Otevřít webovou stránku',
+      phone: 'Telefon',
+      email: 'E-mail',
+      address: 'Adresa',
+      city: 'Město',
+      postalCode: 'PSČ',
+      region: 'Oblast',
+      latitude: 'Zeměpisná šířka',
+      longitude: 'Zeměpisná délka',
+      note: 'Poznámka',
+      count: 'ambulancí',
     },
     collaborators: {
       title: 'Spolupracovníci',
@@ -6551,6 +6659,7 @@ export const translations: Record<Locale, Translations> = {
       last7days: 'Utolsó 7 nap',
       last30days: 'Utolsó 30 nap',
       allTime: 'Teljes időszak',
+      refresh: 'Frissítés',
       more: 'több',
     },
     advancedFilters: {
@@ -7128,10 +7237,36 @@ export const translations: Record<Locale, Translations> = {
       rewardsDesc: 'Jutalmazási programok kezelése kórházakhoz',
       tabs: {
         hospital: 'Kórház',
+        clinics: 'Rendelok',
         agreements: 'Megállapodások',
         templates: 'Sablonok',
         rewards: 'Jutalmak',
       },
+    },
+    clinics: {
+      title: 'Rendelok',
+      description: 'Rendelok és nohgyógyászati létesítmények kezelése',
+      addClinic: 'Rendelo hozzáadása',
+      editClinic: 'Rendelo szerkesztése',
+      deleteClinic: 'Rendelo törlése',
+      deleteConfirm: 'Biztosan törölni szeretné ezt a rendelot?',
+      searchPlaceholder: 'Rendelok keresése...',
+      noClinics: 'Nem található rendelo',
+      name: 'Név',
+      doctorName: 'Orvos neve',
+      specialization: 'Szakosodás',
+      website: 'Weboldal',
+      openWebsite: 'Weboldal megnyitása',
+      phone: 'Telefon',
+      email: 'E-mail',
+      address: 'Cím',
+      city: 'Város',
+      postalCode: 'Irányítószám',
+      region: 'Régió',
+      latitude: 'Szélességi fok',
+      longitude: 'Hosszúsági fok',
+      note: 'Jegyzet',
+      count: 'rendelo',
     },
     collaborators: {
       title: 'Munkatársak',
@@ -8157,6 +8292,7 @@ export const translations: Record<Locale, Translations> = {
       last7days: 'Ultimele 7 zile',
       last30days: 'Ultimele 30 zile',
       allTime: 'Tot timpul',
+      refresh: 'Reîmprospătare',
       more: 'mai mult',
     },
     advancedFilters: {
@@ -8734,10 +8870,36 @@ export const translations: Record<Locale, Translations> = {
       rewardsDesc: 'Gestionați programele de recompense pentru spitale',
       tabs: {
         hospital: 'Spital',
+        clinics: 'Clinici',
         agreements: 'Acorduri',
         templates: 'Șabloane',
         rewards: 'Recompense',
       },
+    },
+    clinics: {
+      title: 'Clinici',
+      description: 'Gestionarea clinicilor și a cabinetelor ginecologice',
+      addClinic: 'Adaugă clinică',
+      editClinic: 'Editează clinică',
+      deleteClinic: 'Șterge clinică',
+      deleteConfirm: 'Sigur doriți să ștergeți această clinică?',
+      searchPlaceholder: 'Căutare clinici...',
+      noClinics: 'Nu s-au găsit clinici',
+      name: 'Nume',
+      doctorName: 'Numele medicului',
+      specialization: 'Specializare',
+      website: 'Website',
+      openWebsite: 'Deschide website',
+      phone: 'Telefon',
+      email: 'E-mail',
+      address: 'Adresă',
+      city: 'Oraș',
+      postalCode: 'Cod poștal',
+      region: 'Regiune',
+      latitude: 'Latitudine',
+      longitude: 'Longitudine',
+      note: 'Notă',
+      count: 'clinici',
     },
     collaborators: {
       title: 'Colaboratori',
@@ -9763,6 +9925,7 @@ export const translations: Record<Locale, Translations> = {
       last7days: 'Ultimi 7 giorni',
       last30days: 'Ultimi 30 giorni',
       allTime: 'Tutto il tempo',
+      refresh: 'Aggiorna',
       more: 'altro',
     },
     advancedFilters: {
@@ -10340,10 +10503,36 @@ export const translations: Record<Locale, Translations> = {
       rewardsDesc: 'Gestisci i programmi di ricompensa per gli ospedali',
       tabs: {
         hospital: 'Ospedale',
+        clinics: 'Cliniche',
         agreements: 'Accordi',
         templates: 'Modelli',
         rewards: 'Ricompense',
       },
+    },
+    clinics: {
+      title: 'Cliniche',
+      description: 'Gestione delle cliniche e degli studi ginecologici',
+      addClinic: 'Aggiungi clinica',
+      editClinic: 'Modifica clinica',
+      deleteClinic: 'Elimina clinica',
+      deleteConfirm: 'Sei sicuro di voler eliminare questa clinica?',
+      searchPlaceholder: 'Cerca cliniche...',
+      noClinics: 'Nessuna clinica trovata',
+      name: 'Nome',
+      doctorName: 'Nome del medico',
+      specialization: 'Specializzazione',
+      website: 'Sito web',
+      openWebsite: 'Apri sito web',
+      phone: 'Telefono',
+      email: 'E-mail',
+      address: 'Indirizzo',
+      city: 'Città',
+      postalCode: 'CAP',
+      region: 'Regione',
+      latitude: 'Latitudine',
+      longitude: 'Longitudine',
+      note: 'Nota',
+      count: 'cliniche',
     },
     collaborators: {
       title: 'Collaboratori',
@@ -11369,6 +11558,7 @@ export const translations: Record<Locale, Translations> = {
       last7days: 'Letzte 7 Tage',
       last30days: 'Letzte 30 Tage',
       allTime: 'Gesamtzeitraum',
+      refresh: 'Aktualisieren',
       more: 'mehr',
     },
     advancedFilters: {
@@ -11946,10 +12136,36 @@ export const translations: Record<Locale, Translations> = {
       rewardsDesc: 'Belohnungsprogramme für Krankenhäuser verwalten',
       tabs: {
         hospital: 'Krankenhaus',
+        clinics: 'Praxen',
         agreements: 'Vereinbarungen',
         templates: 'Vorlagen',
         rewards: 'Belohnungen',
       },
+    },
+    clinics: {
+      title: 'Praxen',
+      description: 'Verwaltung von Praxen und gynäkologischen Einrichtungen',
+      addClinic: 'Praxis hinzufügen',
+      editClinic: 'Praxis bearbeiten',
+      deleteClinic: 'Praxis löschen',
+      deleteConfirm: 'Sind Sie sicher, dass Sie diese Praxis löschen möchten?',
+      searchPlaceholder: 'Praxen suchen...',
+      noClinics: 'Keine Praxen gefunden',
+      name: 'Name',
+      doctorName: 'Arztname',
+      specialization: 'Spezialisierung',
+      website: 'Webseite',
+      openWebsite: 'Webseite öffnen',
+      phone: 'Telefon',
+      email: 'E-Mail',
+      address: 'Adresse',
+      city: 'Stadt',
+      postalCode: 'Postleitzahl',
+      region: 'Region',
+      latitude: 'Breitengrad',
+      longitude: 'Längengrad',
+      note: 'Notiz',
+      count: 'Praxen',
     },
     collaborators: {
       title: 'Mitarbeiter',

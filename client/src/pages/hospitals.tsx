@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChecks, FileEdit, MapPin, Navigation, ExternalLink, Database, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChecks, FileEdit, MapPin, Navigation, ExternalLink, Database, Loader2, Globe, Stethoscope, RefreshCw } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { HospitalFormWizard } from "@/components/hospital-form-wizard";
 import { Button } from "@/components/ui/button";
@@ -32,7 +32,7 @@ import { useCountryFilter } from "@/contexts/country-filter-context";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCountryFlag, getCountryName } from "@/lib/countries";
-import type { Hospital, Laboratory, SafeUser } from "@shared/schema";
+import type { Hospital, Laboratory, SafeUser, Clinic } from "@shared/schema";
 import { COUNTRIES } from "@shared/schema";
 import {
   Select,
@@ -529,6 +529,326 @@ function HospitalForm({
   );
 }
 
+interface ClinicFormData {
+  name: string;
+  doctorName: string;
+  address: string;
+  city: string;
+  postalCode: string;
+  countryCode: string;
+  phone: string;
+  email: string;
+  website: string;
+  latitude: string;
+  longitude: string;
+  isActive: boolean;
+  notes: string;
+}
+
+const defaultClinicFormData: ClinicFormData = {
+  name: "",
+  doctorName: "",
+  address: "",
+  city: "",
+  postalCode: "",
+  countryCode: "SK",
+  phone: "",
+  email: "",
+  website: "",
+  latitude: "",
+  longitude: "",
+  isActive: true,
+  notes: "",
+};
+
+function ClinicForm({
+  clinic,
+  onClose,
+  onSuccess,
+}: {
+  clinic?: Clinic;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const { t } = useI18n();
+  const { toast } = useToast();
+  const [showWebsitePreview, setShowWebsitePreview] = useState(false);
+
+  const [formData, setFormData] = useState<ClinicFormData>(() =>
+    clinic
+      ? {
+          name: clinic.name,
+          doctorName: clinic.doctorName || "",
+          address: clinic.address || "",
+          city: clinic.city || "",
+          postalCode: clinic.postalCode || "",
+          countryCode: clinic.countryCode,
+          phone: clinic.phone || "",
+          email: clinic.email || "",
+          website: clinic.website || "",
+          latitude: clinic.latitude || "",
+          longitude: clinic.longitude || "",
+          isActive: clinic.isActive,
+          notes: clinic.notes || "",
+        }
+      : defaultClinicFormData
+  );
+
+  const saveMutation = useMutation({
+    mutationFn: (data: ClinicFormData) => {
+      if (clinic) {
+        return apiRequest("PUT", `/api/clinics/${clinic.id}`, data);
+      } else {
+        return apiRequest("POST", "/api/clinics", data);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
+      toast({ title: t.success.saved });
+      onSuccess();
+    },
+    onError: () => {
+      toast({ title: t.errors.saveFailed, variant: "destructive" });
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name || !formData.countryCode) {
+      toast({ title: t.errors.required, variant: "destructive" });
+      return;
+    }
+    saveMutation.mutate(formData);
+  };
+
+  const getWebsiteUrl = (url: string) => {
+    if (!url) return "";
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+      return url;
+    }
+    return `https://${url}`;
+  };
+
+  return (
+    <>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="name">{t.clinics.name} *</Label>
+            <Input
+              id="name"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder={t.clinics.name}
+              data-testid="input-clinic-name"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="doctorName">{t.clinics.doctorName}</Label>
+            <Input
+              id="doctorName"
+              value={formData.doctorName}
+              onChange={(e) => setFormData({ ...formData, doctorName: e.target.value })}
+              placeholder={t.clinics.doctorName}
+              data-testid="input-clinic-doctor"
+            />
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="countryCode">{t.common.country} *</Label>
+            <Select
+              value={formData.countryCode}
+              onValueChange={(value) => setFormData({ ...formData, countryCode: value })}
+            >
+              <SelectTrigger data-testid="select-clinic-country">
+                <SelectValue placeholder={t.common.country} />
+              </SelectTrigger>
+              <SelectContent>
+                {COUNTRIES.map((country) => (
+                  <SelectItem key={country.code} value={country.code}>
+                    {getCountryFlag(country.code)} {country.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="phone">{t.clinics.phone}</Label>
+            <Input
+              id="phone"
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              placeholder={t.clinics.phone}
+              data-testid="input-clinic-phone"
+            />
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="email">{t.clinics.email}</Label>
+            <Input
+              id="email"
+              type="email"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              placeholder={t.clinics.email}
+              data-testid="input-clinic-email"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="website">{t.clinics.website}</Label>
+            <div className="flex gap-2">
+              <Input
+                id="website"
+                value={formData.website}
+                onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                placeholder="www.example.com"
+                className="flex-1"
+                data-testid="input-clinic-website"
+              />
+              {formData.website && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setShowWebsitePreview(true)}
+                  data-testid="button-preview-website"
+                >
+                  <Globe className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="space-y-2">
+            <Label htmlFor="address">{t.clinics.address}</Label>
+            <Input
+              id="address"
+              value={formData.address}
+              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              placeholder={t.clinics.address}
+              data-testid="input-clinic-address"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="city">{t.clinics.city}</Label>
+            <Input
+              id="city"
+              value={formData.city}
+              onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+              placeholder={t.clinics.city}
+              data-testid="input-clinic-city"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="postalCode">{t.clinics.postalCode}</Label>
+            <Input
+              id="postalCode"
+              value={formData.postalCode}
+              onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
+              placeholder={t.clinics.postalCode}
+              data-testid="input-clinic-postalcode"
+            />
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="latitude">{t.clinics.latitude}</Label>
+            <Input
+              id="latitude"
+              type="number"
+              step="0.0000001"
+              value={formData.latitude}
+              onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
+              placeholder="48.7164"
+              data-testid="input-clinic-latitude"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="longitude">{t.clinics.longitude}</Label>
+            <Input
+              id="longitude"
+              type="number"
+              step="0.0000001"
+              value={formData.longitude}
+              onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
+              placeholder="21.2611"
+              data-testid="input-clinic-longitude"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="notes">{t.clinics.note}</Label>
+          <Input
+            id="notes"
+            value={formData.notes}
+            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+            placeholder={t.clinics.note}
+            data-testid="input-clinic-notes"
+          />
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <Switch
+            id="isActive"
+            checked={formData.isActive}
+            onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
+            data-testid="switch-clinic-active"
+          />
+          <Label htmlFor="isActive">{t.common.active}</Label>
+        </div>
+
+        <div className="flex justify-end gap-2 pt-4 border-t">
+          <Button type="button" variant="outline" onClick={onClose} data-testid="button-cancel-clinic">
+            {t.common.cancel}
+          </Button>
+          <Button type="submit" disabled={saveMutation.isPending} data-testid="button-save-clinic">
+            {saveMutation.isPending ? t.common.loading : t.common.save}
+          </Button>
+        </div>
+      </form>
+
+      <Dialog open={showWebsitePreview} onOpenChange={setShowWebsitePreview}>
+        <DialogContent className="max-w-4xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Globe className="h-5 w-5" />
+              {t.clinics.website}: {formData.website}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="w-full h-[600px] rounded-lg overflow-hidden border">
+            <iframe
+              title="Website Preview"
+              width="100%"
+              height="100%"
+              src={getWebsiteUrl(formData.website)}
+              sandbox="allow-scripts allow-same-origin"
+              className="bg-white"
+            />
+          </div>
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              onClick={() => window.open(getWebsiteUrl(formData.website), "_blank")}
+              data-testid="button-open-website-new-tab"
+            >
+              <ExternalLink className="h-4 w-4 mr-2" />
+              {t.clinics.openWebsite}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 export default function HospitalsPage() {
   const { t } = useI18n();
   const { toast } = useToast();
@@ -536,12 +856,18 @@ export default function HospitalsPage() {
   const { canAdd, canEdit } = usePermissions();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
+  const [clinicSearchQuery, setClinicSearchQuery] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isClinicFormOpen, setIsClinicFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isClinicDeleteOpen, setIsClinicDeleteOpen] = useState(false);
   const [selectedHospital, setSelectedHospital] = useState<Hospital | undefined>();
+  const [selectedClinic, setSelectedClinic] = useState<Clinic | undefined>();
   const [hospitalToDelete, setHospitalToDelete] = useState<Hospital | null>(null);
+  const [clinicToDelete, setClinicToDelete] = useState<Clinic | null>(null);
   const [activeTab, setActiveTab] = useState("hospital");
   const [useWizardForm, setUseWizardForm] = useState(true);
+  const [clinicCountryTab, setClinicCountryTab] = useState<string>("ALL");
   const [countryTab, setCountryTab] = useState<string>("ALL");
 
   const isAdmin = user?.role === "admin";
@@ -562,6 +888,16 @@ export default function HospitalsPage() {
 
   const { data: laboratories = [] } = useQuery<Laboratory[]>({
     queryKey: ["/api/config/laboratories"],
+  });
+
+  const { data: clinics = [], isLoading: isLoadingClinics, refetch: refetchClinics } = useQuery<Clinic[]>({
+    queryKey: ["/api/clinics", selectedCountries.join(",")],
+    queryFn: async () => {
+      const params = selectedCountries.length > 0 ? `?countries=${selectedCountries.join(",")}` : "";
+      const res = await fetch(`/api/clinics${params}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch clinics");
+      return res.json();
+    },
   });
 
   const deleteMutation = useMutation({
@@ -595,10 +931,38 @@ export default function HospitalsPage() {
     },
   });
 
+  const deleteClinicMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/clinics/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
+      toast({ title: t.success.deleted });
+      setIsClinicDeleteOpen(false);
+      setClinicToDelete(null);
+    },
+    onError: () => {
+      toast({ title: t.errors.deleteFailed, variant: "destructive" });
+    },
+  });
+
   const countryCounts = hospitals.reduce((acc, h) => {
     acc[h.countryCode] = (acc[h.countryCode] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
+
+  const clinicCountryCounts = clinics.reduce((acc, c) => {
+    acc[c.countryCode] = (acc[c.countryCode] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const filteredClinics = clinics.filter((clinic) => {
+    const matchesCountry = clinicCountryTab === "ALL" || clinic.countryCode === clinicCountryTab;
+    const matchesSearch = 
+      clinic.name.toLowerCase().includes(clinicSearchQuery.toLowerCase()) ||
+      clinic.doctorName?.toLowerCase().includes(clinicSearchQuery.toLowerCase()) ||
+      clinic.city?.toLowerCase().includes(clinicSearchQuery.toLowerCase()) ||
+      clinic.address?.toLowerCase().includes(clinicSearchQuery.toLowerCase());
+    return matchesCountry && matchesSearch;
+  });
 
   const filteredHospitals = hospitals.filter((hospital) => {
     const matchesCountry = countryTab === "ALL" || hospital.countryCode === countryTab;
@@ -636,6 +1000,113 @@ export default function HospitalsPage() {
     setSelectedHospital(undefined);
     setIsFormOpen(true);
   };
+
+  const handleEditClinic = (clinic: Clinic) => {
+    setSelectedClinic(clinic);
+    setIsClinicFormOpen(true);
+  };
+
+  const handleDeleteClinic = (clinic: Clinic) => {
+    setClinicToDelete(clinic);
+    setIsClinicDeleteOpen(true);
+  };
+
+  const handleAddNewClinic = () => {
+    setSelectedClinic(undefined);
+    setIsClinicFormOpen(true);
+  };
+
+  const getWebsiteUrl = (url: string) => {
+    if (!url) return "";
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+      return url;
+    }
+    return `https://${url}`;
+  };
+
+  const clinicColumns = [
+    {
+      key: "name",
+      header: t.clinics.name,
+      cell: (clinic: Clinic) => (
+        <div className="flex items-center gap-2">
+          <span className="font-medium">{clinic.name}</span>
+          {!clinic.isActive && (
+            <Badge variant="secondary">{t.common.inactive}</Badge>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "doctorName",
+      header: t.clinics.doctorName,
+      cell: (clinic: Clinic) => clinic.doctorName || "-",
+    },
+    {
+      key: "country",
+      header: t.common.country,
+      cell: (clinic: Clinic) => (
+        <span>
+          {getCountryFlag(clinic.countryCode)} {getCountryName(clinic.countryCode)}
+        </span>
+      ),
+    },
+    {
+      key: "city",
+      header: t.clinics.city,
+      cell: (clinic: Clinic) => clinic.city || "-",
+    },
+    {
+      key: "website",
+      header: t.clinics.website,
+      cell: (clinic: Clinic) => 
+        clinic.website ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="p-0 h-auto text-primary hover:underline"
+            onClick={() => window.open(getWebsiteUrl(clinic.website || ""), "_blank")}
+            data-testid={`link-clinic-website-${clinic.id}`}
+          >
+            <Globe className="h-4 w-4 mr-1" />
+            {clinic.website}
+          </Button>
+        ) : "-",
+    },
+    {
+      key: "phone",
+      header: t.clinics.phone,
+      cell: (clinic: Clinic) => clinic.phone || "-",
+    },
+    {
+      key: "actions",
+      header: t.common.actions,
+      cell: (clinic: Clinic) => (
+        <div className="flex items-center gap-2">
+          {canEdit("hospitals") && (
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => handleEditClinic(clinic)}
+              data-testid={`button-edit-clinic-${clinic.id}`}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+          )}
+          {canEdit("hospitals") && (
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => handleDeleteClinic(clinic)}
+              data-testid={`button-delete-clinic-${clinic.id}`}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      ),
+    },
+  ];
 
   const columns = [
     {
@@ -738,6 +1209,10 @@ export default function HospitalsPage() {
             <Building2 className="h-4 w-4 mr-2" />
             {t.hospitals.tabs.hospital}
           </TabsTrigger>
+          <TabsTrigger value="clinics" data-testid="tab-clinics">
+            <Stethoscope className="h-4 w-4 mr-2" />
+            {t.hospitals.tabs.clinics}
+          </TabsTrigger>
           <TabsTrigger value="agreements" data-testid="tab-agreements">
             <FileText className="h-4 w-4 mr-2" />
             {t.hospitals.tabs.agreements}
@@ -814,6 +1289,100 @@ export default function HospitalsPage() {
                   columns={columns} 
                   data={filteredHospitals} 
                   getRowKey={(hospital) => hospital.id}
+                />
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="clinics" className="mt-6">
+          <Card>
+            <CardHeader className="pb-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Stethoscope className="h-5 w-5" />
+                    {t.clinics.title}
+                  </CardTitle>
+                  <CardDescription>{t.clinics.description}</CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => refetchClinics()}
+                    data-testid="button-refresh-clinics"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    {t.common.refresh}
+                  </Button>
+                  {canAdd("hospitals") && (
+                    <Button onClick={handleAddNewClinic} data-testid="button-add-clinic">
+                      <Plus className="h-4 w-4 mr-2" />
+                      {t.clinics.addClinic}
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant={clinicCountryTab === "ALL" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setClinicCountryTab("ALL")}
+                  data-testid="tab-clinic-country-all"
+                >
+                  {t.common.all}
+                  <Badge variant="secondary" className="ml-2">{clinics.length}</Badge>
+                </Button>
+                {COUNTRIES.map((country) => {
+                  const count = clinicCountryCounts[country.code] || 0;
+                  if (count === 0) return null;
+                  return (
+                    <Button
+                      key={country.code}
+                      variant={clinicCountryTab === country.code ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setClinicCountryTab(country.code)}
+                      data-testid={`tab-clinic-country-${country.code}`}
+                    >
+                      {country.flag} {country.code}
+                      <Badge variant="secondary" className="ml-2">{count}</Badge>
+                    </Button>
+                  );
+                })}
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder={t.clinics.searchPlaceholder}
+                    value={clinicSearchQuery}
+                    onChange={(e) => setClinicSearchQuery(e.target.value)}
+                    className="pl-10"
+                    data-testid="input-search-clinics"
+                  />
+                </div>
+                <div className="text-sm text-muted-foreground whitespace-nowrap">
+                  {filteredClinics.length} z {clinics.length} {t.clinics.count}
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {isLoadingClinics ? (
+                <div className="space-y-4">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <Skeleton key={i} className="h-12 w-full" />
+                  ))}
+                </div>
+              ) : filteredClinics.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  {t.clinics.noClinics}
+                </div>
+              ) : (
+                <DataTable 
+                  columns={clinicColumns} 
+                  data={filteredClinics} 
+                  getRowKey={(clinic) => clinic.id}
                 />
               )}
             </CardContent>
@@ -929,6 +1498,47 @@ export default function HospitalsPage() {
             <AlertDialogAction
               onClick={() => hospitalToDelete && deleteMutation.mutate(hospitalToDelete.id)}
               data-testid="button-confirm-delete"
+            >
+              {t.common.delete}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={isClinicFormOpen} onOpenChange={setIsClinicFormOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Stethoscope className="h-5 w-5" />
+              {selectedClinic ? t.clinics.editClinic : t.clinics.addClinic}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedClinic ? t.clinics.editClinic : t.clinics.addClinic}
+            </DialogDescription>
+          </DialogHeader>
+          <ClinicForm
+            clinic={selectedClinic}
+            onClose={() => setIsClinicFormOpen(false)}
+            onSuccess={() => setIsClinicFormOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={isClinicDeleteOpen} onOpenChange={setIsClinicDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t.clinics.deleteClinic}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t.clinics.deleteConfirm}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-clinic">
+              {t.common.cancel}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => clinicToDelete && deleteClinicMutation.mutate(clinicToDelete.id)}
+              data-testid="button-confirm-delete-clinic"
             >
               {t.common.delete}
             </AlertDialogAction>
