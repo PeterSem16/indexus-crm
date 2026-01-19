@@ -610,6 +610,13 @@ export interface Translations {
     agreementsDesc: string;
     templatesDesc: string;
     rewardsDesc: string;
+    seedAll: string;
+    seeding: string;
+    seedSuccess: string;
+    seedError: string;
+    seedCreated: string;
+    seedSkipped: string;
+    seedTotal: string;
     tabs: {
       hospital: string;
       clinics: string;
@@ -2305,6 +2312,13 @@ export const translations: Record<Locale, Translations> = {
       agreementsDesc: 'Manage hospital agreements and contracts',
       templatesDesc: 'Manage document templates for hospitals',
       rewardsDesc: 'Manage reward programs for hospitals',
+      seedAll: 'Seed all countries',
+      seeding: 'Seeding...',
+      seedSuccess: 'Hospitals seeded',
+      seedError: 'Seeding error',
+      seedCreated: 'Created',
+      seedSkipped: 'Skipped',
+      seedTotal: 'total',
       tabs: {
         hospital: 'Hospital',
         clinics: 'Clinics',
@@ -4010,6 +4024,13 @@ export const translations: Record<Locale, Translations> = {
       agreementsDesc: 'Správa dohôd a zmlúv s nemocnicami',
       templatesDesc: 'Správa šablón dokumentov pre nemocnice',
       rewardsDesc: 'Správa odmenových programov pre nemocnice',
+      seedAll: 'Nasadiť všetky krajiny',
+      seeding: 'Nasadzujem...',
+      seedSuccess: 'Nemocnice nasadené',
+      seedError: 'Chyba pri nasadzovaní',
+      seedCreated: 'Vytvorené',
+      seedSkipped: 'Preskočené',
+      seedTotal: 'celkom',
       tabs: {
         hospital: 'Nemocnica',
         clinics: 'Ambulancie',
@@ -5715,6 +5736,13 @@ export const translations: Record<Locale, Translations> = {
       agreementsDesc: 'Správa dohod a smluv s nemocnicemi',
       templatesDesc: 'Správa šablon dokumentů pro nemocnice',
       rewardsDesc: 'Správa odměnových programů pro nemocnice',
+      seedAll: 'Nasadit všechny země',
+      seeding: 'Nasazuji...',
+      seedSuccess: 'Nemocnice nasazeny',
+      seedError: 'Chyba při nasazování',
+      seedCreated: 'Vytvořeno',
+      seedSkipped: 'Přeskočeno',
+      seedTotal: 'celkem',
       tabs: {
         hospital: 'Nemocnice',
         clinics: 'Ambulance',
@@ -7383,6 +7411,13 @@ export const translations: Record<Locale, Translations> = {
       agreementsDesc: 'Kórházi megállapodások és szerződések kezelése',
       templatesDesc: 'Dokumentumsablonok kezelése kórházakhoz',
       rewardsDesc: 'Jutalmazási programok kezelése kórházakhoz',
+      seedAll: 'Összes ország beültetése',
+      seeding: 'Beültetés...',
+      seedSuccess: 'Kórházak beültetve',
+      seedError: 'Beültetési hiba',
+      seedCreated: 'Létrehozva',
+      seedSkipped: 'Kihagyva',
+      seedTotal: 'összesen',
       tabs: {
         hospital: 'Kórház',
         clinics: 'Rendelok',
@@ -9051,6 +9086,13 @@ export const translations: Record<Locale, Translations> = {
       agreementsDesc: 'Gestionați acordurile și contractele cu spitalele',
       templatesDesc: 'Gestionați șabloanele de documente pentru spitale',
       rewardsDesc: 'Gestionați programele de recompense pentru spitale',
+      seedAll: 'Însămânțează toate țările',
+      seeding: 'Însămânțare...',
+      seedSuccess: 'Spitale însămânțate',
+      seedError: 'Eroare de însămânțare',
+      seedCreated: 'Create',
+      seedSkipped: 'Sărite',
+      seedTotal: 'total',
       tabs: {
         hospital: 'Spital',
         clinics: 'Clinici',
@@ -10719,6 +10761,13 @@ export const translations: Record<Locale, Translations> = {
       agreementsDesc: 'Gestisci accordi e contratti ospedalieri',
       templatesDesc: 'Gestisci i modelli di documenti per gli ospedali',
       rewardsDesc: 'Gestisci i programmi di ricompensa per gli ospedali',
+      seedAll: 'Semina tutti i paesi',
+      seeding: 'Semina in corso...',
+      seedSuccess: 'Ospedali seminati',
+      seedError: 'Errore di semina',
+      seedCreated: 'Creati',
+      seedSkipped: 'Saltati',
+      seedTotal: 'totale',
       tabs: {
         hospital: 'Ospedale',
         clinics: 'Cliniche',
@@ -12387,6 +12436,13 @@ export const translations: Record<Locale, Translations> = {
       agreementsDesc: 'Krankenhausvereinbarungen und Verträge verwalten',
       templatesDesc: 'Dokumentvorlagen für Krankenhäuser verwalten',
       rewardsDesc: 'Belohnungsprogramme für Krankenhäuser verwalten',
+      seedAll: 'Alle Länder aussäen',
+      seeding: 'Aussaat läuft...',
+      seedSuccess: 'Krankenhäuser ausgesät',
+      seedError: 'Aussaatfehler',
+      seedCreated: 'Erstellt',
+      seedSkipped: 'Übersprungen',
+      seedTotal: 'gesamt',
       tabs: {
         hospital: 'Krankenhaus',
         clinics: 'Praxen',

@@ -164,7 +164,7 @@ function HospitalForm({
 
   const handleGetCurrentLocation = () => {
     if (!navigator.geolocation) {
-      toast({ title: "Geolokácia nie je podporovaná vo vašom prehliadači", variant: "destructive" });
+      toast({ title: t.clinics.gpsNotSupported, variant: "destructive" });
       return;
     }
     
@@ -177,17 +177,13 @@ function HospitalForm({
           longitude: position.coords.longitude.toFixed(7),
         });
         setIsLoadingLocation(false);
-        toast({ title: "GPS súradnice boli načítané" });
+        toast({ title: t.clinics.gpsLoaded });
       },
       (error) => {
         setIsLoadingLocation(false);
-        let message = "Nepodarilo sa získať polohu";
+        let message = t.clinics.gpsError;
         if (error.code === error.PERMISSION_DENIED) {
-          message = "Prístup k polohe bol zamietnutý";
-        } else if (error.code === error.POSITION_UNAVAILABLE) {
-          message = "Poloha nie je dostupná";
-        } else if (error.code === error.TIMEOUT) {
-          message = "Časový limit vypršal";
+          message = t.clinics.gpsPermissionDenied;
         }
         toast({ title: message, variant: "destructive" });
       },
@@ -202,19 +198,19 @@ function HospitalForm({
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="basic" data-testid="tab-form-basic">
             <Building2 className="h-4 w-4 mr-2" />
-            Základné
+            {t.clinics.steps.basic}
           </TabsTrigger>
           <TabsTrigger value="address" data-testid="tab-form-address">
             <MapPin className="h-4 w-4 mr-2" />
-            Adresa
+            {t.clinics.steps.address}
           </TabsTrigger>
           <TabsTrigger value="contacts" data-testid="tab-form-contacts">
             <FileText className="h-4 w-4 mr-2" />
-            Kontakty
+            {t.clinics.steps.web}
           </TabsTrigger>
           <TabsTrigger value="settings" data-testid="tab-form-settings">
             <ListChecks className="h-4 w-4 mr-2" />
-            Nastavenia
+            {t.clinics.steps.settings}
           </TabsTrigger>
         </TabsList>
 
@@ -334,7 +330,7 @@ function HospitalForm({
 
           <div className="border-t pt-4 mt-4">
             <div className="flex items-center justify-between mb-3">
-              <Label className="text-base font-medium">GPS súradnice</Label>
+              <Label className="text-base font-medium">{t.clinics.gpsCoordinates}</Label>
               <div className="flex gap-2">
                 <Button
                   type="button"
@@ -345,7 +341,7 @@ function HospitalForm({
                   data-testid="button-get-location"
                 >
                   <Navigation className={`h-4 w-4 mr-2 ${isLoadingLocation ? 'animate-spin' : ''}`} />
-                  {isLoadingLocation ? "Načítavam..." : "Načítať polohu"}
+                  {isLoadingLocation ? t.common.loading : t.clinics.getCurrentLocation}
                 </Button>
                 {formData.latitude && formData.longitude && (
                   <Button
@@ -356,33 +352,33 @@ function HospitalForm({
                     data-testid="button-show-on-map"
                   >
                     <ExternalLink className="h-4 w-4 mr-2" />
-                    Zobraziť na mape
+                    {t.clinics.showOnMap}
                   </Button>
                 )}
               </div>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="latitude">Zemepisná šírka (Latitude)</Label>
+                <Label htmlFor="latitude">{t.clinics.latitude}</Label>
                 <Input
                   id="latitude"
                   type="number"
                   step="0.0000001"
                   value={formData.latitude}
                   onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
-                  placeholder="napr. 48.7164"
+                  placeholder="48.7164"
                   data-testid="input-hospital-latitude"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="longitude">Zemepisná dĺžka (Longitude)</Label>
+                <Label htmlFor="longitude">{t.clinics.longitude}</Label>
                 <Input
                   id="longitude"
                   type="number"
                   step="0.0000001"
                   value={formData.longitude}
                   onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
-                  placeholder="napr. 21.2611"
+                  placeholder="21.2611"
                   data-testid="input-hospital-longitude"
                 />
               </div>
@@ -521,7 +517,7 @@ function HospitalForm({
             data-testid="button-open-google-maps"
           >
             <ExternalLink className="h-4 w-4 mr-2" />
-            Otvoriť v Google Maps
+            {t.clinics.openInNewTab}
           </Button>
         </div>
       </DialogContent>
@@ -933,14 +929,14 @@ export default function HospitalsPage() {
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/hospitals"] });
       toast({ 
-        title: "Nemocnice nasadené",
-        description: `Vytvorené: ${data.inserted}, Preskočené: ${data.skipped} (celkom ${data.total})`,
+        title: t.hospitals.seedSuccess,
+        description: `${t.hospitals.seedCreated}: ${data.inserted}, ${t.hospitals.seedSkipped}: ${data.skipped} (${t.hospitals.seedTotal} ${data.total})`,
       });
     },
     onError: (error: any) => {
       toast({ 
-        title: "Chyba pri nasadzovaní", 
-        description: error.message || "Nepodarilo sa nasadiť nemocnice",
+        title: t.hospitals.seedError, 
+        description: error.message,
         variant: "destructive" 
       });
     },
@@ -1305,7 +1301,7 @@ export default function HospitalsPage() {
               ) : (
                 <Database className="h-4 w-4 mr-2" />
               )}
-              {seedAllMutation.isPending ? "Nasadzujem..." : "Nasadiť všetky krajiny"}
+              {seedAllMutation.isPending ? t.hospitals.seeding : t.hospitals.seedAll}
             </Button>
           )}
           {canAdd("hospitals") && (
@@ -1351,7 +1347,7 @@ export default function HospitalsPage() {
                   onClick={() => setCountryTab("ALL")}
                   data-testid="tab-country-all"
                 >
-                  Všetky
+                  {t.common.all}
                   <Badge variant="secondary" className="ml-2">{hospitals.length}</Badge>
                 </Button>
                 {COUNTRIES.map((country) => {
@@ -1383,7 +1379,7 @@ export default function HospitalsPage() {
                   />
                 </div>
                 <div className="text-sm text-muted-foreground whitespace-nowrap">
-                  {filteredHospitals.length} z {hospitals.length} nemocníc
+                  {t.common.showing} {filteredHospitals.length} {t.common.of} {hospitals.length}
                 </div>
               </div>
             </CardHeader>
@@ -1514,7 +1510,7 @@ export default function HospitalsPage() {
                   <div>
                     <label className="text-sm font-medium mb-1 block">{t.clinics.city}</label>
                     <Input
-                      placeholder={t.clinics.filterByCity || "Filtrovať podľa mesta"}
+                      placeholder={t.clinics.filterByCity}
                       value={clinicCityFilter}
                       onChange={(e) => { setClinicCityFilter(e.target.value); handleClinicFilterChange(); }}
                       data-testid="input-filter-clinic-city"
@@ -1582,7 +1578,7 @@ export default function HospitalsPage() {
                           disabled={clinicPage === 1}
                           data-testid="button-clinic-first-page"
                         >
-                          {t.common.first || "Prvá"}
+                          {t.common.first}
                         </Button>
                         <Button
                           variant="outline"
@@ -1612,7 +1608,7 @@ export default function HospitalsPage() {
                           disabled={clinicPage === totalClinicPages}
                           data-testid="button-clinic-last-page"
                         >
-                          {t.common.last || "Posledná"}
+                          {t.common.last}
                         </Button>
                       </div>
                     </div>

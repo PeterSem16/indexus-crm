@@ -119,7 +119,7 @@ export function HospitalFormWizard({ initialData, onSuccess, onCancel }: Hospita
 
   const handleGetCurrentLocation = () => {
     if (!navigator.geolocation) {
-      toast({ title: "Geolokácia nie je podporovaná vo vašom prehliadači", variant: "destructive" });
+      toast({ title: t.clinics.gpsNotSupported, variant: "destructive" });
       return;
     }
     
@@ -132,17 +132,13 @@ export function HospitalFormWizard({ initialData, onSuccess, onCancel }: Hospita
           longitude: position.coords.longitude.toFixed(7),
         });
         setIsLoadingLocation(false);
-        toast({ title: "GPS súradnice boli načítané" });
+        toast({ title: t.clinics.gpsLoaded });
       },
       (error) => {
         setIsLoadingLocation(false);
-        let message = "Nepodarilo sa získať polohu";
+        let message = t.clinics.gpsError;
         if (error.code === error.PERMISSION_DENIED) {
-          message = "Prístup k polohe bol zamietnutý";
-        } else if (error.code === error.POSITION_UNAVAILABLE) {
-          message = "Poloha nie je dostupná";
-        } else if (error.code === error.TIMEOUT) {
-          message = "Časový limit vypršal";
+          message = t.clinics.gpsPermissionDenied;
         }
         toast({ title: message, variant: "destructive" });
       },
@@ -412,7 +408,7 @@ export function HospitalFormWizard({ initialData, onSuccess, onCancel }: Hospita
             
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label className="text-base font-medium">GPS súradnice</Label>
+                <Label className="text-base font-medium">{t.clinics.gpsCoordinates}</Label>
                 <div className="flex gap-2">
                   <Button
                     type="button"
@@ -423,7 +419,7 @@ export function HospitalFormWizard({ initialData, onSuccess, onCancel }: Hospita
                     data-testid="wizard-button-get-location"
                   >
                     <Navigation className={`h-4 w-4 mr-2 ${isLoadingLocation ? 'animate-spin' : ''}`} />
-                    {isLoadingLocation ? "Načítavam..." : "Načítať polohu"}
+                    {isLoadingLocation ? t.common.loading : t.clinics.getCurrentLocation}
                   </Button>
                   {formData.latitude && formData.longitude && (
                     <Button
@@ -434,33 +430,33 @@ export function HospitalFormWizard({ initialData, onSuccess, onCancel }: Hospita
                       data-testid="button-show-on-map"
                     >
                       <ExternalLink className="h-4 w-4 mr-2" />
-                      Zobraziť na mape
+                      {t.clinics.showOnMap}
                     </Button>
                   )}
                 </div>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Zemepisná šírka (Latitude)</Label>
+                  <Label>{t.clinics.latitude}</Label>
                   <Input
                     type="number"
                     step="0.0000001"
                     value={formData.latitude}
                     onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
-                    placeholder="napr. 48.7164"
+                    placeholder="48.7164"
                     data-testid="wizard-input-hospital-latitude"
                     disabled={isReadonly("latitude")}
                     className={isReadonly("latitude") ? "bg-muted" : ""}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Zemepisná dĺžka (Longitude)</Label>
+                  <Label>{t.clinics.longitude}</Label>
                   <Input
                     type="number"
                     step="0.0000001"
                     value={formData.longitude}
                     onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
-                    placeholder="napr. 21.2611"
+                    placeholder="21.2611"
                     data-testid="wizard-input-hospital-longitude"
                     disabled={isReadonly("longitude")}
                     className={isReadonly("longitude") ? "bg-muted" : ""}
@@ -830,7 +826,7 @@ export function HospitalFormWizard({ initialData, onSuccess, onCancel }: Hospita
             data-testid="button-open-google-maps"
           >
             <ExternalLink className="h-4 w-4 mr-2" />
-            Otvoriť v Google Maps
+            {t.clinics.openInNewTab}
           </Button>
         </div>
       </DialogContent>
