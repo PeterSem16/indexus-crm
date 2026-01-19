@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChecks, FileEdit, MapPin, Navigation, ExternalLink, Database, Loader2, Globe, Stethoscope, RefreshCw } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChecks, FileEdit, MapPin, Navigation, ExternalLink, Database, Loader2, Globe, Stethoscope, RefreshCw, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, X } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { HospitalFormWizard } from "@/components/hospital-form-wizard";
 import { ClinicFormWizard } from "@/components/clinic-form-wizard";
@@ -870,6 +870,20 @@ export default function HospitalsPage() {
   const [useWizardForm, setUseWizardForm] = useState(true);
   const [clinicCountryTab, setClinicCountryTab] = useState<string>("ALL");
   const [countryTab, setCountryTab] = useState<string>("ALL");
+  
+  // Clinic pagination
+  const [clinicPage, setClinicPage] = useState(1);
+  const clinicPageSize = 30;
+  
+  // Clinic filters
+  const [clinicCityFilter, setClinicCityFilter] = useState("");
+  const [clinicStatusFilter, setClinicStatusFilter] = useState<string>("all");
+  const [clinicHasWebsite, setClinicHasWebsite] = useState<string>("all");
+  const [showClinicFilters, setShowClinicFilters] = useState(false);
+  
+  // Clinic sorting
+  const [clinicSortField, setClinicSortField] = useState<string>("name");
+  const [clinicSortDirection, setClinicSortDirection] = useState<"asc" | "desc">("asc");
 
   const isAdmin = user?.role === "admin";
 
@@ -955,15 +969,95 @@ export default function HospitalsPage() {
     return acc;
   }, {} as Record<string, number>);
 
-  const filteredClinics = clinics.filter((clinic) => {
-    const matchesCountry = clinicCountryTab === "ALL" || clinic.countryCode === clinicCountryTab;
-    const matchesSearch = 
-      clinic.name.toLowerCase().includes(clinicSearchQuery.toLowerCase()) ||
-      clinic.doctorName?.toLowerCase().includes(clinicSearchQuery.toLowerCase()) ||
-      clinic.city?.toLowerCase().includes(clinicSearchQuery.toLowerCase()) ||
-      clinic.address?.toLowerCase().includes(clinicSearchQuery.toLowerCase());
-    return matchesCountry && matchesSearch;
-  });
+  const filteredAndSortedClinics = (() => {
+    // First filter
+    let result = clinics.filter((clinic) => {
+      const matchesCountry = clinicCountryTab === "ALL" || clinic.countryCode === clinicCountryTab;
+      const matchesSearch = 
+        clinic.name.toLowerCase().includes(clinicSearchQuery.toLowerCase()) ||
+        clinic.doctorName?.toLowerCase().includes(clinicSearchQuery.toLowerCase()) ||
+        clinic.city?.toLowerCase().includes(clinicSearchQuery.toLowerCase()) ||
+        clinic.address?.toLowerCase().includes(clinicSearchQuery.toLowerCase());
+      const matchesCity = !clinicCityFilter || clinic.city?.toLowerCase().includes(clinicCityFilter.toLowerCase());
+      const matchesStatus = clinicStatusFilter === "all" || 
+        (clinicStatusFilter === "active" && clinic.isActive) ||
+        (clinicStatusFilter === "inactive" && !clinic.isActive);
+      const matchesWebsite = clinicHasWebsite === "all" ||
+        (clinicHasWebsite === "yes" && clinic.website) ||
+        (clinicHasWebsite === "no" && !clinic.website);
+      return matchesCountry && matchesSearch && matchesCity && matchesStatus && matchesWebsite;
+    });
+    
+    // Then sort
+    result.sort((a, b) => {
+      let aVal: string | boolean = "";
+      let bVal: string | boolean = "";
+      
+      switch (clinicSortField) {
+        case "name":
+          aVal = a.name.toLowerCase();
+          bVal = b.name.toLowerCase();
+          break;
+        case "city":
+          aVal = (a.city || "").toLowerCase();
+          bVal = (b.city || "").toLowerCase();
+          break;
+        case "doctorName":
+          aVal = (a.doctorName || "").toLowerCase();
+          bVal = (b.doctorName || "").toLowerCase();
+          break;
+        case "country":
+          aVal = a.countryCode;
+          bVal = b.countryCode;
+          break;
+        case "isActive":
+          aVal = a.isActive;
+          bVal = b.isActive;
+          break;
+        default:
+          aVal = a.name.toLowerCase();
+          bVal = b.name.toLowerCase();
+      }
+      
+      if (aVal < bVal) return clinicSortDirection === "asc" ? -1 : 1;
+      if (aVal > bVal) return clinicSortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+    
+    return result;
+  })();
+  
+  const totalClinicPages = Math.ceil(filteredAndSortedClinics.length / clinicPageSize);
+  const paginatedClinics = filteredAndSortedClinics.slice(
+    (clinicPage - 1) * clinicPageSize,
+    clinicPage * clinicPageSize
+  );
+  
+  // Reset page when filters change
+  const handleClinicFilterChange = () => {
+    setClinicPage(1);
+  };
+  
+  const toggleClinicSort = (field: string) => {
+    if (clinicSortField === field) {
+      setClinicSortDirection(clinicSortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setClinicSortField(field);
+      setClinicSortDirection("asc");
+    }
+    setClinicPage(1);
+  };
+  
+  const clearClinicFilters = () => {
+    setClinicSearchQuery("");
+    setClinicCityFilter("");
+    setClinicStatusFilter("all");
+    setClinicHasWebsite("all");
+    setClinicCountryTab("ALL");
+    setClinicPage(1);
+  };
+  
+  const hasActiveClinicFilters = clinicSearchQuery || clinicCityFilter || clinicStatusFilter !== "all" || clinicHasWebsite !== "all" || clinicCountryTab !== "ALL";
 
   const filteredHospitals = hospitals.filter((hospital) => {
     const matchesCountry = countryTab === "ALL" || hospital.countryCode === countryTab;
@@ -1025,10 +1119,31 @@ export default function HospitalsPage() {
     return `https://${url}`;
   };
 
+  const SortableHeader = ({ field, label }: { field: string; label: string }) => (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="h-8 px-2 -ml-2 font-medium"
+      onClick={() => toggleClinicSort(field)}
+      data-testid={`sort-clinic-${field}`}
+    >
+      {label}
+      {clinicSortField === field ? (
+        clinicSortDirection === "asc" ? (
+          <ArrowUp className="ml-1 h-3 w-3" />
+        ) : (
+          <ArrowDown className="ml-1 h-3 w-3" />
+        )
+      ) : (
+        <ArrowUpDown className="ml-1 h-3 w-3 opacity-50" />
+      )}
+    </Button>
+  );
+
   const clinicColumns = [
     {
       key: "name",
-      header: t.clinics.name,
+      header: <SortableHeader field="name" label={t.clinics.name} />,
       cell: (clinic: Clinic) => (
         <div className="flex items-center gap-2">
           <span className="font-medium">{clinic.name}</span>
@@ -1040,12 +1155,12 @@ export default function HospitalsPage() {
     },
     {
       key: "doctorName",
-      header: t.clinics.doctorName,
+      header: <SortableHeader field="doctorName" label={t.clinics.doctorName} />,
       cell: (clinic: Clinic) => clinic.doctorName || "-",
     },
     {
       key: "country",
-      header: t.common.country,
+      header: <SortableHeader field="country" label={t.common.country} />,
       cell: (clinic: Clinic) => (
         <span>
           {getCountryFlag(clinic.countryCode)} {getCountryName(clinic.countryCode)}
@@ -1054,7 +1169,7 @@ export default function HospitalsPage() {
     },
     {
       key: "city",
-      header: t.clinics.city,
+      header: <SortableHeader field="city" label={t.clinics.city} />,
       cell: (clinic: Clinic) => clinic.city || "-",
     },
     {
@@ -1307,6 +1422,18 @@ export default function HospitalsPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
+                    variant={showClinicFilters ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setShowClinicFilters(!showClinicFilters)}
+                    data-testid="button-toggle-clinic-filters"
+                  >
+                    <Filter className="h-4 w-4 mr-2" />
+                    {t.common.filters || "Filtre"}
+                    {hasActiveClinicFilters && (
+                      <Badge variant="secondary" className="ml-2">!</Badge>
+                    )}
+                  </Button>
+                  <Button
                     variant="outline"
                     size="sm"
                     onClick={() => refetchClinics()}
@@ -1323,11 +1450,13 @@ export default function HospitalsPage() {
                   )}
                 </div>
               </div>
+              
+              {/* Country tabs */}
               <div className="flex flex-wrap gap-2">
                 <Button
                   variant={clinicCountryTab === "ALL" ? "default" : "outline"}
                   size="sm"
-                  onClick={() => setClinicCountryTab("ALL")}
+                  onClick={() => { setClinicCountryTab("ALL"); handleClinicFilterChange(); }}
                   data-testid="tab-clinic-country-all"
                 >
                   {t.common.all}
@@ -1341,7 +1470,7 @@ export default function HospitalsPage() {
                       key={country.code}
                       variant={clinicCountryTab === country.code ? "default" : "outline"}
                       size="sm"
-                      onClick={() => setClinicCountryTab(country.code)}
+                      onClick={() => { setClinicCountryTab(country.code); handleClinicFilterChange(); }}
                       data-testid={`tab-clinic-country-${country.code}`}
                     >
                       {country.flag} {country.code}
@@ -1350,21 +1479,75 @@ export default function HospitalsPage() {
                   );
                 })}
               </div>
+              
+              {/* Search and filters panel */}
               <div className="flex items-center gap-4">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder={t.clinics.searchPlaceholder}
                     value={clinicSearchQuery}
-                    onChange={(e) => setClinicSearchQuery(e.target.value)}
+                    onChange={(e) => { setClinicSearchQuery(e.target.value); handleClinicFilterChange(); }}
                     className="pl-10"
                     data-testid="input-search-clinics"
                   />
                 </div>
+                {hasActiveClinicFilters && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearClinicFilters}
+                    data-testid="button-clear-clinic-filters"
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    {t.common.clearFilters || "Zmazat filtre"}
+                  </Button>
+                )}
                 <div className="text-sm text-muted-foreground whitespace-nowrap">
-                  {filteredClinics.length} z {clinics.length} {t.clinics.count}
+                  {filteredAndSortedClinics.length} z {clinics.length} {t.clinics.count}
                 </div>
               </div>
+              
+              {/* Advanced filters */}
+              {showClinicFilters && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">{t.clinics.city}</label>
+                    <Input
+                      placeholder={t.clinics.filterByCity || "Filtrovať podľa mesta"}
+                      value={clinicCityFilter}
+                      onChange={(e) => { setClinicCityFilter(e.target.value); handleClinicFilterChange(); }}
+                      data-testid="input-filter-clinic-city"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">{t.common.status}</label>
+                    <select
+                      value={clinicStatusFilter}
+                      onChange={(e) => { setClinicStatusFilter(e.target.value); handleClinicFilterChange(); }}
+                      className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                      data-testid="select-filter-clinic-status"
+                    >
+                      <option value="all">{t.common.all}</option>
+                      <option value="active">{t.common.active}</option>
+                      <option value="inactive">{t.common.inactive}</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">{t.clinics.website}</label>
+                    <select
+                      value={clinicHasWebsite}
+                      onChange={(e) => { setClinicHasWebsite(e.target.value); handleClinicFilterChange(); }}
+                      className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                      data-testid="select-filter-clinic-website"
+                    >
+                      <option value="all">{t.common.all}</option>
+                      <option value="yes">{t.clinics.hasWebsite || "S webom"}</option>
+                      <option value="no">{t.clinics.noWebsite || "Bez webu"}</option>
+                    </select>
+                  </div>
+                </div>
+              )}
             </CardHeader>
             <CardContent>
               {isLoadingClinics ? (
@@ -1373,16 +1556,68 @@ export default function HospitalsPage() {
                     <Skeleton key={i} className="h-12 w-full" />
                   ))}
                 </div>
-              ) : filteredClinics.length === 0 ? (
+              ) : filteredAndSortedClinics.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   {t.clinics.noClinics}
                 </div>
               ) : (
-                <DataTable 
-                  columns={clinicColumns} 
-                  data={filteredClinics} 
-                  getRowKey={(clinic) => clinic.id}
-                />
+                <>
+                  <DataTable 
+                    columns={clinicColumns} 
+                    data={paginatedClinics} 
+                    getRowKey={(clinic) => clinic.id}
+                  />
+                  
+                  {/* Pagination controls */}
+                  {totalClinicPages > 1 && (
+                    <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                      <div className="text-sm text-muted-foreground">
+                        {t.common.showing || "Zobrazujem"} {((clinicPage - 1) * clinicPageSize) + 1} - {Math.min(clinicPage * clinicPageSize, filteredAndSortedClinics.length)} {t.common.of || "z"} {filteredAndSortedClinics.length}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setClinicPage(1)}
+                          disabled={clinicPage === 1}
+                          data-testid="button-clinic-first-page"
+                        >
+                          {t.common.first || "Prvá"}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => setClinicPage(clinicPage - 1)}
+                          disabled={clinicPage === 1}
+                          data-testid="button-clinic-prev-page"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <span className="text-sm px-2">
+                          {clinicPage} / {totalClinicPages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => setClinicPage(clinicPage + 1)}
+                          disabled={clinicPage === totalClinicPages}
+                          data-testid="button-clinic-next-page"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setClinicPage(totalClinicPages)}
+                          disabled={clinicPage === totalClinicPages}
+                          data-testid="button-clinic-last-page"
+                        >
+                          {t.common.last || "Posledná"}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>

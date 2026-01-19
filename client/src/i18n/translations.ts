@@ -123,6 +123,11 @@ export interface Translations {
     next: string;
     previous: string;
     saving: string;
+    first: string;
+    last: string;
+    showing: string;
+    of: string;
+    clearFilters: string;
   };
   advancedFilters: {
     title: string;
@@ -648,6 +653,9 @@ export interface Translations {
     openInNewTab: string;
     isActive: string;
     isActiveDesc: string;
+    filterByCity: string;
+    hasWebsite: string;
+    noWebsite: string;
     steps: {
       basic: string;
       address: string;
@@ -1688,7 +1696,6 @@ export const translations: Record<Locale, Translations> = {
       form: 'Form',
       wizard: 'Wizard',
       close: 'Close',
-      saving: 'Saving...',
       saved: 'Saved',
       clear: 'Clear',
       days: 'days',
@@ -1714,6 +1721,11 @@ export const translations: Record<Locale, Translations> = {
       next: 'Next',
       previous: 'Previous',
       saving: 'Saving...',
+      first: 'First',
+      last: 'Last',
+      showing: 'Showing',
+      of: 'of',
+      clearFilters: 'Clear filters',
     },
     advancedFilters: {
       title: 'Advanced Filters',
@@ -2336,6 +2348,9 @@ export const translations: Record<Locale, Translations> = {
       openInNewTab: 'Open in new tab',
       isActive: 'Active clinic',
       isActiveDesc: 'Clinic is active and shown in lists',
+      filterByCity: 'Filter by city',
+      hasWebsite: 'With website',
+      noWebsite: 'Without website',
       steps: {
         basic: 'Basic Info',
         address: 'Address',
@@ -3391,7 +3406,6 @@ export const translations: Record<Locale, Translations> = {
       form: 'Formulár',
       wizard: 'Sprievodca',
       close: 'Zavrieť',
-      saving: 'Ukladám...',
       saved: 'Uložené',
       clear: 'Vymazať',
       days: 'dní',
@@ -3417,6 +3431,11 @@ export const translations: Record<Locale, Translations> = {
       next: 'Ďalej',
       previous: 'Späť',
       saving: 'Ukladám...',
+      first: 'Prvá',
+      last: 'Posledná',
+      showing: 'Zobrazujem',
+      of: 'z',
+      clearFilters: 'Zmazať filtre',
     },
     advancedFilters: {
       title: 'Pokročilé filtre',
@@ -4034,6 +4053,9 @@ export const translations: Record<Locale, Translations> = {
       openInNewTab: 'Otvoriť v novom okne',
       isActive: 'Aktívna ambulancia',
       isActiveDesc: 'Ambulancia je aktívna a zobrazuje sa v zoznamoch',
+      filterByCity: 'Filtrovať podľa mesta',
+      hasWebsite: 'S webom',
+      noWebsite: 'Bez webu',
       steps: {
         basic: 'Základné údaje',
         address: 'Adresa',
@@ -5089,7 +5111,6 @@ export const translations: Record<Locale, Translations> = {
       form: 'Formulář',
       wizard: 'Průvodce',
       close: 'Zavřít',
-      saving: 'Ukládám...',
       saved: 'Uloženo',
       clear: 'Vymazat',
       days: 'dní',
@@ -5115,6 +5136,11 @@ export const translations: Record<Locale, Translations> = {
       next: 'Další',
       previous: 'Zpět',
       saving: 'Ukládám...',
+      first: 'První',
+      last: 'Poslední',
+      showing: 'Zobrazuji',
+      of: 'z',
+      clearFilters: 'Smazat filtry',
     },
     advancedFilters: {
       title: 'Pokročilé filtry',
@@ -5732,6 +5758,9 @@ export const translations: Record<Locale, Translations> = {
       openInNewTab: 'Otevřít v novém okně',
       isActive: 'Aktivní ambulance',
       isActiveDesc: 'Ambulance je aktivní a zobrazuje se v seznamech',
+      filterByCity: 'Filtrovat podle města',
+      hasWebsite: 'S webem',
+      noWebsite: 'Bez webu',
       steps: {
         basic: 'Základní údaje',
         address: 'Adresa',
@@ -6750,7 +6779,6 @@ export const translations: Record<Locale, Translations> = {
       form: 'Űrlap',
       wizard: 'Varázsló',
       close: 'Bezárás',
-      saving: 'Mentés...',
       saved: 'Mentve',
       clear: 'Törlés',
       days: 'nap',
@@ -6776,6 +6804,11 @@ export const translations: Record<Locale, Translations> = {
       next: 'Következő',
       previous: 'Vissza',
       saving: 'Mentés...',
+      first: 'Elso',
+      last: 'Utolsó',
+      showing: 'Megjelenítve',
+      of: '-ból/-ból',
+      clearFilters: 'Szurok törlése',
     },
     advancedFilters: {
       title: 'Speciális szűrők',
@@ -7393,6 +7426,9 @@ export const translations: Record<Locale, Translations> = {
       openInNewTab: 'Megnyitás új ablakban',
       isActive: 'Aktív rendelo',
       isActiveDesc: 'A rendelo aktív és megjelenik a listákban',
+      filterByCity: 'Város szerinti szures',
+      hasWebsite: 'Weboldallal',
+      noWebsite: 'Weboldal nélkül',
       steps: {
         basic: 'Alapadatok',
         address: 'Cím',
@@ -8411,7 +8447,6 @@ export const translations: Record<Locale, Translations> = {
       form: 'Formular',
       wizard: 'Asistent',
       close: 'Închide',
-      saving: 'Se salvează...',
       saved: 'Salvat',
       clear: 'Șterge',
       days: 'zile',
@@ -8437,6 +8472,11 @@ export const translations: Record<Locale, Translations> = {
       next: 'Următorul',
       previous: 'Înapoi',
       saving: 'Se salvează...',
+      first: 'Prima',
+      last: 'Ultima',
+      showing: 'Afisare',
+      of: 'din',
+      clearFilters: 'Sterge filtrele',
     },
     advancedFilters: {
       title: 'Filtre avansate',
@@ -9054,6 +9094,9 @@ export const translations: Record<Locale, Translations> = {
       openInNewTab: 'Deschide în fereastră nouă',
       isActive: 'Clinică activă',
       isActiveDesc: 'Clinica este activă și apare în liste',
+      filterByCity: 'Filtrare dupa oras',
+      hasWebsite: 'Cu website',
+      noWebsite: 'Fara website',
       steps: {
         basic: 'Date de bază',
         address: 'Adresă',
@@ -10072,7 +10115,6 @@ export const translations: Record<Locale, Translations> = {
       form: 'Modulo',
       wizard: 'Procedura guidata',
       close: 'Chiudi',
-      saving: 'Salvataggio...',
       saved: 'Salvato',
       clear: 'Cancella',
       days: 'giorni',
@@ -10098,6 +10140,11 @@ export const translations: Record<Locale, Translations> = {
       next: 'Avanti',
       previous: 'Indietro',
       saving: 'Salvataggio...',
+      first: 'Prima',
+      last: 'Ultima',
+      showing: 'Visualizzo',
+      of: 'di',
+      clearFilters: 'Cancella filtri',
     },
     advancedFilters: {
       title: 'Filtri avanzati',
@@ -10715,6 +10762,9 @@ export const translations: Record<Locale, Translations> = {
       openInNewTab: 'Apri in nuova scheda',
       isActive: 'Clinica attiva',
       isActiveDesc: 'La clinica è attiva e appare negli elenchi',
+      filterByCity: 'Filtra per citta',
+      hasWebsite: 'Con sito web',
+      noWebsite: 'Senza sito web',
       steps: {
         basic: 'Dati di base',
         address: 'Indirizzo',
@@ -11733,7 +11783,6 @@ export const translations: Record<Locale, Translations> = {
       form: 'Formular',
       wizard: 'Assistent',
       close: 'Schließen',
-      saving: 'Speichern...',
       saved: 'Gespeichert',
       clear: 'Löschen',
       days: 'Tage',
@@ -11759,6 +11808,11 @@ export const translations: Record<Locale, Translations> = {
       next: 'Weiter',
       previous: 'Zurück',
       saving: 'Speichern...',
+      first: 'Erste',
+      last: 'Letzte',
+      showing: 'Anzeige',
+      of: 'von',
+      clearFilters: 'Filter löschen',
     },
     advancedFilters: {
       title: 'Erweiterte Filter',
@@ -12376,6 +12430,9 @@ export const translations: Record<Locale, Translations> = {
       openInNewTab: 'In neuem Tab öffnen',
       isActive: 'Aktive Praxis',
       isActiveDesc: 'Praxis ist aktiv und wird in Listen angezeigt',
+      filterByCity: 'Nach Stadt filtern',
+      hasWebsite: 'Mit Website',
+      noWebsite: 'Ohne Website',
       steps: {
         basic: 'Grunddaten',
         address: 'Adresse',
