@@ -1,50 +1,23 @@
-import XLSX from 'xlsx';
+import * as fs from 'fs';
+import * as path from 'path';
 import { db } from '../server/db';
 import { clinics } from '../shared/schema';
 
-interface ExcelRow {
-  'Lekár': string;
-  'Ambulancia': string;
-  'Adresa': string;
-  'Telefón': string;
-  'Email': string;
-  'GPS_lat': number;
-  'GPS_lng': number;
-  'ZZZ_URL': string;
-}
-
-function parseAddress(address: string): { address: string; city: string; postalCode: string } {
-  const addressParts = address.trim();
-  const postalCodeMatch = addressParts.match(/(\d{3}\s?\d{2})/);
-  let postalCode = '';
-  let city = '';
-  let streetAddress = addressParts;
-
-  if (postalCodeMatch) {
-    postalCode = postalCodeMatch[1].replace(/\s/g, ' ');
-    const afterPostalCode = addressParts.substring(addressParts.indexOf(postalCode) + postalCode.length).trim();
-    const cityMatch = afterPostalCode.match(/^([^(]+)/);
-    if (cityMatch) {
-      city = cityMatch[1].trim();
-    }
-    streetAddress = addressParts.substring(0, addressParts.indexOf(postalCode)).trim();
-  }
-
-  return {
-    address: streetAddress || addressParts,
-    city: city || '',
-    postalCode: postalCode.replace(' ', ' ') || ''
-  };
-}
-
 async function seedClinics() {
-  console.log('Reading Excel file...');
-  const workbook = XLSX.readFile('attached_assets/zzz_gynekologia_cistene_enriched_1768829144845.xlsx');
-  const sheetName = workbook.SheetNames[0];
-  const sheet = workbook.Sheets[sheetName];
-  const data: ExcelRow[] = XLSX.utils.sheet_to_json(sheet);
-
-  console.log(`Found ${data.length} clinic records to import`);
+  console.log('Reading CSV file...');
+  
+  const csvPath = path.join(process.cwd(), 'attached_assets', 'clinics_export.csv');
+  
+  if (!fs.existsSync(csvPath)) {
+    console.error('CSV file not found at:', csvPath);
+    process.exit(1);
+  }
+  
+  const csvContent = fs.readFileSync(csvPath, 'utf-8');
+  const lines = csvContent.split('\n');
+  const headers = lines[0].split(',');
+  
+  console.log(`Found ${lines.length - 1} clinic records to import`);
 
   const existingClinics = await db.select().from(clinics);
   if (existingClinics.length > 0) {
@@ -57,33 +30,65 @@ async function seedClinics() {
   let successCount = 0;
   let errorCount = 0;
 
-  for (const row of data) {
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    
     try {
-      const { address, city, postalCode } = parseAddress(row['Adresa'] || '');
+      const values = parseCSVLine(line);
+      
+      if (values.length < 11) continue;
       
       await db.insert(clinics).values({
-        name: row['Ambulancia'] || 'Unknown Clinic',
-        doctorName: row['Lekár'] || null,
-        address: address || null,
-        city: city || null,
-        postalCode: postalCode || null,
-        countryCode: 'SK',
-        phone: row['Telefón'] || null,
-        email: row['Email'] || null,
-        website: row['ZZZ_URL'] || null,
-        latitude: row['GPS_lat'] ? String(row['GPS_lat']) : null,
-        longitude: row['GPS_lng'] ? String(row['GPS_lng']) : null,
-        isActive: true,
-        notes: null
+        name: values[0] || 'Unknown Clinic',
+        doctorName: values[1] || null,
+        address: values[2] || null,
+        city: values[3] || null,
+        postalCode: values[4] || null,
+        countryCode: values[5] || 'SK',
+        phone: values[6] || null,
+        email: values[7] || null,
+        website: values[8] || null,
+        latitude: values[9] || null,
+        longitude: values[10] || null,
+        isActive: values[11] === 't' || values[11] === 'true',
+        notes: values[12] || null
       });
       successCount++;
     } catch (error) {
-      console.error(`Error importing clinic ${row['Ambulancia']}:`, error);
+      console.error(`Error importing line ${i}:`, error);
       errorCount++;
     }
   }
 
   console.log(`Import complete: ${successCount} clinics imported, ${errorCount} errors`);
+}
+
+function parseCSVLine(line: string): string[] {
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      result.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  result.push(current);
+  
+  return result;
 }
 
 seedClinics()
