@@ -264,6 +264,34 @@ export const hospitals = pgTable("hospitals", {
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
+// Clinics table - ambulancie (outpatient clinics)
+export const clinics = pgTable("clinics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(), // Názov ambulancie
+  doctorName: text("doctor_name"), // Meno lekára
+  address: text("address"), // Adresa
+  city: text("city"), // Mesto
+  postalCode: text("postal_code"), // PSČ
+  countryCode: text("country_code").notNull().default("SK"), // Krajina
+  phone: text("phone"), // Telefón
+  email: text("email"), // Email
+  website: text("website"), // Web stránka ambulancie
+  latitude: decimal("latitude", { precision: 10, scale: 7 }), // GPS súradnica
+  longitude: decimal("longitude", { precision: 10, scale: 7 }), // GPS súradnica
+  isActive: boolean("is_active").notNull().default(true), // Aktívna ambulancia
+  notes: text("notes"), // Poznámky
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertClinicSchema = createInsertSchema(clinics).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertClinic = z.infer<typeof insertClinicSchema>;
+export type Clinic = typeof clinics.$inferSelect;
+
 // Client status types
 export const CLIENT_STATUSES = [
   { value: "potential", label: "Potenciálny klient" },

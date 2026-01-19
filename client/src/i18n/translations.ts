@@ -16,7 +16,7 @@ export interface Translations {
     customers: string;
     products: string;
     invoices: string;
-    hospitals: string;
+    hospitalsAndClinics: string;
     collaborators: string;
     collaboratorReports: string;
     visitEvents: string;
@@ -1552,7 +1552,7 @@ export const translations: Record<Locale, Translations> = {
       customers: 'Customers',
       products: 'Products',
       invoices: 'Invoices',
-      hospitals: 'Hospitals',
+      hospitalsAndClinics: 'Hospitals & Clinics',
       collaborators: 'Collaborators',
       collaboratorReports: 'Reports',
       visitEvents: 'INDEXUS Connect',
@@ -3200,7 +3200,7 @@ export const translations: Record<Locale, Translations> = {
       customers: 'Zákazníci',
       products: 'Produkty',
       invoices: 'Faktúry',
-      hospitals: 'Nemocnice',
+      hospitalsAndClinics: 'Nemocnice & Ambulancie',
       collaborators: 'Spolupracovníci',
       collaboratorReports: 'Reporty',
       visitEvents: 'INDEXUS Connect',
@@ -4843,7 +4843,7 @@ export const translations: Record<Locale, Translations> = {
       customers: 'Zákazníci',
       products: 'Produkty',
       invoices: 'Faktury',
-      hospitals: 'Nemocnice',
+      hospitalsAndClinics: 'Nemocnice & Ambulance',
       collaborators: 'Spolupracovníci',
       collaboratorReports: 'Reporty',
       visitEvents: 'INDEXUS Connect',
@@ -6449,7 +6449,7 @@ export const translations: Record<Locale, Translations> = {
       customers: 'Ügyfelek',
       products: 'Termékek',
       invoices: 'Számlák',
-      hospitals: 'Kórházak',
+      hospitalsAndClinics: 'Korhazak & Klinikak',
       collaborators: 'Munkatársak',
       collaboratorReports: 'Jelentések',
       visitEvents: 'INDEXUS Connect',
@@ -8055,7 +8055,7 @@ export const translations: Record<Locale, Translations> = {
       customers: 'Clienți',
       products: 'Produse',
       invoices: 'Facturi',
-      hospitals: 'Spitale',
+      hospitalsAndClinics: 'Spitale & Clinici',
       collaborators: 'Colaboratori',
       collaboratorReports: 'Rapoarte',
       visitEvents: 'INDEXUS Connect',
@@ -9661,7 +9661,7 @@ export const translations: Record<Locale, Translations> = {
       customers: 'Clienti',
       products: 'Prodotti',
       invoices: 'Fatture',
-      hospitals: 'Ospedali',
+      hospitalsAndClinics: 'Ospedali & Cliniche',
       collaborators: 'Collaboratori',
       collaboratorReports: 'Report',
       visitEvents: 'INDEXUS Connect',
@@ -11267,7 +11267,7 @@ export const translations: Record<Locale, Translations> = {
       customers: 'Kunden',
       products: 'Produkte',
       invoices: 'Rechnungen',
-      hospitals: 'Krankenhäuser',
+      hospitalsAndClinics: 'Krankenhauser & Kliniken',
       collaborators: 'Mitarbeiter',
       collaboratorReports: 'Berichte',
       visitEvents: 'INDEXUS Connect',

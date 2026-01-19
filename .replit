@@ -4,7 +4,7 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["imagemagickBig", "libreoffice", "poppler_utils", "python312Packages.pdfplumber", "python312Packages.pillow", "tesseract", "tesseract4", "gcc-unwrapped"]
+packages = ["gcc-unwrapped", "glibcLocales", "imagemagickBig", "libreoffice", "poppler_utils", "python312Packages.pdfplumber", "python312Packages.pillow", "tesseract", "tesseract4"]
 
 [[ports]]
 localPort = 5000
