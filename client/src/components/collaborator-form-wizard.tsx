@@ -335,6 +335,14 @@ function PendingAgreementsContent({
     return `${day}.${month}.${year}`;
   };
 
+  const isAgreementExpired = (day: number | null | undefined, month: number | null | undefined, year: number | null | undefined) => {
+    if (!day || !month || !year) return false;
+    const validToDate = new Date(year, month - 1, day);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return validToDate < today;
+  };
+
   const getBillingCompanyName = (id: string | null) => {
     if (!id) return t.common.noData;
     return billingCompanies.find((bc) => bc.id === id)?.companyName || t.common.noData;
@@ -396,9 +404,15 @@ function PendingAgreementsContent({
                         {agreement.contractNumber || t.common.noData}
                       </div>
                       <div>
-                        <Badge variant={agreement.isValid ? "default" : "secondary"}>
-                          {agreement.isValid ? t.common.active : t.common.inactive}
-                        </Badge>
+                        {isAgreementExpired(agreement.validToDay, agreement.validToMonth, agreement.validToYear) ? (
+                          <Badge variant="destructive">
+                            {t.collaborators.expiredAgreement}
+                          </Badge>
+                        ) : (
+                          <Badge variant={agreement.isValid ? "default" : "secondary"}>
+                            {agreement.isValid ? t.common.active : t.common.inactive}
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex gap-2 justify-end">
                         <Button size="icon" variant="ghost" onClick={() => setEditingId(agreement.id)} data-testid={`button-edit-pending-agreement-${agreement.id}`}>
@@ -1093,6 +1107,14 @@ function AgreementsTabContent({ collaboratorId, collaboratorCountry, t }: { coll
     return `${day}.${month}.${year}`;
   };
 
+  const isAgreementExpired = (day: number | null | undefined, month: number | null | undefined, year: number | null | undefined) => {
+    if (!day || !month || !year) return false;
+    const validToDate = new Date(year, month - 1, day);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return validToDate < today;
+  };
+
   const getBillingCompanyName = (id: string | null) => {
     if (!id) return t.common.noData;
     return billingCompanies.find((bc) => bc.id === id)?.companyName || t.common.noData;
@@ -1145,9 +1167,15 @@ function AgreementsTabContent({ collaboratorId, collaboratorCountry, t }: { coll
                         {agreement.contractNumber || t.common.noData}
                       </div>
                       <div>
-                        <Badge variant={agreement.isValid ? "default" : "secondary"}>
-                          {agreement.isValid ? t.common.active : t.common.inactive}
-                        </Badge>
+                        {isAgreementExpired(agreement.validToDay, agreement.validToMonth, agreement.validToYear) ? (
+                          <Badge variant="destructive">
+                            {t.collaborators.expiredAgreement}
+                          </Badge>
+                        ) : (
+                          <Badge variant={agreement.isValid ? "default" : "secondary"}>
+                            {agreement.isValid ? t.common.active : t.common.inactive}
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex gap-2 justify-end">
                         <Button size="icon" variant="ghost" onClick={() => setEditingId(agreement.id)} data-testid={`button-edit-agreement-${agreement.id}`}>
