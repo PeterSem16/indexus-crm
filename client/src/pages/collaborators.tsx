@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, User, MapPin, FileText, Award, Gift, Activity, ClipboardList, Upload, Download, Eye, X, Filter, ListChecks, FileEdit, Smartphone, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, RefreshCw } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, User, MapPin, FileText, Award, Gift, Activity, ClipboardList, Upload, Download, Eye, X, Filter, ListChecks, FileEdit, Smartphone, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, RefreshCw, Building2, Clock } from "lucide-react";
 import { CollaboratorFormWizard } from "@/components/collaborator-form-wizard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -64,6 +64,11 @@ import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 interface CollaboratorFormData {
   countryCode: string;
@@ -142,6 +147,7 @@ const defaultFormData: CollaboratorFormData = {
 interface AddressFormData {
   name: string;
   streetNumber: string;
+  city: string;
   postalCode: string;
   region: string;
   countryCode: string;
@@ -150,6 +156,7 @@ interface AddressFormData {
 const defaultAddressData: AddressFormData = {
   name: "",
   streetNumber: "",
+  city: "",
   postalCode: "",
   region: "",
   countryCode: "",
@@ -322,10 +329,12 @@ function DateFields({
 function AddressTab({
   addressType,
   collaboratorId,
+  collaboratorName,
   t,
 }: {
   addressType: string;
   collaboratorId: string;
+  collaboratorName: string;
   t: any;
 }) {
   const { toast } = useToast();
@@ -348,6 +357,7 @@ function AddressTab({
         setFormData({
           name: addr.name || "",
           streetNumber: addr.streetNumber || "",
+          city: (addr as any).city || "",
           postalCode: addr.postalCode || "",
           region: addr.region || "",
           countryCode: addr.countryCode || "",
@@ -375,11 +385,27 @@ function AddressTab({
     saveMutation.mutate(formData);
   };
 
+  const handleCopyFromPersonal = () => {
+    setFormData({ ...formData, name: collaboratorName });
+  };
+
   return (
     <div className="space-y-4">
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <Label>{t.collaborators.fields.name}</Label>
+          <div className="flex items-center justify-between">
+            <Label>{t.collaborators.fields.name}</Label>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleCopyFromPersonal}
+              data-testid={`button-copy-name-${addressType}`}
+            >
+              <ClipboardList className="h-3 w-3 mr-1" />
+              {t.collaborators.fields.copyFromPersonal}
+            </Button>
+          </div>
           <Input
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -395,7 +421,15 @@ function AddressTab({
           />
         </div>
       </div>
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label>{t.collaborators.fields.city}</Label>
+          <Input
+            value={formData.city}
+            onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+            data-testid={`input-address-${addressType}-city`}
+          />
+        </div>
         <div className="space-y-2">
           <Label>{t.collaborators.fields.postalCode}</Label>
           <Input
@@ -404,6 +438,8 @@ function AddressTab({
             data-testid={`input-address-${addressType}-postal`}
           />
         </div>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <Label>{t.collaborators.fields.addressRegion}</Label>
           <Input
@@ -438,6 +474,160 @@ function AddressTab({
         </Button>
       </div>
     </div>
+  );
+}
+
+function CollapsibleAddressSection({
+  addressType,
+  title,
+  collaboratorId,
+  collaboratorName,
+  t,
+}: {
+  addressType: string;
+  title: string;
+  collaboratorId: string;
+  collaboratorName: string;
+  t: any;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <Card>
+        <CollapsibleTrigger asChild>
+          <CardHeader className="cursor-pointer hover-elevate">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MapPin className="h-4 w-4" />
+                <CardTitle className="text-base">{title}</CardTitle>
+              </div>
+              {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </div>
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent>
+            <AddressTab
+              addressType={addressType}
+              collaboratorId={collaboratorId}
+              collaboratorName={collaboratorName}
+              t={t}
+            />
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
+  );
+}
+
+function HistoryTab({
+  collaboratorId,
+  t,
+}: {
+  collaboratorId: string;
+  t: any;
+}) {
+  const { data: activityLogs = [], isLoading } = useQuery<ActivityLog[]>({
+    queryKey: ["/api/activity-logs", "collaborator", collaboratorId],
+    queryFn: async () => {
+      const res = await fetch(`/api/activity-logs?entityType=collaborator&entityId=${collaboratorId}`, { 
+        credentials: "include" 
+      });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!collaboratorId,
+  });
+
+  const getActionIcon = (action: string) => {
+    switch (action) {
+      case "create": return <Plus className="h-4 w-4 text-green-500" />;
+      case "update": return <Pencil className="h-4 w-4 text-blue-500" />;
+      case "delete": return <Trash2 className="h-4 w-4 text-red-500" />;
+      default: return <Activity className="h-4 w-4 text-muted-foreground" />;
+    }
+  };
+
+  const getActionLabel = (action: string) => {
+    switch (action) {
+      case "create": return t.collaborators.history?.actionTypes?.created || t.collaborators.actions.created;
+      case "update": return t.collaborators.history?.actionTypes?.updated || t.collaborators.actions.updated;
+      default: return action;
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>{t.collaborators.history?.title || t.collaborators.tabs.history}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex gap-4">
+                <Skeleton className="h-8 w-8 rounded-full" />
+                <div className="space-y-2 flex-1">
+                  <Skeleton className="h-4 w-1/3" />
+                  <Skeleton className="h-3 w-1/2" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Clock className="h-5 w-5" />
+          {t.collaborators.history?.title || t.collaborators.tabs.history}
+        </CardTitle>
+        <CardDescription>
+          {t.collaborators.history?.description || t.collaborators.actionsDesc}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {activityLogs.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            {t.collaborators.history?.noHistory || t.common.noData}
+          </div>
+        ) : (
+          <div className="relative">
+            <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
+            <div className="space-y-6">
+              {activityLogs.map((log) => (
+                <div key={log.id} className="relative pl-10">
+                  <div className="absolute left-2 w-5 h-5 rounded-full bg-background border-2 border-border flex items-center justify-center">
+                    {getActionIcon(log.action)}
+                  </div>
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-medium">{getActionLabel(log.action)}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(log.createdAt).toLocaleString()}
+                      </span>
+                    </div>
+                    {log.details && (
+                      <p className="text-sm text-muted-foreground">{log.details}</p>
+                    )}
+                    {log.userId && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {t.collaborators.actions.by}: {log.userId}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -1218,9 +1408,9 @@ function CollaboratorForm({
           </TabsTrigger>
           {collaborator && (
             <>
-              <TabsTrigger value="addresses" data-testid="form-tab-addresses">
+              <TabsTrigger value="companyAndAddresses" data-testid="form-tab-company-addresses">
                 <MapPin className="h-4 w-4 mr-2" />
-                {t.collaborators.tabs.addresses}
+                {t.collaborators.tabs.companyAndAddresses}
               </TabsTrigger>
               <TabsTrigger value="otherData" data-testid="form-tab-other">
                 <ClipboardList className="h-4 w-4 mr-2" />
@@ -1241,6 +1431,10 @@ function CollaboratorForm({
               <TabsTrigger value="actions" data-testid="form-tab-actions">
                 <Activity className="h-4 w-4 mr-2" />
                 {t.collaborators.tabs.actions}
+              </TabsTrigger>
+              <TabsTrigger value="history" data-testid="form-tab-history">
+                <Activity className="h-4 w-4 mr-2" />
+                {t.collaborators.tabs.history}
               </TabsTrigger>
             </>
           )}
@@ -1635,21 +1829,19 @@ function CollaboratorForm({
 
         {collaborator && (
           <>
-            <TabsContent value="addresses">
-              <Tabs value={activeAddressTab} onValueChange={setActiveAddressTab}>
-                <TabsList className="flex flex-wrap gap-1 h-auto mb-4">
-                  {ADDRESS_TYPES.map((at) => (
-                    <TabsTrigger key={at.value} value={at.value} data-testid={`address-tab-${at.value}`}>
-                      {t.collaborators.addressTabs[at.labelKey] || at.value}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
-                {ADDRESS_TYPES.map((at) => (
-                  <TabsContent key={at.value} value={at.value}>
-                    <AddressTab addressType={at.value} collaboratorId={collaborator.id} t={t} />
-                  </TabsContent>
+            <TabsContent value="companyAndAddresses">
+              <div className="space-y-4">
+                {ADDRESS_TYPES.filter(at => at.value !== "company").map((at) => (
+                  <CollapsibleAddressSection
+                    key={at.value}
+                    addressType={at.value}
+                    title={t.collaborators.addressTabs[at.labelKey] || at.value}
+                    collaboratorId={collaborator.id}
+                    collaboratorName={`${collaborator.firstName} ${collaborator.lastName}`}
+                    t={t}
+                  />
                 ))}
-              </Tabs>
+              </div>
             </TabsContent>
 
             <TabsContent value="otherData">
@@ -1686,6 +1878,10 @@ function CollaboratorForm({
 
             <TabsContent value="actions">
               <ActionsTab collaboratorId={collaborator.id} t={t} />
+            </TabsContent>
+
+            <TabsContent value="history">
+              <HistoryTab collaboratorId={collaborator.id} t={t} />
             </TabsContent>
           </>
         )}
