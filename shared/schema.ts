@@ -1646,6 +1646,7 @@ export const collaboratorAddresses = pgTable("collaborator_addresses", {
   addressType: text("address_type").notNull(), // permanent, correspondence, work, company
   name: text("name"),
   streetNumber: text("street_number"),
+  city: text("city"),
   postalCode: text("postal_code"),
   region: text("region"),
   countryCode: text("country_code"),

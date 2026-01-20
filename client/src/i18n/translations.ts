@@ -700,11 +700,13 @@ export interface Translations {
     tabs: {
       collaborator: string;
       addresses: string;
+      companyAndAddresses: string;
       otherData: string;
       agreements: string;
       templates: string;
       rewards: string;
       actions: string;
+      history: string;
     };
     addressTabs: {
       permanent: string;
@@ -748,9 +750,11 @@ export interface Translations {
       hospitalInfo: string;
       name: string;
       streetNumber: string;
+      city: string;
       postalCode: string;
       addressRegion: string;
       addressCountry: string;
+      copyFromPersonal: string;
       ztpFrom: string;
       oldAgePension: string;
       disabilityPension: string;
@@ -824,6 +828,22 @@ export interface Translations {
       agreementDeleted: string;
       fileUploaded: string;
       by: string;
+    };
+    history: {
+      title: string;
+      description: string;
+      noHistory: string;
+      actionTypes: {
+        created: string;
+        updated: string;
+        addressUpdated: string;
+        agreementCreated: string;
+        agreementUpdated: string;
+        noteAdded: string;
+        statusChanged: string;
+        visitScheduled: string;
+        visitCompleted: string;
+      };
     };
     saving: string;
     createCollaborator: string;
@@ -2411,11 +2431,13 @@ export const translations: Record<Locale, Translations> = {
       tabs: {
         collaborator: 'Collaborator',
         addresses: 'Addresses',
+        companyAndAddresses: 'Company & Addresses',
         otherData: 'Other Data',
         agreements: 'Agreements',
         templates: 'Templates',
         rewards: 'Rewards',
         actions: 'Actions',
+        history: 'History',
       },
       addressTabs: {
         permanent: 'Permanent Residence',
@@ -2459,9 +2481,11 @@ export const translations: Record<Locale, Translations> = {
         hospitalInfo: 'Hospital Info',
         name: 'Name',
         streetNumber: 'Street and Number',
+        city: 'City',
         postalCode: 'Postal Code',
         addressRegion: 'Region',
         addressCountry: 'Country',
+        copyFromPersonal: 'Copy from Personal Info',
         ztpFrom: 'Disability (ZTP) From',
         oldAgePension: 'Old-Age Pension',
         disabilityPension: 'Disability Pension',
@@ -2535,6 +2559,22 @@ export const translations: Record<Locale, Translations> = {
         agreementDeleted: 'Agreement deleted',
         fileUploaded: 'File uploaded',
         by: 'by',
+      },
+      history: {
+        title: 'History',
+        description: 'Timeline of all actions related to this collaborator',
+        noHistory: 'No history records found',
+        actionTypes: {
+          created: 'Collaborator created',
+          updated: 'Collaborator updated',
+          addressUpdated: 'Address updated',
+          agreementCreated: 'Agreement created',
+          agreementUpdated: 'Agreement updated',
+          noteAdded: 'Note added',
+          statusChanged: 'Status changed',
+          visitScheduled: 'Visit scheduled',
+          visitCompleted: 'Visit completed',
+        },
       },
       saving: 'Saving...',
       createCollaborator: 'Create Collaborator',
@@ -4132,6 +4172,8 @@ export const translations: Record<Locale, Translations> = {
       tabs: {
         collaborator: 'Spolupracovník',
         addresses: 'Adresy',
+        companyAndAddresses: 'Firma a Adresy',
+        history: 'História',
         otherData: 'Iné údaje',
         agreements: 'Dohody',
         templates: 'Šablóny',
@@ -4180,9 +4222,11 @@ export const translations: Record<Locale, Translations> = {
         hospitalInfo: 'Info o nemocnici',
         name: 'Meno',
         streetNumber: 'Ulica a číslo',
+        city: 'Mesto',
         postalCode: 'PSČ',
         addressRegion: 'Oblasť',
         addressCountry: 'Krajina',
+        copyFromPersonal: 'Kopírovať z osobných údajov',
         ztpFrom: 'ZŤP od',
         oldAgePension: 'Starobný dôchodok',
         disabilityPension: 'Invalidný dôchodok',
@@ -4256,6 +4300,22 @@ export const translations: Record<Locale, Translations> = {
         agreementDeleted: 'Dohoda odstránená',
         fileUploaded: 'Súbor nahraný',
         by: 'od',
+      },
+      history: {
+        title: 'História',
+        description: 'Časová os všetkých akcií týkajúcich sa tohto spolupracovníka',
+        noHistory: 'Nenašli sa žiadne záznamy histórie',
+        actionTypes: {
+          created: 'Spolupracovník vytvorený',
+          updated: 'Spolupracovník aktualizovaný',
+          addressUpdated: 'Adresa aktualizovaná',
+          agreementCreated: 'Dohoda vytvorená',
+          agreementUpdated: 'Dohoda aktualizovaná',
+          noteAdded: 'Poznámka pridaná',
+          statusChanged: 'Stav zmenený',
+          visitScheduled: 'Návšteva naplánovaná',
+          visitCompleted: 'Návšteva dokončená',
+        },
       },
       saving: 'Ukladám...',
       createCollaborator: 'Vytvoriť spolupracovníka',
@@ -5853,6 +5913,8 @@ export const translations: Record<Locale, Translations> = {
       tabs: {
         collaborator: 'Spolupracovník',
         addresses: 'Adresy',
+        companyAndAddresses: 'Firma a Adresy',
+        history: 'Historie',
         otherData: 'Jiné údaje',
         agreements: 'Dohody',
         templates: 'Šablony',
@@ -5901,9 +5963,11 @@ export const translations: Record<Locale, Translations> = {
         hospitalInfo: 'Info o nemocnici',
         name: 'Jméno',
         streetNumber: 'Ulice a číslo',
+        city: 'Město',
         postalCode: 'PSČ',
         addressRegion: 'Oblast',
         addressCountry: 'Země',
+        copyFromPersonal: 'Kopírovat z osobních údajů',
         ztpFrom: 'ZTP od',
         oldAgePension: 'Starobní důchod',
         disabilityPension: 'Invalidní důchod',
@@ -5977,6 +6041,22 @@ export const translations: Record<Locale, Translations> = {
         agreementDeleted: 'Dohoda odstraněna',
         fileUploaded: 'Soubor nahrán',
         by: 'od',
+      },
+      history: {
+        title: 'Historie',
+        description: 'Časová osa všech akcí týkajících se tohoto spolupracovníka',
+        noHistory: 'Nebyly nalezeny žádné záznamy historie',
+        actionTypes: {
+          created: 'Spolupracovník vytvořen',
+          updated: 'Spolupracovník aktualizován',
+          addressUpdated: 'Adresa aktualizována',
+          agreementCreated: 'Dohoda vytvořena',
+          agreementUpdated: 'Dohoda aktualizována',
+          noteAdded: 'Poznámka přidána',
+          statusChanged: 'Stav změněn',
+          visitScheduled: 'Návštěva naplánována',
+          visitCompleted: 'Návštěva dokončena',
+        },
       },
       saving: 'Ukládám...',
       createCollaborator: 'Vytvořit spolupracovníka',
@@ -7537,6 +7617,8 @@ export const translations: Record<Locale, Translations> = {
       tabs: {
         collaborator: 'Munkatárs',
         addresses: 'Címek',
+        companyAndAddresses: 'Cég és Címek',
+        history: 'Előzmények',
         otherData: 'Egyéb adatok',
         agreements: 'Megállapodások',
         templates: 'Sablonok',
@@ -7585,9 +7667,11 @@ export const translations: Record<Locale, Translations> = {
         hospitalInfo: 'Kórház információ',
         name: 'Név',
         streetNumber: 'Utca és házszám',
+        city: 'Város',
         postalCode: 'Irányítószám',
         addressRegion: 'Régió',
         addressCountry: 'Ország',
+        copyFromPersonal: 'Másolás személyes adatokból',
         ztpFrom: 'Rokkantság kezdete',
         oldAgePension: 'Öregségi nyugdíj',
         disabilityPension: 'Rokkantsági nyugdíj',
@@ -7661,6 +7745,22 @@ export const translations: Record<Locale, Translations> = {
         agreementDeleted: 'Megállapodás törölve',
         fileUploaded: 'Fájl feltöltve',
         by: 'által',
+      },
+      history: {
+        title: 'Előzmények',
+        description: 'A munkatárshoz kapcsolódó összes művelet idővonala',
+        noHistory: 'Nem található előzményrekord',
+        actionTypes: {
+          created: 'Munkatárs létrehozva',
+          updated: 'Munkatárs frissítve',
+          addressUpdated: 'Cím frissítve',
+          agreementCreated: 'Megállapodás létrehozva',
+          agreementUpdated: 'Megállapodás frissítve',
+          noteAdded: 'Megjegyzés hozzáadva',
+          statusChanged: 'Állapot megváltozott',
+          visitScheduled: 'Látogatás ütemezve',
+          visitCompleted: 'Látogatás befejezve',
+        },
       },
       saving: 'Mentés...',
       createCollaborator: 'Munkatárs létrehozása',
@@ -9221,6 +9321,8 @@ export const translations: Record<Locale, Translations> = {
       tabs: {
         collaborator: 'Colaborator',
         addresses: 'Adrese',
+        companyAndAddresses: 'Companie și Adrese',
+        history: 'Istoric',
         otherData: 'Alte date',
         agreements: 'Acorduri',
         templates: 'Șabloane',
@@ -9269,9 +9371,11 @@ export const translations: Record<Locale, Translations> = {
         hospitalInfo: 'Info spital',
         name: 'Nume',
         streetNumber: 'Stradă și număr',
+        city: 'Oraș',
         postalCode: 'Cod poștal',
         addressRegion: 'Regiune',
         addressCountry: 'Țară',
+        copyFromPersonal: 'Copiază din informațiile personale',
         ztpFrom: 'Dizabilitate de la',
         oldAgePension: 'Pensie pentru limită de vârstă',
         disabilityPension: 'Pensie de invaliditate',
@@ -9345,6 +9449,22 @@ export const translations: Record<Locale, Translations> = {
         agreementDeleted: 'Acord șters',
         fileUploaded: 'Fișier încărcat',
         by: 'de',
+      },
+      history: {
+        title: 'Istoric',
+        description: 'Cronologia tuturor acțiunilor legate de acest colaborator',
+        noHistory: 'Nu s-au găsit înregistrări de istoric',
+        actionTypes: {
+          created: 'Colaborator creat',
+          updated: 'Colaborator actualizat',
+          addressUpdated: 'Adresă actualizată',
+          agreementCreated: 'Acord creat',
+          agreementUpdated: 'Acord actualizat',
+          noteAdded: 'Notă adăugată',
+          statusChanged: 'Status modificat',
+          visitScheduled: 'Vizită programată',
+          visitCompleted: 'Vizită finalizată',
+        },
       },
       saving: 'Se salvează...',
       createCollaborator: 'Creează colaborator',
@@ -10905,6 +11025,8 @@ export const translations: Record<Locale, Translations> = {
       tabs: {
         collaborator: 'Collaboratore',
         addresses: 'Indirizzi',
+        companyAndAddresses: 'Azienda e Indirizzi',
+        history: 'Cronologia',
         otherData: 'Altri dati',
         agreements: 'Accordi',
         templates: 'Modelli',
@@ -10953,9 +11075,11 @@ export const translations: Record<Locale, Translations> = {
         hospitalInfo: 'Info ospedale',
         name: 'Nome',
         streetNumber: 'Via e numero',
+        city: 'Città',
         postalCode: 'CAP',
         addressRegion: 'Regione',
         addressCountry: 'Paese',
+        copyFromPersonal: 'Copia da informazioni personali',
         ztpFrom: 'Disabilità da',
         oldAgePension: 'Pensione di vecchiaia',
         disabilityPension: 'Pensione di invalidità',
@@ -11029,6 +11153,22 @@ export const translations: Record<Locale, Translations> = {
         agreementDeleted: 'Accordo eliminato',
         fileUploaded: 'File caricato',
         by: 'da',
+      },
+      history: {
+        title: 'Cronologia',
+        description: 'Cronologia di tutte le azioni relative a questo collaboratore',
+        noHistory: 'Nessun record di cronologia trovato',
+        actionTypes: {
+          created: 'Collaboratore creato',
+          updated: 'Collaboratore aggiornato',
+          addressUpdated: 'Indirizzo aggiornato',
+          agreementCreated: 'Accordo creato',
+          agreementUpdated: 'Accordo aggiornato',
+          noteAdded: 'Nota aggiunta',
+          statusChanged: 'Stato cambiato',
+          visitScheduled: 'Visita programmata',
+          visitCompleted: 'Visita completata',
+        },
       },
       saving: 'Salvataggio...',
       createCollaborator: 'Crea collaboratore',
@@ -12589,6 +12729,8 @@ export const translations: Record<Locale, Translations> = {
       tabs: {
         collaborator: 'Mitarbeiter',
         addresses: 'Adressen',
+        companyAndAddresses: 'Firma und Adressen',
+        history: 'Verlauf',
         otherData: 'Andere Daten',
         agreements: 'Vereinbarungen',
         templates: 'Vorlagen',
@@ -12637,9 +12779,11 @@ export const translations: Record<Locale, Translations> = {
         hospitalInfo: 'Krankenhaus-Info',
         name: 'Name',
         streetNumber: 'Straße und Nummer',
+        city: 'Stadt',
         postalCode: 'Postleitzahl',
         addressRegion: 'Region',
         addressCountry: 'Land',
+        copyFromPersonal: 'Aus persönlichen Daten kopieren',
         ztpFrom: 'Behinderung seit',
         oldAgePension: 'Altersrente',
         disabilityPension: 'Invalidenrente',
@@ -12713,6 +12857,22 @@ export const translations: Record<Locale, Translations> = {
         agreementDeleted: 'Vereinbarung gelöscht',
         fileUploaded: 'Datei hochgeladen',
         by: 'von',
+      },
+      history: {
+        title: 'Verlauf',
+        description: 'Zeitleiste aller Aktionen zu diesem Mitarbeiter',
+        noHistory: 'Keine Verlaufsdaten gefunden',
+        actionTypes: {
+          created: 'Mitarbeiter erstellt',
+          updated: 'Mitarbeiter aktualisiert',
+          addressUpdated: 'Adresse aktualisiert',
+          agreementCreated: 'Vereinbarung erstellt',
+          agreementUpdated: 'Vereinbarung aktualisiert',
+          noteAdded: 'Notiz hinzugefügt',
+          statusChanged: 'Status geändert',
+          visitScheduled: 'Besuch geplant',
+          visitCompleted: 'Besuch abgeschlossen',
+        },
       },
       saving: 'Speichern...',
       createCollaborator: 'Mitarbeiter erstellen',
