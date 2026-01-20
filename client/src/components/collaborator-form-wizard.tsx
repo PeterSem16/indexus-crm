@@ -1755,32 +1755,71 @@ function HistoryTabContent({ collaboratorId, t }: { collaboratorId: string; t: a
     }
   };
 
+  const formatFieldValue = (value: any): string => {
+    if (value === null || value === undefined) return "-";
+    if (typeof value === "boolean") return value ? "Yes" : "No";
+    if (Array.isArray(value)) return value.join(", ") || "-";
+    if (typeof value === "object") return JSON.stringify(value);
+    return String(value);
+  };
+
   const formatDetails = (details: string | null, action: string) => {
     if (!details) return null;
     
     try {
       const parsed = JSON.parse(details);
+      const items: string[] = [];
       
+      // Handle update with changes object
       if (action === "update" && parsed.changes) {
         const changes = parsed.changes;
-        const items: string[] = [];
         
         for (const [field, change] of Object.entries(changes)) {
           const ch = change as { from?: any; to?: any };
           const fieldLabel = t.collaborators?.fields?.[field as keyof typeof t.collaborators.fields] || field;
+          const fromValue = formatFieldValue(ch.from);
+          const toValue = formatFieldValue(ch.to);
+          
           if (ch.from !== undefined && ch.to !== undefined) {
-            items.push(`${fieldLabel}: ${ch.from} -> ${ch.to}`);
+            items.push(`${fieldLabel}: "${fromValue}" -> "${toValue}"`);
           } else if (ch.to !== undefined) {
-            items.push(`${fieldLabel}: ${ch.to}`);
+            items.push(`${fieldLabel}: "${toValue}"`);
           }
         }
         return items.length > 0 ? items : null;
       }
       
+      // Handle mobile credentials update
+      if (action.includes("mobile") || parsed.mobileAppEnabled !== undefined) {
+        if (parsed.mobileAppEnabled !== undefined) {
+          items.push(`Mobile App: ${parsed.mobileAppEnabled ? "Enabled" : "Disabled"}`);
+        }
+        if (parsed.mobileUsername) {
+          items.push(`Username: ${parsed.mobileUsername}`);
+        }
+        if (parsed.passwordChanged) {
+          items.push(`Password: Changed`);
+        }
+        return items.length > 0 ? items : null;
+      }
+      
+      // Handle create with agreementType
       if (action === "create" && parsed.agreementType) {
         return [`${t.collaborators?.tabs?.agreements || "Agreement"}: ${parsed.agreementType}`];
       }
       
+      // Handle any other parsed object with fields
+      if (typeof parsed === "object" && !parsed.message) {
+        for (const [key, value] of Object.entries(parsed)) {
+          if (key !== "changes" && value !== undefined && value !== null) {
+            const fieldLabel = t.collaborators?.fields?.[key as keyof typeof t.collaborators.fields] || key;
+            items.push(`${fieldLabel}: ${formatFieldValue(value)}`);
+          }
+        }
+        if (items.length > 0) return items;
+      }
+      
+      // Handle message
       if (parsed.message) {
         return [parsed.message];
       }
@@ -2973,6 +3012,16 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
             <Button variant="outline" onClick={handlePrevious} data-testid="wizard-button-previous">
               <ChevronLeft className="h-4 w-4 mr-1" />
               {t.wizard.previous}
+            </Button>
+          )}
+          {isEditMode && !isLastStep && (
+            <Button 
+              variant="secondary" 
+              onClick={() => saveMutation.mutate(formData)} 
+              disabled={saveMutation.isPending}
+              data-testid="wizard-button-save"
+            >
+              {saveMutation.isPending ? t.common.loading : t.common.save}
             </Button>
           )}
           <Button onClick={handleNext} disabled={saveMutation.isPending} data-testid="wizard-button-next">
