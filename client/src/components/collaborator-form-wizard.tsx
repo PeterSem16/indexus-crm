@@ -88,6 +88,10 @@ interface CollaboratorFormData {
   companyIban: string;
   companySwift: string;
   monthRewards: boolean;
+  rewardType: string; // 'fixed' | 'percentage' | ''
+  fixedRewardAmount: string;
+  fixedRewardCurrency: string;
+  percentageRewards: Record<string, string>; // countryCode -> percentage
   note: string;
   hospitalId: string;
   hospitalIds: string[];
@@ -135,8 +139,8 @@ interface PendingAgreement {
 const WIZARD_STEPS = [
   { id: "personal", icon: User },
   { id: "contact", icon: Phone },
-  { id: "banking", icon: CreditCard },
   { id: "companyAddress", icon: Building2 },
+  { id: "banking", icon: CreditCard },
   { id: "agreements", icon: FileText },
   { id: "history", icon: History },
   { id: "mobile", icon: Smartphone },
@@ -1915,6 +1919,10 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
           companyIban: initialData.companyIban || "",
           companySwift: initialData.companySwift || "",
           monthRewards: initialData.monthRewards,
+          rewardType: (initialData as any).rewardType || "",
+          fixedRewardAmount: (initialData as any).fixedRewardAmount || "",
+          fixedRewardCurrency: (initialData as any).fixedRewardCurrency || "EUR",
+          percentageRewards: (initialData as any).percentageRewards || {},
           note: initialData.note || "",
           hospitalId: initialData.hospitalId || "",
           hospitalIds: initialData.hospitalIds || [],
@@ -1954,6 +1962,10 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
           companyIban: "",
           companySwift: "",
           monthRewards: false,
+          rewardType: "",
+          fixedRewardAmount: "",
+          fixedRewardCurrency: "EUR",
+          percentageRewards: {},
           note: "",
           hospitalId: "",
           hospitalIds: [],
@@ -2400,6 +2412,18 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
                 </Select>
               </div>
             </div>
+
+            {!isHidden("is_active") && (
+              <div className="flex items-center space-x-2 pt-2">
+                <Switch
+                  checked={formData.isActive}
+                  onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
+                  data-testid="wizard-switch-collaborator-active"
+                  disabled={isReadonly("is_active")}
+                />
+                <Label>{t.collaborators.fields.active}</Label>
+              </div>
+            )}
           </div>
         );
 
@@ -2521,17 +2545,6 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
             <Separator className="my-4" />
 
             <div className="flex flex-wrap items-center gap-6">
-              {!isHidden("is_active") && (
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    checked={formData.isActive}
-                    onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
-                    data-testid="wizard-switch-collaborator-active"
-                    disabled={isReadonly("is_active")}
-                  />
-                  <Label>{t.collaborators.fields.active}</Label>
-                </div>
-              )}
               <div className="flex items-center space-x-2">
                 <Switch
                   checked={formData.clientContact}
@@ -2551,12 +2564,113 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
               <div className="flex items-center space-x-2">
                 <Switch
                   checked={formData.monthRewards}
-                  onCheckedChange={(checked) => setFormData({ ...formData, monthRewards: checked })}
+                  onCheckedChange={(checked) => {
+                    setFormData({ 
+                      ...formData, 
+                      monthRewards: checked,
+                      rewardType: checked ? formData.rewardType || "fixed" : ""
+                    });
+                  }}
                   data-testid="wizard-switch-collaborator-month-rewards"
                 />
                 <Label>{t.collaborators.fields.monthRewards}</Label>
               </div>
             </div>
+
+            {formData.monthRewards && (
+              <div className="mt-4 p-4 border rounded-lg space-y-4">
+                <Label className="text-base font-medium">{t.collaborators?.fields?.rewardSettings || "Reward Settings"}</Label>
+                
+                <div className="flex gap-4">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      id="reward-fixed"
+                      name="rewardType"
+                      value="fixed"
+                      checked={formData.rewardType === "fixed"}
+                      onChange={() => setFormData({ ...formData, rewardType: "fixed" })}
+                      className="h-4 w-4"
+                    />
+                    <Label htmlFor="reward-fixed">{t.collaborators?.fields?.fixedAmount || "Fixed Amount"}</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      id="reward-percentage"
+                      name="rewardType"
+                      value="percentage"
+                      checked={formData.rewardType === "percentage"}
+                      onChange={() => setFormData({ ...formData, rewardType: "percentage" })}
+                      className="h-4 w-4"
+                    />
+                    <Label htmlFor="reward-percentage">{t.collaborators?.fields?.percentageRate || "Percentage Rate"}</Label>
+                  </div>
+                </div>
+
+                {formData.rewardType === "fixed" && (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>{t.collaborators?.fields?.fixedAmount || "Amount"}</Label>
+                      <Input
+                        type="number"
+                        value={formData.fixedRewardAmount}
+                        onChange={(e) => setFormData({ ...formData, fixedRewardAmount: e.target.value })}
+                        placeholder="0.00"
+                        data-testid="wizard-input-fixed-reward-amount"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{t.collaborators?.fields?.currency || "Currency"}</Label>
+                      <Select
+                        value={formData.fixedRewardCurrency}
+                        onValueChange={(value) => setFormData({ ...formData, fixedRewardCurrency: value })}
+                      >
+                        <SelectTrigger data-testid="wizard-select-reward-currency">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="EUR">EUR</SelectItem>
+                          <SelectItem value="CZK">CZK</SelectItem>
+                          <SelectItem value="HUF">HUF</SelectItem>
+                          <SelectItem value="RON">RON</SelectItem>
+                          <SelectItem value="USD">USD</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+
+                {formData.rewardType === "percentage" && (
+                  <div className="space-y-3">
+                    <Label>{t.collaborators?.fields?.percentageByCountry || "Percentage by Country"}</Label>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {(formData.countryCodes.length > 0 ? formData.countryCodes : [formData.countryCode]).filter(Boolean).map((cc) => {
+                        const country = COUNTRIES.find(c => c.code === cc);
+                        return (
+                          <div key={cc} className="flex items-center gap-2">
+                            <span className="text-lg">{getCountryFlag(cc)}</span>
+                            <span className="text-sm min-w-[80px]">{country?.name || cc}</span>
+                            <Input
+                              type="number"
+                              value={formData.percentageRewards[cc] || ""}
+                              onChange={(e) => setFormData({ 
+                                ...formData, 
+                                percentageRewards: { ...formData.percentageRewards, [cc]: e.target.value }
+                              })}
+                              placeholder="0"
+                              className="w-20"
+                              data-testid={`wizard-input-percentage-${cc}`}
+                            />
+                            <span className="text-sm text-muted-foreground">%</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         );
 
@@ -2796,7 +2910,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
           {wizardSteps.map((step, index) => {
             const isCompleted = completedSteps.has(index);
             const isCurrent = index === currentStep;
-            const isClickable = index < currentStep || isCompleted || completedSteps.has(index - 1);
+            const isClickable = isEditMode || index < currentStep || isCompleted || completedSteps.has(index - 1);
             const Icon = step.icon;
             
             return (

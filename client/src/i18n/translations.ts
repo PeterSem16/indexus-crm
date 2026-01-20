@@ -748,6 +748,11 @@ export interface Translations {
       companyIban: string;
       companySwift: string;
       monthRewards: string;
+      rewardSettings: string;
+      fixedAmount: string;
+      percentageRate: string;
+      currency: string;
+      percentageByCountry: string;
       note: string;
       hospital: string;
       hospitalsAndClinics: string;
@@ -2503,6 +2508,11 @@ export const translations: Record<Locale, Translations> = {
         companyIban: 'Company IBAN',
         companySwift: 'Company SWIFT',
         monthRewards: 'Month Rewards',
+        rewardSettings: 'Reward Settings',
+        fixedAmount: 'Fixed Amount',
+        percentageRate: 'Percentage Rate',
+        currency: 'Currency',
+        percentageByCountry: 'Percentage by Country',
         note: 'Note',
         hospital: 'Hospital',
         hospitalsAndClinics: 'Hospitals & Clinics',
@@ -4268,6 +4278,11 @@ export const translations: Record<Locale, Translations> = {
         companyIban: 'IBAN spoločnosti',
         companySwift: 'SWIFT spoločnosti',
         monthRewards: 'Mesačné odmeny',
+        rewardSettings: 'Nastavenie odmien',
+        fixedAmount: 'Fixná čiastka',
+        percentageRate: 'Percentuálna sadzba',
+        currency: 'Mena',
+        percentageByCountry: 'Percento podľa krajiny',
         note: 'Poznámka',
         hospital: 'Nemocnica',
         hospitalsAndClinics: 'Nemocnice a ambulancie',
@@ -6033,6 +6048,11 @@ export const translations: Record<Locale, Translations> = {
         companyIban: 'IBAN společnosti',
         companySwift: 'SWIFT společnosti',
         monthRewards: 'Měsíční odměny',
+        rewardSettings: 'Nastavení odměn',
+        fixedAmount: 'Fixní částka',
+        percentageRate: 'Procentuální sazba',
+        currency: 'Měna',
+        percentageByCountry: 'Procento podle země',
         note: 'Poznámka',
         hospital: 'Nemocnice',
         hospitalsAndClinics: 'Nemocnice a ambulance',
@@ -7761,6 +7781,11 @@ export const translations: Record<Locale, Translations> = {
         companyIban: 'Céges IBAN',
         companySwift: 'Céges SWIFT',
         monthRewards: 'Havi jutalmak',
+        rewardSettings: 'Jutalom beállítások',
+        fixedAmount: 'Fix összeg',
+        percentageRate: 'Százalékos díj',
+        currency: 'Pénznem',
+        percentageByCountry: 'Százalék országonként',
         note: 'Megjegyzés',
         hospital: 'Kórház',
         hospitalsAndClinics: 'Kórházak és klinikák',
@@ -9488,6 +9513,11 @@ export const translations: Record<Locale, Translations> = {
         companyIban: 'IBAN companie',
         companySwift: 'SWIFT companie',
         monthRewards: 'Recompense lunare',
+        rewardSettings: 'Setări recompense',
+        fixedAmount: 'Sumă fixă',
+        percentageRate: 'Rată procentuală',
+        currency: 'Monedă',
+        percentageByCountry: 'Procent pe țară',
         note: 'Notă',
         hospital: 'Spital',
         hospitalsAndClinics: 'Spitale și clinici',
@@ -11216,6 +11246,11 @@ export const translations: Record<Locale, Translations> = {
         companyIban: 'IBAN aziendale',
         companySwift: 'SWIFT aziendale',
         monthRewards: 'Ricompense mensili',
+        rewardSettings: 'Impostazioni ricompense',
+        fixedAmount: 'Importo fisso',
+        percentageRate: 'Tasso percentuale',
+        currency: 'Valuta',
+        percentageByCountry: 'Percentuale per paese',
         note: 'Nota',
         hospital: 'Ospedale',
         hospitalsAndClinics: 'Ospedali e cliniche',
@@ -12944,6 +12979,11 @@ export const translations: Record<Locale, Translations> = {
         companyIban: 'Firmen-IBAN',
         companySwift: 'Firmen-SWIFT',
         monthRewards: 'Monatliche Belohnungen',
+        rewardSettings: 'Vergütungseinstellungen',
+        fixedAmount: 'Fester Betrag',
+        percentageRate: 'Prozentsatz',
+        currency: 'Währung',
+        percentageByCountry: 'Prozentsatz nach Land',
         note: 'Notiz',
         hospital: 'Krankenhaus',
         hospitalsAndClinics: 'Krankenhäuser & Kliniken',
