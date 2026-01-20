@@ -1007,7 +1007,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
     switch (currentStep) {
       case 0:
         return !!formData.firstName && !!formData.lastName && !!formData.countryCode;
-      case 4:
+      case 6: // Mobile step (INDEXUS Connect)
         if (mobileCredentials.mobileAppEnabled) {
           if (!mobileCredentials.mobileUsername) {
             toast({ title: t.collaborators.mobileApp.usernameRequired, variant: "destructive" });
