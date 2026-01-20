@@ -1629,6 +1629,10 @@ export const collaborators = pgTable("collaborators", {
   
   // Other
   monthRewards: boolean("month_rewards").notNull().default(false),
+  rewardType: text("reward_type"), // 'fixed' | 'percentage' | null
+  fixedRewardAmount: text("fixed_reward_amount"),
+  fixedRewardCurrency: text("fixed_reward_currency").default("EUR"),
+  percentageRewards: jsonb("percentage_rewards").$type<Record<string, string>>().default({}),
   note: text("note"),
   hospitalId: varchar("hospital_id"),
   hospitalIds: text("hospital_ids").array().notNull().default(sql`ARRAY[]::text[]`),
