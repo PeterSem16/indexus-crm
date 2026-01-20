@@ -5327,8 +5327,17 @@ export async function registerRoutes(
   app.get("/api/activity-logs", requireAuth, async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 100;
-      const logs = await storage.getAllActivityLogs(limit);
-      res.json(logs);
+      const entityType = req.query.entityType as string | undefined;
+      const entityId = req.query.entityId as string | undefined;
+      
+      // If filtering by entity, use getActivityLogsByEntity
+      if (entityType && entityId) {
+        const logs = await storage.getActivityLogsByEntity(entityType, entityId);
+        res.json(logs);
+      } else {
+        const logs = await storage.getAllActivityLogs(limit);
+        res.json(logs);
+      }
     } catch (error) {
       console.error("Error fetching activity logs:", error);
       res.status(500).json({ error: "Failed to fetch activity logs" });

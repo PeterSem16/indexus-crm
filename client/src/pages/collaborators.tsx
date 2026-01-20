@@ -203,6 +203,8 @@ function DateFields({
   onSetAll,
   testIdPrefix,
   t,
+  showEndOfYear = false,
+  endOfYearSourceYear,
 }: {
   label: string;
   dayValue: number | null;
@@ -214,6 +216,8 @@ function DateFields({
   onSetAll?: (day: number, month: number, year: number) => void;
   testIdPrefix: string;
   t: any;
+  showEndOfYear?: boolean;
+  endOfYearSourceYear?: number | null;
 }) {
   const getDaysInMonth = (year?: number | null, month?: number | null) => {
     if (!year || !month) return 31;
@@ -239,20 +243,44 @@ function DateFields({
       onYearChange(year);
     }
   };
+  
+  const setEndOfYear = (sourceYear?: number | null) => {
+    const year = sourceYear || new Date().getFullYear();
+    if (onSetAll) {
+      onSetAll(31, 12, year);
+    } else {
+      onDayChange(31);
+      onMonthChange(12);
+      onYearChange(year);
+    }
+  };
 
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
         <Label>{label}</Label>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={setToday}
-          data-testid={`button-${testIdPrefix}-today`}
-        >
-          {t.common.today}
-        </Button>
+        <div className="flex gap-1">
+          {showEndOfYear && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setEndOfYear(endOfYearSourceYear)}
+              data-testid={`button-${testIdPrefix}-endofyear`}
+            >
+              {t.common.endOfYear || "31.12."}
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={setToday}
+            data-testid={`button-${testIdPrefix}-today`}
+          >
+            {t.common.today}
+          </Button>
+        </div>
       </div>
       <div className="flex gap-2">
         <Select
@@ -977,6 +1005,8 @@ function AgreementsTab({
             onSetAll={(d, m, y) => setFormData({ ...formData, validToDay: d, validToMonth: m, validToYear: y })}
             testIdPrefix="validTo"
             t={t}
+            showEndOfYear={true}
+            endOfYearSourceYear={formData.validFromYear}
           />
         </div>
         <div className="grid gap-4 md:grid-cols-2">

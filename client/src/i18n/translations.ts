@@ -115,6 +115,7 @@ export interface Translations {
     started: string;
     notRealized: string;
     today: string;
+    endOfYear: string;
     last7days: string;
     last30days: string;
     allTime: string;
@@ -1749,6 +1750,7 @@ export const translations: Record<Locale, Translations> = {
       started: 'Started',
       notRealized: 'Not Realized',
       today: 'Today',
+      endOfYear: 'End of Year',
       last7days: 'Last 7 days',
       last30days: 'Last 30 days',
       allTime: 'All time',
@@ -3495,6 +3497,7 @@ export const translations: Record<Locale, Translations> = {
       started: 'Začaté',
       notRealized: 'Nerealizované',
       today: 'Dnes',
+      endOfYear: 'Koniec roka',
       last7days: 'Posledných 7 dní',
       last30days: 'Posledných 30 dní',
       allTime: 'Celé obdobie',
@@ -5236,6 +5239,7 @@ export const translations: Record<Locale, Translations> = {
       started: 'Zahájeno',
       notRealized: 'Nerealizováno',
       today: 'Dnes',
+      endOfYear: 'Konec roku',
       last7days: 'Posledních 7 dní',
       last30days: 'Posledních 30 dní',
       allTime: 'Celé období',
@@ -6940,6 +6944,7 @@ export const translations: Record<Locale, Translations> = {
       started: 'Elkezdődött',
       notRealized: 'Nem valósult meg',
       today: 'Ma',
+      endOfYear: 'Év vége',
       last7days: 'Utolsó 7 nap',
       last30days: 'Utolsó 30 nap',
       allTime: 'Teljes időszak',
@@ -8644,6 +8649,7 @@ export const translations: Record<Locale, Translations> = {
       started: 'Început',
       notRealized: 'Nerealizat',
       today: 'Astăzi',
+      endOfYear: 'Sfârșitul anului',
       last7days: 'Ultimele 7 zile',
       last30days: 'Ultimele 30 zile',
       allTime: 'Tot timpul',
@@ -10348,6 +10354,7 @@ export const translations: Record<Locale, Translations> = {
       started: 'Iniziato',
       notRealized: 'Non realizzato',
       today: 'Oggi',
+      endOfYear: 'Fine anno',
       last7days: 'Ultimi 7 giorni',
       last30days: 'Ultimi 30 giorni',
       allTime: 'Tutto il tempo',
@@ -12052,6 +12059,7 @@ export const translations: Record<Locale, Translations> = {
       started: 'Gestartet',
       notRealized: 'Nicht realisiert',
       today: 'Heute',
+      endOfYear: 'Jahresende',
       last7days: 'Letzte 7 Tage',
       last30days: 'Letzte 30 Tage',
       allTime: 'Gesamtzeitraum',
