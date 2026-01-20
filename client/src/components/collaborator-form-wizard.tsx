@@ -89,18 +89,14 @@ interface CollaboratorFormWizardProps {
   onCancel?: () => void;
 }
 
-const BASE_WIZARD_STEPS = [
+const WIZARD_STEPS = [
   { id: "personal", icon: User },
   { id: "contact", icon: Phone },
   { id: "banking", icon: CreditCard },
-  { id: "company", icon: Building2 },
-  { id: "mobile", icon: Smartphone },
-];
-
-const EDIT_ONLY_STEPS = [
-  { id: "addresses", icon: MapPin },
+  { id: "companyAddress", icon: Building2 },
   { id: "agreements", icon: FileText },
   { id: "history", icon: History },
+  { id: "mobile", icon: Smartphone },
 ];
 
 function DateFields({
@@ -843,10 +839,6 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
   const { toast } = useToast();
   const { isHidden, isReadonly } = useModuleFieldPermissions("collaborators");
   
-  // Dynamic steps - add additional tabs for existing collaborators
-  const WIZARD_STEPS = initialData 
-    ? [...BASE_WIZARD_STEPS, ...EDIT_ONLY_STEPS]
-    : BASE_WIZARD_STEPS;
   
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
@@ -1037,8 +1029,8 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
   };
 
   // The save step is always the mobile step (index 4), additional tabs don't trigger save
-  const SAVE_STEP_INDEX = 4;
-  // Check if current step is a save step (mobile step = step 4 for new, last base step for edit)
+  const SAVE_STEP_INDEX = 6; // Mobile step (last step)
+  // Check if current step is a save step (mobile step = step 6, which is the last step)
   const isSaveStep = currentStep === SAVE_STEP_INDEX;
   
   const handleNext = () => {
@@ -1053,20 +1045,12 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
     
     setCompletedSteps(prev => new Set(Array.from(prev).concat(currentStep)));
     
-    // Save on mobile step (step 4), then continue to additional tabs for editing
+    // Save on mobile step (step 6), which is the last step
     if (isSaveStep) {
       console.log("[Wizard] Calling saveMutation.mutate with formData:", formData);
       saveMutation.mutate(formData);
-      // For new collaborators, onSuccess will be called in mutation success to close dialog
-      // For editing, move to next step (addresses) after save since we have an ID
-      if (initialData && currentStep < WIZARD_STEPS.length - 1) {
-        setCurrentStep(prev => prev + 1);
-      }
-      // Note: For new collaborators, mutation onSuccess calls onSuccess() to close dialog
+      // Mutation onSuccess will call onSuccess() to close dialog
       return;
-    } else if (isLastStep) {
-      // On the very last step (history), just close
-      onSuccess();
     } else {
       console.log("[Wizard] Moving to next step:", currentStep + 1);
       setCurrentStep(prev => prev + 1);
@@ -1110,11 +1094,10 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
       personal: steps.personalInfo,
       contact: steps.contactDetails,
       banking: steps.banking,
-      company: steps.company,
-      mobile: steps.mobile,
-      addresses: t.collaborators.tabs.companyAndAddresses,
+      companyAddress: t.collaborators.tabs.companyAndAddresses,
       agreements: t.collaborators.tabs.agreements,
       history: t.collaborators.tabs.history,
+      mobile: steps.mobile,
     };
     return stepTitles[stepId] || stepId;
   };
@@ -1125,11 +1108,10 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
       personal: steps.personalInfoDesc,
       contact: steps.contactDetailsDesc,
       banking: steps.bankingDesc,
-      company: steps.companyDesc,
-      mobile: steps.mobileDesc,
-      addresses: t.collaborators.companyAddressesDescription,
+      companyAddress: t.collaborators.companyAddressesDescription,
       agreements: t.collaborators.agreementsDescription,
       history: t.collaborators.historyDescription,
+      mobile: steps.mobileDesc,
     };
     return stepDescs[stepId] || "";
   };
@@ -1477,100 +1459,138 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
           </div>
         );
 
-      case 3:
+      case 3: // Company & Address (merged)
         return (
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">{"Company information is optional"}</p>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {!isHidden("company_name") && (
-                <div className="space-y-2">
-                  <Label>{t.collaborators.fields.companyName}</Label>
-                  <Input
-                    value={formData.companyName}
-                    onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                    data-testid="wizard-input-collaborator-company-name"
-                    disabled={isReadonly("company_name")}
-                    className={isReadonly("company_name") ? "bg-muted" : ""}
-                  />
-                </div>
-              )}
-              {!isHidden("company_ico") && (
-                <div className="space-y-2">
-                  <Label>{t.collaborators.fields.ico}</Label>
-                  <Input
-                    value={formData.ico}
-                    onChange={(e) => setFormData({ ...formData, ico: e.target.value })}
-                    data-testid="wizard-input-collaborator-ico"
-                    disabled={isReadonly("company_ico")}
-                    className={isReadonly("company_ico") ? "bg-muted" : ""}
-                  />
-                </div>
-              )}
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                {!isHidden("company_name") && (
+                  <div className="space-y-2">
+                    <Label>{t.collaborators.fields.companyName}</Label>
+                    <Input
+                      value={formData.companyName}
+                      onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+                      data-testid="wizard-input-collaborator-company-name"
+                      disabled={isReadonly("company_name")}
+                      className={isReadonly("company_name") ? "bg-muted" : ""}
+                    />
+                  </div>
+                )}
+                {!isHidden("company_ico") && (
+                  <div className="space-y-2">
+                    <Label>{t.collaborators.fields.ico}</Label>
+                    <Input
+                      value={formData.ico}
+                      onChange={(e) => setFormData({ ...formData, ico: e.target.value })}
+                      data-testid="wizard-input-collaborator-ico"
+                      disabled={isReadonly("company_ico")}
+                      className={isReadonly("company_ico") ? "bg-muted" : ""}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                {!isHidden("company_dic") && (
+                  <div className="space-y-2">
+                    <Label>{t.collaborators.fields.dic}</Label>
+                    <Input
+                      value={formData.dic}
+                      onChange={(e) => setFormData({ ...formData, dic: e.target.value })}
+                      data-testid="wizard-input-collaborator-dic"
+                      disabled={isReadonly("company_dic")}
+                      className={isReadonly("company_dic") ? "bg-muted" : ""}
+                    />
+                  </div>
+                )}
+                {!isHidden("company_ic_dph") && (
+                  <div className="space-y-2">
+                    <Label>{t.collaborators.fields.icDph}</Label>
+                    <Input
+                      value={formData.icDph}
+                      onChange={(e) => setFormData({ ...formData, icDph: e.target.value })}
+                      data-testid="wizard-input-collaborator-icdph"
+                      disabled={isReadonly("company_ic_dph")}
+                      className={isReadonly("company_ic_dph") ? "bg-muted" : ""}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                {!isHidden("bank_account") && (
+                  <div className="space-y-2">
+                    <Label>{t.collaborators.fields.companyIban}</Label>
+                    <Input
+                      value={formData.companyIban}
+                      onChange={(e) => setFormData({ ...formData, companyIban: e.target.value })}
+                      data-testid="wizard-input-collaborator-company-iban"
+                      disabled={isReadonly("bank_account")}
+                      className={isReadonly("bank_account") ? "bg-muted" : ""}
+                    />
+                  </div>
+                )}
+                {!isHidden("bank_account") && (
+                  <div className="space-y-2">
+                    <Label>{t.collaborators.fields.companySwift}</Label>
+                    <Input
+                      value={formData.companySwift}
+                      onChange={(e) => setFormData({ ...formData, companySwift: e.target.value })}
+                      data-testid="wizard-input-collaborator-company-swift"
+                      disabled={isReadonly("bank_account")}
+                      className={isReadonly("bank_account") ? "bg-muted" : ""}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              {!isHidden("company_dic") && (
-                <div className="space-y-2">
-                  <Label>{t.collaborators.fields.dic}</Label>
-                  <Input
-                    value={formData.dic}
-                    onChange={(e) => setFormData({ ...formData, dic: e.target.value })}
-                    data-testid="wizard-input-collaborator-dic"
-                    disabled={isReadonly("company_dic")}
-                    className={isReadonly("company_dic") ? "bg-muted" : ""}
-                  />
-                </div>
-              )}
-              {!isHidden("company_ic_dph") && (
-                <div className="space-y-2">
-                  <Label>{t.collaborators.fields.icDph}</Label>
-                  <Input
-                    value={formData.icDph}
-                    onChange={(e) => setFormData({ ...formData, icDph: e.target.value })}
-                    data-testid="wizard-input-collaborator-icdph"
-                    disabled={isReadonly("company_ic_dph")}
-                    className={isReadonly("company_ic_dph") ? "bg-muted" : ""}
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              {!isHidden("bank_account") && (
-                <div className="space-y-2">
-                  <Label>{t.collaborators.fields.companyIban}</Label>
-                  <Input
-                    value={formData.companyIban}
-                    onChange={(e) => setFormData({ ...formData, companyIban: e.target.value })}
-                    data-testid="wizard-input-collaborator-company-iban"
-                    disabled={isReadonly("bank_account")}
-                    className={isReadonly("bank_account") ? "bg-muted" : ""}
-                  />
-                </div>
-              )}
-              {!isHidden("bank_account") && (
-                <div className="space-y-2">
-                  <Label>{t.collaborators.fields.companySwift}</Label>
-                  <Input
-                    value={formData.companySwift}
-                    onChange={(e) => setFormData({ ...formData, companySwift: e.target.value })}
-                    data-testid="wizard-input-collaborator-company-swift"
-                    disabled={isReadonly("bank_account")}
-                    className={isReadonly("bank_account") ? "bg-muted" : ""}
-                  />
+            <Separator className="my-4" />
+            
+            <div>
+              <h4 className="text-sm font-medium mb-4 flex items-center gap-2">
+                <MapPin className="h-4 w-4" />
+                {t.collaborators.tabs.addresses}
+              </h4>
+              {initialData ? (
+                <AddressesTabContent collaboratorId={initialData.id} countryCode={initialData.countryCode} t={t} />
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 text-center border rounded-lg bg-muted/30">
+                  <MapPin className="h-8 w-8 text-muted-foreground mb-2" />
+                  <p className="text-sm text-muted-foreground">{t.wizard.completePreviousSteps}</p>
                 </div>
               )}
             </div>
           </div>
         );
 
-      case 4:
+      case 4: // Agreements
+        return initialData ? (
+          <AgreementsTabContent collaboratorId={initialData.id} collaboratorCountry={initialData.countryCode} t={t} />
+        ) : (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-muted-foreground">{t.wizard.completePreviousSteps}</p>
+          </div>
+        );
+      
+      case 5: // History
+        return initialData ? (
+          <HistoryTabContent collaboratorId={initialData.id} t={t} />
+        ) : (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <History className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-muted-foreground">{t.wizard.completePreviousSteps}</p>
+          </div>
+        );
+      
+      case 6: // Mobile (INDEXUS Connect) - last step
         return (
           <div className="space-y-6">
             <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/50">
               <Smartphone className="h-6 w-6 text-muted-foreground" />
               <div>
-                <h4 className="font-medium">INDEXUS Connect</h4>
+                <h4 className="font-medium">{t.collaborators.mobileApp.title}</h4>
                 <p className="text-sm text-muted-foreground">
                   {t.collaborators.mobileApp.description}
                 </p>
@@ -1628,22 +1648,6 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
             </div>
           </div>
         );
-      
-      // Additional tabs for existing collaborators
-      case 5: // Addresses
-        return initialData ? (
-          <AddressesTabContent collaboratorId={initialData.id} countryCode={initialData.countryCode} t={t} />
-        ) : null;
-      
-      case 6: // Agreements
-        return initialData ? (
-          <AgreementsTabContent collaboratorId={initialData.id} collaboratorCountry={initialData.countryCode} t={t} />
-        ) : null;
-      
-      case 7: // History
-        return initialData ? (
-          <HistoryTabContent collaboratorId={initialData.id} t={t} />
-        ) : null;
 
       default:
         return null;

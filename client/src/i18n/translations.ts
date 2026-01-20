@@ -855,6 +855,7 @@ export interface Translations {
     agreementsDescription: string;
     historyDescription: string;
     mobileApp: {
+      title: string;
       description: string;
       enabled: string;
       username: string;
@@ -2596,6 +2597,7 @@ export const translations: Record<Locale, Translations> = {
       agreementsDescription: 'Billing company agreements',
       historyDescription: 'Activity history',
       mobileApp: {
+        title: 'INDEXUS Connect',
         description: 'Configure mobile app access for field representatives',
         enabled: 'Enable mobile app access',
         username: 'Username',
@@ -4347,6 +4349,7 @@ export const translations: Record<Locale, Translations> = {
       agreementsDescription: 'Dohody s fakturačnými spoločnosťami',
       historyDescription: 'História aktivít',
       mobileApp: {
+        title: 'INDEXUS Connect',
         description: 'Nastavenie prístupu do mobilnej aplikácie pre terénnych pracovníkov',
         enabled: 'Povoliť prístup do mobilnej aplikácie',
         username: 'Používateľské meno',
@@ -6098,6 +6101,7 @@ export const translations: Record<Locale, Translations> = {
       agreementsDescription: 'Dohody s fakturačními společnostmi',
       historyDescription: 'Historie aktivit',
       mobileApp: {
+        title: 'INDEXUS Connect',
         description: 'Nastavení přístupu do mobilní aplikace pro terénní pracovníky',
         enabled: 'Povolit přístup do mobilní aplikace',
         username: 'Uživatelské jméno',
@@ -7812,6 +7816,7 @@ export const translations: Record<Locale, Translations> = {
       agreementsDescription: 'Számlázási cég megállapodások',
       historyDescription: 'Tevékenységi előzmények',
       mobileApp: {
+        title: 'INDEXUS Connect',
         description: 'Mobilalkalmazás-hozzáférés beállítása a terepi munkatársak számára',
         enabled: 'Mobilalkalmazás-hozzáférés engedélyezése',
         username: 'Felhasználónév',
@@ -9526,6 +9531,7 @@ export const translations: Record<Locale, Translations> = {
       agreementsDescription: 'Acorduri cu companiile de facturare',
       historyDescription: 'Istoric activități',
       mobileApp: {
+        title: 'INDEXUS Connect',
         description: 'Configurați accesul la aplicația mobilă pentru reprezentanții de teren',
         enabled: 'Activați accesul la aplicația mobilă',
         username: 'Nume de utilizator',
@@ -11240,6 +11246,7 @@ export const translations: Record<Locale, Translations> = {
       agreementsDescription: 'Accordi con società di fatturazione',
       historyDescription: 'Cronologia attività',
       mobileApp: {
+        title: 'INDEXUS Connect',
         description: "Configura l'accesso all'app mobile per i rappresentanti sul campo",
         enabled: "Abilita l'accesso all'app mobile",
         username: 'Nome utente',
@@ -12954,6 +12961,7 @@ export const translations: Record<Locale, Translations> = {
       agreementsDescription: 'Abrechnungsvereinbarungen',
       historyDescription: 'Aktivitätsverlauf',
       mobileApp: {
+        title: 'INDEXUS Connect',
         description: 'Mobile App-Zugang für Außendienstmitarbeiter konfigurieren',
         enabled: 'Mobile App-Zugang aktivieren',
         username: 'Benutzername',
