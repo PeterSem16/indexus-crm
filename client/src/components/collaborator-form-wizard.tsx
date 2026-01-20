@@ -21,7 +21,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { COUNTRIES } from "@shared/schema";
 import type { Collaborator, Hospital, SafeUser, HealthInsurance } from "@shared/schema";
-import { ChevronLeft, ChevronRight, Check, User, Phone, CreditCard, Building2, Smartphone, MapPin, FileText, History, Plus, Pencil, Trash2, Clock, Activity, Upload, Download, Eye, ChevronDown, ChevronUp, Copy } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, User, Phone, CreditCard, Building2, Smartphone, MapPin, FileText, History, Plus, Pencil, Trash2, Clock, Activity, Upload, Download, Eye, ChevronDown, ChevronUp, Copy, X } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -1731,7 +1731,7 @@ function HistoryTabContent({ collaboratorId, t }: { collaboratorId: string; t: a
 
   const getUserName = (userId: string) => {
     const user = users.find(u => u.id === userId);
-    return user ? `${user.firstName} ${user.lastName}` : userId;
+    return user ? user.fullName : userId;
   };
 
   const getActionIcon = (action: string) => {
@@ -1748,6 +1748,42 @@ function HistoryTabContent({ collaboratorId, t }: { collaboratorId: string; t: a
       case "create": return t.collaborators.history?.actionTypes?.created || t.collaborators.actions.created;
       case "update": return t.collaborators.history?.actionTypes?.updated || t.collaborators.actions.updated;
       default: return action;
+    }
+  };
+
+  const formatDetails = (details: string | null, action: string) => {
+    if (!details) return null;
+    
+    try {
+      const parsed = JSON.parse(details);
+      
+      if (action === "update" && parsed.changes) {
+        const changes = parsed.changes;
+        const items: string[] = [];
+        
+        for (const [field, change] of Object.entries(changes)) {
+          const ch = change as { from?: any; to?: any };
+          const fieldLabel = t.collaborators?.fields?.[field as keyof typeof t.collaborators.fields] || field;
+          if (ch.from !== undefined && ch.to !== undefined) {
+            items.push(`${fieldLabel}: ${ch.from} -> ${ch.to}`);
+          } else if (ch.to !== undefined) {
+            items.push(`${fieldLabel}: ${ch.to}`);
+          }
+        }
+        return items.length > 0 ? items : null;
+      }
+      
+      if (action === "create" && parsed.agreementType) {
+        return [`${t.collaborators?.tabs?.agreements || "Agreement"}: ${parsed.agreementType}`];
+      }
+      
+      if (parsed.message) {
+        return [parsed.message];
+      }
+      
+      return null;
+    } catch {
+      return [details];
     }
   };
 
@@ -1791,11 +1827,21 @@ function HistoryTabContent({ collaboratorId, t }: { collaboratorId: string; t: a
                   {new Date(log.createdAt).toLocaleString()}
                 </span>
               </div>
-              {log.details && (
-                <p className="text-sm text-muted-foreground">{log.details}</p>
-              )}
+              {(() => {
+                const detailItems = formatDetails(log.details, log.action);
+                if (detailItems && detailItems.length > 0) {
+                  return (
+                    <ul className="text-sm text-muted-foreground list-disc list-inside space-y-0.5">
+                      {detailItems.map((item, idx) => (
+                        <li key={idx}>{item}</li>
+                      ))}
+                    </ul>
+                  );
+                }
+                return null;
+              })()}
               {log.userId && (
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-xs text-muted-foreground mt-2">
                   {t.collaborators.actions.by}: {getUserName(log.userId)}
                 </p>
               )}
