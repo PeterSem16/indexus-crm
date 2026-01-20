@@ -1578,7 +1578,8 @@ export const collaborators = pgTable("collaborators", {
   legacyId: text("legacy_id"), // Legacy ID from previous CRM
   
   // Basic info
-  countryCode: text("country_code").notNull(),
+  countryCode: text("country_code").notNull(), // Primary country (for backward compatibility)
+  countryCodes: text("country_codes").array().notNull().default(sql`ARRAY[]::text[]`), // Multiple countries
   titleBefore: text("title_before"),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),

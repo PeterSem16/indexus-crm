@@ -17,6 +17,8 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { COUNTRIES } from "@shared/schema";
 import type { Collaborator, Hospital, SafeUser, HealthInsurance } from "@shared/schema";
 import { ChevronLeft, ChevronRight, Check, User, Phone, CreditCard, Building2, Smartphone, MapPin, FileText, History, Plus, Pencil, Trash2, Clock, Activity, Upload, Download, Eye, ChevronDown, ChevronUp, Copy } from "lucide-react";
@@ -54,6 +56,7 @@ const MARITAL_STATUSES = [
 interface CollaboratorFormData {
   legacyId: string;
   countryCode: string;
+  countryCodes: string[]; // Multiple countries
   titleBefore: string;
   firstName: string;
   lastName: string;
@@ -95,6 +98,39 @@ interface CollaboratorFormWizardProps {
   onCancel?: () => void;
 }
 
+// Pending address for Add mode (before collaborator is saved)
+interface PendingAddress {
+  id: string; // temporary local ID
+  addressType: string;
+  name: string;
+  streetNumber: string;
+  city: string;
+  postalCode: string;
+  country: string;
+}
+
+// Pending agreement for Add mode (before collaborator is saved)
+interface PendingAgreement {
+  id: string; // temporary local ID
+  billingCompanyId: string;
+  contractNumber: string;
+  agreementForm: string;
+  validFromDay: number | null;
+  validFromMonth: number | null;
+  validFromYear: number | null;
+  validToDay: number | null;
+  validToMonth: number | null;
+  validToYear: number | null;
+  agreementSentDay: number | null;
+  agreementSentMonth: number | null;
+  agreementSentYear: number | null;
+  agreementReturnedDay: number | null;
+  agreementReturnedMonth: number | null;
+  agreementReturnedYear: number | null;
+  isValid: boolean;
+  notes: string;
+}
+
 const WIZARD_STEPS = [
   { id: "personal", icon: User },
   { id: "contact", icon: Phone },
@@ -104,6 +140,496 @@ const WIZARD_STEPS = [
   { id: "history", icon: History },
   { id: "mobile", icon: Smartphone },
 ];
+
+// Pending Addresses component for Add mode
+function PendingAddressesContent({ 
+  pendingAddresses, 
+  setPendingAddresses, 
+  countryCode,
+  collaboratorName,
+  t 
+}: { 
+  pendingAddresses: PendingAddress[]; 
+  setPendingAddresses: (addresses: PendingAddress[]) => void;
+  countryCode: string;
+  collaboratorName: string;
+  t: any;
+}) {
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(["permanent"]));
+  
+  const toggleSection = (type: string) => {
+    setExpandedSections(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(type)) {
+        newSet.delete(type);
+      } else {
+        newSet.add(type);
+      }
+      return newSet;
+    });
+  };
+
+  const getAddressByType = (type: string) => pendingAddresses.find(a => a.addressType === type);
+
+  const updateAddress = (type: string, field: keyof PendingAddress, value: string) => {
+    const existing = pendingAddresses.find(a => a.addressType === type);
+    if (existing) {
+      setPendingAddresses(pendingAddresses.map(a => 
+        a.addressType === type ? { ...a, [field]: value } : a
+      ));
+    } else {
+      setPendingAddresses([...pendingAddresses, {
+        id: `pending-${type}-${Date.now()}`,
+        addressType: type,
+        name: field === "name" ? value : "",
+        streetNumber: field === "streetNumber" ? value : "",
+        city: field === "city" ? value : "",
+        postalCode: field === "postalCode" ? value : "",
+        country: field === "country" ? value : countryCode,
+      }]);
+    }
+  };
+
+  const copyName = (type: string) => {
+    updateAddress(type, "name", collaboratorName);
+  };
+
+  return (
+    <div className="space-y-4">
+      {NON_COMPANY_ADDRESS_TYPES.map(({ value, labelKey }) => {
+        const address = getAddressByType(value);
+        const isExpanded = expandedSections.has(value);
+        
+        return (
+          <Collapsible key={value} open={isExpanded} onOpenChange={() => toggleSection(value)}>
+            <Card>
+              <CollapsibleTrigger asChild>
+                <CardHeader className="cursor-pointer hover-elevate">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4" />
+                      <span className="font-medium">
+                        {(t.collaborators.addressTabs as Record<string, string>)[labelKey]}
+                      </span>
+                      {address && (address.city || address.streetNumber) && (
+                        <Badge variant="outline" className="ml-2">
+                          {address.city || address.streetNumber || t.common.filled}
+                        </Badge>
+                      )}
+                    </div>
+                    {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </div>
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent className="pt-0 space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Label>{t.collaborators.fields.name || "Name"}</Label>
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-6 w-6"
+                        onClick={() => copyName(value)}
+                        data-testid={`button-copy-name-${value}`}
+                      >
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <Input
+                      value={address?.name || ""}
+                      onChange={(e) => updateAddress(value, "name", e.target.value)}
+                      data-testid={`input-pending-address-name-${value}`}
+                    />
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>{t.collaborators.fields.streetNumber}</Label>
+                      <Input
+                        value={address?.streetNumber || ""}
+                        onChange={(e) => updateAddress(value, "streetNumber", e.target.value)}
+                        data-testid={`input-pending-address-street-${value}`}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{t.collaborators.fields.city}</Label>
+                      <Input
+                        value={address?.city || ""}
+                        onChange={(e) => updateAddress(value, "city", e.target.value)}
+                        data-testid={`input-pending-address-city-${value}`}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>{t.collaborators.fields.postalCode}</Label>
+                      <Input
+                        value={address?.postalCode || ""}
+                        onChange={(e) => updateAddress(value, "postalCode", e.target.value)}
+                        data-testid={`input-pending-address-postal-${value}`}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{t.collaborators.fields.country}</Label>
+                      <Select
+                        value={address?.country || countryCode}
+                        onValueChange={(val) => updateAddress(value, "country", val)}
+                      >
+                        <SelectTrigger data-testid={`select-pending-address-country-${value}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {COUNTRIES.map((country) => (
+                            <SelectItem key={country.code} value={country.code}>
+                              {getCountryFlag(country.code)} {country.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+        );
+      })}
+    </div>
+  );
+}
+
+// Pending Agreements component for Add mode
+function PendingAgreementsContent({ 
+  pendingAgreements, 
+  setPendingAgreements,
+  countryCode,
+  t 
+}: { 
+  pendingAgreements: PendingAgreement[]; 
+  setPendingAgreements: (agreements: PendingAgreement[]) => void;
+  countryCode: string;
+  t: any;
+}) {
+  const [isAdding, setIsAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  
+  const { data: billingCompanies = [] } = useQuery<BillingDetails[]>({
+    queryKey: ["/api/billing-details", countryCode],
+    queryFn: async () => {
+      const res = await fetch(`/api/billing-details?country=${countryCode}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!countryCode,
+  });
+
+  const AGREEMENT_FORM_TYPES = [
+    { value: "dohoda_o_vykonani_prace", labelKey: "dohoda_o_vykonani_prace" },
+    { value: "zmluva_o_dielo_podnikatel", labelKey: "zmluva_o_dielo_podnikatel" },
+    { value: "zmluva_o_dielo_fyzicka_osoba", labelKey: "zmluva_o_dielo_fyzicka_osoba" },
+  ];
+
+  const formatDate = (day: number | null, month: number | null, year: number | null) => {
+    if (!day || !month || !year) return t.common.noData;
+    return `${day}.${month}.${year}`;
+  };
+
+  const getBillingCompanyName = (id: string | null) => {
+    if (!id) return t.common.noData;
+    return billingCompanies.find((bc) => bc.id === id)?.companyName || t.common.noData;
+  };
+
+  const handleDelete = (id: string) => {
+    setPendingAgreements(pendingAgreements.filter(a => a.id !== id));
+  };
+
+  if (isAdding || editingId) {
+    const editingAgreement = editingId ? pendingAgreements.find(a => a.id === editingId) : undefined;
+    return (
+      <PendingAgreementForm
+        agreement={editingAgreement}
+        billingCompanies={billingCompanies}
+        agreementFormTypes={AGREEMENT_FORM_TYPES}
+        onSave={(agreement) => {
+          if (editingId) {
+            setPendingAgreements(pendingAgreements.map(a => a.id === editingId ? agreement : a));
+          } else {
+            setPendingAgreements([...pendingAgreements, { ...agreement, id: `pending-${Date.now()}` }]);
+          }
+          setIsAdding(false);
+          setEditingId(null);
+        }}
+        onCancel={() => {
+          setIsAdding(false);
+          setEditingId(null);
+        }}
+        t={t}
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button onClick={() => setIsAdding(true)} data-testid="button-add-pending-agreement">
+          <Plus className="h-4 w-4 mr-2" />
+          {t.common.add}
+        </Button>
+      </div>
+      {pendingAgreements.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">{t.common.noData}</div>
+      ) : (
+        <div className="space-y-2">
+          {pendingAgreements.map((agreement) => (
+            <Card key={agreement.id}>
+              <CardContent className="p-4">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">{t.collaborators?.fields?.billingCompany}: </span>
+                        {getBillingCompanyName(agreement.billingCompanyId)}
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">{t.collaborators?.fields?.contractNumber}: </span>
+                        {agreement.contractNumber || t.common.noData}
+                      </div>
+                      <div>
+                        <Badge variant={agreement.isValid ? "default" : "secondary"}>
+                          {agreement.isValid ? t.common.active : t.common.inactive}
+                        </Badge>
+                      </div>
+                      <div className="flex gap-2 justify-end">
+                        <Button size="icon" variant="ghost" onClick={() => setEditingId(agreement.id)} data-testid={`button-edit-pending-agreement-${agreement.id}`}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={() => handleDelete(agreement.id)} data-testid={`button-delete-pending-agreement-${agreement.id}`}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">{t.collaborators?.fields?.validFrom}: </span>
+                      {formatDate(agreement.validFromDay, agreement.validFromMonth, agreement.validFromYear)}
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">{t.collaborators?.fields?.validTo}: </span>
+                      {formatDate(agreement.validToDay, agreement.validToMonth, agreement.validToYear)}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Pending Agreement Form for Add mode
+function PendingAgreementForm({
+  agreement,
+  billingCompanies,
+  agreementFormTypes,
+  onSave,
+  onCancel,
+  t,
+}: {
+  agreement?: PendingAgreement;
+  billingCompanies: BillingDetails[];
+  agreementFormTypes: { value: string; labelKey: string }[];
+  onSave: (agreement: PendingAgreement) => void;
+  onCancel: () => void;
+  t: any;
+}) {
+  const [formData, setFormData] = useState<Omit<PendingAgreement, "id">>({
+    billingCompanyId: agreement?.billingCompanyId || "",
+    contractNumber: agreement?.contractNumber || "",
+    agreementForm: agreement?.agreementForm || "",
+    validFromDay: agreement?.validFromDay || null,
+    validFromMonth: agreement?.validFromMonth || null,
+    validFromYear: agreement?.validFromYear || null,
+    validToDay: agreement?.validToDay || null,
+    validToMonth: agreement?.validToMonth || null,
+    validToYear: agreement?.validToYear || null,
+    agreementSentDay: agreement?.agreementSentDay || null,
+    agreementSentMonth: agreement?.agreementSentMonth || null,
+    agreementSentYear: agreement?.agreementSentYear || null,
+    agreementReturnedDay: agreement?.agreementReturnedDay || null,
+    agreementReturnedMonth: agreement?.agreementReturnedMonth || null,
+    agreementReturnedYear: agreement?.agreementReturnedYear || null,
+    isValid: agreement?.isValid ?? true,
+    notes: agreement?.notes || "",
+  });
+
+  const setToday = (prefix: "validFrom" | "validTo" | "agreementSent" | "agreementReturned") => {
+    const today = new Date();
+    setFormData({
+      ...formData,
+      [`${prefix}Day`]: today.getDate(),
+      [`${prefix}Month`]: today.getMonth() + 1,
+      [`${prefix}Year`]: today.getFullYear(),
+    });
+  };
+
+  const handleSubmit = () => {
+    onSave({
+      id: agreement?.id || `pending-${Date.now()}`,
+      ...formData,
+    });
+  };
+
+  return (
+    <Card>
+      <CardContent className="p-4 space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label>{t.collaborators?.fields?.billingCompany}</Label>
+            <Select
+              value={formData.billingCompanyId}
+              onValueChange={(val) => setFormData({ ...formData, billingCompanyId: val })}
+            >
+              <SelectTrigger data-testid="select-pending-billing-company">
+                <SelectValue placeholder={t.collaborators?.fields?.billingCompany} />
+              </SelectTrigger>
+              <SelectContent>
+                {billingCompanies.map((bc) => (
+                  <SelectItem key={bc.id} value={bc.id}>{bc.companyName}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>{t.collaborators?.fields?.contractNumber}</Label>
+            <Input
+              value={formData.contractNumber}
+              onChange={(e) => setFormData({ ...formData, contractNumber: e.target.value })}
+              data-testid="input-pending-contract-number"
+            />
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label>{t.collaborators?.agreementFormTypes?.label || "Agreement Form"}</Label>
+            <Select
+              value={formData.agreementForm}
+              onValueChange={(val) => setFormData({ ...formData, agreementForm: val })}
+            >
+              <SelectTrigger data-testid="select-pending-agreement-form">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {agreementFormTypes.map((af) => (
+                  <SelectItem key={af.value} value={af.value}>
+                    {(t.collaborators?.agreementFormTypes as Record<string, string>)?.[af.labelKey] || af.labelKey}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2 flex items-center gap-2 pt-6">
+            <Switch
+              checked={formData.isValid}
+              onCheckedChange={(val) => setFormData({ ...formData, isValid: val })}
+              data-testid="switch-pending-is-valid"
+            />
+            <Label>{t.common.active}</Label>
+          </div>
+        </div>
+
+        <Separator />
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Label>{t.collaborators?.fields?.validFrom}</Label>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setToday("validFrom")} data-testid="button-pending-today-valid-from">
+                {t.common?.today || "Today"}
+              </Button>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <Input
+                type="number"
+                placeholder={t.common?.day || "Day"}
+                value={formData.validFromDay || ""}
+                onChange={(e) => setFormData({ ...formData, validFromDay: e.target.value ? parseInt(e.target.value) : null })}
+                data-testid="input-pending-valid-from-day"
+              />
+              <Input
+                type="number"
+                placeholder={t.common?.month || "Month"}
+                value={formData.validFromMonth || ""}
+                onChange={(e) => setFormData({ ...formData, validFromMonth: e.target.value ? parseInt(e.target.value) : null })}
+                data-testid="input-pending-valid-from-month"
+              />
+              <Input
+                type="number"
+                placeholder={t.common?.year || "Year"}
+                value={formData.validFromYear || ""}
+                onChange={(e) => setFormData({ ...formData, validFromYear: e.target.value ? parseInt(e.target.value) : null })}
+                data-testid="input-pending-valid-from-year"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Label>{t.collaborators?.fields?.validTo}</Label>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setToday("validTo")} data-testid="button-pending-today-valid-to">
+                {t.common?.today || "Today"}
+              </Button>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <Input
+                type="number"
+                placeholder={t.common?.day || "Day"}
+                value={formData.validToDay || ""}
+                onChange={(e) => setFormData({ ...formData, validToDay: e.target.value ? parseInt(e.target.value) : null })}
+                data-testid="input-pending-valid-to-day"
+              />
+              <Input
+                type="number"
+                placeholder={t.common?.month || "Month"}
+                value={formData.validToMonth || ""}
+                onChange={(e) => setFormData({ ...formData, validToMonth: e.target.value ? parseInt(e.target.value) : null })}
+                data-testid="input-pending-valid-to-month"
+              />
+              <Input
+                type="number"
+                placeholder={t.common?.year || "Year"}
+                value={formData.validToYear || ""}
+                onChange={(e) => setFormData({ ...formData, validToYear: e.target.value ? parseInt(e.target.value) : null })}
+                data-testid="input-pending-valid-to-year"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>{t.collaborators?.fields?.notes || "Notes"}</Label>
+          <Textarea
+            value={formData.notes}
+            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+            data-testid="textarea-pending-agreement-notes"
+          />
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={onCancel} data-testid="button-pending-agreement-cancel">
+            {t.common.cancel}
+          </Button>
+          <Button onClick={handleSubmit} data-testid="button-pending-agreement-save">
+            {t.common.save}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 function DateFields({
   label,
@@ -1158,6 +1684,10 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   
+  // Pending data for Add mode (saved after collaborator is created)
+  const [pendingAddresses, setPendingAddresses] = useState<PendingAddress[]>([]);
+  const [pendingAgreements, setPendingAgreements] = useState<PendingAgreement[]>([]);
+  
   const [mobileCredentials, setMobileCredentials] = useState({
     mobileAppEnabled: initialData?.mobileAppEnabled ?? false,
     mobileUsername: initialData?.mobileUsername ?? "",
@@ -1170,6 +1700,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
       ? {
           legacyId: initialData.legacyId || "",
           countryCode: initialData.countryCode,
+          countryCodes: initialData.countryCodes || [initialData.countryCode],
           titleBefore: initialData.titleBefore || "",
           firstName: initialData.firstName,
           lastName: initialData.lastName,
@@ -1207,6 +1738,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
       : {
           legacyId: "",
           countryCode: "",
+          countryCodes: [],
           titleBefore: "",
           firstName: "",
           lastName: "",
@@ -1280,6 +1812,43 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
           const newCollaborator = await response.json();
           collaboratorId = newCollaborator.id;
           console.log("[Wizard] Created collaborator with id:", collaboratorId);
+          
+          // Save pending addresses for new collaborator
+          for (const address of pendingAddresses) {
+            if (address.streetNumber || address.city || address.postalCode || address.name) {
+              await apiRequest("POST", `/api/collaborators/${collaboratorId}/addresses`, {
+                addressType: address.addressType,
+                name: address.name,
+                streetNumber: address.streetNumber,
+                city: address.city,
+                postalCode: address.postalCode,
+                country: address.country,
+              });
+            }
+          }
+          
+          // Save pending agreements for new collaborator
+          for (const agreement of pendingAgreements) {
+            await apiRequest("POST", `/api/collaborators/${collaboratorId}/agreements`, {
+              billingCompanyId: agreement.billingCompanyId || null,
+              contractNumber: agreement.contractNumber,
+              agreementForm: agreement.agreementForm,
+              validFromDay: agreement.validFromDay,
+              validFromMonth: agreement.validFromMonth,
+              validFromYear: agreement.validFromYear,
+              validToDay: agreement.validToDay,
+              validToMonth: agreement.validToMonth,
+              validToYear: agreement.validToYear,
+              agreementSentDay: agreement.agreementSentDay,
+              agreementSentMonth: agreement.agreementSentMonth,
+              agreementSentYear: agreement.agreementSentYear,
+              agreementReturnedDay: agreement.agreementReturnedDay,
+              agreementReturnedMonth: agreement.agreementReturnedMonth,
+              agreementReturnedYear: agreement.agreementReturnedYear,
+              isValid: agreement.isValid,
+              notes: agreement.notes,
+            });
+          }
         }
       } catch (apiError) {
         console.error("[Wizard] API request failed:", apiError);
@@ -1322,7 +1891,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
   const validateCurrentStep = (): boolean => {
     switch (currentStepId) {
       case "personal":
-        return !!formData.firstName && !!formData.lastName && !!formData.countryCode;
+        return !!formData.firstName && !!formData.lastName && formData.countryCodes.length > 0;
       case "mobile":
         if (mobileCredentials.mobileAppEnabled) {
           if (!mobileCredentials.mobileUsername) {
@@ -1450,21 +2019,62 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
               )}
               <div className="space-y-2">
                 <Label>{t.collaborators.fields.country} *</Label>
-                <Select
-                  value={formData.countryCode}
-                  onValueChange={(value) => setFormData({ ...formData, countryCode: value, healthInsuranceId: "", hospitalId: "" })}
-                >
-                  <SelectTrigger data-testid="wizard-select-collaborator-country">
-                    <SelectValue placeholder={t.collaborators.fields.country} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {COUNTRIES.map((country) => (
-                      <SelectItem key={country.code} value={country.code}>
-                        {getCountryFlag(country.code)} {country.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between font-normal"
+                      data-testid="wizard-select-collaborator-country"
+                    >
+                      {formData.countryCodes.length > 0 ? (
+                        <span className="flex flex-wrap gap-1">
+                          {formData.countryCodes.map((code) => (
+                            <Badge key={code} variant="secondary" className="text-xs">
+                              {getCountryFlag(code)} {code}
+                            </Badge>
+                          ))}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">{t.collaborators.fields.country}</span>
+                      )}
+                      <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-2" align="start">
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {COUNTRIES.map((country) => {
+                        const isChecked = formData.countryCodes.includes(country.code);
+                        return (
+                          <div
+                            key={country.code}
+                            className="flex items-center gap-2 p-2 rounded hover:bg-muted cursor-pointer"
+                            onClick={() => {
+                              let newCountryCodes: string[];
+                              if (isChecked) {
+                                newCountryCodes = formData.countryCodes.filter(c => c !== country.code);
+                              } else {
+                                newCountryCodes = [...formData.countryCodes, country.code];
+                              }
+                              const primaryCountry = newCountryCodes[0] || "";
+                              setFormData({ 
+                                ...formData, 
+                                countryCodes: newCountryCodes,
+                                countryCode: primaryCountry,
+                                healthInsuranceId: primaryCountry !== formData.countryCode ? "" : formData.healthInsuranceId,
+                                hospitalId: primaryCountry !== formData.countryCode ? "" : formData.hospitalId,
+                              });
+                            }}
+                            data-testid={`checkbox-country-${country.code}`}
+                          >
+                            <Checkbox checked={isChecked} />
+                            <span>{getCountryFlag(country.code)} {country.name}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -1884,10 +2494,13 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
                   t={t} 
                 />
               ) : (
-                <div className="flex flex-col items-center justify-center py-8 text-center border rounded-lg bg-muted/30">
-                  <MapPin className="h-8 w-8 text-muted-foreground mb-2" />
-                  <p className="text-sm text-muted-foreground">{t.wizard.completePreviousSteps}</p>
-                </div>
+                <PendingAddressesContent
+                  pendingAddresses={pendingAddresses}
+                  setPendingAddresses={setPendingAddresses}
+                  countryCode={formData.countryCode}
+                  collaboratorName={`${formData.firstName} ${formData.lastName}`}
+                  t={t}
+                />
               )}
             </div>
           </div>
@@ -1897,10 +2510,12 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
         return initialData ? (
           <AgreementsTabContent collaboratorId={initialData.id} collaboratorCountry={initialData.countryCode} t={t} />
         ) : (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">{t.wizard.completePreviousSteps}</p>
-          </div>
+          <PendingAgreementsContent
+            pendingAgreements={pendingAgreements}
+            setPendingAgreements={setPendingAgreements}
+            countryCode={formData.countryCode}
+            t={t}
+          />
         );
       
       case "history":

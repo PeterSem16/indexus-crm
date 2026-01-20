@@ -7038,7 +7038,41 @@ export async function registerRoutes(
       const collaborators = countryCodes 
         ? await storage.getCollaboratorsByCountry(countryCodes)
         : await storage.getAllCollaborators();
-      res.json(collaborators);
+      
+      // Enrich with agreement expiration status
+      const today = new Date();
+      const enrichedCollaborators = await Promise.all(
+        collaborators.map(async (collab) => {
+          try {
+            const agreements = await storage.getCollaboratorAgreements(collab.id);
+            let hasExpiredAgreement = false;
+            let hasValidAgreement = false;
+            
+            for (const agreement of agreements) {
+              if (agreement.validToYear && agreement.validToMonth && agreement.validToDay) {
+                const validTo = new Date(agreement.validToYear, agreement.validToMonth - 1, agreement.validToDay);
+                if (validTo < today) {
+                  hasExpiredAgreement = true;
+                } else if (agreement.isValid) {
+                  hasValidAgreement = true;
+                }
+              } else if (agreement.isValid) {
+                hasValidAgreement = true;
+              }
+            }
+            
+            // Only flag as expired if has expired agreement but no valid one
+            return {
+              ...collab,
+              hasExpiredAgreement: hasExpiredAgreement && !hasValidAgreement,
+            };
+          } catch {
+            return { ...collab, hasExpiredAgreement: false };
+          }
+        })
+      );
+      
+      res.json(enrichedCollaborators);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch collaborators" });
     }
