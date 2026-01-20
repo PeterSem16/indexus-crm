@@ -300,6 +300,105 @@ function PendingAddressesContent({
   );
 }
 
+// Hospitals & Clinics Multi-Select with search and badges
+function HospitalsMultiSelect({
+  hospitals,
+  selectedIds,
+  onChange,
+  label,
+  t
+}: {
+  hospitals: Hospital[];
+  selectedIds: string[];
+  onChange: (ids: string[]) => void;
+  label: string;
+  t: any;
+}) {
+  const [searchQuery, setSearchQuery] = useState("");
+  
+  const filteredList = searchQuery
+    ? hospitals.filter(h => h.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    : hospitals;
+
+  const selectedHospitals = hospitals.filter(h => selectedIds.includes(h.id));
+
+  const handleToggle = (id: string, checked: boolean) => {
+    if (checked) {
+      onChange([...selectedIds, id]);
+    } else {
+      onChange(selectedIds.filter(i => i !== id));
+    }
+  };
+
+  const handleRemove = (id: string) => {
+    onChange(selectedIds.filter(i => i !== id));
+  };
+
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            className="w-full justify-between font-normal"
+            data-testid="wizard-select-collaborator-hospitals"
+          >
+            {selectedIds.length > 0
+              ? `${selectedIds.length} ${t.common?.selected || "selected"}`
+              : t.common?.noData || "None"}
+            <ChevronDown className="h-4 w-4 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-80 p-3">
+          <div className="space-y-3">
+            <Input
+              placeholder={t.common?.search || "Search..."}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-8"
+              data-testid="input-search-hospitals"
+            />
+            <div className="max-h-48 overflow-y-auto space-y-1">
+              {filteredList.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-2">
+                  {t.common?.noData || "No hospitals found"}
+                </p>
+              ) : (
+                filteredList.map((h) => (
+                  <div key={h.id} className="flex items-center gap-2 py-1">
+                    <Checkbox
+                      id={`hospital-${h.id}`}
+                      checked={selectedIds.includes(h.id)}
+                      onCheckedChange={(checked) => handleToggle(h.id, !!checked)}
+                    />
+                    <label htmlFor={`hospital-${h.id}`} className="text-sm cursor-pointer flex-1 truncate">
+                      {h.name}
+                    </label>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+      {selectedHospitals.length > 0 && (
+        <div className="flex flex-wrap gap-1 pt-1">
+          {selectedHospitals.map((h) => (
+            <Badge key={h.id} variant="secondary" className="gap-1 text-xs">
+              {h.name}
+              <X 
+                className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                onClick={() => handleRemove(h.id)}
+              />
+            </Badge>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Pending Agreements component for Add mode
 function PendingAgreementsContent({ 
   pendingAgreements, 
@@ -2331,51 +2430,13 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>{t.collaborators?.fields?.hospitalsAndClinics || "Hospitals & Clinics"}</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-between font-normal"
-                      data-testid="wizard-select-collaborator-hospitals"
-                    >
-                      {formData.hospitalIds.length > 0
-                        ? `${formData.hospitalIds.length} ${t.common?.selected || "selected"}`
-                        : t.common?.noData || "None"}
-                      <ChevronDown className="h-4 w-4 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-80 max-h-60 overflow-y-auto">
-                    <div className="space-y-2">
-                      {filteredHospitals.length === 0 ? (
-                        <p className="text-sm text-muted-foreground text-center py-2">
-                          {t.common?.noData || "No hospitals available"}
-                        </p>
-                      ) : (
-                        filteredHospitals.map((h) => (
-                          <div key={h.id} className="flex items-center gap-2">
-                            <Checkbox
-                              id={`hospital-${h.id}`}
-                              checked={formData.hospitalIds.includes(h.id)}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setFormData({ ...formData, hospitalIds: [...formData.hospitalIds, h.id] });
-                                } else {
-                                  setFormData({ ...formData, hospitalIds: formData.hospitalIds.filter(id => id !== h.id) });
-                                }
-                              }}
-                            />
-                            <label htmlFor={`hospital-${h.id}`} className="text-sm cursor-pointer flex-1">
-                              {h.name}
-                            </label>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </div>
+              <HospitalsMultiSelect
+                hospitals={filteredHospitals}
+                selectedIds={formData.hospitalIds}
+                onChange={(ids) => setFormData({ ...formData, hospitalIds: ids })}
+                label={t.collaborators?.fields?.hospitalsAndClinics || "Hospitals & Clinics"}
+                t={t}
+              />
             </div>
           </div>
         );
