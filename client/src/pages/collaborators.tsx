@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, User, MapPin, FileText, Award, Gift, Activity, ClipboardList, Upload, Download, Eye, X, Filter, ListChecks, FileEdit, Smartphone } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, User, MapPin, FileText, Award, Gift, Activity, ClipboardList, Upload, Download, Eye, X, Filter, ListChecks, FileEdit, Smartphone, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, RefreshCw } from "lucide-react";
 import { CollaboratorFormWizard } from "@/components/collaborator-form-wizard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -244,7 +244,7 @@ function DateFields({
           onClick={setToday}
           data-testid={`button-${testIdPrefix}-today`}
         >
-          {t.collaborators?.fields?.today || "Today"}
+          {t.common.today}
         </Button>
       </div>
       <div className="flex gap-2">
@@ -1711,7 +1711,15 @@ export default function CollaboratorsPage() {
   const [selectedCollaborator, setSelectedCollaborator] = useState<Collaborator | undefined>();
   const [collaboratorToDelete, setCollaboratorToDelete] = useState<Collaborator | null>(null);
 
-  const { data: collaborators = [], isLoading } = useQuery<Collaborator[]>({
+  // Pagination
+  const [page, setPage] = useState(1);
+  const pageSize = 30;
+  
+  // Sorting
+  const [sortField, setSortField] = useState<string>("name");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+
+  const { data: collaborators = [], isLoading, refetch: refetchCollaborators } = useQuery<Collaborator[]>({
     queryKey: ["/api/collaborators", selectedCountries.join(",")],
     queryFn: async () => {
       const params = selectedCountries.length > 0 ? `?countries=${selectedCountries.join(",")}` : "";
@@ -1719,6 +1727,7 @@ export default function CollaboratorsPage() {
       if (!res.ok) throw new Error("Failed to fetch collaborators");
       return res.json();
     },
+    refetchInterval: 30000, // Auto-refresh every 30 seconds for online status
   });
 
   const deleteMutation = useMutation({
@@ -1734,20 +1743,153 @@ export default function CollaboratorsPage() {
     },
   });
 
-  const filteredCollaborators = collaborators.filter((c) => {
-    const nameMatch = `${c.firstName} ${c.lastName}`.toLowerCase().includes(searchQuery.toLowerCase());
-    const emailMatch = c.email?.toLowerCase().includes(searchQuery.toLowerCase());
-    const phoneMatch = c.phone?.toLowerCase().includes(searchQuery.toLowerCase()) || c.mobile?.toLowerCase().includes(searchQuery.toLowerCase());
-    const textMatch = searchQuery === "" || nameMatch || emailMatch || phoneMatch;
+  // Filtered and sorted collaborators
+  const filteredAndSortedCollaborators = (() => {
+    // First filter
+    let result = collaborators.filter((c) => {
+      const nameMatch = `${c.firstName} ${c.lastName}`.toLowerCase().includes(searchQuery.toLowerCase());
+      const emailMatch = c.email?.toLowerCase().includes(searchQuery.toLowerCase());
+      const phoneMatch = c.phone?.toLowerCase().includes(searchQuery.toLowerCase()) || c.mobile?.toLowerCase().includes(searchQuery.toLowerCase());
+      const textMatch = searchQuery === "" || nameMatch || emailMatch || phoneMatch;
+      
+      const countryMatch = filterCountry === "" || c.countryCode === filterCountry;
+      const typeMatch = filterType === "" || c.collaboratorType === filterType;
+      const statusMatch = filterStatus === "" || 
+        (filterStatus === "active" && c.isActive) || 
+        (filterStatus === "inactive" && !c.isActive);
+      
+      return textMatch && countryMatch && typeMatch && statusMatch;
+    });
     
-    const countryMatch = filterCountry === "" || c.countryCode === filterCountry;
-    const typeMatch = filterType === "" || c.collaboratorType === filterType;
-    const statusMatch = filterStatus === "" || 
-      (filterStatus === "active" && c.isActive) || 
-      (filterStatus === "inactive" && !c.isActive);
+    // Then sort
+    result.sort((a, b) => {
+      let aVal: any;
+      let bVal: any;
+      
+      switch (sortField) {
+        case "name":
+          aVal = `${a.firstName} ${a.lastName}`.toLowerCase();
+          bVal = `${b.firstName} ${b.lastName}`.toLowerCase();
+          break;
+        case "country":
+          aVal = a.countryCode;
+          bVal = b.countryCode;
+          break;
+        case "type":
+          aVal = (a.collaboratorType || "").toLowerCase();
+          bVal = (b.collaboratorType || "").toLowerCase();
+          break;
+        case "status":
+          aVal = a.isActive ? 1 : 0;
+          bVal = b.isActive ? 1 : 0;
+          break;
+        case "online":
+          const aOnline = a.mobileAppEnabled && a.mobileLastActiveAt && 
+            new Date(a.mobileLastActiveAt).getTime() > Date.now() - 5 * 60 * 1000 ? 1 : 0;
+          const bOnline = b.mobileAppEnabled && b.mobileLastActiveAt && 
+            new Date(b.mobileLastActiveAt).getTime() > Date.now() - 5 * 60 * 1000 ? 1 : 0;
+          aVal = aOnline;
+          bVal = bOnline;
+          break;
+        default:
+          aVal = `${a.firstName} ${a.lastName}`.toLowerCase();
+          bVal = `${b.firstName} ${b.lastName}`.toLowerCase();
+      }
+      
+      if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
+      if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
     
-    return textMatch && countryMatch && typeMatch && statusMatch;
-  });
+    return result;
+  })();
+  
+  const totalPages = Math.ceil(filteredAndSortedCollaborators.length / pageSize);
+  const paginatedCollaborators = filteredAndSortedCollaborators.slice(
+    (page - 1) * pageSize,
+    page * pageSize
+  );
+  
+  // Reset page when filters change
+  const handleFilterChange = () => {
+    setPage(1);
+  };
+  
+  const toggleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+    setPage(1);
+  };
+  
+  const clearAllFilters = () => {
+    setSearchQuery("");
+    setFilterCountry("");
+    setFilterType("");
+    setFilterStatus("");
+    setPage(1);
+  };
+  
+  const hasActiveFilters = searchQuery || filterCountry || filterType || filterStatus;
+
+  // Export functions
+  const exportToCsv = useCallback((data: any[], filename: string, columns: { key: string; header: string }[]) => {
+    const BOM = '\uFEFF';
+    const headers = columns.map(c => c.header).join(',');
+    const rows = data.map(item => 
+      columns.map(c => {
+        const value = c.key.split('.').reduce((obj, key) => obj?.[key], item) ?? '';
+        const stringValue = String(value).replace(/"/g, '""');
+        return `"${stringValue}"`;
+      }).join(',')
+    );
+    const csv = BOM + [headers, ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${filename}.csv`;
+    link.click();
+    toast({ title: t.common.exportSuccess });
+  }, [t, toast]);
+
+  const exportToExcel = useCallback((data: any[], filename: string, columns: { key: string; header: string }[]) => {
+    const headers = columns.map(c => c.header);
+    const rows = data.map(item => 
+      columns.map(c => {
+        const value = c.key.split('.').reduce((obj, key) => obj?.[key], item) ?? '';
+        return String(value);
+      })
+    );
+    
+    let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"></head><body><table>';
+    html += '<tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr>';
+    rows.forEach(row => {
+      html += '<tr>' + row.map(cell => `<td>${cell}</td>`).join('') + '</tr>';
+    });
+    html += '</table></body></html>';
+    
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${filename}.xls`;
+    link.click();
+    toast({ title: t.common.exportSuccess });
+  }, [t, toast]);
+
+  const collaboratorExportColumns = [
+    { key: 'firstName', header: t.collaborators.fields.firstName },
+    { key: 'lastName', header: t.collaborators.fields.lastName },
+    { key: 'countryCode', header: t.common.country },
+    { key: 'collaboratorType', header: t.collaborators.fields.collaboratorType },
+    { key: 'email', header: t.common.email },
+    { key: 'phone', header: t.collaborators.fields.phone },
+    { key: 'mobile', header: t.collaborators.fields.mobile },
+    { key: 'companyName', header: t.collaborators.fields.companyName },
+    { key: 'isActive', header: t.common.status },
+  ];
 
   const getCollaboratorTypeName = (type: string | null) => {
     if (!type) return "-";
@@ -1770,10 +1912,31 @@ export default function CollaboratorsPage() {
     setIsFormOpen(true);
   };
 
+  const SortableHeader = ({ field, label }: { field: string; label: string }) => (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="h-8 px-2 -ml-2 font-medium"
+      onClick={() => toggleSort(field)}
+      data-testid={`sort-collaborator-${field}`}
+    >
+      {label}
+      {sortField === field ? (
+        sortDirection === "asc" ? (
+          <ArrowUp className="ml-1 h-3 w-3" />
+        ) : (
+          <ArrowDown className="ml-1 h-3 w-3" />
+        )
+      ) : (
+        <ArrowUpDown className="ml-1 h-3 w-3 opacity-50" />
+      )}
+    </Button>
+  );
+
   const columns = [
     {
       key: "name",
-      header: t.common.name,
+      header: <SortableHeader field="name" label={t.common.name} />,
       cell: (c: Collaborator) => (
         <div className="flex items-center gap-2">
           <span className="font-medium">{c.firstName} {c.lastName}</span>
@@ -1782,7 +1945,7 @@ export default function CollaboratorsPage() {
     },
     {
       key: "country",
-      header: t.common.country,
+      header: <SortableHeader field="country" label={t.common.country} />,
       cell: (c: Collaborator) => (
         <span>
           {getCountryFlag(c.countryCode)} {getCountryName(c.countryCode)}
@@ -1791,12 +1954,12 @@ export default function CollaboratorsPage() {
     },
     {
       key: "type",
-      header: t.collaborators.fields.collaboratorType,
+      header: <SortableHeader field="type" label={t.collaborators.fields.collaboratorType} />,
       cell: (c: Collaborator) => getCollaboratorTypeName(c.collaboratorType),
     },
     {
       key: "mobileApp",
-      header: "INDEXUS Connect",
+      header: <SortableHeader field="online" label={t.common.indexusConnect} />,
       cell: (c: Collaborator) => {
         if (!c.mobileAppEnabled) {
           return <span className="text-muted-foreground">-</span>;
@@ -1808,7 +1971,7 @@ export default function CollaboratorsPage() {
             <Smartphone className="h-4 w-4 text-primary" />
             {isOnline && (
               <Badge variant="default" className="bg-green-600 text-white text-xs px-1.5 py-0.5">
-                Online
+                {t.common.online}
               </Badge>
             )}
           </div>
@@ -1817,7 +1980,7 @@ export default function CollaboratorsPage() {
     },
     {
       key: "status",
-      header: t.common.status,
+      header: <SortableHeader field="status" label={t.common.status} />,
       cell: (c: Collaborator) => (
         <Badge variant={c.isActive ? "default" : "secondary"}>
           {c.isActive ? t.common.active : t.common.inactive}
@@ -1868,31 +2031,68 @@ export default function CollaboratorsPage() {
       <Card>
         <CardHeader className="pb-4">
           <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-muted-foreground">
+                {filteredAndSortedCollaborators.length} {t.common.of} {collaborators.length} {t.common.records}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => exportToCsv(filteredAndSortedCollaborators, 'collaborators', collaboratorExportColumns)}
+                  data-testid="button-export-collaborators-csv"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  {t.common.exportCsv}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => exportToExcel(filteredAndSortedCollaborators, 'collaborators', collaboratorExportColumns)}
+                  data-testid="button-export-collaborators-excel"
+                >
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  {t.common.exportExcel}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => refetchCollaborators()}
+                  data-testid="button-refresh-collaborators"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  {t.common.refresh}
+                </Button>
+              </div>
+            </div>
             <div className="flex items-center gap-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder={t.collaborators.searchPlaceholder}
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => { setSearchQuery(e.target.value); handleFilterChange(); }}
                   className="pl-10"
                   data-testid="input-search-collaborators"
                 />
               </div>
               <Button
-                variant="outline"
+                variant={showFilters ? "default" : "outline"}
                 onClick={() => setShowFilters(!showFilters)}
                 data-testid="button-toggle-filters"
               >
                 <Filter className="h-4 w-4 mr-2" />
                 {t.common.filter}
+                {hasActiveFilters && (
+                  <Badge variant="secondary" className="ml-2">!</Badge>
+                )}
               </Button>
             </div>
             {showFilters && (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label>{t.common.country}</Label>
-                  <Select value={filterCountry || "_all"} onValueChange={(val) => setFilterCountry(val === "_all" ? "" : val)}>
+                  <Select value={filterCountry || "_all"} onValueChange={(val) => { setFilterCountry(val === "_all" ? "" : val); handleFilterChange(); }}>
                     <SelectTrigger data-testid="select-filter-country">
                       <SelectValue placeholder={t.common.all} />
                     </SelectTrigger>
@@ -1908,7 +2108,7 @@ export default function CollaboratorsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>{t.collaborators.fields.collaboratorType}</Label>
-                  <Select value={filterType || "_all"} onValueChange={(val) => setFilterType(val === "_all" ? "" : val)}>
+                  <Select value={filterType || "_all"} onValueChange={(val) => { setFilterType(val === "_all" ? "" : val); handleFilterChange(); }}>
                     <SelectTrigger data-testid="select-filter-type">
                       <SelectValue placeholder={t.common.all} />
                     </SelectTrigger>
@@ -1924,7 +2124,7 @@ export default function CollaboratorsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>{t.common.status}</Label>
-                  <Select value={filterStatus || "_all"} onValueChange={(val) => setFilterStatus(val === "_all" ? "" : val)}>
+                  <Select value={filterStatus || "_all"} onValueChange={(val) => { setFilterStatus(val === "_all" ? "" : val); handleFilterChange(); }}>
                     <SelectTrigger data-testid="select-filter-status">
                       <SelectValue placeholder={t.common.all} />
                     </SelectTrigger>
@@ -1937,13 +2137,13 @@ export default function CollaboratorsPage() {
                 </div>
               </div>
             )}
-            {(filterCountry || filterType || filterStatus) && (
+            {hasActiveFilters && (
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm text-muted-foreground">{t.common.activeFilters}:</span>
                 {filterCountry && (
                   <Badge variant="secondary" className="gap-1">
                     {getCountryFlag(filterCountry)} {getCountryName(filterCountry)}
-                    <X className="h-3 w-3 cursor-pointer" onClick={() => setFilterCountry("")} />
+                    <X className="h-3 w-3 cursor-pointer" onClick={() => { setFilterCountry(""); handleFilterChange(); }} />
                   </Badge>
                 )}
                 {filterType && (
@@ -1952,23 +2152,19 @@ export default function CollaboratorsPage() {
                       const ct = COLLABORATOR_TYPES.find(c => c.value === filterType);
                       return ct ? (t.collaborators.types[ct.labelKey as keyof typeof t.collaborators.types] || filterType) : filterType;
                     })()}
-                    <X className="h-3 w-3 cursor-pointer" onClick={() => setFilterType("")} />
+                    <X className="h-3 w-3 cursor-pointer" onClick={() => { setFilterType(""); handleFilterChange(); }} />
                   </Badge>
                 )}
                 {filterStatus && (
                   <Badge variant="secondary" className="gap-1">
                     {filterStatus === "active" ? t.common.active : t.common.inactive}
-                    <X className="h-3 w-3 cursor-pointer" onClick={() => setFilterStatus("")} />
+                    <X className="h-3 w-3 cursor-pointer" onClick={() => { setFilterStatus(""); handleFilterChange(); }} />
                   </Badge>
                 )}
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => {
-                    setFilterCountry("");
-                    setFilterType("");
-                    setFilterStatus("");
-                  }}
+                  onClick={clearAllFilters}
                   data-testid="button-clear-filters"
                 >
                   {t.common.clearAll}
@@ -1984,16 +2180,68 @@ export default function CollaboratorsPage() {
                 <Skeleton key={i} className="h-12 w-full" />
               ))}
             </div>
-          ) : filteredCollaborators.length === 0 ? (
+          ) : filteredAndSortedCollaborators.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               {t.collaborators.noCollaborators}
             </div>
           ) : (
-            <DataTable
-              columns={columns}
-              data={filteredCollaborators}
-              getRowKey={(c) => c.id}
-            />
+            <>
+              <DataTable
+                columns={columns}
+                data={paginatedCollaborators}
+                getRowKey={(c) => c.id}
+              />
+              
+              {/* Pagination controls */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                  <div className="text-sm text-muted-foreground">
+                    {t.common.showing} {((page - 1) * pageSize) + 1} - {Math.min(page * pageSize, filteredAndSortedCollaborators.length)} {t.common.of} {filteredAndSortedCollaborators.length}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage(1)}
+                      disabled={page === 1}
+                      data-testid="button-collaborator-first-page"
+                    >
+                      {t.common.first}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setPage(page - 1)}
+                      disabled={page === 1}
+                      data-testid="button-collaborator-prev-page"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-sm px-2">
+                      {page} / {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setPage(page + 1)}
+                      disabled={page === totalPages}
+                      data-testid="button-collaborator-next-page"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPage(totalPages)}
+                      disabled={page === totalPages}
+                      data-testid="button-collaborator-last-page"
+                    >
+                      {t.common.last}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
@@ -2019,7 +2267,7 @@ export default function CollaboratorsPage() {
                     data-testid="button-wizard-mode"
                   >
                     <ListChecks className="h-4 w-4 mr-1" />
-                    Wizard
+                    {t.common.wizard}
                   </Button>
                   <Button
                     variant={!useWizardForm ? "default" : "outline"}
@@ -2028,7 +2276,7 @@ export default function CollaboratorsPage() {
                     data-testid="button-simple-mode"
                   >
                     <FileEdit className="h-4 w-4 mr-1" />
-                    {t.common?.form || "Form"}
+                    {t.common.form}
                   </Button>
                 </div>
               )}

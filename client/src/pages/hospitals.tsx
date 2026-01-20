@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChecks, FileEdit, MapPin, Navigation, ExternalLink, Database, Loader2, Globe, Stethoscope, RefreshCw, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChecks, FileEdit, MapPin, Navigation, ExternalLink, Database, Loader2, Globe, Stethoscope, RefreshCw, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, Download, FileSpreadsheet } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { HospitalFormWizard } from "@/components/hospital-form-wizard";
 import { ClinicFormWizard } from "@/components/clinic-form-wizard";
@@ -881,6 +881,19 @@ export default function HospitalsPage() {
   const [clinicSortField, setClinicSortField] = useState<string>("name");
   const [clinicSortDirection, setClinicSortDirection] = useState<"asc" | "desc">("asc");
 
+  // Hospital pagination
+  const [hospitalPage, setHospitalPage] = useState(1);
+  const hospitalPageSize = 30;
+  
+  // Hospital filters
+  const [hospitalCityFilter, setHospitalCityFilter] = useState("");
+  const [hospitalStatusFilter, setHospitalStatusFilter] = useState<string>("all");
+  const [showHospitalFilters, setShowHospitalFilters] = useState(false);
+  
+  // Hospital sorting
+  const [hospitalSortField, setHospitalSortField] = useState<string>("name");
+  const [hospitalSortDirection, setHospitalSortDirection] = useState<"asc" | "desc">("asc");
+
   const isAdmin = user?.role === "admin";
 
   const { data: hospitals = [], isLoading } = useQuery<Hospital[]>({
@@ -1055,15 +1068,157 @@ export default function HospitalsPage() {
   
   const hasActiveClinicFilters = clinicSearchQuery || clinicCityFilter || clinicStatusFilter !== "all" || clinicHasWebsite !== "all" || clinicCountryTab !== "ALL";
 
-  const filteredHospitals = hospitals.filter((hospital) => {
-    const matchesCountry = countryTab === "ALL" || hospital.countryCode === countryTab;
-    const matchesSearch = 
-      hospital.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      hospital.city?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      hospital.region?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      hospital.streetNumber?.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCountry && matchesSearch;
-  });
+  // Filtered and sorted hospitals
+  const filteredAndSortedHospitals = (() => {
+    // First filter
+    let result = hospitals.filter((hospital) => {
+      const matchesCountry = countryTab === "ALL" || hospital.countryCode === countryTab;
+      const matchesSearch = 
+        hospital.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        hospital.city?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        hospital.region?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        hospital.streetNumber?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCity = !hospitalCityFilter || hospital.city?.toLowerCase().includes(hospitalCityFilter.toLowerCase());
+      const matchesStatus = hospitalStatusFilter === "all" || 
+        (hospitalStatusFilter === "active" && hospital.isActive) ||
+        (hospitalStatusFilter === "inactive" && !hospital.isActive);
+      return matchesCountry && matchesSearch && matchesCity && matchesStatus;
+    });
+    
+    // Then sort
+    result.sort((a, b) => {
+      let aVal: any;
+      let bVal: any;
+      
+      switch (hospitalSortField) {
+        case "name":
+          aVal = a.name.toLowerCase();
+          bVal = b.name.toLowerCase();
+          break;
+        case "city":
+          aVal = (a.city || "").toLowerCase();
+          bVal = (b.city || "").toLowerCase();
+          break;
+        case "country":
+          aVal = a.countryCode;
+          bVal = b.countryCode;
+          break;
+        case "isActive":
+          aVal = a.isActive;
+          bVal = b.isActive;
+          break;
+        default:
+          aVal = a.name.toLowerCase();
+          bVal = b.name.toLowerCase();
+      }
+      
+      if (aVal < bVal) return hospitalSortDirection === "asc" ? -1 : 1;
+      if (aVal > bVal) return hospitalSortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+    
+    return result;
+  })();
+  
+  const totalHospitalPages = Math.ceil(filteredAndSortedHospitals.length / hospitalPageSize);
+  const paginatedHospitals = filteredAndSortedHospitals.slice(
+    (hospitalPage - 1) * hospitalPageSize,
+    hospitalPage * hospitalPageSize
+  );
+  
+  // Reset page when filters change
+  const handleHospitalFilterChange = () => {
+    setHospitalPage(1);
+  };
+  
+  const toggleHospitalSort = (field: string) => {
+    if (hospitalSortField === field) {
+      setHospitalSortDirection(hospitalSortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setHospitalSortField(field);
+      setHospitalSortDirection("asc");
+    }
+    setHospitalPage(1);
+  };
+  
+  const clearHospitalFilters = () => {
+    setSearchQuery("");
+    setHospitalCityFilter("");
+    setHospitalStatusFilter("all");
+    setCountryTab("ALL");
+    setHospitalPage(1);
+  };
+  
+  const hasActiveHospitalFilters = searchQuery || hospitalCityFilter || hospitalStatusFilter !== "all" || countryTab !== "ALL";
+
+  // Export functions
+  const exportToCsv = useCallback((data: any[], filename: string, columns: { key: string; header: string }[]) => {
+    const BOM = '\uFEFF';
+    const headers = columns.map(c => c.header).join(',');
+    const rows = data.map(item => 
+      columns.map(c => {
+        const value = c.key.split('.').reduce((obj, key) => obj?.[key], item) ?? '';
+        const stringValue = String(value).replace(/"/g, '""');
+        return `"${stringValue}"`;
+      }).join(',')
+    );
+    const csv = BOM + [headers, ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${filename}.csv`;
+    link.click();
+    toast({ title: t.common.exportSuccess });
+  }, [t, toast]);
+
+  const exportToExcel = useCallback((data: any[], filename: string, columns: { key: string; header: string }[]) => {
+    const headers = columns.map(c => c.header);
+    const rows = data.map(item => 
+      columns.map(c => {
+        const value = c.key.split('.').reduce((obj, key) => obj?.[key], item) ?? '';
+        return String(value);
+      })
+    );
+    
+    // Create simple HTML table for Excel
+    let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"></head><body><table>';
+    html += '<tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr>';
+    rows.forEach(row => {
+      html += '<tr>' + row.map(cell => `<td>${cell}</td>`).join('') + '</tr>';
+    });
+    html += '</table></body></html>';
+    
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${filename}.xls`;
+    link.click();
+    toast({ title: t.common.exportSuccess });
+  }, [t, toast]);
+
+  const hospitalExportColumns = [
+    { key: 'name', header: t.hospitals.name },
+    { key: 'fullName', header: t.hospitals.fullName },
+    { key: 'countryCode', header: t.common.country },
+    { key: 'city', header: t.hospitals.city },
+    { key: 'region', header: t.hospitals.region },
+    { key: 'streetNumber', header: t.hospitals.streetNumber },
+    { key: 'postalCode', header: t.hospitals.postalCode },
+    { key: 'contactPerson', header: t.hospitals.contactPerson },
+    { key: 'isActive', header: t.common.status },
+  ];
+
+  const clinicExportColumns = [
+    { key: 'name', header: t.clinics.name },
+    { key: 'doctorName', header: t.clinics.doctorName },
+    { key: 'countryCode', header: t.common.country },
+    { key: 'city', header: t.clinics.city },
+    { key: 'address', header: t.clinics.address },
+    { key: 'phone', header: t.clinics.phone },
+    { key: 'email', header: t.clinics.email },
+    { key: 'website', header: t.clinics.website },
+    { key: 'isActive', header: t.common.status },
+  ];
 
   const getUserName = (userId: string | null) => {
     if (!userId) return "-";
@@ -1126,6 +1281,27 @@ export default function HospitalsPage() {
       {label}
       {clinicSortField === field ? (
         clinicSortDirection === "asc" ? (
+          <ArrowUp className="ml-1 h-3 w-3" />
+        ) : (
+          <ArrowDown className="ml-1 h-3 w-3" />
+        )
+      ) : (
+        <ArrowUpDown className="ml-1 h-3 w-3 opacity-50" />
+      )}
+    </Button>
+  );
+
+  const HospitalSortableHeader = ({ field, label }: { field: string; label: string }) => (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="h-8 px-2 -ml-2 font-medium"
+      onClick={() => toggleHospitalSort(field)}
+      data-testid={`sort-hospital-${field}`}
+    >
+      {label}
+      {hospitalSortField === field ? (
+        hospitalSortDirection === "asc" ? (
           <ArrowUp className="ml-1 h-3 w-3" />
         ) : (
           <ArrowDown className="ml-1 h-3 w-3" />
@@ -1221,7 +1397,7 @@ export default function HospitalsPage() {
   const columns = [
     {
       key: "name",
-      header: t.hospitals.name,
+      header: <HospitalSortableHeader field="name" label={t.hospitals.name} />,
       cell: (hospital: Hospital) => (
         <div className="flex items-center gap-2">
           <span className="font-medium">{hospital.name}</span>
@@ -1233,7 +1409,7 @@ export default function HospitalsPage() {
     },
     {
       key: "country",
-      header: t.common.country,
+      header: <HospitalSortableHeader field="country" label={t.common.country} />,
       cell: (hospital: Hospital) => (
         <span>
           {getCountryFlag(hospital.countryCode)} {getCountryName(hospital.countryCode)}
@@ -1242,7 +1418,7 @@ export default function HospitalsPage() {
     },
     {
       key: "city",
-      header: t.hospitals.city,
+      header: <HospitalSortableHeader field="city" label={t.hospitals.city} />,
       cell: (hospital: Hospital) => hospital.city || "-",
     },
     {
@@ -1340,11 +1516,60 @@ export default function HospitalsPage() {
         <TabsContent value="hospital" className="mt-6">
           <Card>
             <CardHeader className="pb-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5" />
+                    {t.hospitals.title}
+                  </CardTitle>
+                  <CardDescription>{t.hospitals.description}</CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant={showHospitalFilters ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setShowHospitalFilters(!showHospitalFilters)}
+                    data-testid="button-toggle-hospital-filters"
+                  >
+                    <Filter className="h-4 w-4 mr-2" />
+                    {t.common.filter}
+                    {hasActiveHospitalFilters && (
+                      <Badge variant="secondary" className="ml-2">!</Badge>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => exportToCsv(filteredAndSortedHospitals, 'hospitals', hospitalExportColumns)}
+                    data-testid="button-export-hospitals-csv"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    CSV
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => exportToExcel(filteredAndSortedHospitals, 'hospitals', hospitalExportColumns)}
+                    data-testid="button-export-hospitals-excel"
+                  >
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Excel
+                  </Button>
+                  {canAdd("hospitals") && (
+                    <Button onClick={handleAddNew} data-testid="button-add-hospital">
+                      <Plus className="h-4 w-4 mr-2" />
+                      {t.hospitals.addHospital}
+                    </Button>
+                  )}
+                </div>
+              </div>
+              
+              {/* Country tabs */}
               <div className="flex flex-wrap gap-2">
                 <Button
                   variant={countryTab === "ALL" ? "default" : "outline"}
                   size="sm"
-                  onClick={() => setCountryTab("ALL")}
+                  onClick={() => { setCountryTab("ALL"); handleHospitalFilterChange(); }}
                   data-testid="tab-country-all"
                 >
                   {t.common.all}
@@ -1358,7 +1583,7 @@ export default function HospitalsPage() {
                       key={country.code}
                       variant={countryTab === country.code ? "default" : "outline"}
                       size="sm"
-                      onClick={() => setCountryTab(country.code)}
+                      onClick={() => { setCountryTab(country.code); handleHospitalFilterChange(); }}
                       data-testid={`tab-country-${country.code}`}
                     >
                       {country.flag} {country.code}
@@ -1367,21 +1592,62 @@ export default function HospitalsPage() {
                   );
                 })}
               </div>
+              
+              {/* Search and filters */}
               <div className="flex items-center gap-4">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder={t.hospitals.searchPlaceholder}
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={(e) => { setSearchQuery(e.target.value); handleHospitalFilterChange(); }}
                     className="pl-10"
                     data-testid="input-search-hospitals"
                   />
                 </div>
+                {hasActiveHospitalFilters && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearHospitalFilters}
+                    data-testid="button-clear-hospital-filters"
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    {t.common.clearFilters}
+                  </Button>
+                )}
                 <div className="text-sm text-muted-foreground whitespace-nowrap">
-                  {t.common.showing} {filteredHospitals.length} {t.common.of} {hospitals.length}
+                  {filteredAndSortedHospitals.length} z {hospitals.length} {t.common.records}
                 </div>
               </div>
+              
+              {/* Advanced filters */}
+              {showHospitalFilters && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">{t.hospitals.city}</label>
+                    <Input
+                      placeholder={t.clinics.filterByCity}
+                      value={hospitalCityFilter}
+                      onChange={(e) => { setHospitalCityFilter(e.target.value); handleHospitalFilterChange(); }}
+                      data-testid="input-filter-hospital-city"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">{t.common.status}</label>
+                    <select
+                      value={hospitalStatusFilter}
+                      onChange={(e) => { setHospitalStatusFilter(e.target.value); handleHospitalFilterChange(); }}
+                      className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                      data-testid="select-filter-hospital-status"
+                    >
+                      <option value="all">{t.common.all}</option>
+                      <option value="active">{t.common.active}</option>
+                      <option value="inactive">{t.common.inactive}</option>
+                    </select>
+                  </div>
+                </div>
+              )}
             </CardHeader>
             <CardContent>
               {isLoading ? (
@@ -1390,16 +1656,68 @@ export default function HospitalsPage() {
                     <Skeleton key={i} className="h-12 w-full" />
                   ))}
                 </div>
-              ) : filteredHospitals.length === 0 ? (
+              ) : filteredAndSortedHospitals.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   {t.hospitals.noHospitals}
                 </div>
               ) : (
-                <DataTable 
-                  columns={columns} 
-                  data={filteredHospitals} 
-                  getRowKey={(hospital) => hospital.id}
-                />
+                <>
+                  <DataTable 
+                    columns={columns} 
+                    data={paginatedHospitals} 
+                    getRowKey={(hospital) => hospital.id}
+                  />
+                  
+                  {/* Pagination controls */}
+                  {totalHospitalPages > 1 && (
+                    <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                      <div className="text-sm text-muted-foreground">
+                        {t.common.showing} {((hospitalPage - 1) * hospitalPageSize) + 1} - {Math.min(hospitalPage * hospitalPageSize, filteredAndSortedHospitals.length)} {t.common.of} {filteredAndSortedHospitals.length}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setHospitalPage(1)}
+                          disabled={hospitalPage === 1}
+                          data-testid="button-hospital-first-page"
+                        >
+                          {t.common.first}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => setHospitalPage(hospitalPage - 1)}
+                          disabled={hospitalPage === 1}
+                          data-testid="button-hospital-prev-page"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <span className="text-sm px-2">
+                          {hospitalPage} / {totalHospitalPages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => setHospitalPage(hospitalPage + 1)}
+                          disabled={hospitalPage === totalHospitalPages}
+                          data-testid="button-hospital-next-page"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setHospitalPage(totalHospitalPages)}
+                          disabled={hospitalPage === totalHospitalPages}
+                          data-testid="button-hospital-last-page"
+                        >
+                          {t.common.last}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
@@ -1424,10 +1742,28 @@ export default function HospitalsPage() {
                     data-testid="button-toggle-clinic-filters"
                   >
                     <Filter className="h-4 w-4 mr-2" />
-                    {t.common.filters || "Filtre"}
+                    {t.common.filter}
                     {hasActiveClinicFilters && (
                       <Badge variant="secondary" className="ml-2">!</Badge>
                     )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => exportToCsv(filteredAndSortedClinics, 'clinics', clinicExportColumns)}
+                    data-testid="button-export-clinics-csv"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    CSV
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => exportToExcel(filteredAndSortedClinics, 'clinics', clinicExportColumns)}
+                    data-testid="button-export-clinics-excel"
+                  >
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Excel
                   </Button>
                   <Button
                     variant="outline"

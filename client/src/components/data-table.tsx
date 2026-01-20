@@ -14,7 +14,7 @@ import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 
 export interface Column<T> {
   key: string;
-  header: string;
+  header: string | React.ReactNode;
   cell: (item: T) => React.ReactNode;
   className?: string;
   sortable?: boolean;

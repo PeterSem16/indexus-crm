@@ -128,6 +128,15 @@ export interface Translations {
     showing: string;
     of: string;
     clearFilters: string;
+    exportCsv: string;
+    exportExcel: string;
+    exportFiltered: string;
+    exporting: string;
+    exportSuccess: string;
+    records: string;
+    online: string;
+    offline: string;
+    indexusConnect: string;
   };
   advancedFilters: {
     title: string;
@@ -1733,6 +1742,15 @@ export const translations: Record<Locale, Translations> = {
       showing: 'Showing',
       of: 'of',
       clearFilters: 'Clear filters',
+      exportCsv: 'Export CSV',
+      exportExcel: 'Export Excel',
+      exportFiltered: 'Export filtered records',
+      exporting: 'Exporting...',
+      exportSuccess: 'Export successful',
+      records: 'records',
+      online: 'Online',
+      offline: 'Offline',
+      indexusConnect: 'INDEXUS Connect',
     },
     advancedFilters: {
       title: 'Advanced Filters',
@@ -3450,6 +3468,15 @@ export const translations: Record<Locale, Translations> = {
       showing: 'Zobrazujem',
       of: 'z',
       clearFilters: 'Zmazať filtre',
+      exportCsv: 'Export CSV',
+      exportExcel: 'Export Excel',
+      exportFiltered: 'Exportovať filtrované záznamy',
+      exporting: 'Exportujem...',
+      exportSuccess: 'Export úspešný',
+      records: 'záznamov',
+      online: 'Online',
+      offline: 'Offline',
+      indexusConnect: 'INDEXUS Connect',
     },
     advancedFilters: {
       title: 'Pokročilé filtre',
@@ -5162,6 +5189,15 @@ export const translations: Record<Locale, Translations> = {
       showing: 'Zobrazuji',
       of: 'z',
       clearFilters: 'Smazat filtry',
+      exportCsv: 'Export CSV',
+      exportExcel: 'Export Excel',
+      exportFiltered: 'Exportovat filtrované záznamy',
+      exporting: 'Exportuji...',
+      exportSuccess: 'Export úspěšný',
+      records: 'záznamů',
+      online: 'Online',
+      offline: 'Offline',
+      indexusConnect: 'INDEXUS Connect',
     },
     advancedFilters: {
       title: 'Pokročilé filtry',
@@ -6837,6 +6873,15 @@ export const translations: Record<Locale, Translations> = {
       showing: 'Megjelenítve',
       of: '-ból/-ból',
       clearFilters: 'Szurok törlése',
+      exportCsv: 'CSV exportálás',
+      exportExcel: 'Excel exportálás',
+      exportFiltered: 'Szűrt rekordok exportálása',
+      exporting: 'Exportálás...',
+      exportSuccess: 'Export sikeres',
+      records: 'rekord',
+      online: 'Online',
+      offline: 'Offline',
+      indexusConnect: 'INDEXUS Connect',
     },
     advancedFilters: {
       title: 'Speciális szűrők',
@@ -8512,6 +8557,15 @@ export const translations: Record<Locale, Translations> = {
       showing: 'Afisare',
       of: 'din',
       clearFilters: 'Sterge filtrele',
+      exportCsv: 'Export CSV',
+      exportExcel: 'Export Excel',
+      exportFiltered: 'Exporta inregistrarile filtrate',
+      exporting: 'Se exporta...',
+      exportSuccess: 'Export reusit',
+      records: 'inregistrari',
+      online: 'Online',
+      offline: 'Offline',
+      indexusConnect: 'INDEXUS Connect',
     },
     advancedFilters: {
       title: 'Filtre avansate',
@@ -10187,6 +10241,15 @@ export const translations: Record<Locale, Translations> = {
       showing: 'Visualizzo',
       of: 'di',
       clearFilters: 'Cancella filtri',
+      exportCsv: 'Esporta CSV',
+      exportExcel: 'Esporta Excel',
+      exportFiltered: 'Esporta record filtrati',
+      exporting: 'Esportazione...',
+      exportSuccess: 'Esportazione riuscita',
+      records: 'record',
+      online: 'Online',
+      offline: 'Offline',
+      indexusConnect: 'INDEXUS Connect',
     },
     advancedFilters: {
       title: 'Filtri avanzati',
@@ -11862,6 +11925,15 @@ export const translations: Record<Locale, Translations> = {
       showing: 'Anzeige',
       of: 'von',
       clearFilters: 'Filter löschen',
+      exportCsv: 'CSV exportieren',
+      exportExcel: 'Excel exportieren',
+      exportFiltered: 'Gefilterte Datensätze exportieren',
+      exporting: 'Exportieren...',
+      exportSuccess: 'Export erfolgreich',
+      records: 'Datensätze',
+      online: 'Online',
+      offline: 'Offline',
+      indexusConnect: 'INDEXUS Connect',
     },
     advancedFilters: {
       title: 'Erweiterte Filter',
