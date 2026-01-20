@@ -879,6 +879,7 @@ export interface Translations {
       usernameRequired: string;
       passwordRequired: string;
     };
+    expiredAgreement: string;
   };
   campaigns: {
     title: string;
@@ -2631,6 +2632,7 @@ export const translations: Record<Locale, Translations> = {
         usernameRequired: 'Username is required for mobile app access',
         passwordRequired: 'Password is required for mobile app access',
       },
+      expiredAgreement: 'Expired Agreement',
     },
     campaigns: {
       title: 'Campaigns',
@@ -4393,6 +4395,7 @@ export const translations: Record<Locale, Translations> = {
         usernameRequired: 'Používateľské meno je povinné pre prístup do mobilnej aplikácie',
         passwordRequired: 'Heslo je povinné pre prístup do mobilnej aplikácie',
       },
+      expiredAgreement: 'Vypršaná zmluva',
     },
     campaigns: {
       title: 'Kampane',
@@ -6155,6 +6158,7 @@ export const translations: Record<Locale, Translations> = {
         usernameRequired: 'Uživatelské jméno je povinné pro přístup do mobilní aplikace',
         passwordRequired: 'Heslo je povinné pro přístup do mobilní aplikace',
       },
+      expiredAgreement: 'Vypršená smlouva',
     },
     campaigns: {
       title: 'Kampaně',
@@ -7880,6 +7884,7 @@ export const translations: Record<Locale, Translations> = {
         usernameRequired: 'Felhasználónév szükséges a mobilalkalmazás-hozzáféréshez',
         passwordRequired: 'Jelszó szükséges a mobilalkalmazás-hozzáféréshez',
       },
+      expiredAgreement: 'Lejárt szerződés',
     },
     campaigns: {
       title: 'Kampányok',
@@ -9605,6 +9610,7 @@ export const translations: Record<Locale, Translations> = {
         usernameRequired: 'Numele de utilizator este necesar pentru accesul la aplicația mobilă',
         passwordRequired: 'Parola este necesară pentru accesul la aplicația mobilă',
       },
+      expiredAgreement: 'Contract expirat',
     },
     campaigns: {
       title: 'Campanii',
@@ -11330,6 +11336,7 @@ export const translations: Record<Locale, Translations> = {
         usernameRequired: "Il nome utente è richiesto per l'accesso all'app mobile",
         passwordRequired: "La password è richiesta per l'accesso all'app mobile",
       },
+      expiredAgreement: 'Contratto scaduto',
     },
     campaigns: {
       title: 'Campagne',
@@ -13055,6 +13062,7 @@ export const translations: Record<Locale, Translations> = {
         usernameRequired: 'Benutzername ist für den Mobile App-Zugang erforderlich',
         passwordRequired: 'Passwort ist für den Mobile App-Zugang erforderlich',
       },
+      expiredAgreement: 'Abgelaufener Vertrag',
     },
     campaigns: {
       title: 'Kampagnen',

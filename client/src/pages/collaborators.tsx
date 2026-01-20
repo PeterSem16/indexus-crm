@@ -1930,6 +1930,7 @@ export default function CollaboratorsPage() {
   const [filterCountry, setFilterCountry] = useState("");
   const [filterType, setFilterType] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+  const [filterExpiredAgreement, setFilterExpiredAgreement] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [useWizardForm, setUseWizardForm] = useState(true);
@@ -1978,13 +1979,14 @@ export default function CollaboratorsPage() {
       const phoneMatch = c.phone?.toLowerCase().includes(searchQuery.toLowerCase()) || c.mobile?.toLowerCase().includes(searchQuery.toLowerCase());
       const textMatch = searchQuery === "" || nameMatch || emailMatch || phoneMatch;
       
-      const countryMatch = filterCountry === "" || c.countryCode === filterCountry;
+      const countryMatch = filterCountry === "" || c.countryCode === filterCountry || (c.countryCodes && c.countryCodes.includes(filterCountry));
       const typeMatch = filterType === "" || c.collaboratorType === filterType;
       const statusMatch = filterStatus === "" || 
         (filterStatus === "active" && c.isActive) || 
         (filterStatus === "inactive" && !c.isActive);
+      const expiredMatch = !filterExpiredAgreement || (c as any).hasExpiredAgreement === true;
       
-      return textMatch && countryMatch && typeMatch && statusMatch;
+      return textMatch && countryMatch && typeMatch && statusMatch && expiredMatch;
     });
     
     // Then sort
@@ -2059,7 +2061,7 @@ export default function CollaboratorsPage() {
     setPage(1);
   };
   
-  const hasActiveFilters = searchQuery || filterCountry || filterType || filterStatus;
+  const hasActiveFilters = searchQuery || filterCountry || filterType || filterStatus || filterExpiredAgreement;
 
   // Export functions
   const exportToCsv = useCallback((data: any[], filename: string, columns: { key: string; header: string }[]) => {
@@ -2172,11 +2174,18 @@ export default function CollaboratorsPage() {
     {
       key: "country",
       header: <SortableHeader field="country" label={t.common.country} />,
-      cell: (c: Collaborator) => (
-        <span>
-          {getCountryFlag(c.countryCode)} {getCountryName(c.countryCode)}
-        </span>
-      ),
+      cell: (c: Collaborator) => {
+        const countries = c.countryCodes && c.countryCodes.length > 0 ? c.countryCodes : [c.countryCode];
+        return (
+          <div className="flex flex-wrap gap-1">
+            {countries.map((code) => (
+              <Badge key={code} variant="outline" className="text-xs">
+                {getCountryFlag(code)} {code}
+              </Badge>
+            ))}
+          </div>
+        );
+      },
     },
     {
       key: "type",
@@ -2208,9 +2217,16 @@ export default function CollaboratorsPage() {
       key: "status",
       header: <SortableHeader field="status" label={t.common.status} />,
       cell: (c: Collaborator) => (
-        <Badge variant={c.isActive ? "default" : "secondary"}>
-          {c.isActive ? t.common.active : t.common.inactive}
-        </Badge>
+        <div className="flex flex-wrap gap-1">
+          <Badge variant={c.isActive ? "default" : "secondary"}>
+            {c.isActive ? t.common.active : t.common.inactive}
+          </Badge>
+          {(c as any).hasExpiredAgreement && (
+            <Badge variant="destructive" className="text-xs">
+              {t.collaborators.expiredAgreement}
+            </Badge>
+          )}
+        </div>
       ),
     },
     {
@@ -2315,7 +2331,7 @@ export default function CollaboratorsPage() {
               </Button>
             </div>
             {showFilters && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="space-y-2">
                   <Label>{t.common.country}</Label>
                   <Select value={filterCountry || "_all"} onValueChange={(val) => { setFilterCountry(val === "_all" ? "" : val); handleFilterChange(); }}>
@@ -2360,6 +2376,18 @@ export default function CollaboratorsPage() {
                       <SelectItem value="inactive">{t.common.inactive}</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-2 flex items-end">
+                  <div className="flex items-center gap-2 h-9 px-3 border rounded-md">
+                    <Switch 
+                      checked={filterExpiredAgreement}
+                      onCheckedChange={(val) => { setFilterExpiredAgreement(val); handleFilterChange(); }}
+                      data-testid="switch-filter-expired-agreement"
+                    />
+                    <Label className="text-sm cursor-pointer" onClick={() => { setFilterExpiredAgreement(!filterExpiredAgreement); handleFilterChange(); }}>
+                      {t.collaborators.expiredAgreement}
+                    </Label>
+                  </div>
                 </div>
               </div>
             )}
