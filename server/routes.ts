@@ -7172,6 +7172,12 @@ export async function registerRoutes(
         return res.status(400).json({ error: "mobileAppEnabled is required" });
       }
       
+      // Get old collaborator to compare changes
+      const oldCollaborator = await storage.getCollaborator(req.params.id);
+      if (!oldCollaborator) {
+        return res.status(404).json({ error: "Collaborator not found" });
+      }
+      
       // Check if username is already taken by another collaborator
       if (mobileUsername && mobileAppEnabled) {
         const existing = await storage.getCollaboratorByMobileUsername(mobileUsername);
@@ -7190,18 +7196,32 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Collaborator not found" });
       }
       
-      await logActivity(
-        req.session.user!.id,
-        "update_mobile_credentials",
-        "collaborator",
-        collaborator.id,
-        `${collaborator.firstName} ${collaborator.lastName}`,
-        {
-          mobileAppEnabled,
-          mobileUsername: mobileUsername || null,
-          passwordChanged: !!mobilePassword
+      // Only log if something actually changed
+      const enabledChanged = oldCollaborator.mobileAppEnabled !== mobileAppEnabled;
+      const usernameChanged = oldCollaborator.mobileUsername !== mobileUsername;
+      const passwordChanged = !!mobilePassword;
+      
+      if (enabledChanged || usernameChanged || passwordChanged) {
+        const changes: Record<string, { from: any; to: any }> = {};
+        if (enabledChanged) {
+          changes.mobileAppEnabled = { from: oldCollaborator.mobileAppEnabled, to: mobileAppEnabled };
         }
-      );
+        if (usernameChanged) {
+          changes.mobileUsername = { from: oldCollaborator.mobileUsername, to: mobileUsername };
+        }
+        if (passwordChanged) {
+          changes.mobilePassword = { from: "(hidden)", to: "(changed)" };
+        }
+        
+        await logActivity(
+          req.session.user!.id,
+          "update_mobile_credentials",
+          "collaborator",
+          collaborator.id,
+          `${collaborator.firstName} ${collaborator.lastName}`,
+          { changes }
+        );
+      }
       
       // Return collaborator without password hash
       const { mobilePasswordHash, ...safeCollaborator } = collaborator;
