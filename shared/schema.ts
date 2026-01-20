@@ -1517,9 +1517,13 @@ export type Hospital = typeof hospitals.$inferSelect;
 export const COLLABORATOR_TYPES = [
   { value: "doctor", labelKey: "doctor" },
   { value: "nurse", labelKey: "nurse" },
-  { value: "assistant_doctor", labelKey: "assistantDoctor" },
-  { value: "head_nurse", labelKey: "headNurse" },
-  { value: "call_center", labelKey: "callCenter" },
+  { value: "resident", labelKey: "resident" },
+  { value: "callCenter", labelKey: "callCenter" },
+  { value: "headNurse", labelKey: "headNurse" },
+  { value: "bm", labelKey: "bm" },
+  { value: "vedono", labelKey: "vedono" },
+  { value: "external", labelKey: "external" },
+  { value: "representative", labelKey: "representative" },
   { value: "other", labelKey: "other" },
 ] as const;
 

@@ -160,7 +160,7 @@ function PendingAddressesContent({
   collaboratorName: string;
   t: any;
 }) {
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(["permanent"]));
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   
   const toggleSection = (type: string) => {
     setExpandedSections(prev => {
@@ -856,7 +856,7 @@ const NON_COMPANY_ADDRESS_TYPES = [
 // Addresses Tab Content Component (for non-company addresses only)
 function AddressesTabContent({ collaboratorId, countryCode, collaboratorName, t }: { collaboratorId: string; countryCode: string; collaboratorName?: string; t: any }) {
   const { toast } = useToast();
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(["permanent"]));
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   
   const { data: addresses = [], isLoading } = useQuery<CollaboratorAddress[]>({
     queryKey: ["/api/collaborators", collaboratorId, "addresses"],
