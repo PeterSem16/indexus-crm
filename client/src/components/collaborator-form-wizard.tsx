@@ -2135,6 +2135,10 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/collaborators"] });
+      // Invalidate activity logs for this collaborator
+      if (initialData?.id) {
+        queryClient.invalidateQueries({ queryKey: ["/api/activity-logs", "collaborator", initialData.id] });
+      }
       toast({ title: t.success.saved });
       onSuccess();
     },
