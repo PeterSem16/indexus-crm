@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { PhoneNumberField } from "@/components/phone-number-field";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
@@ -18,7 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { COUNTRIES } from "@shared/schema";
 import type { Collaborator, Hospital, SafeUser, HealthInsurance } from "@shared/schema";
-import { ChevronLeft, ChevronRight, Check, User, Phone, CreditCard, Building2, Smartphone, MapPin, FileText, History, Plus, Pencil, Trash2, Clock, Activity, Upload, Download, Eye, ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, User, Phone, CreditCard, Building2, Smartphone, MapPin, FileText, History, Plus, Pencil, Trash2, Clock, Activity, Upload, Download, Eye, ChevronDown, ChevronUp, Copy } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -201,8 +202,15 @@ const REWARD_TYPES = [
   { value: "one_time", labelKey: "oneTime" },
 ];
 
-// Addresses Tab Content Component
-function AddressesTabContent({ collaboratorId, countryCode, t }: { collaboratorId: string; countryCode: string; t: any }) {
+// Non-company address types for collapsible display
+const NON_COMPANY_ADDRESS_TYPES = [
+  { value: "permanent", labelKey: "permanent" },
+  { value: "correspondence", labelKey: "correspondence" },
+  { value: "work", labelKey: "work" },
+];
+
+// Addresses Tab Content Component (for non-company addresses only)
+function AddressesTabContent({ collaboratorId, countryCode, collaboratorName, t }: { collaboratorId: string; countryCode: string; collaboratorName?: string; t: any }) {
   const { toast } = useToast();
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(["permanent"]));
   
@@ -242,7 +250,7 @@ function AddressesTabContent({ collaboratorId, countryCode, t }: { collaboratorI
 
   return (
     <div className="space-y-4">
-      {ADDRESS_TYPES.map(({ value, labelKey }) => {
+      {NON_COMPANY_ADDRESS_TYPES.map(({ value, labelKey }) => {
         const address = getAddressByType(value);
         const isExpanded = expandedSections.has(value);
         
@@ -273,6 +281,7 @@ function AddressesTabContent({ collaboratorId, countryCode, t }: { collaboratorI
                     collaboratorId={collaboratorId} 
                     addressType={value}
                     existingAddress={address}
+                    collaboratorName={collaboratorName}
                     t={t}
                   />
                 </CardContent>
@@ -285,15 +294,116 @@ function AddressesTabContent({ collaboratorId, countryCode, t }: { collaboratorI
   );
 }
 
+// Company Address Form Component (inline display)
+function CompanyAddressForm({ collaboratorId, t }: { collaboratorId: string; t: any }) {
+  const { toast } = useToast();
+  
+  const { data: addresses = [] } = useQuery<CollaboratorAddress[]>({
+    queryKey: ["/api/collaborators", collaboratorId, "addresses"],
+    queryFn: async () => {
+      const res = await fetch(`/api/collaborators/${collaboratorId}/addresses`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!collaboratorId,
+  });
+
+  const companyAddress = addresses.find(a => a.addressType === "company");
+  
+  const [formData, setFormData] = useState({
+    streetNumber: companyAddress?.streetNumber || "",
+    city: companyAddress?.city || "",
+    postalCode: companyAddress?.postalCode || "",
+    region: companyAddress?.region || "",
+    countryCode: companyAddress?.countryCode || "",
+  });
+
+  useEffect(() => {
+    if (companyAddress) {
+      setFormData({
+        streetNumber: companyAddress.streetNumber || "",
+        city: companyAddress.city || "",
+        postalCode: companyAddress.postalCode || "",
+        region: companyAddress.region || "",
+        countryCode: companyAddress.countryCode || "",
+      });
+    }
+  }, [companyAddress]);
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: typeof formData) => {
+      if (companyAddress) {
+        return apiRequest("PUT", `/api/collaborators/${collaboratorId}/addresses/${companyAddress.id}`, { ...data, addressType: "company" });
+      }
+      return apiRequest("POST", `/api/collaborators/${collaboratorId}/addresses`, { ...data, addressType: "company" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/collaborators", collaboratorId, "addresses"] });
+      toast({ title: t.success.saved });
+    },
+    onError: () => {
+      toast({ title: t.errors.saveFailed, variant: "destructive" });
+    },
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label>{t.collaborators.fields.streetNumber}</Label>
+          <Input
+            value={formData.streetNumber}
+            onChange={(e) => setFormData({ ...formData, streetNumber: e.target.value })}
+            data-testid="wizard-input-company-address-street"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>{t.collaborators.fields.city}</Label>
+          <Input
+            value={formData.city}
+            onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+            data-testid="wizard-input-company-address-city"
+          />
+        </div>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label>{t.collaborators.fields.postalCode}</Label>
+          <Input
+            value={formData.postalCode}
+            onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
+            data-testid="wizard-input-company-address-zip"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>{t.collaborators.fields.region}</Label>
+          <Input
+            value={formData.region}
+            onChange={(e) => setFormData({ ...formData, region: e.target.value })}
+            data-testid="wizard-input-company-address-region"
+          />
+        </div>
+      </div>
+      <div className="flex justify-end">
+        <Button onClick={() => saveMutation.mutate(formData)} disabled={saveMutation.isPending} data-testid="button-save-company-address">
+          {saveMutation.isPending ? t.common.loading : t.common.save}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 // Address Form Component
-function AddressForm({ collaboratorId, addressType, existingAddress, t }: { 
+function AddressForm({ collaboratorId, addressType, existingAddress, collaboratorName, t }: { 
   collaboratorId: string; 
   addressType: string; 
   existingAddress?: CollaboratorAddress;
+  collaboratorName?: string;
   t: any;
 }) {
   const { toast } = useToast();
   const [formData, setFormData] = useState({
+    name: existingAddress?.name || "",
     streetNumber: existingAddress?.streetNumber || "",
     city: existingAddress?.city || "",
     postalCode: existingAddress?.postalCode || "",
@@ -317,9 +427,32 @@ function AddressForm({ collaboratorId, addressType, existingAddress, t }: {
     },
   });
 
+  const copyCollaboratorName = () => {
+    if (collaboratorName) {
+      setFormData({ ...formData, name: collaboratorName });
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label>{t.collaborators.fields.name}</Label>
+            {collaboratorName && (
+              <Button type="button" variant="ghost" size="sm" onClick={copyCollaboratorName} data-testid={`button-copy-name-${addressType}`}>
+                <Copy className="h-3 w-3 mr-1" />
+                {t.common.copy}
+              </Button>
+            )}
+          </div>
+          <Input
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            data-testid={`input-address-${addressType}-name`}
+            placeholder={collaboratorName || ""}
+          />
+        </div>
         <div className="space-y-2">
           <Label>{t.collaborators.fields.streetNumber}</Label>
           <Input
@@ -328,6 +461,8 @@ function AddressForm({ collaboratorId, addressType, existingAddress, t }: {
             data-testid={`input-address-${addressType}-street`}
           />
         </div>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>{t.collaborators.fields.city}</Label>
           <Input
@@ -336,8 +471,6 @@ function AddressForm({ collaboratorId, addressType, existingAddress, t }: {
             data-testid={`input-address-${addressType}-city`}
           />
         </div>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>{t.collaborators.fields.postalCode}</Label>
           <Input
@@ -346,6 +479,8 @@ function AddressForm({ collaboratorId, addressType, existingAddress, t }: {
             data-testid={`input-address-${addressType}-zip`}
           />
         </div>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>{t.collaborators.fields.region}</Label>
           <Input
@@ -564,6 +699,13 @@ function AgreementsTabContent({ collaboratorId, collaboratorCountry, t }: { coll
   );
 }
 
+// Agreement Form Types
+const AGREEMENT_FORM_TYPES = [
+  { value: "dohoda_o_vykonani_prace", labelKey: "dohodaOVykonaniPrace" },
+  { value: "zmluva_o_dielo_podnikatel", labelKey: "zmluvaODieloPodnikatel" },
+  { value: "zmluva_o_dielo_fyzicka_osoba", labelKey: "zmluvaODieloFyzickaOsoba" },
+] as const;
+
 // Agreement Form Component
 function AgreementForm({ collaboratorId, editingId, agreement, billingCompanies, onCancel, onSuccess, t }: {
   collaboratorId: string;
@@ -575,17 +717,26 @@ function AgreementForm({ collaboratorId, editingId, agreement, billingCompanies,
   t: any;
 }) {
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
   const [formData, setFormData] = useState({
     billingCompanyId: agreement?.billingCompanyId || "",
     contractNumber: agreement?.contractNumber || "",
+    agreementForm: agreement?.agreementForm || "",
     validFromDay: agreement?.validFromDay,
     validFromMonth: agreement?.validFromMonth,
     validFromYear: agreement?.validFromYear,
     validToDay: agreement?.validToDay,
     validToMonth: agreement?.validToMonth,
     validToYear: agreement?.validToYear,
+    agreementSentDay: agreement?.agreementSentDay,
+    agreementSentMonth: agreement?.agreementSentMonth,
+    agreementSentYear: agreement?.agreementSentYear,
+    agreementReturnedDay: agreement?.agreementReturnedDay,
+    agreementReturnedMonth: agreement?.agreementReturnedMonth,
+    agreementReturnedYear: agreement?.agreementReturnedYear,
     isValid: agreement?.isValid ?? true,
-    rewardTypes: agreement?.rewardTypes || [],
+    notes: (agreement as any)?.notes || "",
   });
 
   const saveMutation = useMutation({
@@ -605,9 +756,45 @@ function AgreementForm({ collaboratorId, editingId, agreement, billingCompanies,
     },
   });
 
+  const setToday = (field: "validFrom" | "validTo" | "agreementSent" | "agreementReturned") => {
+    const today = new Date();
+    const updates = {
+      [`${field}Day`]: today.getDate(),
+      [`${field}Month`]: today.getMonth() + 1,
+      [`${field}Year`]: today.getFullYear(),
+    };
+    setFormData(prev => ({ ...prev, ...updates }));
+  };
+
   const setEndOfYear = (sourceYear?: number | null) => {
     const year = sourceYear || new Date().getFullYear();
     setFormData(prev => ({ ...prev, validToDay: 31, validToMonth: 12, validToYear: year }));
+  };
+
+  const handleFileUpload = async (file: File) => {
+    if (!editingId) {
+      return;
+    }
+    setUploadingFile(true);
+    try {
+      const formDataUpload = new FormData();
+      formDataUpload.append("file", file);
+      
+      const response = await fetch(`/api/collaborators/${collaboratorId}/agreements/${editingId}/upload`, {
+        method: "POST",
+        credentials: "include",
+        body: formDataUpload,
+      });
+      
+      if (!response.ok) throw new Error();
+      
+      queryClient.invalidateQueries({ queryKey: ["/api/collaborators", collaboratorId, "agreements"] });
+      toast({ title: t.success.saved });
+    } catch (error) {
+      toast({ title: t.errors.uploadFailed, variant: "destructive" });
+    } finally {
+      setUploadingFile(false);
+    }
   };
 
   return (
@@ -638,9 +825,35 @@ function AgreementForm({ collaboratorId, editingId, agreement, billingCompanies,
           />
         </div>
       </div>
+
+      <div className="space-y-2">
+        <Label>{t.collaborators?.fields?.agreementForm}</Label>
+        <Select
+          value={formData.agreementForm || "_none"}
+          onValueChange={(value) => setFormData({ ...formData, agreementForm: value === "_none" ? "" : value })}
+        >
+          <SelectTrigger data-testid="select-agreement-form">
+            <SelectValue placeholder={t.collaborators?.fields?.agreementForm} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="_none">{t.common?.noData}</SelectItem>
+            {AGREEMENT_FORM_TYPES.map((af) => (
+              <SelectItem key={af.value} value={af.value}>
+                {(t.collaborators.agreementFormTypes as Record<string, string>)[af.labelKey]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <Label>{t.collaborators?.fields?.validFrom}</Label>
+          <div className="flex items-center justify-between">
+            <Label>{t.collaborators?.fields?.validFrom}</Label>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setToday("validFrom")} data-testid="button-today-valid-from">
+              {t.common.today}
+            </Button>
+          </div>
           <div className="flex gap-2">
             <Input
               type="number"
@@ -668,12 +881,7 @@ function AgreementForm({ collaboratorId, editingId, agreement, billingCompanies,
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label>{t.collaborators?.fields?.validTo}</Label>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setEndOfYear(formData.validFromYear)}
-            >
+            <Button type="button" variant="ghost" size="sm" onClick={() => setEndOfYear(formData.validFromYear)} data-testid="button-end-of-year">
               {t.common.endOfYear}
             </Button>
           </div>
@@ -702,6 +910,78 @@ function AgreementForm({ collaboratorId, editingId, agreement, billingCompanies,
           </div>
         </div>
       </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label>{t.collaborators?.fields?.agreementSent}</Label>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setToday("agreementSent")} data-testid="button-today-agreement-sent">
+              {t.common.today}
+            </Button>
+          </div>
+          <div className="flex gap-2">
+            <Input
+              type="number"
+              placeholder={t.collaborators.fields.day}
+              value={formData.agreementSentDay || ""}
+              onChange={(e) => setFormData({ ...formData, agreementSentDay: parseInt(e.target.value) || undefined })}
+              className="w-20"
+              data-testid="input-agreement-sent-day"
+            />
+            <Input
+              type="number"
+              placeholder={t.collaborators.fields.month}
+              value={formData.agreementSentMonth || ""}
+              onChange={(e) => setFormData({ ...formData, agreementSentMonth: parseInt(e.target.value) || undefined })}
+              className="w-20"
+              data-testid="input-agreement-sent-month"
+            />
+            <Input
+              type="number"
+              placeholder={t.collaborators.fields.year}
+              value={formData.agreementSentYear || ""}
+              onChange={(e) => setFormData({ ...formData, agreementSentYear: parseInt(e.target.value) || undefined })}
+              className="w-24"
+              data-testid="input-agreement-sent-year"
+            />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label>{t.collaborators?.fields?.agreementReturned}</Label>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setToday("agreementReturned")} data-testid="button-today-agreement-returned">
+              {t.common.today}
+            </Button>
+          </div>
+          <div className="flex gap-2">
+            <Input
+              type="number"
+              placeholder={t.collaborators.fields.day}
+              value={formData.agreementReturnedDay || ""}
+              onChange={(e) => setFormData({ ...formData, agreementReturnedDay: parseInt(e.target.value) || undefined })}
+              className="w-20"
+              data-testid="input-agreement-returned-day"
+            />
+            <Input
+              type="number"
+              placeholder={t.collaborators.fields.month}
+              value={formData.agreementReturnedMonth || ""}
+              onChange={(e) => setFormData({ ...formData, agreementReturnedMonth: parseInt(e.target.value) || undefined })}
+              className="w-20"
+              data-testid="input-agreement-returned-month"
+            />
+            <Input
+              type="number"
+              placeholder={t.collaborators.fields.year}
+              value={formData.agreementReturnedYear || ""}
+              onChange={(e) => setFormData({ ...formData, agreementReturnedYear: parseInt(e.target.value) || undefined })}
+              className="w-24"
+              data-testid="input-agreement-returned-year"
+            />
+          </div>
+        </div>
+      </div>
+
       <div className="flex items-center space-x-2">
         <Switch
           checked={formData.isValid}
@@ -709,27 +989,52 @@ function AgreementForm({ collaboratorId, editingId, agreement, billingCompanies,
         />
         <Label>{t.collaborators?.fields?.isValid}</Label>
       </div>
+
       <div className="space-y-2">
-        <Label>{t.collaborators?.fields?.rewardTypes}</Label>
-        <div className="flex flex-wrap gap-2">
-          {REWARD_TYPES.map((rt) => (
-            <Badge
-              key={rt.value}
-              variant={formData.rewardTypes?.includes(rt.value) ? "default" : "outline"}
-              className="cursor-pointer"
-              onClick={() => {
-                const current = formData.rewardTypes || [];
-                const updated = current.includes(rt.value)
-                  ? current.filter(r => r !== rt.value)
-                  : [...current, rt.value];
-                setFormData({ ...formData, rewardTypes: updated });
-              }}
-            >
-              {(t.collaborators.rewardTypes as Record<string, string>)[rt.labelKey]}
-            </Badge>
-          ))}
-        </div>
+        <Label>{t.collaborators?.fields?.notes}</Label>
+        <Textarea
+          value={formData.notes}
+          onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+          placeholder={t.collaborators?.fields?.notes}
+          className="min-h-[80px]"
+          data-testid="textarea-agreement-notes"
+        />
       </div>
+
+      {editingId && (
+        <div className="space-y-2">
+          <Label>{t.collaborators?.uploadAgreement}</Label>
+          <div className="flex items-center gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.doc,.docx"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFileUpload(file);
+              }}
+              className="hidden"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingFile}
+              data-testid="button-upload-agreement"
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              {uploadingFile ? t.common.loading : t.collaborators?.selectFile}
+            </Button>
+            {agreement?.fileName && (
+              <span className="text-sm text-muted-foreground flex items-center gap-1">
+                <FileText className="h-4 w-4" />
+                {agreement.fileName}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-end gap-2">
         <Button variant="outline" onClick={onCancel}>
           {t.common.cancel}
@@ -1548,6 +1853,17 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
                   </div>
                 )}
               </div>
+
+              {/* Company Address - inline display */}
+              {initialData && (
+                <div className="pt-4">
+                  <h5 className="text-sm font-medium mb-3 flex items-center gap-2">
+                    <MapPin className="h-4 w-4" />
+                    {t.collaborators.addressTabs.company}
+                  </h5>
+                  <CompanyAddressForm collaboratorId={initialData.id} t={t} />
+                </div>
+              )}
             </div>
 
             <Separator className="my-4" />
@@ -1558,7 +1874,12 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
                 {t.collaborators.tabs.addresses}
               </h4>
               {initialData ? (
-                <AddressesTabContent collaboratorId={initialData.id} countryCode={initialData.countryCode} t={t} />
+                <AddressesTabContent 
+                  collaboratorId={initialData.id} 
+                  countryCode={initialData.countryCode} 
+                  collaboratorName={`${initialData.firstName} ${initialData.lastName}`}
+                  t={t} 
+                />
               ) : (
                 <div className="flex flex-col items-center justify-center py-8 text-center border rounded-lg bg-muted/30">
                   <MapPin className="h-8 w-8 text-muted-foreground mb-2" />

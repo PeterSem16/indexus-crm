@@ -138,6 +138,7 @@ export interface Translations {
     online: string;
     offline: string;
     indexusConnect: string;
+    copy: string;
   };
   advancedFilters: {
     title: string;
@@ -817,6 +818,11 @@ export interface Translations {
       internalEmployee: string;
       contactPersonReward: string;
       responsiblePersonReward: string;
+    };
+    agreementFormTypes: {
+      dohodaOVykonaniPrace: string;
+      zmluvaODieloPodnikatel: string;
+      zmluvaODieloFyzickaOsoba: string;
     };
     comingSoon: string;
     templatesDesc: string;
@@ -1787,6 +1793,7 @@ export const translations: Record<Locale, Translations> = {
       online: 'Online',
       offline: 'Offline',
       indexusConnect: 'INDEXUS Connect',
+      copy: 'Copy',
     },
     advancedFilters: {
       title: 'Advanced Filters',
@@ -2563,6 +2570,11 @@ export const translations: Record<Locale, Translations> = {
         internalEmployee: 'Internal Employee',
         contactPersonReward: 'Contact Person Reward',
         responsiblePersonReward: 'Responsible Person Reward',
+      },
+      agreementFormTypes: {
+        dohodaOVykonaniPrace: 'Work Performance Agreement',
+        zmluvaODieloPodnikatel: 'Contract for Work (Entrepreneur)',
+        zmluvaODieloFyzickaOsoba: 'Contract for Work (Individual)',
       },
       comingSoon: 'Coming soon',
       templatesDesc: 'Manage document templates',
@@ -3548,6 +3560,7 @@ export const translations: Record<Locale, Translations> = {
       online: 'Online',
       offline: 'Offline',
       indexusConnect: 'INDEXUS Connect',
+      copy: 'Kopírovať',
     },
     advancedFilters: {
       title: 'Pokročilé filtre',
@@ -4319,6 +4332,11 @@ export const translations: Record<Locale, Translations> = {
         internalEmployee: 'Interný zamestnanec',
         contactPersonReward: 'Odmena kontaktnej osobe',
         responsiblePersonReward: 'Odmena zodpovednej osobe',
+      },
+      agreementFormTypes: {
+        dohodaOVykonaniPrace: 'Dohoda o vykonaní práce',
+        zmluvaODieloPodnikatel: 'Zmluva o dielo (podnikateľ)',
+        zmluvaODieloFyzickaOsoba: 'Zmluva o dielo (fyzická osoba)',
       },
       comingSoon: 'Čoskoro',
       templatesDesc: 'Správa šablón dokumentov',
@@ -5304,6 +5322,7 @@ export const translations: Record<Locale, Translations> = {
       online: 'Online',
       offline: 'Offline',
       indexusConnect: 'INDEXUS Connect',
+      copy: 'Kopírovat',
     },
     advancedFilters: {
       title: 'Pokročilé filtry',
@@ -6075,6 +6094,11 @@ export const translations: Record<Locale, Translations> = {
         internalEmployee: 'Interní zaměstnanec',
         contactPersonReward: 'Odměna kontaktní osobě',
         responsiblePersonReward: 'Odměna zodpovědné osobě',
+      },
+      agreementFormTypes: {
+        dohodaOVykonaniPrace: 'Dohoda o provedení práce',
+        zmluvaODieloPodnikatel: 'Smlouva o dílo (podnikatel)',
+        zmluvaODieloFyzickaOsoba: 'Smlouva o dílo (fyzická osoba)',
       },
       comingSoon: 'Již brzy',
       templatesDesc: 'Správa šablon dokumentů',
@@ -7023,6 +7047,7 @@ export const translations: Record<Locale, Translations> = {
       online: 'Online',
       offline: 'Offline',
       indexusConnect: 'INDEXUS Connect',
+      copy: 'Másolás',
     },
     advancedFilters: {
       title: 'Speciális szűrők',
@@ -7794,6 +7819,11 @@ export const translations: Record<Locale, Translations> = {
         internalEmployee: 'Belső munkatárs',
         contactPersonReward: 'Kapcsolattartó jutalma',
         responsiblePersonReward: 'Felelős személy jutalma',
+      },
+      agreementFormTypes: {
+        dohodaOVykonaniPrace: 'Munkavégzési megállapodás',
+        zmluvaODieloPodnikatel: 'Vállalkozói szerződés (vállalkozó)',
+        zmluvaODieloFyzickaOsoba: 'Vállalkozói szerződés (magánszemély)',
       },
       comingSoon: 'Hamarosan',
       templatesDesc: 'Dokumentumsablonok kezelése',
@@ -8742,6 +8772,7 @@ export const translations: Record<Locale, Translations> = {
       online: 'Online',
       offline: 'Offline',
       indexusConnect: 'INDEXUS Connect',
+      copy: 'Copiază',
     },
     advancedFilters: {
       title: 'Filtre avansate',
@@ -9513,6 +9544,11 @@ export const translations: Record<Locale, Translations> = {
         internalEmployee: 'Angajat intern',
         contactPersonReward: 'Recompensă persoană de contact',
         responsiblePersonReward: 'Recompensă persoană responsabilă',
+      },
+      agreementFormTypes: {
+        dohodaOVykonaniPrace: 'Contract de muncă',
+        zmluvaODieloPodnikatel: 'Contract de lucrări (antreprenor)',
+        zmluvaODieloFyzickaOsoba: 'Contract de lucrări (persoană fizică)',
       },
       comingSoon: 'În curând',
       templatesDesc: 'Gestionarea șabloanelor de documente',
@@ -10461,6 +10497,7 @@ export const translations: Record<Locale, Translations> = {
       online: 'Online',
       offline: 'Offline',
       indexusConnect: 'INDEXUS Connect',
+      copy: 'Copia',
     },
     advancedFilters: {
       title: 'Filtri avanzati',
@@ -11232,6 +11269,11 @@ export const translations: Record<Locale, Translations> = {
         internalEmployee: 'Dipendente interno',
         contactPersonReward: 'Ricompensa persona di contatto',
         responsiblePersonReward: 'Ricompensa persona responsabile',
+      },
+      agreementFormTypes: {
+        dohodaOVykonaniPrace: 'Contratto di prestazione lavorativa',
+        zmluvaODieloPodnikatel: 'Contratto d\'opera (imprenditore)',
+        zmluvaODieloFyzickaOsoba: 'Contratto d\'opera (persona fisica)',
       },
       comingSoon: 'Prossimamente',
       templatesDesc: 'Gestione modelli documenti',
@@ -12180,6 +12222,7 @@ export const translations: Record<Locale, Translations> = {
       online: 'Online',
       offline: 'Offline',
       indexusConnect: 'INDEXUS Connect',
+      copy: 'Kopieren',
     },
     advancedFilters: {
       title: 'Erweiterte Filter',
@@ -12951,6 +12994,11 @@ export const translations: Record<Locale, Translations> = {
         internalEmployee: 'Interner Mitarbeiter',
         contactPersonReward: 'Belohnung Kontaktperson',
         responsiblePersonReward: 'Belohnung verantwortliche Person',
+      },
+      agreementFormTypes: {
+        dohodaOVykonaniPrace: 'Werkvertrag (Arbeitsleistung)',
+        zmluvaODieloPodnikatel: 'Werkvertrag (Unternehmer)',
+        zmluvaODieloFyzickaOsoba: 'Werkvertrag (Privatperson)',
       },
       comingSoon: 'Demnächst',
       templatesDesc: 'Dokumentvorlagen verwalten',
