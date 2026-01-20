@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, MailOpen, Phone, PhoneCall, Baby, Copy, ListChecks, FileEdit, UserCircle, Clock, PlusCircle, RefreshCw, XCircle, LogIn, LogOut, AlertCircle, CheckCircle2, ArrowRight, Shield, CreditCard, Loader2, Calendar, Globe, Linkedin, Facebook, Twitter, Instagram, Building2, ExternalLink, Sparkles, FileSignature, Receipt, Target, ArrowDownLeft, ArrowUpRight, PenSquare } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, MailOpen, Phone, PhoneCall, Baby, Copy, ListChecks, FileEdit, UserCircle, Clock, PlusCircle, RefreshCw, XCircle, LogIn, LogOut, AlertCircle, CheckCircle2, ArrowRight, Shield, CreditCard, Loader2, Calendar, Globe, Linkedin, Facebook, Twitter, Instagram, Building2, ExternalLink, Sparkles, FileSignature, Receipt, Target, ArrowDownLeft, ArrowUpRight, PenSquare, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, Filter, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -4213,9 +4213,19 @@ export default function CustomersPage() {
   const [deletingCustomer, setDeletingCustomer] = useState<Customer | null>(null);
   const [potentialCaseCustomer, setPotentialCaseCustomer] = useState<Customer | null>(null);
   const [pendingViewCustomerId, setPendingViewCustomerId] = useState<string | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  
+  // Pagination
+  const [page, setPage] = useState(1);
+  const pageSize = 30;
+  
+  // Sorting
+  const [sortField, setSortField] = useState<string>("name");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
-  const { data: allCustomers = [], isLoading } = useQuery<Customer[]>({
+  const { data: allCustomers = [], isLoading, refetch: refetchCustomers } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
+    refetchInterval: 30000, // Auto-refresh every 30 seconds
   });
 
   // Handle URL parameter for viewing customer detail (from email-client link)
@@ -4310,52 +4320,224 @@ export default function CustomersPage() {
     },
   });
 
-  const filteredCustomers = customers.filter(customer => {
-    // Search filter - search across all text fields
-    const searchLower = search.toLowerCase();
-    const matchesSearch = search === "" || 
-      customer.id.toLowerCase().includes(searchLower) ||
-      (customer.internalId && customer.internalId.toLowerCase().includes(searchLower)) ||
-      customer.firstName.toLowerCase().includes(searchLower) ||
-      customer.lastName.toLowerCase().includes(searchLower) ||
-      (customer.maidenName && customer.maidenName.toLowerCase().includes(searchLower)) ||
-      customer.email.toLowerCase().includes(searchLower) ||
-      (customer.email2 && customer.email2.toLowerCase().includes(searchLower)) ||
-      (customer.phone && customer.phone.toLowerCase().includes(searchLower)) ||
-      (customer.mobile && customer.mobile.toLowerCase().includes(searchLower)) ||
-      (customer.mobile2 && customer.mobile2.toLowerCase().includes(searchLower)) ||
-      (customer.nationalId && customer.nationalId.toLowerCase().includes(searchLower)) ||
-      (customer.idCardNumber && customer.idCardNumber.toLowerCase().includes(searchLower)) ||
-      (customer.city && customer.city.toLowerCase().includes(searchLower)) ||
-      (customer.address && customer.address.toLowerCase().includes(searchLower)) ||
-      (customer.postalCode && customer.postalCode.toLowerCase().includes(searchLower)) ||
-      (customer.region && customer.region.toLowerCase().includes(searchLower)) ||
-      (customer.bankAccount && customer.bankAccount.toLowerCase().includes(searchLower)) ||
-      (customer.notes && customer.notes.toLowerCase().includes(searchLower));
+  // Filtered and sorted customers
+  const filteredAndSortedCustomers = useMemo(() => {
+    // First filter
+    let result = customers.filter(customer => {
+      const searchLower = search.toLowerCase();
+      const matchesSearch = search === "" || 
+        customer.id.toLowerCase().includes(searchLower) ||
+        (customer.internalId && customer.internalId.toLowerCase().includes(searchLower)) ||
+        customer.firstName.toLowerCase().includes(searchLower) ||
+        customer.lastName.toLowerCase().includes(searchLower) ||
+        (customer.maidenName && customer.maidenName.toLowerCase().includes(searchLower)) ||
+        customer.email.toLowerCase().includes(searchLower) ||
+        (customer.email2 && customer.email2.toLowerCase().includes(searchLower)) ||
+        (customer.phone && customer.phone.toLowerCase().includes(searchLower)) ||
+        (customer.mobile && customer.mobile.toLowerCase().includes(searchLower)) ||
+        (customer.mobile2 && customer.mobile2.toLowerCase().includes(searchLower)) ||
+        (customer.nationalId && customer.nationalId.toLowerCase().includes(searchLower)) ||
+        (customer.idCardNumber && customer.idCardNumber.toLowerCase().includes(searchLower)) ||
+        (customer.city && customer.city.toLowerCase().includes(searchLower)) ||
+        (customer.address && customer.address.toLowerCase().includes(searchLower)) ||
+        (customer.postalCode && customer.postalCode.toLowerCase().includes(searchLower)) ||
+        (customer.region && customer.region.toLowerCase().includes(searchLower)) ||
+        (customer.bankAccount && customer.bankAccount.toLowerCase().includes(searchLower)) ||
+        (customer.notes && customer.notes.toLowerCase().includes(searchLower));
+      
+      const matchesPhone = phoneFilter === "" || 
+        (customer.phone && customer.phone.toLowerCase().includes(phoneFilter.toLowerCase()));
+      const matchesCountry = countryFilter === "_all" || customer.country === countryFilter;
+      const matchesServiceType = serviceTypeFilter === "_all" || customer.serviceType === serviceTypeFilter;
+      const matchesStatus = statusFilter === "_all" || customer.status === statusFilter;
+      const matchesClientStatus = clientStatusFilter === "_all" || customer.clientStatus === clientStatusFilter;
+      
+      return matchesSearch && matchesPhone && matchesCountry && matchesServiceType && matchesStatus && matchesClientStatus;
+    });
     
-    // Phone filter
-    const matchesPhone = phoneFilter === "" || 
-      (customer.phone && customer.phone.toLowerCase().includes(phoneFilter.toLowerCase()));
+    // Then sort
+    result.sort((a, b) => {
+      let aVal: any;
+      let bVal: any;
+      
+      switch (sortField) {
+        case "name":
+          aVal = `${a.firstName} ${a.lastName}`.toLowerCase();
+          bVal = `${b.firstName} ${b.lastName}`.toLowerCase();
+          break;
+        case "country":
+          aVal = a.country;
+          bVal = b.country;
+          break;
+        case "service":
+          aVal = (a.serviceType || "").toLowerCase();
+          bVal = (b.serviceType || "").toLowerCase();
+          break;
+        case "status":
+          aVal = (a.status || "").toLowerCase();
+          bVal = (b.status || "").toLowerCase();
+          break;
+        case "clientStatus":
+          aVal = (a.clientStatus || "").toLowerCase();
+          bVal = (b.clientStatus || "").toLowerCase();
+          break;
+        case "leadScore":
+          aVal = a.leadScore || 0;
+          bVal = b.leadScore || 0;
+          break;
+        default:
+          aVal = `${a.firstName} ${a.lastName}`.toLowerCase();
+          bVal = `${b.firstName} ${b.lastName}`.toLowerCase();
+      }
+      
+      if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
+      if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
     
-    // Country filter
-    const matchesCountry = countryFilter === "_all" || customer.country === countryFilter;
+    return result;
+  }, [customers, search, phoneFilter, countryFilter, serviceTypeFilter, statusFilter, clientStatusFilter, sortField, sortDirection]);
+  
+  const totalPages = Math.ceil(filteredAndSortedCustomers.length / pageSize);
+  const paginatedCustomers = filteredAndSortedCustomers.slice(
+    (page - 1) * pageSize,
+    page * pageSize
+  );
+  
+  const handleFilterChange = () => {
+    setPage(1);
+  };
+  
+  const toggleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+    setPage(1);
+  };
+  
+  const clearAllFilters = () => {
+    setSearch("");
+    setPhoneFilter("");
+    setCountryFilter("_all");
+    setServiceTypeFilter("_all");
+    setStatusFilter("_all");
+    setClientStatusFilter("_all");
+    setPage(1);
+  };
+  
+  const hasActiveFilters = search || phoneFilter || countryFilter !== "_all" || serviceTypeFilter !== "_all" || statusFilter !== "_all" || clientStatusFilter !== "_all";
+
+  // Export functions
+  const exportToCsv = useCallback((data: any[], filename: string, columns: { key: string; header: string }[]) => {
+    const BOM = '\uFEFF';
+    const headers = columns.map(c => c.header).join(',');
+    const rows = data.map(item => 
+      columns.map(c => {
+        const value = c.key.split('.').reduce((obj, key) => obj?.[key], item) ?? '';
+        const stringValue = String(value).replace(/"/g, '""');
+        return `"${stringValue}"`;
+      }).join(',')
+    );
+    const csv = BOM + [headers, ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${filename}.csv`;
+    link.click();
+    toast({ title: t.common.exportSuccess });
+  }, [t, toast]);
+
+  const exportToExcel = useCallback((data: any[], filename: string, columns: { key: string; header: string }[]) => {
+    const headers = columns.map(c => c.header);
+    const rows = data.map(item => 
+      columns.map(c => {
+        const value = c.key.split('.').reduce((obj, key) => obj?.[key], item) ?? '';
+        return String(value);
+      })
+    );
     
-    // Service type filter
-    const matchesServiceType = serviceTypeFilter === "_all" || customer.serviceType === serviceTypeFilter;
+    let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"></head><body><table>';
+    html += '<tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr>';
+    rows.forEach(row => {
+      html += '<tr>' + row.map(cell => `<td>${cell}</td>`).join('') + '</tr>';
+    });
+    html += '</table></body></html>';
     
-    // Status filter
-    const matchesStatus = statusFilter === "_all" || customer.status === statusFilter;
-    
-    // Client status filter
-    const matchesClientStatus = clientStatusFilter === "_all" || customer.clientStatus === clientStatusFilter;
-    
-    return matchesSearch && matchesPhone && matchesCountry && matchesServiceType && matchesStatus && matchesClientStatus;
-  });
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${filename}.xls`;
+    link.click();
+    toast({ title: t.common.exportSuccess });
+  }, [t, toast]);
+
+  const customerExportColumns = [
+    { key: 'firstName', header: t.customers.firstName },
+    { key: 'lastName', header: t.customers.lastName },
+    { key: 'email', header: t.common.email },
+    { key: 'phone', header: t.customers.phone },
+    { key: 'country', header: t.common.country },
+    { key: 'serviceType', header: t.customers.serviceType },
+    { key: 'status', header: t.common.status },
+    { key: 'clientStatus', header: t.customers.clientStatus },
+    { key: 'city', header: t.customers.city },
+  ];
+
+  const SortableHeader = ({ field, label }: { field: string; label: string }) => (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="-ml-2 font-medium"
+      onClick={() => toggleSort(field)}
+      data-testid={`sort-customer-${field}`}
+    >
+      {label}
+      {sortField === field ? (
+        sortDirection === "asc" ? (
+          <ArrowUp className="ml-1 h-3 w-3" />
+        ) : (
+          <ArrowDown className="ml-1 h-3 w-3" />
+        )
+      ) : (
+        <ArrowUpDown className="ml-1 h-3 w-3 opacity-50" />
+      )}
+    </Button>
+  );
+  
+  const getServiceTypeLabel = (type: string) => {
+    switch (type) {
+      case "cord_blood": return t.customers.serviceTypes?.cordBlood;
+      case "cord_tissue": return t.customers.serviceTypes?.cordTissue;
+      case "both": return t.customers.serviceTypes?.both;
+      default: return t.common.unknown;
+    }
+  };
+  
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "active": return t.common.active;
+      case "pending": return t.common.pending;
+      case "inactive": return t.common.inactive;
+      default: return t.common.unknown;
+    }
+  };
+  
+  const getClientStatusLabel = (status: string) => {
+    switch (status) {
+      case "potential": return t.customers.clientStatuses?.potential;
+      case "acquired": return t.customers.clientStatuses?.acquired;
+      case "terminated": return t.customers.clientStatuses?.terminated;
+      default: return t.common.unknown;
+    }
+  };
 
   const columns = [
     {
       key: "customer",
-      header: "Customer",
+      header: <SortableHeader field="name" label={t.common.name} />,
       cell: (customer: Customer) => (
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-medium">
@@ -4370,7 +4552,7 @@ export default function CustomersPage() {
     },
     {
       key: "country",
-      header: "Country",
+      header: <SortableHeader field="country" label={t.common.country} />,
       cell: (customer: Customer) => (
         <span className="flex items-center gap-2">
           <span className="text-lg">{getCountryFlag(customer.country)}</span>
@@ -4380,23 +4562,23 @@ export default function CustomersPage() {
     },
     {
       key: "service",
-      header: "Service Type",
+      header: <SortableHeader field="service" label={t.customers.serviceType} />,
       cell: (customer: Customer) => (
         <Badge variant="outline" className="capitalize">
-          {customer.serviceType?.replace("_", " ") || "Not specified"}
+          {customer.serviceType?.replace("_", " ") || t.common.none}
         </Badge>
       ),
     },
     {
       key: "status",
-      header: "Status",
+      header: <SortableHeader field="status" label={t.common.status} />,
       cell: (customer: Customer) => (
         <StatusBadge status={customer.status as any} />
       ),
     },
     {
       key: "clientStatus",
-      header: t.customers.clientStatus,
+      header: <SortableHeader field="clientStatus" label={t.customers.clientStatus} />,
       cell: (customer: Customer) => {
         const statusColors: Record<string, string> = {
           potential: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
@@ -4417,7 +4599,7 @@ export default function CustomersPage() {
     },
     {
       key: "leadScore",
-      header: t.leadScoring?.title || "Lead Score",
+      header: <SortableHeader field="leadScore" label={t.leadScoring?.title} />,
       cell: (customer: Customer) => {
         if (customer.clientStatus !== "potential") {
           return <span className="text-muted-foreground">-</span>;
@@ -4544,13 +4726,50 @@ export default function CustomersPage() {
       <Card>
         <CardContent className="p-4">
           <div className="space-y-4">
+            {/* Header with count and export buttons */}
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-muted-foreground">
+                {filteredAndSortedCustomers.length} {t.common.of} {allCustomers.length} {t.common.records}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => exportToCsv(filteredAndSortedCustomers, 'customers', customerExportColumns)}
+                  data-testid="button-export-customers-csv"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  {t.common.exportCsv}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => exportToExcel(filteredAndSortedCustomers, 'customers', customerExportColumns)}
+                  data-testid="button-export-customers-excel"
+                >
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  {t.common.exportExcel}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => refetchCustomers()}
+                  data-testid="button-refresh-customers"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  {t.common.refresh}
+                </Button>
+              </div>
+            </div>
+
+            {/* Search and filter toggle */}
             <div className="flex flex-wrap items-center gap-4" data-tour="customer-search">
               <div className="relative flex-1 min-w-[200px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder={t.customers.searchPlaceholder}
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => { setSearch(e.target.value); handleFilterChange(); }}
                   className="pl-9"
                   data-testid="input-search-customers"
                 />
@@ -4558,110 +4777,215 @@ export default function CustomersPage() {
               <div className="relative min-w-[150px]">
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder={t.customers.phone || "Phone"}
+                  placeholder={t.customers.phone}
                   value={phoneFilter}
-                  onChange={(e) => setPhoneFilter(e.target.value)}
+                  onChange={(e) => { setPhoneFilter(e.target.value); handleFilterChange(); }}
                   className="pl-9"
                   data-testid="input-filter-phone"
                 />
               </div>
+              <Button
+                variant={showFilters ? "default" : "outline"}
+                onClick={() => setShowFilters(!showFilters)}
+                data-testid="button-toggle-filters"
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                {t.common.filter}
+                {hasActiveFilters && (
+                  <span className="ml-2 h-2 w-2 bg-primary rounded-full inline-block" />
+                )}
+              </Button>
             </div>
-            <div className="flex flex-wrap items-center gap-4" data-tour="customer-filters">
-              <div className="min-w-[150px]">
-                <Select value={countryFilter} onValueChange={setCountryFilter}>
-                  <SelectTrigger data-testid="select-filter-country">
-                    <SelectValue placeholder={t.customers.country || "Country"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_all">All Countries</SelectItem>
-                    {availableCountries.map((country) => (
-                      <SelectItem key={country.code} value={country.code}>
-                        <span className="flex items-center gap-2">
-                          <span>{country.flag}</span>
-                          <span>{country.name}</span>
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+
+            {/* Collapsible filters */}
+            {showFilters && (
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4" data-tour="customer-filters">
+                <div className="space-y-2">
+                  <Label>{t.common.country}</Label>
+                  <Select value={countryFilter} onValueChange={(val) => { setCountryFilter(val); handleFilterChange(); }}>
+                    <SelectTrigger data-testid="select-filter-country">
+                      <SelectValue placeholder={t.common.all} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_all">{t.common.all}</SelectItem>
+                      {availableCountries.map((country) => (
+                        <SelectItem key={country.code} value={country.code}>
+                          <span className="flex items-center gap-2">
+                            <span>{country.flag}</span>
+                            <span>{country.name}</span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t.customers.serviceType}</Label>
+                  <Select value={serviceTypeFilter} onValueChange={(val) => { setServiceTypeFilter(val); handleFilterChange(); }}>
+                    <SelectTrigger data-testid="select-filter-service-type">
+                      <SelectValue placeholder={t.common.all} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_all">{t.common.all}</SelectItem>
+                      <SelectItem value="cord_blood">{t.customers.serviceTypes?.cordBlood}</SelectItem>
+                      <SelectItem value="cord_tissue">{t.customers.serviceTypes?.cordTissue}</SelectItem>
+                      <SelectItem value="both">{t.customers.serviceTypes?.both}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t.common.status}</Label>
+                  <Select value={statusFilter} onValueChange={(val) => { setStatusFilter(val); handleFilterChange(); }}>
+                    <SelectTrigger data-testid="select-filter-status">
+                      <SelectValue placeholder={t.common.all} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_all">{t.common.all}</SelectItem>
+                      <SelectItem value="active">{t.common.active}</SelectItem>
+                      <SelectItem value="pending">{t.common.pending}</SelectItem>
+                      <SelectItem value="inactive">{t.common.inactive}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>{t.customers.clientStatus}</Label>
+                  <Select value={clientStatusFilter} onValueChange={(val) => { setClientStatusFilter(val); handleFilterChange(); }}>
+                    <SelectTrigger data-testid="select-filter-client-status">
+                      <SelectValue placeholder={t.common.all} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_all">{t.common.all}</SelectItem>
+                      <SelectItem value="potential">{t.customers.clientStatuses?.potential}</SelectItem>
+                      <SelectItem value="acquired">{t.customers.clientStatuses?.acquired}</SelectItem>
+                      <SelectItem value="terminated">{t.customers.clientStatuses?.terminated}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-end">
+                  <AdvancedFilters
+                    module="customers"
+                    filters={{
+                      country: countryFilter !== "_all" ? countryFilter : undefined,
+                      status: clientStatusFilter !== "_all" ? clientStatusFilter : undefined,
+                      serviceType: serviceTypeFilter !== "_all" ? serviceTypeFilter : undefined,
+                    }}
+                    onFiltersChange={(newFilters: CustomerFilters) => {
+                      setCountryFilter(newFilters.country || "_all");
+                      setClientStatusFilter(newFilters.status || "_all");
+                      setServiceTypeFilter(newFilters.serviceType === "cordBlood" ? "cord_blood" : 
+                                           newFilters.serviceType === "cordTissue" ? "cord_tissue" : 
+                                           newFilters.serviceType || "_all");
+                      handleFilterChange();
+                    }}
+                    onClear={clearAllFilters}
+                  />
+                </div>
               </div>
-              <div className="min-w-[150px]">
-                <Select value={serviceTypeFilter} onValueChange={setServiceTypeFilter}>
-                  <SelectTrigger data-testid="select-filter-service-type">
-                    <SelectValue placeholder={t.customers.serviceType || "Service Type"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_all">All Service Types</SelectItem>
-                    <SelectItem value="cord_blood">{t.customers.serviceTypes?.cordBlood || "Cord Blood"}</SelectItem>
-                    <SelectItem value="cord_tissue">{t.customers.serviceTypes?.cordTissue || "Cord Tissue"}</SelectItem>
-                    <SelectItem value="both">{t.customers.serviceTypes?.both || "Both"}</SelectItem>
-                  </SelectContent>
-                </Select>
+            )}
+
+            {/* Active filters badges */}
+            {hasActiveFilters && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm text-muted-foreground">{t.common.activeFilters}:</span>
+                {countryFilter !== "_all" && (
+                  <Badge variant="secondary" className="gap-1">
+                    {getCountryFlag(countryFilter)} {getCountryName(countryFilter)}
+                    <X className="h-3 w-3 cursor-pointer" onClick={() => { setCountryFilter("_all"); handleFilterChange(); }} />
+                  </Badge>
+                )}
+                {serviceTypeFilter !== "_all" && (
+                  <Badge variant="secondary" className="gap-1">
+                    {getServiceTypeLabel(serviceTypeFilter)}
+                    <X className="h-3 w-3 cursor-pointer" onClick={() => { setServiceTypeFilter("_all"); handleFilterChange(); }} />
+                  </Badge>
+                )}
+                {statusFilter !== "_all" && (
+                  <Badge variant="secondary" className="gap-1">
+                    {getStatusLabel(statusFilter)}
+                    <X className="h-3 w-3 cursor-pointer" onClick={() => { setStatusFilter("_all"); handleFilterChange(); }} />
+                  </Badge>
+                )}
+                {clientStatusFilter !== "_all" && (
+                  <Badge variant="secondary" className="gap-1">
+                    {getClientStatusLabel(clientStatusFilter)}
+                    <X className="h-3 w-3 cursor-pointer" onClick={() => { setClientStatusFilter("_all"); handleFilterChange(); }} />
+                  </Badge>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearAllFilters}
+                  data-testid="button-clear-filters"
+                >
+                  {t.common.clearAll}
+                </Button>
               </div>
-              <div className="min-w-[150px]">
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger data-testid="select-filter-status">
-                    <SelectValue placeholder={t.customers.status || "Status"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_all">All Statuses</SelectItem>
-                    <SelectItem value="active">{t.common.active || "Active"}</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="inactive">{t.common.inactive || "Inactive"}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="min-w-[150px]">
-                <Select value={clientStatusFilter} onValueChange={setClientStatusFilter}>
-                  <SelectTrigger data-testid="select-filter-client-status">
-                    <SelectValue placeholder={t.customers.clientStatus || "Client Status"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_all">All Client Statuses</SelectItem>
-                    <SelectItem value="potential">{t.customers.clientStatuses?.potential || "Potential"}</SelectItem>
-                    <SelectItem value="acquired">{t.customers.clientStatuses?.acquired || "Acquired"}</SelectItem>
-                    <SelectItem value="terminated">{t.customers.clientStatuses?.terminated || "Terminated"}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <AdvancedFilters
-                module="customers"
-                filters={{
-                  country: countryFilter !== "_all" ? countryFilter : undefined,
-                  status: clientStatusFilter !== "_all" ? clientStatusFilter : undefined,
-                  serviceType: serviceTypeFilter !== "_all" ? serviceTypeFilter : undefined,
-                }}
-                onFiltersChange={(newFilters: CustomerFilters) => {
-                  setCountryFilter(newFilters.country || "_all");
-                  setClientStatusFilter(newFilters.status || "_all");
-                  setServiceTypeFilter(newFilters.serviceType === "cordBlood" ? "cord_blood" : 
-                                       newFilters.serviceType === "cordTissue" ? "cord_tissue" : 
-                                       newFilters.serviceType || "_all");
-                }}
-                onClear={() => {
-                  setCountryFilter("_all");
-                  setServiceTypeFilter("_all");
-                  setStatusFilter("_all");
-                  setClientStatusFilter("_all");
-                  setPhoneFilter("");
-                  setSearch("");
-                }}
-              />
-              <div className="ml-auto text-sm text-muted-foreground">
-                {filteredCustomers.length} / {allCustomers.length}
-              </div>
-            </div>
+            )}
           </div>
         </CardContent>
       </Card>
 
-      <DataTable
-        columns={columns}
-        data={filteredCustomers}
-        isLoading={isLoading}
-        emptyMessage={t.customers.noCustomers}
-        getRowKey={(c) => c.id}
-      />
+      <Card>
+        <CardContent className="p-4">
+          <DataTable
+            columns={columns}
+            data={paginatedCustomers}
+            isLoading={isLoading}
+            emptyMessage={t.customers.noCustomers}
+            getRowKey={(c) => c.id}
+          />
+          
+          {/* Pagination controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4 pt-4 border-t">
+              <div className="text-sm text-muted-foreground">
+                {t.common.showing} {((page - 1) * pageSize) + 1} - {Math.min(page * pageSize, filteredAndSortedCustomers.length)} {t.common.of} {filteredAndSortedCustomers.length}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(1)}
+                  disabled={page === 1}
+                  data-testid="button-customer-first-page"
+                >
+                  {t.common.first}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setPage(page - 1)}
+                  disabled={page === 1}
+                  data-testid="button-customer-prev-page"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm px-2">
+                  {page} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setPage(page + 1)}
+                  disabled={page === totalPages}
+                  data-testid="button-customer-next-page"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(totalPages)}
+                  disabled={page === totalPages}
+                  data-testid="button-customer-last-page"
+                >
+                  {t.common.last}
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent className={useWizardForm ? "max-w-4xl max-h-[90vh] overflow-y-auto" : "max-w-2xl max-h-[90vh] overflow-y-auto"}>
