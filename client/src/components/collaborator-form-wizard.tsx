@@ -1733,9 +1733,18 @@ function HistoryTabContent({ collaboratorId, t }: { collaboratorId: string; t: a
     queryKey: ["/api/users"],
   });
 
+  const { data: hospitals = [] } = useQuery<Hospital[]>({
+    queryKey: ["/api/hospitals"],
+  });
+
   const getUserName = (userId: string) => {
     const user = users.find(u => u.id === userId);
     return user ? user.fullName : userId;
+  };
+
+  const getHospitalName = (hospitalId: string) => {
+    const hospital = hospitals.find(h => h.id === hospitalId);
+    return hospital ? hospital.name : hospitalId;
   };
 
   const getActionIcon = (action: string) => {
@@ -1755,9 +1764,21 @@ function HistoryTabContent({ collaboratorId, t }: { collaboratorId: string; t: a
     }
   };
 
-  const formatFieldValue = (value: any): string => {
-    if (value === null || value === undefined) return "-";
+  const formatFieldValue = (value: any, field?: string): string => {
+    if (value === null || value === undefined || value === "") return "-";
     if (typeof value === "boolean") return value ? "Yes" : "No";
+    
+    // Translate IDs to readable names
+    if (field === "representativeId" && typeof value === "string" && value) {
+      return getUserName(value);
+    }
+    if (field === "hospitalId" && typeof value === "string" && value) {
+      return getHospitalName(value);
+    }
+    if (field === "hospitalIds" && Array.isArray(value)) {
+      return value.map(id => getHospitalName(id)).join(", ") || "-";
+    }
+    
     if (Array.isArray(value)) return value.join(", ") || "-";
     if (typeof value === "object") return JSON.stringify(value);
     return String(value);
@@ -1771,14 +1792,16 @@ function HistoryTabContent({ collaboratorId, t }: { collaboratorId: string; t: a
       const items: string[] = [];
       
       // Handle update with changes object
-      if (action === "update" && parsed.changes) {
+      if ((action === "update" || action === "update_mobile_credentials") && parsed.changes) {
         const changes = parsed.changes;
         
         for (const [field, change] of Object.entries(changes)) {
           const ch = change as { from?: any; to?: any };
-          const fieldLabel = t.collaborators?.fields?.[field as keyof typeof t.collaborators.fields] || field;
-          const fromValue = formatFieldValue(ch.from);
-          const toValue = formatFieldValue(ch.to);
+          const fieldLabel = t.collaborators?.fields?.[field as keyof typeof t.collaborators.fields] || 
+                            t.collaborators?.mobileApp?.[field as keyof typeof t.collaborators.mobileApp] || 
+                            field;
+          const fromValue = formatFieldValue(ch.from, field);
+          const toValue = formatFieldValue(ch.to, field);
           
           if (ch.from !== undefined && ch.to !== undefined) {
             items.push(`${fieldLabel}: "${fromValue}" -> "${toValue}"`);
