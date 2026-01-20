@@ -7108,9 +7108,44 @@ export async function registerRoutes(
   app.put("/api/collaborators/:id", requireAuth, async (req, res) => {
     try {
       console.log("[Collaborators] PUT request for id:", req.params.id, "body:", JSON.stringify(req.body, null, 2));
+      
+      // Get old collaborator to compare changes
+      const oldCollaborator = await storage.getCollaborator(req.params.id);
+      if (!oldCollaborator) return res.status(404).json({ error: "Collaborator not found" });
+      
       const collaborator = await storage.updateCollaborator(req.params.id, req.body);
       if (!collaborator) return res.status(404).json({ error: "Collaborator not found" });
-      await logActivity(req.session.user!.id, "update", "collaborator", collaborator.id, `${collaborator.firstName} ${collaborator.lastName}`);
+      
+      // Calculate changes for activity log
+      const changes: Record<string, { from: any; to: any }> = {};
+      const fieldsToTrack = [
+        'firstName', 'lastName', 'titleBefore', 'titleAfter', 'email', 'phone', 'mobile',
+        'mobile2', 'collaboratorType', 'isActive', 'countryCode', 'countryCodes',
+        'bankAccountIban', 'swiftCode', 'companyName', 'ico', 'dic', 'icDph',
+        'companyIban', 'companySwift', 'monthRewards', 'clientContact', 'svetZdravia',
+        'hospitalId', 'hospitalIds', 'representativeId', 'maritalStatus', 'birthPlace',
+        'healthInsuranceId', 'note'
+      ];
+      
+      for (const field of fieldsToTrack) {
+        const oldVal = (oldCollaborator as any)[field];
+        const newVal = (collaborator as any)[field];
+        const oldStr = JSON.stringify(oldVal);
+        const newStr = JSON.stringify(newVal);
+        if (oldStr !== newStr) {
+          changes[field] = { from: oldVal, to: newVal };
+        }
+      }
+      
+      const hasChanges = Object.keys(changes).length > 0;
+      await logActivity(
+        req.session.user!.id, 
+        "update", 
+        "collaborator", 
+        collaborator.id, 
+        `${collaborator.firstName} ${collaborator.lastName}`,
+        hasChanges ? { changes } : undefined
+      );
       res.json(collaborator);
     } catch (error) {
       res.status(500).json({ error: "Failed to update collaborator" });
@@ -7160,7 +7195,12 @@ export async function registerRoutes(
         "update_mobile_credentials",
         "collaborator",
         collaborator.id,
-        `${collaborator.firstName} ${collaborator.lastName}`
+        `${collaborator.firstName} ${collaborator.lastName}`,
+        {
+          mobileAppEnabled,
+          mobileUsername: mobileUsername || null,
+          passwordChanged: !!mobilePassword
+        }
       );
       
       // Return collaborator without password hash
