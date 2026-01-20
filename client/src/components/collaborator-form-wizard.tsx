@@ -1149,6 +1149,11 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
   const { toast } = useToast();
   const { isHidden, isReadonly } = useModuleFieldPermissions("collaborators");
   
+  const isEditMode = !!initialData;
+  
+  const wizardSteps = isEditMode 
+    ? WIZARD_STEPS 
+    : WIZARD_STEPS.filter(step => step.id !== "history");
   
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
@@ -1309,15 +1314,16 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
     },
   });
 
-  const progress = ((currentStep + 1) / WIZARD_STEPS.length) * 100;
+  const progress = ((currentStep + 1) / wizardSteps.length) * 100;
   const isFirstStep = currentStep === 0;
-  const isLastStep = currentStep === WIZARD_STEPS.length - 1;
+  const isLastStep = currentStep === wizardSteps.length - 1;
+  const currentStepId = wizardSteps[currentStep]?.id;
 
   const validateCurrentStep = (): boolean => {
-    switch (currentStep) {
-      case 0:
+    switch (currentStepId) {
+      case "personal":
         return !!formData.firstName && !!formData.lastName && !!formData.countryCode;
-      case 6: // Mobile step (INDEXUS Connect)
+      case "mobile":
         if (mobileCredentials.mobileAppEnabled) {
           if (!mobileCredentials.mobileUsername) {
             toast({ title: t.collaborators.mobileApp.usernameRequired, variant: "destructive" });
@@ -1338,13 +1344,10 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
     }
   };
 
-  // The save step is always the mobile step (index 4), additional tabs don't trigger save
-  const SAVE_STEP_INDEX = 6; // Mobile step (last step)
-  // Check if current step is a save step (mobile step = step 6, which is the last step)
-  const isSaveStep = currentStep === SAVE_STEP_INDEX;
+  const isSaveStep = currentStepId === "mobile";
   
   const handleNext = () => {
-    console.log("[Wizard] handleNext called, currentStep:", currentStep, "isSaveStep:", isSaveStep, "WIZARD_STEPS.length:", WIZARD_STEPS.length);
+    console.log("[Wizard] handleNext called, currentStep:", currentStep, "isSaveStep:", isSaveStep, "wizardSteps.length:", wizardSteps.length);
     
     const isValid = validateCurrentStep();
     console.log("[Wizard] validateCurrentStep result:", isValid);
@@ -1427,8 +1430,8 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
   };
 
   const renderStepContent = () => {
-    switch (currentStep) {
-      case 0:
+    switch (currentStepId) {
+      case "personal":
         return (
           <div className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -1602,7 +1605,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
           </div>
         );
 
-      case 1:
+      case "contact":
         return (
           <div className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -1696,7 +1699,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
           </div>
         );
 
-      case 2:
+      case "banking":
         return (
           <div className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -1769,7 +1772,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
           </div>
         );
 
-      case 3: // Company & Address (merged)
+      case "companyAddress":
         return (
           <div className="space-y-6">
             <div className="space-y-4">
@@ -1890,7 +1893,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
           </div>
         );
 
-      case 4: // Agreements
+      case "agreements":
         return initialData ? (
           <AgreementsTabContent collaboratorId={initialData.id} collaboratorCountry={initialData.countryCode} t={t} />
         ) : (
@@ -1900,7 +1903,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
           </div>
         );
       
-      case 5: // History
+      case "history":
         return initialData ? (
           <HistoryTabContent collaboratorId={initialData.id} t={t} />
         ) : (
@@ -1910,7 +1913,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
           </div>
         );
       
-      case 6: // Mobile (INDEXUS Connect) - last step
+      case "mobile":
         return (
           <div className="space-y-6">
             <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/50">
@@ -1980,7 +1983,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
     }
   };
 
-  const currentStepInfo = WIZARD_STEPS[currentStep];
+  const currentStepInfo = wizardSteps[currentStep];
   const StepIcon = currentStepInfo?.icon || User;
 
   return (
@@ -1989,7 +1992,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
         <div className="space-y-4">
           <div className="flex items-center justify-between text-sm text-muted-foreground">
             <span>
-              {t.wizard?.stepOf?.replace("{current}", String(currentStep + 1)).replace("{total}", String(WIZARD_STEPS.length)) || `Step ${currentStep + 1} of ${WIZARD_STEPS.length}`}
+              {t.wizard?.stepOf?.replace("{current}", String(currentStep + 1)).replace("{total}", String(wizardSteps.length)) || `Step ${currentStep + 1} of ${wizardSteps.length}`}
             </span>
             <span>{Math.round(progress)}%</span>
           </div>
@@ -1997,7 +2000,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
         </div>
 
         <div className="flex flex-wrap gap-2 pt-4">
-          {WIZARD_STEPS.map((step, index) => {
+          {wizardSteps.map((step, index) => {
             const isCompleted = completedSteps.has(index);
             const isCurrent = index === currentStep;
             const isClickable = index < currentStep || isCompleted || completedSteps.has(index - 1);
