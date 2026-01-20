@@ -2508,25 +2508,11 @@ export default function CollaboratorsPage() {
               )}
             </div>
           </DialogHeader>
-          {selectedCollaborator ? (
-            <CollaboratorForm
-              collaborator={selectedCollaborator}
-              onClose={() => setIsFormOpen(false)}
-              onSuccess={() => setIsFormOpen(false)}
-            />
-          ) : useWizardForm ? (
-            <CollaboratorFormWizard
-              initialData={undefined}
-              onSuccess={() => setIsFormOpen(false)}
-              onCancel={() => setIsFormOpen(false)}
-            />
-          ) : (
-            <CollaboratorForm
-              collaborator={undefined}
-              onClose={() => setIsFormOpen(false)}
-              onSuccess={() => setIsFormOpen(false)}
-            />
-          )}
+          <CollaboratorFormWizard
+            initialData={selectedCollaborator || undefined}
+            onSuccess={() => setIsFormOpen(false)}
+            onCancel={() => setIsFormOpen(false)}
+          />
         </DialogContent>
       </Dialog>
 

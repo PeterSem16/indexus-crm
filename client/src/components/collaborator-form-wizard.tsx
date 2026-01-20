@@ -18,7 +18,11 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { COUNTRIES } from "@shared/schema";
 import type { Collaborator, Hospital, SafeUser, HealthInsurance } from "@shared/schema";
-import { ChevronLeft, ChevronRight, Check, User, Phone, CreditCard, Building2, Smartphone } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, User, Phone, CreditCard, Building2, Smartphone, MapPin, FileText, History, Plus, Pencil, Trash2, Clock, Activity, Upload, Download, Eye, ChevronDown, ChevronUp } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { CollaboratorAddress, CollaboratorAgreement, BillingDetails } from "@shared/schema";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/I18nProvider";
 import { getCountryFlag } from "@/lib/countries";
@@ -85,12 +89,18 @@ interface CollaboratorFormWizardProps {
   onCancel?: () => void;
 }
 
-const WIZARD_STEPS = [
+const BASE_WIZARD_STEPS = [
   { id: "personal", icon: User },
   { id: "contact", icon: Phone },
   { id: "banking", icon: CreditCard },
   { id: "company", icon: Building2 },
   { id: "mobile", icon: Smartphone },
+];
+
+const EDIT_ONLY_STEPS = [
+  { id: "addresses", icon: MapPin },
+  { id: "agreements", icon: FileText },
+  { id: "history", icon: History },
 ];
 
 function DateFields({
@@ -128,7 +138,7 @@ function DateFields({
           onValueChange={(v) => onDayChange(parseInt(v))}
         >
           <SelectTrigger className="w-[80px]" data-testid={`wizard-select-${testIdPrefix}-day`}>
-            <SelectValue placeholder={t.collaborators?.fields?.day || "Day"} />
+            <SelectValue placeholder={t.collaborators.fields.day} />
           </SelectTrigger>
           <SelectContent>
             {days.map((d) => (
@@ -143,7 +153,7 @@ function DateFields({
           onValueChange={(v) => onMonthChange(parseInt(v))}
         >
           <SelectTrigger className="w-[100px]" data-testid={`wizard-select-${testIdPrefix}-month`}>
-            <SelectValue placeholder={t.collaborators?.fields?.month || "Month"} />
+            <SelectValue placeholder={t.collaborators.fields.month} />
           </SelectTrigger>
           <SelectContent>
             {months.map((m) => (
@@ -158,7 +168,7 @@ function DateFields({
           onValueChange={(v) => onYearChange(parseInt(v))}
         >
           <SelectTrigger className="w-[100px]" data-testid={`wizard-select-${testIdPrefix}-year`}>
-            <SelectValue placeholder={t.collaborators?.fields?.year || "Year"} />
+            <SelectValue placeholder={t.collaborators.fields.year} />
           </SelectTrigger>
           <SelectContent>
             {years.map((y) => (
@@ -173,10 +183,671 @@ function DateFields({
   );
 }
 
+// Address types
+const ADDRESS_TYPES = [
+  { value: "permanent", labelKey: "permanent" },
+  { value: "correspondence", labelKey: "correspondence" },
+  { value: "work", labelKey: "work" },
+  { value: "company", labelKey: "company" },
+];
+
+// Reward types
+const REWARD_TYPES = [
+  { value: "per_sample", labelKey: "perSample" },
+  { value: "monthly", labelKey: "monthly" },
+  { value: "quarterly", labelKey: "quarterly" },
+  { value: "annual", labelKey: "annual" },
+  { value: "one_time", labelKey: "oneTime" },
+];
+
+// Addresses Tab Content Component
+function AddressesTabContent({ collaboratorId, countryCode, t }: { collaboratorId: string; countryCode: string; t: any }) {
+  const { toast } = useToast();
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(["permanent"]));
+  
+  const { data: addresses = [], isLoading } = useQuery<CollaboratorAddress[]>({
+    queryKey: ["/api/collaborators", collaboratorId, "addresses"],
+    queryFn: async () => {
+      const res = await fetch(`/api/collaborators/${collaboratorId}/addresses`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!collaboratorId,
+  });
+
+  const toggleSection = (type: string) => {
+    setExpandedSections(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(type)) {
+        newSet.delete(type);
+      } else {
+        newSet.add(type);
+      }
+      return newSet;
+    });
+  };
+
+  const getAddressByType = (type: string) => addresses.find(a => a.addressType === type);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        {[1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-24 w-full" />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {ADDRESS_TYPES.map(({ value, labelKey }) => {
+        const address = getAddressByType(value);
+        const isExpanded = expandedSections.has(value);
+        
+        return (
+          <Collapsible key={value} open={isExpanded} onOpenChange={() => toggleSection(value)}>
+            <Card>
+              <CollapsibleTrigger asChild>
+                <CardHeader className="cursor-pointer hover-elevate">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4" />
+                      <span className="font-medium">
+                        {(t.collaborators.addressTypes as Record<string, string>)[labelKey]}
+                      </span>
+                      {address && (
+                        <Badge variant="outline" className="ml-2">
+                          {address.city || address.streetNumber || t.common.filled}
+                        </Badge>
+                      )}
+                    </div>
+                    {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </div>
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent className="pt-0">
+                  <AddressForm 
+                    collaboratorId={collaboratorId} 
+                    addressType={value}
+                    existingAddress={address}
+                    t={t}
+                  />
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+        );
+      })}
+    </div>
+  );
+}
+
+// Address Form Component
+function AddressForm({ collaboratorId, addressType, existingAddress, t }: { 
+  collaboratorId: string; 
+  addressType: string; 
+  existingAddress?: CollaboratorAddress;
+  t: any;
+}) {
+  const { toast } = useToast();
+  const [formData, setFormData] = useState({
+    streetNumber: existingAddress?.streetNumber || "",
+    city: existingAddress?.city || "",
+    postalCode: existingAddress?.postalCode || "",
+    region: existingAddress?.region || "",
+    countryCode: existingAddress?.countryCode || "",
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: typeof formData) => {
+      if (existingAddress) {
+        return apiRequest("PUT", `/api/collaborators/${collaboratorId}/addresses/${existingAddress.id}`, { ...data, addressType });
+      }
+      return apiRequest("POST", `/api/collaborators/${collaboratorId}/addresses`, { ...data, addressType });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/collaborators", collaboratorId, "addresses"] });
+      toast({ title: t.success.saved });
+    },
+    onError: () => {
+      toast({ title: t.errors.saveFailed, variant: "destructive" });
+    },
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label>{t.collaborators.fields.streetNumber}</Label>
+          <Input
+            value={formData.streetNumber}
+            onChange={(e) => setFormData({ ...formData, streetNumber: e.target.value })}
+            data-testid={`input-address-${addressType}-street`}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>{t.collaborators.fields.city}</Label>
+          <Input
+            value={formData.city}
+            onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+            data-testid={`input-address-${addressType}-city`}
+          />
+        </div>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label>{t.collaborators.fields.postalCode}</Label>
+          <Input
+            value={formData.postalCode}
+            onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
+            data-testid={`input-address-${addressType}-zip`}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>{t.collaborators.fields.region}</Label>
+          <Input
+            value={formData.region}
+            onChange={(e) => setFormData({ ...formData, region: e.target.value })}
+            data-testid={`input-address-${addressType}-region`}
+          />
+        </div>
+      </div>
+      <div className="flex justify-end">
+        <Button onClick={() => saveMutation.mutate(formData)} disabled={saveMutation.isPending} data-testid={`button-save-address-${addressType}`}>
+          {saveMutation.isPending ? t.common.loading : t.common.save}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// Agreements Tab Content Component
+function AgreementsTabContent({ collaboratorId, collaboratorCountry, t }: { collaboratorId: string; collaboratorCountry: string; t: any }) {
+  const { toast } = useToast();
+  const [isAddingNew, setIsAddingNew] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  
+  const { data: agreements = [] } = useQuery<CollaboratorAgreement[]>({
+    queryKey: ["/api/collaborators", collaboratorId, "agreements"],
+    queryFn: async () => {
+      const res = await fetch(`/api/collaborators/${collaboratorId}/agreements`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!collaboratorId,
+  });
+
+  const { data: billingCompanies = [] } = useQuery<BillingDetails[]>({
+    queryKey: ["/api/billing-details", collaboratorCountry],
+    queryFn: async () => {
+      const res = await fetch(`/api/billing-details?country=${collaboratorCountry}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!collaboratorCountry,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (agreementId: string) => {
+      return apiRequest("DELETE", `/api/collaborators/${collaboratorId}/agreements/${agreementId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/collaborators", collaboratorId, "agreements"] });
+      toast({ title: t.success.deleted });
+    },
+    onError: () => {
+      toast({ title: t.errors.deleteFailed, variant: "destructive" });
+    },
+  });
+
+  const handleFileUpload = async (agreementId: string, file: File) => {
+    setUploadingFile(true);
+    try {
+      const formDataUpload = new FormData();
+      formDataUpload.append("file", file);
+      
+      const response = await fetch(`/api/collaborators/${collaboratorId}/agreements/${agreementId}/upload`, {
+        method: "POST",
+        credentials: "include",
+        body: formDataUpload,
+      });
+      
+      if (!response.ok) throw new Error(t.errors.uploadFailed);
+      
+      queryClient.invalidateQueries({ queryKey: ["/api/collaborators", collaboratorId, "agreements"] });
+      toast({ title: t.success.saved });
+    } catch (error) {
+      toast({ title: t.errors.saveFailed, variant: "destructive" });
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
+  const formatDate = (day: number | null, month: number | null, year: number | null) => {
+    if (!day || !month || !year) return t.common.noData;
+    return `${day}.${month}.${year}`;
+  };
+
+  const getBillingCompanyName = (id: string | null) => {
+    if (!id) return t.common.noData;
+    return billingCompanies.find((bc) => bc.id === id)?.companyName || t.common.noData;
+  };
+
+  if (isAddingNew || editingId) {
+    return (
+      <AgreementForm
+        collaboratorId={collaboratorId}
+        editingId={editingId}
+        agreement={editingId ? agreements.find(a => a.id === editingId) : undefined}
+        billingCompanies={billingCompanies}
+        onCancel={() => {
+          setIsAddingNew(false);
+          setEditingId(null);
+        }}
+        onSuccess={() => {
+          setIsAddingNew(false);
+          setEditingId(null);
+        }}
+        t={t}
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button onClick={() => setIsAddingNew(true)} data-testid="button-add-agreement">
+          <Plus className="h-4 w-4 mr-2" />
+          {t.common.add}
+        </Button>
+      </div>
+      {agreements.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">{t.common.noData}</div>
+      ) : (
+        <div className="space-y-2">
+          {agreements.map((agreement) => (
+            <Card key={agreement.id}>
+              <CardContent className="p-4">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">{t.collaborators?.fields?.billingCompany}: </span>
+                        {getBillingCompanyName(agreement.billingCompanyId)}
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">{t.collaborators?.fields?.contractNumber}: </span>
+                        {agreement.contractNumber || t.common.noData}
+                      </div>
+                      <div>
+                        <Badge variant={agreement.isValid ? "default" : "secondary"}>
+                          {agreement.isValid ? t.common.active : t.common.inactive}
+                        </Badge>
+                      </div>
+                      <div className="flex gap-2 justify-end">
+                        <Button size="icon" variant="ghost" onClick={() => setEditingId(agreement.id)} data-testid={`button-edit-agreement-${agreement.id}`}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={() => deleteMutation.mutate(agreement.id)} data-testid={`button-delete-agreement-${agreement.id}`}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">{t.collaborators?.fields?.validFrom}: </span>
+                      {formatDate(agreement.validFromDay, agreement.validFromMonth, agreement.validFromYear)}
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">{t.collaborators?.fields?.validTo}: </span>
+                      {formatDate(agreement.validToDay, agreement.validToMonth, agreement.validToYear)}
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 pt-2 border-t">
+                    <div className="flex items-center gap-2">
+                      {agreement.fileName ? (
+                        <>
+                          <FileText className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm">{agreement.fileName}</span>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => window.open(`/api/collaborators/${collaboratorId}/agreements/${agreement.id}/file`, "_blank")}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => window.open(`/api/collaborators/${collaboratorId}/agreements/${agreement.id}/download`, "_blank")}
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        </>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">{t.collaborators.noFile}</span>
+                      )}
+                    </div>
+                    <div>
+                      <label className="cursor-pointer">
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleFileUpload(agreement.id, file);
+                          }}
+                          disabled={uploadingFile}
+                        />
+                        <Button variant="outline" size="sm" disabled={uploadingFile} asChild>
+                          <span>
+                            <Upload className="h-4 w-4 mr-2" />
+                            {uploadingFile ? t.common.loading : t.collaborators.uploadAgreement}
+                          </span>
+                        </Button>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Agreement Form Component
+function AgreementForm({ collaboratorId, editingId, agreement, billingCompanies, onCancel, onSuccess, t }: {
+  collaboratorId: string;
+  editingId: string | null;
+  agreement?: CollaboratorAgreement;
+  billingCompanies: BillingDetails[];
+  onCancel: () => void;
+  onSuccess: () => void;
+  t: any;
+}) {
+  const { toast } = useToast();
+  const [formData, setFormData] = useState({
+    billingCompanyId: agreement?.billingCompanyId || "",
+    contractNumber: agreement?.contractNumber || "",
+    validFromDay: agreement?.validFromDay,
+    validFromMonth: agreement?.validFromMonth,
+    validFromYear: agreement?.validFromYear,
+    validToDay: agreement?.validToDay,
+    validToMonth: agreement?.validToMonth,
+    validToYear: agreement?.validToYear,
+    isValid: agreement?.isValid ?? true,
+    rewardTypes: agreement?.rewardTypes || [],
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: (data: typeof formData) => {
+      if (editingId) {
+        return apiRequest("PUT", `/api/collaborators/${collaboratorId}/agreements/${editingId}`, data);
+      }
+      return apiRequest("POST", `/api/collaborators/${collaboratorId}/agreements`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/collaborators", collaboratorId, "agreements"] });
+      toast({ title: t.success.saved });
+      onSuccess();
+    },
+    onError: () => {
+      toast({ title: t.errors.saveFailed, variant: "destructive" });
+    },
+  });
+
+  const setEndOfYear = (sourceYear?: number | null) => {
+    const year = sourceYear || new Date().getFullYear();
+    setFormData(prev => ({ ...prev, validToDay: 31, validToMonth: 12, validToYear: year }));
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label>{t.collaborators?.fields?.billingCompany}</Label>
+          <Select
+            value={formData.billingCompanyId || "_none"}
+            onValueChange={(value) => setFormData({ ...formData, billingCompanyId: value === "_none" ? "" : value })}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={t.collaborators?.fields?.billingCompany} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_none">{t.common?.noData}</SelectItem>
+              {billingCompanies.map((bc) => (
+                <SelectItem key={bc.id} value={bc.id}>{bc.companyName}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>{t.collaborators?.fields?.contractNumber}</Label>
+          <Input
+            value={formData.contractNumber || ""}
+            onChange={(e) => setFormData({ ...formData, contractNumber: e.target.value })}
+          />
+        </div>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label>{t.collaborators?.fields?.validFrom}</Label>
+          <div className="flex gap-2">
+            <Input
+              type="number"
+              placeholder={t.collaborators.fields.day}
+              value={formData.validFromDay || ""}
+              onChange={(e) => setFormData({ ...formData, validFromDay: parseInt(e.target.value) || undefined })}
+              className="w-20"
+            />
+            <Input
+              type="number"
+              placeholder={t.collaborators.fields.month}
+              value={formData.validFromMonth || ""}
+              onChange={(e) => setFormData({ ...formData, validFromMonth: parseInt(e.target.value) || undefined })}
+              className="w-20"
+            />
+            <Input
+              type="number"
+              placeholder={t.collaborators.fields.year}
+              value={formData.validFromYear || ""}
+              onChange={(e) => setFormData({ ...formData, validFromYear: parseInt(e.target.value) || undefined })}
+              className="w-24"
+            />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label>{t.collaborators?.fields?.validTo}</Label>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setEndOfYear(formData.validFromYear)}
+            >
+              {t.common.endOfYear}
+            </Button>
+          </div>
+          <div className="flex gap-2">
+            <Input
+              type="number"
+              placeholder={t.collaborators.fields.day}
+              value={formData.validToDay || ""}
+              onChange={(e) => setFormData({ ...formData, validToDay: parseInt(e.target.value) || undefined })}
+              className="w-20"
+            />
+            <Input
+              type="number"
+              placeholder={t.collaborators.fields.month}
+              value={formData.validToMonth || ""}
+              onChange={(e) => setFormData({ ...formData, validToMonth: parseInt(e.target.value) || undefined })}
+              className="w-20"
+            />
+            <Input
+              type="number"
+              placeholder={t.collaborators.fields.year}
+              value={formData.validToYear || ""}
+              onChange={(e) => setFormData({ ...formData, validToYear: parseInt(e.target.value) || undefined })}
+              className="w-24"
+            />
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center space-x-2">
+        <Switch
+          checked={formData.isValid}
+          onCheckedChange={(checked) => setFormData({ ...formData, isValid: checked })}
+        />
+        <Label>{t.collaborators?.fields?.isValid}</Label>
+      </div>
+      <div className="space-y-2">
+        <Label>{t.collaborators?.fields?.rewardTypes}</Label>
+        <div className="flex flex-wrap gap-2">
+          {REWARD_TYPES.map((rt) => (
+            <Badge
+              key={rt.value}
+              variant={formData.rewardTypes?.includes(rt.value) ? "default" : "outline"}
+              className="cursor-pointer"
+              onClick={() => {
+                const current = formData.rewardTypes || [];
+                const updated = current.includes(rt.value)
+                  ? current.filter(r => r !== rt.value)
+                  : [...current, rt.value];
+                setFormData({ ...formData, rewardTypes: updated });
+              }}
+            >
+              {(t.collaborators.rewardTypes as Record<string, string>)[rt.labelKey]}
+            </Badge>
+          ))}
+        </div>
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={onCancel}>
+          {t.common.cancel}
+        </Button>
+        <Button onClick={() => saveMutation.mutate(formData)} disabled={saveMutation.isPending}>
+          {saveMutation.isPending ? t.common.loading : t.common.save}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// History Tab Content Component
+interface ActivityLog {
+  id: string;
+  userId: string | null;
+  action: string;
+  entityType: string;
+  entityId: string;
+  details: string | null;
+  createdAt: Date;
+}
+
+function HistoryTabContent({ collaboratorId, t }: { collaboratorId: string; t: any }) {
+  const { data: activityLogs = [], isLoading } = useQuery<ActivityLog[]>({
+    queryKey: ["/api/activity-logs", "collaborator", collaboratorId],
+    queryFn: async () => {
+      const res = await fetch(`/api/activity-logs?entityType=collaborator&entityId=${collaboratorId}`, { 
+        credentials: "include" 
+      });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!collaboratorId,
+  });
+
+  const getActionIcon = (action: string) => {
+    switch (action) {
+      case "create": return <Plus className="h-4 w-4 text-green-500" />;
+      case "update": return <Pencil className="h-4 w-4 text-blue-500" />;
+      case "delete": return <Trash2 className="h-4 w-4 text-red-500" />;
+      default: return <Activity className="h-4 w-4 text-muted-foreground" />;
+    }
+  };
+
+  const getActionLabel = (action: string) => {
+    switch (action) {
+      case "create": return t.collaborators.history?.actionTypes?.created || t.collaborators.actions.created;
+      case "update": return t.collaborators.history?.actionTypes?.updated || t.collaborators.actions.updated;
+      default: return action;
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="flex gap-4">
+            <Skeleton className="h-8 w-8 rounded-full" />
+            <div className="space-y-2 flex-1">
+              <Skeleton className="h-4 w-1/3" />
+              <Skeleton className="h-3 w-1/2" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (activityLogs.length === 0) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        {t.collaborators.history?.noHistory || t.common.noData}
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative">
+      <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
+      <div className="space-y-6">
+        {activityLogs.map((log) => (
+          <div key={log.id} className="relative pl-10">
+            <div className="absolute left-2 w-5 h-5 rounded-full bg-background border-2 border-border flex items-center justify-center">
+              {getActionIcon(log.action)}
+            </div>
+            <div className="bg-muted/50 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-medium">{getActionLabel(log.action)}</span>
+                <span className="text-xs text-muted-foreground">
+                  {new Date(log.createdAt).toLocaleString()}
+                </span>
+              </div>
+              {log.details && (
+                <p className="text-sm text-muted-foreground">{log.details}</p>
+              )}
+              {log.userId && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {t.collaborators.actions.by}: {log.userId}
+                </p>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: CollaboratorFormWizardProps) {
   const { t } = useI18n();
   const { toast } = useToast();
   const { isHidden, isReadonly } = useModuleFieldPermissions("collaborators");
+  
+  // Dynamic steps - add additional tabs for existing collaborators
+  const WIZARD_STEPS = initialData 
+    ? [...BASE_WIZARD_STEPS, ...EDIT_ONLY_STEPS]
+    : BASE_WIZARD_STEPS;
+  
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   
@@ -347,15 +1018,15 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
       case 4:
         if (mobileCredentials.mobileAppEnabled) {
           if (!mobileCredentials.mobileUsername) {
-            toast({ title: t.collaborators?.mobileApp?.usernameRequired || "Username is required for mobile app access", variant: "destructive" });
+            toast({ title: t.collaborators.mobileApp.usernameRequired, variant: "destructive" });
             return false;
           }
           if (!initialData?.mobilePasswordHash && !mobileCredentials.mobilePassword) {
-            toast({ title: t.collaborators?.mobileApp?.passwordRequired || "Password is required for mobile app access", variant: "destructive" });
+            toast({ title: t.collaborators.mobileApp.passwordRequired, variant: "destructive" });
             return false;
           }
           if (mobileCredentials.mobilePassword && mobileCredentials.mobilePassword !== mobileCredentials.mobilePasswordConfirm) {
-            toast({ title: t.collaborators?.mobileApp?.passwordMismatch || "Passwords do not match", variant: "destructive" });
+            toast({ title: t.collaborators.mobileApp.passwordMismatch, variant: "destructive" });
             return false;
           }
         }
@@ -365,8 +1036,13 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
     }
   };
 
+  // The save step is always the mobile step (index 4), additional tabs don't trigger save
+  const SAVE_STEP_INDEX = 4;
+  // Check if current step is a save step (mobile step = step 4 for new, last base step for edit)
+  const isSaveStep = currentStep === SAVE_STEP_INDEX;
+  
   const handleNext = () => {
-    console.log("[Wizard] handleNext called, currentStep:", currentStep, "isLastStep:", isLastStep, "WIZARD_STEPS.length:", WIZARD_STEPS.length);
+    console.log("[Wizard] handleNext called, currentStep:", currentStep, "isSaveStep:", isSaveStep, "WIZARD_STEPS.length:", WIZARD_STEPS.length);
     
     const isValid = validateCurrentStep();
     console.log("[Wizard] validateCurrentStep result:", isValid);
@@ -377,9 +1053,20 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
     
     setCompletedSteps(prev => new Set(Array.from(prev).concat(currentStep)));
     
-    if (isLastStep) {
+    // Save on mobile step (step 4), then continue to additional tabs for editing
+    if (isSaveStep) {
       console.log("[Wizard] Calling saveMutation.mutate with formData:", formData);
       saveMutation.mutate(formData);
+      // For new collaborators, onSuccess will be called in mutation success to close dialog
+      // For editing, move to next step (addresses) after save since we have an ID
+      if (initialData && currentStep < WIZARD_STEPS.length - 1) {
+        setCurrentStep(prev => prev + 1);
+      }
+      // Note: For new collaborators, mutation onSuccess calls onSuccess() to close dialog
+      return;
+    } else if (isLastStep) {
+      // On the very last step (history), just close
+      onSuccess();
     } else {
       console.log("[Wizard] Moving to next step:", currentStep + 1);
       setCurrentStep(prev => prev + 1);
@@ -409,7 +1096,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
     } else {
       for (let i = 0; i < index; i++) {
         if (!completedSteps.has(i)) {
-          toast({ title: "Please complete previous steps first", variant: "destructive" });
+          toast({ title: t.wizard.completePreviousSteps, variant: "destructive" });
           return;
         }
       }
@@ -418,25 +1105,31 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
   };
 
   const getStepTitle = (stepId: string): string => {
-    const steps = t.wizard?.steps as Record<string, string> | undefined;
+    const steps = t.wizard.steps;
     const stepTitles: Record<string, string> = {
-      personal: steps?.personalInfo || t.collaborators?.tabs?.collaborator || "Personal Info",
-      contact: steps?.contactDetails || t.collaborators?.fields?.phone || "Contact",
-      banking: steps?.banking || t.collaborators?.fields?.bankAccountIban || "Banking",
-      company: steps?.company || t.collaborators?.fields?.companyName || "Company",
-      mobile: steps?.mobile || "INDEXUS Connect",
+      personal: steps.personalInfo,
+      contact: steps.contactDetails,
+      banking: steps.banking,
+      company: steps.company,
+      mobile: steps.mobile,
+      addresses: t.collaborators.tabs.companyAndAddresses,
+      agreements: t.collaborators.tabs.agreements,
+      history: t.collaborators.tabs.history,
     };
     return stepTitles[stepId] || stepId;
   };
 
   const getStepDescription = (stepId: string): string => {
-    const steps = t.wizard?.steps as Record<string, string> | undefined;
+    const steps = t.wizard.steps;
     const stepDescs: Record<string, string> = {
-      personal: steps?.personalInfoDesc || "Name and basic details",
-      contact: steps?.contactDetailsDesc || "Phone, email, address",
-      banking: steps?.bankingDesc || "Bank account details",
-      company: steps?.companyDesc || "Company information (optional)",
-      mobile: steps?.mobileDesc || "Mobile app access settings",
+      personal: steps.personalInfoDesc,
+      contact: steps.contactDetailsDesc,
+      banking: steps.bankingDesc,
+      company: steps.companyDesc,
+      mobile: steps.mobileDesc,
+      addresses: t.collaborators.companyAddressesDescription,
+      agreements: t.collaborators.agreementsDescription,
+      history: t.collaborators.historyDescription,
     };
     return stepDescs[stepId] || "";
   };
@@ -493,7 +1186,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
                     <SelectItem value="_none">{t.common.noData}</SelectItem>
                     {COLLABORATOR_TYPES.map((ct) => (
                       <SelectItem key={ct.value} value={ct.value}>
-                        {(t.collaborators.types as Record<string, string>)[ct.labelKey] || ct.value}
+                        {(t.collaborators.types as Record<string, string>)[ct.labelKey]}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -607,7 +1300,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
                     <SelectItem value="_none">{t.common.noData}</SelectItem>
                     {MARITAL_STATUSES.map((ms) => (
                       <SelectItem key={ms.value} value={ms.value}>
-                        {(t.collaborators.maritalStatuses as Record<string, string>)[ms.labelKey] || ms.value}
+                        {(t.collaborators.maritalStatuses as Record<string, string>)[ms.labelKey]}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -879,7 +1572,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
               <div>
                 <h4 className="font-medium">INDEXUS Connect</h4>
                 <p className="text-sm text-muted-foreground">
-                  {t.collaborators?.mobileApp?.description || "Configure mobile app access for field representatives"}
+                  {t.collaborators.mobileApp.description}
                 </p>
               </div>
             </div>
@@ -891,42 +1584,42 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
                   onCheckedChange={(checked) => setMobileCredentials({ ...mobileCredentials, mobileAppEnabled: checked })}
                   data-testid="wizard-switch-mobile-app-enabled"
                 />
-                <Label>{t.collaborators?.mobileApp?.enabled || "Enable mobile app access"}</Label>
+                <Label>{t.collaborators.mobileApp.enabled}</Label>
               </div>
 
               {mobileCredentials.mobileAppEnabled && (
                 <div className="space-y-4 pl-8 border-l-2 border-muted">
                   <div className="space-y-2">
-                    <Label>{t.collaborators?.mobileApp?.username || "Username"}</Label>
+                    <Label>{t.collaborators.mobileApp.username}</Label>
                     <Input
                       value={mobileCredentials.mobileUsername}
                       onChange={(e) => setMobileCredentials({ ...mobileCredentials, mobileUsername: e.target.value })}
-                      placeholder={t.collaborators?.mobileApp?.usernamePlaceholder || "Enter username for mobile app login"}
+                      placeholder={t.collaborators.mobileApp.usernamePlaceholder}
                       data-testid="wizard-input-mobile-username"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>{t.collaborators?.mobileApp?.password || "Password"}</Label>
+                    <Label>{t.collaborators.mobileApp.password}</Label>
                     <Input
                       type="password"
                       value={mobileCredentials.mobilePassword}
                       onChange={(e) => setMobileCredentials({ ...mobileCredentials, mobilePassword: e.target.value })}
-                      placeholder={initialData?.mobilePasswordHash ? (t.collaborators?.mobileApp?.passwordPlaceholderExisting || "Leave blank to keep current password") : (t.collaborators?.mobileApp?.passwordPlaceholder || "Enter password for mobile app")}
+                      placeholder={initialData?.mobilePasswordHash ? t.collaborators.mobileApp.passwordPlaceholderExisting : t.collaborators.mobileApp.passwordPlaceholder}
                       data-testid="wizard-input-mobile-password"
                     />
                   </div>
                   {mobileCredentials.mobilePassword && (
                     <div className="space-y-2">
-                      <Label>{t.collaborators?.mobileApp?.passwordConfirm || "Confirm Password"}</Label>
+                      <Label>{t.collaborators.mobileApp.passwordConfirm}</Label>
                       <Input
                         type="password"
                         value={mobileCredentials.mobilePasswordConfirm}
                         onChange={(e) => setMobileCredentials({ ...mobileCredentials, mobilePasswordConfirm: e.target.value })}
-                        placeholder={t.collaborators?.mobileApp?.passwordConfirmPlaceholder || "Confirm password"}
+                        placeholder={t.collaborators.mobileApp.passwordConfirmPlaceholder}
                         data-testid="wizard-input-mobile-password-confirm"
                       />
                       {mobileCredentials.mobilePassword !== mobileCredentials.mobilePasswordConfirm && mobileCredentials.mobilePasswordConfirm && (
-                        <p className="text-sm text-destructive">{t.collaborators?.mobileApp?.passwordMismatch || "Passwords do not match"}</p>
+                        <p className="text-sm text-destructive">{t.collaborators.mobileApp.passwordMismatch}</p>
                       )}
                     </div>
                   )}
@@ -935,6 +1628,22 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
             </div>
           </div>
         );
+      
+      // Additional tabs for existing collaborators
+      case 5: // Addresses
+        return initialData ? (
+          <AddressesTabContent collaboratorId={initialData.id} countryCode={initialData.countryCode} t={t} />
+        ) : null;
+      
+      case 6: // Agreements
+        return initialData ? (
+          <AgreementsTabContent collaboratorId={initialData.id} collaboratorCountry={initialData.countryCode} t={t} />
+        ) : null;
+      
+      case 7: // History
+        return initialData ? (
+          <HistoryTabContent collaboratorId={initialData.id} t={t} />
+        ) : null;
 
       default:
         return null;
@@ -1023,15 +1732,15 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
           {!isFirstStep && (
             <Button variant="outline" onClick={handlePrevious} data-testid="wizard-button-previous">
               <ChevronLeft className="h-4 w-4 mr-1" />
-              {t.wizard?.previous || "Previous"}
+              {t.wizard.previous}
             </Button>
           )}
           <Button onClick={handleNext} disabled={saveMutation.isPending} data-testid="wizard-button-next">
             {isLastStep ? (
-              saveMutation.isPending ? t.common.loading : (t.wizard?.complete || t.common.save)
+              saveMutation.isPending ? t.common.loading : t.wizard.complete
             ) : (
               <>
-                {t.wizard?.next || "Next"}
+                {t.wizard.next}
                 <ChevronRight className="h-4 w-4 ml-1" />
               </>
             )}

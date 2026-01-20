@@ -851,6 +851,9 @@ export interface Translations {
     updateCollaborator: string;
     noFile: string;
     uploadAgreement: string;
+    companyAddressesDescription: string;
+    agreementsDescription: string;
+    historyDescription: string;
     mobileApp: {
       description: string;
       enabled: string;
@@ -1469,6 +1472,7 @@ export interface Translations {
     saveFailed: string;
     deleteFailed: string;
     loadFailed: string;
+    uploadFailed: string;
     generic: string;
   };
   success: {
@@ -1486,6 +1490,7 @@ export interface Translations {
     stepOf: string;
     percentComplete: string;
     optional: string;
+    completePreviousSteps: string;
     steps: {
       personalInfo: string;
       personalInfoDesc: string;
@@ -1497,6 +1502,10 @@ export interface Translations {
       marketingDesc: string;
       banking: string;
       bankingDesc: string;
+      company: string;
+      companyDesc: string;
+      mobile: string;
+      mobileDesc: string;
       review: string;
       reviewDesc: string;
     };
@@ -2583,6 +2592,9 @@ export const translations: Record<Locale, Translations> = {
       updateCollaborator: 'Update Collaborator',
       noFile: 'No file attached',
       uploadAgreement: 'Upload Agreement',
+      companyAddressesDescription: 'Manage collaborator addresses',
+      agreementsDescription: 'Billing company agreements',
+      historyDescription: 'Activity history',
       mobileApp: {
         description: 'Configure mobile app access for field representatives',
         enabled: 'Enable mobile app access',
@@ -3218,6 +3230,7 @@ export const translations: Record<Locale, Translations> = {
       saveFailed: 'Failed to save',
       deleteFailed: 'Failed to delete',
       loadFailed: 'Failed to load data',
+      uploadFailed: 'Failed to upload file',
       generic: 'An error occurred',
     },
     success: {
@@ -3235,6 +3248,7 @@ export const translations: Record<Locale, Translations> = {
       stepOf: 'Step {current} of {total}',
       percentComplete: '{percent}% complete',
       optional: 'Optional',
+      completePreviousSteps: 'Please complete previous steps first',
       steps: {
         personalInfo: 'Personal Info',
         personalInfoDesc: 'Basic information about the client',
@@ -3246,6 +3260,10 @@ export const translations: Record<Locale, Translations> = {
         marketingDesc: 'Marketing preferences and classifications',
         banking: 'Banking',
         bankingDesc: 'Bank account and health insurance',
+        company: 'Company',
+        companyDesc: 'Company information (optional)',
+        mobile: 'INDEXUS Connect',
+        mobileDesc: 'Mobile app access settings',
         review: 'Review',
         reviewDesc: 'Review and confirm all information',
       },
@@ -4325,6 +4343,9 @@ export const translations: Record<Locale, Translations> = {
       updateCollaborator: 'Aktualizovať spolupracovníka',
       noFile: 'Žiadny súbor',
       uploadAgreement: 'Nahrať dohodu',
+      companyAddressesDescription: 'Správa adries spolupracovníka',
+      agreementsDescription: 'Dohody s fakturačnými spoločnosťami',
+      historyDescription: 'História aktivít',
       mobileApp: {
         description: 'Nastavenie prístupu do mobilnej aplikácie pre terénnych pracovníkov',
         enabled: 'Povoliť prístup do mobilnej aplikácie',
@@ -4960,6 +4981,7 @@ export const translations: Record<Locale, Translations> = {
       saveFailed: 'Nepodarilo sa uložiť',
       deleteFailed: 'Nepodarilo sa odstrániť',
       loadFailed: 'Nepodarilo sa načítať údaje',
+      uploadFailed: 'Nepodarilo sa nahrať súbor',
       generic: 'Vyskytla sa chyba',
     },
     success: {
@@ -4977,6 +4999,7 @@ export const translations: Record<Locale, Translations> = {
       stepOf: 'Krok {current} z {total}',
       percentComplete: '{percent}% dokončené',
       optional: 'Voliteľné',
+      completePreviousSteps: 'Najprv dokončite predchádzajúce kroky',
       steps: {
         personalInfo: 'Osobné údaje',
         personalInfoDesc: 'Základné informácie o klientovi',
@@ -4988,6 +5011,10 @@ export const translations: Record<Locale, Translations> = {
         marketingDesc: 'Marketingové preferencie a klasifikácie',
         banking: 'Bankové údaje',
         bankingDesc: 'Bankový účet a zdravotné poistenie',
+        company: 'Spoločnosť',
+        companyDesc: 'Informácie o spoločnosti (voliteľné)',
+        mobile: 'INDEXUS Connect',
+        mobileDesc: 'Nastavenia mobilnej aplikácie',
         review: 'Prehľad',
         reviewDesc: 'Skontrolujte a potvrďte všetky údaje',
       },
@@ -6067,6 +6094,9 @@ export const translations: Record<Locale, Translations> = {
       updateCollaborator: 'Aktualizovat spolupracovníka',
       noFile: 'Žádný soubor',
       uploadAgreement: 'Nahrát dohodu',
+      companyAddressesDescription: 'Správa adres spolupracovníka',
+      agreementsDescription: 'Dohody s fakturačními společnostmi',
+      historyDescription: 'Historie aktivit',
       mobileApp: {
         description: 'Nastavení přístupu do mobilní aplikace pro terénní pracovníky',
         enabled: 'Povolit přístup do mobilní aplikace',
@@ -6702,6 +6732,7 @@ export const translations: Record<Locale, Translations> = {
       saveFailed: 'Nepodařilo se uložit',
       deleteFailed: 'Nepodařilo se odstranit',
       loadFailed: 'Nepodařilo se načíst data',
+      uploadFailed: 'Nepodařilo se nahrát soubor',
       generic: 'Došlo k chybě',
     },
     success: {
@@ -6719,6 +6750,7 @@ export const translations: Record<Locale, Translations> = {
       stepOf: 'Krok {current} z {total}',
       percentComplete: '{percent}% dokončeno',
       optional: 'Volitelné',
+      completePreviousSteps: 'Nejprve dokončete předchozí kroky',
       steps: {
         personalInfo: 'Osobní údaje',
         personalInfoDesc: 'Základní informace o klientovi',
@@ -6730,6 +6762,10 @@ export const translations: Record<Locale, Translations> = {
         marketingDesc: 'Marketingové preference a klasifikace',
         banking: 'Bankovní údaje',
         bankingDesc: 'Bankovní účet a zdravotní pojištění',
+        company: 'Společnost',
+        companyDesc: 'Informace o společnosti (volitelné)',
+        mobile: 'INDEXUS Connect',
+        mobileDesc: 'Nastavení přístupu do mobilní aplikace',
         review: 'Přehled',
         reviewDesc: 'Zkontrolujte a potvrďte všechny údaje',
       },
@@ -7772,6 +7808,9 @@ export const translations: Record<Locale, Translations> = {
       updateCollaborator: 'Munkatárs frissítése',
       noFile: 'Nincs fájl csatolva',
       uploadAgreement: 'Megállapodás feltöltése',
+      companyAddressesDescription: 'Együttműködő címeinek kezelése',
+      agreementsDescription: 'Számlázási cég megállapodások',
+      historyDescription: 'Tevékenységi előzmények',
       mobileApp: {
         description: 'Mobilalkalmazás-hozzáférés beállítása a terepi munkatársak számára',
         enabled: 'Mobilalkalmazás-hozzáférés engedélyezése',
@@ -8407,6 +8446,7 @@ export const translations: Record<Locale, Translations> = {
       saveFailed: 'A mentés sikertelen',
       deleteFailed: 'A törlés sikertelen',
       loadFailed: 'Az adatok betöltése sikertelen',
+      uploadFailed: 'A fájl feltöltése sikertelen',
       generic: 'Hiba történt',
     },
     success: {
@@ -8424,6 +8464,7 @@ export const translations: Record<Locale, Translations> = {
       stepOf: '{current}. lépés / {total}',
       percentComplete: '{percent}% kész',
       optional: 'Opcionális',
+      completePreviousSteps: 'Először fejezze be az előző lépéseket',
       steps: {
         personalInfo: 'Személyes adatok',
         personalInfoDesc: 'Alapvető információk az ügyfélről',
@@ -8435,6 +8476,10 @@ export const translations: Record<Locale, Translations> = {
         marketingDesc: 'Marketing preferenciák és besorolások',
         banking: 'Banki adatok',
         bankingDesc: 'Bankszámla és egészségbiztosítás',
+        company: 'Cég',
+        companyDesc: 'Céginformációk (opcionális)',
+        mobile: 'INDEXUS Connect',
+        mobileDesc: 'Mobilalkalmazás hozzáférési beállítások',
         review: 'Áttekintés',
         reviewDesc: 'Ellenőrizze és erősítse meg az adatokat',
       },
@@ -9477,6 +9522,9 @@ export const translations: Record<Locale, Translations> = {
       updateCollaborator: 'Actualizează colaborator',
       noFile: 'Niciun fișier atașat',
       uploadAgreement: 'Încarcă acord',
+      companyAddressesDescription: 'Gestionare adrese colaborator',
+      agreementsDescription: 'Acorduri cu companiile de facturare',
+      historyDescription: 'Istoric activități',
       mobileApp: {
         description: 'Configurați accesul la aplicația mobilă pentru reprezentanții de teren',
         enabled: 'Activați accesul la aplicația mobilă',
@@ -10112,6 +10160,7 @@ export const translations: Record<Locale, Translations> = {
       saveFailed: 'Salvarea a eșuat',
       deleteFailed: 'Ștergerea a eșuat',
       loadFailed: 'Încărcarea datelor a eșuat',
+      uploadFailed: 'Încărcarea fișierului a eșuat',
       generic: 'A apărut o eroare',
     },
     success: {
@@ -10129,6 +10178,7 @@ export const translations: Record<Locale, Translations> = {
       stepOf: 'Pasul {current} din {total}',
       percentComplete: '{percent}% complet',
       optional: 'Opțional',
+      completePreviousSteps: 'Vă rugăm să completați mai întâi pașii anteriori',
       steps: {
         personalInfo: 'Date personale',
         personalInfoDesc: 'Informații de bază despre client',
@@ -10140,6 +10190,10 @@ export const translations: Record<Locale, Translations> = {
         marketingDesc: 'Preferințe de marketing și clasificări',
         banking: 'Date bancare',
         bankingDesc: 'Cont bancar și asigurare de sănătate',
+        company: 'Companie',
+        companyDesc: 'Informații despre companie (opțional)',
+        mobile: 'INDEXUS Connect',
+        mobileDesc: 'Setări acces aplicație mobilă',
         review: 'Revizuire',
         reviewDesc: 'Verificați și confirmați toate datele',
       },
@@ -11182,6 +11236,9 @@ export const translations: Record<Locale, Translations> = {
       updateCollaborator: 'Aggiorna collaboratore',
       noFile: 'Nessun file allegato',
       uploadAgreement: 'Carica accordo',
+      companyAddressesDescription: 'Gestione indirizzi collaboratore',
+      agreementsDescription: 'Accordi con società di fatturazione',
+      historyDescription: 'Cronologia attività',
       mobileApp: {
         description: "Configura l'accesso all'app mobile per i rappresentanti sul campo",
         enabled: "Abilita l'accesso all'app mobile",
@@ -11817,6 +11874,7 @@ export const translations: Record<Locale, Translations> = {
       saveFailed: 'Salvataggio fallito',
       deleteFailed: 'Eliminazione fallita',
       loadFailed: 'Caricamento dati fallito',
+      uploadFailed: 'Caricamento file fallito',
       generic: 'Si è verificato un errore',
     },
     success: {
@@ -11834,6 +11892,7 @@ export const translations: Record<Locale, Translations> = {
       stepOf: 'Passo {current} di {total}',
       percentComplete: '{percent}% completato',
       optional: 'Opzionale',
+      completePreviousSteps: 'Si prega di completare prima i passaggi precedenti',
       steps: {
         personalInfo: 'Dati personali',
         personalInfoDesc: 'Informazioni di base sul cliente',
@@ -11845,6 +11904,10 @@ export const translations: Record<Locale, Translations> = {
         marketingDesc: 'Preferenze di marketing e classificazioni',
         banking: 'Dati bancari',
         bankingDesc: 'Conto bancario e assicurazione sanitaria',
+        company: 'Azienda',
+        companyDesc: 'Informazioni aziendali (opzionale)',
+        mobile: 'INDEXUS Connect',
+        mobileDesc: "Impostazioni accesso app mobile",
         review: 'Revisione',
         reviewDesc: 'Verifica e conferma tutti i dati',
       },
@@ -12887,6 +12950,9 @@ export const translations: Record<Locale, Translations> = {
       updateCollaborator: 'Mitarbeiter aktualisieren',
       noFile: 'Keine Datei angehängt',
       uploadAgreement: 'Vereinbarung hochladen',
+      companyAddressesDescription: 'Adressen des Mitarbeiters verwalten',
+      agreementsDescription: 'Abrechnungsvereinbarungen',
+      historyDescription: 'Aktivitätsverlauf',
       mobileApp: {
         description: 'Mobile App-Zugang für Außendienstmitarbeiter konfigurieren',
         enabled: 'Mobile App-Zugang aktivieren',
@@ -13522,6 +13588,7 @@ export const translations: Record<Locale, Translations> = {
       saveFailed: 'Speichern fehlgeschlagen',
       deleteFailed: 'Löschen fehlgeschlagen',
       loadFailed: 'Daten konnten nicht geladen werden',
+      uploadFailed: 'Datei-Upload fehlgeschlagen',
       generic: 'Ein Fehler ist aufgetreten',
     },
     success: {
@@ -13539,6 +13606,7 @@ export const translations: Record<Locale, Translations> = {
       stepOf: 'Schritt {current} von {total}',
       percentComplete: '{percent}% abgeschlossen',
       optional: 'Optional',
+      completePreviousSteps: 'Bitte schließen Sie zuerst die vorherigen Schritte ab',
       steps: {
         personalInfo: 'Persönliche Daten',
         personalInfoDesc: 'Grundlegende Informationen über den Kunden',
@@ -13550,6 +13618,10 @@ export const translations: Record<Locale, Translations> = {
         marketingDesc: 'Marketing-Präferenzen und Klassifizierungen',
         banking: 'Bankdaten',
         bankingDesc: 'Bankkonto und Krankenversicherung',
+        company: 'Unternehmen',
+        companyDesc: 'Unternehmensinformationen (optional)',
+        mobile: 'INDEXUS Connect',
+        mobileDesc: 'Mobile App-Zugriffseinstellungen',
         review: 'Überprüfung',
         reviewDesc: 'Überprüfen und bestätigen Sie alle Daten',
       },
