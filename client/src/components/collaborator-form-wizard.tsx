@@ -90,6 +90,7 @@ interface CollaboratorFormData {
   monthRewards: boolean;
   note: string;
   hospitalId: string;
+  hospitalIds: string[];
 }
 
 interface CollaboratorFormWizardProps {
@@ -1625,6 +1626,15 @@ function HistoryTabContent({ collaboratorId, t }: { collaboratorId: string; t: a
     enabled: !!collaboratorId,
   });
 
+  const { data: users = [] } = useQuery<SafeUser[]>({
+    queryKey: ["/api/users"],
+  });
+
+  const getUserName = (userId: string) => {
+    const user = users.find(u => u.id === userId);
+    return user ? `${user.firstName} ${user.lastName}` : userId;
+  };
+
   const getActionIcon = (action: string) => {
     switch (action) {
       case "create": return <Plus className="h-4 w-4 text-green-500" />;
@@ -1687,7 +1697,7 @@ function HistoryTabContent({ collaboratorId, t }: { collaboratorId: string; t: a
               )}
               {log.userId && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  {t.collaborators.actions.by}: {log.userId}
+                  {t.collaborators.actions.by}: {getUserName(log.userId)}
                 </p>
               )}
             </div>
@@ -1762,6 +1772,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
           monthRewards: initialData.monthRewards,
           note: initialData.note || "",
           hospitalId: initialData.hospitalId || "",
+          hospitalIds: initialData.hospitalIds || [],
         }
       : {
           legacyId: "",
@@ -1800,6 +1811,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
           monthRewards: false,
           note: "",
           hospitalId: "",
+          hospitalIds: [],
         }
   );
 
@@ -1819,9 +1831,12 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
     ? healthInsurances.filter((hi) => hi.countryCode === formData.countryCode)
     : healthInsurances;
 
-  const filteredHospitals = formData.countryCode
-    ? hospitals.filter((h) => h.countryCode === formData.countryCode)
-    : hospitals;
+  // Filter hospitals by collaborator's assigned countries (countryCodes)
+  const filteredHospitals = formData.countryCodes && formData.countryCodes.length > 0
+    ? hospitals.filter((h) => formData.countryCodes.includes(h.countryCode))
+    : formData.countryCode
+      ? hospitals.filter((h) => h.countryCode === formData.countryCode)
+      : hospitals;
 
   const saveMutation = useMutation({
     mutationFn: async (data: CollaboratorFormData) => {
@@ -2317,21 +2332,49 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>{t.collaborators.fields.hospital}</Label>
-                <Select
-                  value={formData.hospitalId || "_none"}
-                  onValueChange={(value) => setFormData({ ...formData, hospitalId: value === "_none" ? "" : value })}
-                >
-                  <SelectTrigger data-testid="wizard-select-collaborator-hospital">
-                    <SelectValue placeholder={t.collaborators.fields.hospital} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_none">{t.common.noData}</SelectItem>
-                    {filteredHospitals.map((h) => (
-                      <SelectItem key={h.id} value={h.id}>{h.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>{t.collaborators?.fields?.hospitalsAndClinics || "Hospitals & Clinics"}</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-between font-normal"
+                      data-testid="wizard-select-collaborator-hospitals"
+                    >
+                      {formData.hospitalIds.length > 0
+                        ? `${formData.hospitalIds.length} ${t.common?.selected || "selected"}`
+                        : t.common?.noData || "None"}
+                      <ChevronDown className="h-4 w-4 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80 max-h-60 overflow-y-auto">
+                    <div className="space-y-2">
+                      {filteredHospitals.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-2">
+                          {t.common?.noData || "No hospitals available"}
+                        </p>
+                      ) : (
+                        filteredHospitals.map((h) => (
+                          <div key={h.id} className="flex items-center gap-2">
+                            <Checkbox
+                              id={`hospital-${h.id}`}
+                              checked={formData.hospitalIds.includes(h.id)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setFormData({ ...formData, hospitalIds: [...formData.hospitalIds, h.id] });
+                                } else {
+                                  setFormData({ ...formData, hospitalIds: formData.hospitalIds.filter(id => id !== h.id) });
+                                }
+                              }}
+                            />
+                            <label htmlFor={`hospital-${h.id}`} className="text-sm cursor-pointer flex-1">
+                              {h.name}
+                            </label>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
           </div>

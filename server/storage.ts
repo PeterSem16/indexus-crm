@@ -2159,9 +2159,14 @@ export class DatabaseStorage implements IStorage {
     if (countryCodes.length === 0) {
       return this.getAllCollaborators();
     }
-    return db.select().from(collaborators)
-      .where(inArray(collaborators.countryCode, countryCodes))
+    // Filter by countryCodes array - collaborator matches if any of their countries match filter
+    const allCollaborators = await db.select().from(collaborators)
       .orderBy(collaborators.lastName, collaborators.firstName);
+    
+    return allCollaborators.filter(c => {
+      const collabCountries = c.countryCodes && c.countryCodes.length > 0 ? c.countryCodes : [c.countryCode];
+      return collabCountries.some(country => countryCodes.includes(country));
+    });
   }
 
   async createCollaborator(data: InsertCollaborator): Promise<Collaborator> {

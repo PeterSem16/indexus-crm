@@ -75,6 +75,7 @@ export interface Translations {
     filter: string;
     loading: string;
     noData: string;
+    selected: string;
     confirm: string;
     yes: string;
     no: string;
@@ -749,6 +750,7 @@ export interface Translations {
       monthRewards: string;
       note: string;
       hospital: string;
+      hospitalsAndClinics: string;
       hospitalInfo: string;
       name: string;
       streetNumber: string;
@@ -1732,6 +1734,7 @@ export const translations: Record<Locale, Translations> = {
       filter: 'Filter',
       loading: 'Loading...',
       noData: 'No data available',
+      selected: 'selected',
       confirm: 'Confirm',
       yes: 'Yes',
       no: 'No',
@@ -2502,6 +2505,7 @@ export const translations: Record<Locale, Translations> = {
         monthRewards: 'Month Rewards',
         note: 'Note',
         hospital: 'Hospital',
+        hospitalsAndClinics: 'Hospitals & Clinics',
         hospitalInfo: 'Hospital Info',
         name: 'Name',
         streetNumber: 'Street and Number',
@@ -3500,6 +3504,7 @@ export const translations: Record<Locale, Translations> = {
       filter: 'Filter',
       loading: 'Načítavam...',
       noData: 'Žiadne dáta',
+      selected: 'vybraných',
       confirm: 'Potvrdiť',
       yes: 'Áno',
       no: 'Nie',
@@ -4265,6 +4270,7 @@ export const translations: Record<Locale, Translations> = {
         monthRewards: 'Mesačné odmeny',
         note: 'Poznámka',
         hospital: 'Nemocnica',
+        hospitalsAndClinics: 'Nemocnice a ambulancie',
         hospitalInfo: 'Info o nemocnici',
         name: 'Meno',
         streetNumber: 'Ulica a číslo',
@@ -5263,6 +5269,7 @@ export const translations: Record<Locale, Translations> = {
       filter: 'Filtr',
       loading: 'Načítám...',
       noData: 'Žádná data',
+      selected: 'vybraných',
       confirm: 'Potvrdit',
       yes: 'Ano',
       no: 'Ne',
@@ -6028,6 +6035,7 @@ export const translations: Record<Locale, Translations> = {
         monthRewards: 'Měsíční odměny',
         note: 'Poznámka',
         hospital: 'Nemocnice',
+        hospitalsAndClinics: 'Nemocnice a ambulance',
         hospitalInfo: 'Info o nemocnici',
         name: 'Jméno',
         streetNumber: 'Ulice a číslo',
@@ -6989,6 +6997,7 @@ export const translations: Record<Locale, Translations> = {
       filter: 'Szűrő',
       loading: 'Betöltés...',
       noData: 'Nincs adat',
+      selected: 'kiválasztva',
       confirm: 'Megerősítés',
       yes: 'Igen',
       no: 'Nem',
@@ -7754,6 +7763,7 @@ export const translations: Record<Locale, Translations> = {
         monthRewards: 'Havi jutalmak',
         note: 'Megjegyzés',
         hospital: 'Kórház',
+        hospitalsAndClinics: 'Kórházak és klinikák',
         hospitalInfo: 'Kórház információ',
         name: 'Név',
         streetNumber: 'Utca és házszám',
@@ -9480,6 +9490,7 @@ export const translations: Record<Locale, Translations> = {
         monthRewards: 'Recompense lunare',
         note: 'Notă',
         hospital: 'Spital',
+        hospitalsAndClinics: 'Spitale și clinici',
         hospitalInfo: 'Info spital',
         name: 'Nume',
         streetNumber: 'Stradă și număr',
@@ -10441,6 +10452,7 @@ export const translations: Record<Locale, Translations> = {
       filter: 'Filtro',
       loading: 'Caricamento...',
       noData: 'Nessun dato disponibile',
+      selected: 'selezionati',
       confirm: 'Conferma',
       yes: 'Sì',
       no: 'No',
@@ -11206,6 +11218,7 @@ export const translations: Record<Locale, Translations> = {
         monthRewards: 'Ricompense mensili',
         note: 'Nota',
         hospital: 'Ospedale',
+        hospitalsAndClinics: 'Ospedali e cliniche',
         hospitalInfo: 'Info ospedale',
         name: 'Nome',
         streetNumber: 'Via e numero',
@@ -12167,6 +12180,7 @@ export const translations: Record<Locale, Translations> = {
       filter: 'Filter',
       loading: 'Laden...',
       noData: 'Keine Daten verfügbar',
+      selected: 'ausgewählt',
       confirm: 'Bestätigen',
       yes: 'Ja',
       no: 'Nein',
@@ -12932,6 +12946,7 @@ export const translations: Record<Locale, Translations> = {
         monthRewards: 'Monatliche Belohnungen',
         note: 'Notiz',
         hospital: 'Krankenhaus',
+        hospitalsAndClinics: 'Krankenhäuser & Kliniken',
         hospitalInfo: 'Krankenhaus-Info',
         name: 'Name',
         streetNumber: 'Straße und Nummer',
