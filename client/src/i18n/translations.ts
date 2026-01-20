@@ -786,9 +786,13 @@ export interface Translations {
     types: {
       doctor: string;
       nurse: string;
-      assistantDoctor: string;
-      headNurse: string;
+      resident: string;
       callCenter: string;
+      headNurse: string;
+      bm: string;
+      vedono: string;
+      external: string;
+      representative: string;
       other: string;
     };
     rewardTypes: {
@@ -2528,9 +2532,13 @@ export const translations: Record<Locale, Translations> = {
       types: {
         doctor: 'Doctor',
         nurse: 'Nurse',
-        assistantDoctor: 'Assistant Doctor',
-        headNurse: 'Head Nurse',
+        resident: 'Resident',
         callCenter: 'Call Center',
+        headNurse: 'Head Nurse',
+        bm: 'B&M',
+        vedono: 'Vedono',
+        external: 'External Collaborator',
+        representative: 'Representative',
         other: 'Other',
       },
       rewardTypes: {
@@ -4280,9 +4288,13 @@ export const translations: Record<Locale, Translations> = {
       types: {
         doctor: 'Lekár',
         nurse: 'Sestra',
-        assistantDoctor: 'Pomocný lekár',
-        headNurse: 'Vrchná sestra',
+        resident: 'Rezident',
         callCenter: 'Call centrum',
+        headNurse: 'Vrchná sestra',
+        bm: 'B&M',
+        vedono: 'Vedono',
+        external: 'Externý spolupracovník',
+        representative: 'Reprezentant',
         other: 'Iný',
       },
       rewardTypes: {
@@ -6032,9 +6044,13 @@ export const translations: Record<Locale, Translations> = {
       types: {
         doctor: 'Lékař',
         nurse: 'Sestra',
-        assistantDoctor: 'Pomocný lékař',
-        headNurse: 'Vrchní sestra',
+        resident: 'Rezident',
         callCenter: 'Call centrum',
+        headNurse: 'Vrchní sestra',
+        bm: 'B&M',
+        vedono: 'Vedono',
+        external: 'Externí spolupracovník',
+        representative: 'Reprezentant',
         other: 'Jiný',
       },
       rewardTypes: {
@@ -7747,9 +7763,13 @@ export const translations: Record<Locale, Translations> = {
       types: {
         doctor: 'Orvos',
         nurse: 'Nővér',
-        assistantDoctor: 'Asszisztens orvos',
-        headNurse: 'Főnővér',
+        resident: 'Rezidens',
         callCenter: 'Call center',
+        headNurse: 'Főnővér',
+        bm: 'B&M',
+        vedono: 'Vedono',
+        external: 'Külső munkatárs',
+        representative: 'Képviselő',
         other: 'Egyéb',
       },
       rewardTypes: {
@@ -9462,9 +9482,13 @@ export const translations: Record<Locale, Translations> = {
       types: {
         doctor: 'Doctor',
         nurse: 'Asistentă',
-        assistantDoctor: 'Doctor asistent',
-        headNurse: 'Asistentă șefă',
+        resident: 'Rezident',
         callCenter: 'Call center',
+        headNurse: 'Asistentă șefă',
+        bm: 'B&M',
+        vedono: 'Vedono',
+        external: 'Colaborator extern',
+        representative: 'Reprezentant',
         other: 'Altul',
       },
       rewardTypes: {
@@ -11177,9 +11201,13 @@ export const translations: Record<Locale, Translations> = {
       types: {
         doctor: 'Dottore',
         nurse: 'Infermiera',
-        assistantDoctor: 'Medico assistente',
-        headNurse: 'Caposala',
+        resident: 'Residente',
         callCenter: 'Call center',
+        headNurse: 'Caposala',
+        bm: 'B&M',
+        vedono: 'Vedono',
+        external: 'Collaboratore esterno',
+        representative: 'Rappresentante',
         other: 'Altro',
       },
       rewardTypes: {
@@ -12892,9 +12920,13 @@ export const translations: Record<Locale, Translations> = {
       types: {
         doctor: 'Arzt',
         nurse: 'Krankenschwester',
-        assistantDoctor: 'Assistenzarzt',
-        headNurse: 'Oberschwester',
+        resident: 'Assistenzarzt',
         callCenter: 'Call Center',
+        headNurse: 'Oberschwester',
+        bm: 'B&M',
+        vedono: 'Vedono',
+        external: 'Externer Mitarbeiter',
+        representative: 'Vertreter',
         other: 'Sonstiges',
       },
       rewardTypes: {

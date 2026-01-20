@@ -33,8 +33,13 @@ import { useModuleFieldPermissions } from "@/components/ui/permission-field";
 const COLLABORATOR_TYPES = [
   { value: "doctor", labelKey: "doctor" },
   { value: "nurse", labelKey: "nurse" },
-  { value: "midwife", labelKey: "midwife" },
-  { value: "assistant", labelKey: "assistant" },
+  { value: "resident", labelKey: "resident" },
+  { value: "callCenter", labelKey: "callCenter" },
+  { value: "headNurse", labelKey: "headNurse" },
+  { value: "bm", labelKey: "bm" },
+  { value: "vedono", labelKey: "vedono" },
+  { value: "external", labelKey: "external" },
+  { value: "representative", labelKey: "representative" },
   { value: "other", labelKey: "other" },
 ] as const;
 
@@ -250,7 +255,7 @@ function AddressesTabContent({ collaboratorId, countryCode, t }: { collaboratorI
                     <div className="flex items-center gap-2">
                       <MapPin className="h-4 w-4" />
                       <span className="font-medium">
-                        {(t.collaborators.addressTypes as Record<string, string>)[labelKey]}
+                        {(t.collaborators.addressTabs as Record<string, string>)[labelKey]}
                       </span>
                       {address && (
                         <Badge variant="outline" className="ml-2">
