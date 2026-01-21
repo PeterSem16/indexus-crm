@@ -2154,7 +2154,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
 
   // Get representative role IDs
   const representativeRoleIds = roles
-    .filter(r => r.name.toLowerCase().includes("representative") || r.name.toLowerCase().includes("reprezentant"))
+    .filter(r => r.name.toLowerCase().includes("representative") || r.name.toLowerCase().includes("reprezentant") || r.name.toLowerCase().includes("representant"))
     .map(r => r.id);
 
   // Filter users to only show representatives (users with representative role)
