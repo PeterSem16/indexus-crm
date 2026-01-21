@@ -20,7 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { COUNTRIES } from "@shared/schema";
-import type { Collaborator, Hospital, SafeUser, HealthInsurance } from "@shared/schema";
+import type { Collaborator, Hospital, SafeUser, HealthInsurance, Role } from "@shared/schema";
 import { ChevronLeft, ChevronRight, Check, User, Phone, CreditCard, Building2, Smartphone, MapPin, FileText, History, Plus, Pencil, Trash2, Clock, Activity, Upload, Download, Eye, ChevronDown, ChevronUp, Copy, X } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -78,7 +78,8 @@ interface CollaboratorFormData {
   bankAccountIban: string;
   swiftCode: string;
   clientContact: boolean;
-  representativeId: string;
+  representativeId: string; // Legacy
+  representativeIds: string[]; // Multiple representatives
   isActive: boolean;
   svetZdravia: boolean;
   companyName: string;
@@ -394,6 +395,105 @@ function HospitalsMultiSelect({
               <X 
                 className="h-3 w-3 cursor-pointer hover:text-destructive" 
                 onClick={() => handleRemove(h.id)}
+              />
+            </Badge>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Representatives Multi-Select with search and badges
+function RepresentativesMultiSelect({
+  users,
+  selectedIds,
+  onChange,
+  label,
+  t
+}: {
+  users: SafeUser[];
+  selectedIds: string[];
+  onChange: (ids: string[]) => void;
+  label: string;
+  t: any;
+}) {
+  const [searchQuery, setSearchQuery] = useState("");
+  
+  const filteredList = searchQuery
+    ? users.filter(u => u.fullName.toLowerCase().includes(searchQuery.toLowerCase()))
+    : users;
+
+  const selectedUsers = users.filter(u => selectedIds.includes(u.id));
+
+  const handleToggle = (id: string, checked: boolean) => {
+    if (checked) {
+      onChange([...selectedIds, id]);
+    } else {
+      onChange(selectedIds.filter(i => i !== id));
+    }
+  };
+
+  const handleRemove = (id: string) => {
+    onChange(selectedIds.filter(i => i !== id));
+  };
+
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            className="w-full justify-between font-normal"
+            data-testid="wizard-select-collaborator-representatives"
+          >
+            {selectedIds.length > 0
+              ? `${selectedIds.length} ${t.common?.selected || "selected"}`
+              : t.common?.noData || "None"}
+            <ChevronDown className="h-4 w-4 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-80 p-3">
+          <div className="space-y-3">
+            <Input
+              placeholder={t.common?.search || "Search..."}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-8"
+              data-testid="input-search-representatives"
+            />
+            <div className="max-h-48 overflow-y-auto space-y-1">
+              {filteredList.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-2">
+                  {t.common?.noData || "No representatives found"}
+                </p>
+              ) : (
+                filteredList.map((u) => (
+                  <div key={u.id} className="flex items-center gap-2 py-1">
+                    <Checkbox
+                      id={`rep-${u.id}`}
+                      checked={selectedIds.includes(u.id)}
+                      onCheckedChange={(checked) => handleToggle(u.id, !!checked)}
+                    />
+                    <label htmlFor={`rep-${u.id}`} className="text-sm cursor-pointer flex-1 truncate">
+                      {u.fullName}
+                    </label>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+      {selectedUsers.length > 0 && (
+        <div className="flex flex-wrap gap-1 pt-1">
+          {selectedUsers.map((u) => (
+            <Badge key={u.id} variant="secondary" className="gap-1 text-xs">
+              {u.fullName}
+              <X 
+                className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                onClick={() => handleRemove(u.id)}
               />
             </Badge>
           ))}
@@ -1972,6 +2072,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
           swiftCode: initialData.swiftCode || "",
           clientContact: initialData.clientContact,
           representativeId: initialData.representativeId || "",
+          representativeIds: (initialData as any).representativeIds || [],
           isActive: initialData.isActive,
           svetZdravia: initialData.svetZdravia,
           companyName: initialData.companyName || "",
@@ -2015,6 +2116,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
           swiftCode: "",
           clientContact: false,
           representativeId: "",
+          representativeIds: [],
           isActive: true,
           svetZdravia: false,
           companyName: "",
@@ -2038,6 +2140,10 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
     queryKey: ["/api/users"],
   });
 
+  const { data: roles = [] } = useQuery<Role[]>({
+    queryKey: ["/api/roles"],
+  });
+
   const { data: healthInsurances = [] } = useQuery<HealthInsurance[]>({
     queryKey: ["/api/config/health-insurance"],
   });
@@ -2045,6 +2151,16 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
   const { data: hospitals = [] } = useQuery<Hospital[]>({
     queryKey: ["/api/hospitals"],
   });
+
+  // Get representative role IDs
+  const representativeRoleIds = roles
+    .filter(r => r.name.toLowerCase().includes("representative") || r.name.toLowerCase().includes("reprezentant"))
+    .map(r => r.id);
+
+  // Filter users to only show representatives (users with representative role)
+  const representativeUsers = users.filter(u => 
+    u.roleId && representativeRoleIds.includes(u.roleId)
+  );
 
   const filteredHealthInsurances = formData.countryCode
     ? healthInsurances.filter((hi) => hi.countryCode === formData.countryCode)
@@ -2549,23 +2665,13 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onCancel }: Col
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>{t.collaborators.fields.representative}</Label>
-                <Select
-                  value={formData.representativeId || "_none"}
-                  onValueChange={(value) => setFormData({ ...formData, representativeId: value === "_none" ? "" : value })}
-                >
-                  <SelectTrigger data-testid="wizard-select-collaborator-representative">
-                    <SelectValue placeholder={t.collaborators.fields.representative} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_none">{t.common.noData}</SelectItem>
-                    {users.map((user) => (
-                      <SelectItem key={user.id} value={user.id}>{user.fullName}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <RepresentativesMultiSelect
+                users={representativeUsers}
+                selectedIds={formData.representativeIds}
+                onChange={(ids) => setFormData({ ...formData, representativeIds: ids })}
+                label={t.collaborators.fields.representative}
+                t={t}
+              />
               <HospitalsMultiSelect
                 hospitals={filteredHospitals}
                 selectedIds={formData.hospitalIds}

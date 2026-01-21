@@ -1615,7 +1615,8 @@ export const collaborators = pgTable("collaborators", {
   
   // Flags
   clientContact: boolean("client_contact").notNull().default(false),
-  representativeId: varchar("representative_id"),
+  representativeId: varchar("representative_id"), // Legacy - single representative
+  representativeIds: text("representative_ids").array().notNull().default(sql`ARRAY[]::text[]`), // Multiple representatives by country
   isActive: boolean("is_active").notNull().default(true),
   svetZdravia: boolean("svet_zdravia").notNull().default(false),
   
