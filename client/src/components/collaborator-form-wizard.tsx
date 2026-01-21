@@ -449,15 +449,15 @@ function RepresentativesMultiSelect({
             data-testid="wizard-select-collaborator-representatives"
           >
             {selectedIds.length > 0
-              ? `${selectedIds.length} ${t.common?.selected || "selected"}`
-              : t.common?.noData || "None"}
+              ? `${selectedIds.length} ${t.common.selected}`
+              : t.common.noData}
             <ChevronDown className="h-4 w-4 opacity-50" />
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-80 p-3">
           <div className="space-y-3">
             <Input
-              placeholder={t.common?.search || "Search..."}
+              placeholder={t.common.search}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="h-8"
@@ -466,7 +466,7 @@ function RepresentativesMultiSelect({
             <div className="max-h-48 overflow-y-auto space-y-1">
               {filteredList.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-2">
-                  {t.common?.noData || "No representatives found"}
+                  {t.common.noData}
                 </p>
               ) : (
                 filteredList.map((u) => (

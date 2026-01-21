@@ -7123,7 +7123,7 @@ export async function registerRoutes(
         'mobile2', 'collaboratorType', 'isActive', 'countryCode', 'countryCodes',
         'bankAccountIban', 'swiftCode', 'companyName', 'ico', 'dic', 'icDph',
         'companyIban', 'companySwift', 'monthRewards', 'clientContact', 'svetZdravia',
-        'hospitalId', 'hospitalIds', 'representativeId', 'maritalStatus', 'birthPlace',
+        'hospitalId', 'hospitalIds', 'representativeId', 'representativeIds', 'maritalStatus', 'birthPlace',
         'healthInsuranceId', 'note'
       ];
       
