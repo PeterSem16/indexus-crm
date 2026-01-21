@@ -267,6 +267,7 @@ export const hospitals = pgTable("hospitals", {
 // Clinics table - ambulancie (outpatient clinics)
 export const clinics = pgTable("clinics", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  legacyId: text("legacy_id"), // Legacy ID from previous CRM
   name: text("name").notNull(), // Názov ambulancie
   doctorName: text("doctor_name"), // Meno lekára
   address: text("address"), // Adresa
@@ -1653,6 +1654,7 @@ export const collaborators = pgTable("collaborators", {
 // Collaborator addresses table
 export const collaboratorAddresses = pgTable("collaborator_addresses", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  legacyId: text("legacy_id"), // Legacy ID from previous CRM
   collaboratorId: varchar("collaborator_id").notNull(),
   addressType: text("address_type").notNull(), // permanent, correspondence, work, company
   name: text("name"),
@@ -1667,6 +1669,7 @@ export const collaboratorAddresses = pgTable("collaborator_addresses", {
 // Collaborator other data (disability, pensions)
 export const collaboratorOtherData = pgTable("collaborator_other_data", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  legacyId: text("legacy_id"), // Legacy ID from previous CRM
   collaboratorId: varchar("collaborator_id").notNull().unique(),
   
   // ZŤP (disability)
@@ -1695,6 +1698,7 @@ export const collaboratorOtherData = pgTable("collaborator_other_data", {
 // Collaborator agreements table
 export const collaboratorAgreements = pgTable("collaborator_agreements", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  legacyId: text("legacy_id"), // Legacy ID from previous CRM
   collaboratorId: varchar("collaborator_id").notNull(),
   
   // File info
