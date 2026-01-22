@@ -1272,18 +1272,44 @@ export default function CollectionsPage() {
   const dashboardT = t.collections?.dashboard || {};
   const statesT = t.collections?.states || {};
 
-  const CHART_COLORS = ["#6B1C3B", "#8B3A5B", "#AB587B", "#CB769B", "#EB94BB", "#FBB2DB", "#FFD0EB"];
+  const CHART_COLORS = [
+    "#6B1C3B", "#8B3A5B", "#AB587B", "#CB769B", 
+    "#EB94BB", "#4A7C59", "#7BA38F", "#B8D4C3", "#D4A574"
+  ];
+  
+  const COUNTRY_COLORS: Record<string, string> = {
+    SK: "#6B1C3B",
+    CZ: "#1E3A5F",
+    HU: "#2D5A27",
+    RO: "#5C4033",
+    IT: "#1B4D3E",
+    DE: "#4A4A4A",
+    US: "#1A237E"
+  };
 
   const statusData = COLLECTION_STATES.map(state => ({
     name: statesT[state] || state,
     value: filteredCollections.filter(c => c.state === state).length,
     state
   })).filter(d => d.value > 0);
+  
+  const totalForPercent = statusData.reduce((acc, d) => acc + d.value, 0);
 
   const countryData = selectedCountries.map(code => ({
     name: code,
-    value: filteredCollections.filter(c => c.countryCode === code).length
-  })).filter(d => d.value > 0);
+    value: filteredCollections.filter(c => c.countryCode === code).length,
+    fill: COUNTRY_COLORS[code] || "#6B1C3B"
+  })).filter(d => d.value > 0).sort((a, b) => b.value - a.value);
+  
+  const hospitalData = hospitals
+    .map(h => ({
+      name: h.name.length > 20 ? h.name.substring(0, 20) + "..." : h.name,
+      fullName: h.name,
+      value: filteredCollections.filter(c => c.hospitalId === h.id).length
+    }))
+    .filter(d => d.value > 0)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 8);
 
   const now = new Date();
   const thisMonth = filteredCollections.filter(c => {
@@ -1383,30 +1409,60 @@ export default function CollectionsPage() {
 
       <div className="grid md:grid-cols-2 gap-6">
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">{dashboardT.byStatus}</CardTitle>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Activity className="h-4 w-4 text-primary" />
+              {dashboardT.byStatus}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {statusData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={250}>
-                <PieChart>
-                  <Pie
-                    data={statusData}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    dataKey="value"
-                    label={({ name, value }) => `${name}: ${value}`}
-                  >
-                    {statusData.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+              <div className="flex flex-col lg:flex-row items-center gap-4">
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie
+                      data={statusData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={85}
+                      paddingAngle={2}
+                      dataKey="value"
+                    >
+                      {statusData.map((_, index) => (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={CHART_COLORS[index % CHART_COLORS.length]}
+                          stroke="transparent"
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value: number) => [`${value} (${totalForPercent > 0 ? Math.round(value / totalForPercent * 100) : 0}%)`, ""]}
+                      contentStyle={{ 
+                        backgroundColor: "hsl(var(--card))", 
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "8px",
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="flex flex-wrap lg:flex-col gap-2 justify-center">
+                  {statusData.slice(0, 6).map((item, index) => (
+                    <div key={item.state} className="flex items-center gap-2 text-sm">
+                      <div 
+                        className="w-3 h-3 rounded-full shrink-0" 
+                        style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
+                      />
+                      <span className="text-muted-foreground whitespace-nowrap">{item.name}</span>
+                      <span className="font-medium">{item.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             ) : (
-              <div className="flex items-center justify-center h-[250px] text-muted-foreground">
+              <div className="flex items-center justify-center h-[220px] text-muted-foreground">
                 {t.common.noData}
               </div>
             )}
@@ -1414,21 +1470,47 @@ export default function CollectionsPage() {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">{dashboardT.byCountry}</CardTitle>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Globe className="h-4 w-4 text-primary" />
+              {dashboardT.byCountry}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {countryData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={countryData}>
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="value" fill="#6B1C3B" radius={[4, 4, 0, 0]} />
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={countryData} layout="vertical" margin={{ left: 10, right: 20 }}>
+                  <XAxis type="number" axisLine={false} tickLine={false} />
+                  <YAxis 
+                    type="category" 
+                    dataKey="name" 
+                    axisLine={false} 
+                    tickLine={false}
+                    width={40}
+                    tick={{ fontSize: 12, fontWeight: 500 }}
+                  />
+                  <Tooltip 
+                    cursor={{ fill: "hsl(var(--muted))", opacity: 0.3 }}
+                    contentStyle={{ 
+                      backgroundColor: "hsl(var(--card))", 
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "8px",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
+                    }}
+                  />
+                  <Bar 
+                    dataKey="value" 
+                    radius={[0, 4, 4, 0]}
+                    barSize={24}
+                  >
+                    {countryData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-[250px] text-muted-foreground">
+              <div className="flex items-center justify-center h-[220px] text-muted-foreground">
                 {t.common.noData}
               </div>
             )}
@@ -1438,24 +1520,107 @@ export default function CollectionsPage() {
 
       <div className="grid md:grid-cols-2 gap-6">
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">{dashboardT.monthlyTrend}</CardTitle>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-primary" />
+              {dashboardT.monthlyTrend}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={250}>
-              <LineChart data={monthlyData}>
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Line type="monotone" dataKey="count" stroke="#6B1C3B" strokeWidth={2} dot={{ fill: "#6B1C3B" }} />
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={monthlyData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorTrend" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#6B1C3B" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#6B1C3B" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <XAxis 
+                  dataKey="name" 
+                  axisLine={false} 
+                  tickLine={false}
+                  tick={{ fontSize: 12 }}
+                />
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false}
+                  tick={{ fontSize: 12 }}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: "hsl(var(--card))", 
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "8px",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
+                  }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="count" 
+                  stroke="#6B1C3B" 
+                  strokeWidth={3}
+                  dot={{ fill: "#6B1C3B", strokeWidth: 2, r: 4 }}
+                  activeDot={{ r: 6, stroke: "#fff", strokeWidth: 2 }}
+                />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
-
+        
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">{dashboardT.recentCollections}</CardTitle>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-primary" />
+              {dashboardT.topHospitals || "Top Hospitals"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {hospitalData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={hospitalData} layout="vertical" margin={{ left: 0, right: 20 }}>
+                  <XAxis type="number" axisLine={false} tickLine={false} />
+                  <YAxis 
+                    type="category" 
+                    dataKey="name" 
+                    axisLine={false} 
+                    tickLine={false}
+                    width={100}
+                    tick={{ fontSize: 11 }}
+                  />
+                  <Tooltip 
+                    cursor={{ fill: "hsl(var(--muted))", opacity: 0.3 }}
+                    formatter={(value: number, name: string, props: { payload: { fullName: string } }) => [value, props.payload.fullName]}
+                    contentStyle={{ 
+                      backgroundColor: "hsl(var(--card))", 
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: "8px",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
+                    }}
+                  />
+                  <Bar 
+                    dataKey="value" 
+                    fill="#6B1C3B"
+                    radius={[0, 4, 4, 0]}
+                    barSize={18}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[220px] text-muted-foreground">
+                {t.common.noData}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid md:grid-cols-1 gap-6">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Clock className="h-4 w-4 text-primary" />
+              {dashboardT.recentCollections}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {recentCollections.length > 0 ? (

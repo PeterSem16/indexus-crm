@@ -2443,6 +2443,7 @@ export const translations: Record<Locale, Translations> = {
         pendingLabResults: 'Pending Lab Results',
         thisMonth: 'This Month',
         lastMonth: 'Last Month',
+        topHospitals: 'Top Hospitals',
       },
       timeline: 'Timeline',
       workflowProgress: 'Workflow Progress',
@@ -4365,6 +4366,7 @@ export const translations: Record<Locale, Translations> = {
         pendingLabResults: 'Čakajúce výsledky',
         thisMonth: 'Tento mesiac',
         lastMonth: 'Minulý mesiac',
+        topHospitals: 'Top nemocnice',
       },
       timeline: 'Priebeh',
       workflowProgress: 'Priebeh spracovania',
@@ -6319,6 +6321,7 @@ export const translations: Record<Locale, Translations> = {
         thisMonth: 'Tento měsíc',
         lastMonth: 'Minulý měsíc',
         recentCollections: 'Nedávné odběry',
+        topHospitals: 'Top nemocnice',
       },
     },
     hospitals: {
@@ -8173,6 +8176,7 @@ export const translations: Record<Locale, Translations> = {
         thisMonth: 'Ez a hónap',
         lastMonth: 'Előző hónap',
         recentCollections: 'Legutóbbi gyűjtések',
+        topHospitals: 'Top kórházak',
       },
     },
     hospitals: {
@@ -10026,6 +10030,7 @@ export const translations: Record<Locale, Translations> = {
         thisMonth: 'Luna aceasta',
         lastMonth: 'Luna trecută',
         recentCollections: 'Colecții recente',
+        topHospitals: 'Top spitale',
       },
     },
     hospitals: {
@@ -11880,6 +11885,7 @@ export const translations: Record<Locale, Translations> = {
         thisMonth: 'Questo mese',
         lastMonth: 'Mese scorso',
         recentCollections: 'Raccolte recenti',
+        topHospitals: 'Top ospedali',
       },
     },
     hospitals: {
@@ -13734,6 +13740,7 @@ export const translations: Record<Locale, Translations> = {
         thisMonth: 'Diesen Monat',
         lastMonth: 'Letzten Monat',
         recentCollections: 'Kürzliche Sammlungen',
+        topHospitals: 'Top Krankenhäuser',
       },
     },
     hospitals: {
