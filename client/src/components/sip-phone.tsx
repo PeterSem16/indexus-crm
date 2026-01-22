@@ -76,6 +76,7 @@ export function SipPhone({
   const [isMuted, setIsMuted] = useState(false);
   const [isOnHold, setIsOnHold] = useState(false);
   const [volume, setVolume] = useState(80);
+  const [micVolume, setMicVolume] = useState(100);
   const [callDuration, setCallDuration] = useState(0);
   const [isRegistered, setIsRegistered] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
@@ -93,6 +94,8 @@ export function SipPhone({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const callTimerRef = useRef<NodeJS.Timeout | null>(null);
   const callStartTimeRef = useRef<number>(0);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const micGainNodeRef = useRef<GainNode | null>(null);
 
   const { data: globalSipSettings, isLoading: sipSettingsLoading } = useQuery<SipSettings | null>({
     queryKey: ["/api/sip-settings"],
@@ -193,6 +196,15 @@ export function SipPhone({
         userAgentRef.current.stop();
       } catch (e) {
         console.error("Error stopping user agent:", e);
+      }
+    }
+    if (audioContextRef.current) {
+      try {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+        micGainNodeRef.current = null;
+      } catch (e) {
+        console.error("Error closing audio context:", e);
       }
     }
   }, []);
@@ -399,13 +411,14 @@ export function SipPhone({
     }
   }, [phoneNumber, sipConfig.server, sipConfig.realm, isRegistered, onCallStart, onCallEnd, toast, createCallLogMutation, updateCallLogMutation, userId, currentUser, customerId, campaignId, customerName, currentCallLogId, isSipConfigured]);
 
-  const setupAudio = (session: Session) => {
+  const setupAudio = async (session: Session) => {
     const sessionDescriptionHandler = session.sessionDescriptionHandler;
     if (!sessionDescriptionHandler) return;
 
     const peerConnection = (sessionDescriptionHandler as any).peerConnection as RTCPeerConnection;
     if (!peerConnection) return;
 
+    // Set up remote audio (speaker)
     peerConnection.getReceivers().forEach((receiver) => {
       if (receiver.track && receiver.track.kind === "audio") {
         const remoteStream = new MediaStream([receiver.track]);
@@ -415,6 +428,48 @@ export function SipPhone({
         }
       }
     });
+
+    // Set up microphone gain control
+    try {
+      const senders = peerConnection.getSenders();
+      const audioSender = senders.find(s => s.track?.kind === "audio");
+      
+      if (audioSender?.track) {
+        // Create AudioContext for microphone processing
+        if (!audioContextRef.current) {
+          audioContextRef.current = new AudioContext();
+        }
+        
+        const audioContext = audioContextRef.current;
+        
+        // Resume AudioContext if suspended (required after user gesture)
+        if (audioContext.state === "suspended") {
+          await audioContext.resume();
+        }
+        
+        // Get the local audio stream
+        const localStream = new MediaStream([audioSender.track]);
+        const source = audioContext.createMediaStreamSource(localStream);
+        
+        // Create gain node for microphone volume control
+        const gainNode = audioContext.createGain();
+        gainNode.gain.value = micVolume / 100;
+        micGainNodeRef.current = gainNode;
+        
+        // Create destination for processed audio
+        const destination = audioContext.createMediaStreamDestination();
+        
+        // Connect: source -> gain -> destination
+        source.connect(gainNode);
+        gainNode.connect(destination);
+        
+        // Replace the track in the sender with the processed track
+        const processedTrack = destination.stream.getAudioTracks()[0];
+        await audioSender.replaceTrack(processedTrack);
+      }
+    } catch (error) {
+      console.error("Error setting up microphone gain control:", error);
+    }
   };
 
   const endCall = useCallback(() => {
@@ -439,6 +494,18 @@ export function SipPhone({
         console.error("Error ending call:", error);
       }
     }
+    
+    // Clean up audio processing resources
+    if (audioContextRef.current) {
+      try {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+        micGainNodeRef.current = null;
+      } catch (e) {
+        console.error("Error closing audio context:", e);
+      }
+    }
+    
     setCallState("idle");
     setCallDuration(0);
     if (callTimerRef.current) {
@@ -501,6 +568,14 @@ export function SipPhone({
     setVolume(vol);
     if (audioRef.current) {
       audioRef.current.volume = vol / 100;
+    }
+  }, []);
+
+  const handleMicVolumeChange = useCallback((value: number[]) => {
+    const vol = value[0];
+    setMicVolume(vol);
+    if (micGainNodeRef.current) {
+      micGainNodeRef.current.gain.value = vol / 100;
     }
   }, []);
 
@@ -752,16 +827,31 @@ export function SipPhone({
           )}
         </div>
 
-        <div className="flex items-center gap-2">
-          <VolumeX className="h-4 w-4 text-muted-foreground" />
-          <Slider
-            value={[volume]}
-            onValueChange={handleVolumeChange}
-            max={100}
-            step={1}
-            className="flex-1"
-          />
-          <Volume2 className="h-4 w-4 text-muted-foreground" />
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <VolumeX className="h-4 w-4 text-muted-foreground" />
+            <Slider
+              value={[volume]}
+              onValueChange={handleVolumeChange}
+              max={100}
+              step={1}
+              className="flex-1"
+              data-testid="slider-speaker-volume"
+            />
+            <Volume2 className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <div className="flex items-center gap-2">
+            <MicOff className="h-4 w-4 text-muted-foreground" />
+            <Slider
+              value={[micVolume]}
+              onValueChange={handleMicVolumeChange}
+              max={100}
+              step={1}
+              className="flex-1"
+              data-testid="slider-mic-volume"
+            />
+            <Mic className="h-4 w-4 text-muted-foreground" />
+          </div>
         </div>
 
         {!isRegistered && (
