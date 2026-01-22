@@ -148,7 +148,7 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               ))}
               
-              <Collapsible defaultOpen className="group/collapsible">
+              <Collapsible defaultOpen={false} className="group/collapsible">
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton isActive={location === "/customers" || location === "/contracts" || location.startsWith("/collections")}>
@@ -173,7 +173,7 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               </Collapsible>
 
-              <Collapsible defaultOpen className="group/collapsible-collab">
+              <Collapsible defaultOpen={false} className="group/collapsible-collab">
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton isActive={location === "/collaborators" || location === "/visit-events" || location === "/collaborator-reports"}>
@@ -246,7 +246,7 @@ export function AppSidebar() {
             <SidebarGroup>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  <Collapsible defaultOpen className="group/collapsible">
+                  <Collapsible defaultOpen={false} className="group/collapsible">
                     <SidebarMenuItem>
                       <CollapsibleTrigger asChild>
                         <SidebarMenuButton isActive={location === "/email" || location === "/tasks"}>
