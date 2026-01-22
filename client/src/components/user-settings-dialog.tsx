@@ -57,7 +57,7 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
         </DialogHeader>
 
         <Tabs defaultValue={showSipPhone ? "sip" : "general"} className="mt-4">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className={`grid w-full ${showSipPhone ? 'grid-cols-2' : 'grid-cols-1'}`}>
             <TabsTrigger value="general" data-testid="tab-user-general">
               {t.common.detail}
             </TabsTrigger>
@@ -178,31 +178,30 @@ function UserSipProfileTab() {
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader className="flex flex-row items-center gap-4">
+        <CardHeader className="flex flex-row items-center gap-4 flex-wrap">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
             <Phone className="h-5 w-5 text-primary" />
           </div>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <CardTitle className="text-base">{t.settings.sipProfile.title}</CardTitle>
             <CardDescription className="text-sm">
               {t.settings.sipProfile.description}
             </CardDescription>
           </div>
+          {/* Status Badge - ALWAYS VISIBLE */}
           <div className="flex items-center gap-2">
-            {isRegistered && (
-              <Badge variant="default" className="bg-green-600">
+            {isRegistered ? (
+              <Badge variant="default" className="bg-green-600" data-testid="badge-sip-registered">
                 {t.settings.sipProfile.registered}
               </Badge>
-            )}
-            {!isRegistered && !isRegistering && (
-              <Badge variant="destructive">
-                {t.settings.sipProfile.notRegistered}
-              </Badge>
-            )}
-            {isRegistering && (
-              <Badge variant="secondary">
+            ) : isRegistering ? (
+              <Badge variant="secondary" data-testid="badge-sip-registering">
                 <Loader2 className="h-3 w-3 animate-spin mr-1" />
                 {t.settings.sipProfile.testing}
+              </Badge>
+            ) : (
+              <Badge variant="destructive" data-testid="badge-sip-not-registered">
+                {t.settings.sipProfile.notRegistered}
               </Badge>
             )}
           </div>
@@ -216,98 +215,93 @@ function UserSipProfileTab() {
             </div>
           )}
 
-          {isGlobalSipEnabled && (
-            <>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="userSipExtension">{t.settings.sipProfile.extension}</Label>
-                  <Input
-                    id="userSipExtension"
-                    value={sipExtension}
-                    onChange={(e) => setSipExtension(e.target.value)}
-                    placeholder="1001"
-                    data-testid="input-user-sip-extension"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    {t.settings.sipProfile.extensionHelp}
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="userSipPassword">{t.settings.sipProfile.password}</Label>
-                  <Input
-                    id="userSipPassword"
-                    type="password"
-                    value={sipPassword}
-                    onChange={(e) => setSipPassword(e.target.value)}
-                    placeholder="********"
-                    data-testid="input-user-sip-password"
-                  />
-                </div>
-              </div>
+          {/* Form fields */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="userSipExtension">{t.settings.sipProfile.extension}</Label>
+              <Input
+                id="userSipExtension"
+                value={sipExtension}
+                onChange={(e) => setSipExtension(e.target.value)}
+                placeholder="1001"
+                data-testid="input-user-sip-extension"
+              />
+              <p className="text-xs text-muted-foreground">
+                {t.settings.sipProfile.extensionHelp}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="userSipPassword">{t.settings.sipProfile.password}</Label>
+              <Input
+                id="userSipPassword"
+                type="password"
+                value={sipPassword}
+                onChange={(e) => setSipPassword(e.target.value)}
+                placeholder="********"
+                data-testid="input-user-sip-password"
+              />
+            </div>
+          </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="userSipDisplayName">{t.settings.sipProfile.displayName}</Label>
-                <Input
-                  id="userSipDisplayName"
-                  value={sipDisplayName}
-                  onChange={(e) => setSipDisplayName(e.target.value)}
-                  placeholder={user?.fullName || ""}
-                  data-testid="input-user-sip-display-name"
-                />
-                <p className="text-xs text-muted-foreground">
-                  {t.settings.sipProfile.displayNameHelp}
-                </p>
-              </div>
-
-            </>
-          )}
+          <div className="space-y-2">
+            <Label htmlFor="userSipDisplayName">{t.settings.sipProfile.displayName}</Label>
+            <Input
+              id="userSipDisplayName"
+              value={sipDisplayName}
+              onChange={(e) => setSipDisplayName(e.target.value)}
+              placeholder={user?.fullName || ""}
+              data-testid="input-user-sip-display-name"
+            />
+            <p className="text-xs text-muted-foreground">
+              {t.settings.sipProfile.displayNameHelp}
+            </p>
+          </div>
 
           <Separator />
 
-          <div className="space-y-4">
-            <div className="flex gap-2 flex-wrap">
+          {/* Action Buttons - ALWAYS VISIBLE */}
+          <div className="flex gap-2 flex-wrap">
+            <Button 
+              onClick={handleSave} 
+              disabled={isSaving}
+              data-testid="button-user-save-sip-profile"
+            >
+              {isSaving ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Save className="h-4 w-4 mr-2" />
+              )}
+              {t.settings.sipProfile.save}
+            </Button>
+            {!isRegistered ? (
               <Button 
-                onClick={handleSave} 
-                disabled={isSaving || !isGlobalSipEnabled}
-                data-testid="button-user-save-sip-profile"
+                variant="outline"
+                onClick={handleRegister} 
+                disabled={isRegistering || !sipExtension || !sipPassword}
+                data-testid="button-user-sip-register"
               >
-                {isSaving ? (
+                {isRegistering ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 ) : (
-                  <Save className="h-4 w-4 mr-2" />
-                )}
-                {t.settings.sipProfile.save}
-              </Button>
-              {!isRegistered ? (
-                <Button 
-                  variant="outline"
-                  onClick={handleRegister} 
-                  disabled={isRegistering || !sipExtension || !sipPassword || !isGlobalSipEnabled}
-                  data-testid="button-user-sip-register"
-                >
-                  {isRegistering ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  ) : (
-                    <Phone className="h-4 w-4 mr-2" />
-                  )}
-                  {t.settings.sipProfile.register}
-                </Button>
-              ) : (
-                <Button 
-                  variant="outline"
-                  onClick={handleUnregister} 
-                  data-testid="button-user-sip-unregister"
-                >
                   <Phone className="h-4 w-4 mr-2" />
-                  {t.settings.sipProfile.unregister}
-                </Button>
-              )}
-            </div>
+                )}
+                {t.settings.sipProfile.register}
+              </Button>
+            ) : (
+              <Button 
+                variant="outline"
+                onClick={handleUnregister} 
+                data-testid="button-user-sip-unregister"
+              >
+                <Phone className="h-4 w-4 mr-2" />
+                {t.settings.sipProfile.unregister}
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
 
-      {isGlobalSipEnabled && sipSettings && (
+      {sipSettings && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">{t.settings.sipProfile.serverInfo}</CardTitle>
@@ -316,7 +310,7 @@ function UserSipProfileTab() {
             <div className="grid gap-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">{t.settings.sipProfile.server}:</span>
-                <span className="font-mono">{sipSettings.server}</span>
+                <span className="font-mono">{sipSettings.server || "-"}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">{t.settings.sipProfile.port}:</span>
