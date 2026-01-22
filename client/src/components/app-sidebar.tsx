@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { 
@@ -49,10 +50,12 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown } from "lucide-react";
 import { CountryFilter } from "./country-filter";
+import { UserSettingsDialog } from "./user-settings-dialog";
 
 export function AppSidebar() {
   const [location, setLocation] = useLocation();
   const { user, logout } = useAuth();
+  const [userSettingsOpen, setUserSettingsOpen] = useState(false);
   const { canAccessModule } = usePermissions();
   const { t } = useI18n();
 
@@ -299,15 +302,26 @@ export function AppSidebar() {
                 <span className="text-xs text-muted-foreground truncate">{user.role}</span>
               </div>
             </div>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={handleLogout}
-              data-testid="button-logout"
-              title={t.nav.logout}
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => setUserSettingsOpen(true)}
+                data-testid="button-user-settings"
+                title={t.settings.tabs.profile}
+              >
+                <Settings className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={handleLogout}
+                data-testid="button-logout"
+                title={t.nav.logout}
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         )}
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -315,6 +329,11 @@ export function AppSidebar() {
           <span>v1.0.0</span>
         </div>
       </SidebarFooter>
+      
+      <UserSettingsDialog 
+        open={userSettingsOpen} 
+        onOpenChange={setUserSettingsOpen} 
+      />
     </Sidebar>
   );
 }

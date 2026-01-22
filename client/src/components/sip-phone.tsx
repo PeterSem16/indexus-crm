@@ -1097,6 +1097,7 @@ interface SipPhoneHeaderButtonProps {
 }
 
 export function SipPhoneHeaderButton({ user, sipContext }: SipPhoneHeaderButtonProps) {
+  const [isOpen, setIsOpen] = useState(false);
   const { data: sipSettings } = useQuery<{
     server?: string;
     port?: number;
@@ -1117,17 +1118,41 @@ export function SipPhoneHeaderButton({ user, sipContext }: SipPhoneHeaderButtonP
   const isRegistering = sipContext?.isRegistering || false;
 
   return (
-    <div className="relative" data-testid="sip-phone-header-status">
-      <Phone className="h-5 w-5 text-muted-foreground" />
-      {isRegistering && (
-        <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-yellow-500 ring-2 ring-background animate-pulse" />
+    <>
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setIsOpen(true)}
+        className="relative"
+        data-testid="button-sip-phone-open"
+      >
+        <Phone className="h-5 w-5" />
+        {isRegistering && (
+          <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-yellow-500 ring-2 ring-background animate-pulse" />
+        )}
+        {!isRegistering && isRegistered && (
+          <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-background" />
+        )}
+        {!isRegistering && !isRegistered && (
+          <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-background" />
+        )}
+      </Button>
+      {isOpen && (
+        <div className="fixed bottom-4 right-4 z-50 shadow-xl">
+          <div className="relative">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsOpen(false)}
+              className="absolute -top-2 -right-2 z-10 h-6 w-6 rounded-full bg-background shadow"
+              data-testid="button-sip-phone-close"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+            <SipPhone />
+          </div>
+        </div>
       )}
-      {!isRegistering && isRegistered && (
-        <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-background" />
-      )}
-      {!isRegistering && !isRegistered && (
-        <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-background" />
-      )}
-    </div>
+    </>
   );
 }
