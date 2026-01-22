@@ -259,39 +259,41 @@ export default function CollectionsPage() {
     return true;
   });
 
+  const notAvailable = t.common.noData;
+
   const getBillingCompanyName = (id: string | null) => {
-    if (!id) return "-";
+    if (!id) return notAvailable;
     const company = billingCompanies.find((bc) => bc.id === id);
-    return company?.companyName || "-";
+    return company?.companyName || notAvailable;
   };
 
   const getCollaboratorName = (id: string | null) => {
-    if (!id) return "-";
+    if (!id) return notAvailable;
     const collab = collaborators.find((c) => c.id === id);
-    return collab ? `${collab.firstName} ${collab.lastName}` : "-";
+    return collab ? `${collab.firstName} ${collab.lastName}` : notAvailable;
   };
 
   const getHospitalName = (id: string | null) => {
-    if (!id) return "-";
+    if (!id) return notAvailable;
     const hospital = hospitals.find((h) => h.id === id);
-    return hospital?.name || "-";
+    return hospital?.name || notAvailable;
   };
 
   const getStateLabel = (state: string | null) => {
-    if (!state) return "-";
+    if (!state) return notAvailable;
     const states = t.collections?.states;
     const labels: Record<string, string> = {
-      created: states?.created || state,
-      paired: states?.paired || state,
-      evaluated: states?.evaluated || state,
-      verified: states?.verified || state,
-      stored: states?.stored || state,
-      transferred: states?.transferred || state,
-      released: states?.released || state,
-      awaiting_disposal: states?.awaiting_disposal || state,
-      disposed: states?.disposed || state,
+      created: states?.created || notAvailable,
+      paired: states?.paired || notAvailable,
+      evaluated: states?.evaluated || notAvailable,
+      verified: states?.verified || notAvailable,
+      stored: states?.stored || notAvailable,
+      transferred: states?.transferred || notAvailable,
+      released: states?.released || notAvailable,
+      awaiting_disposal: states?.awaiting_disposal || notAvailable,
+      disposed: states?.disposed || notAvailable,
     };
-    return labels[state] || state;
+    return labels[state] || notAvailable;
   };
 
   const handleDelete = (col: Collection) => {
@@ -355,10 +357,10 @@ export default function CollectionsPage() {
   };
 
   const wizardSteps = [
-    { key: "client", label: t.collections?.client || t.customers?.title, icon: User },
+    { key: "client", label: t.collections?.client, icon: User },
     { key: "child", label: t.collections?.child, icon: Baby },
-    { key: "collection", label: t.collections?.collection || t.nav.collections, icon: Syringe },
-    { key: "status", label: t.collections?.status || t.common.status, icon: Clock },
+    { key: "collection", label: t.collections?.collection, icon: Syringe },
+    { key: "status", label: t.collections?.status, icon: Clock },
   ];
 
   const renderClientForm = () => (
@@ -450,13 +452,13 @@ export default function CollectionsPage() {
               <SelectValue placeholder={t.common.select} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="SK">{t.countries?.SK || "SK"}</SelectItem>
-              <SelectItem value="CZ">{t.countries?.CZ || "CZ"}</SelectItem>
-              <SelectItem value="HU">{t.countries?.HU || "HU"}</SelectItem>
-              <SelectItem value="RO">{t.countries?.RO || "RO"}</SelectItem>
-              <SelectItem value="IT">{t.countries?.IT || "IT"}</SelectItem>
-              <SelectItem value="DE">{t.countries?.DE || "DE"}</SelectItem>
-              <SelectItem value="US">{t.countries?.US || "US"}</SelectItem>
+              <SelectItem value="SK">{t.countries?.SK}</SelectItem>
+              <SelectItem value="CZ">{t.countries?.CZ}</SelectItem>
+              <SelectItem value="HU">{t.countries?.HU}</SelectItem>
+              <SelectItem value="RO">{t.countries?.RO}</SelectItem>
+              <SelectItem value="IT">{t.countries?.IT}</SelectItem>
+              <SelectItem value="DE">{t.countries?.DE}</SelectItem>
+              <SelectItem value="US">{t.countries?.US}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -757,7 +759,7 @@ export default function CollectionsPage() {
               
               {wizardStep < wizardSteps.length - 1 ? (
                 <Button onClick={() => setWizardStep(wizardStep + 1)} data-testid="button-wizard-next">
-                  {t.common.next || "Next"}
+                  {t.common.next}
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Button>
               ) : (
@@ -899,7 +901,7 @@ export default function CollectionsPage() {
                       onClick={() => setLocation(`/collections/${col.id}`)}
                       data-testid={`row-collection-${col.id}`}
                     >
-                      <td className="py-3 px-2 font-mono">{col.cbuNumber || "-"}</td>
+                      <td className="py-3 px-2 font-mono">{col.cbuNumber || notAvailable}</td>
                       <td className="py-3 px-2">
                         <div className="flex flex-col">
                           <span className="font-medium">
