@@ -9,6 +9,7 @@ import { GlobalSearch } from "@/components/global-search";
 import { CountryFilterProvider, useCountryFilter } from "@/contexts/country-filter-context";
 import { AuthProvider, useAuth } from "@/contexts/auth-context";
 import { PermissionsProvider } from "@/contexts/permissions-context";
+import { SipProvider, useSip } from "@/contexts/sip-context";
 import { I18nProvider } from "@/i18n";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -103,6 +104,7 @@ function I18nWrapper({ children, userCountries }: { children: React.ReactNode; u
 
 function AuthenticatedApp() {
   const { user } = useAuth();
+  const sipContext = useSip();
   const style = {
     "--sidebar-width": "18rem",
     "--sidebar-width-icon": "4rem",
@@ -126,7 +128,7 @@ function AuthenticatedApp() {
                   {(user as any)?.showEmailQueue && <EmailNotifications />}
                   {(user as any)?.showNotificationBell !== false && <NotificationBell />}
                   <NexusButton nexusEnabled={user?.nexusEnabled ?? false} />
-                  {(user as any)?.showSipPhone && <SipPhoneHeaderButton user={user} />}
+                  {(user as any)?.showSipPhone && <SipPhoneHeaderButton user={user} sipContext={sipContext} />}
                   <TourTrigger />
                   <ThemeToggle />
                 </div>
@@ -186,7 +188,9 @@ function App() {
       <ThemeProvider>
         <TooltipProvider>
           <AuthProvider>
-            <AppRouter />
+            <SipProvider>
+              <AppRouter />
+            </SipProvider>
           </AuthProvider>
         </TooltipProvider>
       </ThemeProvider>

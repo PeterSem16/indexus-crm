@@ -914,7 +914,8 @@ function SipProfileTab() {
     }
   };
 
-  const isSipEnabled = (user as any)?.sipEnabled && sipSettings?.isEnabled;
+  const isGlobalSipEnabled = sipSettings?.isEnabled;
+  const isUserSipEnabled = (user as any)?.sipEnabled;
 
   return (
     <div className="space-y-6">
@@ -931,7 +932,7 @@ function SipProfileTab() {
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          {!isSipEnabled && (
+          {!isGlobalSipEnabled && (
             <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-900 dark:bg-yellow-950">
               <p className="text-sm text-yellow-800 dark:text-yellow-200">
                 {t.settings.sipProfile.notEnabled}
@@ -939,7 +940,7 @@ function SipProfileTab() {
             </div>
           )}
 
-          {isSipEnabled && (
+          {isGlobalSipEnabled && (
             <>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
@@ -1051,7 +1052,7 @@ function SipProfileTab() {
         </CardContent>
       </Card>
 
-      {isSipEnabled && sipSettings && (
+      {isGlobalSipEnabled && sipSettings && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">{t.settings.sipProfile.serverInfo}</CardTitle>
@@ -1085,8 +1086,9 @@ function SipSettingsTab() {
   const [formData, setFormData] = useState<SipSettingsFormData>(defaultSipSettings);
   const [isSaving, setIsSaving] = useState(false);
 
-  const { data: sipSettings, isLoading: loadingSettings } = useQuery({
+  const { data: sipSettings, isLoading: loadingSettings } = useQuery<SipSettingsData | null>({
     queryKey: ["/api/sip-settings"],
+    retry: false,
   });
 
   useEffect(() => {
