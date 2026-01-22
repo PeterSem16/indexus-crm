@@ -17433,6 +17433,195 @@ Guidelines:
     }
   });
 
+  // ===== ALERT RULES API =====
+
+  // GET /api/alert-rules - List all alert rules
+  app.get("/api/alert-rules", requireAuth, async (req, res) => {
+    try {
+      const rules = await storage.getAllAlertRules();
+      res.json(rules);
+    } catch (error) {
+      console.error("Error fetching alert rules:", error);
+      res.status(500).json({ error: "Failed to fetch alert rules" });
+    }
+  });
+
+  // GET /api/alert-rules/active - List active alert rules
+  app.get("/api/alert-rules/active", requireAuth, async (req, res) => {
+    try {
+      const rules = await storage.getActiveAlertRules();
+      res.json(rules);
+    } catch (error) {
+      console.error("Error fetching active alert rules:", error);
+      res.status(500).json({ error: "Failed to fetch active alert rules" });
+    }
+  });
+
+  // GET /api/alert-rules/:id - Get single alert rule
+  app.get("/api/alert-rules/:id", requireAuth, async (req, res) => {
+    try {
+      const rule = await storage.getAlertRule(req.params.id);
+      if (!rule) {
+        return res.status(404).json({ error: "Alert rule not found" });
+      }
+      res.json(rule);
+    } catch (error) {
+      console.error("Error fetching alert rule:", error);
+      res.status(500).json({ error: "Failed to fetch alert rule" });
+    }
+  });
+
+  // POST /api/alert-rules - Create new alert rule
+  app.post("/api/alert-rules", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { 
+        name, 
+        description, 
+        metricType, 
+        comparisonOperator, 
+        thresholdValue, 
+        checkFrequency, 
+        priority,
+        targetUserType,
+        targetRoles,
+        targetUserIds,
+        countryCodes,
+        cooldownMinutes,
+        isActive
+      } = req.body;
+
+      if (!name || !metricType || !comparisonOperator || thresholdValue === undefined || !checkFrequency) {
+        return res.status(400).json({ error: "Missing required fields: name, metricType, comparisonOperator, thresholdValue, checkFrequency" });
+      }
+
+      const rule = await storage.createAlertRule({
+        name,
+        description: description || null,
+        metricType,
+        comparisonOperator,
+        thresholdValue: Number(thresholdValue),
+        checkFrequency,
+        priority: priority || 'medium',
+        targetUserType: targetUserType || 'all',
+        targetRoles: targetRoles || null,
+        targetUserIds: targetUserIds || null,
+        countryCodes: countryCodes || null,
+        cooldownMinutes: cooldownMinutes || 60,
+        isActive: isActive !== false,
+        createdBy: (req as any).user?.id || null
+      });
+
+      res.status(201).json(rule);
+    } catch (error) {
+      console.error("Error creating alert rule:", error);
+      res.status(500).json({ error: "Failed to create alert rule" });
+    }
+  });
+
+  // PATCH /api/alert-rules/:id - Update alert rule
+  app.patch("/api/alert-rules/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const rule = await storage.updateAlertRule(req.params.id, req.body);
+      if (!rule) {
+        return res.status(404).json({ error: "Alert rule not found" });
+      }
+      res.json(rule);
+    } catch (error) {
+      console.error("Error updating alert rule:", error);
+      res.status(500).json({ error: "Failed to update alert rule" });
+    }
+  });
+
+  // DELETE /api/alert-rules/:id - Delete alert rule
+  app.delete("/api/alert-rules/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const success = await storage.deleteAlertRule(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Alert rule not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting alert rule:", error);
+      res.status(500).json({ error: "Failed to delete alert rule" });
+    }
+  });
+
+  // POST /api/alert-rules/:id/toggle - Toggle alert rule active status
+  app.post("/api/alert-rules/:id/toggle", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const rule = await storage.getAlertRule(req.params.id);
+      if (!rule) {
+        return res.status(404).json({ error: "Alert rule not found" });
+      }
+      const updated = await storage.updateAlertRule(req.params.id, { isActive: !rule.isActive });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error toggling alert rule:", error);
+      res.status(500).json({ error: "Failed to toggle alert rule" });
+    }
+  });
+
+  // ===== ALERT INSTANCES API =====
+
+  // GET /api/alert-instances - List all active alert instances
+  app.get("/api/alert-instances", requireAuth, async (req, res) => {
+    try {
+      const instances = await storage.getActiveAlertInstances();
+      res.json(instances);
+    } catch (error) {
+      console.error("Error fetching alert instances:", error);
+      res.status(500).json({ error: "Failed to fetch alert instances" });
+    }
+  });
+
+  // GET /api/alert-instances/rule/:ruleId - Get instances for a specific rule
+  app.get("/api/alert-instances/rule/:ruleId", requireAuth, async (req, res) => {
+    try {
+      const instances = await storage.getAlertInstancesByRule(req.params.ruleId);
+      res.json(instances);
+    } catch (error) {
+      console.error("Error fetching alert instances for rule:", error);
+      res.status(500).json({ error: "Failed to fetch alert instances" });
+    }
+  });
+
+  // POST /api/alert-instances/:id/acknowledge - Acknowledge an alert instance
+  app.post("/api/alert-instances/:id/acknowledge", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+      const instance = await storage.acknowledgeAlertInstance(req.params.id, userId);
+      if (!instance) {
+        return res.status(404).json({ error: "Alert instance not found" });
+      }
+      res.json(instance);
+    } catch (error) {
+      console.error("Error acknowledging alert instance:", error);
+      res.status(500).json({ error: "Failed to acknowledge alert instance" });
+    }
+  });
+
+  // POST /api/alert-instances/:id/resolve - Resolve an alert instance
+  app.post("/api/alert-instances/:id/resolve", requireAuth, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+      const { resolution } = req.body;
+      const instance = await storage.resolveAlertInstance(req.params.id, userId, resolution);
+      if (!instance) {
+        return res.status(404).json({ error: "Alert instance not found" });
+      }
+      res.json(instance);
+    } catch (error) {
+      console.error("Error resolving alert instance:", error);
+      res.status(500).json({ error: "Failed to resolve alert instance" });
+    }
+  });
+
   return httpServer;
 }
 

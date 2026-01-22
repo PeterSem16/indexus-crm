@@ -112,10 +112,12 @@ import {
   notifications, notificationRules,
   type Notification, type InsertNotification,
   type NotificationRule, type InsertNotificationRule,
-  collections, collectionLabResults, apiKeys,
+  collections, collectionLabResults, apiKeys, alertRules, alertInstances,
   type Collection, type InsertCollection,
   type CollectionLabResult, type InsertCollectionLabResult,
-  type ApiKey, type InsertApiKey
+  type ApiKey, type InsertApiKey,
+  type AlertRule, type InsertAlertRule,
+  type AlertInstance, type InsertAlertInstance
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, inArray, sql, desc, and, or, asc, gte, lte } from "drizzle-orm";
@@ -868,6 +870,26 @@ export interface IStorage {
   // Collection lookup by external reference
   getCollectionByCbuNumber(cbuNumber: string): Promise<Collection | undefined>;
   getCollectionByLegacyId(legacyId: string): Promise<Collection | undefined>;
+
+  // Alert Rules
+  getAlertRule(id: string): Promise<AlertRule | undefined>;
+  getAllAlertRules(): Promise<AlertRule[]>;
+  getActiveAlertRules(): Promise<AlertRule[]>;
+  getAlertRulesByCountry(countryCodes: string[]): Promise<AlertRule[]>;
+  createAlertRule(data: InsertAlertRule): Promise<AlertRule>;
+  updateAlertRule(id: string, data: Partial<InsertAlertRule>): Promise<AlertRule | undefined>;
+  deleteAlertRule(id: string): Promise<boolean>;
+  updateAlertRuleLastChecked(id: string): Promise<void>;
+  updateAlertRuleLastAlerted(id: string): Promise<void>;
+
+  // Alert Instances
+  getAlertInstance(id: string): Promise<AlertInstance | undefined>;
+  getAlertInstancesByRule(ruleId: string): Promise<AlertInstance[]>;
+  getActiveAlertInstances(): Promise<AlertInstance[]>;
+  getAlertInstancesByUser(userId: string): Promise<AlertInstance[]>;
+  createAlertInstance(data: InsertAlertInstance): Promise<AlertInstance>;
+  acknowledgeAlertInstance(id: string, userId: string): Promise<AlertInstance | undefined>;
+  resolveAlertInstance(id: string, userId: string, resolution?: string): Promise<AlertInstance | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -5148,6 +5170,116 @@ export class DatabaseStorage implements IStorage {
   async getCollectionByLegacyId(legacyId: string): Promise<Collection | undefined> {
     const [result] = await db.select().from(collections)
       .where(eq(collections.legacyId, legacyId));
+    return result || undefined;
+  }
+
+  // Alert Rules
+  async getAlertRule(id: string): Promise<AlertRule | undefined> {
+    const [result] = await db.select().from(alertRules).where(eq(alertRules.id, id));
+    return result || undefined;
+  }
+
+  async getAllAlertRules(): Promise<AlertRule[]> {
+    return await db.select().from(alertRules).orderBy(desc(alertRules.createdAt));
+  }
+
+  async getActiveAlertRules(): Promise<AlertRule[]> {
+    return await db.select().from(alertRules)
+      .where(eq(alertRules.isActive, true))
+      .orderBy(desc(alertRules.createdAt));
+  }
+
+  async getAlertRulesByCountry(countryCodes: string[]): Promise<AlertRule[]> {
+    // Get rules that have no country restriction OR have overlapping countries
+    const allRules = await db.select().from(alertRules).orderBy(desc(alertRules.createdAt));
+    return allRules.filter(rule => {
+      if (!rule.countryCodes || rule.countryCodes.length === 0) {
+        return true; // No country restriction
+      }
+      return rule.countryCodes.some(code => countryCodes.includes(code));
+    });
+  }
+
+  async createAlertRule(data: InsertAlertRule): Promise<AlertRule> {
+    const [result] = await db.insert(alertRules).values(data).returning();
+    return result;
+  }
+
+  async updateAlertRule(id: string, data: Partial<InsertAlertRule>): Promise<AlertRule | undefined> {
+    const [result] = await db.update(alertRules)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(alertRules.id, id))
+      .returning();
+    return result || undefined;
+  }
+
+  async deleteAlertRule(id: string): Promise<boolean> {
+    const result = await db.delete(alertRules).where(eq(alertRules.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async updateAlertRuleLastChecked(id: string): Promise<void> {
+    await db.update(alertRules)
+      .set({ lastCheckedAt: new Date() })
+      .where(eq(alertRules.id, id));
+  }
+
+  async updateAlertRuleLastAlerted(id: string): Promise<void> {
+    await db.update(alertRules)
+      .set({ lastAlertedAt: new Date() })
+      .where(eq(alertRules.id, id));
+  }
+
+  // Alert Instances
+  async getAlertInstance(id: string): Promise<AlertInstance | undefined> {
+    const [result] = await db.select().from(alertInstances).where(eq(alertInstances.id, id));
+    return result || undefined;
+  }
+
+  async getAlertInstancesByRule(ruleId: string): Promise<AlertInstance[]> {
+    return await db.select().from(alertInstances)
+      .where(eq(alertInstances.alertRuleId, ruleId))
+      .orderBy(desc(alertInstances.createdAt));
+  }
+
+  async getActiveAlertInstances(): Promise<AlertInstance[]> {
+    return await db.select().from(alertInstances)
+      .where(eq(alertInstances.status, 'active'))
+      .orderBy(desc(alertInstances.createdAt));
+  }
+
+  async getAlertInstancesByUser(userId: string): Promise<AlertInstance[]> {
+    // Get instances acknowledged by or related to a specific user
+    return await db.select().from(alertInstances)
+      .where(eq(alertInstances.acknowledgedBy, userId))
+      .orderBy(desc(alertInstances.createdAt));
+  }
+
+  async createAlertInstance(data: InsertAlertInstance): Promise<AlertInstance> {
+    const [result] = await db.insert(alertInstances).values(data).returning();
+    return result;
+  }
+
+  async acknowledgeAlertInstance(id: string, userId: string): Promise<AlertInstance | undefined> {
+    const [result] = await db.update(alertInstances)
+      .set({ 
+        status: 'acknowledged', 
+        acknowledgedAt: new Date(),
+        acknowledgedBy: userId 
+      })
+      .where(eq(alertInstances.id, id))
+      .returning();
+    return result || undefined;
+  }
+
+  async resolveAlertInstance(id: string, userId: string, resolution?: string): Promise<AlertInstance | undefined> {
+    const [result] = await db.update(alertInstances)
+      .set({ 
+        status: 'resolved', 
+        resolvedAt: new Date()
+      })
+      .where(eq(alertInstances.id, id))
+      .returning();
     return result || undefined;
   }
 }
