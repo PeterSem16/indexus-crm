@@ -706,6 +706,179 @@ foreach ($response['results'] as $item) {
 
 ---
 
+## Collections API
+
+The Collections API allows external systems to manage cord blood collections directly. All fields except `countryCode` (for creation) are optional, allowing partial updates from laboratory systems.
+
+### Permissions
+
+Collections API uses the same permissions as Lab Results API:
+- `lab_results:read` - Read collection data
+- `lab_results:write` - Create and update collections
+- `*` (Full Access) - Grants all permissions
+
+### 7. Get Collection by ID
+
+**GET** `/api/v1/collections/:id`
+
+Retrieve a collection by its UUID.
+
+#### Success Response
+
+**Status: 200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "collection-uuid",
+    "cbuNumber": "CBU-2024-001",
+    "countryCode": "SK",
+    "clientFirstName": "Jana",
+    "clientLastName": "Novakova",
+    ...
+  }
+}
+```
+
+### 8. Get Collection by CBU Number
+
+**GET** `/api/v1/collections/by-cbu/:cbuNumber`
+
+Retrieve a collection by its CBU number (external reference).
+
+#### Success Response
+
+**Status: 200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "collection-uuid",
+    "cbuNumber": "CBU-2024-001",
+    ...
+  }
+}
+```
+
+### 9. Update Collection (Partial)
+
+**PATCH** `/api/v1/collections/:id`
+
+Update a collection with partial data. All fields are optional.
+
+#### Request Body
+
+```json
+{
+  "clientFirstName": "Jana",
+  "clientLastName": "Novakova",
+  "childGender": "female",
+  "state": "stored",
+  "statusStoredAt": "2024-01-20T10:00:00Z",
+  "note": "Updated by laboratory system"
+}
+```
+
+#### Available Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `legacyId` | string | Legacy system ID |
+| `cbuNumber` | string | CBU reference number |
+| `billingCompanyId` | UUID | Billing company reference |
+| `productId` | UUID | Product reference |
+| `billsetId` | UUID | Billset reference |
+| `countryCode` | string(2) | Country code (SK, CZ, HU, etc.) |
+| `customerId` | UUID | Link to customer record |
+| `clientFirstName` | string | Client first name |
+| `clientLastName` | string | Client last name |
+| `clientPhone` | string | Client phone number |
+| `clientMobile` | string | Client mobile number |
+| `clientBirthNumber` | string | Client birth number |
+| `clientBirthDay` | integer | Client birth day (1-31) |
+| `clientBirthMonth` | integer | Client birth month (1-12) |
+| `clientBirthYear` | integer | Client birth year |
+| `childFirstName` | string | Child first name |
+| `childLastName` | string | Child last name |
+| `childGender` | enum | Gender (male, female, M, F) |
+| `collectionDate` | ISO8601 | Date of collection |
+| `hospitalId` | UUID | Hospital reference |
+| `cordBloodCollectorId` | UUID | Cord blood collector |
+| `tissueCollectorId` | UUID | Tissue collector |
+| `placentaCollectorId` | UUID | Placenta collector |
+| `assistantNurseId` | UUID | Assistant nurse |
+| `secondNurseId` | UUID | Second nurse |
+| `representativeId` | UUID | Representative |
+| `statusCreatedAt` | ISO8601 | Created status timestamp |
+| `statusPairedAt` | ISO8601 | Paired status timestamp |
+| `statusEvaluatedAt` | ISO8601 | Evaluated status timestamp |
+| `statusVerifiedAt` | ISO8601 | Verified status timestamp |
+| `statusStoredAt` | ISO8601 | Stored status timestamp |
+| `statusTransferredAt` | ISO8601 | Transferred status timestamp |
+| `statusReleasedAt` | ISO8601 | Released status timestamp |
+| `statusAwaitingDisposalAt` | ISO8601 | Awaiting disposal timestamp |
+| `statusDisposedAt` | ISO8601 | Disposed status timestamp |
+| `state` | string | Current state |
+| `certificate` | string | Certificate reference |
+| `laboratoryId` | UUID | Laboratory reference |
+| `responsibleCoordinatorId` | UUID | Responsible coordinator |
+| `contractId` | UUID | Contract reference |
+| `doctorNote` | string | Doctor's note |
+| `note` | string | General note |
+
+#### Success Response
+
+**Status: 200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "collection-uuid",
+    "updatedAt": "2024-01-20T10:30:00Z"
+  },
+  "message": "Collection updated successfully"
+}
+```
+
+### 10. Create Collection
+
+**POST** `/api/v1/collections`
+
+Create a new collection. Only `countryCode` is required; all other fields are optional.
+
+#### Request Body
+
+```json
+{
+  "countryCode": "SK",
+  "cbuNumber": "CBU-2024-002",
+  "clientFirstName": "Maria",
+  "clientLastName": "Horvathova",
+  "hospitalId": "hospital-uuid"
+}
+```
+
+#### Success Response
+
+**Status: 201 Created**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "new-collection-uuid",
+    "cbuNumber": "CBU-2024-002",
+    "createdAt": "2024-01-20T10:00:00Z"
+  },
+  "message": "Collection created successfully"
+}
+```
+
+---
+
 ## Support
 
 For API support or to request an API key, contact:
@@ -718,4 +891,5 @@ For API support or to request an API key, contact:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.1.0 | 2024-01 | Added Collections API with full CRUD support, all fields optional |
 | 1.0.0 | 2024-01 | Initial API release |

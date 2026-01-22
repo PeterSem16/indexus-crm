@@ -1677,6 +1677,84 @@ export async function registerRoutes(
       console.error("Error cleaning up expired PKCE entries:", err)
     );
   }, 60000);
+
+  // Track which API keys have been notified to prevent duplicate notifications
+  const apiKeyExpirationNotified: Map<string, { threshold: number; date: string }> = new Map();
+  
+  // Check for expiring API keys and notify admins (runs every 6 hours)
+  const checkApiKeyExpiration = async () => {
+    try {
+      const apiKeysList = await storage.getAllApiKeys();
+      const now = new Date();
+      const today = now.toISOString().split('T')[0]; // YYYY-MM-DD for daily deduping
+      const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+      const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      
+      // Get all admin users
+      const allUsers = await storage.getAllUsers();
+      const roles = await storage.getAllRoles();
+      const adminRole = roles.find(r => r.name === "Admin");
+      const adminUserIds = allUsers
+        .filter(u => u.role === "admin" || (adminRole && u.roleId === adminRole.id))
+        .map(u => u.id);
+      
+      if (adminUserIds.length === 0) return;
+      
+      for (const apiKey of apiKeysList) {
+        if (!apiKey.expiresAt || !apiKey.isActive) continue;
+        
+        const expiresAt = new Date(apiKey.expiresAt);
+        
+        // Check if already expired
+        if (expiresAt <= now) continue;
+        
+        const daysUntilExpiry = Math.ceil((expiresAt.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+        let threshold = 0;
+        let priority = "normal";
+        
+        // Determine notification threshold
+        if (expiresAt <= threeDaysFromNow) {
+          threshold = 3;
+          priority = "high";
+        } else if (expiresAt <= sevenDaysFromNow) {
+          threshold = 7;
+          priority = "normal";
+        } else {
+          continue; // Not expiring soon
+        }
+        
+        // Check if we already notified for this threshold today
+        const notifiedKey = `${apiKey.id}-${threshold}`;
+        const lastNotified = apiKeyExpirationNotified.get(notifiedKey);
+        if (lastNotified && lastNotified.date === today) {
+          continue; // Already notified today for this threshold
+        }
+        
+        // Send notification
+        await notificationService.sendNotificationToUsers(adminUserIds, {
+          type: "api_key_expiring",
+          title: threshold === 3 
+            ? `API Key "${apiKey.name}" Expiring Soon`
+            : `API Key "${apiKey.name}" Expiring`,
+          message: `API key "${apiKey.name}" will expire in ${daysUntilExpiry} day${daysUntilExpiry !== 1 ? 's' : ''}.${threshold === 3 ? ' Please renew or create a new key.' : ''}`,
+          priority,
+          entityType: "api_key",
+          entityId: apiKey.id,
+          metadata: { keyName: apiKey.name, expiresAt: apiKey.expiresAt, daysUntilExpiry }
+        });
+        
+        // Mark as notified
+        apiKeyExpirationNotified.set(notifiedKey, { threshold, date: today });
+      }
+    } catch (error) {
+      console.error("Error checking API key expiration:", error);
+    }
+  };
+  
+  // Run API key expiration check every 6 hours
+  setInterval(checkApiKeyExpiration, 6 * 60 * 60 * 1000);
+  // Also run once on startup (after 30 seconds delay)
+  setTimeout(checkApiKeyExpiration, 30000);
   
   // Get MS365 configuration status
   app.get("/api/ms365/status", requireAuth, async (req, res) => {
@@ -16935,6 +17013,305 @@ Guidelines:
         error: {
           code: "INTERNAL_ERROR",
           message: "Failed to fetch lab results"
+        }
+      });
+    }
+  });
+
+  // ========================================
+  // Collections API v1 (External API)
+  // ========================================
+  // Schema for collection updates via external API - all fields optional
+  const collectionApiSchema = z.object({
+    // Reference fields (at least one required for updates)
+    collectionId: z.string().uuid().optional(),
+    externalCollectionRef: z.string().min(1).optional(), // CBU number
+    
+    // Company and product
+    legacyId: z.string().optional(),
+    cbuNumber: z.string().optional(),
+    billingCompanyId: z.string().uuid().optional(),
+    productId: z.string().uuid().optional(),
+    billsetId: z.string().uuid().optional(),
+    countryCode: z.string().length(2).optional(),
+    
+    // Client (Klientka)
+    customerId: z.string().uuid().optional(),
+    clientFirstName: z.string().optional(),
+    clientLastName: z.string().optional(),
+    clientPhone: z.string().optional(),
+    clientMobile: z.string().optional(),
+    clientBirthNumber: z.string().optional(),
+    clientBirthDay: z.number().min(1).max(31).optional(),
+    clientBirthMonth: z.number().min(1).max(12).optional(),
+    clientBirthYear: z.number().min(1900).max(2100).optional(),
+    
+    // Child (Dieta)
+    childFirstName: z.string().optional(),
+    childLastName: z.string().optional(),
+    childGender: z.enum(["male", "female", "M", "F", "m", "f"]).optional(),
+    
+    // Collection (Odber) - staff IDs
+    collectionDate: dateStringSchema.optional(),
+    hospitalId: z.string().uuid().optional(),
+    cordBloodCollectorId: z.string().uuid().optional(),
+    tissueCollectorId: z.string().uuid().optional(),
+    placentaCollectorId: z.string().uuid().optional(),
+    assistantNurseId: z.string().uuid().optional(),
+    secondNurseId: z.string().uuid().optional(),
+    representativeId: z.string().uuid().optional(),
+    
+    // Status dates
+    statusCreatedAt: dateStringSchema.optional(),
+    statusPairedAt: dateStringSchema.optional(),
+    statusEvaluatedAt: dateStringSchema.optional(),
+    statusVerifiedAt: dateStringSchema.optional(),
+    statusStoredAt: dateStringSchema.optional(),
+    statusTransferredAt: dateStringSchema.optional(),
+    statusReleasedAt: dateStringSchema.optional(),
+    statusAwaitingDisposalAt: dateStringSchema.optional(),
+    statusDisposedAt: dateStringSchema.optional(),
+    
+    // State and certificate
+    state: z.string().optional(),
+    certificate: z.string().optional(),
+    laboratoryId: z.string().uuid().optional(),
+    responsibleCoordinatorId: z.string().uuid().optional(),
+    contractId: z.string().uuid().optional(),
+    
+    // Notes
+    doctorNote: z.string().optional(),
+    note: z.string().optional(),
+  });
+
+  // Helper to parse dates in collection data
+  const parseCollectionDates = (data: any) => {
+    const dateFields = [
+      'collectionDate', 'statusCreatedAt', 'statusPairedAt', 'statusEvaluatedAt',
+      'statusVerifiedAt', 'statusStoredAt', 'statusTransferredAt', 'statusReleasedAt',
+      'statusAwaitingDisposalAt', 'statusDisposedAt'
+    ];
+    const result = { ...data };
+    for (const field of dateFields) {
+      if (result[field]) {
+        result[field] = new Date(result[field]);
+      }
+    }
+    return result;
+  };
+
+  // GET /api/v1/collections/:id - Get collection by ID
+  app.get("/api/v1/collections/:id", requireApiKey, async (req, res) => {
+    try {
+      const apiKey = (req as any).apiKey;
+      if (!hasPermission(apiKey, "lab_results:read") && !hasPermission(apiKey, "lab_results:write")) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: "FORBIDDEN",
+            message: "API key does not have lab_results:read permission"
+          }
+        });
+      }
+
+      const collection = await storage.getCollection(req.params.id);
+      
+      if (!collection) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: "COLLECTION_NOT_FOUND",
+            message: "Collection not found"
+          }
+        });
+      }
+
+      res.json({
+        success: true,
+        data: collection
+      });
+
+    } catch (error) {
+      console.error("Error fetching collection:", error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to fetch collection"
+        }
+      });
+    }
+  });
+
+  // GET /api/v1/collections/by-cbu/:cbuNumber - Get collection by CBU number
+  app.get("/api/v1/collections/by-cbu/:cbuNumber", requireApiKey, async (req, res) => {
+    try {
+      const apiKey = (req as any).apiKey;
+      if (!hasPermission(apiKey, "lab_results:read") && !hasPermission(apiKey, "lab_results:write")) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: "FORBIDDEN",
+            message: "API key does not have lab_results:read permission"
+          }
+        });
+      }
+
+      const collection = await storage.getCollectionByCbuNumber(req.params.cbuNumber);
+      
+      if (!collection) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: "COLLECTION_NOT_FOUND",
+            message: "Collection with provided CBU number not found"
+          }
+        });
+      }
+
+      res.json({
+        success: true,
+        data: collection
+      });
+
+    } catch (error) {
+      console.error("Error fetching collection by CBU:", error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to fetch collection"
+        }
+      });
+    }
+  });
+
+  // PATCH /api/v1/collections/:id - Update collection (partial update, all fields optional)
+  app.patch("/api/v1/collections/:id", requireApiKey, async (req, res) => {
+    try {
+      const apiKey = (req as any).apiKey;
+      if (!hasPermission(apiKey, "lab_results:write")) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: "FORBIDDEN",
+            message: "API key does not have lab_results:write permission"
+          }
+        });
+      }
+
+      const existing = await storage.getCollection(req.params.id);
+      
+      if (!existing) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: "COLLECTION_NOT_FOUND",
+            message: "Collection not found"
+          }
+        });
+      }
+
+      // Validate input - all fields are optional
+      const parseResult = collectionApiSchema.partial().safeParse(req.body);
+      if (!parseResult.success) {
+        const errors = parseResult.error.errors.map(e => ({
+          field: e.path.join("."),
+          message: e.message
+        }));
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Validation failed",
+            details: errors
+          }
+        });
+      }
+
+      const { collectionId, externalCollectionRef, ...updateData } = parseResult.data;
+      const parsedData = parseCollectionDates(updateData);
+
+      const result = await storage.updateCollection(req.params.id, parsedData);
+
+      res.json({
+        success: true,
+        data: {
+          id: result?.id,
+          updatedAt: result?.updatedAt
+        },
+        message: "Collection updated successfully"
+      });
+
+    } catch (error) {
+      console.error("Error updating collection:", error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to update collection"
+        }
+      });
+    }
+  });
+
+  // POST /api/v1/collections - Create new collection (all fields optional except countryCode)
+  app.post("/api/v1/collections", requireApiKey, async (req, res) => {
+    try {
+      const apiKey = (req as any).apiKey;
+      if (!hasPermission(apiKey, "lab_results:write")) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: "FORBIDDEN",
+            message: "API key does not have lab_results:write permission"
+          }
+        });
+      }
+
+      // For creation, countryCode is required
+      const createSchema = collectionApiSchema.extend({
+        countryCode: z.string().length(2)
+      });
+
+      const parseResult = createSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        const errors = parseResult.error.errors.map(e => ({
+          field: e.path.join("."),
+          message: e.message
+        }));
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Validation failed",
+            details: errors
+          }
+        });
+      }
+
+      const { collectionId, externalCollectionRef, ...createData } = parseResult.data;
+      const parsedData = parseCollectionDates(createData);
+
+      const result = await storage.createCollection(parsedData as any);
+
+      res.status(201).json({
+        success: true,
+        data: {
+          id: result.id,
+          cbuNumber: result.cbuNumber,
+          createdAt: result.createdAt
+        },
+        message: "Collection created successfully"
+      });
+
+    } catch (error) {
+      console.error("Error creating collection:", error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to create collection"
         }
       });
     }
