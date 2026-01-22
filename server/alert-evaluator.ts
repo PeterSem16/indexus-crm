@@ -26,42 +26,75 @@ const frequencyInMs: Record<CheckFrequency, number> = {
 };
 
 async function evaluateMetric(metricType: MetricType, countryCodes?: string[]): Promise<number> {
+  // Helper to add country filter to collection queries
+  const getCollectionCountryCondition = () => {
+    if (countryCodes?.length) {
+      return inArray(collections.countryCode, countryCodes);
+    }
+    return undefined;
+  };
+  
+  // Helper to add country filter to customer queries
+  const getCustomerCountryCondition = () => {
+    if (countryCodes?.length) {
+      return inArray(customers.countryCode, countryCodes);
+    }
+    return undefined;
+  };
+
   switch (metricType) {
     case 'pending_lab_results': {
+      const conditions = [isNull(collectionLabResults.id)];
+      const countryCondition = getCollectionCountryCondition();
+      if (countryCondition) conditions.push(countryCondition);
+      
       const result = await db.select({ count: sql<number>`count(*)` })
         .from(collections)
         .leftJoin(collectionLabResults, eq(collections.id, collectionLabResults.collectionId))
-        .where(isNull(collectionLabResults.id));
+        .where(and(...conditions));
       return Number(result[0]?.count || 0);
     }
     
     case 'collections_without_hospital': {
+      const conditions = [isNull(collections.hospitalId)];
+      const countryCondition = getCollectionCountryCondition();
+      if (countryCondition) conditions.push(countryCondition);
+      
       const result = await db.select({ count: sql<number>`count(*)` })
         .from(collections)
-        .where(isNull(collections.hospitalId));
+        .where(and(...conditions));
       return Number(result[0]?.count || 0);
     }
     
     case 'overdue_collections': {
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const conditions = [
+        eq(collections.state, 'pending'),
+        lt(collections.createdAt, sevenDaysAgo)
+      ];
+      const countryCondition = getCollectionCountryCondition();
+      if (countryCondition) conditions.push(countryCondition);
+      
       const result = await db.select({ count: sql<number>`count(*)` })
         .from(collections)
-        .where(and(
-          eq(collections.state, 'pending'),
-          lt(collections.createdAt, sevenDaysAgo)
-        ));
+        .where(and(...conditions));
       return Number(result[0]?.count || 0);
     }
     
     case 'pending_evaluations': {
+      const conditions = [eq(collections.state, 'pending_evaluation')];
+      const countryCondition = getCollectionCountryCondition();
+      if (countryCondition) conditions.push(countryCondition);
+      
       const result = await db.select({ count: sql<number>`count(*)` })
         .from(collections)
-        .where(eq(collections.state, 'pending_evaluation'));
+        .where(and(...conditions));
       return Number(result[0]?.count || 0);
     }
     
     case 'expiring_api_keys': {
+      // API keys are global, no country filter applies
       const thirtyDaysFromNow = new Date();
       thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
       const result = await db.select({ count: sql<number>`count(*)` })
@@ -76,37 +109,48 @@ async function evaluateMetric(metricType: MetricType, countryCodes?: string[]): 
     case 'inactive_customers': {
       const sixMonthsAgo = new Date();
       sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+      const conditions = [lt(customers.createdAt, sixMonthsAgo)];
+      const countryCondition = getCustomerCountryCondition();
+      if (countryCondition) conditions.push(countryCondition);
+      
       const result = await db.select({ count: sql<number>`count(*)` })
         .from(customers)
-        .where(
-          lt(customers.createdAt, sixMonthsAgo)
-        );
+        .where(and(...conditions));
       return Number(result[0]?.count || 0);
     }
     
     case 'upcoming_collection_dates': {
       const sevenDaysFromNow = new Date();
       sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+      const conditions = [
+        eq(collections.state, 'scheduled'),
+        gte(collections.collectionDate, new Date()),
+        lte(collections.collectionDate, sevenDaysFromNow)
+      ];
+      const countryCondition = getCollectionCountryCondition();
+      if (countryCondition) conditions.push(countryCondition);
+      
       const result = await db.select({ count: sql<number>`count(*)` })
         .from(collections)
-        .where(and(
-          eq(collections.state, 'scheduled'),
-          gte(collections.collectionDate, new Date()),
-          lte(collections.collectionDate, sevenDaysFromNow)
-        ));
+        .where(and(...conditions));
       return Number(result[0]?.count || 0);
     }
     
     case 'low_collection_rate': {
       const lastMonth = new Date();
       lastMonth.setMonth(lastMonth.getMonth() - 1);
+      const conditions = [gte(collections.createdAt, lastMonth)];
+      const countryCondition = getCollectionCountryCondition();
+      if (countryCondition) conditions.push(countryCondition);
+      
       const result = await db.select({ count: sql<number>`count(*)` })
         .from(collections)
-        .where(gte(collections.createdAt, lastMonth));
+        .where(and(...conditions));
       return Number(result[0]?.count || 0);
     }
     
     case 'pending_invoices': {
+      // Invoices may have country via customer, but for simplicity keep global
       const result = await db.select({ count: sql<number>`count(*)` })
         .from(invoices)
         .where(eq(invoices.status, 'pending'));
@@ -114,6 +158,7 @@ async function evaluateMetric(metricType: MetricType, countryCodes?: string[]): 
     }
     
     case 'overdue_tasks': {
+      // Tasks are user-assigned, not country-specific
       const now = new Date();
       const result = await db.select({ count: sql<number>`count(*)` })
         .from(tasks)
@@ -160,37 +205,40 @@ async function getTargetUserIds(rule: {
   countryCodes: string[] | null;
 }): Promise<string[]> {
   try {
-    let query = db.select({ id: users.id }).from(users).where(eq(users.isActive, true));
+    // Build base conditions - always require active users
+    const baseConditions = [eq(users.isActive, true)];
+    
+    // Apply country filter if specified (applies to ALL target types)
+    if (rule.countryCodes?.length) {
+      baseConditions.push(inArray(users.countryCode, rule.countryCodes));
+    }
     
     if (rule.targetUserType === 'specific_users' && rule.targetUserIds?.length) {
-      return rule.targetUserIds;
+      // For specific users, also apply country filter if specified
+      const specificUserResults = await db.select({ id: users.id })
+        .from(users)
+        .where(and(
+          inArray(users.id, rule.targetUserIds),
+          ...baseConditions
+        ));
+      return specificUserResults.map(r => r.id);
     }
     
     if (rule.targetUserType === 'role' && rule.targetRoles?.length) {
+      // For role-based targeting with optional country filter
       const roleResults = await db.select({ id: users.id })
         .from(users)
         .where(and(
-          eq(users.isActive, true),
-          inArray(users.role, rule.targetRoles)
+          inArray(users.role, rule.targetRoles),
+          ...baseConditions
         ));
       return roleResults.map(r => r.id);
     }
     
-    // For 'all' type - get all active users, optionally filtered by country
-    if (rule.countryCodes?.length) {
-      const countryResults = await db.select({ id: users.id })
-        .from(users)
-        .where(and(
-          eq(users.isActive, true),
-          inArray(users.countryCode, rule.countryCodes)
-        ));
-      return countryResults.map(r => r.id);
-    }
-    
-    // All active users
+    // For 'all' type - get all active users with optional country filter
     const allResults = await db.select({ id: users.id })
       .from(users)
-      .where(eq(users.isActive, true));
+      .where(and(...baseConditions));
     return allResults.map(r => r.id);
   } catch (error) {
     console.error("[AlertEvaluator] Error getting target users:", error);
