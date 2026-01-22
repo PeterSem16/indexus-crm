@@ -117,7 +117,11 @@ function UserSipProfileTab() {
   const { t } = useI18n();
   const { toast } = useToast();
   const { user } = useAuth();
-  const { isRegistered, isRegistering, register, unregister } = useSip();
+  const sipContext = useSip();
+  const isRegistered = sipContext?.isRegistered ?? false;
+  const isRegistering = sipContext?.isRegistering ?? false;
+  const register = sipContext?.register ?? (async () => {});
+  const unregister = sipContext?.unregister ?? (async () => {});
   
   const [sipExtension, setSipExtension] = useState("");
   const [sipPassword, setSipPassword] = useState("");
@@ -173,28 +177,31 @@ function UserSipProfileTab() {
     await unregister();
   };
 
+  const registrationStatus = isRegistered ? "registered" : (isRegistering ? "registering" : "not_registered");
   const isGlobalSipEnabled = sipSettings?.isEnabled;
 
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader className="flex flex-row items-center gap-4 flex-wrap">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-            <Phone className="h-5 w-5 text-primary" />
+        <CardHeader className="pb-3">
+          <div className="flex flex-row items-center gap-4 flex-wrap">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+              <Phone className="h-5 w-5 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <CardTitle className="text-base">{t.settings.sipProfile.title}</CardTitle>
+              <CardDescription className="text-sm">
+                {t.settings.sipProfile.description}
+              </CardDescription>
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <CardTitle className="text-base">{t.settings.sipProfile.title}</CardTitle>
-            <CardDescription className="text-sm">
-              {t.settings.sipProfile.description}
-            </CardDescription>
-          </div>
-          {/* Status Badge - ALWAYS VISIBLE */}
-          <div className="flex items-center gap-2">
-            {isRegistered ? (
+          <div className="flex items-center gap-2 mt-3">
+            <span className="text-sm text-muted-foreground">{t.common.status}:</span>
+            {registrationStatus === "registered" ? (
               <Badge variant="default" className="bg-green-600" data-testid="badge-sip-registered">
                 {t.settings.sipProfile.registered}
               </Badge>
-            ) : isRegistering ? (
+            ) : registrationStatus === "registering" ? (
               <Badge variant="secondary" data-testid="badge-sip-registering">
                 <Loader2 className="h-3 w-3 animate-spin mr-1" />
                 {t.settings.sipProfile.testing}
