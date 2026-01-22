@@ -17378,7 +17378,7 @@ Guidelines:
   };
 
   // GET /api/api-keys - List all API keys
-  app.get("/api/api-keys", requireAuth, requireAdmin, async (req, res) => {
+  app.get("/api/api-keys", requireAuth, requireAdminOrManager, async (req, res) => {
     try {
       const keys = await storage.getAllApiKeys();
       // Don't expose the hash, only prefix and metadata
@@ -17401,7 +17401,7 @@ Guidelines:
   });
 
   // POST /api/api-keys - Create new API key
-  app.post("/api/api-keys", requireAuth, requireAdmin, async (req, res) => {
+  app.post("/api/api-keys", requireAuth, requireAdminOrManager, async (req, res) => {
     try {
       const { name, permissions, rateLimit, expiresAt } = req.body;
 
@@ -17446,7 +17446,7 @@ Guidelines:
   });
 
   // DELETE /api/api-keys/:id - Deactivate API key
-  app.delete("/api/api-keys/:id", requireAuth, requireAdmin, async (req, res) => {
+  app.delete("/api/api-keys/:id", requireAuth, requireAdminOrManager, async (req, res) => {
     try {
       const success = await storage.deactivateApiKey(req.params.id);
       
