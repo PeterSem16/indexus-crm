@@ -112,9 +112,10 @@ import {
   notifications, notificationRules,
   type Notification, type InsertNotification,
   type NotificationRule, type InsertNotificationRule,
-  collections, collectionLabResults,
+  collections, collectionLabResults, apiKeys,
   type Collection, type InsertCollection,
-  type CollectionLabResult, type InsertCollectionLabResult
+  type CollectionLabResult, type InsertCollectionLabResult,
+  type ApiKey, type InsertApiKey
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, inArray, sql, desc, and, or, asc, gte, lte } from "drizzle-orm";
@@ -850,8 +851,23 @@ export interface IStorage {
 
   // Collection Lab Results
   getCollectionLabResult(collectionId: string): Promise<CollectionLabResult | undefined>;
+  getCollectionLabResultById(id: string): Promise<CollectionLabResult | undefined>;
+  getCollectionLabResultByClientResultId(clientResultId: string): Promise<CollectionLabResult | undefined>;
+  getCollectionLabResultsByCollection(collectionId: string): Promise<CollectionLabResult[]>;
   createCollectionLabResult(data: InsertCollectionLabResult): Promise<CollectionLabResult>;
   updateCollectionLabResult(id: string, data: Partial<InsertCollectionLabResult>): Promise<CollectionLabResult | undefined>;
+  
+  // API Keys
+  getApiKeyByHash(keyHash: string): Promise<ApiKey | undefined>;
+  getApiKeyByPrefix(prefix: string): Promise<ApiKey | undefined>;
+  getAllApiKeys(): Promise<ApiKey[]>;
+  createApiKey(data: InsertApiKey): Promise<ApiKey>;
+  updateApiKeyLastUsed(id: string): Promise<void>;
+  deactivateApiKey(id: string): Promise<boolean>;
+  
+  // Collection lookup by external reference
+  getCollectionByCbuNumber(cbuNumber: string): Promise<Collection | undefined>;
+  getCollectionByLegacyId(legacyId: string): Promise<Collection | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -5055,6 +5071,24 @@ export class DatabaseStorage implements IStorage {
     return result || undefined;
   }
 
+  async getCollectionLabResultById(id: string): Promise<CollectionLabResult | undefined> {
+    const [result] = await db.select().from(collectionLabResults)
+      .where(eq(collectionLabResults.id, id));
+    return result || undefined;
+  }
+
+  async getCollectionLabResultByClientResultId(clientResultId: string): Promise<CollectionLabResult | undefined> {
+    const [result] = await db.select().from(collectionLabResults)
+      .where(eq(collectionLabResults.clientResultId, clientResultId));
+    return result || undefined;
+  }
+
+  async getCollectionLabResultsByCollection(collectionId: string): Promise<CollectionLabResult[]> {
+    return await db.select().from(collectionLabResults)
+      .where(eq(collectionLabResults.collectionId, collectionId))
+      .orderBy(desc(collectionLabResults.createdAt));
+  }
+
   async createCollectionLabResult(data: InsertCollectionLabResult): Promise<CollectionLabResult> {
     const [result] = await db.insert(collectionLabResults).values(data).returning();
     return result;
@@ -5065,6 +5099,55 @@ export class DatabaseStorage implements IStorage {
       .set({ ...data, updatedAt: new Date() })
       .where(eq(collectionLabResults.id, id))
       .returning();
+    return result || undefined;
+  }
+
+  // API Keys
+  async getApiKeyByHash(keyHash: string): Promise<ApiKey | undefined> {
+    const [result] = await db.select().from(apiKeys)
+      .where(eq(apiKeys.keyHash, keyHash));
+    return result || undefined;
+  }
+
+  async getApiKeyByPrefix(prefix: string): Promise<ApiKey | undefined> {
+    const [result] = await db.select().from(apiKeys)
+      .where(eq(apiKeys.keyPrefix, prefix));
+    return result || undefined;
+  }
+
+  async getAllApiKeys(): Promise<ApiKey[]> {
+    return await db.select().from(apiKeys).orderBy(desc(apiKeys.createdAt));
+  }
+
+  async createApiKey(data: InsertApiKey): Promise<ApiKey> {
+    const [result] = await db.insert(apiKeys).values(data).returning();
+    return result;
+  }
+
+  async updateApiKeyLastUsed(id: string): Promise<void> {
+    await db.update(apiKeys)
+      .set({ lastUsedAt: new Date() })
+      .where(eq(apiKeys.id, id));
+  }
+
+  async deactivateApiKey(id: string): Promise<boolean> {
+    const result = await db.update(apiKeys)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(apiKeys.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  // Collection lookup by external reference
+  async getCollectionByCbuNumber(cbuNumber: string): Promise<Collection | undefined> {
+    const [result] = await db.select().from(collections)
+      .where(eq(collections.cbuNumber, cbuNumber));
+    return result || undefined;
+  }
+
+  async getCollectionByLegacyId(legacyId: string): Promise<Collection | undefined> {
+    const [result] = await db.select().from(collections)
+      .where(eq(collections.legacyId, legacyId));
     return result || undefined;
   }
 }

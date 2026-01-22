@@ -4253,6 +4253,7 @@ export type Collection = typeof collections.$inferSelect;
 export const collectionLabResults = pgTable("collection_lab_results", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   collectionId: varchar("collection_id").notNull(),
+  clientResultId: text("client_result_id").unique(),
   
   // Basic info
   usability: text("usability"),
@@ -4365,3 +4366,33 @@ export const collectionLabResultsRelations = relations(collectionLabResults, ({ 
     references: [collections.id],
   }),
 }));
+
+// ========================================
+// API Keys - for external system integration
+// ========================================
+
+export const apiKeys = pgTable("api_keys", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  keyHash: text("key_hash").notNull(),
+  keyPrefix: text("key_prefix").notNull(),
+  
+  permissions: text("permissions").array().notNull().default(sql`ARRAY['lab_results:write']::text[]`),
+  rateLimit: integer("rate_limit").notNull().default(60),
+  
+  isActive: boolean("is_active").notNull().default(true),
+  lastUsedAt: timestamp("last_used_at"),
+  expiresAt: timestamp("expires_at"),
+  
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertApiKeySchema = createInsertSchema(apiKeys).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertApiKey = z.infer<typeof insertApiKeySchema>;
+export type ApiKey = typeof apiKeys.$inferSelect;

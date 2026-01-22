@@ -16317,6 +16317,745 @@ Guidelines:
     }
   });
 
+  // ========================================
+  // EXTERNAL API v1 - Lab Results Integration
+  // For external PHP laboratory system integration
+  // ========================================
+
+  // Rate limiting store (in-memory, per API key)
+  const rateLimitStore: Map<string, { count: number; resetAt: number }> = new Map();
+
+  // API Key authentication middleware
+  const requireApiKey = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      // Extract API key from Authorization header or X-API-Key header
+      let apiKey: string | undefined;
+      
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        apiKey = authHeader.substring(7);
+      } else if (req.headers["x-api-key"]) {
+        apiKey = req.headers["x-api-key"] as string;
+      }
+
+      if (!apiKey) {
+        return res.status(401).json({
+          success: false,
+          error: {
+            code: "UNAUTHORIZED",
+            message: "Missing API key. Provide via Authorization: Bearer <key> or X-API-Key header"
+          }
+        });
+      }
+
+      // Extract prefix (first 8 chars) and look up key
+      const keyPrefix = apiKey.substring(0, 8);
+      const keyRecord = await storage.getApiKeyByPrefix(keyPrefix);
+
+      if (!keyRecord) {
+        return res.status(401).json({
+          success: false,
+          error: {
+            code: "UNAUTHORIZED",
+            message: "Invalid API key"
+          }
+        });
+      }
+
+      // Verify full key hash
+      const crypto = await import("crypto");
+      const keyHash = crypto.createHash("sha256").update(apiKey).digest("hex");
+      
+      if (keyHash !== keyRecord.keyHash) {
+        return res.status(401).json({
+          success: false,
+          error: {
+            code: "UNAUTHORIZED",
+            message: "Invalid API key"
+          }
+        });
+      }
+
+      // Check if key is active
+      if (!keyRecord.isActive) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: "FORBIDDEN",
+            message: "API key has been revoked"
+          }
+        });
+      }
+
+      // Check expiration
+      if (keyRecord.expiresAt && new Date(keyRecord.expiresAt) < new Date()) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: "FORBIDDEN",
+            message: "API key has expired"
+          }
+        });
+      }
+
+      // Rate limiting
+      const now = Date.now();
+      const windowMs = 60 * 1000; // 1 minute
+      const rateKey = keyRecord.id;
+      const rateData = rateLimitStore.get(rateKey);
+
+      if (rateData && rateData.resetAt > now) {
+        if (rateData.count >= keyRecord.rateLimit) {
+          const retryAfter = Math.ceil((rateData.resetAt - now) / 1000);
+          res.setHeader("X-RateLimit-Limit", keyRecord.rateLimit);
+          res.setHeader("X-RateLimit-Remaining", 0);
+          res.setHeader("X-RateLimit-Reset", Math.floor(rateData.resetAt / 1000));
+          res.setHeader("Retry-After", retryAfter);
+          return res.status(429).json({
+            success: false,
+            error: {
+              code: "RATE_LIMIT_EXCEEDED",
+              message: "Too many requests",
+              retryAfter
+            }
+          });
+        }
+        rateData.count++;
+      } else {
+        rateLimitStore.set(rateKey, { count: 1, resetAt: now + windowMs });
+      }
+
+      const currentRate = rateLimitStore.get(rateKey);
+      res.setHeader("X-RateLimit-Limit", keyRecord.rateLimit);
+      res.setHeader("X-RateLimit-Remaining", Math.max(0, keyRecord.rateLimit - (currentRate?.count || 0)));
+      res.setHeader("X-RateLimit-Reset", Math.floor((currentRate?.resetAt || now + windowMs) / 1000));
+
+      // Update last used timestamp
+      storage.updateApiKeyLastUsed(keyRecord.id).catch(console.error);
+
+      // Attach key record to request for permission checking
+      (req as any).apiKey = keyRecord;
+      next();
+    } catch (error) {
+      console.error("API key authentication error:", error);
+      return res.status(500).json({
+        success: false,
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Authentication error"
+        }
+      });
+    }
+  };
+
+  // Helper: Resolve collection from collectionId or externalCollectionRef
+  async function resolveCollection(collectionId?: string, externalCollectionRef?: string): Promise<{ collection?: any; error?: string }> {
+    if (collectionId) {
+      const collection = await storage.getCollection(collectionId);
+      if (collection) return { collection };
+    }
+    
+    if (externalCollectionRef) {
+      // Try CBU number first
+      let collection = await storage.getCollectionByCbuNumber(externalCollectionRef);
+      if (collection) return { collection };
+      
+      // Try legacy ID
+      collection = await storage.getCollectionByLegacyId(externalCollectionRef);
+      if (collection) return { collection };
+    }
+
+    return { error: "Collection not found" };
+  }
+
+  // Helper: Check if API key has required permission
+  function hasPermission(apiKey: any, requiredPermission: string): boolean {
+    if (!apiKey.permissions || !Array.isArray(apiKey.permissions)) return false;
+    return apiKey.permissions.includes(requiredPermission) || apiKey.permissions.includes("*");
+  }
+
+  // Helper: Validate ISO8601 date string
+  const isValidDate = (val: string) => !isNaN(Date.parse(val));
+  const dateStringSchema = z.string().refine(isValidDate, { message: "Invalid ISO8601 date format" });
+
+  // Zod schema for lab results API request validation
+  const labResultApiSchema = z.object({
+    collectionId: z.string().uuid().optional(),
+    externalCollectionRef: z.string().min(1).optional(),
+    clientResultId: z.string().min(1).optional(),
+    
+    // Required fields with strict enum validation
+    resultsDate: dateStringSchema,
+    usability: z.enum(["usable", "unusable", "conditionally_usable", "pending"]),
+    status: z.enum(["pending", "completed", "rejected", "under_review"]),
+    
+    // Optional fields with date validation where applicable
+    labNote: z.string().optional(),
+    cbu: z.string().optional(),
+    collectionFor: z.string().optional(),
+    processing: z.string().optional(),
+    title: z.string().optional(),
+    firstName: z.string().optional(),
+    surname: z.string().optional(),
+    idBirthNumber: z.string().optional(),
+    dateOfCollection: dateStringSchema.optional(),
+    timeOfCollection: z.string().optional(),
+    dateOfPrintingResults: dateStringSchema.optional(),
+    dateOfSendingResults: dateStringSchema.optional(),
+    sterility: z.string().optional(),
+    sterilityType: z.string().optional(),
+    reasonForCharge: z.string().optional(),
+    transplantProcessing: z.string().optional(),
+    resultOfSterility: z.string().optional(),
+    resultOfSterilityBagB: z.string().optional(),
+    infectionAgents: z.string().optional(),
+    letterToPediatrician: z.string().optional(),
+    finalAnalyses: z.string().optional(),
+    tncCount: z.string().optional(),
+    maxWeight: z.string().optional(),
+    volume: z.string().optional(),
+    volumeInBag: z.string().optional(),
+    volumeInSyringesBagB: z.string().optional(),
+    volumeOfCpdInSyr: z.string().optional(),
+    umbilicalTissue: z.string().optional(),
+    tissueProcessed: z.string().optional(),
+    tissueSterility: z.string().optional(),
+    tissueInfectionAgents: z.string().optional(),
+    premiumStatus: z.string().optional(),
+    transferredTo: z.string().optional(),
+    tissueUsability: z.string().optional(),
+    bagAUsability: z.string().optional(),
+    bagAVolume: z.string().optional(),
+    bagATnc: z.string().optional(),
+    bagAAtbSensit: z.string().optional(),
+    bagABacteriaRisk: z.string().optional(),
+    bagAInfectionAgent: z.string().optional(),
+    bagASignificance: z.string().optional(),
+    bagBUsability: z.string().optional(),
+    bagBVolume: z.string().optional(),
+    bagBTnc: z.string().optional(),
+    bagBAtbSensit: z.string().optional(),
+    bagBBacteriaRisk: z.string().optional(),
+    bagBInfectionAgent: z.string().optional(),
+    bagBSignificance: z.string().optional(),
+  }).refine((data) => data.collectionId || data.externalCollectionRef, {
+    message: "Either collectionId or externalCollectionRef is required"
+  });
+
+  // POST /api/v1/lab-results - Submit single lab result
+  app.post("/api/v1/lab-results", requireApiKey, async (req, res) => {
+    try {
+      // Check permission
+      const apiKey = (req as any).apiKey;
+      if (!hasPermission(apiKey, "lab_results:write")) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: "FORBIDDEN",
+            message: "API key does not have lab_results:write permission"
+          }
+        });
+      }
+
+      // Validate request body with Zod schema
+      const parseResult = labResultApiSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        const errors = parseResult.error.errors.map(e => ({
+          field: e.path.join("."),
+          message: e.message
+        }));
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Validation failed",
+            details: errors
+          }
+        });
+      }
+
+      const { collectionId, externalCollectionRef, clientResultId, ...labData } = parseResult.data;
+
+      // Check for duplicate using clientResultId (idempotency)
+      if (clientResultId) {
+        const existing = await storage.getCollectionLabResultByClientResultId(clientResultId);
+        if (existing) {
+          return res.status(409).json({
+            success: false,
+            error: {
+              code: "DUPLICATE_RESULT",
+              message: "Lab result with clientResultId already exists",
+              existingId: existing.id
+            }
+          });
+        }
+      }
+
+      // Resolve collection
+      const { collection, error: collectionError } = await resolveCollection(collectionId, externalCollectionRef);
+      
+      if (!collection) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: "COLLECTION_NOT_FOUND",
+            message: collectionError || "Collection with provided reference not found"
+          }
+        });
+      }
+
+      // Create lab result
+      const result = await storage.createCollectionLabResult({
+        collectionId: collection.id,
+        clientResultId: clientResultId || null,
+        ...labData,
+        resultsDate: labData.resultsDate ? new Date(labData.resultsDate) : undefined,
+        dateOfCollection: labData.dateOfCollection ? new Date(labData.dateOfCollection) : undefined,
+        dateOfPrintingResults: labData.dateOfPrintingResults ? new Date(labData.dateOfPrintingResults) : undefined,
+        dateOfSendingResults: labData.dateOfSendingResults ? new Date(labData.dateOfSendingResults) : undefined,
+      });
+
+      res.status(201).json({
+        success: true,
+        data: {
+          id: result.id,
+          collectionId: result.collectionId,
+          clientResultId: clientResultId || null,
+          createdAt: result.createdAt
+        },
+        message: "Lab result created successfully"
+      });
+
+    } catch (error: any) {
+      console.error("Error creating lab result:", error);
+      
+      // Handle unique constraint violation (duplicate clientResultId)
+      if (error?.code === "23505" || error?.message?.includes("duplicate key") || error?.message?.includes("unique constraint")) {
+        return res.status(409).json({
+          success: false,
+          error: {
+            code: "DUPLICATE_RESULT",
+            message: "Lab result with this clientResultId already exists"
+          }
+        });
+      }
+      
+      res.status(500).json({
+        success: false,
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to create lab result"
+        }
+      });
+    }
+  });
+
+  // POST /api/v1/lab-results/batch - Submit multiple lab results
+  app.post("/api/v1/lab-results/batch", requireApiKey, async (req, res) => {
+    try {
+      // Check permission
+      const apiKey = (req as any).apiKey;
+      if (!hasPermission(apiKey, "lab_results:write")) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: "FORBIDDEN",
+            message: "API key does not have lab_results:write permission"
+          }
+        });
+      }
+
+      const { results } = req.body;
+
+      if (!Array.isArray(results) || results.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Request body must contain 'results' array with at least one item"
+          }
+        });
+      }
+
+      if (results.length > 100) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Maximum 100 items per batch request"
+          }
+        });
+      }
+
+      const batchResults: Array<{
+        index: number;
+        status: "created" | "failed" | "skipped";
+        id?: string;
+        collectionId?: string;
+        clientResultId?: string;
+        existingId?: string;
+        error?: { code: string; message: string };
+        reason?: string;
+      }> = [];
+
+      let created = 0, failed = 0, skipped = 0;
+
+      for (let i = 0; i < results.length; i++) {
+        const item = results[i];
+
+        try {
+          // Validate with Zod schema
+          const parseResult = labResultApiSchema.safeParse(item);
+          if (!parseResult.success) {
+            const errorMessage = parseResult.error.errors.map(e => `${e.path.join(".")}: ${e.message}`).join("; ");
+            batchResults.push({
+              index: i,
+              status: "failed",
+              error: { code: "VALIDATION_ERROR", message: errorMessage }
+            });
+            failed++;
+            continue;
+          }
+
+          const { collectionId, externalCollectionRef, clientResultId, ...labData } = parseResult.data;
+
+          // Check for duplicate using clientResultId (idempotency)
+          if (clientResultId) {
+            const existing = await storage.getCollectionLabResultByClientResultId(clientResultId);
+            if (existing) {
+              batchResults.push({
+                index: i,
+                status: "skipped",
+                reason: "Duplicate clientResultId",
+                existingId: existing.id
+              });
+              skipped++;
+              continue;
+            }
+          }
+
+          // Resolve collection
+          const { collection, error: collectionError } = await resolveCollection(collectionId, externalCollectionRef);
+          
+          if (!collection) {
+            batchResults.push({
+              index: i,
+              status: "failed",
+              error: { code: "COLLECTION_NOT_FOUND", message: collectionError || "Collection not found" }
+            });
+            failed++;
+            continue;
+          }
+
+          // Create lab result
+          const result = await storage.createCollectionLabResult({
+            collectionId: collection.id,
+            clientResultId: clientResultId || null,
+            ...labData,
+            resultsDate: labData.resultsDate ? new Date(labData.resultsDate) : undefined,
+            dateOfCollection: labData.dateOfCollection ? new Date(labData.dateOfCollection) : undefined,
+            dateOfPrintingResults: labData.dateOfPrintingResults ? new Date(labData.dateOfPrintingResults) : undefined,
+            dateOfSendingResults: labData.dateOfSendingResults ? new Date(labData.dateOfSendingResults) : undefined,
+          });
+
+          batchResults.push({
+            index: i,
+            status: "created",
+            id: result.id,
+            collectionId: result.collectionId,
+            clientResultId: clientResultId || undefined
+          });
+          created++;
+
+        } catch (err) {
+          console.error(`Batch item ${i} error:`, err);
+          batchResults.push({
+            index: i,
+            status: "failed",
+            error: { code: "INTERNAL_ERROR", message: "Failed to process item" }
+          });
+          failed++;
+        }
+      }
+
+      const statusCode = failed > 0 && created > 0 ? 207 : (failed > 0 ? 400 : 200);
+
+      res.status(statusCode).json({
+        success: failed === 0,
+        summary: {
+          total: results.length,
+          created,
+          failed,
+          skipped
+        },
+        results: batchResults
+      });
+
+    } catch (error) {
+      console.error("Error processing batch lab results:", error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to process batch request"
+        }
+      });
+    }
+  });
+
+  // GET /api/v1/lab-results/:id - Get single lab result
+  app.get("/api/v1/lab-results/:id", requireApiKey, async (req, res) => {
+    try {
+      // Check permission
+      const apiKey = (req as any).apiKey;
+      if (!hasPermission(apiKey, "lab_results:read") && !hasPermission(apiKey, "lab_results:write")) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: "FORBIDDEN",
+            message: "API key does not have lab_results:read permission"
+          }
+        });
+      }
+
+      const result = await storage.getCollectionLabResultById(req.params.id);
+      
+      if (!result) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: "LAB_RESULT_NOT_FOUND",
+            message: "Lab result not found"
+          }
+        });
+      }
+
+      res.json({
+        success: true,
+        data: result
+      });
+
+    } catch (error) {
+      console.error("Error fetching lab result:", error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to fetch lab result"
+        }
+      });
+    }
+  });
+
+  // PATCH /api/v1/lab-results/:id - Update lab result
+  app.patch("/api/v1/lab-results/:id", requireApiKey, async (req, res) => {
+    try {
+      // Check permission
+      const apiKey = (req as any).apiKey;
+      if (!hasPermission(apiKey, "lab_results:write")) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: "FORBIDDEN",
+            message: "API key does not have lab_results:write permission"
+          }
+        });
+      }
+
+      const existing = await storage.getCollectionLabResultById(req.params.id);
+      
+      if (!existing) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: "LAB_RESULT_NOT_FOUND",
+            message: "Lab result not found"
+          }
+        });
+      }
+
+      const { collectionId, clientResultId, ...updateData } = req.body;
+
+      // Parse dates if provided
+      if (updateData.resultsDate) updateData.resultsDate = new Date(updateData.resultsDate);
+      if (updateData.dateOfCollection) updateData.dateOfCollection = new Date(updateData.dateOfCollection);
+      if (updateData.dateOfPrintingResults) updateData.dateOfPrintingResults = new Date(updateData.dateOfPrintingResults);
+      if (updateData.dateOfSendingResults) updateData.dateOfSendingResults = new Date(updateData.dateOfSendingResults);
+
+      const result = await storage.updateCollectionLabResult(req.params.id, updateData);
+
+      res.json({
+        success: true,
+        data: {
+          id: result?.id,
+          updatedAt: result?.updatedAt
+        },
+        message: "Lab result updated successfully"
+      });
+
+    } catch (error) {
+      console.error("Error updating lab result:", error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to update lab result"
+        }
+      });
+    }
+  });
+
+  // GET /api/v1/collections/:collectionId/lab-results - Get all lab results for a collection
+  app.get("/api/v1/collections/:collectionId/lab-results", requireApiKey, async (req, res) => {
+    try {
+      // Check permission
+      const apiKey = (req as any).apiKey;
+      if (!hasPermission(apiKey, "lab_results:read") && !hasPermission(apiKey, "lab_results:write")) {
+        return res.status(403).json({
+          success: false,
+          error: {
+            code: "FORBIDDEN",
+            message: "API key does not have lab_results:read permission"
+          }
+        });
+      }
+
+      const results = await storage.getCollectionLabResultsByCollection(req.params.collectionId);
+
+      res.json({
+        success: true,
+        data: results,
+        count: results.length
+      });
+
+    } catch (error) {
+      console.error("Error fetching collection lab results:", error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to fetch lab results"
+        }
+      });
+    }
+  });
+
+  // ========================================
+  // API Key Management (Admin only)
+  // ========================================
+
+  // Helper: Check if user has admin role (supports both legacy role field and roleId-based permissions)
+  const requireAdmin = async (req: Request, res: Response, next: NextFunction) => {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+    
+    // Check legacy role field first
+    if (user.role === "admin") {
+      return next();
+    }
+    
+    // Check role-based permissions via roleId if available
+    if (user.roleId) {
+      try {
+        const role = await storage.getRole(user.roleId);
+        if (role && role.name === "Admin") {
+          return next();
+        }
+      } catch (e) {
+        console.error("Error checking role permissions:", e);
+      }
+    }
+    
+    return res.status(403).json({ error: "Admin access required" });
+  };
+
+  // GET /api/api-keys - List all API keys
+  app.get("/api/api-keys", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const keys = await storage.getAllApiKeys();
+      // Don't expose the hash, only prefix and metadata
+      const safeKeys = keys.map(k => ({
+        id: k.id,
+        name: k.name,
+        keyPrefix: k.keyPrefix + "...",
+        permissions: k.permissions,
+        rateLimit: k.rateLimit,
+        isActive: k.isActive,
+        lastUsedAt: k.lastUsedAt,
+        expiresAt: k.expiresAt,
+        createdAt: k.createdAt
+      }));
+      res.json(safeKeys);
+    } catch (error) {
+      console.error("Error fetching API keys:", error);
+      res.status(500).json({ error: "Failed to fetch API keys" });
+    }
+  });
+
+  // POST /api/api-keys - Create new API key
+  app.post("/api/api-keys", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { name, permissions, rateLimit, expiresAt } = req.body;
+
+      if (!name) {
+        return res.status(400).json({ error: "Name is required" });
+      }
+
+      // Generate a new API key
+      const crypto = await import("crypto");
+      const apiKey = `idx_${crypto.randomBytes(32).toString("hex")}`;
+      const keyPrefix = apiKey.substring(0, 8);
+      const keyHash = crypto.createHash("sha256").update(apiKey).digest("hex");
+
+      const keyRecord = await storage.createApiKey({
+        name,
+        keyHash,
+        keyPrefix,
+        permissions: permissions || ["lab_results:write"],
+        rateLimit: rateLimit || 60,
+        isActive: true,
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        createdBy: (req as any).user?.id
+      });
+
+      // Return the key only once - it cannot be retrieved later
+      res.status(201).json({
+        id: keyRecord.id,
+        name: keyRecord.name,
+        apiKey, // Only returned once!
+        keyPrefix: keyRecord.keyPrefix,
+        permissions: keyRecord.permissions,
+        rateLimit: keyRecord.rateLimit,
+        expiresAt: keyRecord.expiresAt,
+        createdAt: keyRecord.createdAt,
+        message: "Save this API key securely - it will not be shown again"
+      });
+
+    } catch (error) {
+      console.error("Error creating API key:", error);
+      res.status(500).json({ error: "Failed to create API key" });
+    }
+  });
+
+  // DELETE /api/api-keys/:id - Deactivate API key
+  app.delete("/api/api-keys/:id", requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const success = await storage.deactivateApiKey(req.params.id);
+      
+      if (!success) {
+        return res.status(404).json({ error: "API key not found" });
+      }
+
+      res.json({ success: true, message: "API key deactivated" });
+
+    } catch (error) {
+      console.error("Error deactivating API key:", error);
+      res.status(500).json({ error: "Failed to deactivate API key" });
+    }
+  });
+
   return httpServer;
 }
 
