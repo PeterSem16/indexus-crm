@@ -1002,32 +1002,144 @@ export function CallCustomerButton({
 }
 
 interface SipPhoneHeaderButtonProps {
-  user: { sipEnabled?: boolean } | null;
+  user: { sipEnabled?: boolean; sipExtension?: string; sipPassword?: string } | null;
 }
 
 export function SipPhoneHeaderButton({ user }: SipPhoneHeaderButtonProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [registrationStatus, setRegistrationStatus] = useState<"idle" | "checking" | "registered" | "not_registered">("idle");
+  
+  const { data: sipSettings } = useQuery<{
+    server?: string;
+    port?: number;
+    wsPath?: string;
+    realm?: string;
+    transport?: string;
+    isEnabled?: boolean;
+  } | null>({
+    queryKey: ["/api/sip-settings"],
+    retry: false,
+  });
+
+  const checkRegistration = useCallback(async () => {
+    if (!sipSettings?.isEnabled || !user?.sipEnabled) {
+      setRegistrationStatus("idle");
+      return;
+    }
+    
+    if (!sipSettings?.server || !(user as any).sipExtension || !(user as any).sipPassword) {
+      setRegistrationStatus("not_registered");
+      return;
+    }
+
+    setRegistrationStatus("checking");
+
+    let userAgent: any = null;
+    let registerer: any = null;
+
+    try {
+      const { UserAgent, Registerer, RegistererState } = await import("sip.js");
+      
+      const serverHost = sipSettings.server;
+      const serverPort = sipSettings.port || 443;
+      const wsPath = sipSettings.wsPath || "/ws";
+      const realm = sipSettings.realm || sipSettings.server;
+      
+      const uri = UserAgent.makeURI(`sip:${(user as any).sipExtension}@${realm}`);
+      if (!uri) {
+        setRegistrationStatus("not_registered");
+        return;
+      }
+
+      const wsProtocol = sipSettings.transport === "ws" ? "ws" : "wss";
+      const transportOptions = {
+        server: `${wsProtocol}://${serverHost}:${serverPort}${wsPath}`
+      };
+
+      const userAgentOptions = {
+        authorizationPassword: (user as any).sipPassword,
+        authorizationUsername: (user as any).sipExtension,
+        displayName: (user as any).sipDisplayName || (user as any).sipExtension,
+        transportOptions,
+        uri
+      };
+
+      userAgent = new UserAgent(userAgentOptions);
+      await userAgent.start();
+
+      registerer = new Registerer(userAgent);
+      
+      const registrationPromise = new Promise<boolean>((resolve) => {
+        const timeout = setTimeout(() => {
+          resolve(false);
+        }, 8000);
+
+        registerer.stateChange.addListener((newState: any) => {
+          if (newState === RegistererState.Registered) {
+            clearTimeout(timeout);
+            resolve(true);
+          } else if (newState === RegistererState.Terminated) {
+            clearTimeout(timeout);
+            resolve(false);
+          }
+        });
+      });
+
+      await registerer.register();
+      const isRegistered = await registrationPromise;
+      
+      setRegistrationStatus(isRegistered ? "registered" : "not_registered");
+      
+    } catch (error) {
+      console.error("SIP registration check failed:", error);
+      setRegistrationStatus("not_registered");
+    } finally {
+      // Always clean up resources
+      try {
+        if (registerer) {
+          await registerer.unregister().catch(() => {});
+        }
+        if (userAgent) {
+          await userAgent.stop().catch(() => {});
+        }
+      } catch {
+        // Ignore cleanup errors
+      }
+    }
+  }, [user, sipSettings]);
+
+  useEffect(() => {
+    if (user?.sipEnabled && sipSettings?.isEnabled) {
+      checkRegistration();
+    }
+  }, [user?.sipEnabled, sipSettings?.isEnabled, checkRegistration]);
 
   if (!user?.sipEnabled) {
     return null;
   }
 
   return (
-    <>
-      <Button
-        size="icon"
-        variant="ghost"
-        onClick={() => setIsOpen(!isOpen)}
-        data-testid="button-header-sip-phone"
-      >
-        <Phone className="h-4 w-4" />
-      </Button>
-      
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-w-sm p-0 overflow-hidden">
-          <SipPhone />
-        </DialogContent>
-      </Dialog>
-    </>
+    <div className="flex items-center gap-1" data-testid="sip-phone-header-status">
+      <Phone className="h-4 w-4 text-muted-foreground" />
+      {registrationStatus === "checking" && (
+        <Badge variant="secondary" className="text-xs px-1.5 py-0">
+          <Loader2 className="h-3 w-3 animate-spin" />
+        </Badge>
+      )}
+      {registrationStatus === "registered" && (
+        <Badge variant="default" className="bg-green-600 text-xs px-1.5 py-0" data-testid="badge-sip-registered">
+          OK
+        </Badge>
+      )}
+      {registrationStatus === "not_registered" && (
+        <Badge variant="destructive" className="text-xs px-1.5 py-0" data-testid="badge-sip-not-registered">
+          !
+        </Badge>
+      )}
+      {registrationStatus === "idle" && (
+        <Badge variant="outline" className="text-xs px-1.5 py-0">
+          -
+        </Badge>
+      )}
+    </div>
   );
 }

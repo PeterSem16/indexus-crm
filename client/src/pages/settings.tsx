@@ -7,7 +7,7 @@ import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/auth-context";
 import { COUNTRIES, type ComplaintType, type CooperationType, type VipStatus, type HealthInsurance, type LeadScoringCriteria } from "@shared/schema";
 import { Separator } from "@/components/ui/separator";
-import { Droplets, Globe, Shield, Save, Loader2, Plus, Trash2, Settings2, Heart, FlaskConical, Pencil, Star, Target, RefreshCw, Phone } from "lucide-react";
+import { Droplets, Globe, Shield, Save, Loader2, Plus, Trash2, Settings2, Heart, FlaskConical, Pencil, Star, Target, RefreshCw, Phone, User } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -762,6 +762,322 @@ const defaultSipSettings: SipSettingsFormData = {
   isEnabled: false,
 };
 
+interface SipSettingsData {
+  server?: string;
+  port?: number;
+  wsPath?: string;
+  realm?: string;
+  transport?: string;
+  isEnabled?: boolean;
+}
+
+// SIP Profile Tab - User's personal SIP phone configuration
+function SipProfileTab() {
+  const { t } = useI18n();
+  const { toast } = useToast();
+  const { user } = useAuth();
+  
+  const [sipExtension, setSipExtension] = useState("");
+  const [sipPassword, setSipPassword] = useState("");
+  const [sipDisplayName, setSipDisplayName] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [isTestingRegistration, setIsTestingRegistration] = useState(false);
+  const [registrationStatus, setRegistrationStatus] = useState<"idle" | "testing" | "registered" | "failed">("idle");
+  const [registrationError, setRegistrationError] = useState<string | null>(null);
+
+  const { data: sipSettings } = useQuery<SipSettingsData | null>({
+    queryKey: ["/api/sip-settings"],
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (user) {
+      setSipExtension((user as any).sipExtension || "");
+      setSipPassword((user as any).sipPassword || "");
+      setSipDisplayName((user as any).sipDisplayName || user.fullName || "");
+    }
+  }, [user]);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await apiRequest("PATCH", "/api/users/me/sip-profile", {
+        sipExtension,
+        sipPassword,
+        sipDisplayName,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      toast({ title: t.settings.sipProfile.saved });
+      setRegistrationStatus("idle");
+    } catch (error: any) {
+      toast({ 
+        title: t.settings.sipProfile.saveFailed, 
+        description: error.message,
+        variant: "destructive" 
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const testRegistration = async () => {
+    if (!sipSettings?.server || !sipExtension || !sipPassword) {
+      toast({ 
+        title: t.settings.sipProfile.missingConfig,
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    setIsTestingRegistration(true);
+    setRegistrationStatus("testing");
+    setRegistrationError(null);
+
+    let userAgent: any = null;
+    let registerer: any = null;
+
+    try {
+      const { UserAgent, Registerer, RegistererState } = await import("sip.js");
+      
+      const serverHost = sipSettings.server;
+      const serverPort = sipSettings.port || 443;
+      const wsPath = sipSettings.wsPath || "/ws";
+      const realm = sipSettings.realm || sipSettings.server;
+      
+      const uri = UserAgent.makeURI(`sip:${sipExtension}@${realm}`);
+      if (!uri) {
+        throw new Error("Invalid SIP URI");
+      }
+
+      const wsProtocol = sipSettings.transport === "ws" ? "ws" : "wss";
+      const transportOptions = {
+        server: `${wsProtocol}://${serverHost}:${serverPort}${wsPath}`
+      };
+
+      const userAgentOptions = {
+        authorizationPassword: sipPassword,
+        authorizationUsername: sipExtension,
+        displayName: sipDisplayName || sipExtension,
+        transportOptions,
+        uri
+      };
+
+      userAgent = new UserAgent(userAgentOptions);
+      await userAgent.start();
+
+      registerer = new Registerer(userAgent);
+      
+      const registrationPromise = new Promise<boolean>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error("Registration timeout"));
+        }, 10000);
+
+        registerer.stateChange.addListener((newState: any) => {
+          if (newState === RegistererState.Registered) {
+            clearTimeout(timeout);
+            resolve(true);
+          } else if (newState === RegistererState.Terminated) {
+            clearTimeout(timeout);
+            reject(new Error("Registration terminated"));
+          }
+        });
+      });
+
+      await registerer.register();
+      await registrationPromise;
+      
+      setRegistrationStatus("registered");
+      toast({ title: t.settings.sipProfile.registrationSuccess });
+      
+    } catch (error: any) {
+      console.error("SIP registration test failed:", error);
+      setRegistrationStatus("failed");
+      setRegistrationError(error.message || "Registration failed");
+      toast({ 
+        title: t.settings.sipProfile.registrationFailed,
+        description: error.message,
+        variant: "destructive" 
+      });
+    } finally {
+      // Always clean up resources
+      try {
+        if (registerer) {
+          await registerer.unregister().catch(() => {});
+        }
+        if (userAgent) {
+          await userAgent.stop().catch(() => {});
+        }
+      } catch {
+        // Ignore cleanup errors
+      }
+      setIsTestingRegistration(false);
+    }
+  };
+
+  const isSipEnabled = (user as any)?.sipEnabled && sipSettings?.isEnabled;
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader className="flex flex-row items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+            <Phone className="h-6 w-6 text-primary" />
+          </div>
+          <div>
+            <CardTitle>{t.settings.sipProfile.title}</CardTitle>
+            <CardDescription>
+              {t.settings.sipProfile.description}
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {!isSipEnabled && (
+            <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-900 dark:bg-yellow-950">
+              <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                {t.settings.sipProfile.notEnabled}
+              </p>
+            </div>
+          )}
+
+          {isSipEnabled && (
+            <>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="sipExtension">{t.settings.sipProfile.extension}</Label>
+                  <Input
+                    id="sipExtension"
+                    value={sipExtension}
+                    onChange={(e) => setSipExtension(e.target.value)}
+                    placeholder="1001"
+                    data-testid="input-sip-extension"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {t.settings.sipProfile.extensionHelp}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="sipPassword">{t.settings.sipProfile.password}</Label>
+                  <Input
+                    id="sipPassword"
+                    type="password"
+                    value={sipPassword}
+                    onChange={(e) => setSipPassword(e.target.value)}
+                    placeholder="********"
+                    data-testid="input-sip-password"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="sipDisplayName">{t.settings.sipProfile.displayName}</Label>
+                <Input
+                  id="sipDisplayName"
+                  value={sipDisplayName}
+                  onChange={(e) => setSipDisplayName(e.target.value)}
+                  placeholder={user?.fullName || ""}
+                  data-testid="input-sip-display-name"
+                />
+                <p className="text-xs text-muted-foreground">
+                  {t.settings.sipProfile.displayNameHelp}
+                </p>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-medium">{t.settings.sipProfile.registrationStatus}</h4>
+                    <p className="text-xs text-muted-foreground">
+                      {t.settings.sipProfile.testDescription}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {registrationStatus === "registered" && (
+                      <Badge variant="default" className="bg-green-600">
+                        {t.settings.sipProfile.registered}
+                      </Badge>
+                    )}
+                    {registrationStatus === "failed" && (
+                      <Badge variant="destructive">
+                        {t.settings.sipProfile.notRegistered}
+                      </Badge>
+                    )}
+                    {registrationStatus === "testing" && (
+                      <Badge variant="secondary">
+                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                        {t.settings.sipProfile.testing}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+
+                {registrationError && (
+                  <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3">
+                    <p className="text-sm text-destructive">{registrationError}</p>
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={handleSave} 
+                    disabled={isSaving}
+                    data-testid="button-save-sip-profile"
+                  >
+                    {isSaving ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <Save className="h-4 w-4 mr-2" />
+                    )}
+                    {t.settings.sipProfile.save}
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={testRegistration} 
+                    disabled={isTestingRegistration || !sipExtension || !sipPassword}
+                    data-testid="button-test-sip-registration"
+                  >
+                    {isTestingRegistration ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                    )}
+                    {t.settings.sipProfile.testRegistration}
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {isSipEnabled && sipSettings && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{t.settings.sipProfile.serverInfo}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">{t.settings.sipProfile.server}:</span>
+                <span className="font-mono">{sipSettings.server}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">{t.settings.sipProfile.port}:</span>
+                <span className="font-mono">{sipSettings.port || 443}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">{t.settings.sipProfile.transport}:</span>
+                <span className="font-mono uppercase">{sipSettings.transport || "wss"}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 function SipSettingsTab() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -1065,6 +1381,10 @@ export default function SettingsPage() {
             <Phone className="h-4 w-4 mr-2" />
             SIP telefónia
           </TabsTrigger>
+          <TabsTrigger value="profile" data-testid="tab-profile">
+            <User className="h-4 w-4 mr-2" />
+            {t.settings.tabs.profile}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="config" className="mt-6 space-y-6">
@@ -1270,6 +1590,10 @@ export default function SettingsPage() {
 
         <TabsContent value="sip" className="mt-6">
           <SipSettingsTab />
+        </TabsContent>
+
+        <TabsContent value="profile" className="mt-6">
+          <SipProfileTab />
         </TabsContent>
       </Tabs>
     </div>

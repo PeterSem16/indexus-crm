@@ -1365,6 +1365,47 @@ export async function registerRoutes(
     }
   });
 
+  // Update current user's SIP profile settings
+  app.patch("/api/users/me/sip-profile", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session?.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { sipExtension, sipPassword, sipDisplayName } = req.body;
+      
+      const user = await storage.updateUser(userId, {
+        sipExtension: sipExtension || "",
+        sipPassword: sipPassword || "",
+        sipDisplayName: sipDisplayName || "",
+      });
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Update session
+      if (req.session.user) {
+        req.session.user = { 
+          ...req.session.user, 
+          sipExtension: user.sipExtension,
+          sipPassword: user.sipPassword,
+          sipDisplayName: user.sipDisplayName,
+        } as SafeUser;
+      }
+
+      res.json({ 
+        success: true, 
+        sipExtension: user.sipExtension,
+        sipDisplayName: user.sipDisplayName,
+      });
+    } catch (error) {
+      console.error("Error updating SIP profile:", error);
+      res.status(500).json({ error: "Failed to update SIP profile" });
+    }
+  });
+
   // Email images upload API
   app.post("/api/email-images", requireAuth, uploadEmailImage.single("image"), async (req, res) => {
     try {
