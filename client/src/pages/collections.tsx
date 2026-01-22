@@ -23,7 +23,7 @@ import {
 import { Link, useLocation, useRoute } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Collection, BillingDetails, Product, Customer, Collaborator, Hospital, ProductSet } from "@shared/schema";
+import type { Collection, BillingDetails, Product, Customer, Collaborator, Hospital, ProductSet, CollectionLabResult } from "@shared/schema";
 
 const dateLocales: Record<string, Locale> = {
   sk, cs, hu, ro, it, de, en: enUS
@@ -157,6 +157,39 @@ export default function CollectionsPage() {
 
   const { data: productSets = [] } = useQuery<ProductSet[]>({
     queryKey: ["/api/product-sets"],
+  });
+
+  const { data: labResults, isLoading: isLoadingLabResults } = useQuery<CollectionLabResult[]>({
+    queryKey: ["/api/collections", collectionId, "lab-results"],
+    queryFn: async () => {
+      const res = await fetch(`/api/collections/${collectionId}/lab-results`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: isEditing && !!collectionId,
+  });
+
+  const labResult = labResults?.[0];
+  const [labFormData, setLabFormData] = useState<Partial<CollectionLabResult>>({});
+
+  useEffect(() => {
+    if (labResult) {
+      setLabFormData(labResult);
+    }
+  }, [labResult]);
+
+  const labResultMutation = useMutation({
+    mutationFn: async (data: Partial<CollectionLabResult>) => {
+      const res = await apiRequest("POST", `/api/collections/${collectionId}/lab-results`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/collections", collectionId, "lab-results"] });
+      toast({ title: t.common.save });
+    },
+    onError: () => {
+      toast({ title: t.common.error, variant: "destructive" });
+    },
   });
 
   const selectedCustomer = customers.find(c => c.id === formData.customerId);
@@ -779,6 +812,245 @@ export default function CollectionsPage() {
     </div>
   );
 
+  const handleLabFieldChange = (field: keyof CollectionLabResult, value: string) => {
+    setLabFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveLabResults = () => {
+    labResultMutation.mutate({ ...labFormData, collectionId: collectionId! });
+  };
+
+  const labT = t.collections?.lab || {};
+
+  const renderLabResultsForm = () => (
+    <div className="space-y-6">
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium">{labT.basicInfo}</h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>{labT.usability}</Label>
+            <Input
+              value={labFormData.usability || ""}
+              onChange={(e) => handleLabFieldChange("usability", e.target.value)}
+              data-testid="input-lab-usability"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{labT.cbu}</Label>
+            <Input
+              value={labFormData.cbu || ""}
+              onChange={(e) => handleLabFieldChange("cbu", e.target.value)}
+              data-testid="input-lab-cbu"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{labT.collectionFor}</Label>
+            <Input
+              value={labFormData.collectionFor || ""}
+              onChange={(e) => handleLabFieldChange("collectionFor", e.target.value)}
+              data-testid="input-lab-collection-for"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{labT.processing}</Label>
+            <Input
+              value={labFormData.processing || ""}
+              onChange={(e) => handleLabFieldChange("processing", e.target.value)}
+              data-testid="input-lab-processing"
+            />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label>{labT.labNote}</Label>
+          <Textarea
+            value={labFormData.labNote || ""}
+            onChange={(e) => handleLabFieldChange("labNote", e.target.value)}
+            rows={3}
+            data-testid="input-lab-note"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium">{labT.sterilitySection}</h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>{labT.sterility}</Label>
+            <Input
+              value={labFormData.sterility || ""}
+              onChange={(e) => handleLabFieldChange("sterility", e.target.value)}
+              data-testid="input-lab-sterility"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{labT.sterilityType}</Label>
+            <Input
+              value={labFormData.sterilityType || ""}
+              onChange={(e) => handleLabFieldChange("sterilityType", e.target.value)}
+              data-testid="input-lab-sterility-type"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{labT.resultOfSterility}</Label>
+            <Input
+              value={labFormData.resultOfSterility || ""}
+              onChange={(e) => handleLabFieldChange("resultOfSterility", e.target.value)}
+              data-testid="input-lab-result-sterility"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{labT.infectionAgents}</Label>
+            <Input
+              value={labFormData.infectionAgents || ""}
+              onChange={(e) => handleLabFieldChange("infectionAgents", e.target.value)}
+              data-testid="input-lab-infection-agents"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium">{labT.volumeSection}</h3>
+        <div className="grid grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label>{labT.tncCount}</Label>
+            <Input
+              value={labFormData.tncCount || ""}
+              onChange={(e) => handleLabFieldChange("tncCount", e.target.value)}
+              data-testid="input-lab-tnc-count"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{labT.volume}</Label>
+            <Input
+              value={labFormData.volume || ""}
+              onChange={(e) => handleLabFieldChange("volume", e.target.value)}
+              data-testid="input-lab-volume"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{labT.volumeInBag}</Label>
+            <Input
+              value={labFormData.volumeInBag || ""}
+              onChange={(e) => handleLabFieldChange("volumeInBag", e.target.value)}
+              data-testid="input-lab-volume-bag"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium">{labT.tissueSection}</h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>{labT.umbilicalTissue}</Label>
+            <Input
+              value={labFormData.umbilicalTissue || ""}
+              onChange={(e) => handleLabFieldChange("umbilicalTissue", e.target.value)}
+              data-testid="input-lab-umbilical-tissue"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{labT.tissueProcessed}</Label>
+            <Input
+              value={labFormData.tissueProcessed || ""}
+              onChange={(e) => handleLabFieldChange("tissueProcessed", e.target.value)}
+              data-testid="input-lab-tissue-processed"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{labT.tissueSterility}</Label>
+            <Input
+              value={labFormData.tissueSterility || ""}
+              onChange={(e) => handleLabFieldChange("tissueSterility", e.target.value)}
+              data-testid="input-lab-tissue-sterility"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{labT.tissueUsability}</Label>
+            <Input
+              value={labFormData.tissueUsability || ""}
+              onChange={(e) => handleLabFieldChange("tissueUsability", e.target.value)}
+              data-testid="input-lab-tissue-usability"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-6">
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium">{labT.bagASection}</h3>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>{labT.bagAUsability}</Label>
+              <Input
+                value={labFormData.bagAUsability || ""}
+                onChange={(e) => handleLabFieldChange("bagAUsability", e.target.value)}
+                data-testid="input-lab-bag-a-usability"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{labT.bagAVolume}</Label>
+              <Input
+                value={labFormData.bagAVolume || ""}
+                onChange={(e) => handleLabFieldChange("bagAVolume", e.target.value)}
+                data-testid="input-lab-bag-a-volume"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{labT.bagATnc}</Label>
+              <Input
+                value={labFormData.bagATnc || ""}
+                onChange={(e) => handleLabFieldChange("bagATnc", e.target.value)}
+                data-testid="input-lab-bag-a-tnc"
+              />
+            </div>
+          </div>
+        </div>
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium">{labT.bagBSection}</h3>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>{labT.bagBUsability}</Label>
+              <Input
+                value={labFormData.bagBUsability || ""}
+                onChange={(e) => handleLabFieldChange("bagBUsability", e.target.value)}
+                data-testid="input-lab-bag-b-usability"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{labT.bagBVolume}</Label>
+              <Input
+                value={labFormData.bagBVolume || ""}
+                onChange={(e) => handleLabFieldChange("bagBVolume", e.target.value)}
+                data-testid="input-lab-bag-b-volume"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{labT.bagBTnc}</Label>
+              <Input
+                value={labFormData.bagBTnc || ""}
+                onChange={(e) => handleLabFieldChange("bagBTnc", e.target.value)}
+                data-testid="input-lab-bag-b-tnc"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex justify-end pt-4 border-t">
+        <Button 
+          onClick={handleSaveLabResults} 
+          disabled={labResultMutation.isPending}
+          data-testid="button-save-lab-results"
+        >
+          <Check className="h-4 w-4 mr-2" />
+          {t.common.save}
+        </Button>
+      </div>
+    </div>
+  );
+
   if (isNew) {
     return (
       <div className="p-6 space-y-6">
@@ -897,10 +1169,13 @@ export default function CollectionsPage() {
               <TabsContent value="collection">{renderCollectionForm()}</TabsContent>
               <TabsContent value="status">{renderStatusForm()}</TabsContent>
               <TabsContent value="lab">
-                <div className="text-center py-12 text-muted-foreground">
-                  <FlaskConical className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>{t.common.noData}</p>
-                </div>
+                {isLoadingLabResults ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  </div>
+                ) : (
+                  renderLabResultsForm()
+                )}
               </TabsContent>
             </Tabs>
 
