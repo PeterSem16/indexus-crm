@@ -21,7 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Unlock, Check, Hash, Info, X, DollarSign, Percent, Calculator, CreditCard, TrendingUp, Bell, CheckCircle2, XCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Unlock, Check, Hash, Info, X, DollarSign, Percent, Calculator, CreditCard, TrendingUp, Bell, CheckCircle2, XCircle, Key } from "lucide-react";
 import { COUNTRIES, CURRENCIES, getCurrencySymbol } from "@shared/schema";
 import { InvoiceDesigner, InvoiceDesignerConfig } from "@/components/invoice-designer";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -10734,6 +10734,375 @@ const departmentFormSchema = z.object({
 
 type DepartmentFormData = z.infer<typeof departmentFormSchema>;
 
+// API Keys management
+interface ApiKey {
+  id: string;
+  name: string;
+  keyPrefix: string;
+  permissions: string[];
+  expiresAt: string | null;
+  lastUsedAt: string | null;
+  createdAt: string;
+  isActive: boolean;
+}
+
+const apiKeyFormSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  permissions: z.array(z.string()).min(1, "At least one permission is required"),
+  expiresAt: z.string().optional().nullable(),
+});
+
+type ApiKeyFormData = z.infer<typeof apiKeyFormSchema>;
+
+function ApiKeysTab() {
+  const { t } = useI18n();
+  const { toast } = useToast();
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedApiKey, setSelectedApiKey] = useState<ApiKey | null>(null);
+  const [newApiKeyValue, setNewApiKeyValue] = useState<string | null>(null);
+  const [copiedKey, setCopiedKey] = useState(false);
+
+  const form = useForm<ApiKeyFormData>({
+    resolver: zodResolver(apiKeyFormSchema),
+    defaultValues: {
+      name: "",
+      permissions: ["lab_results:read", "lab_results:write"],
+      expiresAt: null,
+    },
+  });
+
+  const { data: apiKeys = [], isLoading } = useQuery<ApiKey[]>({
+    queryKey: ["/api/api-keys"],
+  });
+
+  const createApiKeyMutation = useMutation({
+    mutationFn: async (data: ApiKeyFormData) => {
+      const response = await apiRequest("POST", "/api/api-keys", data);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/api-keys"] });
+      setNewApiKeyValue(data.apiKey);
+      form.reset();
+      toast({
+        title: t.konfigurator.apiKeyCreated,
+      });
+    },
+    onError: () => {
+      toast({
+        title: t.common.error,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteApiKeyMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/api-keys/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/api-keys"] });
+      setIsDeleteDialogOpen(false);
+      setSelectedApiKey(null);
+      toast({
+        title: t.konfigurator.apiKeyDeleted,
+      });
+    },
+    onError: () => {
+      toast({
+        title: t.common.error,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleCreateApiKey = (data: ApiKeyFormData) => {
+    createApiKeyMutation.mutate(data);
+  };
+
+  const handleCopyApiKey = async () => {
+    if (newApiKeyValue) {
+      await navigator.clipboard.writeText(newApiKeyValue);
+      setCopiedKey(true);
+      toast({
+        title: t.konfigurator.apiKeyCopied,
+      });
+      setTimeout(() => setCopiedKey(false), 2000);
+    }
+  };
+
+  const handleCloseNewKeyDialog = () => {
+    setIsCreateDialogOpen(false);
+    setNewApiKeyValue(null);
+    setCopiedKey(false);
+  };
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "-";
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  const isExpired = (expiresAt: string | null) => {
+    if (!expiresAt) return false;
+    return new Date(expiresAt) < new Date();
+  };
+
+  const getPermissionLabel = (permission: string) => {
+    switch (permission) {
+      case "lab_results:read":
+        return t.konfigurator.apiKeyPermissionLabResultsRead;
+      case "lab_results:write":
+        return t.konfigurator.apiKeyPermissionLabResultsWrite;
+      case "*":
+        return t.konfigurator.apiKeyPermissionAll;
+      default:
+        return permission;
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button onClick={() => setIsCreateDialogOpen(true)} data-testid="button-add-api-key">
+          <Plus className="h-4 w-4 mr-2" />
+          {t.konfigurator.addApiKey}
+        </Button>
+      </div>
+
+      {apiKeys.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          <Key className="h-12 w-12 mx-auto mb-4 opacity-50" />
+          <p>{t.konfigurator.noApiKeys}</p>
+        </div>
+      ) : (
+        <div className="border rounded-lg">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b bg-muted/50">
+                <th className="text-left p-3 font-medium">{t.konfigurator.apiKeyName}</th>
+                <th className="text-left p-3 font-medium">{t.konfigurator.apiKeyPrefix}</th>
+                <th className="text-left p-3 font-medium">{t.konfigurator.apiKeyPermissions}</th>
+                <th className="text-left p-3 font-medium">{t.konfigurator.apiKeyExpires}</th>
+                <th className="text-left p-3 font-medium">{t.konfigurator.apiKeyLastUsed}</th>
+                <th className="text-left p-3 font-medium">{t.common.status}</th>
+                <th className="text-right p-3 font-medium">{t.common.actions}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {apiKeys.map((apiKey) => (
+                <tr key={apiKey.id} className="border-b last:border-b-0" data-testid={`row-api-key-${apiKey.id}`}>
+                  <td className="p-3 font-medium">{apiKey.name}</td>
+                  <td className="p-3">
+                    <code className="bg-muted px-2 py-1 rounded text-sm">{apiKey.keyPrefix}...</code>
+                  </td>
+                  <td className="p-3">
+                    <div className="flex flex-wrap gap-1">
+                      {apiKey.permissions.map((perm) => (
+                        <Badge key={perm} variant="secondary" className="text-xs">
+                          {getPermissionLabel(perm)}
+                        </Badge>
+                      ))}
+                    </div>
+                  </td>
+                  <td className="p-3">
+                    {apiKey.expiresAt ? formatDate(apiKey.expiresAt) : t.konfigurator.apiKeyNeverExpires}
+                  </td>
+                  <td className="p-3">
+                    {apiKey.lastUsedAt ? formatDate(apiKey.lastUsedAt) : t.konfigurator.apiKeyNeverUsed}
+                  </td>
+                  <td className="p-3">
+                    {isExpired(apiKey.expiresAt) ? (
+                      <Badge variant="destructive">{t.konfigurator.apiKeyExpired}</Badge>
+                    ) : apiKey.isActive ? (
+                      <Badge variant="default" className="bg-green-600">{t.konfigurator.apiKeyActive}</Badge>
+                    ) : (
+                      <Badge variant="secondary">{t.common.inactive}</Badge>
+                    )}
+                  </td>
+                  <td className="p-3 text-right">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setSelectedApiKey(apiKey);
+                        setIsDeleteDialogOpen(true);
+                      }}
+                      data-testid={`button-delete-api-key-${apiKey.id}`}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <Dialog open={isCreateDialogOpen && !newApiKeyValue} onOpenChange={(open) => !open && handleCloseNewKeyDialog()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t.konfigurator.createApiKey}</DialogTitle>
+            <DialogDescription>{t.konfigurator.apiKeysDescription}</DialogDescription>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleCreateApiKey)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t.konfigurator.apiKeyName}</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Lab System Integration" data-testid="input-api-key-name" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="permissions"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t.konfigurator.apiKeyPermissions}</FormLabel>
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="perm-read"
+                          checked={field.value.includes("lab_results:read")}
+                          onCheckedChange={(checked) => {
+                            const newValue = checked
+                              ? [...field.value, "lab_results:read"]
+                              : field.value.filter((p) => p !== "lab_results:read");
+                            field.onChange(newValue);
+                          }}
+                          data-testid="checkbox-permission-read"
+                        />
+                        <Label htmlFor="perm-read">{t.konfigurator.apiKeyPermissionLabResultsRead}</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="perm-write"
+                          checked={field.value.includes("lab_results:write")}
+                          onCheckedChange={(checked) => {
+                            const newValue = checked
+                              ? [...field.value, "lab_results:write"]
+                              : field.value.filter((p) => p !== "lab_results:write");
+                            field.onChange(newValue);
+                          }}
+                          data-testid="checkbox-permission-write"
+                        />
+                        <Label htmlFor="perm-write">{t.konfigurator.apiKeyPermissionLabResultsWrite}</Label>
+                      </div>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="expiresAt"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t.konfigurator.apiKeyExpiresAt}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="date"
+                        value={field.value || ""}
+                        onChange={(e) => field.onChange(e.target.value || null)}
+                        data-testid="input-api-key-expires"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={handleCloseNewKeyDialog}>
+                  {t.common.cancel}
+                </Button>
+                <Button type="submit" disabled={createApiKeyMutation.isPending} data-testid="button-create-api-key">
+                  {createApiKeyMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  {t.konfigurator.createApiKey}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!newApiKeyValue} onOpenChange={(open) => !open && handleCloseNewKeyDialog()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t.konfigurator.apiKeyCreated}</DialogTitle>
+            <DialogDescription className="text-amber-600 font-medium">
+              {t.konfigurator.apiKeyCopyWarning}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Input
+                value={newApiKeyValue || ""}
+                readOnly
+                className="font-mono text-sm"
+                data-testid="input-new-api-key-value"
+              />
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleCopyApiKey}
+                data-testid="button-copy-api-key"
+              >
+                {copiedKey ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+              </Button>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleCloseNewKeyDialog} data-testid="button-close-api-key-dialog">
+              {t.common.close}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t.konfigurator.confirmDeleteApiKey}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t.konfigurator.deleteApiKeyConfirmMessage}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t.common.cancel}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => selectedApiKey && deleteApiKeyMutation.mutate(selectedApiKey.id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete-api-key"
+            >
+              {deleteApiKeyMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {t.common.delete}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
 function NotificationsTab() {
   return <NotificationRulesManager />;
 }
@@ -13643,7 +14012,7 @@ export default function ConfiguratorPage() {
       />
       
       <Tabs defaultValue="products" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-8 max-w-7xl">
+        <TabsList className="grid w-full grid-cols-9 max-w-7xl">
           <TabsTrigger value="products" className="flex items-center gap-2" data-testid="tab-products">
             <Package className="h-4 w-4" />
             {t.products.title}
@@ -13671,6 +14040,10 @@ export default function ConfiguratorPage() {
           <TabsTrigger value="notifications" className="flex items-center gap-2" data-testid="tab-notifications">
             <Bell className="h-4 w-4" />
             Notifikácie
+          </TabsTrigger>
+          <TabsTrigger value="api-keys" className="flex items-center gap-2" data-testid="tab-api-keys">
+            <Key className="h-4 w-4" />
+            {t.konfigurator.apiKeys}
           </TabsTrigger>
           <TabsTrigger value="permissions" className="flex items-center gap-2" data-testid="tab-permissions">
             <Shield className="h-4 w-4" />
@@ -13826,6 +14199,18 @@ export default function ConfiguratorPage() {
             </CardHeader>
             <CardContent>
               <NotificationsTab />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="api-keys">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t.konfigurator.apiKeys}</CardTitle>
+              <CardDescription>{t.konfigurator.apiKeysDescription}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ApiKeysTab />
             </CardContent>
           </Card>
         </TabsContent>
