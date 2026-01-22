@@ -10762,8 +10762,8 @@ interface AlertRule {
   comparisonOperator: string;
   thresholdValue: number;
   checkFrequency: string;
-  priority: string;
-  targetUserType: string;
+  notificationPriority: string;
+  targetType: string;
   targetRoles: string[] | null;
   targetUserIds: string[] | null;
   countryCodes: string[] | null;
@@ -10782,8 +10782,8 @@ const alertRuleFormSchema = z.object({
   comparisonOperator: z.string().min(1, "Operator is required"),
   thresholdValue: z.number().min(0, "Threshold must be positive"),
   checkFrequency: z.string().min(1, "Frequency is required"),
-  priority: z.string().default("medium"),
-  targetUserType: z.string().default("all"),
+  notificationPriority: z.string().default("high"),
+  targetType: z.string().default("all"),
   cooldownMinutes: z.number().min(1).default(60),
   isActive: z.boolean().default(true),
 });
@@ -10825,8 +10825,8 @@ function AlertRulesTab() {
       comparisonOperator: "gt",
       thresholdValue: 0,
       checkFrequency: "daily",
-      priority: "medium",
-      targetUserType: "all",
+      notificationPriority: "high",
+      targetType: "all",
       cooldownMinutes: 60,
       isActive: true,
     },
@@ -10908,8 +10908,8 @@ function AlertRulesTab() {
       comparisonOperator: rule.comparisonOperator,
       thresholdValue: rule.thresholdValue,
       checkFrequency: rule.checkFrequency,
-      priority: rule.priority,
-      targetUserType: rule.targetUserType,
+      notificationPriority: rule.notificationPriority,
+      targetType: rule.targetType,
       cooldownMinutes: rule.cooldownMinutes,
       isActive: rule.isActive,
     });
@@ -11074,7 +11074,7 @@ function AlertRulesTab() {
 
                   <FormField
                     control={form.control}
-                    name="priority"
+                    name="notificationPriority"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>{t.alerts?.priority || "Priority"}</FormLabel>
@@ -11166,7 +11166,7 @@ function AlertRulesTab() {
                       {rule.isActive ? (t.alerts?.active || "Active") : (t.alerts?.inactive || "Inactive")}
                     </Badge>
                     <Badge variant="outline" className="text-xs">
-                      {rule.priority}
+                      {rule.notificationPriority}
                     </Badge>
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">
@@ -11337,7 +11337,7 @@ function AlertRulesTab() {
 
                 <FormField
                   control={form.control}
-                  name="priority"
+                  name="notificationPriority"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>{t.alerts?.priority || "Priority"}</FormLabel>

@@ -199,7 +199,7 @@ function isInCooldown(lastAlertedAt: Date | null, cooldownMinutes: number): bool
 }
 
 async function getTargetUserIds(rule: {
-  targetUserType: string;
+  targetType: string;
   targetRoles: string[] | null;
   targetUserIds: string[] | null;
   countryCodes: string[] | null;
@@ -213,7 +213,7 @@ async function getTargetUserIds(rule: {
       baseConditions.push(inArray(users.countryCode, rule.countryCodes));
     }
     
-    if (rule.targetUserType === 'specific_users' && rule.targetUserIds?.length) {
+    if (rule.targetType === 'specific_users' && rule.targetUserIds?.length) {
       // For specific users, also apply country filter if specified
       const specificUserResults = await db.select({ id: users.id })
         .from(users)
@@ -224,7 +224,7 @@ async function getTargetUserIds(rule: {
       return specificUserResults.map(r => r.id);
     }
     
-    if (rule.targetUserType === 'role' && rule.targetRoles?.length) {
+    if (rule.targetType === 'role' && rule.targetRoles?.length) {
       // For role-based targeting with optional country filter
       const roleResults = await db.select({ id: users.id })
         .from(users)
@@ -321,8 +321,8 @@ export async function evaluateAlerts(): Promise<void> {
                 type: 'system_alert',
                 title: rule.name,
                 message: `${getMetricLabel(rule.metricType)}: ${metricValue} ${getOperatorLabel(rule.comparisonOperator)} ${rule.thresholdValue}`,
-                priority: rule.priority === 'critical' ? 'urgent' : 
-                         rule.priority === 'high' ? 'high' : 'normal',
+                priority: rule.notificationPriority === 'urgent' ? 'urgent' : 
+                         rule.notificationPriority === 'high' ? 'high' : 'normal',
                 entityType: 'alert',
                 entityId: alertInstance.id,
                 metadata: {
