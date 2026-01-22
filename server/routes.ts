@@ -17348,6 +17348,33 @@ Guidelines:
     return res.status(403).json({ error: "Admin access required" });
   };
 
+  // Helper: Check if user has admin or manager role
+  const requireAdminOrManager = async (req: Request, res: Response, next: NextFunction) => {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(403).json({ error: "Admin or Manager access required" });
+    }
+    
+    // Check legacy role field first
+    if (user.role === "admin" || user.role === "manager") {
+      return next();
+    }
+    
+    // Check role-based permissions via roleId if available
+    if (user.roleId) {
+      try {
+        const role = await storage.getRole(user.roleId);
+        if (role && (role.name === "Admin" || role.name === "Manager")) {
+          return next();
+        }
+      } catch (e) {
+        console.error("Error checking role permissions:", e);
+      }
+    }
+    
+    return res.status(403).json({ error: "Admin or Manager access required" });
+  };
+
   // GET /api/api-keys - List all API keys
   app.get("/api/api-keys", requireAuth, requireAdmin, async (req, res) => {
     try {
@@ -17472,7 +17499,7 @@ Guidelines:
   });
 
   // POST /api/alert-rules - Create new alert rule
-  app.post("/api/alert-rules", requireAuth, requireAdmin, async (req, res) => {
+  app.post("/api/alert-rules", requireAuth, requireAdminOrManager, async (req, res) => {
     try {
       const { 
         name, 
@@ -17519,7 +17546,7 @@ Guidelines:
   });
 
   // PATCH /api/alert-rules/:id - Update alert rule
-  app.patch("/api/alert-rules/:id", requireAuth, requireAdmin, async (req, res) => {
+  app.patch("/api/alert-rules/:id", requireAuth, requireAdminOrManager, async (req, res) => {
     try {
       const rule = await storage.updateAlertRule(req.params.id, req.body);
       if (!rule) {
@@ -17533,7 +17560,7 @@ Guidelines:
   });
 
   // DELETE /api/alert-rules/:id - Delete alert rule
-  app.delete("/api/alert-rules/:id", requireAuth, requireAdmin, async (req, res) => {
+  app.delete("/api/alert-rules/:id", requireAuth, requireAdminOrManager, async (req, res) => {
     try {
       const success = await storage.deleteAlertRule(req.params.id);
       if (!success) {
@@ -17547,7 +17574,7 @@ Guidelines:
   });
 
   // POST /api/alert-rules/:id/toggle - Toggle alert rule active status
-  app.post("/api/alert-rules/:id/toggle", requireAuth, requireAdmin, async (req, res) => {
+  app.post("/api/alert-rules/:id/toggle", requireAuth, requireAdminOrManager, async (req, res) => {
     try {
       const rule = await storage.getAlertRule(req.params.id);
       if (!rule) {
