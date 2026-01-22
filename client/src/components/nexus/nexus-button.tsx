@@ -77,7 +77,6 @@ export function NexusButton({ nexusEnabled }: NexusButtonProps) {
             data-testid="button-nexus-open"
           >
             <NexusIcon className="h-6 w-6" animate />
-            <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-background animate-pulse" />
           </Button>
         </TooltipTrigger>
         <TooltipContent>
