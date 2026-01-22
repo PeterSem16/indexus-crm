@@ -1,0 +1,226 @@
+import { storage } from "./storage";
+import { db } from "./db";
+import { collections, collectionLabResults, customers, invoices, tasks, apiKeys } from "@shared/schema";
+import { eq, sql, and, isNull, lt, gte, lte } from "drizzle-orm";
+
+type MetricType = 
+  | 'pending_lab_results'
+  | 'collections_without_hospital'
+  | 'overdue_collections'
+  | 'pending_evaluations'
+  | 'expiring_api_keys'
+  | 'inactive_customers'
+  | 'upcoming_collection_dates'
+  | 'low_collection_rate'
+  | 'pending_invoices'
+  | 'overdue_tasks';
+
+type ComparisonOperator = 'gt' | 'gte' | 'lt' | 'lte' | 'eq' | 'neq';
+type CheckFrequency = 'hourly' | 'every_6_hours' | 'daily' | 'weekly';
+
+const frequencyInMs: Record<CheckFrequency, number> = {
+  'hourly': 60 * 60 * 1000,
+  'every_6_hours': 6 * 60 * 60 * 1000,
+  'daily': 24 * 60 * 60 * 1000,
+  'weekly': 7 * 24 * 60 * 60 * 1000
+};
+
+async function evaluateMetric(metricType: MetricType, countryCodes?: string[]): Promise<number> {
+  switch (metricType) {
+    case 'pending_lab_results': {
+      const result = await db.select({ count: sql<number>`count(*)` })
+        .from(collections)
+        .leftJoin(collectionLabResults, eq(collections.id, collectionLabResults.collectionId))
+        .where(isNull(collectionLabResults.id));
+      return Number(result[0]?.count || 0);
+    }
+    
+    case 'collections_without_hospital': {
+      const result = await db.select({ count: sql<number>`count(*)` })
+        .from(collections)
+        .where(isNull(collections.hospitalId));
+      return Number(result[0]?.count || 0);
+    }
+    
+    case 'overdue_collections': {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const result = await db.select({ count: sql<number>`count(*)` })
+        .from(collections)
+        .where(and(
+          eq(collections.state, 'pending'),
+          lt(collections.createdAt, sevenDaysAgo)
+        ));
+      return Number(result[0]?.count || 0);
+    }
+    
+    case 'pending_evaluations': {
+      const result = await db.select({ count: sql<number>`count(*)` })
+        .from(collections)
+        .where(eq(collections.state, 'pending_evaluation'));
+      return Number(result[0]?.count || 0);
+    }
+    
+    case 'expiring_api_keys': {
+      const thirtyDaysFromNow = new Date();
+      thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+      const result = await db.select({ count: sql<number>`count(*)` })
+        .from(apiKeys)
+        .where(and(
+          eq(apiKeys.isActive, true),
+          lte(apiKeys.expiresAt, thirtyDaysFromNow)
+        ));
+      return Number(result[0]?.count || 0);
+    }
+    
+    case 'inactive_customers': {
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+      const result = await db.select({ count: sql<number>`count(*)` })
+        .from(customers)
+        .where(
+          lt(customers.createdAt, sixMonthsAgo)
+        );
+      return Number(result[0]?.count || 0);
+    }
+    
+    case 'upcoming_collection_dates': {
+      const sevenDaysFromNow = new Date();
+      sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+      const result = await db.select({ count: sql<number>`count(*)` })
+        .from(collections)
+        .where(and(
+          eq(collections.state, 'scheduled'),
+          gte(collections.collectionDate, new Date()),
+          lte(collections.collectionDate, sevenDaysFromNow)
+        ));
+      return Number(result[0]?.count || 0);
+    }
+    
+    case 'low_collection_rate': {
+      const lastMonth = new Date();
+      lastMonth.setMonth(lastMonth.getMonth() - 1);
+      const result = await db.select({ count: sql<number>`count(*)` })
+        .from(collections)
+        .where(gte(collections.createdAt, lastMonth));
+      return Number(result[0]?.count || 0);
+    }
+    
+    case 'pending_invoices': {
+      const result = await db.select({ count: sql<number>`count(*)` })
+        .from(invoices)
+        .where(eq(invoices.status, 'pending'));
+      return Number(result[0]?.count || 0);
+    }
+    
+    case 'overdue_tasks': {
+      const now = new Date();
+      const result = await db.select({ count: sql<number>`count(*)` })
+        .from(tasks)
+        .where(and(
+          eq(tasks.status, 'pending'),
+          lt(tasks.dueDate, now)
+        ));
+      return Number(result[0]?.count || 0);
+    }
+    
+    default:
+      return 0;
+  }
+}
+
+function compareValue(value: number, operator: ComparisonOperator, threshold: number): boolean {
+  switch (operator) {
+    case 'gt': return value > threshold;
+    case 'gte': return value >= threshold;
+    case 'lt': return value < threshold;
+    case 'lte': return value <= threshold;
+    case 'eq': return value === threshold;
+    case 'neq': return value !== threshold;
+    default: return false;
+  }
+}
+
+function shouldCheck(lastCheckedAt: Date | null, frequency: CheckFrequency): boolean {
+  if (!lastCheckedAt) return true;
+  const timeSinceLastCheck = Date.now() - lastCheckedAt.getTime();
+  return timeSinceLastCheck >= frequencyInMs[frequency];
+}
+
+function isInCooldown(lastAlertedAt: Date | null, cooldownMinutes: number): boolean {
+  if (!lastAlertedAt) return false;
+  const cooldownMs = cooldownMinutes * 60 * 1000;
+  return Date.now() - lastAlertedAt.getTime() < cooldownMs;
+}
+
+export async function evaluateAlerts(): Promise<void> {
+  try {
+    const activeRules = await storage.getActiveAlertRules();
+    
+    for (const rule of activeRules) {
+      try {
+        const frequency = rule.checkFrequency as CheckFrequency;
+        if (!shouldCheck(rule.lastCheckedAt, frequency)) {
+          continue;
+        }
+
+        await storage.updateAlertRuleLastChecked(rule.id);
+
+        if (isInCooldown(rule.lastAlertedAt, rule.cooldownMinutes || 60)) {
+          continue;
+        }
+
+        const metricValue = await evaluateMetric(
+          rule.metricType as MetricType,
+          rule.countryCodes || undefined
+        );
+
+        const operator = rule.comparisonOperator as ComparisonOperator;
+        const shouldAlert = compareValue(metricValue, operator, rule.thresholdValue);
+
+        if (shouldAlert) {
+          await storage.createAlertInstance({
+            alertRuleId: rule.id,
+            metricValue,
+            thresholdValue: rule.thresholdValue,
+            status: 'active',
+            notificationsSent: 0
+          });
+
+          await storage.updateAlertRuleLastAlerted(rule.id);
+
+          console.log(`[AlertEvaluator] Alert triggered for rule "${rule.name}": value=${metricValue}, threshold=${rule.thresholdValue}`);
+        }
+      } catch (ruleError) {
+        console.error(`[AlertEvaluator] Error evaluating rule "${rule.name}":`, ruleError);
+      }
+    }
+  } catch (error) {
+    console.error("[AlertEvaluator] Error in alert evaluation:", error);
+  }
+}
+
+let evaluationInterval: ReturnType<typeof setInterval> | null = null;
+
+export function startAlertEvaluator(intervalMs: number = 60 * 1000): void {
+  if (evaluationInterval) {
+    console.log("[AlertEvaluator] Evaluator already running");
+    return;
+  }
+
+  console.log(`[AlertEvaluator] Starting alert evaluator with ${intervalMs}ms interval`);
+  
+  evaluateAlerts();
+
+  evaluationInterval = setInterval(() => {
+    evaluateAlerts();
+  }, intervalMs);
+}
+
+export function stopAlertEvaluator(): void {
+  if (evaluationInterval) {
+    clearInterval(evaluationInterval);
+    evaluationInterval = null;
+    console.log("[AlertEvaluator] Alert evaluator stopped");
+  }
+}
