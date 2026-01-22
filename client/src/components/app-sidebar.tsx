@@ -20,7 +20,8 @@ import {
   Mail,
   Network,
   MapPin,
-  BarChart3
+  BarChart3,
+  Syringe
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/contexts/permissions-context";
@@ -81,6 +82,7 @@ export function AppSidebar() {
     { title: t.nav.collaborators, url: "/collaborators", testId: "collaborators", moduleKey: "collaborators" },
     { title: t.nav.visitEvents, url: "/visit-events", testId: "visit-events", moduleKey: "visitEvents" },
     { title: t.nav.collaboratorReports, url: "/collaborator-reports", testId: "collaborator-reports", moduleKey: "collaborators" },
+    { title: t.nav.collections, url: "/collections", testId: "collections", moduleKey: "collections" },
   ];
   
   const adminNavItems = [

@@ -16216,8 +16216,8 @@ Guidelines:
       const user = req.session.user!;
       let countryCodes: string[] = [];
       
-      if (user.role !== "admin" && user.countryCodes && user.countryCodes.length > 0) {
-        countryCodes = user.countryCodes;
+      if (user.role !== "admin" && user.assignedCountries && user.assignedCountries.length > 0) {
+        countryCodes = user.assignedCountries;
       }
       
       const coll = await storage.getCollectionsByCountry(countryCodes);

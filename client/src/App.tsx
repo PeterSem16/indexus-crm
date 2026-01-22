@@ -41,6 +41,7 @@ import MS365IntegrationPage from "@/pages/ms365-integration";
 import EmailClientPage from "@/pages/email-client";
 import LandingPage from "@/pages/landing";
 import MobilePreview from "@/pages/mobile-preview";
+import CollectionsPage from "@/pages/collections";
 import NotFound from "@/pages/not-found";
 import { Loader2 } from "lucide-react";
 
@@ -142,6 +143,9 @@ function AuthenticatedApp() {
                     <Route path="/visit-events" component={VisitEventsPage} />
                     <Route path="/collaborators" component={CollaboratorsPage} />
                     <Route path="/collaborator-reports" component={CollaboratorReportsPage} />
+                    <Route path="/collections" component={CollectionsPage} />
+                    <Route path="/collections/new" component={CollectionsPage} />
+                    <Route path="/collections/:id" component={CollectionsPage} />
                     <Route path="/campaigns" component={CampaignsPage} />
                     <Route path="/campaigns/:id" component={CampaignDetailPage} />
                     <Route path="/pipeline" component={PipelinePage} />
