@@ -127,7 +127,7 @@ export default function CollectionsPage() {
   const dateFnsLocale = dateLocales[locale] || enUS;
 
   const { data: collections = [], isLoading } = useQuery<Collection[]>({
-    queryKey: ["/api/collections", selectedCountries.join(",")],
+    queryKey: ["/api/collections"],
   });
 
   const { data: collection, isLoading: isLoadingCollection } = useQuery<Collection>({
