@@ -1,10 +1,15 @@
-# INDEXUS Lab Results API Documentation
+# INDEXUS External API Documentation
 
 ## Overview
 
-This API allows external laboratory systems (PHP or other) to submit lab results to the INDEXUS CRM system. Results are stored in the `collection_lab_results` table and linked to existing collections.
+This API allows external laboratory systems (PHP or other) at **indexus.cordbloodcenter.com** to integrate with the INDEXUS CRM system. The API provides endpoints for:
 
-**Base URL:** `https://your-domain.com/api/v1`
+1. **Lab Results API** - Submit and manage laboratory results for cord blood collections
+2. **Collections API** - Manage cord blood collection records directly
+
+Results are stored in the `collection_lab_results` table and linked to existing collections.
+
+**Base URL:** `https://indexus.cordbloodcenter.com/api/v1`
 
 **Content-Type:** `application/json`
 
@@ -566,7 +571,7 @@ class IndexusLabResultsClient
     private string $apiKey;
     private string $baseUrl;
     
-    public function __construct(string $apiKey, string $baseUrl = 'https://your-domain.com/api/v1')
+    public function __construct(string $apiKey, string $baseUrl = 'https://indexus.cordbloodcenter.com/api/v1')
     {
         $this->apiKey = $apiKey;
         $this->baseUrl = $baseUrl;
@@ -879,11 +884,198 @@ Create a new collection. Only `countryCode` is required; all other fields are op
 
 ---
 
+## Collections API - Complete Field Reference
+
+All fields except `countryCode` (for creation) are optional. Fields can be updated individually or in groups.
+
+### Client Information
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `customerId` | UUID | Link to existing customer record in CRM |
+| `clientFirstName` | string | Client/mother first name |
+| `clientLastName` | string | Client/mother last name |
+| `clientPhone` | string | Client landline phone |
+| `clientMobile` | string | Client mobile phone |
+| `clientBirthNumber` | string | Client birth number/personal ID |
+| `clientBirthDay` | integer | Birth day (1-31) |
+| `clientBirthMonth` | integer | Birth month (1-12) |
+| `clientBirthYear` | integer | Birth year (4 digits) |
+
+### Child Information
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `childFirstName` | string | Child first name |
+| `childLastName` | string | Child last name |
+| `childGender` | enum | Gender: `male`, `female`, `M`, `F` |
+
+### Collection Identifiers
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `legacyId` | string | Legacy system ID for migration |
+| `cbuNumber` | string | CBU reference number (main identifier) |
+| `countryCode` | string(2) | ISO country code: SK, CZ, HU, RO, IT, DE, US |
+| `certificate` | string | Certificate reference number |
+
+### Billing & Product
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `billingCompanyId` | UUID | Billing company reference |
+| `productId` | UUID | Selected product |
+| `billsetId` | UUID | Selected billset for pricing |
+| `contractId` | UUID | Associated contract |
+
+### Medical Staff
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `hospitalId` | UUID | Hospital where collection occurred |
+| `laboratoryId` | UUID | Processing laboratory |
+| `cordBloodCollectorId` | UUID | Staff who collected cord blood |
+| `tissueCollectorId` | UUID | Staff who collected tissue |
+| `placentaCollectorId` | UUID | Staff who collected placenta |
+| `assistantNurseId` | UUID | Assistant nurse |
+| `secondNurseId` | UUID | Second nurse |
+| `representativeId` | UUID | INDEXUS representative |
+| `responsibleCoordinatorId` | UUID | Responsible coordinator |
+
+### Status Timestamps
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `statusCreatedAt` | ISO8601 | When collection was created |
+| `statusPairedAt` | ISO8601 | When paired with sample |
+| `statusEvaluatedAt` | ISO8601 | When lab evaluation completed |
+| `statusVerifiedAt` | ISO8601 | When verified by supervisor |
+| `statusStoredAt` | ISO8601 | When stored in cryo |
+| `statusTransferredAt` | ISO8601 | When transferred to another facility |
+| `statusReleasedAt` | ISO8601 | When released for use |
+| `statusAwaitingDisposalAt` | ISO8601 | When marked for disposal |
+| `statusDisposedAt` | ISO8601 | When disposed |
+
+### Other Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `collectionDate` | ISO8601 | Date/time of collection |
+| `state` | string | Current workflow state |
+| `doctorNote` | string | Notes from doctor |
+| `note` | string | General notes |
+
+---
+
+## PHP Integration Example - Collections
+
+### Get Collection by CBU
+
+```php
+<?php
+
+class IndexusCollectionsClient
+{
+    private string $apiKey;
+    private string $baseUrl;
+    
+    public function __construct(string $apiKey, string $baseUrl = 'https://indexus.cordbloodcenter.com/api/v1')
+    {
+        $this->apiKey = $apiKey;
+        $this->baseUrl = $baseUrl;
+    }
+    
+    private function request(string $method, string $endpoint, ?array $data = null): array
+    {
+        $ch = curl_init($this->baseUrl . $endpoint);
+        
+        $options = [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                'Authorization: Bearer ' . $this->apiKey,
+            ],
+        ];
+        
+        if ($method === 'POST' || $method === 'PATCH') {
+            $options[CURLOPT_CUSTOMREQUEST] = $method;
+            $options[CURLOPT_POSTFIELDS] = json_encode($data);
+        }
+        
+        curl_setopt_array($ch, $options);
+        
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        
+        $result = json_decode($response, true);
+        
+        if ($httpCode >= 400) {
+            throw new Exception($result['error']['message'] ?? 'API Error', $httpCode);
+        }
+        
+        return $result;
+    }
+    
+    public function getCollectionByCbu(string $cbuNumber): array
+    {
+        return $this->request('GET', '/collections/by-cbu/' . urlencode($cbuNumber));
+    }
+    
+    public function getCollection(string $id): array
+    {
+        return $this->request('GET', '/collections/' . $id);
+    }
+    
+    public function updateCollection(string $id, array $data): array
+    {
+        return $this->request('PATCH', '/collections/' . $id, $data);
+    }
+    
+    public function createCollection(array $data): array
+    {
+        return $this->request('POST', '/collections', $data);
+    }
+}
+
+// Usage example
+$client = new IndexusCollectionsClient('your-api-key');
+
+try {
+    // Get collection by CBU number
+    $collection = $client->getCollectionByCbu('CBU-2024-001');
+    echo "Found collection: " . $collection['data']['id'] . "\n";
+    
+    // Update collection with lab results data
+    $updated = $client->updateCollection($collection['data']['id'], [
+        'state' => 'evaluated',
+        'statusEvaluatedAt' => date('c'),
+        'note' => 'Lab processing completed'
+    ]);
+    echo "Updated collection: " . $updated['data']['id'] . "\n";
+    
+    // Create new collection from lab system
+    $newCollection = $client->createCollection([
+        'countryCode' => 'SK',
+        'cbuNumber' => 'CBU-2024-NEW-001',
+        'clientFirstName' => 'Jana',
+        'clientLastName' => 'Novakova',
+        'collectionDate' => date('c')
+    ]);
+    echo "Created collection: " . $newCollection['data']['id'] . "\n";
+    
+} catch (Exception $e) {
+    echo "Error: " . $e->getMessage();
+}
+```
+
+---
+
 ## Support
 
-For API support or to request an API key, contact:
-- Email: api-support@indexus.com
-- Technical Documentation: https://docs.indexus.com/api
+For API support or to request an API key, contact the INDEXUS system administrator through the CRM interface.
+
+**API Documentation URL:** `https://indexus.cordbloodcenter.com/docs/api`
 
 ---
 
@@ -891,5 +1083,5 @@ For API support or to request an API key, contact:
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 1.1.0 | 2024-01 | Added Collections API with full CRUD support, all fields optional |
-| 1.0.0 | 2024-01 | Initial API release |
+| 1.1.0 | 2026-01 | Added Collections API with full CRUD support, all fields optional, PHP examples |
+| 1.0.0 | 2024-01 | Initial Lab Results API release |
