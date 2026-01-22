@@ -17423,7 +17423,7 @@ Guidelines:
         rateLimit: rateLimit || 60,
         isActive: true,
         expiresAt: expiresAt ? new Date(expiresAt) : null,
-        createdBy: (req as any).user?.id
+        createdBy: req.session?.user?.id || (req as any).user?.id
       });
 
       // Return the key only once - it cannot be retrieved later
