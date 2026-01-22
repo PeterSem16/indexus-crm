@@ -10839,6 +10839,10 @@ function AlertRulesTab() {
   const createMutation = useMutation({
     mutationFn: async (data: AlertRuleFormData) => {
       const response = await apiRequest("POST", "/api/alert-rules", data);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to create alert");
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -10847,8 +10851,9 @@ function AlertRulesTab() {
       form.reset();
       toast({ title: t.alerts?.alertCreated || "Alert created successfully" });
     },
-    onError: () => {
-      toast({ title: t.alerts?.createFailed || "Failed to create alert", variant: "destructive" });
+    onError: (error: Error) => {
+      console.error("Alert creation error:", error);
+      toast({ title: error.message || t.alerts?.createFailed || "Failed to create alert", variant: "destructive" });
     },
   });
 
@@ -14693,42 +14698,42 @@ export default function ConfiguratorPage() {
       />
       
       <Tabs defaultValue="products" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-9 max-w-7xl">
-          <TabsTrigger value="products" className="flex items-center gap-2" data-testid="tab-products">
-            <Package className="h-4 w-4" />
-            {t.products.title}
+        <TabsList className="flex flex-wrap h-auto gap-1 p-1 w-full">
+          <TabsTrigger value="products" className="flex items-center gap-2 text-xs sm:text-sm" data-testid="tab-products">
+            <Package className="h-4 w-4 shrink-0" />
+            <span className="hidden md:inline">{t.products.title}</span>
           </TabsTrigger>
-          <TabsTrigger value="billing" className="flex items-center gap-2" data-testid="tab-billing-companies">
-            <Building2 className="h-4 w-4" />
-            {t.konfigurator.billingCompanies || "Billing Companies"}
+          <TabsTrigger value="billing" className="flex items-center gap-2 text-xs sm:text-sm" data-testid="tab-billing-companies">
+            <Building2 className="h-4 w-4 shrink-0" />
+            <span className="hidden md:inline">{t.konfigurator.billingCompanies || "Billing"}</span>
           </TabsTrigger>
-          <TabsTrigger value="number-ranges" className="flex items-center gap-2" data-testid="tab-number-ranges">
-            <Hash className="h-4 w-4" />
-            {t.konfigurator.numberRanges}
+          <TabsTrigger value="number-ranges" className="flex items-center gap-2 text-xs sm:text-sm" data-testid="tab-number-ranges">
+            <Hash className="h-4 w-4 shrink-0" />
+            <span className="hidden md:inline">{t.konfigurator.numberRanges}</span>
           </TabsTrigger>
-          <TabsTrigger value="invoicing" className="flex items-center gap-2" data-testid="tab-invoicing">
-            <FileText className="h-4 w-4" />
-            {t.konfigurator.invoiceEditor}
+          <TabsTrigger value="invoicing" className="flex items-center gap-2 text-xs sm:text-sm" data-testid="tab-invoicing">
+            <FileText className="h-4 w-4 shrink-0" />
+            <span className="hidden md:inline">{t.konfigurator.invoiceEditor}</span>
           </TabsTrigger>
-          <TabsTrigger value="rates-inflation" className="flex items-center gap-2" data-testid="tab-rates-inflation">
-            <DollarSign className="h-4 w-4" />
-            {t.konfigurator.exchangeRatesAndInflation || "Kurzy & Inflácie"}
+          <TabsTrigger value="rates-inflation" className="flex items-center gap-2 text-xs sm:text-sm" data-testid="tab-rates-inflation">
+            <DollarSign className="h-4 w-4 shrink-0" />
+            <span className="hidden md:inline">{t.konfigurator.exchangeRatesAndInflation || "Kurzy"}</span>
           </TabsTrigger>
-          <TabsTrigger value="email-router" className="flex items-center gap-2" data-testid="tab-email-router">
-            <Mail className="h-4 w-4" />
-            Email & GSM Router
+          <TabsTrigger value="email-router" className="flex items-center gap-2 text-xs sm:text-sm" data-testid="tab-email-router">
+            <Mail className="h-4 w-4 shrink-0" />
+            <span className="hidden md:inline">Email & GSM</span>
           </TabsTrigger>
-          <TabsTrigger value="notifications" className="flex items-center gap-2" data-testid="tab-notifications">
-            <Bell className="h-4 w-4" />
-            Notifikacie & Alerts
+          <TabsTrigger value="notifications" className="flex items-center gap-2 text-xs sm:text-sm" data-testid="tab-notifications">
+            <Bell className="h-4 w-4 shrink-0" />
+            <span className="hidden md:inline">Notifikacie & Alerts</span>
           </TabsTrigger>
-          <TabsTrigger value="api-keys" className="flex items-center gap-2" data-testid="tab-api-keys">
-            <Key className="h-4 w-4" />
-            {t.konfigurator.apiKeys}
+          <TabsTrigger value="api-keys" className="flex items-center gap-2 text-xs sm:text-sm" data-testid="tab-api-keys">
+            <Key className="h-4 w-4 shrink-0" />
+            <span className="hidden md:inline">{t.konfigurator.apiKeys}</span>
           </TabsTrigger>
-          <TabsTrigger value="permissions" className="flex items-center gap-2" data-testid="tab-permissions">
-            <Shield className="h-4 w-4" />
-            {t.konfigurator.permissionsRoles}
+          <TabsTrigger value="permissions" className="flex items-center gap-2 text-xs sm:text-sm" data-testid="tab-permissions">
+            <Shield className="h-4 w-4 shrink-0" />
+            <span className="hidden md:inline">{t.konfigurator.permissionsRoles}</span>
           </TabsTrigger>
         </TabsList>
 
