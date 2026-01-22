@@ -1,0 +1,114 @@
+Urob nove menu nad collaborators s menom odbery 
+
+wizard v oboch pripadoch edit a add 
+
+legacy_id
+čislo CBU 
+Company : (výber z billing companies v configuratior - billing companies)
+Druh produktu: Vyber z produktov z configurator - Products (vyber podla krajiny a príslusneho billing sets)
+
+Tab Klientka (vyber klientky z Customers a doplnenie udajov )
+Krstne meno:
+Priezvisko:
+Telefónne cislo : 
+Mobil:
+Rodné číslo:
+Dátum narodenia
+
+Tab Dieťa
+Krstné meno:
+Priezvisko:
+Pohlavie:(výber žena/muž)
+
+Tab odber:
+Dátum: datum time datapicker , rovnaky ako vo vsetkých formulároch a wizards)
+Odoberajúci pupočníkovú krv: (výber z collaborators)
+Odberajúci placenty: (vyber collaborators)
+Assistujúca sestra: (vyber collaborators)
+Assistujuca druhá sestra: (výber collaborators)
+Reprezentant: (vyber z users s rolou representant)
+
+Tab Odber
+Vytvorený: date time picker s moznostou vybrat today
+Spárovaný: date time picker s moznostou vybrat today
+Vyhodnotený: date time picker s moznostou vybrat today
+Overené výsledky: date time picker s moznostou vybrat today
+Uskladnený: date time picker s moznostou vybrat today
+Prepradený:date time picker s moznostou vybrat today
+Vydaný:date time picker s moznostou vybrat today
+Čaká na likvidáciu:date time picker s moznostou vybrat today
+Zlikvidovaný:date time picker s moznostou vybrat today
+
+Stav: (výber prazdena lebo uložený)
+Certifikát: (prázdena lebo vytlacený)
+Laboratoróriu: (nacitat laboratoria , ktore su uvedene pre vybranu company (billing company) )
+Zodpovedný koordinátor: zatial len vybrat user s rolou representant
+Zmluva : 
+
+Tab laboratorne výsledky
+
+Použiteľnosť odberu: (výber použitelny, čiastocene)
+Dátum výsldkov:  date time picker s moznostou vybrat today
+Poznámka laoratoria :
+
+pod tab Zobrazenie Výsledkov
+
+Product
+CBU
+Collection for
+Precessing
+Title
+First
+Surname
+ID/rodne číslo
+Date of collection
+Time of collection
+Date of printing results
+Date of sending results
+Sterility
+Type
+Reason for charge
+Transplantant processing
+Result of sterility
+Result of sterilty-bag B
+Infection agents
+Letter to pediatrician
+Status
+Final analyses
+Usability
+TNC/ celkový počet zamrazených BB 1x 10E7
+Max. weight
+Volume
+Volume in bag
+Volume in syringes bag B
+Volume of CPD in syr.
+Umbilical tissue
+Tissue precessed
+Tissue sterility
+Tissue infection agens
+Premium status
+Transfered to
+Tissue uasability
+Bag A usability
+Bag B usability
+Bag A volume
+Bag B volume 
+Bag A TNC
+Bag B TNC
+Bag A ATB sensit.
+Bag B ATB sensist.
+Bag A - bacteria risk
+Bag B bacteria risk
+Bag A infekcny agens
+Bag B infekčný agens
+Bag A significance
+Bag B significance
+
+
+Poznámka laboratória
+
+zalozka Tab sprievodný list
+zalozka zmluva
+Zalozka rewards
+
+zatial prazdne tieto tri taby posldne

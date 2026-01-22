@@ -4173,3 +4173,194 @@ export const notificationRulesRelations = relations(notificationRules, ({ one })
     references: [users.id],
   }),
 }));
+
+// ========================================
+// ODBERY (Collections) - Cord Blood Collections
+// ========================================
+
+export const collections = pgTable("collections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  legacyId: text("legacy_id"),
+  cbuNumber: text("cbu_number"),
+  
+  // Company and product
+  billingCompanyId: varchar("billing_company_id"),
+  productId: varchar("product_id"),
+  countryCode: text("country_code").notNull(),
+  
+  // Client (Klientka) - linked to customer
+  customerId: varchar("customer_id"),
+  clientFirstName: text("client_first_name"),
+  clientLastName: text("client_last_name"),
+  clientPhone: text("client_phone"),
+  clientMobile: text("client_mobile"),
+  clientBirthNumber: text("client_birth_number"),
+  clientBirthDay: integer("client_birth_day"),
+  clientBirthMonth: integer("client_birth_month"),
+  clientBirthYear: integer("client_birth_year"),
+  
+  // Child (Dieťa)
+  childFirstName: text("child_first_name"),
+  childLastName: text("child_last_name"),
+  childGender: text("child_gender"),
+  
+  // Collection (Odber) - staff
+  collectionDate: timestamp("collection_date"),
+  hospitalId: varchar("hospital_id"),
+  cordBloodCollectorId: varchar("cord_blood_collector_id"),
+  tissueCollectorId: varchar("tissue_collector_id"),
+  placentaCollectorId: varchar("placenta_collector_id"),
+  assistantNurseId: varchar("assistant_nurse_id"),
+  secondNurseId: varchar("second_nurse_id"),
+  representativeId: varchar("representative_id"),
+  
+  // Status dates
+  statusCreatedAt: timestamp("status_created_at"),
+  statusPairedAt: timestamp("status_paired_at"),
+  statusEvaluatedAt: timestamp("status_evaluated_at"),
+  statusVerifiedAt: timestamp("status_verified_at"),
+  statusStoredAt: timestamp("status_stored_at"),
+  statusTransferredAt: timestamp("status_transferred_at"),
+  statusReleasedAt: timestamp("status_released_at"),
+  statusAwaitingDisposalAt: timestamp("status_awaiting_disposal_at"),
+  statusDisposedAt: timestamp("status_disposed_at"),
+  
+  // State and certificate
+  state: text("state"),
+  certificate: text("certificate"),
+  laboratoryId: varchar("laboratory_id"),
+  responsibleCoordinatorId: varchar("responsible_coordinator_id"),
+  contractId: varchar("contract_id"),
+  
+  // Notes
+  doctorNote: text("doctor_note"),
+  note: text("note"),
+  
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertCollectionSchema = createInsertSchema(collections).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertCollection = z.infer<typeof insertCollectionSchema>;
+export type Collection = typeof collections.$inferSelect;
+
+// Collection Lab Results - detailed laboratory results
+export const collectionLabResults = pgTable("collection_lab_results", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  collectionId: varchar("collection_id").notNull(),
+  
+  // Basic info
+  usability: text("usability"),
+  resultsDate: timestamp("results_date"),
+  labNote: text("lab_note"),
+  
+  // CBU specific
+  cbu: text("cbu"),
+  collectionFor: text("collection_for"),
+  processing: text("processing"),
+  title: text("title"),
+  firstName: text("first_name"),
+  surname: text("surname"),
+  idBirthNumber: text("id_birth_number"),
+  dateOfCollection: timestamp("date_of_collection"),
+  timeOfCollection: text("time_of_collection"),
+  dateOfPrintingResults: timestamp("date_of_printing_results"),
+  dateOfSendingResults: timestamp("date_of_sending_results"),
+  
+  // Sterility and infection
+  sterility: text("sterility"),
+  sterilityType: text("sterility_type"),
+  reasonForCharge: text("reason_for_charge"),
+  transplantProcessing: text("transplant_processing"),
+  resultOfSterility: text("result_of_sterility"),
+  resultOfSterilityBagB: text("result_of_sterility_bag_b"),
+  infectionAgents: text("infection_agents"),
+  letterToPediatrician: text("letter_to_pediatrician"),
+  status: text("status"),
+  finalAnalyses: text("final_analyses"),
+  
+  // Volume and counts
+  tncCount: text("tnc_count"),
+  maxWeight: text("max_weight"),
+  volume: text("volume"),
+  volumeInBag: text("volume_in_bag"),
+  volumeInSyringesBagB: text("volume_in_syringes_bag_b"),
+  volumeOfCpdInSyr: text("volume_of_cpd_in_syr"),
+  
+  // Umbilical tissue
+  umbilicalTissue: text("umbilical_tissue"),
+  tissueProcessed: text("tissue_processed"),
+  tissueSterility: text("tissue_sterility"),
+  tissueInfectionAgents: text("tissue_infection_agents"),
+  premiumStatus: text("premium_status"),
+  transferredTo: text("transferred_to"),
+  tissueUsability: text("tissue_usability"),
+  
+  // Bag A
+  bagAUsability: text("bag_a_usability"),
+  bagAVolume: text("bag_a_volume"),
+  bagATnc: text("bag_a_tnc"),
+  bagAAtbSensit: text("bag_a_atb_sensit"),
+  bagABacteriaRisk: text("bag_a_bacteria_risk"),
+  bagAInfectionAgent: text("bag_a_infection_agent"),
+  bagASignificance: text("bag_a_significance"),
+  
+  // Bag B
+  bagBUsability: text("bag_b_usability"),
+  bagBVolume: text("bag_b_volume"),
+  bagBTnc: text("bag_b_tnc"),
+  bagBAtbSensit: text("bag_b_atb_sensit"),
+  bagBBacteriaRisk: text("bag_b_bacteria_risk"),
+  bagBInfectionAgent: text("bag_b_infection_agent"),
+  bagBSignificance: text("bag_b_significance"),
+  
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertCollectionLabResultSchema = createInsertSchema(collectionLabResults).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertCollectionLabResult = z.infer<typeof insertCollectionLabResultSchema>;
+export type CollectionLabResult = typeof collectionLabResults.$inferSelect;
+
+export const collectionsRelations = relations(collections, ({ one, many }) => ({
+  customer: one(customers, {
+    fields: [collections.customerId],
+    references: [customers.id],
+  }),
+  billingCompany: one(billingCompanies, {
+    fields: [collections.billingCompanyId],
+    references: [billingCompanies.id],
+  }),
+  product: one(products, {
+    fields: [collections.productId],
+    references: [products.id],
+  }),
+  hospital: one(hospitals, {
+    fields: [collections.hospitalId],
+    references: [hospitals.id],
+  }),
+  cordBloodCollector: one(collaborators, {
+    fields: [collections.cordBloodCollectorId],
+    references: [collaborators.id],
+  }),
+  representative: one(users, {
+    fields: [collections.representativeId],
+    references: [users.id],
+  }),
+  labResults: many(collectionLabResults),
+}));
+
+export const collectionLabResultsRelations = relations(collectionLabResults, ({ one }) => ({
+  collection: one(collections, {
+    fields: [collectionLabResults.collectionId],
+    references: [collections.id],
+  }),
+}));
