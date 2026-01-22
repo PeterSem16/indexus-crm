@@ -1,7 +1,7 @@
 import { storage } from "./storage";
 import { db } from "./db";
-import { collections, collectionLabResults, customers, invoices, tasks, apiKeys } from "@shared/schema";
-import { eq, sql, and, isNull, lt, gte, lte } from "drizzle-orm";
+import { collections, collectionLabResults, customers, invoices, tasks, apiKeys, users } from "@shared/schema";
+import { eq, sql, and, isNull, lt, gte, lte, inArray } from "drizzle-orm";
 
 type MetricType = 
   | 'pending_lab_results'
@@ -153,6 +153,79 @@ function isInCooldown(lastAlertedAt: Date | null, cooldownMinutes: number): bool
   return Date.now() - lastAlertedAt.getTime() < cooldownMs;
 }
 
+async function getTargetUserIds(rule: {
+  targetUserType: string;
+  targetRoles: string[] | null;
+  targetUserIds: string[] | null;
+  countryCodes: string[] | null;
+}): Promise<string[]> {
+  try {
+    let query = db.select({ id: users.id }).from(users).where(eq(users.isActive, true));
+    
+    if (rule.targetUserType === 'specific_users' && rule.targetUserIds?.length) {
+      return rule.targetUserIds;
+    }
+    
+    if (rule.targetUserType === 'role' && rule.targetRoles?.length) {
+      const roleResults = await db.select({ id: users.id })
+        .from(users)
+        .where(and(
+          eq(users.isActive, true),
+          inArray(users.role, rule.targetRoles)
+        ));
+      return roleResults.map(r => r.id);
+    }
+    
+    // For 'all' type - get all active users, optionally filtered by country
+    if (rule.countryCodes?.length) {
+      const countryResults = await db.select({ id: users.id })
+        .from(users)
+        .where(and(
+          eq(users.isActive, true),
+          inArray(users.countryCode, rule.countryCodes)
+        ));
+      return countryResults.map(r => r.id);
+    }
+    
+    // All active users
+    const allResults = await db.select({ id: users.id })
+      .from(users)
+      .where(eq(users.isActive, true));
+    return allResults.map(r => r.id);
+  } catch (error) {
+    console.error("[AlertEvaluator] Error getting target users:", error);
+    return [];
+  }
+}
+
+function getMetricLabel(metricType: string): string {
+  const labels: Record<string, string> = {
+    'pending_lab_results': 'Pending Lab Results',
+    'collections_without_hospital': 'Collections Without Hospital',
+    'overdue_collections': 'Overdue Collections',
+    'pending_evaluations': 'Pending Evaluations',
+    'expiring_api_keys': 'Expiring API Keys',
+    'inactive_customers': 'Inactive Customers',
+    'upcoming_collection_dates': 'Upcoming Collection Dates',
+    'low_collection_rate': 'Low Collection Rate',
+    'pending_invoices': 'Pending Invoices',
+    'overdue_tasks': 'Overdue Tasks',
+  };
+  return labels[metricType] || metricType.replace(/_/g, ' ');
+}
+
+function getOperatorLabel(operator: string): string {
+  const labels: Record<string, string> = {
+    'gt': '>',
+    'gte': '>=',
+    'lt': '<',
+    'lte': '<=',
+    'eq': '=',
+    'neq': '!=',
+  };
+  return labels[operator] || operator;
+}
+
 export async function evaluateAlerts(): Promise<void> {
   try {
     const activeRules = await storage.getActiveAlertRules();
@@ -179,7 +252,7 @@ export async function evaluateAlerts(): Promise<void> {
         const shouldAlert = compareValue(metricValue, operator, rule.thresholdValue);
 
         if (shouldAlert) {
-          await storage.createAlertInstance({
+          const alertInstance = await storage.createAlertInstance({
             alertRuleId: rule.id,
             metricValue,
             thresholdValue: rule.thresholdValue,
@@ -189,7 +262,42 @@ export async function evaluateAlerts(): Promise<void> {
 
           await storage.updateAlertRuleLastAlerted(rule.id);
 
-          console.log(`[AlertEvaluator] Alert triggered for rule "${rule.name}": value=${metricValue}, threshold=${rule.thresholdValue}`);
+          // Get target users and create notifications for each
+          const targetUserIds = await getTargetUserIds(rule);
+          let notificationsSent = 0;
+          
+          for (const userId of targetUserIds) {
+            try {
+              await storage.createNotification({
+                userId,
+                type: 'system_alert',
+                title: rule.name,
+                message: `${getMetricLabel(rule.metricType)}: ${metricValue} ${getOperatorLabel(rule.comparisonOperator)} ${rule.thresholdValue}`,
+                priority: rule.priority === 'critical' ? 'urgent' : 
+                         rule.priority === 'high' ? 'high' : 'normal',
+                entityType: 'alert',
+                entityId: alertInstance.id,
+                metadata: {
+                  alertRuleId: rule.id,
+                  alertInstanceId: alertInstance.id,
+                  metricType: rule.metricType,
+                  metricValue,
+                  thresholdValue: rule.thresholdValue,
+                  comparisonOperator: rule.comparisonOperator
+                }
+              });
+              notificationsSent++;
+            } catch (notifError) {
+              console.error(`[AlertEvaluator] Error creating notification for user ${userId}:`, notifError);
+            }
+          }
+          
+          // Update notification count on the alert instance
+          if (notificationsSent > 0) {
+            await storage.updateAlertInstanceNotificationsSent(alertInstance.id, notificationsSent);
+          }
+
+          console.log(`[AlertEvaluator] Alert triggered for rule "${rule.name}": value=${metricValue}, threshold=${rule.thresholdValue}, notifications sent: ${notificationsSent}`);
         }
       } catch (ruleError) {
         console.error(`[AlertEvaluator] Error evaluating rule "${rule.name}":`, ruleError);

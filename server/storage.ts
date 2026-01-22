@@ -890,6 +890,7 @@ export interface IStorage {
   createAlertInstance(data: InsertAlertInstance): Promise<AlertInstance>;
   acknowledgeAlertInstance(id: string, userId: string): Promise<AlertInstance | undefined>;
   resolveAlertInstance(id: string, userId: string, resolution?: string): Promise<AlertInstance | undefined>;
+  updateAlertInstanceNotificationsSent(id: string, count: number): Promise<AlertInstance | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -5278,6 +5279,14 @@ export class DatabaseStorage implements IStorage {
         status: 'resolved', 
         resolvedAt: new Date()
       })
+      .where(eq(alertInstances.id, id))
+      .returning();
+    return result || undefined;
+  }
+
+  async updateAlertInstanceNotificationsSent(id: string, count: number): Promise<AlertInstance | undefined> {
+    const [result] = await db.update(alertInstances)
+      .set({ notificationsSent: count })
       .where(eq(alertInstances.id, id))
       .returning();
     return result || undefined;
