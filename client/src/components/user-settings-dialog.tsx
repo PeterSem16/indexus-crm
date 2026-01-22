@@ -56,27 +56,23 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs defaultValue={showSipPhone ? "sip" : "general"} className="mt-4">
-          <TabsList className={`grid w-full ${showSipPhone ? 'grid-cols-2' : 'grid-cols-1'}`}>
+        <Tabs defaultValue="sip" className="mt-4">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="general" data-testid="tab-user-general">
               {t.common.detail}
             </TabsTrigger>
-            {showSipPhone && (
-              <TabsTrigger value="sip" data-testid="tab-user-sip">
-                {t.settings.sipProfile.title}
-              </TabsTrigger>
-            )}
+            <TabsTrigger value="sip" data-testid="tab-user-sip">
+              {t.settings.sipProfile.title}
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="general" className="mt-4">
             <GeneralTab />
           </TabsContent>
 
-          {showSipPhone && (
-            <TabsContent value="sip" className="mt-4">
-              <UserSipProfileTab />
-            </TabsContent>
-          )}
+          <TabsContent value="sip" className="mt-4">
+            <UserSipProfileTab showSipPhone={showSipPhone} />
+          </TabsContent>
         </Tabs>
       </DialogContent>
     </Dialog>
@@ -113,7 +109,7 @@ function GeneralTab() {
   );
 }
 
-function UserSipProfileTab() {
+function UserSipProfileTab({ showSipPhone }: { showSipPhone?: boolean }) {
   const { t } = useI18n();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -179,6 +175,24 @@ function UserSipProfileTab() {
 
   const registrationStatus = isRegistered ? "registered" : (isRegistering ? "registering" : "not_registered");
   const isGlobalSipEnabled = sipSettings?.isEnabled;
+
+  if (!showSipPhone) {
+    return (
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+              <Phone className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div>
+              <CardTitle className="text-base">{t.settings.sipProfile.title}</CardTitle>
+              <CardDescription>{"SIP phone is not enabled for your account"}</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-4">
