@@ -21,7 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Unlock, Check, Hash, Info, X, DollarSign, Percent, Calculator, CreditCard, TrendingUp, Bell, CheckCircle2, XCircle, Key } from "lucide-react";
+import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Unlock, Check, Hash, Info, X, DollarSign, Percent, Calculator, CreditCard, TrendingUp, Bell, CheckCircle2, XCircle, Key, AlertTriangle } from "lucide-react";
 import { COUNTRIES, CURRENCIES, getCurrencySymbol } from "@shared/schema";
 import { InvoiceDesigner, InvoiceDesignerConfig } from "@/components/invoice-designer";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -10805,7 +10805,7 @@ const METRIC_TYPES = [
 
 const COMPARISON_OPERATORS = ['gt', 'gte', 'lt', 'lte', 'eq', 'neq'];
 const CHECK_FREQUENCIES = ['hourly', 'every_6_hours', 'daily', 'weekly'];
-const PRIORITIES = ['low', 'medium', 'high', 'critical'];
+const PRIORITIES = ['low', 'normal', 'high', 'urgent'];
 const TARGET_USER_TYPES = ['all', 'role', 'specific_users'];
 
 function AlertRulesTab() {
@@ -14720,11 +14720,7 @@ export default function ConfiguratorPage() {
           </TabsTrigger>
           <TabsTrigger value="notifications" className="flex items-center gap-2" data-testid="tab-notifications">
             <Bell className="h-4 w-4" />
-            Notifikácie
-          </TabsTrigger>
-          <TabsTrigger value="alerts" className="flex items-center gap-2" data-testid="tab-alerts">
-            <Bell className="h-4 w-4" />
-            {t.alerts?.title || "Alerts"}
+            Notifikacie & Alerts
           </TabsTrigger>
           <TabsTrigger value="api-keys" className="flex items-center gap-2" data-testid="tab-api-keys">
             <Key className="h-4 w-4" />
@@ -14879,23 +14875,28 @@ export default function ConfiguratorPage() {
         <TabsContent value="notifications">
           <Card>
             <CardHeader>
-              <CardTitle>Notifikačné pravidlá</CardTitle>
-              <CardDescription>Správa automatických notifikácií a upozornení</CardDescription>
+              <CardTitle>Notifikacie & Alerts</CardTitle>
+              <CardDescription>Sprava automatickych notifikacii, upozorneni a alertov</CardDescription>
             </CardHeader>
             <CardContent>
-              <NotificationsTab />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="alerts">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t.alerts?.title || "Alerts"}</CardTitle>
-              <CardDescription>{t.alerts?.description || "Configure automatic alerts for critical metrics"}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <AlertRulesTab />
+              <Tabs defaultValue="notification-rules" className="space-y-4">
+                <TabsList>
+                  <TabsTrigger value="notification-rules" data-testid="subtab-notification-rules">
+                    <Bell className="h-4 w-4 mr-2" />
+                    Notifikacne pravidla
+                  </TabsTrigger>
+                  <TabsTrigger value="alert-rules" data-testid="subtab-alert-rules">
+                    <AlertTriangle className="h-4 w-4 mr-2" />
+                    Alert pravidla
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="notification-rules">
+                  <NotificationsTab />
+                </TabsContent>
+                <TabsContent value="alert-rules">
+                  <AlertRulesTab />
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
         </TabsContent>
