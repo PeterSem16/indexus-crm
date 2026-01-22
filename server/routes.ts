@@ -17350,13 +17350,17 @@ Guidelines:
 
   // Helper: Check if user has admin or manager role
   const requireAdminOrManager = async (req: Request, res: Response, next: NextFunction) => {
-    const user = (req as any).user;
+    // Try session user first, then any attached user
+    const user = req.session?.user || (req as any).user;
+    console.log("[requireAdminOrManager] User:", user ? { role: user.role, roleId: user.roleId } : "no user");
+    
     if (!user) {
       return res.status(403).json({ error: "Admin or Manager access required" });
     }
     
     // Check legacy role field first
     if (user.role === "admin" || user.role === "manager") {
+      console.log("[requireAdminOrManager] Allowed via legacy role:", user.role);
       return next();
     }
     
@@ -17364,6 +17368,7 @@ Guidelines:
     if (user.roleId) {
       try {
         const role = await storage.getRole(user.roleId);
+        console.log("[requireAdminOrManager] Role from roleId:", role?.name);
         if (role && (role.name === "Admin" || role.name === "Manager")) {
           return next();
         }
@@ -17372,6 +17377,7 @@ Guidelines:
       }
     }
     
+    console.log("[requireAdminOrManager] Access denied for user role:", user.role);
     return res.status(403).json({ error: "Admin or Manager access required" });
   };
 
