@@ -4335,9 +4335,9 @@ export const collectionsRelations = relations(collections, ({ one, many }) => ({
     fields: [collections.customerId],
     references: [customers.id],
   }),
-  billingCompany: one(billingCompanies, {
+  billingCompany: one(billingDetails, {
     fields: [collections.billingCompanyId],
-    references: [billingCompanies.id],
+    references: [billingDetails.id],
   }),
   product: one(products, {
     fields: [collections.productId],

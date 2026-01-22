@@ -111,7 +111,10 @@ import {
   ms365PkceStore,
   notifications, notificationRules,
   type Notification, type InsertNotification,
-  type NotificationRule, type InsertNotificationRule
+  type NotificationRule, type InsertNotificationRule,
+  collections, collectionLabResults,
+  type Collection, type InsertCollection,
+  type CollectionLabResult, type InsertCollectionLabResult
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, inArray, sql, desc, and, or, asc, gte, lte } from "drizzle-orm";
@@ -836,6 +839,19 @@ export interface IStorage {
   updateNotificationRule(id: string, data: Partial<InsertNotificationRule>): Promise<NotificationRule | undefined>;
   deleteNotificationRule(id: string): Promise<boolean>;
   toggleNotificationRule(id: string, isActive: boolean): Promise<NotificationRule | undefined>;
+
+  // Collections (Odbery)
+  getCollection(id: string): Promise<Collection | undefined>;
+  getAllCollections(): Promise<Collection[]>;
+  getCollectionsByCountry(countryCodes: string[]): Promise<Collection[]>;
+  createCollection(data: InsertCollection): Promise<Collection>;
+  updateCollection(id: string, data: Partial<InsertCollection>): Promise<Collection | undefined>;
+  deleteCollection(id: string): Promise<boolean>;
+
+  // Collection Lab Results
+  getCollectionLabResult(collectionId: string): Promise<CollectionLabResult | undefined>;
+  createCollectionLabResult(data: InsertCollectionLabResult): Promise<CollectionLabResult>;
+  updateCollectionLabResult(id: string, data: Partial<InsertCollectionLabResult>): Promise<CollectionLabResult | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -4993,6 +5009,63 @@ export class DatabaseStorage implements IStorage {
       .where(eq(notificationRules.id, id))
       .returning();
     return rule || undefined;
+  }
+
+  // Collections (Odbery)
+  async getCollection(id: string): Promise<Collection | undefined> {
+    const [collection] = await db.select().from(collections).where(eq(collections.id, id));
+    return collection || undefined;
+  }
+
+  async getAllCollections(): Promise<Collection[]> {
+    return db.select().from(collections).orderBy(desc(collections.createdAt));
+  }
+
+  async getCollectionsByCountry(countryCodes: string[]): Promise<Collection[]> {
+    if (countryCodes.length === 0) {
+      return this.getAllCollections();
+    }
+    return db.select().from(collections)
+      .where(inArray(collections.countryCode, countryCodes))
+      .orderBy(desc(collections.createdAt));
+  }
+
+  async createCollection(data: InsertCollection): Promise<Collection> {
+    const [collection] = await db.insert(collections).values(data).returning();
+    return collection;
+  }
+
+  async updateCollection(id: string, data: Partial<InsertCollection>): Promise<Collection | undefined> {
+    const [collection] = await db.update(collections)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(collections.id, id))
+      .returning();
+    return collection || undefined;
+  }
+
+  async deleteCollection(id: string): Promise<boolean> {
+    const result = await db.delete(collections).where(eq(collections.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Collection Lab Results
+  async getCollectionLabResult(collectionId: string): Promise<CollectionLabResult | undefined> {
+    const [result] = await db.select().from(collectionLabResults)
+      .where(eq(collectionLabResults.collectionId, collectionId));
+    return result || undefined;
+  }
+
+  async createCollectionLabResult(data: InsertCollectionLabResult): Promise<CollectionLabResult> {
+    const [result] = await db.insert(collectionLabResults).values(data).returning();
+    return result;
+  }
+
+  async updateCollectionLabResult(id: string, data: Partial<InsertCollectionLabResult>): Promise<CollectionLabResult | undefined> {
+    const [result] = await db.update(collectionLabResults)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(collectionLabResults.id, id))
+      .returning();
+    return result || undefined;
   }
 }
 

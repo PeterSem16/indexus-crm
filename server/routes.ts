@@ -16206,6 +16206,117 @@ Guidelines:
     }
   });
 
+  // ========================================
+  // COLLECTIONS (Odbery) API Routes
+  // ========================================
+
+  // Get all collections
+  app.get("/api/collections", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user!;
+      let countryCodes: string[] = [];
+      
+      if (user.role !== "admin" && user.countryCodes && user.countryCodes.length > 0) {
+        countryCodes = user.countryCodes;
+      }
+      
+      const coll = await storage.getCollectionsByCountry(countryCodes);
+      res.json(coll);
+    } catch (error) {
+      console.error("Error fetching collections:", error);
+      res.status(500).json({ error: "Failed to fetch collections" });
+    }
+  });
+
+  // Get single collection
+  app.get("/api/collections/:id", requireAuth, async (req, res) => {
+    try {
+      const collection = await storage.getCollection(req.params.id);
+      if (!collection) {
+        return res.status(404).json({ error: "Collection not found" });
+      }
+      res.json(collection);
+    } catch (error) {
+      console.error("Error fetching collection:", error);
+      res.status(500).json({ error: "Failed to fetch collection" });
+    }
+  });
+
+  // Create collection
+  app.post("/api/collections", requireAuth, async (req, res) => {
+    try {
+      const collection = await storage.createCollection(req.body);
+      await logActivity(req.session.user!.id, "create", "collection", collection.id, collection.cbuNumber || "");
+      res.status(201).json(collection);
+    } catch (error) {
+      console.error("Error creating collection:", error);
+      res.status(500).json({ error: "Failed to create collection" });
+    }
+  });
+
+  // Update collection
+  app.patch("/api/collections/:id", requireAuth, async (req, res) => {
+    try {
+      const collection = await storage.updateCollection(req.params.id, req.body);
+      if (!collection) {
+        return res.status(404).json({ error: "Collection not found" });
+      }
+      await logActivity(req.session.user!.id, "update", "collection", collection.id, collection.cbuNumber || "");
+      res.json(collection);
+    } catch (error) {
+      console.error("Error updating collection:", error);
+      res.status(500).json({ error: "Failed to update collection" });
+    }
+  });
+
+  // Delete collection
+  app.delete("/api/collections/:id", requireAuth, async (req, res) => {
+    try {
+      const success = await storage.deleteCollection(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Collection not found" });
+      }
+      await logActivity(req.session.user!.id, "delete", "collection", req.params.id, "");
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting collection:", error);
+      res.status(500).json({ error: "Failed to delete collection" });
+    }
+  });
+
+  // Get collection lab results
+  app.get("/api/collections/:id/lab-results", requireAuth, async (req, res) => {
+    try {
+      const labResult = await storage.getCollectionLabResult(req.params.id);
+      res.json(labResult || null);
+    } catch (error) {
+      console.error("Error fetching lab results:", error);
+      res.status(500).json({ error: "Failed to fetch lab results" });
+    }
+  });
+
+  // Create/update collection lab results
+  app.post("/api/collections/:id/lab-results", requireAuth, async (req, res) => {
+    try {
+      const existing = await storage.getCollectionLabResult(req.params.id);
+      let labResult;
+      
+      if (existing) {
+        labResult = await storage.updateCollectionLabResult(existing.id, req.body);
+      } else {
+        labResult = await storage.createCollectionLabResult({
+          ...req.body,
+          collectionId: req.params.id
+        });
+      }
+      
+      res.json(labResult);
+    } catch (error) {
+      console.error("Error saving lab results:", error);
+      res.status(500).json({ error: "Failed to save lab results" });
+    }
+  });
+
   return httpServer;
 }
 
