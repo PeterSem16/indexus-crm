@@ -10754,6 +10754,668 @@ const apiKeyFormSchema = z.object({
 
 type ApiKeyFormData = z.infer<typeof apiKeyFormSchema>;
 
+interface AlertRule {
+  id: string;
+  name: string;
+  description: string | null;
+  metricType: string;
+  comparisonOperator: string;
+  thresholdValue: number;
+  checkFrequency: string;
+  priority: string;
+  targetUserType: string;
+  targetRoles: string[] | null;
+  targetUserIds: string[] | null;
+  countryCodes: string[] | null;
+  cooldownMinutes: number;
+  isActive: boolean;
+  lastCheckedAt: Date | null;
+  lastAlertedAt: Date | null;
+  createdAt: Date;
+  createdBy: string | null;
+}
+
+const alertRuleFormSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  description: z.string().optional(),
+  metricType: z.string().min(1, "Metric type is required"),
+  comparisonOperator: z.string().min(1, "Operator is required"),
+  thresholdValue: z.number().min(0, "Threshold must be positive"),
+  checkFrequency: z.string().min(1, "Frequency is required"),
+  priority: z.string().default("medium"),
+  targetUserType: z.string().default("all"),
+  cooldownMinutes: z.number().min(1).default(60),
+  isActive: z.boolean().default(true),
+});
+
+type AlertRuleFormData = z.infer<typeof alertRuleFormSchema>;
+
+const METRIC_TYPES = [
+  'pending_lab_results',
+  'collections_without_hospital',
+  'overdue_collections',
+  'pending_evaluations',
+  'expiring_api_keys',
+  'inactive_customers',
+  'upcoming_collection_dates',
+  'low_collection_rate',
+  'pending_invoices',
+  'overdue_tasks',
+];
+
+const COMPARISON_OPERATORS = ['gt', 'gte', 'lt', 'lte', 'eq', 'neq'];
+const CHECK_FREQUENCIES = ['hourly', 'every_6_hours', 'daily', 'weekly'];
+const PRIORITIES = ['low', 'medium', 'high', 'critical'];
+const TARGET_USER_TYPES = ['all', 'role', 'specific_users'];
+
+function AlertRulesTab() {
+  const { t } = useI18n();
+  const { toast } = useToast();
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedRule, setSelectedRule] = useState<AlertRule | null>(null);
+
+  const form = useForm<AlertRuleFormData>({
+    resolver: zodResolver(alertRuleFormSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      metricType: "pending_lab_results",
+      comparisonOperator: "gt",
+      thresholdValue: 0,
+      checkFrequency: "daily",
+      priority: "medium",
+      targetUserType: "all",
+      cooldownMinutes: 60,
+      isActive: true,
+    },
+  });
+
+  const { data: alertRules = [], isLoading } = useQuery<AlertRule[]>({
+    queryKey: ["/api/alert-rules"],
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: AlertRuleFormData) => {
+      const response = await apiRequest("POST", "/api/alert-rules", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/alert-rules"] });
+      setIsCreateDialogOpen(false);
+      form.reset();
+      toast({ title: t.alerts?.alertCreated || "Alert created successfully" });
+    },
+    onError: () => {
+      toast({ title: t.alerts?.createFailed || "Failed to create alert", variant: "destructive" });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<AlertRuleFormData> }) => {
+      const response = await apiRequest("PATCH", `/api/alert-rules/${id}`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/alert-rules"] });
+      setIsEditDialogOpen(false);
+      setSelectedRule(null);
+      toast({ title: t.alerts?.alertUpdated || "Alert updated successfully" });
+    },
+    onError: () => {
+      toast({ title: t.alerts?.updateFailed || "Failed to update alert", variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("DELETE", `/api/alert-rules/${id}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/alert-rules"] });
+      setIsDeleteDialogOpen(false);
+      setSelectedRule(null);
+      toast({ title: t.alerts?.alertDeleted || "Alert deleted successfully" });
+    },
+    onError: () => {
+      toast({ title: t.alerts?.deleteFailed || "Failed to delete alert", variant: "destructive" });
+    },
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("POST", `/api/alert-rules/${id}/toggle`);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/alert-rules"] });
+      toast({ 
+        title: data.isActive 
+          ? (t.alerts?.alertActivated || "Alert activated") 
+          : (t.alerts?.alertDeactivated || "Alert deactivated") 
+      });
+    },
+  });
+
+  const handleEdit = (rule: AlertRule) => {
+    setSelectedRule(rule);
+    form.reset({
+      name: rule.name,
+      description: rule.description || "",
+      metricType: rule.metricType,
+      comparisonOperator: rule.comparisonOperator,
+      thresholdValue: rule.thresholdValue,
+      checkFrequency: rule.checkFrequency,
+      priority: rule.priority,
+      targetUserType: rule.targetUserType,
+      cooldownMinutes: rule.cooldownMinutes,
+      isActive: rule.isActive,
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const getMetricLabel = (metric: string) => {
+    const labels = t.alerts?.metrics as Record<string, string> | undefined;
+    return labels?.[metric] || metric.replace(/_/g, ' ');
+  };
+
+  const getOperatorLabel = (op: string) => {
+    const labels = t.alerts?.operators as Record<string, string> | undefined;
+    return labels?.[op] || op;
+  };
+
+  const getFrequencyLabel = (freq: string) => {
+    const labels = t.alerts?.frequencies as Record<string, string> | undefined;
+    return labels?.[freq] || freq.replace(/_/g, ' ');
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <div className="text-sm text-muted-foreground">
+          {alertRules.length} {alertRules.length === 1 ? 'alert rule' : 'alert rules'} configured
+        </div>
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <DialogTrigger asChild>
+            <Button data-testid="button-create-alert">
+              <Plus className="h-4 w-4 mr-2" />
+              {t.alerts?.createAlert || "Create Alert"}
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>{t.alerts?.createAlert || "Create Alert Rule"}</DialogTitle>
+              <DialogDescription>
+                {t.alerts?.description || "Configure automatic alerts for critical metrics"}
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit((data) => createMutation.mutate(data))} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.alerts?.name || "Name"}</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="Alert name" data-testid="input-alert-name" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="metricType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.alerts?.metric || "Metric"}</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-metric-type">
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {METRIC_TYPES.map((metric) => (
+                            <SelectItem key={metric} value={metric}>
+                              {getMetricLabel(metric)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="comparisonOperator"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t.alerts?.condition || "Condition"}</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-operator">
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {COMPARISON_OPERATORS.map((op) => (
+                              <SelectItem key={op} value={op}>
+                                {getOperatorLabel(op)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="thresholdValue"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t.alerts?.threshold || "Threshold"}</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            {...field} 
+                            onChange={(e) => field.onChange(Number(e.target.value))}
+                            data-testid="input-threshold" 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="checkFrequency"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t.alerts?.frequency || "Check Frequency"}</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-frequency">
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {CHECK_FREQUENCIES.map((freq) => (
+                              <SelectItem key={freq} value={freq}>
+                                {getFrequencyLabel(freq)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="priority"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t.alerts?.priority || "Priority"}</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger data-testid="select-priority">
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {PRIORITIES.map((p) => (
+                              <SelectItem key={p} value={p}>
+                                {p.charAt(0).toUpperCase() + p.slice(1)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="cooldownMinutes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.alerts?.cooldownMinutes || "Cooldown (minutes)"}</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          {...field} 
+                          onChange={(e) => field.onChange(Number(e.target.value))}
+                          data-testid="input-cooldown" 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="isActive"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center gap-2">
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          data-testid="switch-is-active"
+                        />
+                      </FormControl>
+                      <FormLabel className="!mt-0">{t.alerts?.active || "Active"}</FormLabel>
+                    </FormItem>
+                  )}
+                />
+
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                    {t.common.cancel}
+                  </Button>
+                  <Button type="submit" disabled={createMutation.isPending} data-testid="button-save-alert">
+                    {createMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    {t.common.save}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {alertRules.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground">
+          <Bell className="h-12 w-12 mx-auto mb-4 opacity-50" />
+          <p>{t.alerts?.noAlerts || "No alert rules configured"}</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {alertRules.map((rule) => (
+            <Card key={rule.id} className="p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-medium truncate">{rule.name}</h4>
+                    <Badge variant={rule.isActive ? "default" : "secondary"}>
+                      {rule.isActive ? (t.alerts?.active || "Active") : (t.alerts?.inactive || "Inactive")}
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">
+                      {rule.priority}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {getMetricLabel(rule.metricType)} {getOperatorLabel(rule.comparisonOperator)} {rule.thresholdValue}
+                  </p>
+                  <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                    <span>{getFrequencyLabel(rule.checkFrequency)}</span>
+                    {rule.lastCheckedAt && (
+                      <span>Last checked: {new Date(rule.lastCheckedAt).toLocaleString()}</span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={rule.isActive}
+                    onCheckedChange={() => toggleMutation.mutate(rule.id)}
+                    data-testid={`switch-toggle-${rule.id}`}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleEdit(rule)}
+                    data-testid={`button-edit-${rule.id}`}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setSelectedRule(rule);
+                      setIsDeleteDialogOpen(true);
+                    }}
+                    data-testid={`button-delete-${rule.id}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t.alerts?.editAlert || "Edit Alert Rule"}</DialogTitle>
+          </DialogHeader>
+          <Form {...form}>
+            <form 
+              onSubmit={form.handleSubmit((data) => {
+                if (selectedRule) {
+                  updateMutation.mutate({ id: selectedRule.id, data });
+                }
+              })} 
+              className="space-y-4"
+            >
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t.alerts?.name || "Name"}</FormLabel>
+                    <FormControl>
+                      <Input {...field} data-testid="input-edit-alert-name" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="metricType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t.alerts?.metric || "Metric"}</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {METRIC_TYPES.map((metric) => (
+                          <SelectItem key={metric} value={metric}>
+                            {getMetricLabel(metric)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="comparisonOperator"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.alerts?.condition || "Condition"}</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {COMPARISON_OPERATORS.map((op) => (
+                            <SelectItem key={op} value={op}>
+                              {getOperatorLabel(op)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="thresholdValue"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.alerts?.threshold || "Threshold"}</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          {...field} 
+                          onChange={(e) => field.onChange(Number(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="checkFrequency"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.alerts?.frequency || "Check Frequency"}</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {CHECK_FREQUENCIES.map((freq) => (
+                            <SelectItem key={freq} value={freq}>
+                              {getFrequencyLabel(freq)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="priority"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t.alerts?.priority || "Priority"}</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {PRIORITIES.map((p) => (
+                            <SelectItem key={p} value={p}>
+                              {p.charAt(0).toUpperCase() + p.slice(1)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="cooldownMinutes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t.alerts?.cooldownMinutes || "Cooldown (minutes)"}</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        {...field} 
+                        onChange={(e) => field.onChange(Number(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                  {t.common.cancel}
+                </Button>
+                <Button type="submit" disabled={updateMutation.isPending}>
+                  {updateMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  {t.common.save}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t.alerts?.deleteAlert || "Delete Alert"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t.alerts?.deleteConfirm || "Are you sure you want to delete this alert?"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t.common.cancel}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => selectedRule && deleteMutation.mutate(selectedRule.id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {t.common.delete}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
 function ApiKeysTab() {
   const { t } = useI18n();
   const { toast } = useToast();
@@ -14060,6 +14722,10 @@ export default function ConfiguratorPage() {
             <Bell className="h-4 w-4" />
             Notifikácie
           </TabsTrigger>
+          <TabsTrigger value="alerts" className="flex items-center gap-2" data-testid="tab-alerts">
+            <Bell className="h-4 w-4" />
+            {t.alerts?.title || "Alerts"}
+          </TabsTrigger>
           <TabsTrigger value="api-keys" className="flex items-center gap-2" data-testid="tab-api-keys">
             <Key className="h-4 w-4" />
             {t.konfigurator.apiKeys}
@@ -14218,6 +14884,18 @@ export default function ConfiguratorPage() {
             </CardHeader>
             <CardContent>
               <NotificationsTab />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="alerts">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t.alerts?.title || "Alerts"}</CardTitle>
+              <CardDescription>{t.alerts?.description || "Configure automatic alerts for critical metrics"}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <AlertRulesTab />
             </CardContent>
           </Card>
         </TabsContent>
