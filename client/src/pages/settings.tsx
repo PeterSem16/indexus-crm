@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useSip } from "@/contexts/sip-context";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -776,14 +777,12 @@ function SipProfileTab() {
   const { t } = useI18n();
   const { toast } = useToast();
   const { user } = useAuth();
+  const { isRegistered, isRegistering, register, unregister } = useSip();
   
   const [sipExtension, setSipExtension] = useState("");
   const [sipPassword, setSipPassword] = useState("");
   const [sipDisplayName, setSipDisplayName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
-  const [isTestingRegistration, setIsTestingRegistration] = useState(false);
-  const [registrationStatus, setRegistrationStatus] = useState<"idle" | "testing" | "registered" | "failed">("idle");
-  const [registrationError, setRegistrationError] = useState<string | null>(null);
 
   const { data: sipSettings } = useQuery<SipSettingsData | null>({
     queryKey: ["/api/sip-settings"],
@@ -808,7 +807,6 @@ function SipProfileTab() {
       });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       toast({ title: t.settings.sipProfile.saved });
-      setRegistrationStatus("idle");
     } catch (error: any) {
       toast({ 
         title: t.settings.sipProfile.saveFailed, 
@@ -820,7 +818,7 @@ function SipProfileTab() {
     }
   };
 
-  const testRegistration = async () => {
+  const handleRegister = async () => {
     if (!sipSettings?.server || !sipExtension || !sipPassword) {
       toast({ 
         title: t.settings.sipProfile.missingConfig,
@@ -828,90 +826,11 @@ function SipProfileTab() {
       });
       return;
     }
+    await register();
+  };
 
-    setIsTestingRegistration(true);
-    setRegistrationStatus("testing");
-    setRegistrationError(null);
-
-    let userAgent: any = null;
-    let registerer: any = null;
-
-    try {
-      const { UserAgent, Registerer, RegistererState } = await import("sip.js");
-      
-      const serverHost = sipSettings.server;
-      const serverPort = sipSettings.port || 443;
-      const wsPath = sipSettings.wsPath || "/ws";
-      const realm = sipSettings.realm || sipSettings.server;
-      
-      const uri = UserAgent.makeURI(`sip:${sipExtension}@${realm}`);
-      if (!uri) {
-        throw new Error("Invalid SIP URI");
-      }
-
-      const wsProtocol = sipSettings.transport === "ws" ? "ws" : "wss";
-      const transportOptions = {
-        server: `${wsProtocol}://${serverHost}:${serverPort}${wsPath}`
-      };
-
-      const userAgentOptions = {
-        authorizationPassword: sipPassword,
-        authorizationUsername: sipExtension,
-        displayName: sipDisplayName || sipExtension,
-        transportOptions,
-        uri
-      };
-
-      userAgent = new UserAgent(userAgentOptions);
-      await userAgent.start();
-
-      registerer = new Registerer(userAgent);
-      
-      const registrationPromise = new Promise<boolean>((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error("Registration timeout"));
-        }, 10000);
-
-        registerer.stateChange.addListener((newState: any) => {
-          if (newState === RegistererState.Registered) {
-            clearTimeout(timeout);
-            resolve(true);
-          } else if (newState === RegistererState.Terminated) {
-            clearTimeout(timeout);
-            reject(new Error("Registration terminated"));
-          }
-        });
-      });
-
-      await registerer.register();
-      await registrationPromise;
-      
-      setRegistrationStatus("registered");
-      toast({ title: t.settings.sipProfile.registrationSuccess });
-      
-    } catch (error: any) {
-      console.error("SIP registration test failed:", error);
-      setRegistrationStatus("failed");
-      setRegistrationError(error.message || "Registration failed");
-      toast({ 
-        title: t.settings.sipProfile.registrationFailed,
-        description: error.message,
-        variant: "destructive" 
-      });
-    } finally {
-      // Always clean up resources
-      try {
-        if (registerer) {
-          await registerer.unregister().catch(() => {});
-        }
-        if (userAgent) {
-          await userAgent.stop().catch(() => {});
-        }
-      } catch {
-        // Ignore cleanup errors
-      }
-      setIsTestingRegistration(false);
-    }
+  const handleUnregister = async () => {
+    await unregister();
   };
 
   const isGlobalSipEnabled = sipSettings?.isEnabled;
@@ -994,17 +913,17 @@ function SipProfileTab() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    {registrationStatus === "registered" && (
+                    {isRegistered && (
                       <Badge variant="default" className="bg-green-600">
                         {t.settings.sipProfile.registered}
                       </Badge>
                     )}
-                    {registrationStatus === "failed" && (
+                    {!isRegistered && !isRegistering && (
                       <Badge variant="destructive">
                         {t.settings.sipProfile.notRegistered}
                       </Badge>
                     )}
-                    {registrationStatus === "testing" && (
+                    {isRegistering && (
                       <Badge variant="secondary">
                         <Loader2 className="h-3 w-3 animate-spin mr-1" />
                         {t.settings.sipProfile.testing}
@@ -1012,12 +931,6 @@ function SipProfileTab() {
                     )}
                   </div>
                 </div>
-
-                {registrationError && (
-                  <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3">
-                    <p className="text-sm text-destructive">{registrationError}</p>
-                  </div>
-                )}
 
                 <div className="flex gap-2">
                   <Button 
@@ -1032,19 +945,30 @@ function SipProfileTab() {
                     )}
                     {t.settings.sipProfile.save}
                   </Button>
-                  <Button 
-                    variant="outline"
-                    onClick={testRegistration} 
-                    disabled={isTestingRegistration || !sipExtension || !sipPassword}
-                    data-testid="button-test-sip-registration"
-                  >
-                    {isTestingRegistration ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                    )}
-                    {t.settings.sipProfile.testRegistration}
-                  </Button>
+                  {!isRegistered ? (
+                    <Button 
+                      variant="outline"
+                      onClick={handleRegister} 
+                      disabled={isRegistering || !sipExtension || !sipPassword}
+                      data-testid="button-sip-register"
+                    >
+                      {isRegistering ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <Phone className="h-4 w-4 mr-2" />
+                      )}
+                      {t.settings.sipProfile.register}
+                    </Button>
+                  ) : (
+                    <Button 
+                      variant="outline"
+                      onClick={handleUnregister} 
+                      data-testid="button-sip-unregister"
+                    >
+                      <Phone className="h-4 w-4 mr-2" />
+                      {t.settings.sipProfile.unregister}
+                    </Button>
+                  )}
                 </div>
               </div>
             </>

@@ -1002,6 +1002,8 @@ export interface Translations {
       notRegistered: string;
       testing: string;
       testRegistration: string;
+      register: string;
+      unregister: string;
       save: string;
       saved: string;
       saveFailed: string;
@@ -3023,6 +3025,8 @@ export const translations: Record<Locale, Translations> = {
         notRegistered: 'Not Registered',
         testing: 'Testing...',
         testRegistration: 'Test Registration',
+        register: 'Register',
+        unregister: 'Unregister',
         save: 'Save Settings',
         saved: 'SIP settings saved',
         saveFailed: 'Failed to save SIP settings',
@@ -5053,6 +5057,8 @@ export const translations: Record<Locale, Translations> = {
         notRegistered: 'Neregistrovaný',
         testing: 'Testujem...',
         testRegistration: 'Otestovať registráciu',
+        register: 'Zaregistrovať',
+        unregister: 'Odregistrovať',
         save: 'Uložiť nastavenia',
         saved: 'SIP nastavenia boli uložené',
         saveFailed: 'Nepodarilo sa uložiť SIP nastavenia',
@@ -7052,6 +7058,8 @@ export const translations: Record<Locale, Translations> = {
         notRegistered: 'Neregistrovan',
         testing: 'Testuji...',
         testRegistration: 'Otestovat registraci',
+        register: 'Zaregistrovat',
+        unregister: 'Odregistrovat',
         save: 'Ulozit nastaveni',
         saved: 'SIP nastaveni bylo ulozeno',
         saveFailed: 'Nepodarilo se ulozit SIP nastaveni',
@@ -9014,6 +9022,8 @@ export const translations: Record<Locale, Translations> = {
         notRegistered: 'Nem regisztralt',
         testing: 'Teszteles...',
         testRegistration: 'Regisztracio tesztelese',
+        register: 'Regisztracio',
+        unregister: 'Kijelentkezes',
         save: 'Beallitasok mentese',
         saved: 'SIP beallitasok mentve',
         saveFailed: 'Nem sikerült menteni a SIP beallitasokat',
@@ -10975,6 +10985,8 @@ export const translations: Record<Locale, Translations> = {
         notRegistered: 'Neinregistrat',
         testing: 'Se testeaza...',
         testRegistration: 'Testeaza inregistrarea',
+        register: 'Inregistreaza',
+        unregister: 'Dezinregistreaza',
         save: 'Salveaza setarile',
         saved: 'Setarile SIP au fost salvate',
         saveFailed: 'Nu s-au putut salva setarile SIP',
@@ -12937,6 +12949,8 @@ export const translations: Record<Locale, Translations> = {
         notRegistered: 'Non registrato',
         testing: 'Test in corso...',
         testRegistration: 'Testa registrazione',
+        register: 'Registra',
+        unregister: 'Annulla registrazione',
         save: 'Salva impostazioni',
         saved: 'Impostazioni SIP salvate',
         saveFailed: 'Impossibile salvare le impostazioni SIP',
@@ -14899,6 +14913,8 @@ export const translations: Record<Locale, Translations> = {
         notRegistered: 'Nicht registriert',
         testing: 'Teste...',
         testRegistration: 'Registrierung testen',
+        register: 'Registrieren',
+        unregister: 'Abmelden',
         save: 'Einstellungen speichern',
         saved: 'SIP-Einstellungen gespeichert',
         saveFailed: 'SIP-Einstellungen konnten nicht gespeichert werden',
