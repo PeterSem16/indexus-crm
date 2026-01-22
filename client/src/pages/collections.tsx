@@ -220,10 +220,11 @@ export default function CollectionsPage() {
 
   useEffect(() => {
     if (isNew) {
-      setFormData(initialFormData);
+      const defaultCountry = selectedCountries.length > 0 ? selectedCountries[0] : "SK";
+      setFormData({ ...initialFormData, countryCode: defaultCountry });
       setWizardStep(0);
     }
-  }, [isNew]);
+  }, [isNew, selectedCountries]);
 
   const createMutation = useMutation({
     mutationFn: async (data: Partial<Collection>) => {
@@ -377,6 +378,11 @@ export default function CollectionsPage() {
 
   const handleSave = () => {
     const data = prepareDataForSave();
+    console.log("Saving collection data:", data);
+    if (!data.countryCode) {
+      toast({ title: "Country is required", variant: "destructive" });
+      return;
+    }
     if (isNew) {
       createMutation.mutate(data);
     } else {
