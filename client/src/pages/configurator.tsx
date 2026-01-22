@@ -10879,7 +10879,7 @@ function ApiKeysTab() {
       </div>
 
       {apiKeys.length === 0 ? (
-        <div className="text-center py-8 text-muted-foreground">
+        <div className="text-center py-8 text-muted-foreground" data-testid="empty-state-api-keys">
           <Key className="h-12 w-12 mx-auto mb-4 opacity-50" />
           <p>{t.konfigurator.noApiKeys}</p>
         </div>
@@ -10919,13 +10919,13 @@ function ApiKeysTab() {
                   <td className="p-3">
                     {apiKey.lastUsedAt ? formatDate(apiKey.lastUsedAt) : t.konfigurator.apiKeyNeverUsed}
                   </td>
-                  <td className="p-3">
+                  <td className="p-3" data-testid={`status-api-key-${apiKey.id}`}>
                     {isExpired(apiKey.expiresAt) ? (
                       <Badge variant="destructive">{t.konfigurator.apiKeyExpired}</Badge>
-                    ) : apiKey.isActive ? (
-                      <Badge variant="default" className="bg-green-600">{t.konfigurator.apiKeyActive}</Badge>
-                    ) : (
+                    ) : !apiKey.isActive ? (
                       <Badge variant="secondary">{t.common.inactive}</Badge>
+                    ) : (
+                      <Badge variant="default">{t.konfigurator.apiKeyActive}</Badge>
                     )}
                   </td>
                   <td className="p-3 text-right">
@@ -10963,7 +10963,7 @@ function ApiKeysTab() {
                   <FormItem>
                     <FormLabel>{t.konfigurator.apiKeyName}</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="Lab System Integration" data-testid="input-api-key-name" />
+                      <Input {...field} data-testid="input-api-key-name" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -10979,32 +10979,51 @@ function ApiKeysTab() {
                     <div className="space-y-2">
                       <div className="flex items-center space-x-2">
                         <Checkbox
-                          id="perm-read"
-                          checked={field.value.includes("lab_results:read")}
+                          id="perm-all"
+                          checked={field.value.includes("*")}
                           onCheckedChange={(checked) => {
-                            const newValue = checked
-                              ? [...field.value, "lab_results:read"]
-                              : field.value.filter((p) => p !== "lab_results:read");
-                            field.onChange(newValue);
+                            if (checked) {
+                              field.onChange(["*"]);
+                            } else {
+                              field.onChange(["lab_results:read", "lab_results:write"]);
+                            }
                           }}
-                          data-testid="checkbox-permission-read"
+                          data-testid="checkbox-permission-all"
                         />
-                        <Label htmlFor="perm-read">{t.konfigurator.apiKeyPermissionLabResultsRead}</Label>
+                        <Label htmlFor="perm-all" data-testid="label-permission-all">{t.konfigurator.apiKeyPermissionAll}</Label>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id="perm-write"
-                          checked={field.value.includes("lab_results:write")}
-                          onCheckedChange={(checked) => {
-                            const newValue = checked
-                              ? [...field.value, "lab_results:write"]
-                              : field.value.filter((p) => p !== "lab_results:write");
-                            field.onChange(newValue);
-                          }}
-                          data-testid="checkbox-permission-write"
-                        />
-                        <Label htmlFor="perm-write">{t.konfigurator.apiKeyPermissionLabResultsWrite}</Label>
-                      </div>
+                      {!field.value.includes("*") && (
+                        <>
+                          <div className="flex items-center space-x-2 ml-4">
+                            <Checkbox
+                              id="perm-read"
+                              checked={field.value.includes("lab_results:read")}
+                              onCheckedChange={(checked) => {
+                                const newValue = checked
+                                  ? [...field.value, "lab_results:read"]
+                                  : field.value.filter((p) => p !== "lab_results:read");
+                                field.onChange(newValue);
+                              }}
+                              data-testid="checkbox-permission-read"
+                            />
+                            <Label htmlFor="perm-read" data-testid="label-permission-read">{t.konfigurator.apiKeyPermissionLabResultsRead}</Label>
+                          </div>
+                          <div className="flex items-center space-x-2 ml-4">
+                            <Checkbox
+                              id="perm-write"
+                              checked={field.value.includes("lab_results:write")}
+                              onCheckedChange={(checked) => {
+                                const newValue = checked
+                                  ? [...field.value, "lab_results:write"]
+                                  : field.value.filter((p) => p !== "lab_results:write");
+                                field.onChange(newValue);
+                              }}
+                              data-testid="checkbox-permission-write"
+                            />
+                            <Label htmlFor="perm-write" data-testid="label-permission-write">{t.konfigurator.apiKeyPermissionLabResultsWrite}</Label>
+                          </div>
+                        </>
+                      )}
                     </div>
                     <FormMessage />
                   </FormItem>
@@ -11087,10 +11106,10 @@ function ApiKeysTab() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t.common.cancel}</AlertDialogCancel>
+            <AlertDialogCancel data-testid="button-cancel-delete-api-key">{t.common.cancel}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => selectedApiKey && deleteApiKeyMutation.mutate(selectedApiKey.id)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-destructive text-destructive-foreground"
               data-testid="button-confirm-delete-api-key"
             >
               {deleteApiKeyMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
