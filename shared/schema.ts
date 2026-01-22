@@ -4396,3 +4396,135 @@ export const insertApiKeySchema = createInsertSchema(apiKeys).omit({
 });
 export type InsertApiKey = z.infer<typeof insertApiKeySchema>;
 export type ApiKey = typeof apiKeys.$inferSelect;
+
+// ========================================
+// ALERT RULES - Customizable Metric-Based Alerts
+// ========================================
+
+// Alert metric types
+export const ALERT_METRICS = [
+  { value: 'pending_lab_results', label: 'Pending Lab Results', category: 'collections' },
+  { value: 'collections_without_hospital', label: 'Collections Without Hospital', category: 'collections' },
+  { value: 'overdue_collections', label: 'Overdue Collections (no activity)', category: 'collections' },
+  { value: 'pending_evaluations', label: 'Pending Evaluations', category: 'collections' },
+  { value: 'expiring_api_keys', label: 'Expiring API Keys', category: 'system' },
+  { value: 'inactive_customers', label: 'Inactive Customers', category: 'customers' },
+  { value: 'upcoming_collection_dates', label: 'Upcoming Collection Dates', category: 'collections' },
+  { value: 'low_collection_rate', label: 'Low Collection Rate', category: 'collections' },
+  { value: 'pending_invoices', label: 'Pending Invoices', category: 'billing' },
+  { value: 'overdue_tasks', label: 'Overdue Tasks', category: 'tasks' },
+] as const;
+
+export const ALERT_COMPARISON_OPERATORS = [
+  { value: 'gt', label: '>' },
+  { value: 'gte', label: '>=' },
+  { value: 'lt', label: '<' },
+  { value: 'lte', label: '<=' },
+  { value: 'eq', label: '=' },
+  { value: 'neq', label: '!=' },
+] as const;
+
+export const ALERT_CHECK_FREQUENCIES = [
+  { value: 'hourly', label: 'Every Hour', intervalMs: 3600000 },
+  { value: 'every_6_hours', label: 'Every 6 Hours', intervalMs: 21600000 },
+  { value: 'daily', label: 'Once a Day', intervalMs: 86400000 },
+  { value: 'weekly', label: 'Once a Week', intervalMs: 604800000 },
+] as const;
+
+export const alertRules = pgTable("alert_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Rule identification
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  
+  // Metric configuration
+  metricType: varchar("metric_type", { length: 50 }).notNull(), // From ALERT_METRICS
+  comparisonOperator: varchar("comparison_operator", { length: 10 }).notNull().default("gt"), // gt, gte, lt, lte, eq, neq
+  thresholdValue: integer("threshold_value").notNull(), // The value to compare against
+  
+  // Scope filters
+  countryCodes: text("country_codes").array(), // null = all countries
+  
+  // Schedule
+  checkFrequency: varchar("check_frequency", { length: 20 }).notNull().default("daily"), // hourly, every_6_hours, daily, weekly
+  lastCheckedAt: timestamp("last_checked_at"),
+  nextCheckAt: timestamp("next_check_at"),
+  
+  // Notification settings
+  notificationPriority: varchar("notification_priority", { length: 20 }).notNull().default("high"), // low, normal, high, urgent
+  
+  // Target users
+  targetType: varchar("target_type", { length: 50 }).notNull().default("role"), // all, role, specific_users
+  targetRoles: text("target_roles").array(), // For role-based targeting
+  targetUserIds: text("target_user_ids").array(), // For specific user targeting
+  
+  // Cooldown (avoid repeated alerts)
+  cooldownMinutes: integer("cooldown_minutes").notNull().default(60), // Minimum time between alerts
+  lastAlertedAt: timestamp("last_alerted_at"),
+  
+  // Status
+  isActive: boolean("is_active").notNull().default(true),
+  
+  // Tracking
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertAlertRuleSchema = createInsertSchema(alertRules).omit({
+  id: true,
+  lastCheckedAt: true,
+  nextCheckAt: true,
+  lastAlertedAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertAlertRule = z.infer<typeof insertAlertRuleSchema>;
+export type AlertRule = typeof alertRules.$inferSelect;
+
+export const alertRulesRelations = relations(alertRules, ({ one }) => ({
+  creator: one(users, {
+    fields: [alertRules.createdBy],
+    references: [users.id],
+  }),
+}));
+
+// Alert instances - individual alert occurrences
+export const alertInstances = pgTable("alert_instances", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  alertRuleId: varchar("alert_rule_id").notNull().references(() => alertRules.id, { onDelete: 'cascade' }),
+  
+  // Snapshot of alert data
+  metricValue: integer("metric_value").notNull(), // The actual value when alert was triggered
+  thresholdValue: integer("threshold_value").notNull(), // The threshold at time of alert
+  
+  // Status
+  status: varchar("status", { length: 20 }).notNull().default("active"), // active, acknowledged, resolved
+  acknowledgedBy: varchar("acknowledged_by").references(() => users.id),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  resolvedAt: timestamp("resolved_at"),
+  
+  // Related notifications
+  notificationsSent: integer("notifications_sent").notNull().default(0),
+  
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertAlertInstanceSchema = createInsertSchema(alertInstances).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertAlertInstance = z.infer<typeof insertAlertInstanceSchema>;
+export type AlertInstance = typeof alertInstances.$inferSelect;
+
+export const alertInstancesRelations = relations(alertInstances, ({ one }) => ({
+  alertRule: one(alertRules, {
+    fields: [alertInstances.alertRuleId],
+    references: [alertRules.id],
+  }),
+  acknowledger: one(users, {
+    fields: [alertInstances.acknowledgedBy],
+    references: [users.id],
+  }),
+}));
