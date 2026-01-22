@@ -18,8 +18,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { 
   Plus, Search, Eye, Edit, Trash2, Syringe, Building2, User, Calendar, 
   FileText, FlaskConical, AlertCircle, ArrowLeft, ArrowRight, Check, Baby, 
-  Users, Clock
+  Users, Clock, LayoutDashboard, List, TrendingUp, Globe, Activity, ChevronLeft, ChevronRight, Download
 } from "lucide-react";
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, LineChart, Line } from "recharts";
 import { Link, useLocation, useRoute } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -123,6 +124,8 @@ export default function CollectionsPage() {
   const [wizardStep, setWizardStep] = useState(0);
   const [formData, setFormData] = useState<CollectionFormData>(initialFormData);
   const [activeTab, setActiveTab] = useState("client");
+  const [viewMode, setViewMode] = useState<"dashboard" | "list" | "calendar">("dashboard");
+  const [calendarMonth, setCalendarMonth] = useState(new Date());
   
   const dateFnsLocale = dateLocales[locale] || enUS;
 
@@ -413,7 +416,7 @@ export default function CollectionsPage() {
     const data = prepareDataForSave();
     console.log("Saving collection data:", data);
     if (!data.countryCode) {
-      toast({ title: "Country is required", variant: "destructive" });
+      toast({ title: t.collections?.countryRequired, variant: "destructive" });
       return;
     }
     if (isNew) {
@@ -1162,6 +1165,10 @@ export default function CollectionsPage() {
                   <FlaskConical className="h-4 w-4 mr-2" />
                   {t.collections?.labResults}
                 </TabsTrigger>
+                <TabsTrigger value="timeline" data-testid="tab-timeline">
+                  <Activity className="h-4 w-4 mr-2" />
+                  {t.collections?.timeline}
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="client">{renderClientForm()}</TabsContent>
@@ -1177,6 +1184,77 @@ export default function CollectionsPage() {
                   renderLabResultsForm()
                 )}
               </TabsContent>
+              <TabsContent value="timeline">
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-medium">{t.collections?.workflowProgress}</h3>
+                    <Badge variant={collection?.state === "stored" ? "default" : "secondary"}>
+                      {t.collections?.currentStatus}: {getStateLabel(collection?.state || "")}
+                    </Badge>
+                  </div>
+                  <div className="relative">
+                    <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
+                    <div className="space-y-6">
+                      {COLLECTION_STATES.map((state, index) => {
+                        const currentIndex = COLLECTION_STATES.indexOf(collection?.state || "created");
+                        const isCompleted = index < currentIndex;
+                        const isCurrent = index === currentIndex;
+                        const isPending = index > currentIndex;
+                        
+                        return (
+                          <div key={state} className="relative flex items-start gap-4 pl-10">
+                            <div className={`absolute left-2 w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                              isCompleted ? "bg-primary border-primary" :
+                              isCurrent ? "bg-primary border-primary" :
+                              "bg-background border-muted-foreground"
+                            }`}>
+                              {isCompleted && <Check className="h-3 w-3 text-white" />}
+                              {isCurrent && <div className="w-2 h-2 rounded-full bg-white" />}
+                            </div>
+                            <div className={`flex-1 ${isPending ? "opacity-50" : ""}`}>
+                              <div className="flex items-center gap-2">
+                                <span className={`font-medium ${isCurrent ? "text-primary" : ""}`}>
+                                  {getStateLabel(state)}
+                                </span>
+                                {isCurrent && (
+                                  <Badge variant="outline" className="text-xs">
+                                    {t.collections?.currentStatus}
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {index === 0 && t.collections?.timelineDescriptions?.created}
+                                {index === 1 && t.collections?.timelineDescriptions?.paired}
+                                {index === 2 && t.collections?.timelineDescriptions?.evaluated}
+                                {index === 3 && t.collections?.timelineDescriptions?.verified}
+                                {index === 4 && t.collections?.timelineDescriptions?.stored}
+                                {index === 5 && t.collections?.timelineDescriptions?.transferred}
+                                {index === 6 && t.collections?.timelineDescriptions?.released}
+                                {index === 7 && t.collections?.timelineDescriptions?.pending_disposal}
+                                {index === 8 && t.collections?.timelineDescriptions?.disposed}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                    <div className="p-4 bg-primary/10 rounded-lg">
+                      <p className="text-sm text-muted-foreground">{t.collections?.completedSteps}</p>
+                      <p className="text-2xl font-bold text-primary">
+                        {COLLECTION_STATES.indexOf(collection?.state || "created")}
+                      </p>
+                    </div>
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <p className="text-sm text-muted-foreground">{t.collections?.remainingSteps}</p>
+                      <p className="text-2xl font-bold">
+                        {COLLECTION_STATES.length - COLLECTION_STATES.indexOf(collection?.state || "created") - 1}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
             </Tabs>
 
             <div className="flex items-center justify-end mt-6 pt-6 border-t">
@@ -1191,6 +1269,407 @@ export default function CollectionsPage() {
     );
   }
 
+  const dashboardT = t.collections?.dashboard || {};
+  const statesT = t.collections?.states || {};
+
+  const CHART_COLORS = ["#6B1C3B", "#8B3A5B", "#AB587B", "#CB769B", "#EB94BB", "#FBB2DB", "#FFD0EB"];
+
+  const statusData = COLLECTION_STATES.map(state => ({
+    name: statesT[state] || state,
+    value: filteredCollections.filter(c => c.state === state).length,
+    state
+  })).filter(d => d.value > 0);
+
+  const countryData = selectedCountries.map(code => ({
+    name: code,
+    value: filteredCollections.filter(c => c.countryCode === code).length
+  })).filter(d => d.value > 0);
+
+  const now = new Date();
+  const thisMonth = filteredCollections.filter(c => {
+    if (!c.collectionDate) return false;
+    const date = new Date(c.collectionDate);
+    return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+  }).length;
+
+  const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const lastMonth = filteredCollections.filter(c => {
+    if (!c.collectionDate) return false;
+    const date = new Date(c.collectionDate);
+    return date.getMonth() === lastMonthDate.getMonth() && date.getFullYear() === lastMonthDate.getFullYear();
+  }).length;
+
+  const pendingLab = filteredCollections.filter(c => 
+    c.state === "created" || c.state === "paired" || c.state === "evaluated"
+  ).length;
+
+  const monthlyData = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+    const monthCollections = filteredCollections.filter(c => {
+      if (!c.collectionDate) return false;
+      const date = new Date(c.collectionDate);
+      return date.getMonth() === d.getMonth() && date.getFullYear() === d.getFullYear();
+    });
+    return {
+      name: format(d, "MMM", { locale: dateFnsLocale }),
+      count: monthCollections.length
+    };
+  });
+
+  const recentCollections = [...filteredCollections]
+    .sort((a, b) => {
+      const dateA = a.collectionDate ? new Date(a.collectionDate).getTime() : 0;
+      const dateB = b.collectionDate ? new Date(b.collectionDate).getTime() : 0;
+      return dateB - dateA;
+    })
+    .slice(0, 5);
+
+  const renderDashboard = () => (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-primary/10 rounded-lg">
+                <Syringe className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">{dashboardT.totalCollections}</p>
+                <p className="text-2xl font-bold">{filteredCollections.length}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-primary/10 rounded-lg">
+                <TrendingUp className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">{dashboardT.thisMonth}</p>
+                <p className="text-2xl font-bold">{thisMonth}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-secondary/30 rounded-lg">
+                <Calendar className="h-6 w-6 text-secondary-foreground" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">{dashboardT.lastMonth}</p>
+                <p className="text-2xl font-bold">{lastMonth}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-muted rounded-lg">
+                <FlaskConical className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">{dashboardT.pendingLabResults}</p>
+                <p className="text-2xl font-bold">{pendingLab}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{dashboardT.byStatus}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {statusData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart>
+                  <Pie
+                    data={statusData}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    dataKey="value"
+                    label={({ name, value }) => `${name}: ${value}`}
+                  >
+                    {statusData.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[250px] text-muted-foreground">
+                {t.common.noData}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{dashboardT.byCountry}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {countryData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={countryData}>
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="value" fill="#6B1C3B" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[250px] text-muted-foreground">
+                {t.common.noData}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{dashboardT.monthlyTrend}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={250}>
+              <LineChart data={monthlyData}>
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Line type="monotone" dataKey="count" stroke="#6B1C3B" strokeWidth={2} dot={{ fill: "#6B1C3B" }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{dashboardT.recentCollections}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {recentCollections.length > 0 ? (
+              <div className="space-y-3">
+                {recentCollections.map(col => (
+                  <div
+                    key={col.id}
+                    className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 cursor-pointer"
+                    onClick={() => setLocation(`/collections/${col.id}`)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-primary/10 rounded-full">
+                        <User className="h-4 w-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">{col.clientFirstName} {col.clientLastName}</p>
+                        <p className="text-xs text-muted-foreground">{col.cbuNumber}</p>
+                      </div>
+                    </div>
+                    <Badge variant={col.state === "stored" ? "default" : "secondary"}>
+                      {getStateLabel(col.state)}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-[200px] text-muted-foreground">
+                {t.common.noData}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+
+  const getDaysInMonth = (date: Date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startDayOfWeek = (firstDay.getDay() + 6) % 7;
+    
+    const days: (Date | null)[] = [];
+    for (let i = 0; i < startDayOfWeek; i++) {
+      days.push(null);
+    }
+    for (let i = 1; i <= daysInMonth; i++) {
+      days.push(new Date(year, month, i));
+    }
+    return days;
+  };
+
+  const getCollectionsForDay = (date: Date) => {
+    return filteredCollections.filter(c => {
+      if (!c.collectionDate) return false;
+      const colDate = new Date(c.collectionDate);
+      return colDate.getDate() === date.getDate() &&
+             colDate.getMonth() === date.getMonth() &&
+             colDate.getFullYear() === date.getFullYear();
+    });
+  };
+
+  const handleExportCSV = () => {
+    if (!filteredCollections.length) {
+      toast({
+        title: t.common?.error,
+        description: t.collections?.noDataToExport,
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const headers = [
+      t.collections?.idColumn, 
+      t.collections?.cbuNumber, 
+      t.collections?.state, 
+      t.collections?.clientFirstName, 
+      t.collections?.clientLastName,
+      t.collections?.clientEmail, 
+      t.collections?.clientPhone, 
+      t.collections?.childName, 
+      t.collections?.birthDate, 
+      t.collections?.birthWeight,
+      t.collections?.hospital, 
+      t.collections?.doctor, 
+      t.collections?.collectionDate, 
+      t.collections?.countryCode
+    ];
+    
+    const csvContent = [
+      headers.join(","),
+      ...filteredCollections.map(col => [
+        col.id,
+        col.cbuNumber || "",
+        col.state,
+        `"${col.clientFirstName || ""}"`,
+        `"${col.clientLastName || ""}"`,
+        `"${col.clientEmail || ""}"`,
+        `"${col.clientPhone || ""}"`,
+        `"${col.childName || ""}"`,
+        col.birthDate || "",
+        col.birthWeight || "",
+        `"${col.hospital || ""}"`,
+        `"${col.doctor || ""}"`,
+        col.collectionDate || "",
+        col.countryCode || ""
+      ].join(","))
+    ].join("\n");
+    
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `collections_export_${new Date().toISOString().split("T")[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    toast({
+      title: t.common?.success,
+      description: t.collections?.exportSuccess,
+    });
+  };
+
+  const weekDays = [
+    t.collections?.weekDays?.mon,
+    t.collections?.weekDays?.tue,
+    t.collections?.weekDays?.wed,
+    t.collections?.weekDays?.thu,
+    t.collections?.weekDays?.fri,
+    t.collections?.weekDays?.sat,
+    t.collections?.weekDays?.sun,
+  ];
+  const calendarDays = getDaysInMonth(calendarMonth);
+
+  const renderCalendar = () => (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))}
+            data-testid="button-prev-month"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <h3 className="text-lg font-medium min-w-[180px] text-center">
+            {format(calendarMonth, "LLLL yyyy", { locale: dateFnsLocale })}
+          </h3>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))}
+            data-testid="button-next-month"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setCalendarMonth(new Date())}
+          data-testid="button-today"
+        >
+          {t.collections?.today}
+        </Button>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-7 gap-1">
+          {weekDays.map(day => (
+            <div key={day} className="text-center text-sm font-medium text-muted-foreground py-2">
+              {day}
+            </div>
+          ))}
+          {calendarDays.map((date, index) => {
+            if (!date) {
+              return <div key={`empty-${index}`} className="h-24 bg-muted/20 rounded-md" />;
+            }
+            const dayCollections = getCollectionsForDay(date);
+            const isToday = date.toDateString() === new Date().toDateString();
+            return (
+              <div
+                key={date.toISOString()}
+                className={`h-24 p-1 rounded-md border ${isToday ? "border-primary bg-primary/5" : "border-border"} overflow-hidden`}
+              >
+                <div className={`text-xs font-medium mb-1 ${isToday ? "text-primary" : ""}`}>
+                  {date.getDate()}
+                </div>
+                <ScrollArea className="h-16">
+                  <div className="space-y-1">
+                    {dayCollections.map(col => (
+                      <div
+                        key={col.id}
+                        className="text-xs p-1 bg-primary/10 rounded cursor-pointer hover-elevate truncate"
+                        onClick={() => setLocation(`/collections/${col.id}`)}
+                        title={`${col.clientFirstName} ${col.clientLastName}`}
+                      >
+                        {col.clientFirstName} {col.clientLastName?.charAt(0)}.
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="p-6 space-y-6">
       <PageHeader
@@ -1198,28 +1677,79 @@ export default function CollectionsPage() {
         description={t.collections?.description}
       />
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-4">
-          <div className="flex items-center gap-2 flex-1">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder={t.common.search}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-                data-testid="input-search-collections"
-              />
-            </div>
-          </div>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <Button
+            variant={viewMode === "dashboard" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode("dashboard")}
+            data-testid="button-view-dashboard"
+          >
+            <LayoutDashboard className="h-4 w-4 mr-2" />
+            {dashboardT.title}
+          </Button>
+          <Button
+            variant={viewMode === "list" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode("list")}
+            data-testid="button-view-list"
+          >
+            <List className="h-4 w-4 mr-2" />
+            {dashboardT.listView}
+          </Button>
+          <Button
+            variant={viewMode === "calendar" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode("calendar")}
+            data-testid="button-view-calendar"
+          >
+            <Calendar className="h-4 w-4 mr-2" />
+            {dashboardT.calendarView}
+          </Button>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            onClick={handleExportCSV}
+            data-testid="button-export-csv"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            {t.collections?.exportCSV}
+          </Button>
           <Link href="/collections/new">
             <Button data-testid="button-add-collection">
               <Plus className="h-4 w-4 mr-2" />
               {t.collections?.addCollection}
             </Button>
           </Link>
-        </CardHeader>
-        <CardContent>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      ) : viewMode === "dashboard" ? (
+        renderDashboard()
+      ) : viewMode === "calendar" ? (
+        renderCalendar()
+      ) : (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-4">
+            <div className="flex items-center gap-2 flex-1">
+              <div className="relative flex-1 max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder={t.common.search}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                  data-testid="input-search-collections"
+                />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -1300,6 +1830,7 @@ export default function CollectionsPage() {
           )}
         </CardContent>
       </Card>
+      )}
 
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent>
