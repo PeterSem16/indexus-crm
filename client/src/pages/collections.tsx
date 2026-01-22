@@ -23,7 +23,7 @@ import {
 import { Link, useLocation, useRoute } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Collection, BillingDetails, Product, Customer, Collaborator, Hospital } from "@shared/schema";
+import type { Collection, BillingDetails, Product, Customer, Collaborator, Hospital, ProductSet } from "@shared/schema";
 
 const dateLocales: Record<string, Locale> = {
   sk, cs, hu, ro, it, de, en: enUS
@@ -39,6 +39,7 @@ interface CollectionFormData {
   cbuNumber: string;
   billingCompanyId: string;
   productId: string;
+  billsetId: string;
   countryCode: string;
   customerId: string;
   clientFirstName: string;
@@ -73,6 +74,7 @@ const initialFormData: CollectionFormData = {
   cbuNumber: "",
   billingCompanyId: "",
   productId: "",
+  billsetId: "",
   countryCode: "",
   customerId: "",
   clientFirstName: "",
@@ -153,12 +155,37 @@ export default function CollectionsPage() {
     queryKey: ["/api/hospitals"],
   });
 
+  const { data: productSets = [] } = useQuery<ProductSet[]>({
+    queryKey: ["/api/product-sets"],
+  });
+
+  const selectedCustomer = customers.find(c => c.id === formData.customerId);
+  const customerCountries = selectedCustomer?.country ? [selectedCustomer.country] : [];
+
+  const handleCustomerSelect = (customerId: string) => {
+    const customer = customers.find(c => c.id === customerId);
+    if (customer) {
+      setFormData(prev => ({
+        ...prev,
+        customerId,
+        clientFirstName: customer.firstName || prev.clientFirstName,
+        clientLastName: customer.lastName || prev.clientLastName,
+        clientPhone: customer.phone || prev.clientPhone,
+        clientMobile: customer.mobile || prev.clientMobile,
+        countryCode: customer.country || prev.countryCode,
+      }));
+    } else {
+      handleFieldChange("customerId", customerId);
+    }
+  };
+
   useEffect(() => {
     if (collection && isEditing) {
       setFormData({
         cbuNumber: collection.cbuNumber || "",
         billingCompanyId: collection.billingCompanyId || "",
         productId: collection.productId || "",
+        billsetId: collection.billsetId || "",
         countryCode: collection.countryCode || "",
         customerId: collection.customerId || "",
         clientFirstName: collection.clientFirstName || "",
@@ -172,7 +199,7 @@ export default function CollectionsPage() {
         childFirstName: collection.childFirstName || "",
         childLastName: collection.childLastName || "",
         childGender: collection.childGender || "",
-        collectionDate: collection.collectionDate ? format(new Date(collection.collectionDate), "yyyy-MM-dd") : "",
+        collectionDate: collection.collectionDate ? format(new Date(collection.collectionDate), "yyyy-MM-dd'T'HH:mm") : "",
         hospitalId: collection.hospitalId || "",
         cordBloodCollectorId: collection.cordBloodCollectorId || "",
         tissueCollectorId: collection.tissueCollectorId || "",
@@ -316,6 +343,7 @@ export default function CollectionsPage() {
       cbuNumber: formData.cbuNumber || null,
       billingCompanyId: formData.billingCompanyId || null,
       productId: formData.productId || null,
+      billsetId: formData.billsetId || null,
       countryCode: formData.countryCode,
       customerId: formData.customerId || null,
       clientFirstName: formData.clientFirstName || null,
@@ -363,8 +391,30 @@ export default function CollectionsPage() {
     { key: "status", label: t.collections?.status, icon: Clock },
   ];
 
+  const availableCountries = customerCountries.length > 0 ? customerCountries : ["SK", "CZ", "HU", "RO", "IT", "DE", "US"];
+  const countryLabels: Record<string, string | undefined> = t.countries || {};
+
+  const productBillsets = formData.productId 
+    ? productSets.filter(ps => ps.productId === formData.productId)
+    : [];
+
   const renderClientForm = () => (
     <div className="space-y-4">
+      <div className="space-y-2">
+        <Label>{t.customers?.title}</Label>
+        <Select value={formData.customerId} onValueChange={handleCustomerSelect}>
+          <SelectTrigger data-testid="select-customer">
+            <SelectValue placeholder={t.common.select} />
+          </SelectTrigger>
+          <SelectContent>
+            {customers.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.firstName} {c.lastName}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>{t.collections?.firstName}</Label>
@@ -452,13 +502,9 @@ export default function CollectionsPage() {
               <SelectValue placeholder={t.common.select} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="SK">{t.countries?.SK}</SelectItem>
-              <SelectItem value="CZ">{t.countries?.CZ}</SelectItem>
-              <SelectItem value="HU">{t.countries?.HU}</SelectItem>
-              <SelectItem value="RO">{t.countries?.RO}</SelectItem>
-              <SelectItem value="IT">{t.countries?.IT}</SelectItem>
-              <SelectItem value="DE">{t.countries?.DE}</SelectItem>
-              <SelectItem value="US">{t.countries?.US}</SelectItem>
+              {availableCountries.map((code) => (
+                <SelectItem key={code} value={code}>{countryLabels[code] || code}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -476,18 +522,40 @@ export default function CollectionsPage() {
           </Select>
         </div>
       </div>
-      <div className="space-y-2">
-        <Label>{t.products?.title}</Label>
-        <Select value={formData.productId} onValueChange={(v) => handleFieldChange("productId", v)}>
-          <SelectTrigger data-testid="select-product">
-            <SelectValue placeholder={t.common.select} />
-          </SelectTrigger>
-          <SelectContent>
-            {products.map((p) => (
-              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>{t.products?.title}</Label>
+          <Select value={formData.productId} onValueChange={(v) => {
+            handleFieldChange("productId", v);
+            handleFieldChange("billsetId", "");
+          }}>
+            <SelectTrigger data-testid="select-product">
+              <SelectValue placeholder={t.common.select} />
+            </SelectTrigger>
+            <SelectContent>
+              {products.map((p) => (
+                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>{t.collections?.billset}</Label>
+          <Select 
+            value={formData.billsetId} 
+            onValueChange={(v) => handleFieldChange("billsetId", v)}
+            disabled={!formData.productId || productBillsets.length === 0}
+          >
+            <SelectTrigger data-testid="select-billset">
+              <SelectValue placeholder={productBillsets.length === 0 ? notAvailable : t.common.select} />
+            </SelectTrigger>
+            <SelectContent>
+              {productBillsets.map((ps) => (
+                <SelectItem key={ps.id} value={ps.id}>{ps.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
     </div>
   );
@@ -541,7 +609,7 @@ export default function CollectionsPage() {
         <div className="space-y-2">
           <Label>{t.collections?.collectionDate}</Label>
           <Input
-            type="date"
+            type="datetime-local"
             value={formData.collectionDate}
             onChange={(e) => handleFieldChange("collectionDate", e.target.value)}
             data-testid="input-collection-date"

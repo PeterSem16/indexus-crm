@@ -76,13 +76,13 @@ export function AppSidebar() {
   const customerSubItems = [
     { title: t.nav.customers, url: "/customers", testId: "customers", moduleKey: "customers" },
     { title: t.nav.contracts, url: "/contracts", testId: "contracts", moduleKey: "contracts" },
+    { title: t.nav.collections, url: "/collections", testId: "collections", moduleKey: "collections" },
   ];
 
   const collaboratorSubItems = [
     { title: t.nav.collaborators, url: "/collaborators", testId: "collaborators", moduleKey: "collaborators" },
     { title: t.nav.visitEvents, url: "/visit-events", testId: "visit-events", moduleKey: "visitEvents" },
     { title: t.nav.collaboratorReports, url: "/collaborator-reports", testId: "collaborator-reports", moduleKey: "collaborators" },
-    { title: t.nav.collections, url: "/collections", testId: "collections", moduleKey: "collections" },
   ];
   
   const adminNavItems = [
@@ -151,7 +151,7 @@ export function AppSidebar() {
               <Collapsible defaultOpen className="group/collapsible">
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
-                    <SidebarMenuButton isActive={location === "/customers" || location === "/contracts"}>
+                    <SidebarMenuButton isActive={location === "/customers" || location === "/contracts" || location.startsWith("/collections")}>
                       <Users className="h-4 w-4" />
                       <span>{t.nav.customers}</span>
                       <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />

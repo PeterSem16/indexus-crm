@@ -4186,6 +4186,7 @@ export const collections = pgTable("collections", {
   // Company and product
   billingCompanyId: varchar("billing_company_id"),
   productId: varchar("product_id"),
+  billsetId: varchar("billset_id"),
   countryCode: text("country_code").notNull(),
   
   // Client (Klientka) - linked to customer
