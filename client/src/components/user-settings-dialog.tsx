@@ -174,7 +174,6 @@ function UserSipProfileTab() {
   };
 
   const isGlobalSipEnabled = sipSettings?.isEnabled;
-  const isUserSipEnabled = (user as any)?.sipEnabled;
 
   return (
     <div className="space-y-4">
@@ -188,6 +187,24 @@ function UserSipProfileTab() {
             <CardDescription className="text-sm">
               {t.settings.sipProfile.description}
             </CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            {isRegistered && (
+              <Badge variant="default" className="bg-green-600">
+                {t.settings.sipProfile.registered}
+              </Badge>
+            )}
+            {!isRegistered && !isRegistering && (
+              <Badge variant="destructive">
+                {t.settings.sipProfile.notRegistered}
+              </Badge>
+            )}
+            {isRegistering && (
+              <Badge variant="secondary">
+                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                {t.settings.sipProfile.testing}
+              </Badge>
+            )}
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -242,77 +259,51 @@ function UserSipProfileTab() {
                 </p>
               </div>
 
-              <Separator />
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-sm font-medium">{t.settings.sipProfile.registrationStatus}</h4>
-                    <p className="text-xs text-muted-foreground">
-                      {t.settings.sipProfile.testDescription}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {isRegistered && (
-                      <Badge variant="default" className="bg-green-600">
-                        {t.settings.sipProfile.registered}
-                      </Badge>
-                    )}
-                    {!isRegistered && !isRegistering && (
-                      <Badge variant="destructive">
-                        {t.settings.sipProfile.notRegistered}
-                      </Badge>
-                    )}
-                    {isRegistering && (
-                      <Badge variant="secondary">
-                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                        {t.settings.sipProfile.testing}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex gap-2">
-                  <Button 
-                    onClick={handleSave} 
-                    disabled={isSaving}
-                    data-testid="button-user-save-sip-profile"
-                  >
-                    {isSaving ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <Save className="h-4 w-4 mr-2" />
-                    )}
-                    {t.settings.sipProfile.save}
-                  </Button>
-                  {!isRegistered ? (
-                    <Button 
-                      variant="outline"
-                      onClick={handleRegister} 
-                      disabled={isRegistering || !sipExtension || !sipPassword}
-                      data-testid="button-user-sip-register"
-                    >
-                      {isRegistering ? (
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      ) : (
-                        <Phone className="h-4 w-4 mr-2" />
-                      )}
-                      {t.settings.sipProfile.register}
-                    </Button>
-                  ) : (
-                    <Button 
-                      variant="outline"
-                      onClick={handleUnregister} 
-                      data-testid="button-user-sip-unregister"
-                    >
-                      <Phone className="h-4 w-4 mr-2" />
-                      {t.settings.sipProfile.unregister}
-                    </Button>
-                  )}
-                </div>
-              </div>
             </>
           )}
+
+          <Separator />
+
+          <div className="space-y-4">
+            <div className="flex gap-2 flex-wrap">
+              <Button 
+                onClick={handleSave} 
+                disabled={isSaving || !isGlobalSipEnabled}
+                data-testid="button-user-save-sip-profile"
+              >
+                {isSaving ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
+                {t.settings.sipProfile.save}
+              </Button>
+              {!isRegistered ? (
+                <Button 
+                  variant="outline"
+                  onClick={handleRegister} 
+                  disabled={isRegistering || !sipExtension || !sipPassword || !isGlobalSipEnabled}
+                  data-testid="button-user-sip-register"
+                >
+                  {isRegistering ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Phone className="h-4 w-4 mr-2" />
+                  )}
+                  {t.settings.sipProfile.register}
+                </Button>
+              ) : (
+                <Button 
+                  variant="outline"
+                  onClick={handleUnregister} 
+                  data-testid="button-user-sip-unregister"
+                >
+                  <Phone className="h-4 w-4 mr-2" />
+                  {t.settings.sipProfile.unregister}
+                </Button>
+              )}
+            </div>
+          </div>
         </CardContent>
       </Card>
 
