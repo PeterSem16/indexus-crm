@@ -1700,6 +1700,86 @@ export interface Translations {
       daysFromCreation: string;
     };
   };
+  alerts: {
+    title: string;
+    description: string;
+    createAlert: string;
+    editAlert: string;
+    deleteAlert: string;
+    deleteConfirm: string;
+    noAlerts: string;
+    name: string;
+    metric: string;
+    condition: string;
+    threshold: string;
+    frequency: string;
+    priority: string;
+    targetUsers: string;
+    countries: string;
+    allCountries: string;
+    cooldown: string;
+    cooldownMinutes: string;
+    status: string;
+    active: string;
+    inactive: string;
+    lastChecked: string;
+    lastAlerted: string;
+    never: string;
+    alertCreated: string;
+    alertUpdated: string;
+    alertDeleted: string;
+    alertActivated: string;
+    alertDeactivated: string;
+    createFailed: string;
+    updateFailed: string;
+    deleteFailed: string;
+    metrics: {
+      pending_lab_results: string;
+      collections_without_hospital: string;
+      overdue_collections: string;
+      pending_evaluations: string;
+      expiring_api_keys: string;
+      inactive_customers: string;
+      upcoming_collection_dates: string;
+      low_collection_rate: string;
+      pending_invoices: string;
+      overdue_tasks: string;
+    };
+    frequencies: {
+      hourly: string;
+      every_6_hours: string;
+      daily: string;
+      weekly: string;
+    };
+    operators: {
+      gt: string;
+      gte: string;
+      lt: string;
+      lte: string;
+      eq: string;
+      neq: string;
+    };
+    targetTypes: {
+      all: string;
+      role: string;
+      specific_users: string;
+    };
+    categories: {
+      collections: string;
+      system: string;
+      customers: string;
+      billing: string;
+      tasks: string;
+    };
+    currentValue: string;
+    instances: string;
+    acknowledged: string;
+    resolved: string;
+    acknowledge: string;
+    resolve: string;
+    activeAlerts: string;
+    history: string;
+  };
 }
 
 export const translations: Record<Locale, Translations> = {
@@ -3630,6 +3710,86 @@ export const translations: Record<Locale, Translations> = {
         daysFromCreation: 'Days Since Creation',
       },
     },
+    alerts: {
+      title: 'Alerts',
+      description: 'Configure automated alerts for critical metrics and upcoming tasks',
+      createAlert: 'Create Alert',
+      editAlert: 'Edit Alert',
+      deleteAlert: 'Delete Alert',
+      deleteConfirm: 'Are you sure you want to delete this alert?',
+      noAlerts: 'No alerts configured',
+      name: 'Name',
+      metric: 'Metric',
+      condition: 'Condition',
+      threshold: 'Threshold',
+      frequency: 'Check Frequency',
+      priority: 'Priority',
+      targetUsers: 'Target Users',
+      countries: 'Countries',
+      allCountries: 'All Countries',
+      cooldown: 'Cooldown',
+      cooldownMinutes: 'Cooldown (minutes)',
+      status: 'Status',
+      active: 'Active',
+      inactive: 'Inactive',
+      lastChecked: 'Last Checked',
+      lastAlerted: 'Last Alerted',
+      never: 'Never',
+      alertCreated: 'Alert created successfully',
+      alertUpdated: 'Alert updated successfully',
+      alertDeleted: 'Alert deleted successfully',
+      alertActivated: 'Alert activated',
+      alertDeactivated: 'Alert deactivated',
+      createFailed: 'Failed to create alert',
+      updateFailed: 'Failed to update alert',
+      deleteFailed: 'Failed to delete alert',
+      metrics: {
+        pending_lab_results: 'Pending Lab Results',
+        collections_without_hospital: 'Collections Without Hospital',
+        overdue_collections: 'Overdue Collections',
+        pending_evaluations: 'Pending Evaluations',
+        expiring_api_keys: 'Expiring API Keys',
+        inactive_customers: 'Inactive Customers',
+        upcoming_collection_dates: 'Upcoming Collection Dates',
+        low_collection_rate: 'Low Collection Rate',
+        pending_invoices: 'Pending Invoices',
+        overdue_tasks: 'Overdue Tasks',
+      },
+      frequencies: {
+        hourly: 'Every Hour',
+        every_6_hours: 'Every 6 Hours',
+        daily: 'Once a Day',
+        weekly: 'Once a Week',
+      },
+      operators: {
+        gt: 'Greater than',
+        gte: 'Greater or equal',
+        lt: 'Less than',
+        lte: 'Less or equal',
+        eq: 'Equal to',
+        neq: 'Not equal to',
+      },
+      targetTypes: {
+        all: 'All Users',
+        role: 'By Role',
+        specific_users: 'Specific Users',
+      },
+      categories: {
+        collections: 'Collections',
+        system: 'System',
+        customers: 'Customers',
+        billing: 'Billing',
+        tasks: 'Tasks',
+      },
+      currentValue: 'Current Value',
+      instances: 'Alert Instances',
+      acknowledged: 'Acknowledged',
+      resolved: 'Resolved',
+      acknowledge: 'Acknowledge',
+      resolve: 'Resolve',
+      activeAlerts: 'Active Alerts',
+      history: 'History',
+    },
   },
   sk: {
     nav: {
@@ -5553,6 +5713,86 @@ export const translations: Record<Locale, Translations> = {
         daysFromCreation: 'Dni od vytvorenia',
       },
     },
+    alerts: {
+      title: 'Upozornenia',
+      description: 'Nastavte automatické upozornenia na kritické metriky a nadchádzajúce úlohy',
+      createAlert: 'Vytvoriť upozornenie',
+      editAlert: 'Upraviť upozornenie',
+      deleteAlert: 'Odstrániť upozornenie',
+      deleteConfirm: 'Naozaj chcete odstrániť toto upozornenie?',
+      noAlerts: 'Žiadne upozornenia nie sú nakonfigurované',
+      name: 'Názov',
+      metric: 'Metrika',
+      condition: 'Podmienka',
+      threshold: 'Hranica',
+      frequency: 'Frekvencia kontroly',
+      priority: 'Priorita',
+      targetUsers: 'Cieľoví používatelia',
+      countries: 'Krajiny',
+      allCountries: 'Všetky krajiny',
+      cooldown: 'Prestávka',
+      cooldownMinutes: 'Prestávka (minúty)',
+      status: 'Stav',
+      active: 'Aktívne',
+      inactive: 'Neaktívne',
+      lastChecked: 'Naposledy skontrolované',
+      lastAlerted: 'Naposledy upozornené',
+      never: 'Nikdy',
+      alertCreated: 'Upozornenie bolo úspešne vytvorené',
+      alertUpdated: 'Upozornenie bolo úspešne aktualizované',
+      alertDeleted: 'Upozornenie bolo úspešne odstránené',
+      alertActivated: 'Upozornenie aktivované',
+      alertDeactivated: 'Upozornenie deaktivované',
+      createFailed: 'Nepodarilo sa vytvoriť upozornenie',
+      updateFailed: 'Nepodarilo sa aktualizovať upozornenie',
+      deleteFailed: 'Nepodarilo sa odstrániť upozornenie',
+      metrics: {
+        pending_lab_results: 'Čakajúce výsledky z laboratória',
+        collections_without_hospital: 'Odbery bez nemocnice',
+        overdue_collections: 'Oneskorené odbery',
+        pending_evaluations: 'Čakajúce hodnotenia',
+        expiring_api_keys: 'Expirujúce API kľúče',
+        inactive_customers: 'Neaktívni zákazníci',
+        upcoming_collection_dates: 'Nadchádzajúce dátumy odberov',
+        low_collection_rate: 'Nízka miera odberov',
+        pending_invoices: 'Čakajúce faktúry',
+        overdue_tasks: 'Oneskorené úlohy',
+      },
+      frequencies: {
+        hourly: 'Každú hodinu',
+        every_6_hours: 'Každých 6 hodín',
+        daily: 'Raz denne',
+        weekly: 'Raz týždenne',
+      },
+      operators: {
+        gt: 'Väčšie ako',
+        gte: 'Väčšie alebo rovné',
+        lt: 'Menšie ako',
+        lte: 'Menšie alebo rovné',
+        eq: 'Rovné',
+        neq: 'Nerovné',
+      },
+      targetTypes: {
+        all: 'Všetci používatelia',
+        role: 'Podľa roly',
+        specific_users: 'Konkrétni používatelia',
+      },
+      categories: {
+        collections: 'Odbery',
+        system: 'Systém',
+        customers: 'Zákazníci',
+        billing: 'Fakturácia',
+        tasks: 'Úlohy',
+      },
+      currentValue: 'Aktuálna hodnota',
+      instances: 'Inštancie upozornení',
+      acknowledged: 'Potvrdené',
+      resolved: 'Vyriešené',
+      acknowledge: 'Potvrdiť',
+      resolve: 'Vyriešiť',
+      activeAlerts: 'Aktívne upozornenia',
+      history: 'História',
+    },
   },
   cs: {
     nav: {
@@ -7407,6 +7647,86 @@ export const translations: Record<Locale, Translations> = {
       fields: { name: 'Název', category: 'Kategorie', field: 'Pole', condition: 'Podmínka', value: 'Hodnota', points: 'Body', isActive: 'Aktivní', countryCode: 'Země' },
       conditions: { equals: 'Rovná se', not_empty: 'Není prázdné', greater_than: 'Větší než', less_than: 'Menší než', contains: 'Obsahuje' },
       fieldOptions: { hasPhone: 'Má telefon', hasEmail: 'Má email', hasAddress: 'Má adresu', hasCase: 'Má případ', newsletterOptIn: 'Odběr newsletteru', caseStatus: 'Stav případu', hasExpectedDate: 'Má očekávané datum', hasFatherInfo: 'Má údaje o otci', hasProduct: 'Má produkt', clientStatus: 'Stav klienta', daysFromCreation: 'Dní od vytvoření' },
+    },
+    alerts: {
+      title: 'Upozornění',
+      description: 'Nastavte automatická upozornění na kritické metriky a nadcházející úkoly',
+      createAlert: 'Vytvořit upozornění',
+      editAlert: 'Upravit upozornění',
+      deleteAlert: 'Odstranit upozornění',
+      deleteConfirm: 'Opravdu chcete odstranit toto upozornění?',
+      noAlerts: 'Žádná upozornění nejsou nakonfigurována',
+      name: 'Název',
+      metric: 'Metrika',
+      condition: 'Podmínka',
+      threshold: 'Hranice',
+      frequency: 'Frekvence kontroly',
+      priority: 'Priorita',
+      targetUsers: 'Cíloví uživatelé',
+      countries: 'Země',
+      allCountries: 'Všechny země',
+      cooldown: 'Přestávka',
+      cooldownMinutes: 'Přestávka (minuty)',
+      status: 'Stav',
+      active: 'Aktivní',
+      inactive: 'Neaktivní',
+      lastChecked: 'Naposledy zkontrolováno',
+      lastAlerted: 'Naposledy upozorněno',
+      never: 'Nikdy',
+      alertCreated: 'Upozornění bylo úspěšně vytvořeno',
+      alertUpdated: 'Upozornění bylo úspěšně aktualizováno',
+      alertDeleted: 'Upozornění bylo úspěšně odstraněno',
+      alertActivated: 'Upozornění aktivováno',
+      alertDeactivated: 'Upozornění deaktivováno',
+      createFailed: 'Nepodařilo se vytvořit upozornění',
+      updateFailed: 'Nepodařilo se aktualizovat upozornění',
+      deleteFailed: 'Nepodařilo se odstranit upozornění',
+      metrics: {
+        pending_lab_results: 'Čekající výsledky z laboratoře',
+        collections_without_hospital: 'Odběry bez nemocnice',
+        overdue_collections: 'Zpožděné odběry',
+        pending_evaluations: 'Čekající hodnocení',
+        expiring_api_keys: 'Expirující API klíče',
+        inactive_customers: 'Neaktivní zákazníci',
+        upcoming_collection_dates: 'Nadcházející data odběrů',
+        low_collection_rate: 'Nízká míra odběrů',
+        pending_invoices: 'Čekající faktury',
+        overdue_tasks: 'Zpožděné úkoly',
+      },
+      frequencies: {
+        hourly: 'Každou hodinu',
+        every_6_hours: 'Každých 6 hodin',
+        daily: 'Jednou denně',
+        weekly: 'Jednou týdně',
+      },
+      operators: {
+        gt: 'Větší než',
+        gte: 'Větší nebo rovno',
+        lt: 'Menší než',
+        lte: 'Menší nebo rovno',
+        eq: 'Rovno',
+        neq: 'Nerovno',
+      },
+      targetTypes: {
+        all: 'Všichni uživatelé',
+        role: 'Podle role',
+        specific_users: 'Konkrétní uživatelé',
+      },
+      categories: {
+        collections: 'Odběry',
+        system: 'Systém',
+        customers: 'Zákazníci',
+        billing: 'Fakturace',
+        tasks: 'Úkoly',
+      },
+      currentValue: 'Aktuální hodnota',
+      instances: 'Instance upozornění',
+      acknowledged: 'Potvrzeno',
+      resolved: 'Vyřešeno',
+      acknowledge: 'Potvrdit',
+      resolve: 'Vyřešit',
+      activeAlerts: 'Aktivní upozornění',
+      history: 'Historie',
     },
   },
   hu: {
@@ -9263,6 +9583,86 @@ export const translations: Record<Locale, Translations> = {
       conditions: { equals: 'Egyenlő', not_empty: 'Nem üres', greater_than: 'Nagyobb mint', less_than: 'Kisebb mint', contains: 'Tartalmazza' },
       fieldOptions: { hasPhone: 'Van telefonszáma', hasEmail: 'Van emailje', hasAddress: 'Van címe', hasCase: 'Van esete', newsletterOptIn: 'Hírlevél feliratkozás', caseStatus: 'Eset állapota', hasExpectedDate: 'Van várható dátuma', hasFatherInfo: 'Van apa adat', hasProduct: 'Van terméke', clientStatus: 'Ügyfél állapota', daysFromCreation: 'Létrehozás óta eltelt napok' },
     },
+    alerts: {
+      title: 'Riasztások',
+      description: 'Automatikus riasztások beállítása kritikus metrikákhoz és közelgő feladatokhoz',
+      createAlert: 'Riasztás létrehozása',
+      editAlert: 'Riasztás szerkesztése',
+      deleteAlert: 'Riasztás törlése',
+      deleteConfirm: 'Biztosan törölni szeretné ezt a riasztást?',
+      noAlerts: 'Nincsenek beállított riasztások',
+      name: 'Név',
+      metric: 'Metrika',
+      condition: 'Feltétel',
+      threshold: 'Küszöbérték',
+      frequency: 'Ellenőrzési gyakoriság',
+      priority: 'Prioritás',
+      targetUsers: 'Cél felhasználók',
+      countries: 'Országok',
+      allCountries: 'Minden ország',
+      cooldown: 'Lehűlési idő',
+      cooldownMinutes: 'Lehűlési idő (percek)',
+      status: 'Állapot',
+      active: 'Aktív',
+      inactive: 'Inaktív',
+      lastChecked: 'Utoljára ellenőrizve',
+      lastAlerted: 'Utolsó riasztás',
+      never: 'Soha',
+      alertCreated: 'Riasztás sikeresen létrehozva',
+      alertUpdated: 'Riasztás sikeresen frissítve',
+      alertDeleted: 'Riasztás sikeresen törölve',
+      alertActivated: 'Riasztás aktiválva',
+      alertDeactivated: 'Riasztás deaktiválva',
+      createFailed: 'Nem sikerült létrehozni a riasztást',
+      updateFailed: 'Nem sikerült frissíteni a riasztást',
+      deleteFailed: 'Nem sikerült törölni a riasztást',
+      metrics: {
+        pending_lab_results: 'Várakozó laboreredmények',
+        collections_without_hospital: 'Kórház nélküli gyűjtések',
+        overdue_collections: 'Késedelmes gyűjtések',
+        pending_evaluations: 'Várakozó értékelések',
+        expiring_api_keys: 'Lejáró API kulcsok',
+        inactive_customers: 'Inaktív ügyfelek',
+        upcoming_collection_dates: 'Közelgő gyűjtési dátumok',
+        low_collection_rate: 'Alacsony gyűjtési arány',
+        pending_invoices: 'Várakozó számlák',
+        overdue_tasks: 'Késedelmes feladatok',
+      },
+      frequencies: {
+        hourly: 'Óránként',
+        every_6_hours: '6 óránként',
+        daily: 'Naponta egyszer',
+        weekly: 'Hetente egyszer',
+      },
+      operators: {
+        gt: 'Nagyobb mint',
+        gte: 'Nagyobb vagy egyenlő',
+        lt: 'Kisebb mint',
+        lte: 'Kisebb vagy egyenlő',
+        eq: 'Egyenlő',
+        neq: 'Nem egyenlő',
+      },
+      targetTypes: {
+        all: 'Minden felhasználó',
+        role: 'Szerep szerint',
+        specific_users: 'Meghatározott felhasználók',
+      },
+      categories: {
+        collections: 'Gyűjtések',
+        system: 'Rendszer',
+        customers: 'Ügyfelek',
+        billing: 'Számlázás',
+        tasks: 'Feladatok',
+      },
+      currentValue: 'Jelenlegi érték',
+      instances: 'Riasztási példányok',
+      acknowledged: 'Elfogadva',
+      resolved: 'Megoldva',
+      acknowledge: 'Elfogadás',
+      resolve: 'Megoldás',
+      activeAlerts: 'Aktív riasztások',
+      history: 'Előzmények',
+    },
   },
   ro: {
     nav: {
@@ -11116,6 +11516,86 @@ export const translations: Record<Locale, Translations> = {
       fields: { name: 'Nume', category: 'Categorie', field: 'Câmp', condition: 'Condiție', value: 'Valoare', points: 'Puncte', isActive: 'Activ', countryCode: 'Țară' },
       conditions: { equals: 'Egal cu', not_empty: 'Nu este gol', greater_than: 'Mai mare decât', less_than: 'Mai mic decât', contains: 'Conține' },
       fieldOptions: { hasPhone: 'Are telefon', hasEmail: 'Are email', hasAddress: 'Are adresă', hasCase: 'Are caz', newsletterOptIn: 'Abonat newsletter', caseStatus: 'Status caz', hasExpectedDate: 'Are dată estimată', hasFatherInfo: 'Are info tată', hasProduct: 'Are produs', clientStatus: 'Status client', daysFromCreation: 'Zile de la creare' },
+    },
+    alerts: {
+      title: 'Alerte',
+      description: 'Configurați alerte automate pentru metrici critice și sarcini viitoare',
+      createAlert: 'Creare alertă',
+      editAlert: 'Editare alertă',
+      deleteAlert: 'Ștergere alertă',
+      deleteConfirm: 'Sigur doriți să ștergeți această alertă?',
+      noAlerts: 'Nu sunt configurate alerte',
+      name: 'Nume',
+      metric: 'Metrică',
+      condition: 'Condiție',
+      threshold: 'Prag',
+      frequency: 'Frecvența verificării',
+      priority: 'Prioritate',
+      targetUsers: 'Utilizatori țintă',
+      countries: 'Țări',
+      allCountries: 'Toate țările',
+      cooldown: 'Răcire',
+      cooldownMinutes: 'Răcire (minute)',
+      status: 'Status',
+      active: 'Activ',
+      inactive: 'Inactiv',
+      lastChecked: 'Ultima verificare',
+      lastAlerted: 'Ultima alertă',
+      never: 'Niciodată',
+      alertCreated: 'Alertă creată cu succes',
+      alertUpdated: 'Alertă actualizată cu succes',
+      alertDeleted: 'Alertă ștearsă cu succes',
+      alertActivated: 'Alertă activată',
+      alertDeactivated: 'Alertă dezactivată',
+      createFailed: 'Nu s-a putut crea alerta',
+      updateFailed: 'Nu s-a putut actualiza alerta',
+      deleteFailed: 'Nu s-a putut șterge alerta',
+      metrics: {
+        pending_lab_results: 'Rezultate laborator în așteptare',
+        collections_without_hospital: 'Colecții fără spital',
+        overdue_collections: 'Colecții întârziate',
+        pending_evaluations: 'Evaluări în așteptare',
+        expiring_api_keys: 'Chei API care expiră',
+        inactive_customers: 'Clienți inactivi',
+        upcoming_collection_dates: 'Date de colectare viitoare',
+        low_collection_rate: 'Rată scăzută de colectare',
+        pending_invoices: 'Facturi în așteptare',
+        overdue_tasks: 'Sarcini întârziate',
+      },
+      frequencies: {
+        hourly: 'În fiecare oră',
+        every_6_hours: 'La fiecare 6 ore',
+        daily: 'O dată pe zi',
+        weekly: 'O dată pe săptămână',
+      },
+      operators: {
+        gt: 'Mai mare decât',
+        gte: 'Mai mare sau egal',
+        lt: 'Mai mic decât',
+        lte: 'Mai mic sau egal',
+        eq: 'Egal cu',
+        neq: 'Diferit de',
+      },
+      targetTypes: {
+        all: 'Toți utilizatorii',
+        role: 'După rol',
+        specific_users: 'Utilizatori specifici',
+      },
+      categories: {
+        collections: 'Colecții',
+        system: 'Sistem',
+        customers: 'Clienți',
+        billing: 'Facturare',
+        tasks: 'Sarcini',
+      },
+      currentValue: 'Valoare curentă',
+      instances: 'Instanțe alertă',
+      acknowledged: 'Confirmat',
+      resolved: 'Rezolvat',
+      acknowledge: 'Confirmă',
+      resolve: 'Rezolvă',
+      activeAlerts: 'Alerte active',
+      history: 'Istoric',
     },
   },
   it: {
@@ -12972,6 +13452,86 @@ export const translations: Record<Locale, Translations> = {
       conditions: { equals: 'Uguale a', not_empty: 'Non vuoto', greater_than: 'Maggiore di', less_than: 'Minore di', contains: 'Contiene' },
       fieldOptions: { hasPhone: 'Ha telefono', hasEmail: 'Ha email', hasAddress: 'Ha indirizzo', hasCase: 'Ha caso', newsletterOptIn: 'Iscrizione newsletter', caseStatus: 'Stato caso', hasExpectedDate: 'Ha data prevista', hasFatherInfo: 'Ha info padre', hasProduct: 'Ha prodotto', clientStatus: 'Stato cliente', daysFromCreation: 'Giorni dalla creazione' },
     },
+    alerts: {
+      title: 'Avvisi',
+      description: 'Configura avvisi automatici per metriche critiche e attività imminenti',
+      createAlert: 'Crea avviso',
+      editAlert: 'Modifica avviso',
+      deleteAlert: 'Elimina avviso',
+      deleteConfirm: 'Sei sicuro di voler eliminare questo avviso?',
+      noAlerts: 'Nessun avviso configurato',
+      name: 'Nome',
+      metric: 'Metrica',
+      condition: 'Condizione',
+      threshold: 'Soglia',
+      frequency: 'Frequenza controllo',
+      priority: 'Priorità',
+      targetUsers: 'Utenti destinatari',
+      countries: 'Paesi',
+      allCountries: 'Tutti i paesi',
+      cooldown: 'Raffreddamento',
+      cooldownMinutes: 'Raffreddamento (minuti)',
+      status: 'Stato',
+      active: 'Attivo',
+      inactive: 'Inattivo',
+      lastChecked: 'Ultimo controllo',
+      lastAlerted: 'Ultimo avviso',
+      never: 'Mai',
+      alertCreated: 'Avviso creato con successo',
+      alertUpdated: 'Avviso aggiornato con successo',
+      alertDeleted: 'Avviso eliminato con successo',
+      alertActivated: 'Avviso attivato',
+      alertDeactivated: 'Avviso disattivato',
+      createFailed: 'Impossibile creare l\'avviso',
+      updateFailed: 'Impossibile aggiornare l\'avviso',
+      deleteFailed: 'Impossibile eliminare l\'avviso',
+      metrics: {
+        pending_lab_results: 'Risultati laboratorio in attesa',
+        collections_without_hospital: 'Raccolte senza ospedale',
+        overdue_collections: 'Raccolte in ritardo',
+        pending_evaluations: 'Valutazioni in attesa',
+        expiring_api_keys: 'Chiavi API in scadenza',
+        inactive_customers: 'Clienti inattivi',
+        upcoming_collection_dates: 'Date di raccolta imminenti',
+        low_collection_rate: 'Basso tasso di raccolta',
+        pending_invoices: 'Fatture in attesa',
+        overdue_tasks: 'Attività in ritardo',
+      },
+      frequencies: {
+        hourly: 'Ogni ora',
+        every_6_hours: 'Ogni 6 ore',
+        daily: 'Una volta al giorno',
+        weekly: 'Una volta a settimana',
+      },
+      operators: {
+        gt: 'Maggiore di',
+        gte: 'Maggiore o uguale',
+        lt: 'Minore di',
+        lte: 'Minore o uguale',
+        eq: 'Uguale a',
+        neq: 'Diverso da',
+      },
+      targetTypes: {
+        all: 'Tutti gli utenti',
+        role: 'Per ruolo',
+        specific_users: 'Utenti specifici',
+      },
+      categories: {
+        collections: 'Raccolte',
+        system: 'Sistema',
+        customers: 'Clienti',
+        billing: 'Fatturazione',
+        tasks: 'Attività',
+      },
+      currentValue: 'Valore attuale',
+      instances: 'Istanze avviso',
+      acknowledged: 'Confermato',
+      resolved: 'Risolto',
+      acknowledge: 'Conferma',
+      resolve: 'Risolvi',
+      activeAlerts: 'Avvisi attivi',
+      history: 'Cronologia',
+    },
   },
   de: {
     nav: {
@@ -14826,6 +15386,86 @@ export const translations: Record<Locale, Translations> = {
       fields: { name: 'Name', category: 'Kategorie', field: 'Feld', condition: 'Bedingung', value: 'Wert', points: 'Punkte', isActive: 'Aktiv', countryCode: 'Land' },
       conditions: { equals: 'Gleich', not_empty: 'Nicht leer', greater_than: 'Größer als', less_than: 'Kleiner als', contains: 'Enthält' },
       fieldOptions: { hasPhone: 'Hat Telefon', hasEmail: 'Hat E-Mail', hasAddress: 'Hat Adresse', hasCase: 'Hat Fall', newsletterOptIn: 'Newsletter-Anmeldung', caseStatus: 'Fallstatus', hasExpectedDate: 'Hat erwartetes Datum', hasFatherInfo: 'Hat Vater-Info', hasProduct: 'Hat Produkt', clientStatus: 'Kundenstatus', daysFromCreation: 'Tage seit Erstellung' },
+    },
+    alerts: {
+      title: 'Warnungen',
+      description: 'Automatische Warnungen für kritische Metriken und anstehende Aufgaben konfigurieren',
+      createAlert: 'Warnung erstellen',
+      editAlert: 'Warnung bearbeiten',
+      deleteAlert: 'Warnung löschen',
+      deleteConfirm: 'Möchten Sie diese Warnung wirklich löschen?',
+      noAlerts: 'Keine Warnungen konfiguriert',
+      name: 'Name',
+      metric: 'Metrik',
+      condition: 'Bedingung',
+      threshold: 'Schwellenwert',
+      frequency: 'Prüfhäufigkeit',
+      priority: 'Priorität',
+      targetUsers: 'Zielbenutzer',
+      countries: 'Länder',
+      allCountries: 'Alle Länder',
+      cooldown: 'Abkühlung',
+      cooldownMinutes: 'Abkühlung (Minuten)',
+      status: 'Status',
+      active: 'Aktiv',
+      inactive: 'Inaktiv',
+      lastChecked: 'Zuletzt geprüft',
+      lastAlerted: 'Letzte Warnung',
+      never: 'Nie',
+      alertCreated: 'Warnung erfolgreich erstellt',
+      alertUpdated: 'Warnung erfolgreich aktualisiert',
+      alertDeleted: 'Warnung erfolgreich gelöscht',
+      alertActivated: 'Warnung aktiviert',
+      alertDeactivated: 'Warnung deaktiviert',
+      createFailed: 'Warnung konnte nicht erstellt werden',
+      updateFailed: 'Warnung konnte nicht aktualisiert werden',
+      deleteFailed: 'Warnung konnte nicht gelöscht werden',
+      metrics: {
+        pending_lab_results: 'Ausstehende Laborergebnisse',
+        collections_without_hospital: 'Entnahmen ohne Krankenhaus',
+        overdue_collections: 'Überfällige Entnahmen',
+        pending_evaluations: 'Ausstehende Bewertungen',
+        expiring_api_keys: 'Ablaufende API-Schlüssel',
+        inactive_customers: 'Inaktive Kunden',
+        upcoming_collection_dates: 'Bevorstehende Entnahmedaten',
+        low_collection_rate: 'Niedrige Entnahmerate',
+        pending_invoices: 'Ausstehende Rechnungen',
+        overdue_tasks: 'Überfällige Aufgaben',
+      },
+      frequencies: {
+        hourly: 'Stündlich',
+        every_6_hours: 'Alle 6 Stunden',
+        daily: 'Einmal täglich',
+        weekly: 'Einmal wöchentlich',
+      },
+      operators: {
+        gt: 'Größer als',
+        gte: 'Größer oder gleich',
+        lt: 'Kleiner als',
+        lte: 'Kleiner oder gleich',
+        eq: 'Gleich',
+        neq: 'Ungleich',
+      },
+      targetTypes: {
+        all: 'Alle Benutzer',
+        role: 'Nach Rolle',
+        specific_users: 'Bestimmte Benutzer',
+      },
+      categories: {
+        collections: 'Entnahmen',
+        system: 'System',
+        customers: 'Kunden',
+        billing: 'Abrechnung',
+        tasks: 'Aufgaben',
+      },
+      currentValue: 'Aktueller Wert',
+      instances: 'Warnungsinstanzen',
+      acknowledged: 'Bestätigt',
+      resolved: 'Gelöst',
+      acknowledge: 'Bestätigen',
+      resolve: 'Lösen',
+      activeAlerts: 'Aktive Warnungen',
+      history: 'Verlauf',
     },
   },
 };
