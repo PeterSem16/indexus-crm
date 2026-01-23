@@ -184,20 +184,6 @@ export function SipPhone({
         console.error("Error ending session:", e);
       }
     }
-    if (registererRef.current) {
-      try {
-        registererRef.current.unregister();
-      } catch (e) {
-        console.error("Error unregistering:", e);
-      }
-    }
-    if (userAgentRef.current) {
-      try {
-        userAgentRef.current.stop();
-      } catch (e) {
-        console.error("Error stopping user agent:", e);
-      }
-    }
     if (audioContextRef.current) {
       try {
         audioContextRef.current.close();
