@@ -361,9 +361,26 @@ export interface Translations {
       overview: string;
       case: string;
       contact: string;
+      calls: string;
       notes: string;
       gdpr: string;
       activity: string;
+    };
+    callHistory?: {
+      title: string;
+      calls: string;
+      noCallsYet: string;
+      unknownUser: string;
+      inbound: string;
+      outbound: string;
+      statusCompleted: string;
+      statusAnswered: string;
+      statusFailed: string;
+      statusNoAnswer: string;
+      statusBusy: string;
+      statusCancelled: string;
+      statusInitiated: string;
+      statusRinging: string;
     };
     gdpr?: {
       consentsTitle: string;
@@ -2213,9 +2230,26 @@ export const translations: Record<Locale, Translations> = {
         overview: 'Overview',
         case: 'Case',
         contact: 'Contact',
+        calls: 'Calls',
         notes: 'Notes',
         gdpr: 'GDPR',
         activity: 'Activity',
+      },
+      callHistory: {
+        title: 'Call History',
+        calls: 'calls',
+        noCallsYet: 'No calls recorded yet',
+        unknownUser: 'Unknown',
+        inbound: 'Inbound',
+        outbound: 'Outbound',
+        statusCompleted: 'Completed',
+        statusAnswered: 'Answered',
+        statusFailed: 'Failed',
+        statusNoAnswer: 'No Answer',
+        statusBusy: 'Busy',
+        statusCancelled: 'Cancelled',
+        statusInitiated: 'Initiated',
+        statusRinging: 'Ringing',
       },
       gdpr: {
         consentsTitle: 'Consent Management',
@@ -4301,9 +4335,26 @@ export const translations: Record<Locale, Translations> = {
         overview: 'Prehľad',
         case: 'Prípad',
         contact: 'Kontakt',
+        calls: 'Hovory',
         notes: 'Poznámky',
         gdpr: 'GDPR',
         activity: 'Aktivita',
+      },
+      callHistory: {
+        title: 'Historia hovorov',
+        calls: 'hovorov',
+        noCallsYet: 'Zatial ziadne hovory',
+        unknownUser: 'Neznamy',
+        inbound: 'Prichadzajuci',
+        outbound: 'Odchadzajuci',
+        statusCompleted: 'Dokonceny',
+        statusAnswered: 'Prijaty',
+        statusFailed: 'Neuspesny',
+        statusNoAnswer: 'Bez odpovede',
+        statusBusy: 'Obsadene',
+        statusCancelled: 'Zruseny',
+        statusInitiated: 'Zacaty',
+        statusRinging: 'Zvoni',
       },
       gdpr: {
         consentsTitle: 'Správa súhlasov',
@@ -6384,9 +6435,26 @@ export const translations: Record<Locale, Translations> = {
         overview: 'Přehled',
         case: 'Případ',
         contact: 'Kontakt',
+        calls: 'Hovory',
         notes: 'Poznámky',
         gdpr: 'GDPR',
         activity: 'Aktivita',
+      },
+      callHistory: {
+        title: 'Historie hovoru',
+        calls: 'hovoru',
+        noCallsYet: 'Zatim zadne hovory',
+        unknownUser: 'Neznamy',
+        inbound: 'Prichozi',
+        outbound: 'Odchozi',
+        statusCompleted: 'Dokonceno',
+        statusAnswered: 'Prijato',
+        statusFailed: 'Neuspesne',
+        statusNoAnswer: 'Bez odpovedi',
+        statusBusy: 'Obsazeno',
+        statusCancelled: 'Zruseno',
+        statusInitiated: 'Zahajeno',
+        statusRinging: 'Zvoni',
       },
       gdpr: {
         consentsTitle: 'Správa souhlasů',
@@ -8399,9 +8467,26 @@ export const translations: Record<Locale, Translations> = {
         overview: 'Áttekintés',
         case: 'Eset',
         contact: 'Kapcsolat',
+        calls: 'Hivasok',
         notes: 'Megjegyzések',
         gdpr: 'GDPR',
         activity: 'Tevékenység',
+      },
+      callHistory: {
+        title: 'Hivas elozmenyek',
+        calls: 'hivas',
+        noCallsYet: 'Meg nincsenek hivasok',
+        unknownUser: 'Ismeretlen',
+        inbound: 'Bejovo',
+        outbound: 'Kimeno',
+        statusCompleted: 'Befejezett',
+        statusAnswered: 'Fogadott',
+        statusFailed: 'Sikertelen',
+        statusNoAnswer: 'Nem fogadott',
+        statusBusy: 'Foglalt',
+        statusCancelled: 'Megszakitott',
+        statusInitiated: 'Kezdemenyezett',
+        statusRinging: 'Csenget',
       },
       gdpr: {
         consentsTitle: 'Hozzájárulás kezelés',
@@ -10413,9 +10498,26 @@ export const translations: Record<Locale, Translations> = {
         overview: 'Prezentare',
         case: 'Caz',
         contact: 'Contact',
+        calls: 'Apeluri',
         notes: 'Note',
         gdpr: 'GDPR',
         activity: 'Activitate',
+      },
+      callHistory: {
+        title: 'Istoric apeluri',
+        calls: 'apeluri',
+        noCallsYet: 'Niciun apel inca',
+        unknownUser: 'Necunoscut',
+        inbound: 'Primit',
+        outbound: 'Efectuat',
+        statusCompleted: 'Finalizat',
+        statusAnswered: 'Raspuns',
+        statusFailed: 'Esuat',
+        statusNoAnswer: 'Fara raspuns',
+        statusBusy: 'Ocupat',
+        statusCancelled: 'Anulat',
+        statusInitiated: 'Initiat',
+        statusRinging: 'Suna',
       },
       gdpr: {
         consentsTitle: 'Gestionare consimțământ',
@@ -12428,9 +12530,26 @@ export const translations: Record<Locale, Translations> = {
         overview: 'Panoramica',
         case: 'Caso',
         contact: 'Contatto',
+        calls: 'Chiamate',
         notes: 'Note',
         gdpr: 'GDPR',
         activity: 'Attività',
+      },
+      callHistory: {
+        title: 'Cronologia chiamate',
+        calls: 'chiamate',
+        noCallsYet: 'Nessuna chiamata ancora',
+        unknownUser: 'Sconosciuto',
+        inbound: 'In entrata',
+        outbound: 'In uscita',
+        statusCompleted: 'Completata',
+        statusAnswered: 'Risposta',
+        statusFailed: 'Fallita',
+        statusNoAnswer: 'Nessuna risposta',
+        statusBusy: 'Occupato',
+        statusCancelled: 'Annullata',
+        statusInitiated: 'Avviata',
+        statusRinging: 'Squilla',
       },
       gdpr: {
         consentsTitle: 'Gestione consenso',
@@ -14443,9 +14562,26 @@ export const translations: Record<Locale, Translations> = {
         overview: 'Übersicht',
         case: 'Fall',
         contact: 'Kontakt',
+        calls: 'Anrufe',
         notes: 'Notizen',
         gdpr: 'DSGVO',
         activity: 'Aktivität',
+      },
+      callHistory: {
+        title: 'Anrufverlauf',
+        calls: 'Anrufe',
+        noCallsYet: 'Noch keine Anrufe',
+        unknownUser: 'Unbekannt',
+        inbound: 'Eingehend',
+        outbound: 'Ausgehend',
+        statusCompleted: 'Abgeschlossen',
+        statusAnswered: 'Angenommen',
+        statusFailed: 'Fehlgeschlagen',
+        statusNoAnswer: 'Keine Antwort',
+        statusBusy: 'Besetzt',
+        statusCancelled: 'Abgebrochen',
+        statusInitiated: 'Gestartet',
+        statusRinging: 'Klingelt',
       },
       gdpr: {
         consentsTitle: 'Einwilligungsverwaltung',
