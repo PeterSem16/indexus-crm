@@ -96,6 +96,7 @@ export function SipPhone({
   const callStartTimeRef = useRef<number>(0);
   const audioContextRef = useRef<AudioContext | null>(null);
   const micGainNodeRef = useRef<GainNode | null>(null);
+  const userHungUpRef = useRef<boolean>(false);
 
   const { data: globalSipSettings, isLoading: sipSettingsLoading } = useQuery<SipSettings | null>({
     queryKey: ["/api/sip-settings"],
@@ -219,6 +220,8 @@ export function SipPhone({
   }, [cleanup, toast, unregister]);
 
   const makeCall = useCallback(async () => {
+    userHungUpRef.current = false;
+    
     if (!isSipConfigured) {
       toast({
         title: "SIP nie je nakonfigurovaný",
@@ -302,12 +305,15 @@ export function SipPhone({
             if (callTimerRef.current) {
               clearInterval(callTimerRef.current);
             }
+            const hungUpBy = userHungUpRef.current ? "user" : "customer";
+            userHungUpRef.current = false;
             updateCallLogMutation.mutate({
               id: callLogId,
               data: { 
                 status: duration > 0 ? "completed" : "failed",
                 endedAt: new Date().toISOString(),
-                duration
+                durationSeconds: duration,
+                hungUpBy
               }
             });
             onCallEnd?.(duration, duration > 0 ? "completed" : "failed", callLogId);
@@ -417,6 +423,7 @@ export function SipPhone({
   };
 
   const endCall = useCallback(() => {
+    userHungUpRef.current = true;
     if (sessionRef.current) {
       try {
         if (sessionRef.current.state === SessionState.Established) {
@@ -428,7 +435,8 @@ export function SipPhone({
               id: currentCallLogId,
               data: { 
                 status: "cancelled",
-                endedAt: new Date().toISOString()
+                endedAt: new Date().toISOString(),
+                hungUpBy: "user"
               }
             });
             setCurrentCallLogId(null);

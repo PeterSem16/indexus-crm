@@ -2779,6 +2779,7 @@ export const callLogs = pgTable("call_logs", {
   answeredAt: timestamp("answered_at"),
   endedAt: timestamp("ended_at"),
   durationSeconds: integer("duration_seconds").default(0),
+  hungUpBy: text("hung_up_by"), // 'customer' | 'user' | null - who ended the call
   sipCallId: text("sip_call_id"),
   notes: text("notes"),
   metadata: text("metadata"), // JSON string for additional data

@@ -2642,10 +2642,6 @@ function CustomerDetailsContent({
             <Mail className="h-4 w-4 mr-2" />
             {t.customers.tabs.contact}
           </TabsTrigger>
-          <TabsTrigger value="calls" data-testid="tab-calls">
-            <Phone className="h-4 w-4 mr-2" />
-            {t.customers.tabs?.calls || "Hovory"}
-          </TabsTrigger>
           <TabsTrigger value="notes" data-testid="tab-notes">
             <MessageSquare className="h-4 w-4 mr-2" />
             {t.customers.tabs.notes}
@@ -3047,99 +3043,6 @@ function CustomerDetailsContent({
           </div>
         </TabsContent>
 
-        <TabsContent value="calls" className="space-y-4 mt-4">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h4 className="font-semibold flex items-center gap-2">
-                <Phone className="h-4 w-4" />
-                {t.customers.callHistory?.title || "Call History"}
-              </h4>
-              <Badge variant="secondary">
-                {customerCallLogs.length} {t.customers.callHistory?.calls || "calls"}
-              </Badge>
-            </div>
-
-            {callLogsLoading ? (
-              <p className="text-sm text-muted-foreground">{t.common.loading}</p>
-            ) : customerCallLogs.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Phone className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>{t.customers.callHistory?.noCallsYet || "No calls recorded yet"}</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {customerCallLogs.map((call) => {
-                  const caller = allUsers.find(u => u.id === call.userId);
-                  const callerName = caller 
-                    ? `${caller.firstName || ''} ${caller.lastName || ''}`.trim() || caller.username
-                    : t.customers.callHistory?.unknownUser || "Unknown";
-                  const duration = call.durationSeconds 
-                    ? `${Math.floor(call.durationSeconds / 60)}:${String(call.durationSeconds % 60).padStart(2, '0')}`
-                    : "-";
-                  const statusColors: Record<string, string> = {
-                    completed: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-                    answered: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-                    failed: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
-                    no_answer: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-                    busy: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
-                    cancelled: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
-                    initiated: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-                    ringing: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-                  };
-                  const statusLabels: Record<string, string> = {
-                    completed: t.customers.callHistory?.statusCompleted || "Completed",
-                    answered: t.customers.callHistory?.statusAnswered || "Answered",
-                    failed: t.customers.callHistory?.statusFailed || "Failed",
-                    no_answer: t.customers.callHistory?.statusNoAnswer || "No Answer",
-                    busy: t.customers.callHistory?.statusBusy || "Busy",
-                    cancelled: t.customers.callHistory?.statusCancelled || "Cancelled",
-                    initiated: t.customers.callHistory?.statusInitiated || "Initiated",
-                    ringing: t.customers.callHistory?.statusRinging || "Ringing",
-                  };
-                  return (
-                    <div 
-                      key={call.id} 
-                      className="flex items-center justify-between p-3 rounded-md bg-muted/50 border"
-                      data-testid={`call-log-${call.id}`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-full ${call.direction === "inbound" ? "bg-blue-100 dark:bg-blue-900" : "bg-green-100 dark:bg-green-900"}`}>
-                          {call.direction === "inbound" ? (
-                            <ArrowDownLeft className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                          ) : (
-                            <ArrowUpRight className="h-4 w-4 text-green-600 dark:text-green-400" />
-                          )}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{call.phoneNumber}</span>
-                            <Badge className={`text-xs ${statusColors[call.status] || "bg-gray-100 text-gray-800"}`}>
-                              {statusLabels[call.status] || call.status}
-                            </Badge>
-                          </div>
-                          <div className="text-sm text-muted-foreground flex items-center gap-2">
-                            <span>{callerName}</span>
-                            <span>-</span>
-                            <span>{format(new Date(call.startedAt), "d.M.yyyy HH:mm", { locale: getDateLocale() })}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-mono text-sm">{duration}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {call.direction === "inbound" 
-                            ? (t.customers.callHistory?.inbound || "Inbound")
-                            : (t.customers.callHistory?.outbound || "Outbound")}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </TabsContent>
-
         <TabsContent value="notes" className="space-y-4 mt-4">
           <div className="space-y-4">
             <div className="flex gap-2">
@@ -3236,7 +3139,7 @@ function CustomerDetailsContent({
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          ) : activityLogs.length === 0 && customerEmails.length === 0 ? (
+          ) : activityLogs.length === 0 && customerEmails.length === 0 && customerCallLogs.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <History className="h-12 w-12 mx-auto mb-3 opacity-50" />
               <p className="font-medium">{t.activity?.noActivity || "Žiadna aktivita"}</p>
@@ -3247,10 +3150,10 @@ function CustomerDetailsContent({
               
               <div className="space-y-6">
                 {(() => {
-                  // Combine activity logs and emails into unified timeline
+                  // Combine activity logs, emails and call logs into unified timeline
                   type TimelineItem = { 
                     id: string; 
-                    type: 'log' | 'email'; 
+                    type: 'log' | 'email' | 'call'; 
                     date: Date; 
                     data: any;
                   };
@@ -3267,6 +3170,12 @@ function CustomerDetailsContent({
                       type: 'email' as const,
                       date: new Date(email.receivedAt),
                       data: email
+                    })),
+                    ...customerCallLogs.map(call => ({
+                      id: `call-${call.id}`,
+                      type: 'call' as const,
+                      date: new Date(call.startedAt),
+                      data: call
                     }))
                   ];
                   
@@ -3275,7 +3184,7 @@ function CustomerDetailsContent({
                   
                   // Group by month
                   const groupedItems = allItems.reduce((groups, item) => {
-                    const key = format(item.date, "MMMM yyyy", { locale: sk });
+                    const key = format(item.date, "MMMM yyyy", { locale: getDateLocale() });
                     if (!groups[key]) groups[key] = [];
                     groups[key].push(item);
                     return groups;
@@ -3389,6 +3298,91 @@ function CustomerDetailsContent({
                                           {email.bodyPreview}
                                         </p>
                                       )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          } else if (item.type === 'call') {
+                            const call = item.data;
+                            const caller = allUsers.find(u => u.id === call.userId);
+                            const callerName = caller 
+                              ? `${caller.firstName || ''} ${caller.lastName || ''}`.trim() || caller.username
+                              : t.customers.callHistory?.unknownUser || "Unknown";
+                            const duration = call.durationSeconds 
+                              ? `${Math.floor(call.durationSeconds / 60)}:${String(call.durationSeconds % 60).padStart(2, '0')}`
+                              : "-";
+                            const isOutbound = call.direction === "outbound";
+                            const statusColors: Record<string, string> = {
+                              completed: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+                              answered: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+                              failed: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+                              no_answer: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+                              busy: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+                              cancelled: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
+                              initiated: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+                              ringing: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+                            };
+                            const statusLabels: Record<string, string> = {
+                              completed: t.customers.callHistory?.statusCompleted || "Completed",
+                              answered: t.customers.callHistory?.statusAnswered || "Answered",
+                              failed: t.customers.callHistory?.statusFailed || "Failed",
+                              no_answer: t.customers.callHistory?.statusNoAnswer || "No Answer",
+                              busy: t.customers.callHistory?.statusBusy || "Busy",
+                              cancelled: t.customers.callHistory?.statusCancelled || "Cancelled",
+                              initiated: t.customers.callHistory?.statusInitiated || "Initiated",
+                              ringing: t.customers.callHistory?.statusRinging || "Ringing",
+                            };
+                            const hungUpLabels: Record<string, string> = {
+                              customer: t.customers.callHistory?.hungUpByCustomer || "Customer hung up",
+                              user: t.customers.callHistory?.hungUpByUser || "User hung up",
+                            };
+                            return (
+                              <div key={item.id} className="relative pl-10">
+                                <div className={`absolute left-2.5 w-3 h-3 rounded-full border-2 ${
+                                  isOutbound ? "bg-violet-500 border-violet-500" : "bg-cyan-500 border-cyan-500"
+                                }`} />
+                                
+                                <div className="border rounded-lg p-4 bg-card" data-testid={`call-log-${call.id}`}>
+                                  <div className="flex items-start gap-3">
+                                    <div className={`flex-shrink-0 mt-0.5 p-2 rounded-full ${
+                                      isOutbound ? "bg-violet-100 dark:bg-violet-900" : "bg-cyan-100 dark:bg-cyan-900"
+                                    }`}>
+                                      <Phone className={`h-4 w-4 ${isOutbound ? "text-violet-600 dark:text-violet-400" : "text-cyan-600 dark:text-cyan-400"}`} />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="font-medium text-sm">
+                                          {isOutbound 
+                                            ? (t.customers.callHistory?.outgoingCall || "Outgoing Call")
+                                            : (t.customers.callHistory?.incomingCall || "Incoming Call")}
+                                        </span>
+                                        <Badge className={`text-xs ${statusColors[call.status] || "bg-gray-100 text-gray-800"}`}>
+                                          {statusLabels[call.status] || call.status}
+                                        </Badge>
+                                        {call.hungUpBy && (
+                                          <Badge variant="outline" className="text-xs">
+                                            {hungUpLabels[call.hungUpBy] || call.hungUpBy}
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      
+                                      <p className="text-sm font-medium mt-1">{call.phoneNumber}</p>
+                                      
+                                      <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground flex-wrap">
+                                        <div className="flex items-center gap-1">
+                                          <UserCircle className="h-3.5 w-3.5" />
+                                          <span>{callerName}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                          <Clock className="h-3.5 w-3.5" />
+                                          <span>{format(new Date(call.startedAt), "d.M.yyyy HH:mm", { locale: getDateLocale() })}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1 font-mono">
+                                          <span>{t.customers.callHistory?.duration || "Duration"}:</span>
+                                          <span className="font-semibold">{duration}</span>
+                                        </div>
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
