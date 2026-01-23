@@ -67,7 +67,7 @@ interface CollaboratorStats {
   hospitalsVisited: number;
 }
 
-const CHART_COLORS = ['#6B1C3B', '#8B3A5B', '#AB587B', '#CB769B', '#EB94BB', '#5B8C5A', '#E6B800', '#4A90D9'];
+const CHART_COLORS = ['hsl(210, 60%, 70%)', 'hsl(170, 50%, 60%)', 'hsl(280, 45%, 70%)', 'hsl(35, 70%, 65%)', 'hsl(340, 50%, 70%)', 'hsl(140, 45%, 60%)', 'hsl(45, 65%, 65%)', 'hsl(200, 55%, 65%)'];
 
 export default function CollaboratorReportsPage() {
   const { selectedCountries } = useCountryFilter();
@@ -551,7 +551,7 @@ export default function CollaboratorReportsPage() {
                   <XAxis type="number" />
                   <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 11 }} />
                   <Tooltip />
-                  <Bar dataKey="value" fill="#6B1C3B" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="value" fill="hsl(210, 60%, 70%)" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (

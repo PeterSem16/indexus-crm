@@ -686,7 +686,7 @@ export default function UsersPage() {
                             labelFormatter={(d) => format(new Date(d as string), 'dd.MM.yyyy', { locale: getDateLocale() })}
                             formatter={(value) => [value, t.userAccessReports.sessions]}
                           />
-                          <Bar dataKey="count" fill="#6B1C3B" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="count" fill="hsl(210, 60%, 70%)" radius={[4, 4, 0, 0]} />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
@@ -711,7 +711,7 @@ export default function UsersPage() {
                             labelFormatter={(h) => `${h}:00 - ${Number(h) + 1}:00`}
                             formatter={(value) => [value, t.userAccessReports.sessions]}
                           />
-                          <Line type="monotone" dataKey="count" stroke="#6B1C3B" strokeWidth={2} dot={{ fill: '#6B1C3B' }} />
+                          <Line type="monotone" dataKey="count" stroke="hsl(170, 50%, 55%)" strokeWidth={2} dot={{ fill: 'hsl(170, 50%, 55%)' }} />
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
