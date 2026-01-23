@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, MailOpen, Phone, PhoneCall, Baby, Copy, ListChecks, FileEdit, UserCircle, Clock, PlusCircle, RefreshCw, XCircle, LogIn, LogOut, AlertCircle, CheckCircle2, ArrowRight, Shield, CreditCard, Loader2, Calendar, Globe, Linkedin, Facebook, Twitter, Instagram, Building2, ExternalLink, Sparkles, FileSignature, Receipt, Target, ArrowDownLeft, ArrowUpRight, PenSquare, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, Filter, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, MailOpen, Phone, PhoneCall, PhoneOutgoing, PhoneIncoming, Baby, Copy, ListChecks, FileEdit, UserCircle, Clock, PlusCircle, RefreshCw, XCircle, LogIn, LogOut, AlertCircle, CheckCircle2, ArrowRight, Shield, CreditCard, Loader2, Calendar, Globe, Linkedin, Facebook, Twitter, Instagram, Building2, ExternalLink, Sparkles, FileSignature, Receipt, Target, ArrowDownLeft, ArrowUpRight, PenSquare, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, Filter, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -886,16 +886,17 @@ function EmailPaymentBreakdownItem({
 
 // Timeline action types for filtering with vibrant colors
 const TIMELINE_ACTION_TYPES = [
-  { value: "all", label: "Všetky", icon: ListChecks, activeClass: "bg-gradient-to-br from-slate-500 to-slate-600 border-slate-600 shadow-lg shadow-slate-500/25", textColor: "text-white", inactiveClass: "bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-sm", inactiveTextColor: "text-slate-600 dark:text-slate-400" },
-  { value: "update", label: "Údaje", icon: Pencil, activeClass: "bg-gradient-to-br from-blue-500 to-blue-600 border-blue-600 shadow-lg shadow-blue-500/25", textColor: "text-white", inactiveClass: "bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 hover:border-blue-400 dark:hover:border-blue-600 hover:shadow-sm", inactiveTextColor: "text-blue-600 dark:text-blue-400" },
+  { value: "all", label: "Vsetky", icon: ListChecks, activeClass: "bg-gradient-to-br from-slate-500 to-slate-600 border-slate-600 shadow-lg shadow-slate-500/25", textColor: "text-white", inactiveClass: "bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-sm", inactiveTextColor: "text-slate-600 dark:text-slate-400" },
+  { value: "update", label: "Udaje", icon: Pencil, activeClass: "bg-gradient-to-br from-blue-500 to-blue-600 border-blue-600 shadow-lg shadow-blue-500/25", textColor: "text-white", inactiveClass: "bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 hover:border-blue-400 dark:hover:border-blue-600 hover:shadow-sm", inactiveTextColor: "text-blue-600 dark:text-blue-400" },
   { value: "document", label: "Dokumenty", icon: FileText, activeClass: "bg-gradient-to-br from-emerald-500 to-emerald-600 border-emerald-600 shadow-lg shadow-emerald-500/25", textColor: "text-white", inactiveClass: "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 hover:border-emerald-400 dark:hover:border-emerald-600 hover:shadow-sm", inactiveTextColor: "text-emerald-600 dark:text-emerald-400" },
-  { value: "note", label: "Poznámky", icon: MessageSquare, activeClass: "bg-gradient-to-br from-amber-500 to-amber-600 border-amber-600 shadow-lg shadow-amber-500/25", textColor: "text-white", inactiveClass: "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 hover:border-amber-400 dark:hover:border-amber-600 hover:shadow-sm", inactiveTextColor: "text-amber-600 dark:text-amber-400" },
+  { value: "note", label: "Poznamky", icon: MessageSquare, activeClass: "bg-gradient-to-br from-amber-500 to-amber-600 border-amber-600 shadow-lg shadow-amber-500/25", textColor: "text-white", inactiveClass: "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 hover:border-amber-400 dark:hover:border-amber-600 hover:shadow-sm", inactiveTextColor: "text-amber-600 dark:text-amber-400" },
   { value: "email", label: "Emaily", icon: Mail, activeClass: "bg-gradient-to-br from-sky-500 to-sky-600 border-sky-600 shadow-lg shadow-sky-500/25", textColor: "text-white", inactiveClass: "bg-sky-50 dark:bg-sky-950/30 border-sky-200 dark:border-sky-800 hover:border-sky-400 dark:hover:border-sky-600 hover:shadow-sm", inactiveTextColor: "text-sky-600 dark:text-sky-400" },
+  { value: "call", label: "Hovory", icon: PhoneCall, activeClass: "bg-gradient-to-br from-violet-500 to-violet-600 border-violet-600 shadow-lg shadow-violet-500/25", textColor: "text-white", inactiveClass: "bg-violet-50 dark:bg-violet-950/30 border-violet-200 dark:border-violet-800 hover:border-violet-400 dark:hover:border-violet-600 hover:shadow-sm", inactiveTextColor: "text-violet-600 dark:text-violet-400" },
   { value: "status", label: "Stavy", icon: RefreshCw, activeClass: "bg-gradient-to-br from-orange-500 to-orange-600 border-orange-600 shadow-lg shadow-orange-500/25", textColor: "text-white", inactiveClass: "bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800 hover:border-orange-400 dark:hover:border-orange-600 hover:shadow-sm", inactiveTextColor: "text-orange-600 dark:text-orange-400" },
   { value: "product", label: "Produkty", icon: Package, activeClass: "bg-gradient-to-br from-indigo-500 to-indigo-600 border-indigo-600 shadow-lg shadow-indigo-500/25", textColor: "text-white", inactiveClass: "bg-indigo-50 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800 hover:border-indigo-400 dark:hover:border-indigo-600 hover:shadow-sm", inactiveTextColor: "text-indigo-600 dark:text-indigo-400" },
   { value: "pipeline", label: "Pipeline", icon: ArrowRight, activeClass: "bg-gradient-to-br from-cyan-500 to-cyan-600 border-cyan-600 shadow-lg shadow-cyan-500/25", textColor: "text-white", inactiveClass: "bg-cyan-50 dark:bg-cyan-950/30 border-cyan-200 dark:border-cyan-800 hover:border-cyan-400 dark:hover:border-cyan-600 hover:shadow-sm", inactiveTextColor: "text-cyan-600 dark:text-cyan-400" },
-  { value: "consent", label: "Súhlasy", icon: Shield, activeClass: "bg-gradient-to-br from-teal-500 to-teal-600 border-teal-600 shadow-lg shadow-teal-500/25", textColor: "text-white", inactiveClass: "bg-teal-50 dark:bg-teal-950/30 border-teal-200 dark:border-teal-800 hover:border-teal-400 dark:hover:border-teal-600 hover:shadow-sm", inactiveTextColor: "text-teal-600 dark:text-teal-400" },
-  { value: "campaign", label: "Kampane", icon: Target, activeClass: "bg-gradient-to-br from-violet-500 to-violet-600 border-violet-600 shadow-lg shadow-violet-500/25", textColor: "text-white", inactiveClass: "bg-violet-50 dark:bg-violet-950/30 border-violet-200 dark:border-violet-800 hover:border-violet-400 dark:hover:border-violet-600 hover:shadow-sm", inactiveTextColor: "text-violet-600 dark:text-violet-400" },
+  { value: "consent", label: "Suhlasy", icon: Shield, activeClass: "bg-gradient-to-br from-teal-500 to-teal-600 border-teal-600 shadow-lg shadow-teal-500/25", textColor: "text-white", inactiveClass: "bg-teal-50 dark:bg-teal-950/30 border-teal-200 dark:border-teal-800 hover:border-teal-400 dark:hover:border-teal-600 hover:shadow-sm", inactiveTextColor: "text-teal-600 dark:text-teal-400" },
+  { value: "campaign", label: "Kampane", icon: Target, activeClass: "bg-gradient-to-br from-rose-500 to-rose-600 border-rose-600 shadow-lg shadow-rose-500/25", textColor: "text-white", inactiveClass: "bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800 hover:border-rose-400 dark:hover:border-rose-600 hover:shadow-sm", inactiveTextColor: "text-rose-600 dark:text-rose-400" },
 ] as const;
 
 // Field label translations for displaying changes
@@ -1020,6 +1021,28 @@ function CustomerHistoryTimeline({
     },
   });
 
+  // Fetch customer call logs for timeline
+  const { data: customerCallLogs = [] } = useQuery<Array<{
+    id: string;
+    userId: string;
+    phoneNumber: string;
+    direction: string;
+    status: string;
+    startedAt: string;
+    answeredAt: string | null;
+    endedAt: string | null;
+    durationSeconds: number | null;
+    notes: string | null;
+    hungUpBy: string | null;
+  }>>({
+    queryKey: ["/api/customers", customerId, "call-logs"],
+    queryFn: async () => {
+      const res = await fetch(`/api/call-logs?customerId=${customerId}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
   const getStageName = (stageId: string) => {
     const stage = pipelineStages.find((s: any) => s.id === stageId);
     return stage?.name || stageId;
@@ -1045,6 +1068,8 @@ function CustomerHistoryTimeline({
       "text-amber-500": { border: "border-amber-500", bg: "bg-amber-500" },
       "text-blue-400": { border: "border-blue-400", bg: "bg-blue-400" },
       "text-green-400": { border: "border-green-400", bg: "bg-green-400" },
+      "text-violet-500": { border: "border-violet-500", bg: "bg-violet-500" },
+      "text-sky-500": { border: "border-sky-500", bg: "bg-sky-500" },
     };
     return colorMap[color] || { border: "border-muted-foreground", bg: "bg-muted-foreground" };
   };
@@ -1316,8 +1341,62 @@ function CustomerHistoryTimeline({
       });
     });
 
+    // Add customer call logs
+    customerCallLogs.forEach((call) => {
+      const isOutbound = call.direction === "outbound";
+      const caller = users.find((u: any) => u.id === call.userId);
+      const callerName = caller?.fullName || caller?.username || "Neznamy";
+      const duration = call.durationSeconds 
+        ? `${Math.floor(call.durationSeconds / 60)}:${String(call.durationSeconds % 60).padStart(2, '0')}`
+        : "-";
+      
+      const statusLabels: Record<string, string> = {
+        completed: "Dokonceny",
+        answered: "Dokonceny",
+        failed: "Neuspesny",
+        missed: "Zmeskany",
+        no_answer: "Bez odpovede",
+        busy: "Obsadene",
+        cancelled: "Zruseny",
+      };
+      
+      const hungUpLabels: Record<string, string> = {
+        customer: "zakaznik",
+        user: "pouzivatel",
+      };
+      
+      let description = `${call.phoneNumber} - ${statusLabels[call.status] || call.status}`;
+      if (call.durationSeconds) {
+        description += ` (${duration})`;
+      }
+      if (call.hungUpBy) {
+        description += ` - Zlozil: ${hungUpLabels[call.hungUpBy] || call.hungUpBy}`;
+      }
+      
+      events.push({
+        id: `call-${call.id}`,
+        type: "call",
+        action: isOutbound ? "outbound_call" : "inbound_call",
+        title: isOutbound ? "Odchadzajuci hovor" : "Prichadzajuci hovor",
+        description,
+        details: { 
+          phoneNumber: call.phoneNumber,
+          direction: call.direction,
+          status: call.status,
+          durationSeconds: call.durationSeconds,
+          hungUpBy: call.hungUpBy,
+          notes: call.notes,
+          callerName,
+        },
+        createdAt: call.startedAt,
+        userId: call.userId,
+        icon: isOutbound ? PhoneOutgoing : PhoneIncoming,
+        color: isOutbound ? "text-violet-500" : "text-cyan-500",
+      });
+    });
+
     return events;
-  }, [activityLogs, documents, notes, messages, customerProducts, customerEmails, customerId, customerName, pipelineStages, products]);
+  }, [activityLogs, documents, notes, messages, customerProducts, customerEmails, customerCallLogs, customerId, customerName, pipelineStages, products, users]);
 
   // Filter and sort events
   const filteredEvents = useMemo(() => {
