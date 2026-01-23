@@ -94,6 +94,8 @@ export interface Translations {
     global: string;
     required: string;
     all: string;
+    newest: string;
+    oldest: string;
     activeFilters: string;
     clearAll: string;
     select: string;
@@ -376,11 +378,27 @@ export interface Translations {
       statusCompleted: string;
       statusAnswered: string;
       statusFailed: string;
+      statusMissed: string;
       statusNoAnswer: string;
       statusBusy: string;
       statusCancelled: string;
       statusInitiated: string;
       statusRinging: string;
+    };
+    timeline?: {
+      noRecords: string;
+      noRecordsDescription: string;
+      filterData: string;
+      filterDocuments: string;
+      filterNotes: string;
+      filterEmails: string;
+      filterCalls: string;
+      filterStatus: string;
+      filterProducts: string;
+      filterPipeline: string;
+      filterConsent: string;
+      filterCampaigns: string;
+      pipelineMove: string;
     };
     gdpr?: {
       consentsTitle: string;
@@ -1964,6 +1982,8 @@ export const translations: Record<Locale, Translations> = {
       global: 'Global',
       required: 'Required',
       all: 'All',
+      newest: 'Newest',
+      oldest: 'Oldest',
       activeFilters: 'Active Filters',
       clearAll: 'Clear All',
       select: 'Select',
@@ -2250,11 +2270,27 @@ export const translations: Record<Locale, Translations> = {
         statusCompleted: 'Completed',
         statusAnswered: 'Answered',
         statusFailed: 'Failed',
+        statusMissed: 'Missed',
         statusNoAnswer: 'No Answer',
         statusBusy: 'Busy',
         statusCancelled: 'Cancelled',
         statusInitiated: 'Initiated',
         statusRinging: 'Ringing',
+      },
+      timeline: {
+        noRecords: 'No records',
+        noRecordsDescription: 'No actions found for this customer',
+        filterData: 'Data',
+        filterDocuments: 'Documents',
+        filterNotes: 'Notes',
+        filterEmails: 'Emails',
+        filterCalls: 'Calls',
+        filterStatus: 'Status',
+        filterProducts: 'Products',
+        filterPipeline: 'Pipeline',
+        filterConsent: 'Consent',
+        filterCampaigns: 'Campaigns',
+        pipelineMove: 'Move',
       },
       gdpr: {
         consentsTitle: 'Consent Management',
@@ -4073,10 +4109,12 @@ export const translations: Record<Locale, Translations> = {
       pending: 'Čakajúci',
       global: 'Globálne',
       required: 'Povinné',
-      all: 'Všetky',
-      activeFilters: 'Aktívne filtre',
-      clearAll: 'Vymazať všetko',
-      select: 'Vybrať',
+      all: 'Vsetky',
+      newest: 'Najnovsie',
+      oldest: 'Najstarsie',
+      activeFilters: 'Aktivne filtre',
+      clearAll: 'Vymazat vsetko',
+      select: 'Vybrat',
       form: 'Formulár',
       wizard: 'Sprievodca',
       close: 'Zavrieť',
@@ -4360,11 +4398,27 @@ export const translations: Record<Locale, Translations> = {
         statusCompleted: 'Dokonceny',
         statusAnswered: 'Prijaty',
         statusFailed: 'Neuspesny',
+        statusMissed: 'Zmeskany',
         statusNoAnswer: 'Bez odpovede',
         statusBusy: 'Obsadene',
         statusCancelled: 'Zruseny',
         statusInitiated: 'Zacaty',
         statusRinging: 'Zvoni',
+      },
+      timeline: {
+        noRecords: 'Ziadne zaznamy',
+        noRecordsDescription: 'Pre tohto zakaznika neboli najdene ziadne akcie',
+        filterData: 'Udaje',
+        filterDocuments: 'Dokumenty',
+        filterNotes: 'Poznamky',
+        filterEmails: 'Emaily',
+        filterCalls: 'Hovory',
+        filterStatus: 'Stavy',
+        filterProducts: 'Produkty',
+        filterPipeline: 'Pipeline',
+        filterConsent: 'Suhlasy',
+        filterCampaigns: 'Kampane',
+        pipelineMove: 'Presun',
       },
       gdpr: {
         consentsTitle: 'Správa súhlasov',
@@ -6178,9 +6232,11 @@ export const translations: Record<Locale, Translations> = {
       pending: 'Čekající',
       global: 'Globální',
       required: 'Povinné',
-      all: 'Všechny',
-      activeFilters: 'Aktivní filtry',
-      clearAll: 'Vymazat vše',
+      all: 'Vsechny',
+      newest: 'Nejnovejsi',
+      oldest: 'Nejstarsi',
+      activeFilters: 'Aktivni filtry',
+      clearAll: 'Vymazat vse',
       select: 'Vybrat',
       form: 'Formulář',
       wizard: 'Průvodce',
@@ -6465,11 +6521,27 @@ export const translations: Record<Locale, Translations> = {
         statusCompleted: 'Dokonceno',
         statusAnswered: 'Prijato',
         statusFailed: 'Neuspesne',
+        statusMissed: 'Zmeskany',
         statusNoAnswer: 'Bez odpovedi',
         statusBusy: 'Obsazeno',
         statusCancelled: 'Zruseno',
         statusInitiated: 'Zahajeno',
         statusRinging: 'Zvoni',
+      },
+      timeline: {
+        noRecords: 'Zadne zaznamy',
+        noRecordsDescription: 'Pro tohoto zakaznika nebyly nalezeny zadne akce',
+        filterData: 'Udaje',
+        filterDocuments: 'Dokumenty',
+        filterNotes: 'Poznamky',
+        filterEmails: 'Emaily',
+        filterCalls: 'Hovory',
+        filterStatus: 'Stavy',
+        filterProducts: 'Produkty',
+        filterPipeline: 'Pipeline',
+        filterConsent: 'Souhlasy',
+        filterCampaigns: 'Kampane',
+        pipelineMove: 'Presun',
       },
       gdpr: {
         consentsTitle: 'Správa souhlasů',
@@ -8215,10 +8287,12 @@ export const translations: Record<Locale, Translations> = {
       pending: 'Függőben',
       global: 'Globális',
       required: 'Kötelező',
-      all: 'Összes',
-      activeFilters: 'Aktív szűrők',
-      clearAll: 'Összes törlése',
-      select: 'Kiválasztás',
+      all: 'Osszes',
+      newest: 'Legujabb',
+      oldest: 'Legregibb',
+      activeFilters: 'Aktiv szurok',
+      clearAll: 'Osszes torlese',
+      select: 'Kivalasztas',
       form: 'Űrlap',
       wizard: 'Varázsló',
       close: 'Bezárás',
@@ -8502,11 +8576,27 @@ export const translations: Record<Locale, Translations> = {
         statusCompleted: 'Befejezett',
         statusAnswered: 'Fogadott',
         statusFailed: 'Sikertelen',
-        statusNoAnswer: 'Nem fogadott',
+        statusMissed: 'Nem fogadott',
+        statusNoAnswer: 'Nem valaszolt',
         statusBusy: 'Foglalt',
         statusCancelled: 'Megszakitott',
         statusInitiated: 'Kezdemenyezett',
         statusRinging: 'Csenget',
+      },
+      timeline: {
+        noRecords: 'Nincsenek bejegyzesek',
+        noRecordsDescription: 'Nem talalhatok muveletek ehhez az ugyfélhez',
+        filterData: 'Adatok',
+        filterDocuments: 'Dokumentumok',
+        filterNotes: 'Jegyzetek',
+        filterEmails: 'Emailek',
+        filterCalls: 'Hivasok',
+        filterStatus: 'Allapot',
+        filterProducts: 'Termekek',
+        filterPipeline: 'Pipeline',
+        filterConsent: 'Hozzajarulas',
+        filterCampaigns: 'Kampanyok',
+        pipelineMove: 'Atalyozas',
       },
       gdpr: {
         consentsTitle: 'Hozzájárulás kezelés',
@@ -10252,9 +10342,11 @@ export const translations: Record<Locale, Translations> = {
       global: 'Global',
       required: 'Obligatoriu',
       all: 'Toate',
+      newest: 'Cele mai noi',
+      oldest: 'Cele mai vechi',
       activeFilters: 'Filtre active',
-      clearAll: 'Șterge tot',
-      select: 'Selectați',
+      clearAll: 'Sterge tot',
+      select: 'Selectati',
       form: 'Formular',
       wizard: 'Asistent',
       close: 'Închide',
@@ -10538,11 +10630,27 @@ export const translations: Record<Locale, Translations> = {
         statusCompleted: 'Finalizat',
         statusAnswered: 'Raspuns',
         statusFailed: 'Esuat',
+        statusMissed: 'Pierdut',
         statusNoAnswer: 'Fara raspuns',
         statusBusy: 'Ocupat',
         statusCancelled: 'Anulat',
         statusInitiated: 'Initiat',
         statusRinging: 'Suna',
+      },
+      timeline: {
+        noRecords: 'Nicio inregistrare',
+        noRecordsDescription: 'Nu s-au gasit actiuni pentru acest client',
+        filterData: 'Date',
+        filterDocuments: 'Documente',
+        filterNotes: 'Notite',
+        filterEmails: 'Emailuri',
+        filterCalls: 'Apeluri',
+        filterStatus: 'Stare',
+        filterProducts: 'Produse',
+        filterPipeline: 'Pipeline',
+        filterConsent: 'Consimtamant',
+        filterCampaigns: 'Campanii',
+        pipelineMove: 'Mutare',
       },
       gdpr: {
         consentsTitle: 'Gestionare consimțământ',
@@ -12289,6 +12397,8 @@ export const translations: Record<Locale, Translations> = {
       global: 'Globale',
       required: 'Obbligatorio',
       all: 'Tutti',
+      newest: 'Piu recenti',
+      oldest: 'Piu vecchi',
       activeFilters: 'Filtri attivi',
       clearAll: 'Cancella tutto',
       select: 'Seleziona',
@@ -12575,11 +12685,27 @@ export const translations: Record<Locale, Translations> = {
         statusCompleted: 'Completata',
         statusAnswered: 'Risposta',
         statusFailed: 'Fallita',
+        statusMissed: 'Persa',
         statusNoAnswer: 'Nessuna risposta',
         statusBusy: 'Occupato',
         statusCancelled: 'Annullata',
         statusInitiated: 'Avviata',
         statusRinging: 'Squilla',
+      },
+      timeline: {
+        noRecords: 'Nessun record',
+        noRecordsDescription: 'Nessuna azione trovata per questo cliente',
+        filterData: 'Dati',
+        filterDocuments: 'Documenti',
+        filterNotes: 'Note',
+        filterEmails: 'Email',
+        filterCalls: 'Chiamate',
+        filterStatus: 'Stato',
+        filterProducts: 'Prodotti',
+        filterPipeline: 'Pipeline',
+        filterConsent: 'Consenso',
+        filterCampaigns: 'Campagne',
+        pipelineMove: 'Spostamento',
       },
       gdpr: {
         consentsTitle: 'Gestione consenso',
@@ -14326,9 +14452,11 @@ export const translations: Record<Locale, Translations> = {
       global: 'Global',
       required: 'Erforderlich',
       all: 'Alle',
+      newest: 'Neueste',
+      oldest: 'Alteste',
       activeFilters: 'Aktive Filter',
-      clearAll: 'Alles löschen',
-      select: 'Auswählen',
+      clearAll: 'Alles loeschen',
+      select: 'Auswaehlen',
       form: 'Formular',
       wizard: 'Assistent',
       close: 'Schließen',
@@ -14612,11 +14740,27 @@ export const translations: Record<Locale, Translations> = {
         statusCompleted: 'Abgeschlossen',
         statusAnswered: 'Angenommen',
         statusFailed: 'Fehlgeschlagen',
+        statusMissed: 'Verpasst',
         statusNoAnswer: 'Keine Antwort',
         statusBusy: 'Besetzt',
         statusCancelled: 'Abgebrochen',
         statusInitiated: 'Gestartet',
         statusRinging: 'Klingelt',
+      },
+      timeline: {
+        noRecords: 'Keine Eintraege',
+        noRecordsDescription: 'Keine Aktionen fuer diesen Kunden gefunden',
+        filterData: 'Daten',
+        filterDocuments: 'Dokumente',
+        filterNotes: 'Notizen',
+        filterEmails: 'E-Mails',
+        filterCalls: 'Anrufe',
+        filterStatus: 'Status',
+        filterProducts: 'Produkte',
+        filterPipeline: 'Pipeline',
+        filterConsent: 'Einwilligung',
+        filterCampaigns: 'Kampagnen',
+        pipelineMove: 'Verschiebung',
       },
       gdpr: {
         consentsTitle: 'Einwilligungsverwaltung',

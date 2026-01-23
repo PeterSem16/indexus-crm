@@ -953,6 +953,7 @@ function CustomerHistoryTimeline({
   customerName: string;
 }) {
   const { toast } = useToast();
+  const { t } = useI18n();
   const [filterType, setFilterType] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
@@ -1345,39 +1346,36 @@ function CustomerHistoryTimeline({
     customerCallLogs.forEach((call) => {
       const isOutbound = call.direction === "outbound";
       const caller = users.find((u: any) => u.id === call.userId);
-      const callerName = caller?.fullName || caller?.username || "Neznamy";
+      const callerName = caller?.fullName || caller?.username || t('customers.callHistory.unknownUser');
       const duration = call.durationSeconds 
         ? `${Math.floor(call.durationSeconds / 60)}:${String(call.durationSeconds % 60).padStart(2, '0')}`
         : "-";
       
       const statusLabels: Record<string, string> = {
-        completed: "Dokonceny",
-        answered: "Dokonceny",
-        failed: "Neuspesny",
-        missed: "Zmeskany",
-        no_answer: "Bez odpovede",
-        busy: "Obsadene",
-        cancelled: "Zruseny",
-      };
-      
-      const hungUpLabels: Record<string, string> = {
-        customer: "zakaznik",
-        user: "pouzivatel",
+        completed: t('customers.callHistory.statusCompleted'),
+        answered: t('customers.callHistory.statusAnswered'),
+        failed: t('customers.callHistory.statusFailed'),
+        missed: t('customers.callHistory.statusMissed'),
+        no_answer: t('customers.callHistory.statusNoAnswer'),
+        busy: t('customers.callHistory.statusBusy'),
+        cancelled: t('customers.callHistory.statusCancelled'),
+        initiated: t('customers.callHistory.statusInitiated'),
+        ringing: t('customers.callHistory.statusRinging'),
       };
       
       let description = `${call.phoneNumber} - ${statusLabels[call.status] || call.status}`;
       if (call.durationSeconds) {
-        description += ` (${duration})`;
+        description += ` - ${t('customers.callHistory.duration')}: ${duration}`;
       }
       if (call.hungUpBy) {
-        description += ` - Zlozil: ${hungUpLabels[call.hungUpBy] || call.hungUpBy}`;
+        description += ` - ${call.hungUpBy === 'customer' ? t('customers.callHistory.hungUpByCustomer') : t('customers.callHistory.hungUpByUser')}`;
       }
       
       events.push({
         id: `call-${call.id}`,
         type: "call",
         action: isOutbound ? "outbound_call" : "inbound_call",
-        title: isOutbound ? "Odchadzajuci hovor" : "Prichadzajuci hovor",
+        title: isOutbound ? t('customers.callHistory.outgoingCall') : t('customers.callHistory.incomingCall'),
         description,
         details: { 
           phoneNumber: call.phoneNumber,
@@ -1396,7 +1394,7 @@ function CustomerHistoryTimeline({
     });
 
     return events;
-  }, [activityLogs, documents, notes, messages, customerProducts, customerEmails, customerCallLogs, customerId, customerName, pipelineStages, products, users]);
+  }, [activityLogs, documents, notes, messages, customerProducts, customerEmails, customerCallLogs, customerId, customerName, pipelineStages, products, users, t]);
 
   // Filter and sort events
   const filteredEvents = useMemo(() => {
@@ -1558,7 +1556,7 @@ function CustomerHistoryTimeline({
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Hľadať v histórii..."
+              placeholder={t('common.search')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
@@ -1573,12 +1571,12 @@ function CustomerHistoryTimeline({
             data-testid="button-timeline-sort"
           >
             <Clock className="h-4 w-4" />
-            {sortOrder === "desc" ? "Najnovšie" : "Najstaršie"}
+            {sortOrder === "desc" ? t('common.newest') : t('common.oldest')}
           </Button>
         </div>
 
         {/* Filter Tiles */}
-        <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-10 gap-2">
+        <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-12 gap-2">
         {TIMELINE_ACTION_TYPES.map((type) => {
           const count = eventCounts[type.value] || 0;
           const isActive = filterType === type.value;
@@ -1586,6 +1584,19 @@ function CustomerHistoryTimeline({
           const buttonClass = isActive ? type.activeClass : type.inactiveClass;
           const iconTextClass = isActive ? type.textColor : type.inactiveTextColor;
           const labelClass = isActive ? "text-white/90" : type.inactiveTextColor;
+          const filterLabels: Record<string, string> = {
+            all: t('common.all'),
+            update: t('customers.timeline.filterData'),
+            document: t('customers.timeline.filterDocuments'),
+            note: t('customers.timeline.filterNotes'),
+            email: t('customers.timeline.filterEmails'),
+            call: t('customers.timeline.filterCalls'),
+            status: t('customers.timeline.filterStatus'),
+            product: t('customers.timeline.filterProducts'),
+            pipeline: t('customers.timeline.filterPipeline'),
+            consent: t('customers.timeline.filterConsent'),
+            campaign: t('customers.timeline.filterCampaigns'),
+          };
           return (
             <button
               key={type.value}
@@ -1595,7 +1606,7 @@ function CustomerHistoryTimeline({
             >
               <TypeIcon className={`h-4 w-4 mx-auto mb-1 ${iconTextClass}`} />
               <p className={`text-lg font-bold ${iconTextClass}`}>{count}</p>
-              <p className={`text-[10px] leading-tight font-medium ${labelClass}`}>{type.label}</p>
+              <p className={`text-[10px] leading-tight font-medium ${labelClass}`}>{filterLabels[type.value] || type.label}</p>
             </button>
           );
         })}
@@ -1606,8 +1617,8 @@ function CustomerHistoryTimeline({
       {filteredEvents.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           <History className="h-12 w-12 mx-auto mb-3 opacity-50" />
-          <p className="font-medium">Žiadne záznamy</p>
-          <p className="text-sm">Pre tohto zákazníka neboli nájdené žiadne akcie</p>
+          <p className="font-medium">{t('customers.timeline.noRecords')}</p>
+          <p className="text-sm">{t('customers.timeline.noRecordsDescription')}</p>
         </div>
       ) : (
         <div className="space-y-6">
@@ -1660,7 +1671,7 @@ function CustomerHistoryTimeline({
                               {event.type === "pipeline" && event.details && (
                                 <div className="mt-2 p-2 rounded-md bg-cyan-50 dark:bg-cyan-950/50 border border-cyan-200 dark:border-cyan-800 text-xs">
                                   <div className="flex items-center gap-2">
-                                    <span className="text-muted-foreground">Presun:</span>
+                                    <span className="text-muted-foreground">{t('customers.timeline.pipelineMove')}:</span>
                                     <Badge variant="outline" className="bg-background">{event.details.fromStageName || (event.details.fromStageId ? getStageName(event.details.fromStageId) : "—")}</Badge>
                                     <ArrowRight className="h-3 w-3 text-cyan-500" />
                                     <Badge className="bg-cyan-600 text-white">{event.details.toStageName || (event.details.toStageId ? getStageName(event.details.toStageId) : "—")}</Badge>
