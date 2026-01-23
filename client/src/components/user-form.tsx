@@ -651,6 +651,107 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
     </div>
   );
 
+  const SipRegistrationStatus = ({ userId, sipExtension, sipPassword }: { userId?: string; sipExtension?: string; sipPassword?: string }) => {
+    const [isRegistering, setIsRegistering] = useState(false);
+    const [registrationStatus, setRegistrationStatus] = useState<'unknown' | 'registered' | 'not_registered' | 'error'>('unknown');
+    const [statusMessage, setStatusMessage] = useState('');
+
+    const testRegistration = async () => {
+      if (!sipExtension || !sipPassword) {
+        toast({
+          title: t.users?.sip?.missingCredentials || "Missing credentials",
+          description: t.users?.sip?.fillExtensionAndPassword || "Please fill extension and password first",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      setIsRegistering(true);
+      setRegistrationStatus('unknown');
+      
+      try {
+        const response = await apiRequest("POST", "/api/sip/test-registration", {
+          userId,
+          sipExtension,
+          sipPassword
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+          setRegistrationStatus('registered');
+          setStatusMessage(t.users?.sip?.registrationSuccess || "Registration successful");
+          toast({ title: t.users?.sip?.registrationSuccess || "SIP registration successful" });
+        } else {
+          setRegistrationStatus('error');
+          setStatusMessage(data.error || t.users?.sip?.registrationFailed || "Registration failed");
+          toast({ 
+            title: t.users?.sip?.registrationFailed || "SIP registration failed",
+            description: data.error,
+            variant: "destructive" 
+          });
+        }
+      } catch (error: any) {
+        setRegistrationStatus('error');
+        setStatusMessage(error.message);
+        toast({ 
+          title: t.users?.sip?.registrationFailed || "Registration test failed",
+          description: error.message,
+          variant: "destructive" 
+        });
+      } finally {
+        setIsRegistering(false);
+      }
+    };
+
+    return (
+      <div className="rounded-lg border p-4 space-y-3 mt-4">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium">{t.users?.sip?.registrationStatus || "Registration Status"}:</span>
+            {registrationStatus === 'unknown' && (
+              <Badge variant="secondary" data-testid="badge-sip-unknown">
+                {t.users?.sip?.notTested || "Not tested"}
+              </Badge>
+            )}
+            {registrationStatus === 'registered' && (
+              <Badge variant="default" className="bg-green-600" data-testid="badge-sip-registered">
+                {t.users?.sip?.registered || "Registered"}
+              </Badge>
+            )}
+            {registrationStatus === 'not_registered' && (
+              <Badge variant="destructive" data-testid="badge-sip-not-registered">
+                {t.users?.sip?.notRegistered || "Not registered"}
+              </Badge>
+            )}
+            {registrationStatus === 'error' && (
+              <Badge variant="destructive" data-testid="badge-sip-error">
+                {t.users?.sip?.error || "Error"}
+              </Badge>
+            )}
+          </div>
+          <Button 
+            type="button"
+            variant="outline" 
+            size="sm"
+            onClick={testRegistration}
+            disabled={isRegistering || !sipExtension || !sipPassword}
+            data-testid="button-test-sip-registration"
+          >
+            {isRegistering ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : (
+              <Phone className="h-4 w-4 mr-2" />
+            )}
+            {t.users?.sip?.testRegistration || "Test Registration"}
+          </Button>
+        </div>
+        {statusMessage && (
+          <p className="text-xs text-muted-foreground">{statusMessage}</p>
+        )}
+      </div>
+    );
+  };
+
   const renderSipTab = () => (
     <div className="space-y-4">
       <FormField
@@ -767,6 +868,12 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
               )}
             />
           </div>
+
+          <SipRegistrationStatus 
+            userId={initialData?.id}
+            sipExtension={form.watch("sipExtension")}
+            sipPassword={form.watch("sipPassword")}
+          />
         </div>
       )}
     </div>
