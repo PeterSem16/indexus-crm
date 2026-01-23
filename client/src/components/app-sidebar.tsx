@@ -22,7 +22,8 @@ import {
   Network,
   MapPin,
   BarChart3,
-  Syringe
+  Syringe,
+  ArrowDown
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/contexts/permissions-context";
@@ -162,13 +163,21 @@ export function AppSidebar() {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <SidebarMenuSub>
-                      {customerSubItems.filter(item => canAccessModule(item.moduleKey)).map((item) => (
-                        <SidebarMenuSubItem key={item.testId}>
+                      {customerSubItems.filter(item => canAccessModule(item.moduleKey)).map((item, index, filteredArray) => (
+                        <SidebarMenuSubItem key={item.testId} className="relative">
                           <SidebarMenuSubButton asChild isActive={location === item.url}>
-                            <Link href={item.url} data-testid={`nav-${item.testId}`}>
+                            <Link href={item.url} data-testid={`nav-${item.testId}`} className="flex items-center gap-2">
+                              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground shrink-0">
+                                {index + 1}
+                              </span>
                               <span>{item.title}</span>
                             </Link>
                           </SidebarMenuSubButton>
+                          {index < filteredArray.length - 1 && (
+                            <div className="absolute left-[18px] top-full flex items-center justify-center h-2">
+                              <ArrowDown className="h-3 w-3 text-primary" />
+                            </div>
+                          )}
                         </SidebarMenuSubItem>
                       ))}
                     </SidebarMenuSub>
@@ -187,13 +196,21 @@ export function AppSidebar() {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <SidebarMenuSub>
-                      {collaboratorSubItems.filter(item => canAccessModule(item.moduleKey)).map((item) => (
-                        <SidebarMenuSubItem key={item.testId}>
+                      {collaboratorSubItems.filter(item => canAccessModule(item.moduleKey)).map((item, index, filteredArray) => (
+                        <SidebarMenuSubItem key={item.testId} className="relative">
                           <SidebarMenuSubButton asChild isActive={location === item.url}>
-                            <Link href={item.url} data-testid={`nav-${item.testId}`}>
+                            <Link href={item.url} data-testid={`nav-${item.testId}`} className="flex items-center gap-2">
+                              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground shrink-0">
+                                {index + 1}
+                              </span>
                               <span>{item.title}</span>
                             </Link>
                           </SidebarMenuSubButton>
+                          {index < filteredArray.length - 1 && (
+                            <div className="absolute left-[18px] top-full flex items-center justify-center h-2">
+                              <ArrowDown className="h-3 w-3 text-primary" />
+                            </div>
+                          )}
                         </SidebarMenuSubItem>
                       ))}
                     </SidebarMenuSub>
@@ -260,13 +277,21 @@ export function AppSidebar() {
                       </CollapsibleTrigger>
                       <CollapsibleContent>
                         <SidebarMenuSub>
-                          {visibleNexusItems.map((item) => (
-                            <SidebarMenuSubItem key={item.testId}>
+                          {visibleNexusItems.map((item, index, arr) => (
+                            <SidebarMenuSubItem key={item.testId} className="relative">
                               <SidebarMenuSubButton asChild isActive={location === item.url}>
-                                <Link href={item.url} data-testid={`nav-${item.testId}`}>
+                                <Link href={item.url} data-testid={`nav-${item.testId}`} className="flex items-center gap-2">
+                                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground shrink-0">
+                                    {index + 1}
+                                  </span>
                                   <span>{item.title}</span>
                                 </Link>
                               </SidebarMenuSubButton>
+                              {index < arr.length - 1 && (
+                                <div className="absolute left-[18px] top-full flex items-center justify-center h-2">
+                                  <ArrowDown className="h-3 w-3 text-primary" />
+                                </div>
+                              )}
                             </SidebarMenuSubItem>
                           ))}
                         </SidebarMenuSub>
