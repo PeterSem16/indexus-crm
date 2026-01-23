@@ -68,7 +68,7 @@ import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
-import { sk } from "date-fns/locale";
+import { sk, cs, hu, ro, it, de, enUS } from "date-fns/locale";
 
 type CustomerProductWithProduct = CustomerProduct & { product: Product; billsetName?: string };
 
@@ -1863,8 +1863,20 @@ function CustomerDetailsContent({
   customer: Customer; 
   onEdit: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { toast } = useToast();
+  
+  const getDateLocale = () => {
+    switch (locale) {
+      case 'sk': return sk;
+      case 'cs': return cs;
+      case 'hu': return hu;
+      case 'ro': return ro;
+      case 'it': return it;
+      case 'de': return de;
+      default: return enUS;
+    }
+  };
   const [selectedProductId, setSelectedProductId] = useState<string>("");
   const [selectedBillsetId, setSelectedBillsetId] = useState<string>("");
   const [quantity, setQuantity] = useState<string>("1");
@@ -3108,7 +3120,7 @@ function CustomerDetailsContent({
                           <div className="text-sm text-muted-foreground flex items-center gap-2">
                             <span>{callerName}</span>
                             <span>-</span>
-                            <span>{format(new Date(call.startedAt), "d.M.yyyy HH:mm", { locale: sk })}</span>
+                            <span>{format(new Date(call.startedAt), "d.M.yyyy HH:mm", { locale: getDateLocale() })}</span>
                           </div>
                         </div>
                       </div>
