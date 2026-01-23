@@ -2105,9 +2105,20 @@ export async function registerRoutes(
           return res.redirect("/?error=email_mismatch");
         }
         
+        // Check if user already has an active session (prevent duplicate login)
+        const activeSession = await storage.getActiveSession(user.id);
+        if (activeSession) {
+          console.log(`[MS365 Login] Duplicate login blocked for user ${user.username}`);
+          return res.redirect("/?error=already_logged_in");
+        }
+        
         // Login successful - set session
         const { passwordHash, ...safeUser } = user;
         req.session.user = safeUser;
+        
+        // Create login session record
+        const userSession = await storage.createUserSession(user.id, req.ip || undefined, req.headers['user-agent'] || undefined);
+        (req.session as any).userSessionId = userSession.id;
         
         // Log login activity with MS365 auth method
         console.log(`[Auth] User logged in via MS365: ${user.username} (${user.fullName})`);

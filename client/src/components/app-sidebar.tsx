@@ -91,7 +91,6 @@ export function AppSidebar() {
   
   const adminNavItems = [
     { title: t.nav.users, url: "/users", icon: UserCog, testId: "users", moduleKey: "users" },
-    { title: t.nav.userAccessReports, url: "/user-access-reports", icon: Activity, testId: "user-access-reports", moduleKey: "user-access-reports" },
     { title: t.nav.settings, url: "/settings", icon: Settings, testId: "settings", moduleKey: "settings" },
     { title: t.nav.konfigurator, url: "/configurator", icon: Cog, testId: "konfigurator", moduleKey: "configurator" },
   ];

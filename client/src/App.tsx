@@ -23,7 +23,6 @@ import { NotificationBell, NotificationCenterPage } from "@/components/notificat
 import { NexusButton } from "@/components/nexus/nexus-button";
 import Dashboard from "@/pages/dashboard";
 import UsersPage from "@/pages/users";
-import UserAccessReportsPage from "@/pages/user-access-reports";
 import CustomersPage from "@/pages/customers";
 import ProductsPage from "@/pages/products";
 import InvoicesPage from "@/pages/invoices";
@@ -139,7 +138,6 @@ function AuthenticatedApp() {
                   <Switch>
                     <Route path="/" component={Dashboard} />
                     <Route path="/users" component={UsersPage} />
-                    <Route path="/user-access-reports" component={UserAccessReportsPage} />
                     <Route path="/customers" component={CustomersPage} />
                     <Route path="/products" component={ProductsPage} />
                     <Route path="/invoices" component={InvoicesPage} />
