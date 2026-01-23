@@ -28,9 +28,9 @@ export function useSessionHeartbeat() {
         if (response.status === 403) {
           const data = await response.json();
           if (data.error === "session_terminated") {
-            // Session was terminated by admin - logout and redirect
+            // Session was terminated by admin - logout and redirect using full page navigation
             await logout();
-            setLocation("/login?error=session_terminated");
+            window.location.href = "/login?error=session_terminated";
           }
         }
       } catch (error) {

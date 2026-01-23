@@ -118,6 +118,11 @@ export default function UsersPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [sessionToEnd, setSessionToEnd] = useState<string | null>(null);
   const [forceLogoutUser, setForceLogoutUser] = useState<{ userId: string; userName: string; session: UserSession } | null>(null);
+  
+  // Pagination and sorting for users list
+  const [currentPage, setCurrentPage] = useState(1);
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' | null } | null>(null);
+  const USERS_PER_PAGE = 15;
 
   const { data: users = [], isLoading } = useQuery<User[]>({
     queryKey: ["/api/users"],
@@ -205,6 +210,7 @@ export default function UsersPage() {
       }
       return res.json();
     },
+    refetchInterval: 30000, // Auto-refresh every 30 seconds
   });
   
   const activeUserIds = useMemo(() => {
@@ -325,16 +331,63 @@ export default function UsersPage() {
     return 'Desktop';
   };
 
-  const filteredUsers = users.filter(user => 
-    user.fullName.toLowerCase().includes(search.toLowerCase()) ||
-    user.email.toLowerCase().includes(search.toLowerCase()) ||
-    user.username.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredUsers = useMemo(() => {
+    let result = users.filter(user => 
+      user.fullName.toLowerCase().includes(search.toLowerCase()) ||
+      user.email.toLowerCase().includes(search.toLowerCase()) ||
+      user.username.toLowerCase().includes(search.toLowerCase())
+    );
+    
+    // Apply sorting
+    if (sortConfig && sortConfig.direction) {
+      result = [...result].sort((a, b) => {
+        let aVal: any, bVal: any;
+        switch (sortConfig.key) {
+          case 'user':
+            aVal = a.fullName.toLowerCase();
+            bVal = b.fullName.toLowerCase();
+            break;
+          case 'username':
+            aVal = a.username.toLowerCase();
+            bVal = b.username.toLowerCase();
+            break;
+          case 'role':
+            aVal = a.role;
+            bVal = b.role;
+            break;
+          case 'status':
+            aVal = a.isActive ? 1 : 0;
+            bVal = b.isActive ? 1 : 0;
+            break;
+          default:
+            return 0;
+        }
+        if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    
+    return result;
+  }, [users, search, sortConfig]);
+  
+  // Pagination
+  const totalPages = Math.ceil(filteredUsers.length / USERS_PER_PAGE);
+  const paginatedUsers = useMemo(() => {
+    const start = (currentPage - 1) * USERS_PER_PAGE;
+    return filteredUsers.slice(start, start + USERS_PER_PAGE);
+  }, [filteredUsers, currentPage]);
+  
+  // Reset to page 1 when search changes
+  useMemo(() => {
+    setCurrentPage(1);
+  }, [search]);
 
   const columns = [
     {
       key: "user",
       header: t.users.userColumn,
+      sortable: true,
       cell: (user: User) => {
         const isOnline = activeUserIds.has(user.id);
         const activeSession = getActiveSessionForUser(user.id);
@@ -381,6 +434,7 @@ export default function UsersPage() {
     {
       key: "username",
       header: t.users.username,
+      sortable: true,
       cell: (user: User) => (
         <span className="text-sm font-mono bg-muted px-2 py-1 rounded">
           @{user.username}
@@ -390,6 +444,7 @@ export default function UsersPage() {
     {
       key: "role",
       header: t.users.role,
+      sortable: true,
       cell: (user: User) => {
         const roleLabel = user.role === "admin" 
           ? t.users.roles.admin 
@@ -413,6 +468,7 @@ export default function UsersPage() {
     {
       key: "status",
       header: t.users.statusColumn,
+      sortable: true,
       cell: (user: User) => (
         <StatusBadge status={user.isActive ? "active" : "inactive"} />
       ),
@@ -526,11 +582,44 @@ export default function UsersPage() {
 
           <DataTable
             columns={columns}
-            data={filteredUsers}
+            data={paginatedUsers}
             isLoading={isLoading}
             emptyMessage={t.users.noUsers}
             getRowKey={(u) => u.id}
+            sortConfig={sortConfig}
+            onSortChange={setSortConfig}
           />
+          
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-2">
+              <p className="text-sm text-muted-foreground">
+                {t.common.showing} {((currentPage - 1) * USERS_PER_PAGE) + 1}-{Math.min(currentPage * USERS_PER_PAGE, filteredUsers.length)} {t.common.of} {filteredUsers.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  data-testid="button-prev-page"
+                >
+                  {t.common.previous}
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  {currentPage} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  data-testid="button-next-page"
+                >
+                  {t.common.next}
+                </Button>
+              </div>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="access" className="space-y-4">
