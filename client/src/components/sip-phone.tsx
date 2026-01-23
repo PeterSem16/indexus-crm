@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
+import { useSip } from "@/contexts/sip-context";
 import { 
   Phone, 
   PhoneOff, 
@@ -73,6 +74,7 @@ export function SipPhone({
   hideSettingsAndRegistration = false
 }: SipPhoneProps) {
   const { toast } = useToast();
+  const { isRegistered, isRegistering, registrationError, register, unregister, userAgentRef, registererRef } = useSip();
   const [callState, setCallState] = useState<CallState>("idle");
   const [phoneNumber, setPhoneNumber] = useState(initialNumber);
   const [isMuted, setIsMuted] = useState(false);
@@ -80,7 +82,6 @@ export function SipPhone({
   const [volume, setVolume] = useState(80);
   const [micVolume, setMicVolume] = useState(100);
   const [callDuration, setCallDuration] = useState(0);
-  const [isRegistered, setIsRegistered] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [currentCallLogId, setCurrentCallLogId] = useState<number | null>(null);
   const [sipConfig, setSipConfig] = useState<SipConfig>(config || {
@@ -89,9 +90,6 @@ export function SipPhone({
     password: "",
     displayName: "Operator"
   });
-  
-  const userAgentRef = useRef<UserAgent | null>(null);
-  const registererRef = useRef<Registerer | null>(null);
   const sessionRef = useRef<Session | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const callTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -221,73 +219,18 @@ export function SipPhone({
       setIsConfigOpen(true);
       return;
     }
-
-    try {
-      const serverHost = sipConfig.server;
-      const serverPort = sipConfig.port || 443;
-      const wsPath = sipConfig.wsPath || "/ws";
-      const realm = sipConfig.realm || sipConfig.server;
-      
-      const uri = UserAgent.makeURI(`sip:${sipConfig.username}@${realm}`);
-      if (!uri) {
-        throw new Error("Invalid SIP URI");
-      }
-
-      const wsProtocol = sipConfig.transport === "ws" ? "ws" : "wss";
-      const transportOptions = {
-        server: `${wsProtocol}://${serverHost}:${serverPort}${wsPath}`
-      };
-
-      const userAgentOptions = {
-        authorizationPassword: sipConfig.password,
-        authorizationUsername: sipConfig.username,
-        displayName: sipConfig.displayName || sipConfig.username,
-        transportOptions,
-        uri
-      };
-
-      const userAgent = new UserAgent(userAgentOptions);
-      userAgentRef.current = userAgent;
-
-      await userAgent.start();
-
-      const registerer = new Registerer(userAgent);
-      registererRef.current = registerer;
-
-      registerer.stateChange.addListener((newState) => {
-        console.log("Registerer state:", newState);
-        if (newState === RegistererState.Registered) {
-          setIsRegistered(true);
-          toast({
-            title: "Pripojené",
-            description: "SIP telefón je pripojený k serveru"
-          });
-        } else if (newState === RegistererState.Unregistered || newState === RegistererState.Terminated) {
-          setIsRegistered(false);
-        }
-      });
-
-      await registerer.register();
-    } catch (error) {
-      console.error("SIP connection error:", error);
-      toast({
-        title: "Chyba pripojenia",
-        description: "Nepodarilo sa pripojiť k SIP serveru",
-        variant: "destructive"
-      });
-      setIsRegistered(false);
-    }
-  }, [sipConfig, toast]);
+    await register();
+  }, [sipConfig, toast, register]);
 
   const disconnect = useCallback(async () => {
     cleanup();
-    setIsRegistered(false);
     setCallState("idle");
+    await unregister();
     toast({
       title: "Odpojené",
       description: "SIP telefón bol odpojený"
     });
-  }, [cleanup, toast]);
+  }, [cleanup, toast, unregister]);
 
   const makeCall = useCallback(async () => {
     if (!isSipConfigured) {

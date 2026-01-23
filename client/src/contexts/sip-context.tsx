@@ -17,6 +17,8 @@ interface SipContextType {
   registrationError: string | null;
   register: () => Promise<void>;
   unregister: () => Promise<void>;
+  userAgentRef: React.MutableRefObject<any>;
+  registererRef: React.MutableRefObject<any>;
 }
 
 const SipContext = createContext<SipContextType | undefined>(undefined);
@@ -149,7 +151,7 @@ export function SipProvider({ children }: { children: ReactNode }) {
   }, [user, unregister]);
 
   return (
-    <SipContext.Provider value={{ isRegistered, isRegistering, registrationError, register, unregister }}>
+    <SipContext.Provider value={{ isRegistered, isRegistering, registrationError, register, unregister, userAgentRef, registererRef }}>
       {children}
     </SipContext.Provider>
   );
