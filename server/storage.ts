@@ -149,6 +149,7 @@ export interface IStorage {
   endAllUserSessions(userId: string): Promise<void>;
   endStaleSessions(timeoutMinutes: number): Promise<number>;
   getActiveSession(userId: string): Promise<UserSession | undefined>;
+  getUserSessionById(sessionId: string): Promise<UserSession | undefined>;
   getUserSessions(userId: string, startDate?: Date, endDate?: Date): Promise<UserSession[]>;
   getAllSessions(startDate?: Date, endDate?: Date): Promise<UserSession[]>;
   updateSessionActivity(sessionId: string): Promise<void>;
@@ -1031,6 +1032,14 @@ export class DatabaseStorage implements IStorage {
         eq(userSessions.isActive, true)
       ))
       .orderBy(desc(userSessions.loginAt))
+      .limit(1);
+    return session || undefined;
+  }
+
+  async getUserSessionById(sessionId: string): Promise<UserSession | undefined> {
+    const [session] = await db.select()
+      .from(userSessions)
+      .where(eq(userSessions.id, sessionId))
       .limit(1);
     return session || undefined;
   }

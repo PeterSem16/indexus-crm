@@ -1251,6 +1251,15 @@ export async function registerRoutes(
     
     const userSessionId = (req.session as any).userSessionId;
     if (userSessionId) {
+      // Check if session was terminated by admin
+      const session = await storage.getUserSessionById(userSessionId);
+      if (!session || !session.isActive) {
+        // Session was terminated - destroy the express session
+        req.session.destroy((err) => {
+          if (err) console.error("Error destroying session:", err);
+        });
+        return res.status(403).json({ error: "session_terminated", message: "Your session was terminated by an administrator" });
+      }
       await storage.updateSessionActivity(userSessionId);
     }
     

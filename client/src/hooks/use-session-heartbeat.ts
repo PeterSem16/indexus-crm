@@ -1,10 +1,12 @@
 import { useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/auth-context";
+import { useLocation } from "wouter";
 
 const HEARTBEAT_INTERVAL_MS = 60 * 1000;
 
 export function useSessionHeartbeat() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const [, setLocation] = useLocation();
   const intervalRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -18,10 +20,19 @@ export function useSessionHeartbeat() {
 
     const sendHeartbeat = async () => {
       try {
-        await fetch("/api/auth/heartbeat", {
+        const response = await fetch("/api/auth/heartbeat", {
           method: "POST",
           credentials: "include",
         });
+        
+        if (response.status === 403) {
+          const data = await response.json();
+          if (data.error === "session_terminated") {
+            // Session was terminated by admin - logout and redirect
+            await logout();
+            setLocation("/login?error=session_terminated");
+          }
+        }
       } catch (error) {
       }
     };
@@ -36,5 +47,5 @@ export function useSessionHeartbeat() {
         intervalRef.current = null;
       }
     };
-  }, [user]);
+  }, [user, logout, setLocation]);
 }

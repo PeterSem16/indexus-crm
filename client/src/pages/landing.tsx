@@ -68,11 +68,13 @@ export default function LandingPage() {
         account_deactivated: "Account is deactivated",
         email_mismatch: "Microsoft account email does not match CRM account",
         login_failed: "Login failed",
+        session_terminated: "Your session was terminated by an administrator",
       };
+      const toastTitle = error === "session_terminated" ? "Session Ended" : "Login Error";
       toast({
-        title: "Login Error",
+        title: toastTitle,
         description: errorMessages[error] || "Unknown error",
-        variant: "destructive",
+        variant: error === "session_terminated" ? "default" : "destructive",
       });
       // Clean URL
       window.history.replaceState({}, document.title, window.location.pathname);
