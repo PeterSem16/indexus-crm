@@ -1346,36 +1346,36 @@ function CustomerHistoryTimeline({
     customerCallLogs.forEach((call) => {
       const isOutbound = call.direction === "outbound";
       const caller = users.find((u: any) => u.id === call.userId);
-      const callerName = caller?.fullName || caller?.username || t('customers.callHistory.unknownUser');
+      const callerName = caller?.fullName || caller?.username || (t.customers.callHistory?.unknownUser || "Unknown");
       const duration = call.durationSeconds 
         ? `${Math.floor(call.durationSeconds / 60)}:${String(call.durationSeconds % 60).padStart(2, '0')}`
         : "-";
       
       const statusLabels: Record<string, string> = {
-        completed: t('customers.callHistory.statusCompleted'),
-        answered: t('customers.callHistory.statusAnswered'),
-        failed: t('customers.callHistory.statusFailed'),
-        missed: t('customers.callHistory.statusMissed'),
-        no_answer: t('customers.callHistory.statusNoAnswer'),
-        busy: t('customers.callHistory.statusBusy'),
-        cancelled: t('customers.callHistory.statusCancelled'),
-        initiated: t('customers.callHistory.statusInitiated'),
-        ringing: t('customers.callHistory.statusRinging'),
+        completed: t.customers.callHistory?.statusCompleted || "Completed",
+        answered: t.customers.callHistory?.statusAnswered || "Answered",
+        failed: t.customers.callHistory?.statusFailed || "Failed",
+        missed: t.customers.callHistory?.statusMissed || "Missed",
+        no_answer: t.customers.callHistory?.statusNoAnswer || "No Answer",
+        busy: t.customers.callHistory?.statusBusy || "Busy",
+        cancelled: t.customers.callHistory?.statusCancelled || "Cancelled",
+        initiated: t.customers.callHistory?.statusInitiated || "Initiated",
+        ringing: t.customers.callHistory?.statusRinging || "Ringing",
       };
       
       let description = `${call.phoneNumber} - ${statusLabels[call.status] || call.status}`;
       if (call.durationSeconds) {
-        description += ` - ${t('customers.callHistory.duration')}: ${duration}`;
+        description += ` - ${t.customers.callHistory?.duration || "Duration"}: ${duration}`;
       }
       if (call.hungUpBy) {
-        description += ` - ${call.hungUpBy === 'customer' ? t('customers.callHistory.hungUpByCustomer') : t('customers.callHistory.hungUpByUser')}`;
+        description += ` - ${call.hungUpBy === 'customer' ? (t.customers.callHistory?.hungUpByCustomer || "Customer hung up") : (t.customers.callHistory?.hungUpByUser || "User hung up")}`;
       }
       
       events.push({
         id: `call-${call.id}`,
         type: "call",
         action: isOutbound ? "outbound_call" : "inbound_call",
-        title: isOutbound ? t('customers.callHistory.outgoingCall') : t('customers.callHistory.incomingCall'),
+        title: isOutbound ? (t.customers.callHistory?.outgoingCall || "Outgoing Call") : (t.customers.callHistory?.incomingCall || "Incoming Call"),
         description,
         details: { 
           phoneNumber: call.phoneNumber,
@@ -1556,7 +1556,7 @@ function CustomerHistoryTimeline({
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder={t('common.search')}
+              placeholder={t.common?.search || "Search"}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
@@ -1571,7 +1571,7 @@ function CustomerHistoryTimeline({
             data-testid="button-timeline-sort"
           >
             <Clock className="h-4 w-4" />
-            {sortOrder === "desc" ? t('common.newest') : t('common.oldest')}
+            {sortOrder === "desc" ? (t.common?.newest || "Newest") : (t.common?.oldest || "Oldest")}
           </Button>
         </div>
 
@@ -1585,17 +1585,17 @@ function CustomerHistoryTimeline({
           const iconTextClass = isActive ? type.textColor : type.inactiveTextColor;
           const labelClass = isActive ? "text-white/90" : type.inactiveTextColor;
           const filterLabels: Record<string, string> = {
-            all: t('common.all'),
-            update: t('customers.timeline.filterData'),
-            document: t('customers.timeline.filterDocuments'),
-            note: t('customers.timeline.filterNotes'),
-            email: t('customers.timeline.filterEmails'),
-            call: t('customers.timeline.filterCalls'),
-            status: t('customers.timeline.filterStatus'),
-            product: t('customers.timeline.filterProducts'),
-            pipeline: t('customers.timeline.filterPipeline'),
-            consent: t('customers.timeline.filterConsent'),
-            campaign: t('customers.timeline.filterCampaigns'),
+            all: t.common?.all || "All",
+            update: t.customers.timeline?.filterData || "Data",
+            document: t.customers.timeline?.filterDocuments || "Documents",
+            note: t.customers.timeline?.filterNotes || "Notes",
+            email: t.customers.timeline?.filterEmails || "Emails",
+            call: t.customers.timeline?.filterCalls || "Calls",
+            status: t.customers.timeline?.filterStatus || "Status",
+            product: t.customers.timeline?.filterProducts || "Products",
+            pipeline: t.customers.timeline?.filterPipeline || "Pipeline",
+            consent: t.customers.timeline?.filterConsent || "Consent",
+            campaign: t.customers.timeline?.filterCampaigns || "Campaigns",
           };
           return (
             <button
@@ -1617,8 +1617,8 @@ function CustomerHistoryTimeline({
       {filteredEvents.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           <History className="h-12 w-12 mx-auto mb-3 opacity-50" />
-          <p className="font-medium">{t('customers.timeline.noRecords')}</p>
-          <p className="text-sm">{t('customers.timeline.noRecordsDescription')}</p>
+          <p className="font-medium">{t.customers.timeline?.noRecords || "No Records"}</p>
+          <p className="text-sm">{t.customers.timeline?.noRecordsDescription || "No activity records found for this customer"}</p>
         </div>
       ) : (
         <div className="space-y-6">
@@ -1671,7 +1671,7 @@ function CustomerHistoryTimeline({
                               {event.type === "pipeline" && event.details && (
                                 <div className="mt-2 p-2 rounded-md bg-cyan-50 dark:bg-cyan-950/50 border border-cyan-200 dark:border-cyan-800 text-xs">
                                   <div className="flex items-center gap-2">
-                                    <span className="text-muted-foreground">{t('customers.timeline.pipelineMove')}:</span>
+                                    <span className="text-muted-foreground">{t.customers.timeline?.pipelineMove || "Pipeline Move"}:</span>
                                     <Badge variant="outline" className="bg-background">{event.details.fromStageName || (event.details.fromStageId ? getStageName(event.details.fromStageId) : "—")}</Badge>
                                     <ArrowRight className="h-3 w-3 text-cyan-500" />
                                     <Badge className="bg-cyan-600 text-white">{event.details.toStageName || (event.details.toStageId ? getStageName(event.details.toStageId) : "—")}</Badge>
