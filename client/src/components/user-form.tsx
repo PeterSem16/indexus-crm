@@ -34,6 +34,8 @@ import { useI18n } from "@/i18n/I18nProvider";
 import type { User as UserType, Role } from "@shared/schema";
 import { COUNTRY_PHONE_PREFIXES } from "@shared/schema";
 import { useModuleFieldPermissions } from "@/components/ui/permission-field";
+import { useSip } from "@/contexts/sip-context";
+import { useAuth } from "@/contexts/auth-context";
 
 const createUserFormSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
@@ -652,102 +654,121 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
   );
 
   const SipRegistrationStatus = ({ userId, sipExtension, sipPassword }: { userId?: string; sipExtension?: string; sipPassword?: string }) => {
-    const [isRegistering, setIsRegistering] = useState(false);
-    const [registrationStatus, setRegistrationStatus] = useState<'unknown' | 'registered' | 'not_registered' | 'error'>('unknown');
-    const [statusMessage, setStatusMessage] = useState('');
-
-    const testRegistration = async () => {
+    const { user: currentUser } = useAuth();
+    const { isRegistered, isRegistering, registrationError, register, unregister } = useSip();
+    
+    const isCurrentUser = currentUser?.id === userId;
+    
+    const handleRegister = async () => {
       if (!sipExtension || !sipPassword) {
         toast({
-          title: t.users?.sip?.missingCredentials || "Missing credentials",
-          description: t.users?.sip?.fillExtensionAndPassword || "Please fill extension and password first",
+          title: t.users?.sip?.missingCredentials || "Chýbajúce údaje",
+          description: t.users?.sip?.fillExtensionAndPassword || "Vyplňte najprv linku a heslo",
           variant: "destructive"
         });
         return;
       }
-
-      setIsRegistering(true);
-      setRegistrationStatus('unknown');
       
       try {
-        const response = await apiRequest("POST", "/api/sip/test-registration", {
-          userId,
-          sipExtension,
-          sipPassword
-        });
-        const data = await response.json();
-        
-        if (data.success) {
-          setRegistrationStatus('registered');
-          setStatusMessage(t.users?.sip?.registrationSuccess || "Registration successful");
-          toast({ title: t.users?.sip?.registrationSuccess || "SIP registration successful" });
-        } else {
-          setRegistrationStatus('error');
-          setStatusMessage(data.error || t.users?.sip?.registrationFailed || "Registration failed");
-          toast({ 
-            title: t.users?.sip?.registrationFailed || "SIP registration failed",
-            description: data.error,
-            variant: "destructive" 
-          });
-        }
+        await register();
+        toast({ title: t.users?.sip?.registrationSuccess || "SIP registrácia úspešná" });
       } catch (error: any) {
-        setRegistrationStatus('error');
-        setStatusMessage(error.message);
         toast({ 
-          title: t.users?.sip?.registrationFailed || "Registration test failed",
+          title: t.users?.sip?.registrationFailed || "SIP registrácia zlyhala",
           description: error.message,
           variant: "destructive" 
         });
-      } finally {
-        setIsRegistering(false);
       }
     };
+
+    const handleUnregister = async () => {
+      try {
+        await unregister();
+        toast({ title: t.users?.sip?.unregistered || "SIP odregistrovaný" });
+      } catch (error: any) {
+        toast({ 
+          title: t.users?.sip?.unregisterFailed || "Odregistrácia zlyhala",
+          variant: "destructive" 
+        });
+      }
+    };
+
+    if (!isCurrentUser) {
+      return (
+        <div className="rounded-lg border p-4 mt-4">
+          <p className="text-sm text-muted-foreground">
+            {t.users?.sip?.registrationOnlyForCurrentUser || "Stav registrácie sa zobrazuje len pre prihláseného používateľa"}
+          </p>
+        </div>
+      );
+    }
 
     return (
       <div className="rounded-lg border p-4 space-y-3 mt-4">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
-            <span className="text-sm font-medium">{t.users?.sip?.registrationStatus || "Registration Status"}:</span>
-            {registrationStatus === 'unknown' && (
-              <Badge variant="secondary" data-testid="badge-sip-unknown">
-                {t.users?.sip?.notTested || "Not tested"}
+            <span className="text-sm font-medium">{t.users?.sip?.registrationStatus || "Stav registrácie"}:</span>
+            {isRegistering && (
+              <Badge variant="secondary" data-testid="badge-sip-registering">
+                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                {t.users?.sip?.registering || "Registrujem..."}
               </Badge>
             )}
-            {registrationStatus === 'registered' && (
+            {!isRegistering && isRegistered && (
               <Badge variant="default" className="bg-green-600" data-testid="badge-sip-registered">
-                {t.users?.sip?.registered || "Registered"}
+                <CheckCircle className="h-3 w-3 mr-1" />
+                {t.users?.sip?.registered || "Zaregistrovaný"}
               </Badge>
             )}
-            {registrationStatus === 'not_registered' && (
-              <Badge variant="destructive" data-testid="badge-sip-not-registered">
-                {t.users?.sip?.notRegistered || "Not registered"}
+            {!isRegistering && !isRegistered && !registrationError && (
+              <Badge variant="secondary" data-testid="badge-sip-not-registered">
+                {t.users?.sip?.notRegistered || "Nezaregistrovaný"}
               </Badge>
             )}
-            {registrationStatus === 'error' && (
+            {!isRegistering && !isRegistered && registrationError && (
               <Badge variant="destructive" data-testid="badge-sip-error">
-                {t.users?.sip?.error || "Error"}
+                <XCircle className="h-3 w-3 mr-1" />
+                {t.users?.sip?.error || "Chyba"}
               </Badge>
             )}
           </div>
-          <Button 
-            type="button"
-            variant="outline" 
-            size="sm"
-            onClick={testRegistration}
-            disabled={isRegistering || !sipExtension || !sipPassword}
-            data-testid="button-test-sip-registration"
-          >
-            {isRegistering ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+          <div className="flex gap-2">
+            {!isRegistered ? (
+              <Button 
+                type="button"
+                variant="default" 
+                size="sm"
+                onClick={handleRegister}
+                disabled={isRegistering || !sipExtension || !sipPassword}
+                data-testid="button-sip-register"
+              >
+                {isRegistering ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Phone className="h-4 w-4 mr-2" />
+                )}
+                {t.users?.sip?.register || "Registrovať"}
+              </Button>
             ) : (
-              <Phone className="h-4 w-4 mr-2" />
+              <Button 
+                type="button"
+                variant="outline" 
+                size="sm"
+                onClick={handleUnregister}
+                data-testid="button-sip-unregister"
+              >
+                <Phone className="h-4 w-4 mr-2" />
+                {t.users?.sip?.unregister || "Odregistrovať"}
+              </Button>
             )}
-            {t.users?.sip?.testRegistration || "Test Registration"}
-          </Button>
+          </div>
         </div>
-        {statusMessage && (
-          <p className="text-xs text-muted-foreground">{statusMessage}</p>
+        {registrationError && (
+          <p className="text-xs text-destructive">{registrationError}</p>
         )}
+        <p className="text-xs text-muted-foreground">
+          {t.users?.sip?.autoRegistrationNote || "SIP telefón sa automaticky zaregistruje pri prihlásení a odregistruje pri odhlásení."}
+        </p>
       </div>
     );
   };
