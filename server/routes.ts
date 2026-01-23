@@ -2149,7 +2149,7 @@ export async function registerRoutes(
             device: parseUserAgent(activeSession.userAgent),
             loginAt: activeSession.loginAt
           }));
-          return res.redirect(`/?error=already_logged_in&session=${sessionInfo}`);
+          return res.redirect(`/login?error=already_logged_in&session=${sessionInfo}`);
         }
         
         // Login successful - set session

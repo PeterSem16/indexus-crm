@@ -117,6 +117,7 @@ export default function UsersPage() {
   const [selectedUser, setSelectedUser] = useState<string>('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [sessionToEnd, setSessionToEnd] = useState<string | null>(null);
+  const [forceLogoutUser, setForceLogoutUser] = useState<{ userId: string; userName: string; session: UserSession } | null>(null);
 
   const { data: users = [], isLoading } = useQuery<User[]>({
     queryKey: ["/api/users"],
@@ -204,8 +205,15 @@ export default function UsersPage() {
       }
       return res.json();
     },
-    enabled: activeTab === 'access',
   });
+  
+  const activeUserIds = useMemo(() => {
+    return new Set(activeSessions.map(s => s.userId));
+  }, [activeSessions]);
+  
+  const getActiveSessionForUser = (userId: string) => {
+    return activeSessions.find(s => s.userId === userId);
+  };
 
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery<SessionStats>({
     queryKey: ['/api/user-sessions/stats', period],
@@ -327,20 +335,48 @@ export default function UsersPage() {
     {
       key: "user",
       header: t.users.userColumn,
-      cell: (user: User) => (
-        <div className="flex items-center gap-3">
-          <Avatar className="h-10 w-10">
-            <AvatarImage src={user.avatarUrl || undefined} className="object-cover" />
-            <AvatarFallback className="bg-primary text-primary-foreground font-medium">
-              {user.fullName.split(" ").map(n => n[0]).join("").slice(0, 2)}
-            </AvatarFallback>
-          </Avatar>
-          <div>
-            <p className="font-medium">{user.fullName}</p>
-            <p className="text-sm text-muted-foreground">{user.email}</p>
+      cell: (user: User) => {
+        const isOnline = activeUserIds.has(user.id);
+        const activeSession = getActiveSessionForUser(user.id);
+        return (
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={user.avatarUrl || undefined} className="object-cover" />
+                <AvatarFallback className="bg-primary text-primary-foreground font-medium">
+                  {user.fullName.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                </AvatarFallback>
+              </Avatar>
+              {isOnline && (
+                <span className="absolute bottom-0 right-0 h-3 w-3 bg-green-500 rounded-full border-2 border-background" />
+              )}
+            </div>
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <p className="font-medium">{user.fullName}</p>
+                {isOnline && canEdit("users") && activeSession && (
+                  <Badge 
+                    variant="outline" 
+                    className="text-green-600 border-green-300 bg-green-50 dark:bg-green-950 dark:border-green-800 dark:text-green-400 cursor-pointer hover-elevate text-xs px-2 py-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setForceLogoutUser({
+                        userId: user.id,
+                        userName: user.fullName,
+                        session: activeSession
+                      });
+                    }}
+                    data-testid={`badge-online-${user.id}`}
+                  >
+                    Online
+                  </Badge>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground">{user.email}</p>
+            </div>
           </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       key: "username",
@@ -897,6 +933,60 @@ export default function UsersPage() {
               data-testid="button-confirm-end-session"
             >
               {t.userAccessReports.endSession}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!forceLogoutUser} onOpenChange={() => setForceLogoutUser(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <XCircle className="h-5 w-5 text-destructive" />
+              Force Logout User
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4">
+                <p>
+                  Are you sure you want to force logout <strong>{forceLogoutUser?.userName}</strong>?
+                </p>
+                {forceLogoutUser?.session && (
+                  <div className="bg-muted p-3 rounded-lg space-y-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <Monitor className="h-4 w-4 text-muted-foreground" />
+                      <span>{parseUserAgent(forceLogoutUser.session.userAgent)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Shield className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-mono">{forceLogoutUser.session.ipAddress || 'Unknown'}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <span>
+                        Login: {format(new Date(forceLogoutUser.session.loginAt), "dd.MM.yyyy HH:mm", { locale: getDateLocale() })}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                <p className="text-sm text-muted-foreground">
+                  This will immediately end the user's session and they will need to log in again.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-force-logout">{t.common.cancel}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (forceLogoutUser?.session) {
+                  endSessionMutation.mutate(forceLogoutUser.session.id);
+                  setForceLogoutUser(null);
+                }
+              }}
+              className="bg-destructive text-destructive-foreground"
+              data-testid="button-confirm-force-logout"
+            >
+              Force Logout
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
