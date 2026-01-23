@@ -1272,9 +1272,14 @@ export async function registerRoutes(
     }
   });
 
-  // User Sessions API (access logging and reporting)
+  // User Sessions API (access logging and reporting) - admin/manager only
   app.get("/api/user-sessions", requireAuth, async (req, res) => {
     try {
+      const user = req.session.user;
+      if (!user || (user.role !== 'admin' && user.role !== 'manager')) {
+        return res.status(403).json({ error: "Access denied. Admin or manager role required." });
+      }
+      
       const { startDate, endDate, userId } = req.query;
       
       let sessions;
@@ -1303,9 +1308,14 @@ export async function registerRoutes(
     }
   });
 
-  // Get active sessions (currently logged in users)
+  // Get active sessions (currently logged in users) - admin/manager only
   app.get("/api/user-sessions/active", requireAuth, async (req, res) => {
     try {
+      const user = req.session.user;
+      if (!user || (user.role !== 'admin' && user.role !== 'manager')) {
+        return res.status(403).json({ error: "Access denied. Admin or manager role required." });
+      }
+      
       const sessions = await storage.getAllSessions();
       const activeSessions = sessions.filter(s => s.isActive);
       
@@ -1324,9 +1334,14 @@ export async function registerRoutes(
     }
   });
 
-  // Force end a user session (admin only)
+  // Force end a user session - admin only
   app.post("/api/user-sessions/:sessionId/end", requireAuth, async (req, res) => {
     try {
+      const user = req.session.user;
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ error: "Access denied. Admin role required." });
+      }
+      
       const { sessionId } = req.params;
       await storage.endUserSession(sessionId);
       res.json({ message: "Session ended successfully" });
@@ -1336,9 +1351,14 @@ export async function registerRoutes(
     }
   });
 
-  // Get session statistics
+  // Get session statistics - admin/manager only
   app.get("/api/user-sessions/stats", requireAuth, async (req, res) => {
     try {
+      const user = req.session.user;
+      if (!user || (user.role !== 'admin' && user.role !== 'manager')) {
+        return res.status(403).json({ error: "Access denied. Admin or manager role required." });
+      }
+      
       const { startDate, endDate } = req.query;
       const start = startDate ? new Date(startDate as string) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // Default 30 days
       const end = endDate ? new Date(endDate as string) : new Date();
