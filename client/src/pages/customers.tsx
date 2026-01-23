@@ -5271,11 +5271,11 @@ export default function CustomersPage() {
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="data" className="flex items-center gap-2">
                   <FileEdit className="h-4 w-4" />
-                  Údaje
+                  {t.customers.tabs?.data || "Data"}
                 </TabsTrigger>
                 <TabsTrigger value="history" className="flex items-center gap-2">
                   <History className="h-4 w-4" />
-                  História
+                  {t.customers.tabs?.history || "History"}
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="data" className="flex-1 overflow-y-auto mt-4">

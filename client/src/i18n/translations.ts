@@ -367,6 +367,8 @@ export interface Translations {
       notes: string;
       gdpr: string;
       activity: string;
+      history: string;
+      data: string;
     };
     callHistory?: {
       title: string;
@@ -2254,6 +2256,8 @@ export const translations: Record<Locale, Translations> = {
         notes: 'Notes',
         gdpr: 'GDPR',
         activity: 'Activity',
+        history: 'History',
+        data: 'Data',
       },
       callHistory: {
         title: 'Call History',
@@ -4376,12 +4380,14 @@ export const translations: Record<Locale, Translations> = {
         addresses: 'Adresy',
         other: 'Iné',
         overview: 'Prehľad',
-        case: 'Prípad',
+        case: 'Pripad',
         contact: 'Kontakt',
         calls: 'Hovory',
-        notes: 'Poznámky',
+        notes: 'Poznamky',
         gdpr: 'GDPR',
         activity: 'Aktivita',
+        history: 'Historia',
+        data: 'Udaje',
       },
       callHistory: {
         title: 'Historia hovorov',
@@ -6498,13 +6504,15 @@ export const translations: Record<Locale, Translations> = {
         marketing: 'Marketing',
         addresses: 'Adresy',
         other: 'Jiné',
-        overview: 'Přehled',
-        case: 'Případ',
+        overview: 'Prehled',
+        case: 'Pripad',
         contact: 'Kontakt',
         calls: 'Hovory',
-        notes: 'Poznámky',
+        notes: 'Poznamky',
         gdpr: 'GDPR',
         activity: 'Aktivita',
+        history: 'Historie',
+        data: 'Udaje',
       },
       callHistory: {
         title: 'Historie hovoru',
@@ -8557,9 +8565,11 @@ export const translations: Record<Locale, Translations> = {
         case: 'Eset',
         contact: 'Kapcsolat',
         calls: 'Hivasok',
-        notes: 'Megjegyzések',
+        notes: 'Megjegyzesek',
         gdpr: 'GDPR',
-        activity: 'Tevékenység',
+        activity: 'Tevekenyseg',
+        history: 'Elozmenyek',
+        data: 'Adatok',
       },
       callHistory: {
         title: 'Hivas elozmenyek',
@@ -10614,6 +10624,8 @@ export const translations: Record<Locale, Translations> = {
         notes: 'Note',
         gdpr: 'GDPR',
         activity: 'Activitate',
+        history: 'Istoric',
+        data: 'Date',
       },
       callHistory: {
         title: 'Istoric apeluri',
@@ -12668,7 +12680,9 @@ export const translations: Record<Locale, Translations> = {
         calls: 'Chiamate',
         notes: 'Note',
         gdpr: 'GDPR',
-        activity: 'Attività',
+        activity: 'Attivita',
+        history: 'Cronologia',
+        data: 'Dati',
       },
       callHistory: {
         title: 'Cronologia chiamate',
@@ -14723,7 +14737,9 @@ export const translations: Record<Locale, Translations> = {
         calls: 'Anrufe',
         notes: 'Notizen',
         gdpr: 'DSGVO',
-        activity: 'Aktivität',
+        activity: 'Aktivitaet',
+        history: 'Verlauf',
+        data: 'Daten',
       },
       callHistory: {
         title: 'Anrufverlauf',
