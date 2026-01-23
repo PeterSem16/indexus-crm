@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { 
-  insertUserSchema, insertCustomerSchema, updateUserSchema, loginSchema,
+  insertUserSchema, insertCustomerSchema, updateUserSchema, loginSchema, userSessions,
   insertProductSchema, insertCustomerProductSchema, insertBillingDetailsSchema,
   insertCustomerNoteSchema, insertActivityLogSchema, sendEmailSchema, sendSmsSchema,
   insertComplaintTypeSchema, insertCooperationTypeSchema, insertVipStatusSchema, insertHealthInsuranceSchema,
@@ -1150,8 +1150,23 @@ export async function registerRoutes(
         return res.status(401).json({ error: "Account is deactivated" });
       }
       
+      // Check if user already has an active session (prevent duplicate login)
+      const activeSession = await storage.getActiveSession(user.id);
+      if (activeSession) {
+        return res.status(409).json({ 
+          error: "User already logged in",
+          message: "Tento používateľ je už prihlásený v systéme. Najprv sa odhláste z iného zariadenia alebo kontaktujte administrátora.",
+          activeSessionId: activeSession.id,
+          loginAt: activeSession.loginAt
+        });
+      }
+      
       const { passwordHash, ...safeUser } = user;
       req.session.user = safeUser;
+      
+      // Create login session record
+      const userSession = await storage.createUserSession(user.id, req.ip || undefined, req.headers['user-agent'] || undefined);
+      (req.session as any).userSessionId = userSession.id;
       
       // Log login activity with auth method
       console.log(`[Auth] User logged in via classic auth: ${user.username} (${user.fullName})`);
@@ -1218,8 +1233,16 @@ export async function registerRoutes(
   app.post("/api/auth/logout", async (req, res) => {
     const userId = req.session.user?.id;
     const userName = req.session.user?.fullName;
+    const userSessionId = (req.session as any).userSessionId;
     
     if (userId) {
+      // End the user session record
+      if (userSessionId) {
+        await storage.endUserSession(userSessionId);
+      } else {
+        // Fallback: end all active sessions for this user
+        await storage.endAllUserSessions(userId);
+      }
       await logActivity(userId, "logout", "user", userId, userName, undefined, req.ip);
     }
     
@@ -1246,6 +1269,142 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching users:", error);
       res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+
+  // User Sessions API (access logging and reporting)
+  app.get("/api/user-sessions", requireAuth, async (req, res) => {
+    try {
+      const { startDate, endDate, userId } = req.query;
+      
+      let sessions;
+      const start = startDate ? new Date(startDate as string) : undefined;
+      const end = endDate ? new Date(endDate as string) : undefined;
+      
+      if (userId) {
+        sessions = await storage.getUserSessions(userId as string, start, end);
+      } else {
+        sessions = await storage.getAllSessions(start, end);
+      }
+      
+      // Join with user data for display
+      const users = await storage.getAllUsers();
+      const userMap = new Map(users.map(u => [u.id, u]));
+      
+      const sessionsWithUsers = sessions.map(session => ({
+        ...session,
+        user: userMap.get(session.userId) || null
+      }));
+      
+      res.json(sessionsWithUsers);
+    } catch (error) {
+      console.error("Error fetching user sessions:", error);
+      res.status(500).json({ error: "Failed to fetch user sessions" });
+    }
+  });
+
+  // Get active sessions (currently logged in users)
+  app.get("/api/user-sessions/active", requireAuth, async (req, res) => {
+    try {
+      const sessions = await storage.getAllSessions();
+      const activeSessions = sessions.filter(s => s.isActive);
+      
+      const users = await storage.getAllUsers();
+      const userMap = new Map(users.map(u => [u.id, u]));
+      
+      const sessionsWithUsers = activeSessions.map(session => ({
+        ...session,
+        user: userMap.get(session.userId) || null
+      }));
+      
+      res.json(sessionsWithUsers);
+    } catch (error) {
+      console.error("Error fetching active sessions:", error);
+      res.status(500).json({ error: "Failed to fetch active sessions" });
+    }
+  });
+
+  // Force end a user session (admin only)
+  app.post("/api/user-sessions/:sessionId/end", requireAuth, async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      await storage.endUserSession(sessionId);
+      res.json({ message: "Session ended successfully" });
+    } catch (error) {
+      console.error("Error ending session:", error);
+      res.status(500).json({ error: "Failed to end session" });
+    }
+  });
+
+  // Get session statistics
+  app.get("/api/user-sessions/stats", requireAuth, async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      const start = startDate ? new Date(startDate as string) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // Default 30 days
+      const end = endDate ? new Date(endDate as string) : new Date();
+      
+      const sessions = await storage.getAllSessions(start, end);
+      const users = await storage.getAllUsers();
+      const userMap = new Map(users.map(u => [u.id, u]));
+      
+      // Calculate statistics
+      const totalSessions = sessions.length;
+      const activeSessions = sessions.filter(s => s.isActive).length;
+      
+      // Sessions by user
+      const sessionsByUser: Record<string, { count: number; totalTime: number; userName: string }> = {};
+      
+      sessions.forEach(session => {
+        const user = userMap.get(session.userId);
+        if (!sessionsByUser[session.userId]) {
+          sessionsByUser[session.userId] = { 
+            count: 0, 
+            totalTime: 0, 
+            userName: user?.fullName || 'Unknown' 
+          };
+        }
+        sessionsByUser[session.userId].count++;
+        
+        // Calculate session duration
+        if (session.logoutAt) {
+          const duration = new Date(session.logoutAt).getTime() - new Date(session.loginAt).getTime();
+          sessionsByUser[session.userId].totalTime += duration;
+        } else if (session.isActive) {
+          // Active session - calculate from loginAt to now
+          const duration = Date.now() - new Date(session.loginAt).getTime();
+          sessionsByUser[session.userId].totalTime += duration;
+        }
+      });
+      
+      // Sessions by day
+      const sessionsByDay: Record<string, number> = {};
+      sessions.forEach(session => {
+        const day = new Date(session.loginAt).toISOString().split('T')[0];
+        sessionsByDay[day] = (sessionsByDay[day] || 0) + 1;
+      });
+      
+      // Sessions by hour
+      const sessionsByHour: Record<number, number> = {};
+      sessions.forEach(session => {
+        const hour = new Date(session.loginAt).getHours();
+        sessionsByHour[hour] = (sessionsByHour[hour] || 0) + 1;
+      });
+      
+      res.json({
+        totalSessions,
+        activeSessions,
+        uniqueUsers: Object.keys(sessionsByUser).length,
+        sessionsByUser: Object.entries(sessionsByUser).map(([userId, data]) => ({
+          userId,
+          ...data,
+          avgSessionTime: data.count > 0 ? data.totalTime / data.count : 0
+        })),
+        sessionsByDay: Object.entries(sessionsByDay).map(([date, count]) => ({ date, count })),
+        sessionsByHour: Object.entries(sessionsByHour).map(([hour, count]) => ({ hour: parseInt(hour), count }))
+      });
+    } catch (error) {
+      console.error("Error fetching session stats:", error);
+      res.status(500).json({ error: "Failed to fetch session statistics" });
     }
   });
 

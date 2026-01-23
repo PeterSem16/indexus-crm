@@ -9,7 +9,9 @@ import {
   roles, roleModulePermissions, roleFieldPermissions, userRoles, departments,
   billingCompanyAccounts, billingCompanyAuditLog, billingCompanyLaboratories, billingCompanyCollaborators, billingCompanyCouriers,
   marketProductInstances, instancePrices, instancePaymentOptions, instanceDiscounts, instanceVatRates, marketProductServices, paymentInstallments,
+  userSessions,
   type User, type InsertUser, type UpdateUser, type SafeUser,
+  type UserSession, type InsertUserSession,
   type Customer, type InsertCustomer,
   type Product, type InsertProduct,
   type CustomerProduct, type InsertCustomerProduct,
@@ -140,6 +142,15 @@ export interface IStorage {
   updateUser(id: string, user: UpdateUser): Promise<SafeUser | undefined>;
   deleteUser(id: string): Promise<boolean>;
   validatePassword(username: string, password: string): Promise<User | null>;
+  
+  // User Sessions (access logging)
+  createUserSession(userId: string, ipAddress?: string, userAgent?: string): Promise<UserSession>;
+  endUserSession(sessionId: string): Promise<void>;
+  endAllUserSessions(userId: string): Promise<void>;
+  getActiveSession(userId: string): Promise<UserSession | undefined>;
+  getUserSessions(userId: string, startDate?: Date, endDate?: Date): Promise<UserSession[]>;
+  getAllSessions(startDate?: Date, endDate?: Date): Promise<UserSession[]>;
+  updateSessionActivity(sessionId: string): Promise<void>;
   
   // Customers
   getCustomer(id: string): Promise<Customer | undefined>;
@@ -962,6 +973,92 @@ export class DatabaseStorage implements IStorage {
     
     const isValid = await bcrypt.compare(password, user.passwordHash);
     return isValid ? user : null;
+  }
+
+  // User Sessions (access logging)
+  async createUserSession(userId: string, ipAddress?: string, userAgent?: string): Promise<UserSession> {
+    const [session] = await db.insert(userSessions).values({
+      userId,
+      ipAddress: ipAddress || null,
+      userAgent: userAgent || null,
+      isActive: true,
+    }).returning();
+    return session;
+  }
+
+  async endUserSession(sessionId: string): Promise<void> {
+    await db.update(userSessions)
+      .set({ 
+        isActive: false, 
+        logoutAt: sql`now()` 
+      })
+      .where(eq(userSessions.id, sessionId));
+  }
+
+  async endAllUserSessions(userId: string): Promise<void> {
+    await db.update(userSessions)
+      .set({ 
+        isActive: false, 
+        logoutAt: sql`now()` 
+      })
+      .where(and(
+        eq(userSessions.userId, userId),
+        eq(userSessions.isActive, true)
+      ));
+  }
+
+  async getActiveSession(userId: string): Promise<UserSession | undefined> {
+    const [session] = await db.select()
+      .from(userSessions)
+      .where(and(
+        eq(userSessions.userId, userId),
+        eq(userSessions.isActive, true)
+      ))
+      .orderBy(desc(userSessions.loginAt))
+      .limit(1);
+    return session || undefined;
+  }
+
+  async getUserSessions(userId: string, startDate?: Date, endDate?: Date): Promise<UserSession[]> {
+    let query = db.select().from(userSessions).where(eq(userSessions.userId, userId));
+    
+    if (startDate && endDate) {
+      return db.select()
+        .from(userSessions)
+        .where(and(
+          eq(userSessions.userId, userId),
+          gte(userSessions.loginAt, startDate),
+          lte(userSessions.loginAt, endDate)
+        ))
+        .orderBy(desc(userSessions.loginAt));
+    }
+    
+    return db.select()
+      .from(userSessions)
+      .where(eq(userSessions.userId, userId))
+      .orderBy(desc(userSessions.loginAt));
+  }
+
+  async getAllSessions(startDate?: Date, endDate?: Date): Promise<UserSession[]> {
+    if (startDate && endDate) {
+      return db.select()
+        .from(userSessions)
+        .where(and(
+          gte(userSessions.loginAt, startDate),
+          lte(userSessions.loginAt, endDate)
+        ))
+        .orderBy(desc(userSessions.loginAt));
+    }
+    
+    return db.select()
+      .from(userSessions)
+      .orderBy(desc(userSessions.loginAt));
+  }
+
+  async updateSessionActivity(sessionId: string): Promise<void> {
+    await db.update(userSessions)
+      .set({ lastActivityAt: sql`now()` })
+      .where(eq(userSessions.id, sessionId));
   }
 
   // Customers
