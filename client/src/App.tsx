@@ -19,6 +19,7 @@ import { QuickCreate } from "@/components/quick-create";
 import { EmailNotifications } from "@/components/email-notifications";
 import { ChatProvider } from "@/contexts/chat-context";
 import { ChatContainer } from "@/components/chat-container";
+import { useSessionHeartbeat } from "@/hooks/use-session-heartbeat";
 import { NotificationBell, NotificationCenterPage } from "@/components/notification-center";
 import { NexusButton } from "@/components/nexus/nexus-button";
 import Dashboard from "@/pages/dashboard";
@@ -105,6 +106,7 @@ function I18nWrapper({ children, userCountries }: { children: React.ReactNode; u
 function AuthenticatedApp() {
   const { user } = useAuth();
   const sipContext = useSip();
+  useSessionHeartbeat();
   const style = {
     "--sidebar-width": "18rem",
     "--sidebar-width-icon": "4rem",

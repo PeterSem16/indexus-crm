@@ -1230,6 +1230,20 @@ export async function registerRoutes(
   // NOTE: MS365 callback is handled by a unified handler later in this file
   // This ensures both login (state=login) and connection flows (PKCE state) work correctly
 
+  // Heartbeat endpoint - frontend calls this periodically to keep session alive
+  app.post("/api/auth/heartbeat", async (req, res) => {
+    if (!req.session.user) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    
+    const userSessionId = (req.session as any).userSessionId;
+    if (userSessionId) {
+      await storage.updateSessionActivity(userSessionId);
+    }
+    
+    res.json({ ok: true });
+  });
+
   app.post("/api/auth/logout", async (req, res) => {
     const userId = req.session.user?.id;
     const userName = req.session.user?.fullName;

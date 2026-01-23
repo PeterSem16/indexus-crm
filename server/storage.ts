@@ -122,7 +122,7 @@ import {
   type AlertInstance, type InsertAlertInstance
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, inArray, sql, desc, and, or, asc, gte, lte } from "drizzle-orm";
+import { eq, inArray, sql, desc, and, or, asc, gte, lte, lt } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
 const SALT_ROUNDS = 10;
@@ -147,6 +147,7 @@ export interface IStorage {
   createUserSession(userId: string, ipAddress?: string, userAgent?: string): Promise<UserSession>;
   endUserSession(sessionId: string): Promise<void>;
   endAllUserSessions(userId: string): Promise<void>;
+  endStaleSessions(timeoutMinutes: number): Promise<number>;
   getActiveSession(userId: string): Promise<UserSession | undefined>;
   getUserSessions(userId: string, startDate?: Date, endDate?: Date): Promise<UserSession[]>;
   getAllSessions(startDate?: Date, endDate?: Date): Promise<UserSession[]>;
@@ -1005,6 +1006,21 @@ export class DatabaseStorage implements IStorage {
         eq(userSessions.userId, userId),
         eq(userSessions.isActive, true)
       ));
+  }
+
+  async endStaleSessions(timeoutMinutes: number): Promise<number> {
+    const cutoff = new Date(Date.now() - timeoutMinutes * 60 * 1000);
+    const result = await db.update(userSessions)
+      .set({ 
+        isActive: false, 
+        logoutAt: sql`now()` 
+      })
+      .where(and(
+        eq(userSessions.isActive, true),
+        lt(userSessions.lastActivityAt, cutoff)
+      ))
+      .returning({ id: userSessions.id });
+    return result.length;
   }
 
   async getActiveSession(userId: string): Promise<UserSession | undefined> {
