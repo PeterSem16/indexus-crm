@@ -1973,12 +1973,20 @@ function CustomerDetailsContent({
     endedAt: string | null;
     durationSeconds: number | null;
     notes: string | null;
+    hungUpBy: string | null;
   }>>({
     queryKey: ["/api/call-logs", { customerId: customer.id }],
     queryFn: async () => {
+      console.log("[CallLogs] Fetching for customer:", customer.id);
       const res = await fetch(`/api/call-logs?customerId=${customer.id}`, { credentials: "include" });
-      if (!res.ok) return [];
-      return res.json();
+      console.log("[CallLogs] Response status:", res.status);
+      if (!res.ok) {
+        console.log("[CallLogs] Error response");
+        return [];
+      }
+      const data = await res.json();
+      console.log("[CallLogs] Got data:", data);
+      return data;
     },
     refetchInterval: 30000,
   });
