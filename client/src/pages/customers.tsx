@@ -3244,8 +3244,7 @@ function CustomerDetailsContent({
                                 </div>
                               </div>
                             );
-                          } else {
-                            // Email item
+                          } else if (item.type === 'email') {
                             const email = item.data as CustomerEmailNotification;
                             const isOutbound = email.direction === "outbound";
                             return (
@@ -3389,6 +3388,7 @@ function CustomerDetailsContent({
                               </div>
                             );
                           }
+                          return null;
                         })}
                       </div>
                     </div>
