@@ -1949,6 +1949,28 @@ function CustomerDetailsContent({
     refetchInterval: 30000,
   });
 
+  // Customer call logs - phone call history
+  const { data: customerCallLogs = [], isLoading: callLogsLoading } = useQuery<Array<{
+    id: string;
+    userId: string;
+    phoneNumber: string;
+    direction: string;
+    status: string;
+    startedAt: string;
+    answeredAt: string | null;
+    endedAt: string | null;
+    durationSeconds: number | null;
+    notes: string | null;
+  }>>({
+    queryKey: ["/api/call-logs", { customerId: customer.id }],
+    queryFn: async () => {
+      const res = await fetch(`/api/call-logs?customerId=${customer.id}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    refetchInterval: 30000,
+  });
+
   const { data: allUsers = [] } = useQuery<Array<{ id: string; username: string; firstName?: string; lastName?: string }>>({
     queryKey: ["/api/users"],
     queryFn: async () => {
@@ -2589,7 +2611,7 @@ function CustomerDetailsContent({
       <Separator />
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className={`grid w-full ${customer.clientStatus === "acquired" ? "grid-cols-7" : "grid-cols-6"}`}>
+        <TabsList className={`grid w-full ${customer.clientStatus === "acquired" ? "grid-cols-8" : "grid-cols-7"}`}>
           <TabsTrigger value="overview" data-testid="tab-overview">
             <Package className="h-4 w-4 mr-2" />
             {t.customers.tabs.overview}
@@ -2607,6 +2629,10 @@ function CustomerDetailsContent({
           <TabsTrigger value="communicate" data-testid="tab-communicate">
             <Mail className="h-4 w-4 mr-2" />
             {t.customers.tabs.contact}
+          </TabsTrigger>
+          <TabsTrigger value="calls" data-testid="tab-calls">
+            <Phone className="h-4 w-4 mr-2" />
+            {t.customers.tabs?.calls || "Hovory"}
           </TabsTrigger>
           <TabsTrigger value="notes" data-testid="tab-notes">
             <MessageSquare className="h-4 w-4 mr-2" />
@@ -3004,6 +3030,99 @@ function CustomerDetailsContent({
                     </p>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="calls" className="space-y-4 mt-4">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="font-semibold flex items-center gap-2">
+                <Phone className="h-4 w-4" />
+                {t.customers.callHistory?.title || "Call History"}
+              </h4>
+              <Badge variant="secondary">
+                {customerCallLogs.length} {t.customers.callHistory?.calls || "calls"}
+              </Badge>
+            </div>
+
+            {callLogsLoading ? (
+              <p className="text-sm text-muted-foreground">{t.common.loading}</p>
+            ) : customerCallLogs.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Phone className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p>{t.customers.callHistory?.noCallsYet || "No calls recorded yet"}</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {customerCallLogs.map((call) => {
+                  const caller = allUsers.find(u => u.id === call.userId);
+                  const callerName = caller 
+                    ? `${caller.firstName || ''} ${caller.lastName || ''}`.trim() || caller.username
+                    : t.customers.callHistory?.unknownUser || "Unknown";
+                  const duration = call.durationSeconds 
+                    ? `${Math.floor(call.durationSeconds / 60)}:${String(call.durationSeconds % 60).padStart(2, '0')}`
+                    : "-";
+                  const statusColors: Record<string, string> = {
+                    completed: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+                    answered: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+                    failed: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+                    no_answer: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+                    busy: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+                    cancelled: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
+                    initiated: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+                    ringing: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+                  };
+                  const statusLabels: Record<string, string> = {
+                    completed: t.customers.callHistory?.statusCompleted || "Completed",
+                    answered: t.customers.callHistory?.statusAnswered || "Answered",
+                    failed: t.customers.callHistory?.statusFailed || "Failed",
+                    no_answer: t.customers.callHistory?.statusNoAnswer || "No Answer",
+                    busy: t.customers.callHistory?.statusBusy || "Busy",
+                    cancelled: t.customers.callHistory?.statusCancelled || "Cancelled",
+                    initiated: t.customers.callHistory?.statusInitiated || "Initiated",
+                    ringing: t.customers.callHistory?.statusRinging || "Ringing",
+                  };
+                  return (
+                    <div 
+                      key={call.id} 
+                      className="flex items-center justify-between p-3 rounded-md bg-muted/50 border"
+                      data-testid={`call-log-${call.id}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-full ${call.direction === "inbound" ? "bg-blue-100 dark:bg-blue-900" : "bg-green-100 dark:bg-green-900"}`}>
+                          {call.direction === "inbound" ? (
+                            <ArrowDownLeft className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                          ) : (
+                            <ArrowUpRight className="h-4 w-4 text-green-600 dark:text-green-400" />
+                          )}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{call.phoneNumber}</span>
+                            <Badge className={`text-xs ${statusColors[call.status] || "bg-gray-100 text-gray-800"}`}>
+                              {statusLabels[call.status] || call.status}
+                            </Badge>
+                          </div>
+                          <div className="text-sm text-muted-foreground flex items-center gap-2">
+                            <span>{callerName}</span>
+                            <span>-</span>
+                            <span>{format(new Date(call.startedAt), "d.M.yyyy HH:mm", { locale: sk })}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-mono text-sm">{duration}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {call.direction === "inbound" 
+                            ? (t.customers.callHistory?.inbound || "Inbound")
+                            : (t.customers.callHistory?.outbound || "Outbound")}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
