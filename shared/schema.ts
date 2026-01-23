@@ -190,6 +190,18 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
+// User login sessions for tracking access and preventing duplicate logins
+export const userSessions = pgTable("user_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  loginAt: timestamp("login_at").notNull().default(sql`now()`),
+  logoutAt: timestamp("logout_at"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  isActive: boolean("is_active").notNull().default(true),
+  lastActivityAt: timestamp("last_activity_at").notNull().default(sql`now()`),
+});
+
 // Configuration tables for settings
 // Complaint types - configurable in settings
 export const complaintTypes = pgTable("complaint_types", {
@@ -1023,6 +1035,13 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
+// User sessions schema for access logging
+export const insertUserSessionSchema = createInsertSchema(userSessions).omit({
+  id: true,
+  loginAt: true,
+  lastActivityAt: true,
+});
+
 export const insertCustomerSchema = createInsertSchema(customers).omit({
   id: true,
   createdAt: true,
@@ -1470,6 +1489,8 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 export type UpdateUser = z.infer<typeof updateUserSchema>;
 export type User = typeof users.$inferSelect;
 export type SafeUser = Omit<User, "passwordHash">;
+export type InsertUserSession = z.infer<typeof insertUserSessionSchema>;
+export type UserSession = typeof userSessions.$inferSelect;
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
 export type Customer = typeof customers.$inferSelect;
 export type LoginInput = z.infer<typeof loginSchema>;
