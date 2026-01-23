@@ -909,6 +909,7 @@ export function SipPhoneFloating({
             campaignId={campaignId}
             customerName={customerName}
             initialNumber={initialNumber}
+            hideSettingsAndRegistration
           />
         </div>
       )}
@@ -968,6 +969,7 @@ export function CallCustomerButton({
               customerId={customerId}
               customerName={customerName}
               campaignId={campaignId}
+              hideSettingsAndRegistration
             />
           </DialogContent>
         </Dialog>
@@ -1001,6 +1003,7 @@ export function CallCustomerButton({
               customerId={customerId}
               customerName={customerName}
               campaignId={campaignId}
+              hideSettingsAndRegistration
             />
           </DialogContent>
         </Dialog>
@@ -1031,6 +1034,7 @@ export function CallCustomerButton({
             customerId={customerId}
             customerName={customerName}
             campaignId={campaignId}
+            hideSettingsAndRegistration
           />
         </DialogContent>
       </Dialog>
