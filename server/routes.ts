@@ -1153,11 +1153,24 @@ export async function registerRoutes(
       // Check if user already has an active session (prevent duplicate login)
       const activeSession = await storage.getActiveSession(user.id);
       if (activeSession) {
+        const parseUserAgent = (ua: string | null) => {
+          if (!ua) return "Unknown";
+          if (ua.includes('Mobile')) return 'Mobile';
+          if (ua.includes('Windows')) return 'Windows PC';
+          if (ua.includes('Mac')) return 'Mac';
+          if (ua.includes('Linux')) return 'Linux PC';
+          return 'Desktop';
+        };
         return res.status(409).json({ 
           error: "User already logged in",
-          message: "Tento používateľ je už prihlásený v systéme. Najprv sa odhláste z iného zariadenia alebo kontaktujte administrátora.",
-          activeSessionId: activeSession.id,
-          loginAt: activeSession.loginAt
+          message: "Tento používateľ je už prihlásený v systéme.",
+          activeSession: {
+            id: activeSession.id,
+            loginAt: activeSession.loginAt,
+            ipAddress: activeSession.ipAddress || "Unknown",
+            device: parseUserAgent(activeSession.userAgent),
+            lastActivityAt: activeSession.lastActivityAt
+          }
         });
       }
       
@@ -2123,7 +2136,20 @@ export async function registerRoutes(
         const activeSession = await storage.getActiveSession(user.id);
         if (activeSession) {
           console.log(`[MS365 Login] Duplicate login blocked for user ${user.username}`);
-          return res.redirect("/?error=already_logged_in");
+          const parseUserAgent = (ua: string | null) => {
+            if (!ua) return "Unknown";
+            if (ua.includes('Mobile')) return 'Mobile';
+            if (ua.includes('Windows')) return 'Windows';
+            if (ua.includes('Mac')) return 'Mac';
+            if (ua.includes('Linux')) return 'Linux';
+            return 'Desktop';
+          };
+          const sessionInfo = encodeURIComponent(JSON.stringify({
+            ipAddress: activeSession.ipAddress || "Unknown",
+            device: parseUserAgent(activeSession.userAgent),
+            loginAt: activeSession.loginAt
+          }));
+          return res.redirect(`/?error=already_logged_in&session=${sessionInfo}`);
         }
         
         // Login successful - set session

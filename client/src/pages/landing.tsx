@@ -4,9 +4,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
-import { Heart, Shield, Globe, Users, Lock, ArrowRight, Building2, Smartphone, MapPin, Mic, Wifi } from "lucide-react";
+import { Heart, Shield, Globe, Users, Lock, ArrowRight, Building2, Smartphone, MapPin, Mic, Wifi, Monitor, Clock, MapPinned, AlertTriangle } from "lucide-react";
+import { format } from "date-fns";
+import { sk } from "date-fns/locale";
+
+interface ActiveSessionInfo {
+  ipAddress: string;
+  device: string;
+  loginAt: string;
+}
 
 export default function LandingPage() {
   const [, setLocation] = useLocation();
@@ -18,12 +34,30 @@ export default function LandingPage() {
   const [step, setStep] = useState<"username" | "password" | "ms365">("username");
   const [authMethod, setAuthMethod] = useState<"classic" | "ms365">("classic");
   const [userFullName, setUserFullName] = useState("");
+  const [duplicateSessionInfo, setDuplicateSessionInfo] = useState<ActiveSessionInfo | null>(null);
 
   // Check for MS365 auth errors in URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const error = params.get("error");
     if (error) {
+      // Check for already_logged_in with session info
+      if (error === "already_logged_in") {
+        const sessionParam = params.get("session");
+        if (sessionParam) {
+          try {
+            const sessionInfo = JSON.parse(decodeURIComponent(sessionParam));
+            setDuplicateSessionInfo(sessionInfo);
+          } catch (e) {
+            setDuplicateSessionInfo({ ipAddress: "Unknown", device: "Unknown", loginAt: new Date().toISOString() });
+          }
+        } else {
+          setDuplicateSessionInfo({ ipAddress: "Unknown", device: "Unknown", loginAt: new Date().toISOString() });
+        }
+        window.history.replaceState({}, document.title, window.location.pathname);
+        return;
+      }
+      
       const errorMessages: Record<string, string> = {
         ms365_auth_failed: "Microsoft 365 login failed",
         missing_code: "Missing authorization code",
@@ -111,6 +145,15 @@ export default function LandingPage() {
     setIsLoading(true);
     try {
       const result = await login(username, password);
+      
+      if (result.error === "already_logged_in" && result.activeSession) {
+        setDuplicateSessionInfo({
+          ipAddress: result.activeSession.ipAddress,
+          device: result.activeSession.device,
+          loginAt: result.activeSession.loginAt,
+        });
+        return;
+      }
       
       if (result.user) {
         setLocation("/");
@@ -415,6 +458,57 @@ export default function LandingPage() {
           </footer>
         </div>
       </div>
+
+      <AlertDialog open={!!duplicateSessionInfo} onOpenChange={() => setDuplicateSessionInfo(null)}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Duplicate Login Detected
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4">
+                <p>This user is already logged in from another device or browser.</p>
+                
+                {duplicateSessionInfo && (
+                  <div className="bg-muted p-4 rounded-lg space-y-3">
+                    <div className="flex items-center gap-3">
+                      <Monitor className="h-5 w-5 text-muted-foreground shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-foreground">Device</p>
+                        <p className="text-sm text-muted-foreground">{duplicateSessionInfo.device}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <MapPinned className="h-5 w-5 text-muted-foreground shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-foreground">IP Address</p>
+                        <p className="text-sm text-muted-foreground font-mono">{duplicateSessionInfo.ipAddress}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Clock className="h-5 w-5 text-muted-foreground shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-foreground">Logged In At</p>
+                        <p className="text-sm text-muted-foreground">
+                          {format(new Date(duplicateSessionInfo.loginAt), "dd.MM.yyyy HH:mm", { locale: sk })}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                <p className="text-sm">Please log out from the other device first, or contact an administrator to end the active session.</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button onClick={() => setDuplicateSessionInfo(null)} data-testid="button-close-duplicate-dialog">
+              Close
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
