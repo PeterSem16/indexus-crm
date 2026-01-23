@@ -1975,18 +1975,11 @@ function CustomerDetailsContent({
     notes: string | null;
     hungUpBy: string | null;
   }>>({
-    queryKey: ["/api/call-logs", { customerId: customer.id }],
+    queryKey: ["/api/customers", customer.id, "call-logs"],
     queryFn: async () => {
-      console.log("[CallLogs] Fetching for customer:", customer.id);
       const res = await fetch(`/api/call-logs?customerId=${customer.id}`, { credentials: "include" });
-      console.log("[CallLogs] Response status:", res.status);
-      if (!res.ok) {
-        console.log("[CallLogs] Error response");
-        return [];
-      }
-      const data = await res.json();
-      console.log("[CallLogs] Got data:", data);
-      return data;
+      if (!res.ok) return [];
+      return res.json();
     },
     refetchInterval: 30000,
   });
