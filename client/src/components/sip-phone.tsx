@@ -349,9 +349,22 @@ export function SipPhone({
     const peerConnection = (sessionDescriptionHandler as any).peerConnection as RTCPeerConnection;
     if (!peerConnection) return;
 
-    // Set up remote audio (speaker)
+    // Set up remote audio (speaker) with ontrack listener for new tracks
+    peerConnection.ontrack = (event) => {
+      if (event.track.kind === "audio" && audioRef.current) {
+        console.log("[SIP] Remote audio track received via ontrack");
+        const remoteStream = new MediaStream([event.track]);
+        audioRef.current.srcObject = remoteStream;
+        audioRef.current.play().catch((e) => {
+          console.warn("[SIP] Autoplay blocked, waiting for user gesture:", e);
+        });
+      }
+    };
+
+    // Also check existing receivers (in case tracks already arrived)
     peerConnection.getReceivers().forEach((receiver) => {
       if (receiver.track && receiver.track.kind === "audio") {
+        console.log("[SIP] Remote audio track found in existing receivers");
         const remoteStream = new MediaStream([receiver.track]);
         if (audioRef.current) {
           audioRef.current.srcObject = remoteStream;
