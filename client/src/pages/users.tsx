@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, UserCheck, UserX, Search, Filter, Users, Activity, Download, Calendar, Clock, BarChart3, Shield, LogIn, Monitor, RefreshCw, XCircle, History, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, FileSpreadsheet } from "lucide-react";
+import { Plus, Pencil, Trash2, UserCheck, UserX, Search, Filter, Users, Activity, Download, Calendar, Clock, BarChart3, Shield, LogIn, Monitor, RefreshCw, XCircle, History, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, FileSpreadsheet, Phone, Mail, MessageSquare } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { usePermissions } from "@/contexts/permissions-context";
 import { Button } from "@/components/ui/button";
@@ -54,6 +54,12 @@ import {
   ResponsiveContainer,
   LineChart,
   Line,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+  AreaChart,
+  Area,
 } from "recharts";
 import { format, formatDistanceToNow, subDays, startOfDay, endOfDay } from "date-fns";
 import { sk, cs, hu, ro, it, de, enUS } from "date-fns/locale";
@@ -103,6 +109,40 @@ interface SessionStats {
   sessionsByHour: Array<{ hour: number; count: number }>;
 }
 
+interface ActivityStats {
+  summary: {
+    totalCalls: number;
+    completedCalls: number;
+    totalCallDuration: number;
+    avgCallDuration: number;
+    totalEmails: number;
+    sentEmails: number;
+    totalSms: number;
+    sentSms: number;
+  };
+  dailyData: Array<{
+    date: string;
+    calls: number;
+    emails: number;
+    sms: number;
+    callDuration: number;
+  }>;
+  userStats: Array<{
+    userId: string;
+    userName: string;
+    calls: number;
+    callDuration: number;
+    emails: number;
+    sms: number;
+  }>;
+  period: {
+    startDate: string;
+    endDate: string;
+  };
+}
+
+const ACTIVITY_CHART_COLORS = ['#7c9885', '#8fbc8f', '#98d8aa', '#b4e4bc'];
+
 export default function UsersPage() {
   const { toast } = useToast();
   const { t, locale } = useI18n();
@@ -129,6 +169,10 @@ export default function UsersPage() {
   const [sessionSortField, setSessionSortField] = useState<'loginAt' | 'logoutAt' | 'user' | 'duration'>('loginAt');
   const [sessionSortDirection, setSessionSortDirection] = useState<'asc' | 'desc'>('desc');
   const SESSIONS_PER_PAGE = 15;
+
+  // Activity Reports state
+  const [activityPeriod, setActivityPeriod] = useState<PeriodType>('last_30_days');
+  const [activityUser, setActivityUser] = useState<string>('all');
 
   const { data: users = [], isLoading } = useQuery<User[]>({
     queryKey: ["/api/users"],
@@ -239,6 +283,50 @@ export default function UsersPage() {
     },
     enabled: activeTab === 'access',
   });
+
+  // Activity Reports query
+  const activityQueryUrl = useMemo(() => {
+    const params = new URLSearchParams();
+    params.set('period', activityPeriod);
+    if (activityUser !== 'all') {
+      params.set('userId', activityUser);
+    }
+    return `/api/user-activity-stats?${params.toString()}`;
+  }, [activityPeriod, activityUser]);
+
+  const { data: activityStats, isLoading: activityLoading, refetch: refetchActivity } = useQuery<ActivityStats>({
+    queryKey: ['/api/user-activity-stats', activityPeriod, activityUser],
+    queryFn: async () => {
+      const res = await fetch(activityQueryUrl, { credentials: 'include' });
+      if (!res.ok) {
+        if (res.status === 403) return null;
+        throw new Error('Failed to fetch activity stats');
+      }
+      return res.json();
+    },
+    enabled: activeTab === 'activity',
+  });
+
+  // Helper to format call duration in seconds to human readable format
+  const formatCallDuration = (seconds: number) => {
+    if (seconds < 60) return `${seconds}s`;
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    if (mins < 60) return `${mins}${t.activityReports.minutes} ${secs}s`;
+    const hours = Math.floor(mins / 60);
+    const remainMins = mins % 60;
+    return `${hours}${t.activityReports.hours} ${remainMins}${t.activityReports.minutes}`;
+  };
+
+  // Prepare pie chart data for communication channels
+  const channelPieData = useMemo(() => {
+    if (!activityStats?.summary) return [];
+    return [
+      { name: t.activityReports.voice, value: activityStats.summary.totalCalls, color: '#7c9885' },
+      { name: t.activityReports.emails, value: activityStats.summary.totalEmails, color: '#8fbc8f' },
+      { name: t.activityReports.sms, value: activityStats.summary.totalSms, color: '#98d8aa' },
+    ].filter(d => d.value > 0);
+  }, [activityStats, t]);
 
   const updateMutation = useMutation({
     mutationFn: (data: UserFormData & { id: string }) => 
@@ -704,7 +792,7 @@ export default function UsersPage() {
       </PageHeader>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2 max-w-md">
+        <TabsList className="grid w-full grid-cols-3 max-w-xl">
           <TabsTrigger value="users" className="flex items-center gap-2" data-testid="tab-users">
             <Users className="h-4 w-4" />
             {t.users.title}
@@ -712,6 +800,10 @@ export default function UsersPage() {
           <TabsTrigger value="access" className="flex items-center gap-2" data-testid="tab-access">
             <Activity className="h-4 w-4" />
             {t.userAccessReports.title}
+          </TabsTrigger>
+          <TabsTrigger value="activity" className="flex items-center gap-2" data-testid="tab-activity">
+            <BarChart3 className="h-4 w-4" />
+            {t.activityReports.title}
           </TabsTrigger>
         </TabsList>
 
@@ -1214,6 +1306,247 @@ export default function UsersPage() {
                           {t.userAccessReports.last}
                         </Button>
                       </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </TabsContent>
+
+        <TabsContent value="activity" className="space-y-4">
+          {activityLoading ? (
+            <div className="grid gap-4 md:grid-cols-4">
+              {[1, 2, 3, 4].map((i) => (
+                <Card key={i}>
+                  <CardHeader className="pb-2">
+                    <Skeleton className="h-4 w-24" />
+                  </CardHeader>
+                  <CardContent>
+                    <Skeleton className="h-8 w-16" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Filter className="h-5 w-5" />
+                    {t.activityReports.filters}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <div className="space-y-1">
+                      <Label>{t.activityReports.period}</Label>
+                      <Select value={activityPeriod} onValueChange={(v) => setActivityPeriod(v as PeriodType)}>
+                        <SelectTrigger className="w-48" data-testid="select-activity-period">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="today">{t.activityReports.today}</SelectItem>
+                          <SelectItem value="last_7_days">{t.activityReports.last7Days}</SelectItem>
+                          <SelectItem value="last_30_days">{t.activityReports.last30Days}</SelectItem>
+                          <SelectItem value="this_month">{t.activityReports.thisMonth}</SelectItem>
+                          <SelectItem value="last_month">{t.activityReports.lastMonth}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label>{t.activityReports.user}</Label>
+                      <Select value={activityUser} onValueChange={setActivityUser}>
+                        <SelectTrigger className="w-56" data-testid="select-activity-user">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">{t.activityReports.allUsers}</SelectItem>
+                          {users.map((user) => (
+                            <SelectItem key={user.id} value={user.id}>
+                              {user.fullName || user.username}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button 
+                      onClick={() => refetchActivity()} 
+                      variant="outline"
+                      className="mt-5"
+                      data-testid="button-refresh-activity"
+                    >
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      {t.common.refresh}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="grid gap-4 md:grid-cols-4">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between gap-1 pb-2">
+                    <CardTitle className="text-sm font-medium">{t.activityReports.totalCalls}</CardTitle>
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{activityStats?.summary?.totalCalls || 0}</div>
+                    <p className="text-xs text-muted-foreground">
+                      {activityStats?.summary?.completedCalls || 0} {t.activityReports.completedCalls.toLowerCase()}
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between gap-1 pb-2">
+                    <CardTitle className="text-sm font-medium">{t.activityReports.totalCallDuration}</CardTitle>
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{formatCallDuration(activityStats?.summary?.totalCallDuration || 0)}</div>
+                    <p className="text-xs text-muted-foreground">
+                      {t.activityReports.avgCallDuration}: {formatCallDuration(activityStats?.summary?.avgCallDuration || 0)}
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between gap-1 pb-2">
+                    <CardTitle className="text-sm font-medium">{t.activityReports.totalEmails}</CardTitle>
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{activityStats?.summary?.totalEmails || 0}</div>
+                    <p className="text-xs text-muted-foreground">
+                      {activityStats?.summary?.sentEmails || 0} {t.activityReports.sentEmails.toLowerCase()}
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between gap-1 pb-2">
+                    <CardTitle className="text-sm font-medium">{t.activityReports.totalSms}</CardTitle>
+                    <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{activityStats?.summary?.totalSms || 0}</div>
+                    <p className="text-xs text-muted-foreground">
+                      {activityStats?.summary?.sentSms || 0} {t.activityReports.sentSms.toLowerCase()}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{t.activityReports.dailyActivity}</CardTitle>
+                    <CardDescription>{t.activityReports.forPeriod}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[300px]">
+                      {activityStats?.dailyData && activityStats.dailyData.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={activityStats.dailyData}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis 
+                              dataKey="date" 
+                              tickFormatter={(date) => format(new Date(date), 'dd.MM', { locale: getDateLocale() })}
+                              tick={{ fontSize: 11 }}
+                            />
+                            <YAxis tick={{ fontSize: 11 }} />
+                            <Tooltip 
+                              labelFormatter={(date) => format(new Date(date), 'dd.MM.yyyy', { locale: getDateLocale() })}
+                            />
+                            <Legend />
+                            <Area type="monotone" dataKey="calls" name={t.activityReports.calls} stackId="1" stroke="#7c9885" fill="#7c9885" />
+                            <Area type="monotone" dataKey="emails" name={t.activityReports.emails} stackId="1" stroke="#8fbc8f" fill="#8fbc8f" />
+                            <Area type="monotone" dataKey="sms" name={t.activityReports.sms} stackId="1" stroke="#98d8aa" fill="#98d8aa" />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="flex items-center justify-center h-full text-muted-foreground">
+                          {t.activityReports.noData}
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{t.activityReports.channelBreakdown}</CardTitle>
+                    <CardDescription>{t.activityReports.communicationChannels}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[300px]">
+                      {channelPieData.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={channelPieData}
+                              cx="50%"
+                              cy="50%"
+                              labelLine={false}
+                              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                              outerRadius={100}
+                              fill="#8884d8"
+                              dataKey="value"
+                            >
+                              {channelPieData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} />
+                              ))}
+                            </Pie>
+                            <Legend />
+                            <Tooltip />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="flex items-center justify-center h-full text-muted-foreground">
+                          {t.activityReports.noData}
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>{t.activityReports.userActivity}</CardTitle>
+                  <CardDescription>{t.activityReports.activityByUser}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {activityStats?.userStats && activityStats.userStats.length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{t.activityReports.userName}</TableHead>
+                          <TableHead className="text-right">{t.activityReports.calls}</TableHead>
+                          <TableHead className="text-right">{t.activityReports.callDuration}</TableHead>
+                          <TableHead className="text-right">{t.activityReports.emails}</TableHead>
+                          <TableHead className="text-right">{t.activityReports.sms}</TableHead>
+                          <TableHead className="text-right">{t.activityReports.totalActivity}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {activityStats.userStats.slice(0, 15).map((userStat) => (
+                          <TableRow key={userStat.userId}>
+                            <TableCell className="font-medium">{userStat.userName}</TableCell>
+                            <TableCell className="text-right">{userStat.calls}</TableCell>
+                            <TableCell className="text-right">{formatCallDuration(userStat.callDuration)}</TableCell>
+                            <TableCell className="text-right">{userStat.emails}</TableCell>
+                            <TableCell className="text-right">{userStat.sms}</TableCell>
+                            <TableCell className="text-right font-medium">
+                              {userStat.calls + userStat.emails + userStat.sms}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      {t.activityReports.noData}
                     </div>
                   )}
                 </CardContent>
