@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, UserCheck, UserX, Search, Filter, Users, Activity, Download, Calendar, Clock, BarChart3, Shield, LogIn, Monitor, RefreshCw, XCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, UserCheck, UserX, Search, Filter, Users, Activity, Download, Calendar, Clock, BarChart3, Shield, LogIn, Monitor, RefreshCw, XCircle, History, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, FileSpreadsheet } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { usePermissions } from "@/contexts/permissions-context";
 import { Button } from "@/components/ui/button";
@@ -124,6 +124,12 @@ export default function UsersPage() {
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' | null } | null>(null);
   const USERS_PER_PAGE = 15;
 
+  // Session History pagination and sorting
+  const [sessionPage, setSessionPage] = useState(1);
+  const [sessionSortField, setSessionSortField] = useState<'loginAt' | 'logoutAt' | 'user' | 'duration'>('loginAt');
+  const [sessionSortDirection, setSessionSortDirection] = useState<'asc' | 'desc'>('desc');
+  const SESSIONS_PER_PAGE = 15;
+
   const { data: users = [], isLoading } = useQuery<User[]>({
     queryKey: ["/api/users"],
   });
@@ -197,7 +203,7 @@ export default function UsersPage() {
       }
       return res.json();
     },
-    enabled: activeTab === 'access',
+    enabled: activeTab === 'access' || activeTab === 'session-history',
   });
 
   const { data: activeSessions = [], isLoading: activeLoading, refetch: refetchActive } = useQuery<UserSession[]>({
@@ -329,6 +335,153 @@ export default function UsersPage() {
     if (ua.includes('Mac')) return 'macOS';
     if (ua.includes('Linux')) return 'Linux';
     return 'Desktop';
+  };
+
+  const getSessionDuration = (session: UserSession) => {
+    if (session.logoutAt) {
+      return new Date(session.logoutAt).getTime() - new Date(session.loginAt).getTime();
+    }
+    if (session.isActive) {
+      return Date.now() - new Date(session.loginAt).getTime();
+    }
+    return 0;
+  };
+
+  const sortedSessions = useMemo(() => {
+    const sorted = [...sessions].sort((a, b) => {
+      let comparison = 0;
+      switch (sessionSortField) {
+        case 'loginAt':
+          comparison = new Date(a.loginAt).getTime() - new Date(b.loginAt).getTime();
+          break;
+        case 'logoutAt':
+          const aLogout = a.logoutAt ? new Date(a.logoutAt).getTime() : 0;
+          const bLogout = b.logoutAt ? new Date(b.logoutAt).getTime() : 0;
+          comparison = aLogout - bLogout;
+          break;
+        case 'user':
+          const aName = a.user?.fullName || '';
+          const bName = b.user?.fullName || '';
+          comparison = aName.localeCompare(bName);
+          break;
+        case 'duration':
+          comparison = getSessionDuration(a) - getSessionDuration(b);
+          break;
+      }
+      return sessionSortDirection === 'asc' ? comparison : -comparison;
+    });
+    return sorted;
+  }, [sessions, sessionSortField, sessionSortDirection]);
+
+  const paginatedSessions = useMemo(() => {
+    const startIndex = (sessionPage - 1) * SESSIONS_PER_PAGE;
+    return sortedSessions.slice(startIndex, startIndex + SESSIONS_PER_PAGE);
+  }, [sortedSessions, sessionPage]);
+
+  const totalSessionPages = Math.ceil(sortedSessions.length / SESSIONS_PER_PAGE);
+
+  const handleSessionSort = (field: typeof sessionSortField) => {
+    if (sessionSortField === field) {
+      setSessionSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSessionSortField(field);
+      setSessionSortDirection('desc');
+    }
+    setSessionPage(1);
+  };
+
+  const getSortIcon = (field: typeof sessionSortField) => {
+    if (sessionSortField !== field) {
+      return <ArrowUpDown className="h-4 w-4 ml-1" />;
+    }
+    return sessionSortDirection === 'asc' 
+      ? <ArrowUp className="h-4 w-4 ml-1" />
+      : <ArrowDown className="h-4 w-4 ml-1" />;
+  };
+
+  const exportSessionsToCSV = () => {
+    const headers = [
+      t.userAccessReports.user,
+      'Username',
+      t.userAccessReports.loginTime,
+      t.userAccessReports.logoutTime,
+      t.userAccessReports.duration,
+      t.userAccessReports.device,
+      t.userAccessReports.ipAddress,
+      t.userAccessReports.status
+    ];
+    
+    const rows = sortedSessions.map(session => [
+      session.user?.fullName || t.userAccessReports.unknownUser,
+      session.user?.username || '',
+      format(new Date(session.loginAt), 'dd.MM.yyyy HH:mm'),
+      session.logoutAt ? format(new Date(session.logoutAt), 'dd.MM.yyyy HH:mm') : '-',
+      session.logoutAt 
+        ? formatDuration(new Date(session.logoutAt).getTime() - new Date(session.loginAt).getTime())
+        : session.isActive 
+          ? formatDistanceToNow(new Date(session.loginAt), { addSuffix: false })
+          : '-',
+      parseUserAgent(session.userAgent),
+      session.ipAddress || '-',
+      session.isActive ? t.userAccessReports.active : t.userAccessReports.ended
+    ]);
+
+    const csvContent = [
+      headers.join(';'),
+      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(';'))
+    ].join('\n');
+
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `session_history_${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
+
+  const exportSessionsToExcel = () => {
+    const headers = [
+      t.userAccessReports.user,
+      'Username',
+      t.userAccessReports.loginTime,
+      t.userAccessReports.logoutTime,
+      t.userAccessReports.duration,
+      t.userAccessReports.device,
+      t.userAccessReports.ipAddress,
+      t.userAccessReports.status
+    ];
+    
+    const rows = sortedSessions.map(session => [
+      session.user?.fullName || t.userAccessReports.unknownUser,
+      session.user?.username || '',
+      format(new Date(session.loginAt), 'dd.MM.yyyy HH:mm'),
+      session.logoutAt ? format(new Date(session.logoutAt), 'dd.MM.yyyy HH:mm') : '-',
+      session.logoutAt 
+        ? formatDuration(new Date(session.logoutAt).getTime() - new Date(session.loginAt).getTime())
+        : session.isActive 
+          ? formatDistanceToNow(new Date(session.loginAt), { addSuffix: false })
+          : '-',
+      parseUserAgent(session.userAgent),
+      session.ipAddress || '-',
+      session.isActive ? t.userAccessReports.active : t.userAccessReports.ended
+    ]);
+
+    let tableHtml = '<table border="1"><thead><tr>';
+    headers.forEach(h => tableHtml += `<th>${h}</th>`);
+    tableHtml += '</tr></thead><tbody>';
+    rows.forEach(row => {
+      tableHtml += '<tr>';
+      row.forEach(cell => tableHtml += `<td>${cell}</td>`);
+      tableHtml += '</tr>';
+    });
+    tableHtml += '</tbody></table>';
+
+    const blob = new Blob(['\ufeff' + tableHtml], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `session_history_${format(new Date(), 'yyyy-MM-dd')}.xls`;
+    link.click();
+    URL.revokeObjectURL(link.href);
   };
 
   const filteredUsers = useMemo(() => {
@@ -551,7 +704,7 @@ export default function UsersPage() {
       </PageHeader>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2 max-w-md">
+        <TabsList className="grid w-full grid-cols-3 max-w-2xl">
           <TabsTrigger value="users" className="flex items-center gap-2" data-testid="tab-users">
             <Users className="h-4 w-4" />
             {t.users.title}
@@ -559,6 +712,10 @@ export default function UsersPage() {
           <TabsTrigger value="access" className="flex items-center gap-2" data-testid="tab-access">
             <Activity className="h-4 w-4" />
             {t.userAccessReports.title}
+          </TabsTrigger>
+          <TabsTrigger value="session-history" className="flex items-center gap-2" data-testid="tab-session-history">
+            <History className="h-4 w-4" />
+            {t.userAccessReports.sessionHistory}
           </TabsTrigger>
         </TabsList>
 
@@ -948,6 +1105,208 @@ export default function UsersPage() {
               </Card>
             </>
           )}
+        </TabsContent>
+
+        <TabsContent value="session-history" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <LogIn className="h-5 w-5" />
+                    {t.userAccessReports.sessionHistory}
+                  </CardTitle>
+                  <CardDescription>{t.userAccessReports.sessionHistoryDesc}</CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={exportSessionsToCSV}
+                    data-testid="button-export-sessions-csv"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    CSV
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={exportSessionsToExcel}
+                    data-testid="button-export-sessions-excel"
+                  >
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Excel
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {sessionsLoading ? (
+                <div className="space-y-2">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <Skeleton key={i} className="h-12 w-full" />
+                  ))}
+                </div>
+              ) : (
+                <>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-8 px-2 -ml-2"
+                            onClick={() => handleSessionSort('user')}
+                            data-testid="button-sort-user"
+                          >
+                            {t.userAccessReports.user}
+                            {getSortIcon('user')}
+                          </Button>
+                        </TableHead>
+                        <TableHead>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-8 px-2 -ml-2"
+                            onClick={() => handleSessionSort('loginAt')}
+                            data-testid="button-sort-login"
+                          >
+                            {t.userAccessReports.loginTime}
+                            {getSortIcon('loginAt')}
+                          </Button>
+                        </TableHead>
+                        <TableHead>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-8 px-2 -ml-2"
+                            onClick={() => handleSessionSort('logoutAt')}
+                            data-testid="button-sort-logout"
+                          >
+                            {t.userAccessReports.logoutTime}
+                            {getSortIcon('logoutAt')}
+                          </Button>
+                        </TableHead>
+                        <TableHead>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-8 px-2 -ml-2"
+                            onClick={() => handleSessionSort('duration')}
+                            data-testid="button-sort-duration"
+                          >
+                            {t.userAccessReports.duration}
+                            {getSortIcon('duration')}
+                          </Button>
+                        </TableHead>
+                        <TableHead>{t.userAccessReports.device}</TableHead>
+                        <TableHead>{t.userAccessReports.ipAddress}</TableHead>
+                        <TableHead>{t.userAccessReports.status}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paginatedSessions.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                            {t.common.noData}
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        paginatedSessions.map((session) => (
+                          <TableRow key={session.id} data-testid={`row-session-${session.id}`}>
+                            <TableCell>
+                              <div className="flex flex-col">
+                                <span className="font-medium">{session.user?.fullName || t.userAccessReports.unknownUser}</span>
+                                <span className="text-xs text-muted-foreground">{session.user?.username}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {format(new Date(session.loginAt), 'dd.MM.yyyy HH:mm', { locale: getDateLocale() })}
+                            </TableCell>
+                            <TableCell>
+                              {session.logoutAt
+                                ? format(new Date(session.logoutAt), 'dd.MM.yyyy HH:mm', { locale: getDateLocale() })
+                                : '-'}
+                            </TableCell>
+                            <TableCell>
+                              {session.logoutAt
+                                ? formatDuration(new Date(session.logoutAt).getTime() - new Date(session.loginAt).getTime())
+                                : session.isActive
+                                  ? formatDistanceToNow(new Date(session.loginAt), { locale: getDateLocale(), addSuffix: false })
+                                  : '-'}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="secondary">{parseUserAgent(session.userAgent)}</Badge>
+                            </TableCell>
+                            <TableCell className="font-mono text-sm">{session.ipAddress || '-'}</TableCell>
+                            <TableCell>
+                              {session.isActive ? (
+                                <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">
+                                  {t.userAccessReports.active}
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary">{t.userAccessReports.ended}</Badge>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+
+                  {totalSessionPages > 1 && (
+                    <div className="flex items-center justify-between mt-4 px-2">
+                      <p className="text-sm text-muted-foreground">
+                        {t.userAccessReports.showingPage} {sessionPage} {t.userAccessReports.of} {totalSessionPages} ({sortedSessions.length} {t.userAccessReports.totalRecords})
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSessionPage(1)}
+                          disabled={sessionPage === 1}
+                          data-testid="button-first-page"
+                        >
+                          {t.userAccessReports.first}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => setSessionPage(p => Math.max(1, p - 1))}
+                          disabled={sessionPage === 1}
+                          data-testid="button-prev-session-page"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <span className="text-sm text-muted-foreground min-w-[60px] text-center">
+                          {sessionPage} / {totalSessionPages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => setSessionPage(p => Math.min(totalSessionPages, p + 1))}
+                          disabled={sessionPage === totalSessionPages}
+                          data-testid="button-next-session-page"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSessionPage(totalSessionPages)}
+                          disabled={sessionPage === totalSessionPages}
+                          data-testid="button-last-page"
+                        >
+                          {t.userAccessReports.last}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
