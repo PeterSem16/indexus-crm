@@ -1,9 +1,10 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
+import { startOfDay, endOfDay, subDays } from "date-fns";
 import { storage } from "./storage";
 import { 
-  insertUserSchema, insertCustomerSchema, updateUserSchema, loginSchema, userSessions,
+  insertUserSchema, insertCustomerSchema, updateUserSchema, loginSchema, userSessions, communicationMessages,
   insertProductSchema, insertCustomerProductSchema, insertBillingDetailsSchema,
   insertCustomerNoteSchema, insertActivityLogSchema, sendEmailSchema, sendSmsSchema,
   insertComplaintTypeSchema, insertCooperationTypeSchema, insertVipStatusSchema, insertHealthInsuranceSchema,
@@ -11343,6 +11344,232 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Failed to fetch user call logs:", error);
       res.status(500).json({ error: "Failed to fetch call logs" });
+    }
+  });
+
+  // ===== User Activity Reports API =====
+  
+  // Get aggregated activity statistics for all users
+  app.get("/api/user-activity-stats", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || !["admin", "manager"].includes(user.role)) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const { period = "last_30_days", userId } = req.query;
+      
+      // Calculate date range based on period
+      const now = new Date();
+      let startDate: Date;
+      let endDate: Date = now;
+      
+      switch (period) {
+        case "today":
+          startDate = startOfDay(now);
+          endDate = endOfDay(now);
+          break;
+        case "last_7_days":
+          startDate = subDays(startOfDay(now), 7);
+          break;
+        case "last_30_days":
+          startDate = subDays(startOfDay(now), 30);
+          break;
+        case "this_month":
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          break;
+        case "last_month":
+          startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          endDate = new Date(now.getFullYear(), now.getMonth(), 0);
+          break;
+        default:
+          startDate = subDays(startOfDay(now), 30);
+      }
+
+      // Get call logs statistics
+      const allCallLogs = await storage.getAllCallLogs();
+      const filteredCallLogs = allCallLogs.filter(log => {
+        const logDate = new Date(log.startedAt);
+        const inRange = logDate >= startDate && logDate <= endDate;
+        const matchUser = userId ? log.userId === userId : true;
+        return inRange && matchUser;
+      });
+
+      // Get communication messages (emails and SMS)
+      const allMessages = await db.select().from(communicationMessages);
+      const filteredMessages = allMessages.filter(msg => {
+        const msgDate = msg.createdAt ? new Date(msg.createdAt) : null;
+        if (!msgDate) return false;
+        const inRange = msgDate >= startDate && msgDate <= endDate;
+        const matchUser = userId ? msg.userId === userId : true;
+        return inRange && matchUser;
+      });
+
+      const emailMessages = filteredMessages.filter(m => m.type === "email");
+      const smsMessages = filteredMessages.filter(m => m.type === "sms");
+
+      // Calculate call statistics
+      const totalCalls = filteredCallLogs.length;
+      const completedCalls = filteredCallLogs.filter(c => c.status === "completed").length;
+      const totalCallDuration = filteredCallLogs.reduce((sum, c) => sum + (c.durationSeconds || 0), 0);
+      const avgCallDuration = totalCalls > 0 ? Math.round(totalCallDuration / totalCalls) : 0;
+
+      // Calculate daily breakdown for charts
+      const dailyStats: Record<string, { calls: number; emails: number; sms: number; callDuration: number }> = {};
+      
+      for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+        const dateKey = d.toISOString().split("T")[0];
+        dailyStats[dateKey] = { calls: 0, emails: 0, sms: 0, callDuration: 0 };
+      }
+
+      filteredCallLogs.forEach(log => {
+        const dateKey = new Date(log.startedAt).toISOString().split("T")[0];
+        if (dailyStats[dateKey]) {
+          dailyStats[dateKey].calls++;
+          dailyStats[dateKey].callDuration += log.durationSeconds || 0;
+        }
+      });
+
+      emailMessages.forEach(msg => {
+        if (msg.createdAt) {
+          const dateKey = new Date(msg.createdAt).toISOString().split("T")[0];
+          if (dailyStats[dateKey]) {
+            dailyStats[dateKey].emails++;
+          }
+        }
+      });
+
+      smsMessages.forEach(msg => {
+        if (msg.createdAt) {
+          const dateKey = new Date(msg.createdAt).toISOString().split("T")[0];
+          if (dailyStats[dateKey]) {
+            dailyStats[dateKey].sms++;
+          }
+        }
+      });
+
+      // Convert to array for charts
+      const dailyData = Object.entries(dailyStats)
+        .map(([date, stats]) => ({
+          date,
+          calls: stats.calls,
+          emails: stats.emails,
+          sms: stats.sms,
+          callDuration: stats.callDuration
+        }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+
+      // Get per-user statistics
+      const userStats: Record<string, { 
+        userId: string; 
+        userName: string; 
+        calls: number; 
+        callDuration: number;
+        emails: number; 
+        sms: number 
+      }> = {};
+
+      const users = await storage.getAllUsers();
+      const userMap = new Map(users.map(u => [u.id, u]));
+
+      filteredCallLogs.forEach(log => {
+        if (!userStats[log.userId]) {
+          const u = userMap.get(log.userId);
+          userStats[log.userId] = {
+            userId: log.userId,
+            userName: u?.fullName || u?.username || "Unknown",
+            calls: 0,
+            callDuration: 0,
+            emails: 0,
+            sms: 0
+          };
+        }
+        userStats[log.userId].calls++;
+        userStats[log.userId].callDuration += log.durationSeconds || 0;
+      });
+
+      filteredMessages.forEach(msg => {
+        if (msg.userId) {
+          if (!userStats[msg.userId]) {
+            const u = userMap.get(msg.userId);
+            userStats[msg.userId] = {
+              userId: msg.userId,
+              userName: u?.fullName || u?.username || "Unknown",
+              calls: 0,
+              callDuration: 0,
+              emails: 0,
+              sms: 0
+            };
+          }
+          if (msg.type === "email") {
+            userStats[msg.userId].emails++;
+          } else if (msg.type === "sms") {
+            userStats[msg.userId].sms++;
+          }
+        }
+      });
+
+      const userStatsList = Object.values(userStats)
+        .sort((a, b) => (b.calls + b.emails + b.sms) - (a.calls + a.emails + a.sms));
+
+      res.json({
+        summary: {
+          totalCalls,
+          completedCalls,
+          totalCallDuration,
+          avgCallDuration,
+          totalEmails: emailMessages.length,
+          sentEmails: emailMessages.filter(e => e.status === "sent" || e.status === "delivered").length,
+          totalSms: smsMessages.length,
+          sentSms: smsMessages.filter(s => s.status === "sent" || s.status === "delivered").length,
+        },
+        dailyData,
+        userStats: userStatsList,
+        period: { startDate: startDate.toISOString(), endDate: endDate.toISOString() }
+      });
+    } catch (error) {
+      console.error("Failed to fetch user activity stats:", error);
+      res.status(500).json({ error: "Failed to fetch activity statistics" });
+    }
+  });
+
+  // Get activity logs for a specific user (for user profile modal)
+  app.get("/api/users/:userId/activity", requireAuth, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const currentUser = req.session.user;
+      
+      // Users can view their own activity, admins/managers can view anyone's
+      if (currentUser?.id !== userId && !["admin", "manager"].includes(currentUser?.role || "")) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const { limit = "50" } = req.query;
+      const limitNum = parseInt(limit as string);
+
+      // Get user's sessions
+      const sessions = await db.select().from(userSessions)
+        .where(eq(userSessions.userId, userId))
+        .orderBy(desc(userSessions.loginAt))
+        .limit(limitNum);
+
+      // Get user's call logs
+      const callLogs = await storage.getCallLogsByUser(userId, limitNum);
+
+      // Get user's communication messages
+      const messages = await db.select().from(communicationMessages)
+        .where(eq(communicationMessages.userId, userId))
+        .orderBy(desc(communicationMessages.createdAt))
+        .limit(limitNum);
+
+      res.json({
+        sessions,
+        callLogs,
+        messages
+      });
+    } catch (error) {
+      console.error("Failed to fetch user activity:", error);
+      res.status(500).json({ error: "Failed to fetch user activity" });
     }
   });
 
