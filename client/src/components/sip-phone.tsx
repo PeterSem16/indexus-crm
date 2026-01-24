@@ -1077,8 +1077,8 @@ interface SipPhoneHeaderButtonProps {
 
 export function SipPhoneHeaderButton({ user, sipContext }: SipPhoneHeaderButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const callContext = useCall();
   const { pendingCall } = useSip();
+  const callContext = useCall();
   const { data: sipSettings } = useQuery<{
     server?: string;
     port?: number;
@@ -1091,13 +1091,9 @@ export function SipPhoneHeaderButton({ user, sipContext }: SipPhoneHeaderButtonP
     retry: false,
   });
 
-  const hasActiveCall = callContext.callState !== "idle" && callContext.callState !== "ended";
-
   useEffect(() => {
-    if ((hasActiveCall || pendingCall) && !isOpen) {
-      setIsOpen(true);
-    }
-  }, [hasActiveCall, pendingCall, isOpen]);
+    callContext.openDialpadFn.current = () => setIsOpen(true);
+  }, [callContext]);
 
   if (!user?.sipEnabled || !sipSettings?.isEnabled) {
     return null;
@@ -1134,7 +1130,6 @@ export function SipPhoneHeaderButton({ user, sipContext }: SipPhoneHeaderButtonP
             onClick={() => setIsOpen(false)}
             className="absolute -top-2 -right-2 z-10 h-6 w-6 rounded-full bg-background shadow"
             data-testid="button-sip-phone-close"
-            disabled={hasActiveCall}
           >
             <X className="h-4 w-4" />
           </Button>

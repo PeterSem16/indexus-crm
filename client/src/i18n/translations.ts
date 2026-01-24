@@ -80,6 +80,7 @@ export interface Translations {
     hold: string;
     resume: string;
     endCall: string;
+    dialpad: string;
   };
   common: {
     save: string;
@@ -1991,6 +1992,7 @@ export const translations: Record<Locale, Translations> = {
       hold: 'Hold',
       resume: 'Resume',
       endCall: 'End call',
+      dialpad: 'Dialpad',
     },
     common: {
       save: 'Save',
@@ -6220,6 +6222,7 @@ export const translations: Record<Locale, Translations> = {
       hold: 'Podržať',
       resume: 'Pokračovať',
       endCall: 'Ukončiť hovor',
+      dialpad: 'Klávesnica',
     },
   },
   cs: {
@@ -8300,6 +8303,7 @@ export const translations: Record<Locale, Translations> = {
       hold: 'Podržet',
       resume: 'Pokračovat',
       endCall: 'Ukončit hovor',
+      dialpad: 'Klávesnice',
     },
   },
   hu: {
@@ -10380,6 +10384,7 @@ export const translations: Record<Locale, Translations> = {
       hold: 'Tartás',
       resume: 'Folytatás',
       endCall: 'Hívás befejezése',
+      dialpad: 'Billentyűzet',
     },
   },
   ro: {
@@ -12459,6 +12464,7 @@ export const translations: Record<Locale, Translations> = {
       hold: 'Așteptare',
       resume: 'Reluare',
       endCall: 'Încheiere apel',
+      dialpad: 'Tastatură',
     },
   },
   it: {
@@ -14539,6 +14545,7 @@ export const translations: Record<Locale, Translations> = {
       hold: 'Attesa',
       resume: 'Riprendi',
       endCall: 'Termina chiamata',
+      dialpad: 'Tastierino',
     },
   },
   de: {
@@ -16619,6 +16626,7 @@ export const translations: Record<Locale, Translations> = {
       hold: 'Halten',
       resume: 'Fortsetzen',
       endCall: 'Anruf beenden',
+      dialpad: 'Tastenfeld',
     },
   },
 };

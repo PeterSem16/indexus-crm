@@ -9,7 +9,8 @@ import {
   MicOff, 
   Pause, 
   Play,
-  Loader2
+  Loader2,
+  Grid3X3
 } from "lucide-react";
 
 function formatDuration(seconds: number): string {
@@ -28,7 +29,8 @@ export function CallBar() {
     isOnHold,
     endCallFn,
     toggleMuteFn,
-    toggleHoldFn
+    toggleHoldFn,
+    openDialpadFn
   } = useCall();
 
   if (callState === "idle" || callState === "ended") {
@@ -53,6 +55,12 @@ export function CallBar() {
   const handleToggleHold = () => {
     if (toggleHoldFn.current) {
       toggleHoldFn.current();
+    }
+  };
+
+  const handleOpenDialpad = () => {
+    if (openDialpadFn.current) {
+      openDialpadFn.current();
     }
   };
 
@@ -135,6 +143,16 @@ export function CallBar() {
                 title={isOnHold ? (t.callBar?.resume || "Resume") : (t.callBar?.hold || "Hold")}
               >
                 {isOnHold ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+              </Button>
+
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleOpenDialpad}
+                data-testid="button-callbar-dialpad"
+                title={t.callBar?.dialpad || "Dialpad"}
+              >
+                <Grid3X3 className="h-4 w-4" />
               </Button>
             </>
           )}
