@@ -934,7 +934,7 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
                 </div>
                 <FormControl>
                   <Switch
-                    checked={field.value}
+                    checked={!!field.value}
                     onCheckedChange={field.onChange}
                     data-testid="switch-show-sip-phone"
                   />
@@ -1094,7 +1094,7 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
             </div>
             <FormControl>
               <Switch
-                checked={field.value}
+                checked={!!field.value}
                 onCheckedChange={field.onChange}
                 data-testid="switch-nexus-enabled"
               />
@@ -1119,7 +1119,7 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
             </div>
             <FormControl>
               <Switch
-                checked={field.value}
+                checked={!!field.value}
                 onCheckedChange={field.onChange}
                 data-testid="switch-show-notification-bell"
               />
@@ -1144,7 +1144,7 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
             </div>
             <FormControl>
               <Switch
-                checked={field.value}
+                checked={!!field.value}
                 onCheckedChange={field.onChange}
                 data-testid="switch-show-email-queue"
               />
