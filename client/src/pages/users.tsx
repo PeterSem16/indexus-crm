@@ -203,7 +203,7 @@ export default function UsersPage() {
       }
       return res.json();
     },
-    enabled: activeTab === 'access' || activeTab === 'session-history',
+    enabled: activeTab === 'access',
   });
 
   const { data: activeSessions = [], isLoading: activeLoading, refetch: refetchActive } = useQuery<UserSession[]>({
@@ -704,7 +704,7 @@ export default function UsersPage() {
       </PageHeader>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3 max-w-2xl">
+        <TabsList className="grid w-full grid-cols-2 max-w-md">
           <TabsTrigger value="users" className="flex items-center gap-2" data-testid="tab-users">
             <Users className="h-4 w-4" />
             {t.users.title}
@@ -712,10 +712,6 @@ export default function UsersPage() {
           <TabsTrigger value="access" className="flex items-center gap-2" data-testid="tab-access">
             <Activity className="h-4 w-4" />
             {t.userAccessReports.title}
-          </TabsTrigger>
-          <TabsTrigger value="session-history" className="flex items-center gap-2" data-testid="tab-session-history">
-            <History className="h-4 w-4" />
-            {t.userAccessReports.sessionHistory}
           </TabsTrigger>
         </TabsList>
 
@@ -1036,119 +1032,37 @@ export default function UsersPage() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <LogIn className="h-5 w-5" />
-                    {t.userAccessReports.sessionHistory}
-                  </CardTitle>
-                  <CardDescription>{t.userAccessReports.sessionHistoryDesc}</CardDescription>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <LogIn className="h-5 w-5" />
+                        {t.userAccessReports.sessionHistory}
+                      </CardTitle>
+                      <CardDescription>{t.userAccessReports.sessionHistoryDesc}</CardDescription>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={exportSessionsToCSV}
+                        data-testid="button-export-sessions-csv"
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        CSV
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={exportSessionsToExcel}
+                        data-testid="button-export-sessions-excel"
+                      >
+                        <FileSpreadsheet className="h-4 w-4 mr-2" />
+                        Excel
+                      </Button>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>{t.userAccessReports.user}</TableHead>
-                        <TableHead>{t.userAccessReports.loginTime}</TableHead>
-                        <TableHead>{t.userAccessReports.logoutTime}</TableHead>
-                        <TableHead>{t.userAccessReports.duration}</TableHead>
-                        <TableHead>{t.userAccessReports.device}</TableHead>
-                        <TableHead>{t.userAccessReports.ipAddress}</TableHead>
-                        <TableHead>{t.userAccessReports.status}</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {sessions.slice(0, 50).map((session) => (
-                        <TableRow key={session.id} data-testid={`row-session-${session.id}`}>
-                          <TableCell>
-                            <div className="flex flex-col">
-                              <span className="font-medium">{session.user?.fullName || t.userAccessReports.unknownUser}</span>
-                              <span className="text-xs text-muted-foreground">{session.user?.username}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {format(new Date(session.loginAt), 'dd.MM.yyyy HH:mm', { locale: getDateLocale() })}
-                          </TableCell>
-                          <TableCell>
-                            {session.logoutAt
-                              ? format(new Date(session.logoutAt), 'dd.MM.yyyy HH:mm', { locale: getDateLocale() })
-                              : '-'}
-                          </TableCell>
-                          <TableCell>
-                            {session.logoutAt
-                              ? formatDuration(new Date(session.logoutAt).getTime() - new Date(session.loginAt).getTime())
-                              : session.isActive
-                                ? formatDistanceToNow(new Date(session.loginAt), { locale: getDateLocale(), addSuffix: false })
-                                : '-'}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="secondary">{parseUserAgent(session.userAgent)}</Badge>
-                          </TableCell>
-                          <TableCell className="font-mono text-sm">{session.ipAddress || '-'}</TableCell>
-                          <TableCell>
-                            {session.isActive ? (
-                              <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">
-                                {t.userAccessReports.active}
-                              </Badge>
-                            ) : (
-                              <Badge variant="secondary">{t.userAccessReports.ended}</Badge>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                  {sessions.length > 50 && (
-                    <p className="text-sm text-muted-foreground mt-4 text-center">
-                      {t.userAccessReports.showingFirst50}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            </>
-          )}
-        </TabsContent>
-
-        <TabsContent value="session-history" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <LogIn className="h-5 w-5" />
-                    {t.userAccessReports.sessionHistory}
-                  </CardTitle>
-                  <CardDescription>{t.userAccessReports.sessionHistoryDesc}</CardDescription>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={exportSessionsToCSV}
-                    data-testid="button-export-sessions-csv"
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    CSV
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={exportSessionsToExcel}
-                    data-testid="button-export-sessions-excel"
-                  >
-                    <FileSpreadsheet className="h-4 w-4 mr-2" />
-                    Excel
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {sessionsLoading ? (
-                <div className="space-y-2">
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <Skeleton key={i} className="h-12 w-full" />
-                  ))}
-                </div>
-              ) : (
-                <>
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -1254,7 +1168,6 @@ export default function UsersPage() {
                       )}
                     </TableBody>
                   </Table>
-
                   {totalSessionPages > 1 && (
                     <div className="flex items-center justify-between mt-4 px-2">
                       <p className="text-sm text-muted-foreground">
@@ -1303,10 +1216,10 @@ export default function UsersPage() {
                       </div>
                     </div>
                   )}
-                </>
-              )}
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            </>
+          )}
         </TabsContent>
       </Tabs>
 
