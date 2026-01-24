@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -10,6 +10,7 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Loader2 } from "lucide-react";
 import {
   Form,
   FormControl,
@@ -97,6 +98,50 @@ export function UserFormWizard({ onSuccess, onCancel }: UserFormWizardProps) {
   const activeRoles = roles.filter(r => r.isActive);
   const systemRolesWithLegacy = activeRoles.filter(r => (r as any).legacyRole);
   const hasSystemRoles = systemRolesWithLegacy.length > 0;
+
+  interface SipExtensionOption {
+    id: string;
+    extension: string;
+    sipUsername: string;
+    countryCode: string;
+  }
+
+  const assignedCountries = form.watch("assignedCountries");
+  const selectedSipCountry = assignedCountries.length > 0 ? assignedCountries[0] : null;
+  const [selectedExtensionId, setSelectedExtensionId] = useState<string | null>(null);
+
+  const { data: availableExtensions = [], isLoading: extensionsLoading, refetch: refetchExtensions } = useQuery<SipExtensionOption[]>({
+    queryKey: ["/api/sip-extensions/available", selectedSipCountry],
+    queryFn: async () => {
+      if (!selectedSipCountry) return [];
+      const res = await fetch(`/api/sip-extensions/available?countryCode=${selectedSipCountry}`, {
+        credentials: "include"
+      });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!selectedSipCountry && form.watch("sipEnabled"),
+  });
+
+  const handleExtensionSelect = async (extensionId: string) => {
+    const ext = availableExtensions.find(e => e.id === extensionId);
+    if (!ext) return;
+    
+    setSelectedExtensionId(extensionId);
+    form.setValue("sipExtension", ext.extension);
+    
+    try {
+      const res = await fetch(`/api/sip-extensions/${extensionId}/password`, {
+        credentials: "include"
+      });
+      if (res.ok) {
+        const { password } = await res.json();
+        form.setValue("sipPassword", password);
+      }
+    } catch (error) {
+      console.error("Failed to fetch SIP password:", error);
+    }
+  };
 
   const createMutation = useMutation({
     mutationFn: async (data: UserFormData) => {
@@ -478,40 +523,69 @@ export function UserFormWizard({ onSuccess, onCancel }: UserFormWizardProps) {
 
       {form.watch("sipEnabled") && (
         <div className="grid gap-4 sm:grid-cols-2 pl-4 border-l-2 border-primary/20">
-          <FormField
-            control={form.control}
-            name="sipExtension"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Linka (Extension)</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="1001"
-                    {...field}
-                    data-testid="wizard-input-sip-extension"
-                  />
-                </FormControl>
-                <FormDescription>Číslo linky pridelené v Asterisk PBX</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {selectedSipCountry ? (
+            <FormItem>
+              <FormLabel>{t.users?.sipExtension || "Linka (Extension)"}</FormLabel>
+              <Select
+                value={selectedExtensionId || ""}
+                onValueChange={handleExtensionSelect}
+              >
+                <SelectTrigger data-testid="wizard-select-sip-extension">
+                  {extensionsLoading ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>{t.common?.loading || "Loading..."}</span>
+                    </div>
+                  ) : (
+                    <SelectValue placeholder={t.users?.selectExtension || "Select available extension"} />
+                  )}
+                </SelectTrigger>
+                <SelectContent>
+                  {availableExtensions.length === 0 ? (
+                    <div className="p-2 text-sm text-muted-foreground">
+                      {t.users?.noAvailableExtensions || "No available extensions for this country"}
+                    </div>
+                  ) : (
+                    availableExtensions.map((ext) => (
+                      <SelectItem key={ext.id} value={ext.id}>
+                        {ext.extension} ({ext.countryCode})
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              <FormDescription>{t.users?.sipExtensionDesc || "Select an available SIP extension - password will be auto-filled"}</FormDescription>
+            </FormItem>
+          ) : (
+            <FormItem>
+              <FormLabel>{t.users?.sipExtension || "Linka (Extension)"}</FormLabel>
+              <div className="text-sm text-muted-foreground p-2 border rounded-md bg-muted/50">
+                {t.users?.selectCountryFirst || "First select a country in the Countries step"}
+              </div>
+            </FormItem>
+          )}
 
           <FormField
             control={form.control}
             name="sipPassword"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Heslo</FormLabel>
+                <FormLabel>{t.users?.sipPassword || "Heslo"}</FormLabel>
                 <FormControl>
                   <Input
                     type="password"
                     placeholder="••••••••"
                     {...field}
+                    readOnly={!!selectedExtensionId}
+                    className={selectedExtensionId ? "bg-muted" : ""}
                     data-testid="wizard-input-sip-password"
                   />
                 </FormControl>
-                <FormDescription>Heslo pre autentifikáciu SIP linky</FormDescription>
+                <FormDescription>
+                  {selectedExtensionId 
+                    ? (t.users?.sipPasswordAutoFilled || "Password auto-filled from selected extension")
+                    : (t.users?.sipPasswordDesc || "Password for SIP authentication")}
+                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}

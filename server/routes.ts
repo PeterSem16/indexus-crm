@@ -11265,6 +11265,138 @@ export async function registerRoutes(
     }
   });
 
+  // ===== SIP Extensions Routes =====
+
+  // Helper functions for SIP password encryption
+  const { encryptToken, decryptToken } = await import("./lib/token-crypto");
+  
+  function encryptSipPassword(plainPassword: string): string {
+    return "SIP:" + encryptToken(plainPassword);
+  }
+  
+  function decryptSipPassword(encryptedPassword: string): string {
+    if (encryptedPassword.startsWith("SIP:")) {
+      return decryptToken(encryptedPassword.substring(4));
+    }
+    return encryptedPassword;
+  }
+
+  // Get available SIP extensions by country
+  app.get("/api/sip-extensions/available", requireAuth, async (req, res) => {
+    try {
+      const { countryCode } = req.query;
+      if (!countryCode || typeof countryCode !== "string") {
+        return res.status(400).json({ error: "Country code is required" });
+      }
+      const extensions = await storage.getAvailableSipExtensions(countryCode);
+      res.json(extensions.map(ext => ({
+        id: ext.id,
+        extension: ext.extension,
+        sipUsername: ext.sipUsername,
+        countryCode: ext.countryCode
+      })));
+    } catch (error) {
+      console.error("Failed to fetch available SIP extensions:", error);
+      res.status(500).json({ error: "Failed to fetch available SIP extensions" });
+    }
+  });
+
+  // Get decrypted SIP password for extension (admin/manager only)
+  app.get("/api/sip-extensions/:id/password", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || (user.role !== "admin" && user.role !== "manager")) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const passwordHash = await storage.getSipExtensionPassword(req.params.id);
+      if (!passwordHash) {
+        return res.status(404).json({ error: "Extension not found" });
+      }
+      
+      // Decrypt the password
+      const decrypted = decryptSipPassword(passwordHash);
+      res.json({ password: decrypted });
+    } catch (error) {
+      console.error("Failed to get SIP extension password:", error);
+      res.status(500).json({ error: "Failed to get SIP extension password" });
+    }
+  });
+
+  // Assign SIP extension to user
+  app.post("/api/sip-extensions/:id/assign", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || (user.role !== "admin" && user.role !== "manager")) {
+        return res.status(403).json({ error: "Only admins/managers can assign extensions" });
+      }
+      
+      const { userId } = req.body;
+      if (!userId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+      
+      const extension = await storage.assignSipExtension(req.params.id, userId);
+      res.json(extension);
+    } catch (error) {
+      console.error("Failed to assign SIP extension:", error);
+      res.status(500).json({ error: "Failed to assign SIP extension" });
+    }
+  });
+
+  // Unassign SIP extension
+  app.post("/api/sip-extensions/:id/unassign", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || (user.role !== "admin" && user.role !== "manager")) {
+        return res.status(403).json({ error: "Only admins/managers can unassign extensions" });
+      }
+      
+      const extension = await storage.unassignSipExtension(req.params.id);
+      res.json(extension);
+    } catch (error) {
+      console.error("Failed to unassign SIP extension:", error);
+      res.status(500).json({ error: "Failed to unassign SIP extension" });
+    }
+  });
+
+  // Seed SIP extensions (admin only) - for initial setup
+  app.post("/api/sip-extensions/seed", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ error: "Only admins can seed extensions" });
+      }
+      
+      const { extensions } = req.body;
+      if (!Array.isArray(extensions)) {
+        return res.status(400).json({ error: "Extensions array is required" });
+      }
+      
+      const created = [];
+      for (const ext of extensions) {
+        const existing = await storage.getSipExtensionByExtension(ext.extension);
+        if (!existing) {
+          const encrypted = encryptSipPassword(ext.sipPassword);
+          const newExt = await storage.createSipExtension({
+            countryCode: ext.countryCode,
+            extension: ext.extension,
+            sipUsername: ext.sipUsername,
+            sipPasswordHash: encrypted,
+            assignedToUserId: null,
+            assignedAt: null
+          });
+          created.push(newExt);
+        }
+      }
+      
+      res.json({ created: created.length, message: `Created ${created.length} SIP extensions` });
+    } catch (error) {
+      console.error("Failed to seed SIP extensions:", error);
+      res.status(500).json({ error: "Failed to seed SIP extensions" });
+    }
+  });
+
   // ===== Call Logs Routes =====
   
   // Get all call logs (with optional filters)

@@ -2765,6 +2765,28 @@ export const insertSipSettingsSchema = createInsertSchema(sipSettings).omit({
 export type InsertSipSettings = z.infer<typeof insertSipSettingsSchema>;
 export type SipSettings = typeof sipSettings.$inferSelect;
 
+// SIP Extensions Pool - pre-configured SIP extensions with encrypted passwords
+export const sipExtensions = pgTable("sip_extensions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  countryCode: text("country_code").notNull(), // SK, CZ, HU, etc.
+  extension: text("extension").notNull().unique(), // e.g. 2003
+  sipUsername: text("sip_username").notNull(), // usually same as extension
+  sipPasswordHash: text("sip_password_hash").notNull(), // encrypted password
+  assignedToUserId: varchar("assigned_to_user_id"), // null if available
+  assignedAt: timestamp("assigned_at"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertSipExtensionSchema = createInsertSchema(sipExtensions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSipExtension = z.infer<typeof insertSipExtensionSchema>;
+export type SipExtension = typeof sipExtensions.$inferSelect;
+
 // Call Logs - tracks all SIP calls made by users
 export const callLogs = pgTable("call_logs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

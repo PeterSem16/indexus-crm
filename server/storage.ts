@@ -63,11 +63,12 @@ import {
   type CampaignOperatorSetting, type InsertCampaignOperatorSetting,
   type CampaignContactSession, type InsertCampaignContactSession,
   type CampaignMetricsSnapshot, type InsertCampaignMetricsSnapshot,
-  sipSettings, callLogs, chatMessages, exchangeRates, inflationRates,
+  sipSettings, sipExtensions, callLogs, chatMessages, exchangeRates, inflationRates,
   productSets, productSetCollections, productSetStorage, customerConsents, tasks, taskComments,
   contractCategories, contractCategoryDefaultTemplates, contractTemplates, contractTemplateVersions, contractInstances, contractInstanceProducts,
   contractParticipants, contractSignatureRequests, contractAuditLog,
   type SipSettings, type InsertSipSettings,
+  type SipExtension, type InsertSipExtension,
   type CallLog, type InsertCallLog,
   type ProductSet, type InsertProductSet,
   type ProductSetCollection, type InsertProductSetCollection,
@@ -122,7 +123,7 @@ import {
   type AlertInstance, type InsertAlertInstance
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, inArray, sql, desc, and, or, asc, gte, lte, lt } from "drizzle-orm";
+import { eq, inArray, sql, desc, and, or, asc, gte, lte, lt, isNull } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
 const SALT_ROUNDS = 10;
@@ -590,6 +591,15 @@ export interface IStorage {
   // SIP Settings
   getSipSettings(): Promise<SipSettings | undefined>;
   upsertSipSettings(data: InsertSipSettings): Promise<SipSettings>;
+
+  // SIP Extensions
+  getSipExtensionsByCountry(countryCode: string): Promise<SipExtension[]>;
+  getAvailableSipExtensions(countryCode: string): Promise<SipExtension[]>;
+  getSipExtensionByExtension(extension: string): Promise<SipExtension | undefined>;
+  assignSipExtension(extensionId: string, userId: string): Promise<SipExtension | undefined>;
+  unassignSipExtension(extensionId: string): Promise<SipExtension | undefined>;
+  createSipExtension(data: InsertSipExtension): Promise<SipExtension>;
+  getSipExtensionPassword(extensionId: string): Promise<string | undefined>;
 
   // Call Logs
   getCallLog(id: string): Promise<CallLog | undefined>;
@@ -3300,6 +3310,64 @@ export class DatabaseStorage implements IStorage {
       const [created] = await db.insert(sipSettings).values(data).returning();
       return created;
     }
+  }
+
+  // SIP Extensions
+  async getSipExtensionsByCountry(countryCode: string): Promise<SipExtension[]> {
+    return db.select().from(sipExtensions)
+      .where(eq(sipExtensions.countryCode, countryCode))
+      .orderBy(sipExtensions.extension);
+  }
+
+  async getAvailableSipExtensions(countryCode: string): Promise<SipExtension[]> {
+    return db.select().from(sipExtensions)
+      .where(and(
+        eq(sipExtensions.countryCode, countryCode),
+        isNull(sipExtensions.assignedToUserId)
+      ))
+      .orderBy(sipExtensions.extension);
+  }
+
+  async getSipExtensionByExtension(extension: string): Promise<SipExtension | undefined> {
+    const [ext] = await db.select().from(sipExtensions)
+      .where(eq(sipExtensions.extension, extension));
+    return ext || undefined;
+  }
+
+  async assignSipExtension(extensionId: string, userId: string): Promise<SipExtension | undefined> {
+    const [updated] = await db.update(sipExtensions)
+      .set({ 
+        assignedToUserId: userId, 
+        assignedAt: new Date(),
+        updatedAt: new Date() 
+      })
+      .where(eq(sipExtensions.id, extensionId))
+      .returning();
+    return updated || undefined;
+  }
+
+  async unassignSipExtension(extensionId: string): Promise<SipExtension | undefined> {
+    const [updated] = await db.update(sipExtensions)
+      .set({ 
+        assignedToUserId: null, 
+        assignedAt: null,
+        updatedAt: new Date() 
+      })
+      .where(eq(sipExtensions.id, extensionId))
+      .returning();
+    return updated || undefined;
+  }
+
+  async createSipExtension(data: InsertSipExtension): Promise<SipExtension> {
+    const [created] = await db.insert(sipExtensions).values(data).returning();
+    return created;
+  }
+
+  async getSipExtensionPassword(extensionId: string): Promise<string | undefined> {
+    const [ext] = await db.select({ sipPasswordHash: sipExtensions.sipPasswordHash })
+      .from(sipExtensions)
+      .where(eq(sipExtensions.id, extensionId));
+    return ext?.sipPasswordHash || undefined;
   }
 
   // Call Logs
