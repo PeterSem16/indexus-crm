@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Phone, Save, Loader2, Settings, User, Mail, Shield, PhoneCall, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { Phone, PhoneOff, Save, Loader2, Settings, User, Mail, Shield, PhoneCall, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useSip } from "@/contexts/sip-context";
 import { useI18n } from "@/i18n";
@@ -218,46 +218,55 @@ function UserSipProfileTab({ showSipPhone }: { showSipPhone?: boolean }) {
     }
   };
 
-  const handleToggleRegistration = async () => {
-    if (isRegistered) {
-      try {
-        await unregister();
-        toast({ title: t.settings.sipProfile.unregistered || "SIP Unregistered" });
-      } catch (error: any) {
-        toast({ 
-          title: t.settings.sipProfile.error || "Error",
-          description: error.message,
-          variant: "destructive" 
-        });
-      }
-    } else {
-      if (!sipSettings?.server || !sipExtension || !sipPassword) {
-        toast({ 
-          title: t.settings.sipProfile.missingConfig,
-          variant: "destructive" 
-        });
-        return;
-      }
-      setLocalRegistering(true);
-      registerTimeoutRef.current = setTimeout(() => {
-        setLocalRegistering(false);
-        toast({ 
-          title: t.settings.sipProfile.registrationTimeout || "Registration timeout",
-          description: t.settings.sipProfile.registrationTimeoutDesc || "Could not connect to SIP server",
-          variant: "destructive" 
-        });
-      }, 15000);
-      try {
-        await register();
-      } catch (error: any) {
-        setLocalRegistering(false);
-        toast({ 
-          title: t.settings.sipProfile.error || "Error",
-          description: error.message,
-          variant: "destructive" 
-        });
-      }
+  const handleRegister = async () => {
+    if (!sipSettings?.server || !sipExtension || !sipPassword) {
+      toast({ 
+        title: t.settings.sipProfile.missingConfig,
+        variant: "destructive" 
+      });
+      return;
     }
+    setLocalRegistering(true);
+    registerTimeoutRef.current = setTimeout(() => {
+      setLocalRegistering(false);
+      toast({ 
+        title: t.settings.sipProfile.registrationTimeout || "Registration timeout",
+        description: t.settings.sipProfile.registrationTimeoutDesc || "Could not connect to SIP server",
+        variant: "destructive" 
+      });
+    }, 15000);
+    try {
+      await register();
+    } catch (error: any) {
+      setLocalRegistering(false);
+      toast({ 
+        title: t.settings.sipProfile.error || "Error",
+        description: error.message,
+        variant: "destructive" 
+      });
+    }
+  };
+
+  const handleUnregister = async () => {
+    try {
+      await unregister();
+      toast({ title: t.settings.sipProfile.unregistered || "SIP Unregistered" });
+    } catch (error: any) {
+      toast({ 
+        title: t.settings.sipProfile.error || "Error",
+        description: error.message,
+        variant: "destructive" 
+      });
+    }
+  };
+
+  const handleCancelRegistration = () => {
+    setLocalRegistering(false);
+    if (registerTimeoutRef.current) {
+      clearTimeout(registerTimeoutRef.current);
+      registerTimeoutRef.current = null;
+    }
+    toast({ title: t.settings.sipProfile.registrationCancelled || "Registration cancelled" });
   };
 
   const showSpinner = localRegistering || isRegistering;
@@ -387,29 +396,51 @@ function UserSipProfileTab({ showSipPhone }: { showSipPhone?: boolean }) {
               )}
               {t.settings.sipProfile.save}
             </Button>
-            <Button 
-              variant={isRegistered ? "default" : "outline"}
-              className={isRegistered ? "bg-green-600 hover:bg-green-700" : ""}
-              onClick={handleToggleRegistration} 
-              disabled={showSpinner || (!isRegistered && (!sipExtension || !sipPassword))}
-              data-testid="button-user-sip-toggle"
-            >
-              {showSpinner ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : isRegistered ? (
-                <CheckCircle className="h-4 w-4 mr-2" />
-              ) : (
+            {showSpinner ? (
+              <Button 
+                variant="destructive"
+                onClick={handleCancelRegistration}
+                data-testid="button-user-sip-cancel"
+              >
+                <XCircle className="h-4 w-4 mr-2" />
+                {t.settings.sipProfile.cancel || "Cancel"}
+              </Button>
+            ) : isRegistered ? (
+              <Button 
+                variant="outline"
+                onClick={handleUnregister}
+                data-testid="button-user-sip-unregister"
+              >
+                <PhoneOff className="h-4 w-4 mr-2" />
+                {t.settings.sipProfile.unregister}
+              </Button>
+            ) : (
+              <Button 
+                variant="default"
+                onClick={handleRegister}
+                disabled={!sipExtension || !sipPassword}
+                data-testid="button-user-sip-register"
+              >
                 <Phone className="h-4 w-4 mr-2" />
-              )}
-              {isRegistered 
-                ? (t.settings.sipProfile.registered)
-                : (t.settings.sipProfile.register)}
-            </Button>
+                {t.settings.sipProfile.register}
+              </Button>
+            )}
           </div>
+          {showSpinner && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800">
+              <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+              <span className="text-sm text-blue-700 dark:text-blue-300">
+                {t.settings.sipProfile.registering || "Registering..."}
+              </span>
+            </div>
+          )}
           {isRegistered && (
-            <p className="text-xs text-muted-foreground">
-              {t.settings.sipProfile.clickToUnregister || "Click the button above to unregister"}
-            </p>
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <span className="text-sm text-green-700 dark:text-green-300">
+                {t.settings.sipProfile.registered}
+              </span>
+            </div>
           )}
           {registrationError && (
             <div className="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950">
