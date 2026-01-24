@@ -25,6 +25,13 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface SipSettingsData {
   server?: string;
@@ -62,7 +69,7 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
               {t.common.detail}
             </TabsTrigger>
             <TabsTrigger value="activity" data-testid="tab-user-activity">
-              {t.activityReports?.title || "Activity"}
+              {t.activityReports.title}
             </TabsTrigger>
             <TabsTrigger value="sip" data-testid="tab-user-sip">
               {t.settings.sipProfile.title}
@@ -91,11 +98,11 @@ function GeneralTab() {
   const { user } = useAuth();
 
   const roleLabels: Record<string, string> = {
-    admin: (t.users.roles as any)?.admin || "Administrator",
-    manager: (t.users.roles as any)?.manager || "Manager",
-    user: (t.users.roles as any)?.user || "User",
-    agent: (t.users.roles as any)?.agent || "Agent",
-    collaborator: (t.users.roles as any)?.collaborator || "Collaborator",
+    admin: t.users.roles.admin,
+    manager: t.users.roles.manager,
+    user: t.users.roles.user,
+    agent: t.users.roles.agent,
+    collaborator: t.users.roles.collaborator,
   };
 
   return (
@@ -132,7 +139,7 @@ function GeneralTab() {
           <div className="flex items-center gap-3">
             <PhoneCall className="h-4 w-4 text-muted-foreground shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-xs text-muted-foreground">{t.common.phone || "Phone"}</p>
+              <p className="text-xs text-muted-foreground">{t.common.phone}</p>
               <p className="text-sm font-medium truncate" data-testid="text-user-phone">{(user as any)?.phone || "-"}</p>
             </div>
           </div>
@@ -148,7 +155,7 @@ function GeneralTab() {
           </div>
         </div>
         <p className="text-xs text-muted-foreground text-center">
-          {t.settings.contactAdminToChange || "Contact administrator to change these settings"}
+          {t.settings.contactAdminToChange}
         </p>
       </CardContent>
     </Card>
@@ -174,13 +181,20 @@ interface UserActivityStats {
 function UserActivityTab() {
   const { t } = useI18n();
   const { user } = useAuth();
+  const [selectedPeriod, setSelectedPeriod] = useState<string>("today");
+
+  const periodLabels: Record<string, string> = {
+    today: t.activityReports.today,
+    last_7_days: t.activityReports.last7Days,
+    last_30_days: t.activityReports.last30Days,
+  };
 
   const queryUrl = user?.id 
-    ? `/api/user-activity-stats?period=last_30_days&userId=${user.id}` 
-    : '/api/user-activity-stats?period=last_30_days';
+    ? `/api/user-activity-stats?period=${selectedPeriod}&userId=${user.id}` 
+    : `/api/user-activity-stats?period=${selectedPeriod}`;
 
   const { data: activityStats, isLoading } = useQuery<UserActivityStats>({
-    queryKey: ["/api/user-activity-stats", "last_30_days", user?.id],
+    queryKey: ["/api/user-activity-stats", selectedPeriod, user?.id],
     queryFn: async () => {
       const res = await fetch(queryUrl, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to fetch activity stats');
@@ -222,14 +236,26 @@ function UserActivityTab() {
     <div className="space-y-4">
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-              <Activity className="h-5 w-5 text-primary" />
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                <Activity className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-base">{t.activityReports.title}</CardTitle>
+                <CardDescription>{periodLabels[selectedPeriod]}</CardDescription>
+              </div>
             </div>
-            <div>
-              <CardTitle className="text-base">{t.activityReports?.title || "Activity"}</CardTitle>
-              <CardDescription>{t.activityReports?.last30Days || "Last 30 days"}</CardDescription>
-            </div>
+            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+              <SelectTrigger className="w-[140px]" data-testid="select-activity-period">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="today" data-testid="option-period-today">{t.activityReports.today}</SelectItem>
+                <SelectItem value="last_7_days" data-testid="option-period-week">{t.activityReports.last7Days}</SelectItem>
+                <SelectItem value="last_30_days" data-testid="option-period-month">{t.activityReports.last30Days}</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -237,28 +263,28 @@ function UserActivityTab() {
             <div className="rounded-lg border bg-muted/30 p-3">
               <div className="flex items-center gap-2">
                 <Phone className="h-4 w-4 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">{t.activityReports?.totalCalls || "Calls"}</span>
+                <span className="text-xs text-muted-foreground">{t.activityReports.totalCalls}</span>
               </div>
               <p className="text-xl font-bold mt-1" data-testid="text-user-total-calls">{summary.totalCalls}</p>
             </div>
             <div className="rounded-lg border bg-muted/30 p-3">
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">{t.activityReports?.totalCallDuration || "Duration"}</span>
+                <span className="text-xs text-muted-foreground">{t.activityReports.totalCallDuration}</span>
               </div>
               <p className="text-xl font-bold mt-1" data-testid="text-user-call-duration">{formatCallDuration(summary.totalCallDuration)}</p>
             </div>
             <div className="rounded-lg border bg-muted/30 p-3">
               <div className="flex items-center gap-2">
                 <Mail className="h-4 w-4 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">{t.activityReports?.totalEmails || "Emails"}</span>
+                <span className="text-xs text-muted-foreground">{t.activityReports.totalEmails}</span>
               </div>
               <p className="text-xl font-bold mt-1" data-testid="text-user-total-emails">{summary.totalEmails}</p>
             </div>
             <div className="rounded-lg border bg-muted/30 p-3">
               <div className="flex items-center gap-2">
                 <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">{t.activityReports?.totalSms || "SMS"}</span>
+                <span className="text-xs text-muted-foreground">{t.activityReports.totalSms}</span>
               </div>
               <p className="text-xl font-bold mt-1" data-testid="text-user-total-sms">{summary.totalSms}</p>
             </div>
@@ -266,7 +292,7 @@ function UserActivityTab() {
           <Separator />
           <div className="text-center">
             <p className="text-sm text-muted-foreground">
-              {t.activityReports?.avgCallDuration || "Average call duration"}: <span className="font-medium">{formatCallDuration(summary.avgCallDuration)}</span>
+              {t.activityReports.avgCallDuration}: <span className="font-medium">{formatCallDuration(summary.avgCallDuration)}</span>
             </p>
           </div>
         </CardContent>

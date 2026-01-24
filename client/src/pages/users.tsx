@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, UserCheck, UserX, Search, Filter, Users, Activity, Download, Calendar, Clock, BarChart3, Shield, LogIn, Monitor, RefreshCw, XCircle, History, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, FileSpreadsheet, Phone, Mail, MessageSquare } from "lucide-react";
+import { Plus, Pencil, Trash2, UserCheck, UserX, Search, Filter, Users, Activity, Download, Calendar, CalendarIcon, Clock, BarChart3, Shield, LogIn, Monitor, RefreshCw, XCircle, History, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, FileSpreadsheet, Phone, Mail, MessageSquare, List } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { usePermissions } from "@/contexts/permissions-context";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComp } from "@/components/ui/calendar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -171,8 +173,16 @@ export default function UsersPage() {
   const SESSIONS_PER_PAGE = 15;
 
   // Activity Reports state
-  const [activityPeriod, setActivityPeriod] = useState<PeriodType>('last_30_days');
+  const [activityPeriod, setActivityPeriod] = useState<PeriodType | 'custom'>('last_30_days');
   const [activityUser, setActivityUser] = useState<string>('all');
+  const [activityRole, setActivityRole] = useState<string>('all');
+  const [activityDateFrom, setActivityDateFrom] = useState<Date | undefined>(undefined);
+  const [activityDateTo, setActivityDateTo] = useState<Date | undefined>(undefined);
+  const [showDetailedLog, setShowDetailedLog] = useState(false);
+  const [activityLogPage, setActivityLogPage] = useState(1);
+  const [activityLogSortField, setActivityLogSortField] = useState<'timestamp' | 'user' | 'type' | 'duration'>('timestamp');
+  const [activityLogSortDirection, setActivityLogSortDirection] = useState<'asc' | 'desc'>('desc');
+  const ACTIVITY_LOG_PER_PAGE = 15;
 
   const { data: users = [], isLoading } = useQuery<User[]>({
     queryKey: ["/api/users"],
@@ -287,15 +297,28 @@ export default function UsersPage() {
   // Activity Reports query
   const activityQueryUrl = useMemo(() => {
     const params = new URLSearchParams();
-    params.set('period', activityPeriod);
+    if (activityPeriod === 'custom') {
+      if (activityDateFrom && activityDateTo) {
+        params.set('dateFrom', activityDateFrom.toISOString());
+        params.set('dateTo', activityDateTo.toISOString());
+      } else {
+        // Fallback to last 30 days when custom dates are incomplete
+        params.set('period', 'last_30_days');
+      }
+    } else {
+      params.set('period', activityPeriod);
+    }
     if (activityUser !== 'all') {
       params.set('userId', activityUser);
     }
+    if (activityRole !== 'all') {
+      params.set('role', activityRole);
+    }
     return `/api/user-activity-stats?${params.toString()}`;
-  }, [activityPeriod, activityUser]);
+  }, [activityPeriod, activityUser, activityRole, activityDateFrom, activityDateTo]);
 
   const { data: activityStats, isLoading: activityLoading, refetch: refetchActivity } = useQuery<ActivityStats>({
-    queryKey: ['/api/user-activity-stats', activityPeriod, activityUser],
+    queryKey: ['/api/user-activity-stats', activityPeriod, activityUser, activityRole, activityDateFrom?.toISOString(), activityDateTo?.toISOString()],
     queryFn: async () => {
       const res = await fetch(activityQueryUrl, { credentials: 'include' });
       if (!res.ok) {
@@ -305,6 +328,66 @@ export default function UsersPage() {
       return res.json();
     },
     enabled: activeTab === 'activity',
+  });
+
+  // Detailed activity log query
+  const detailedLogQueryUrl = useMemo(() => {
+    const params = new URLSearchParams();
+    if (activityPeriod === 'custom') {
+      if (activityDateFrom && activityDateTo) {
+        params.set('dateFrom', activityDateFrom.toISOString());
+        params.set('dateTo', activityDateTo.toISOString());
+      } else {
+        // Fallback to last 30 days when custom dates are incomplete
+        params.set('period', 'last_30_days');
+      }
+    } else {
+      params.set('period', activityPeriod);
+    }
+    if (activityUser !== 'all') {
+      params.set('userId', activityUser);
+    }
+    if (activityRole !== 'all') {
+      params.set('role', activityRole);
+    }
+    params.set('page', activityLogPage.toString());
+    params.set('limit', ACTIVITY_LOG_PER_PAGE.toString());
+    params.set('sortField', activityLogSortField);
+    params.set('sortDirection', activityLogSortDirection);
+    return `/api/user-activity-log?${params.toString()}`;
+  }, [activityPeriod, activityUser, activityRole, activityDateFrom, activityDateTo, activityLogPage, activityLogSortField, activityLogSortDirection]);
+
+  interface ActivityLogEntry {
+    id: string;
+    userId: string;
+    userName: string;
+    type: 'call' | 'email' | 'sms';
+    timestamp: string;
+    duration?: number;
+    recipient?: string;
+    status?: string;
+    customerId?: string;
+    customerName?: string;
+  }
+
+  interface ActivityLogResponse {
+    entries: ActivityLogEntry[];
+    total: number;
+    page: number;
+    totalPages: number;
+  }
+
+  const { data: activityLog, isLoading: activityLogLoading } = useQuery<ActivityLogResponse>({
+    queryKey: ['/api/user-activity-log', activityPeriod, activityUser, activityRole, activityDateFrom?.toISOString(), activityDateTo?.toISOString(), activityLogPage, activityLogSortField, activityLogSortDirection],
+    queryFn: async () => {
+      const res = await fetch(detailedLogQueryUrl, { credentials: 'include' });
+      if (!res.ok) {
+        if (res.status === 403) return { entries: [], total: 0, page: 1, totalPages: 1 };
+        throw new Error('Failed to fetch activity log');
+      }
+      return res.json();
+    },
+    enabled: activeTab === 'activity' && showDetailedLog,
   });
 
   // Helper to format call duration in seconds to human readable format
@@ -570,6 +653,123 @@ export default function UsersPage() {
     link.download = `session_history_${format(new Date(), 'yyyy-MM-dd')}.xls`;
     link.click();
     URL.revokeObjectURL(link.href);
+  };
+
+  const exportActivityLogCsv = async () => {
+    const params = new URLSearchParams();
+    if (activityPeriod === 'custom') {
+      if (activityDateFrom && activityDateTo) {
+        params.set('dateFrom', activityDateFrom.toISOString());
+        params.set('dateTo', activityDateTo.toISOString());
+      } else {
+        params.set('period', 'last_30_days');
+      }
+    } else {
+      params.set('period', activityPeriod);
+    }
+    if (activityUser !== 'all') params.set('userId', activityUser);
+    if (activityRole !== 'all') params.set('role', activityRole);
+    params.set('limit', '10000');
+
+    try {
+      const res = await fetch(`/api/user-activity-log?${params.toString()}`, { credentials: 'include' });
+      const data = await res.json();
+      
+      const headers = [
+        t.activityReports.timestamp,
+        t.activityReports.userName,
+        t.activityReports.activityType,
+        t.activityReports.recipient,
+        t.activityReports.customer,
+        t.activityReports.duration,
+        t.common.status
+      ];
+      
+      const rows = (data.entries || []).map((entry: any) => [
+        format(new Date(entry.timestamp), 'dd.MM.yyyy HH:mm'),
+        entry.userName,
+        entry.type,
+        entry.recipient || '',
+        entry.customerName || '',
+        entry.type === 'call' && entry.duration ? formatCallDuration(entry.duration) : '',
+        entry.status || ''
+      ]);
+
+      const csvContent = [
+        headers.join(';'),
+        ...rows.map((row: string[]) => row.map((cell: string) => `"${String(cell).replace(/"/g, '""')}"`).join(';'))
+      ].join('\n');
+
+      const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `activity_log_${format(new Date(), 'yyyy-MM-dd')}.csv`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    } catch (error) {
+      console.error('Export failed:', error);
+    }
+  };
+
+  const exportActivityLogExcel = async () => {
+    const params = new URLSearchParams();
+    if (activityPeriod === 'custom') {
+      if (activityDateFrom && activityDateTo) {
+        params.set('dateFrom', activityDateFrom.toISOString());
+        params.set('dateTo', activityDateTo.toISOString());
+      } else {
+        params.set('period', 'last_30_days');
+      }
+    } else {
+      params.set('period', activityPeriod);
+    }
+    if (activityUser !== 'all') params.set('userId', activityUser);
+    if (activityRole !== 'all') params.set('role', activityRole);
+    params.set('limit', '10000');
+
+    try {
+      const res = await fetch(`/api/user-activity-log?${params.toString()}`, { credentials: 'include' });
+      const data = await res.json();
+      
+      const headers = [
+        t.activityReports.timestamp,
+        t.activityReports.userName,
+        t.activityReports.activityType,
+        t.activityReports.recipient,
+        t.activityReports.customer,
+        t.activityReports.duration,
+        t.common.status
+      ];
+      
+      const rows = (data.entries || []).map((entry: any) => [
+        format(new Date(entry.timestamp), 'dd.MM.yyyy HH:mm'),
+        entry.userName,
+        entry.type,
+        entry.recipient || '',
+        entry.customerName || '',
+        entry.type === 'call' && entry.duration ? formatCallDuration(entry.duration) : '',
+        entry.status || ''
+      ]);
+
+      let tableHtml = '<table border="1"><thead><tr>';
+      headers.forEach((h: string) => tableHtml += `<th>${h}</th>`);
+      tableHtml += '</tr></thead><tbody>';
+      rows.forEach((row: string[]) => {
+        tableHtml += '<tr>';
+        row.forEach((cell: string) => tableHtml += `<td>${cell}</td>`);
+        tableHtml += '</tr>';
+      });
+      tableHtml += '</tbody></table>';
+
+      const blob = new Blob(['\ufeff' + tableHtml], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `activity_log_${format(new Date(), 'yyyy-MM-dd')}.xls`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    } catch (error) {
+      console.error('Export failed:', error);
+    }
   };
 
   const filteredUsers = useMemo(() => {
@@ -1341,7 +1541,7 @@ export default function UsersPage() {
                   <div className="flex flex-wrap items-center gap-4">
                     <div className="space-y-1">
                       <Label>{t.activityReports.period}</Label>
-                      <Select value={activityPeriod} onValueChange={(v) => setActivityPeriod(v as PeriodType)}>
+                      <Select value={activityPeriod} onValueChange={(v) => setActivityPeriod(v as PeriodType | 'custom')}>
                         <SelectTrigger className="w-48" data-testid="select-activity-period">
                           <SelectValue />
                         </SelectTrigger>
@@ -1351,6 +1551,64 @@ export default function UsersPage() {
                           <SelectItem value="last_30_days">{t.activityReports.last30Days}</SelectItem>
                           <SelectItem value="this_month">{t.activityReports.thisMonth}</SelectItem>
                           <SelectItem value="last_month">{t.activityReports.lastMonth}</SelectItem>
+                          <SelectItem value="custom">{t.activityReports.customRange || "Custom range"}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {activityPeriod === 'custom' && (
+                      <>
+                        <div className="space-y-1">
+                          <Label>{t.activityReports.dateFrom || "From"}</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" className="w-40 justify-start text-left font-normal" data-testid="button-date-from">
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {activityDateFrom ? format(activityDateFrom, 'dd.MM.yyyy') : t.common.select}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                              <CalendarComp
+                                mode="single"
+                                selected={activityDateFrom}
+                                onSelect={setActivityDateFrom}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        <div className="space-y-1">
+                          <Label>{t.activityReports.dateTo || "To"}</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" className="w-40 justify-start text-left font-normal" data-testid="button-date-to">
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {activityDateTo ? format(activityDateTo, 'dd.MM.yyyy') : t.common.select}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                              <CalendarComp
+                                mode="single"
+                                selected={activityDateTo}
+                                onSelect={setActivityDateTo}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      </>
+                    )}
+                    <div className="space-y-1">
+                      <Label>{t.activityReports.role || "Role"}</Label>
+                      <Select value={activityRole} onValueChange={setActivityRole}>
+                        <SelectTrigger className="w-40" data-testid="select-activity-role">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">{t.activityReports.allRoles || "All roles"}</SelectItem>
+                          <SelectItem value="admin">{t.users.roles?.admin || "Admin"}</SelectItem>
+                          <SelectItem value="manager">{t.users.roles?.manager || "Manager"}</SelectItem>
+                          <SelectItem value="user">{t.users.roles?.user || "User"}</SelectItem>
+                          <SelectItem value="agent">{t.users.roles?.agent || "Agent"}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -1362,7 +1620,7 @@ export default function UsersPage() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">{t.activityReports.allUsers}</SelectItem>
-                          {users.map((user) => (
+                          {users.filter(u => activityRole === 'all' || u.role === activityRole).map((user) => (
                             <SelectItem key={user.id} value={user.id}>
                               {user.fullName || user.username}
                             </SelectItem>
@@ -1378,6 +1636,15 @@ export default function UsersPage() {
                     >
                       <RefreshCw className="mr-2 h-4 w-4" />
                       {t.common.refresh}
+                    </Button>
+                    <Button 
+                      onClick={() => setShowDetailedLog(!showDetailedLog)} 
+                      variant={showDetailedLog ? "default" : "outline"}
+                      className="mt-5"
+                      data-testid="button-toggle-detailed-log"
+                    >
+                      <List className="mr-2 h-4 w-4" />
+                      {t.activityReports.detailedLog || "Detailed log"}
                     </Button>
                   </div>
                 </CardContent>
@@ -1551,6 +1818,188 @@ export default function UsersPage() {
                   )}
                 </CardContent>
               </Card>
+
+              {showDetailedLog && (
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between gap-1">
+                    <div>
+                      <CardTitle>{t.activityReports.detailedLog || "Detailed Activity Log"}</CardTitle>
+                      <CardDescription>{t.activityReports.detailedLogDesc || "Complete list of all activities"}</CardDescription>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => exportActivityLogCsv()}
+                        data-testid="button-export-activity-csv"
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        CSV
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => exportActivityLogExcel()}
+                        data-testid="button-export-activity-excel"
+                      >
+                        <FileSpreadsheet className="mr-2 h-4 w-4" />
+                        Excel
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {activityLogLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+                      </div>
+                    ) : activityLog?.entries && activityLog.entries.length > 0 ? (
+                      <>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead 
+                                className="cursor-pointer"
+                                onClick={() => {
+                                  if (activityLogSortField === 'timestamp') {
+                                    setActivityLogSortDirection(activityLogSortDirection === 'asc' ? 'desc' : 'asc');
+                                  } else {
+                                    setActivityLogSortField('timestamp');
+                                    setActivityLogSortDirection('desc');
+                                  }
+                                }}
+                              >
+                                <div className="flex items-center gap-1">
+                                  {t.activityReports.timestamp || "Timestamp"}
+                                  {activityLogSortField === 'timestamp' && (
+                                    activityLogSortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                                  )}
+                                </div>
+                              </TableHead>
+                              <TableHead 
+                                className="cursor-pointer"
+                                onClick={() => {
+                                  if (activityLogSortField === 'user') {
+                                    setActivityLogSortDirection(activityLogSortDirection === 'asc' ? 'desc' : 'asc');
+                                  } else {
+                                    setActivityLogSortField('user');
+                                    setActivityLogSortDirection('asc');
+                                  }
+                                }}
+                              >
+                                <div className="flex items-center gap-1">
+                                  {t.activityReports.userName}
+                                  {activityLogSortField === 'user' && (
+                                    activityLogSortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                                  )}
+                                </div>
+                              </TableHead>
+                              <TableHead 
+                                className="cursor-pointer"
+                                onClick={() => {
+                                  if (activityLogSortField === 'type') {
+                                    setActivityLogSortDirection(activityLogSortDirection === 'asc' ? 'desc' : 'asc');
+                                  } else {
+                                    setActivityLogSortField('type');
+                                    setActivityLogSortDirection('asc');
+                                  }
+                                }}
+                              >
+                                <div className="flex items-center gap-1">
+                                  {t.activityReports.activityType || "Type"}
+                                  {activityLogSortField === 'type' && (
+                                    activityLogSortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                                  )}
+                                </div>
+                              </TableHead>
+                              <TableHead>{t.activityReports.recipient || "Recipient"}</TableHead>
+                              <TableHead>{t.activityReports.customer || "Customer"}</TableHead>
+                              <TableHead 
+                                className="text-right cursor-pointer"
+                                onClick={() => {
+                                  if (activityLogSortField === 'duration') {
+                                    setActivityLogSortDirection(activityLogSortDirection === 'asc' ? 'desc' : 'asc');
+                                  } else {
+                                    setActivityLogSortField('duration');
+                                    setActivityLogSortDirection('desc');
+                                  }
+                                }}
+                              >
+                                <div className="flex items-center justify-end gap-1">
+                                  {t.activityReports.duration || "Duration"}
+                                  {activityLogSortField === 'duration' && (
+                                    activityLogSortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                                  )}
+                                </div>
+                              </TableHead>
+                              <TableHead>{t.common.status}</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {activityLog.entries.map((entry) => (
+                              <TableRow key={entry.id}>
+                                <TableCell>
+                                  {format(new Date(entry.timestamp), 'dd.MM.yyyy HH:mm', { locale: getDateLocale() })}
+                                </TableCell>
+                                <TableCell className="font-medium">{entry.userName}</TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" className="capitalize">
+                                    {entry.type === 'call' && <Phone className="mr-1 h-3 w-3" />}
+                                    {entry.type === 'email' && <Mail className="mr-1 h-3 w-3" />}
+                                    {entry.type === 'sms' && <MessageSquare className="mr-1 h-3 w-3" />}
+                                    {entry.type}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>{entry.recipient || '-'}</TableCell>
+                                <TableCell>{entry.customerName || '-'}</TableCell>
+                                <TableCell className="text-right">
+                                  {entry.type === 'call' && entry.duration ? formatCallDuration(entry.duration) : '-'}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant={entry.status === 'completed' || entry.status === 'sent' ? 'default' : 'secondary'}>
+                                    {entry.status || '-'}
+                                  </Badge>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                        <div className="flex items-center justify-between mt-4">
+                          <p className="text-sm text-muted-foreground">
+                            {t.common.showing} {((activityLogPage - 1) * ACTIVITY_LOG_PER_PAGE) + 1}-{Math.min(activityLogPage * ACTIVITY_LOG_PER_PAGE, activityLog.total)} {t.common.of} {activityLog.total}
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setActivityLogPage(p => Math.max(1, p - 1))}
+                              disabled={activityLogPage <= 1}
+                              data-testid="button-activity-log-prev"
+                            >
+                              <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <span className="text-sm">
+                              {activityLogPage} / {activityLog.totalPages}
+                            </span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setActivityLogPage(p => Math.min(activityLog.totalPages, p + 1))}
+                              disabled={activityLogPage >= activityLog.totalPages}
+                              data-testid="button-activity-log-next"
+                            >
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        {t.activityReports.noData}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
             </>
           )}
         </TabsContent>

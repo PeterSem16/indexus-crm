@@ -11359,34 +11359,45 @@ export async function registerRoutes(
         return res.status(403).json({ error: "Access denied" });
       }
 
-      const { period = "last_30_days", userId } = req.query;
+      const { period = "last_30_days", userId, role, dateFrom, dateTo } = req.query;
       
-      // Calculate date range based on period
+      // Calculate date range based on period or custom dates
       const now = new Date();
       let startDate: Date;
       let endDate: Date = now;
       
-      switch (period) {
-        case "today":
-          startDate = startOfDay(now);
-          endDate = endOfDay(now);
-          break;
-        case "last_7_days":
-          startDate = subDays(startOfDay(now), 7);
-          break;
-        case "last_30_days":
-          startDate = subDays(startOfDay(now), 30);
-          break;
-        case "this_month":
-          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-          break;
-        case "last_month":
-          startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-          endDate = new Date(now.getFullYear(), now.getMonth(), 0);
-          break;
-        default:
-          startDate = subDays(startOfDay(now), 30);
+      if (dateFrom && dateTo) {
+        startDate = new Date(dateFrom as string);
+        endDate = new Date(dateTo as string);
+      } else {
+        switch (period) {
+          case "today":
+            startDate = startOfDay(now);
+            endDate = endOfDay(now);
+            break;
+          case "last_7_days":
+            startDate = subDays(startOfDay(now), 7);
+            break;
+          case "last_30_days":
+            startDate = subDays(startOfDay(now), 30);
+            break;
+          case "this_month":
+            startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            break;
+          case "last_month":
+            startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            endDate = new Date(now.getFullYear(), now.getMonth(), 0);
+            break;
+          default:
+            startDate = subDays(startOfDay(now), 30);
+        }
       }
+
+      // Get users filtered by role if specified
+      const users = await storage.getAllUsers();
+      const filteredUserIds = role && role !== 'all' 
+        ? new Set(users.filter(u => u.role === role).map(u => u.id))
+        : null;
 
       // Get call logs statistics
       const allCallLogs = await storage.getAllCallLogs();
@@ -11394,7 +11405,8 @@ export async function registerRoutes(
         const logDate = new Date(log.startedAt);
         const inRange = logDate >= startDate && logDate <= endDate;
         const matchUser = userId ? log.userId === userId : true;
-        return inRange && matchUser;
+        const matchRole = filteredUserIds ? filteredUserIds.has(log.userId) : true;
+        return inRange && matchUser && matchRole;
       });
 
       // Get communication messages (emails and SMS)
@@ -11404,7 +11416,8 @@ export async function registerRoutes(
         if (!msgDate) return false;
         const inRange = msgDate >= startDate && msgDate <= endDate;
         const matchUser = userId ? msg.userId === userId : true;
-        return inRange && matchUser;
+        const matchRole = msg.userId ? (filteredUserIds ? filteredUserIds.has(msg.userId) : true) : true;
+        return inRange && matchUser && matchRole;
       });
 
       const emailMessages = filteredMessages.filter(m => m.type === "email");
@@ -11471,7 +11484,6 @@ export async function registerRoutes(
         sms: number 
       }> = {};
 
-      const users = await storage.getAllUsers();
       const userMap = new Map(users.map(u => [u.id, u]));
 
       filteredCallLogs.forEach(log => {
@@ -11532,6 +11544,183 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Failed to fetch user activity stats:", error);
       res.status(500).json({ error: "Failed to fetch activity statistics" });
+    }
+  });
+
+  // Get detailed activity log with pagination and sorting
+  app.get("/api/user-activity-log", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || !["admin", "manager"].includes(user.role)) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const { 
+        period = "last_30_days", 
+        userId, 
+        role, 
+        dateFrom, 
+        dateTo,
+        page = "1",
+        limit = "15",
+        sortField = "timestamp",
+        sortDirection = "desc"
+      } = req.query;
+      
+      const pageNum = parseInt(page as string);
+      const limitNum = parseInt(limit as string);
+      
+      // Calculate date range based on period or custom dates
+      const now = new Date();
+      let startDate: Date;
+      let endDate: Date = now;
+      
+      if (dateFrom && dateTo) {
+        startDate = new Date(dateFrom as string);
+        endDate = new Date(dateTo as string);
+      } else {
+        switch (period) {
+          case "today":
+            startDate = startOfDay(now);
+            endDate = endOfDay(now);
+            break;
+          case "last_7_days":
+            startDate = subDays(startOfDay(now), 7);
+            break;
+          case "last_30_days":
+            startDate = subDays(startOfDay(now), 30);
+            break;
+          case "this_month":
+            startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            break;
+          case "last_month":
+            startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            endDate = new Date(now.getFullYear(), now.getMonth(), 0);
+            break;
+          default:
+            startDate = subDays(startOfDay(now), 30);
+        }
+      }
+
+      // Get users for mapping and filtering
+      const allUsers = await storage.getAllUsers();
+      const userMap = new Map(allUsers.map(u => [u.id, u]));
+      const filteredUserIds = role && role !== 'all' 
+        ? new Set(allUsers.filter(u => u.role === role).map(u => u.id))
+        : null;
+
+      // Get customers for mapping
+      const customers = await storage.getCustomers();
+      const customerMap = new Map(customers.map(c => [c.id, c]));
+
+      // Collect all activity entries
+      interface ActivityEntry {
+        id: string;
+        userId: string;
+        userName: string;
+        type: 'call' | 'email' | 'sms';
+        timestamp: Date;
+        duration?: number;
+        recipient?: string;
+        status?: string;
+        customerId?: string;
+        customerName?: string;
+      }
+
+      const entries: ActivityEntry[] = [];
+
+      // Get call logs
+      const allCallLogs = await storage.getAllCallLogs();
+      allCallLogs.forEach(log => {
+        const logDate = new Date(log.startedAt);
+        const inRange = logDate >= startDate && logDate <= endDate;
+        const matchUser = userId ? log.userId === userId : true;
+        const matchRole = filteredUserIds ? filteredUserIds.has(log.userId) : true;
+        
+        if (inRange && matchUser && matchRole) {
+          const u = userMap.get(log.userId);
+          const customer = log.customerId ? customerMap.get(log.customerId) : null;
+          entries.push({
+            id: `call-${log.id}`,
+            userId: log.userId,
+            userName: u?.fullName || u?.username || "Unknown",
+            type: 'call',
+            timestamp: logDate,
+            duration: log.durationSeconds || 0,
+            recipient: log.phoneNumber || undefined,
+            status: log.status || undefined,
+            customerId: log.customerId || undefined,
+            customerName: customer ? `${customer.firstName} ${customer.lastName}` : undefined
+          });
+        }
+      });
+
+      // Get communication messages
+      const allMessages = await db.select().from(communicationMessages);
+      allMessages.forEach(msg => {
+        const msgDate = msg.createdAt ? new Date(msg.createdAt) : null;
+        if (!msgDate) return;
+        const inRange = msgDate >= startDate && msgDate <= endDate;
+        const matchUser = userId ? msg.userId === userId : true;
+        const matchRole = msg.userId ? (filteredUserIds ? filteredUserIds.has(msg.userId) : true) : true;
+        
+        if (inRange && matchUser && matchRole && (msg.type === 'email' || msg.type === 'sms')) {
+          const u = msg.userId ? userMap.get(msg.userId) : null;
+          const customer = msg.customerId ? customerMap.get(msg.customerId) : null;
+          entries.push({
+            id: `msg-${msg.id}`,
+            userId: msg.userId || '',
+            userName: u?.fullName || u?.username || "Unknown",
+            type: msg.type as 'email' | 'sms',
+            timestamp: msgDate,
+            recipient: msg.recipient || undefined,
+            status: msg.status || undefined,
+            customerId: msg.customerId || undefined,
+            customerName: customer ? `${customer.firstName} ${customer.lastName}` : undefined
+          });
+        }
+      });
+
+      // Sort entries
+      entries.sort((a, b) => {
+        let comparison = 0;
+        switch (sortField) {
+          case 'timestamp':
+            comparison = a.timestamp.getTime() - b.timestamp.getTime();
+            break;
+          case 'user':
+            comparison = a.userName.localeCompare(b.userName);
+            break;
+          case 'type':
+            comparison = a.type.localeCompare(b.type);
+            break;
+          case 'duration':
+            comparison = (a.duration || 0) - (b.duration || 0);
+            break;
+          default:
+            comparison = a.timestamp.getTime() - b.timestamp.getTime();
+        }
+        return sortDirection === 'asc' ? comparison : -comparison;
+      });
+
+      // Paginate
+      const total = entries.length;
+      const totalPages = Math.ceil(total / limitNum);
+      const offset = (pageNum - 1) * limitNum;
+      const paginatedEntries = entries.slice(offset, offset + limitNum);
+
+      res.json({
+        entries: paginatedEntries.map(e => ({
+          ...e,
+          timestamp: e.timestamp.toISOString()
+        })),
+        total,
+        page: pageNum,
+        totalPages
+      });
+    } catch (error) {
+      console.error("Failed to fetch user activity log:", error);
+      res.status(500).json({ error: "Failed to fetch activity log" });
     }
   });
 

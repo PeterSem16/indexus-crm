@@ -626,6 +626,8 @@ export interface Translations {
       admin: string;
       manager: string;
       user: string;
+      agent: string;
+      collaborator: string;
     };
     fullName: string;
     newPassword: string;
@@ -1971,6 +1973,20 @@ export interface Translations {
     channelBreakdown: string;
     dailyActivity: string;
     userActivity: string;
+    // Custom range and role filter
+    customRange: string;
+    dateFrom: string;
+    dateTo: string;
+    role: string;
+    allRoles: string;
+    // Detailed log
+    detailedLog: string;
+    detailedLogDesc: string;
+    timestamp: string;
+    activityType: string;
+    recipient: string;
+    customer: string;
+    duration: string;
   };
 }
 
@@ -2612,6 +2628,8 @@ export const translations: Record<Locale, Translations> = {
         admin: 'Administrator',
         manager: 'Manager',
         user: 'User',
+        agent: 'Agent',
+        collaborator: 'Collaborator',
       },
       fullName: 'Full Name',
       newPassword: 'New Password (optional)',
@@ -2648,6 +2666,8 @@ export const translations: Record<Locale, Translations> = {
         admin: 'Administrator',
         manager: 'Manager',
         user: 'User',
+        agent: 'Agent',
+        collaborator: 'Collaborator',
       },
       sip: {
         enableSipPhone: 'Enable SIP Phone',
@@ -4174,6 +4194,18 @@ export const translations: Record<Locale, Translations> = {
       channelBreakdown: 'Channel Breakdown',
       dailyActivity: 'Daily Activity',
       userActivity: 'User Activity',
+      customRange: 'Custom Range',
+      dateFrom: 'From',
+      dateTo: 'To',
+      role: 'Role',
+      allRoles: 'All Roles',
+      detailedLog: 'Detailed Log',
+      detailedLogDesc: 'Individual activity entries with full details',
+      timestamp: 'Timestamp',
+      activityType: 'Type',
+      recipient: 'Recipient',
+      customer: 'Customer',
+      duration: 'Duration',
     },
   },
   sk: {
@@ -4828,6 +4860,8 @@ export const translations: Record<Locale, Translations> = {
         admin: 'Administrátor',
         manager: 'Manažér',
         user: 'Používateľ',
+        agent: 'Agent',
+        collaborator: 'Spolupracovník',
       },
       sip: {
         enableSipPhone: 'Povoliť SIP telefón',
@@ -6354,6 +6388,18 @@ export const translations: Record<Locale, Translations> = {
       channelBreakdown: 'Rozdelenie kanálov',
       dailyActivity: 'Denná aktivita',
       userActivity: 'Aktivita používateľov',
+      customRange: 'Vlastný rozsah',
+      dateFrom: 'Od',
+      dateTo: 'Do',
+      role: 'Rola',
+      allRoles: 'Všetky roly',
+      detailedLog: 'Detailný záznam',
+      detailedLogDesc: 'Jednotlivé záznamy aktivít s úplnými detailmi',
+      timestamp: 'Čas',
+      activityType: 'Typ',
+      recipient: 'Príjemca',
+      customer: 'Zákazník',
+      duration: 'Trvanie',
     },
     callBar: {
       connecting: 'Pripájam...',
@@ -7024,6 +7070,8 @@ export const translations: Record<Locale, Translations> = {
         admin: 'Administrátor',
         manager: 'Manažer',
         user: 'Uživatel',
+        agent: 'Agent',
+        collaborator: 'Spolupracovník',
       },
       sip: {
         enableSipPhone: 'Povolit SIP telefon',
@@ -8482,6 +8530,18 @@ export const translations: Record<Locale, Translations> = {
       channelBreakdown: 'Rozdělení kanálů',
       dailyActivity: 'Denní aktivita',
       userActivity: 'Aktivita uživatelů',
+      customRange: 'Vlastní rozsah',
+      dateFrom: 'Od',
+      dateTo: 'Do',
+      role: 'Role',
+      allRoles: 'Všechny role',
+      detailedLog: 'Detailní záznam',
+      detailedLogDesc: 'Jednotlivé záznamy aktivit s úplnými detaily',
+      timestamp: 'Čas',
+      activityType: 'Typ',
+      recipient: 'Příjemce',
+      customer: 'Zákazník',
+      duration: 'Trvání',
     },
     callBar: {
       connecting: 'Připojuji...',
@@ -9152,6 +9212,8 @@ export const translations: Record<Locale, Translations> = {
         admin: 'Adminisztrátor',
         manager: 'Menedzser',
         user: 'Felhasználó',
+        agent: 'Ügynök',
+        collaborator: 'Munkatárs',
       },
       sip: {
         enableSipPhone: 'SIP telefon engedélyezése',
@@ -10610,6 +10672,18 @@ export const translations: Record<Locale, Translations> = {
       channelBreakdown: 'Csatorna bontás',
       dailyActivity: 'Napi aktivitás',
       userActivity: 'Felhasználói aktivitás',
+      customRange: 'Egyéni tartomány',
+      dateFrom: 'Tól',
+      dateTo: 'Ig',
+      role: 'Szerep',
+      allRoles: 'Összes szerep',
+      detailedLog: 'Részletes napló',
+      detailedLogDesc: 'Egyéni tevékenységbejegyzések teljes részletekkel',
+      timestamp: 'Időbélyeg',
+      activityType: 'Típus',
+      recipient: 'Címzett',
+      customer: 'Ügyfél',
+      duration: 'Időtartam',
     },
     callBar: {
       connecting: 'Csatlakozás...',
@@ -11279,6 +11353,8 @@ export const translations: Record<Locale, Translations> = {
         admin: 'Administrator',
         manager: 'Manager',
         user: 'Utilizator',
+        agent: 'Agent',
+        collaborator: 'Colaborator',
       },
       sip: {
         enableSipPhone: 'Activare telefon SIP',
@@ -12737,6 +12813,18 @@ export const translations: Record<Locale, Translations> = {
       channelBreakdown: 'Defalcare canale',
       dailyActivity: 'Activitate zilnică',
       userActivity: 'Activitate utilizatori',
+      customRange: 'Interval personalizat',
+      dateFrom: 'De la',
+      dateTo: 'Până la',
+      role: 'Rol',
+      allRoles: 'Toate rolurile',
+      detailedLog: 'Jurnal detaliat',
+      detailedLogDesc: 'Înregistrări individuale de activitate cu detalii complete',
+      timestamp: 'Marcaj temporal',
+      activityType: 'Tip',
+      recipient: 'Destinatar',
+      customer: 'Client',
+      duration: 'Durată',
     },
     callBar: {
       connecting: 'Se conectează...',
@@ -13407,6 +13495,8 @@ export const translations: Record<Locale, Translations> = {
         admin: 'Amministratore',
         manager: 'Manager',
         user: 'Utente',
+        agent: 'Agente',
+        collaborator: 'Collaboratore',
       },
       sip: {
         enableSipPhone: 'Abilita telefono SIP',
@@ -14865,6 +14955,18 @@ export const translations: Record<Locale, Translations> = {
       channelBreakdown: 'Ripartizione canali',
       dailyActivity: 'Attività giornaliera',
       userActivity: 'Attività utenti',
+      customRange: 'Intervallo personalizzato',
+      dateFrom: 'Da',
+      dateTo: 'A',
+      role: 'Ruolo',
+      allRoles: 'Tutti i ruoli',
+      detailedLog: 'Registro dettagliato',
+      detailedLogDesc: 'Voci di attività individuali con dettagli completi',
+      timestamp: 'Timestamp',
+      activityType: 'Tipo',
+      recipient: 'Destinatario',
+      customer: 'Cliente',
+      duration: 'Durata',
     },
     callBar: {
       connecting: 'Connessione...',
@@ -15535,6 +15637,8 @@ export const translations: Record<Locale, Translations> = {
         admin: 'Administrator',
         manager: 'Manager',
         user: 'Benutzer',
+        agent: 'Agent',
+        collaborator: 'Mitarbeiter',
       },
       sip: {
         enableSipPhone: 'SIP-Telefon aktivieren',
@@ -16993,6 +17097,18 @@ export const translations: Record<Locale, Translations> = {
       channelBreakdown: 'Kanalaufschlüsselung',
       dailyActivity: 'Tägliche Aktivität',
       userActivity: 'Benutzeraktivität',
+      customRange: 'Benutzerdefinierter Zeitraum',
+      dateFrom: 'Von',
+      dateTo: 'Bis',
+      role: 'Rolle',
+      allRoles: 'Alle Rollen',
+      detailedLog: 'Detailliertes Protokoll',
+      detailedLogDesc: 'Einzelne Aktivitätseinträge mit vollständigen Details',
+      timestamp: 'Zeitstempel',
+      activityType: 'Typ',
+      recipient: 'Empfänger',
+      customer: 'Kunde',
+      duration: 'Dauer',
     },
     callBar: {
       connecting: 'Verbindung wird hergestellt...',
