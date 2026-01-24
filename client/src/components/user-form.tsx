@@ -656,40 +656,71 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
   const SipRegistrationStatus = ({ userId, sipExtension, sipPassword }: { userId?: string; sipExtension?: string; sipPassword?: string }) => {
     const { user: currentUser } = useAuth();
     const { isRegistered, isRegistering, registrationError, register, unregister } = useSip();
+    const [localRegistering, setLocalRegistering] = useState(false);
+    const registerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     
     const isCurrentUser = currentUser?.id === userId;
+    const showSpinner = localRegistering || isRegistering;
     
-    const handleRegister = async () => {
-      if (!sipExtension || !sipPassword) {
-        toast({
-          title: t.users?.sip?.missingCredentials || "Chýbajúce údaje",
-          description: t.users?.sip?.fillExtensionAndPassword || "Vyplňte najprv linku a heslo",
-          variant: "destructive"
-        });
-        return;
+    useEffect(() => {
+      if (isRegistered || registrationError) {
+        setLocalRegistering(false);
+        if (registerTimeoutRef.current) {
+          clearTimeout(registerTimeoutRef.current);
+          registerTimeoutRef.current = null;
+        }
       }
-      
-      try {
-        await register();
-        toast({ title: t.users?.sip?.registrationSuccess || "SIP registrácia úspešná" });
-      } catch (error: any) {
-        toast({ 
-          title: t.users?.sip?.registrationFailed || "SIP registrácia zlyhala",
-          description: error.message,
-          variant: "destructive" 
-        });
-      }
-    };
+    }, [isRegistered, registrationError]);
 
-    const handleUnregister = async () => {
-      try {
-        await unregister();
-        toast({ title: t.users?.sip?.unregistered || "SIP odregistrovaný" });
-      } catch (error: any) {
-        toast({ 
-          title: t.users?.sip?.unregisterFailed || "Odregistrácia zlyhala",
-          variant: "destructive" 
-        });
+    useEffect(() => {
+      return () => {
+        if (registerTimeoutRef.current) {
+          clearTimeout(registerTimeoutRef.current);
+        }
+      };
+    }, []);
+
+    const handleToggleRegistration = async () => {
+      if (isRegistered) {
+        try {
+          await unregister();
+          toast({ title: t.users?.sip?.unregistered || "SIP odregistrovaný" });
+        } catch (error: any) {
+          toast({ 
+            title: t.users?.sip?.unregisterFailed || "Odregistrácia zlyhala",
+            variant: "destructive" 
+          });
+        }
+      } else {
+        if (!sipExtension || !sipPassword) {
+          toast({
+            title: t.users?.sip?.missingCredentials || "Chýbajúce údaje",
+            description: t.users?.sip?.fillExtensionAndPassword || "Vyplňte najprv linku a heslo",
+            variant: "destructive"
+          });
+          return;
+        }
+        
+        setLocalRegistering(true);
+        registerTimeoutRef.current = setTimeout(() => {
+          setLocalRegistering(false);
+          toast({ 
+            title: t.users?.sip?.registrationTimeout || "Timeout registrácie",
+            description: t.users?.sip?.registrationTimeoutDesc || "Nepodarilo sa pripojiť k SIP serveru",
+            variant: "destructive" 
+          });
+        }, 15000);
+        
+        try {
+          await register();
+        } catch (error: any) {
+          setLocalRegistering(false);
+          toast({ 
+            title: t.users?.sip?.registrationFailed || "SIP registrácia zlyhala",
+            description: error.message,
+            variant: "destructive" 
+          });
+        }
       }
     };
 
@@ -708,63 +739,57 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
             <span className="text-sm font-medium">{t.users?.sip?.registrationStatus || "Stav registrácie"}:</span>
-            {isRegistering && (
-              <Badge variant="secondary" data-testid="badge-sip-registering">
-                <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                {t.users?.sip?.registering || "Registrujem..."}
-              </Badge>
-            )}
-            {!isRegistering && isRegistered && (
+            {isRegistered ? (
               <Badge variant="default" className="bg-green-600" data-testid="badge-sip-registered">
                 <CheckCircle className="h-3 w-3 mr-1" />
                 {t.users?.sip?.registered || "Zaregistrovaný"}
               </Badge>
-            )}
-            {!isRegistering && !isRegistered && !registrationError && (
-              <Badge variant="secondary" data-testid="badge-sip-not-registered">
-                {t.users?.sip?.notRegistered || "Nezaregistrovaný"}
-              </Badge>
-            )}
-            {!isRegistering && !isRegistered && registrationError && (
+            ) : registrationError ? (
               <Badge variant="destructive" data-testid="badge-sip-error">
                 <XCircle className="h-3 w-3 mr-1" />
                 {t.users?.sip?.error || "Chyba"}
               </Badge>
-            )}
-          </div>
-          <div className="flex gap-2">
-            {!isRegistered ? (
-              <Button 
-                type="button"
-                variant="default" 
-                size="sm"
-                onClick={handleRegister}
-                disabled={isRegistering || !sipExtension || !sipPassword}
-                data-testid="button-sip-register"
-              >
-                {isRegistering ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <Phone className="h-4 w-4 mr-2" />
-                )}
-                {t.users?.sip?.register || "Registrovať"}
-              </Button>
+            ) : showSpinner ? (
+              <Badge variant="secondary" data-testid="badge-sip-registering">
+                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                {t.users?.sip?.registering || "Registrujem..."}
+              </Badge>
             ) : (
-              <Button 
-                type="button"
-                variant="outline" 
-                size="sm"
-                onClick={handleUnregister}
-                data-testid="button-sip-unregister"
-              >
-                <Phone className="h-4 w-4 mr-2" />
-                {t.users?.sip?.unregister || "Odregistrovať"}
-              </Button>
+              <Badge variant="outline" data-testid="badge-sip-not-registered">
+                {t.users?.sip?.notRegistered || "Nezaregistrovaný"}
+              </Badge>
             )}
           </div>
+          <Button 
+            type="button"
+            variant={isRegistered ? "default" : "outline"}
+            className={isRegistered ? "bg-green-600 hover:bg-green-700" : ""}
+            size="sm"
+            onClick={handleToggleRegistration}
+            disabled={showSpinner || (!isRegistered && (!sipExtension || !sipPassword))}
+            data-testid="button-sip-toggle"
+          >
+            {showSpinner ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : isRegistered ? (
+              <CheckCircle className="h-4 w-4 mr-2" />
+            ) : (
+              <Phone className="h-4 w-4 mr-2" />
+            )}
+            {isRegistered 
+              ? (t.users?.sip?.registered || "Zaregistrovaný")
+              : (t.users?.sip?.register || "Registrovať")}
+          </Button>
         </div>
         {registrationError && (
-          <p className="text-xs text-destructive">{registrationError}</p>
+          <div className="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950">
+            <p className="text-sm text-red-800 dark:text-red-200">{registrationError}</p>
+          </div>
+        )}
+        {isRegistered && (
+          <p className="text-xs text-muted-foreground">
+            {t.users?.sip?.clickToUnregister || "Kliknite na tlačidlo vyššie pre odregistrovanie"}
+          </p>
         )}
         <p className="text-xs text-muted-foreground">
           {t.users?.sip?.autoRegistrationNote || "SIP telefón sa automaticky zaregistruje pri prihlásení a odregistruje pri odhlásení."}

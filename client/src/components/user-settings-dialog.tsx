@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Phone, Save, Loader2, Settings } from "lucide-react";
+import { Phone, Save, Loader2, Settings, User, Mail, Shield, PhoneCall, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useSip } from "@/contexts/sip-context";
 import { useI18n } from "@/i18n";
@@ -83,27 +83,66 @@ function GeneralTab() {
   const { t } = useI18n();
   const { user } = useAuth();
 
+  const roleLabels: Record<string, string> = {
+    admin: (t.users.roles as any)?.admin || "Administrator",
+    manager: (t.users.roles as any)?.manager || "Manager",
+    user: (t.users.roles as any)?.user || "User",
+    agent: (t.users.roles as any)?.agent || "Agent",
+    collaborator: (t.users.roles as any)?.collaborator || "Collaborator",
+  };
+
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="text-base">{t.users.title}</CardTitle>
-        <CardDescription>{t.users.description}</CardDescription>
+      <CardHeader className="pb-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+            <User className="h-6 w-6 text-primary" />
+          </div>
+          <div>
+            <CardTitle className="text-lg">{user?.fullName || "-"}</CardTitle>
+            <CardDescription>{t.settings.userDescription}</CardDescription>
+          </div>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label>{t.users.fullName}</Label>
-            <Input value={user?.fullName || ""} disabled data-testid="input-user-name" />
+        <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+          <div className="flex items-center gap-3">
+            <User className="h-4 w-4 text-muted-foreground shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-muted-foreground">{t.users.fullName}</p>
+              <p className="text-sm font-medium truncate" data-testid="text-user-name">{user?.fullName || "-"}</p>
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label>{t.common.email}</Label>
-            <Input value={user?.email || ""} disabled data-testid="input-user-email" />
+          <Separator />
+          <div className="flex items-center gap-3">
+            <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-muted-foreground">{t.common.email}</p>
+              <p className="text-sm font-medium truncate" data-testid="text-user-email">{user?.email || "-"}</p>
+            </div>
+          </div>
+          <Separator />
+          <div className="flex items-center gap-3">
+            <PhoneCall className="h-4 w-4 text-muted-foreground shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-muted-foreground">{t.common.phone || "Phone"}</p>
+              <p className="text-sm font-medium truncate" data-testid="text-user-phone">{(user as any)?.phone || "-"}</p>
+            </div>
+          </div>
+          <Separator />
+          <div className="flex items-center gap-3">
+            <Shield className="h-4 w-4 text-muted-foreground shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-muted-foreground">{t.users.role}</p>
+              <Badge variant="secondary" className="mt-0.5" data-testid="badge-user-role">
+                {roleLabels[user?.role || ""] || user?.role || "-"}
+              </Badge>
+            </div>
           </div>
         </div>
-        <div className="space-y-2">
-          <Label>{t.users.role}</Label>
-          <Input value={user?.role || ""} disabled data-testid="input-user-role" />
-        </div>
+        <p className="text-xs text-muted-foreground text-center">
+          {t.settings.contactAdminToChange || "Contact administrator to change these settings"}
+        </p>
       </CardContent>
     </Card>
   );
@@ -116,6 +155,7 @@ function UserSipProfileTab({ showSipPhone }: { showSipPhone?: boolean }) {
   const sipContext = useSip();
   const isRegistered = sipContext?.isRegistered ?? false;
   const isRegistering = sipContext?.isRegistering ?? false;
+  const registrationError = sipContext?.registrationError ?? null;
   const register = sipContext?.register ?? (async () => {});
   const unregister = sipContext?.unregister ?? (async () => {});
   
@@ -123,6 +163,8 @@ function UserSipProfileTab({ showSipPhone }: { showSipPhone?: boolean }) {
   const [sipPassword, setSipPassword] = useState("");
   const [sipDisplayName, setSipDisplayName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [localRegistering, setLocalRegistering] = useState(false);
+  const registerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const { data: sipSettings } = useQuery<SipSettingsData | null>({
     queryKey: ["/api/sip-settings"],
@@ -136,6 +178,24 @@ function UserSipProfileTab({ showSipPhone }: { showSipPhone?: boolean }) {
       setSipDisplayName((user as any).sipDisplayName || user.fullName || "");
     }
   }, [user]);
+
+  useEffect(() => {
+    if (isRegistered || registrationError) {
+      setLocalRegistering(false);
+      if (registerTimeoutRef.current) {
+        clearTimeout(registerTimeoutRef.current);
+        registerTimeoutRef.current = null;
+      }
+    }
+  }, [isRegistered, registrationError]);
+
+  useEffect(() => {
+    return () => {
+      if (registerTimeoutRef.current) {
+        clearTimeout(registerTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -158,22 +218,49 @@ function UserSipProfileTab({ showSipPhone }: { showSipPhone?: boolean }) {
     }
   };
 
-  const handleRegister = async () => {
-    if (!sipSettings?.server || !sipExtension || !sipPassword) {
-      toast({ 
-        title: t.settings.sipProfile.missingConfig,
-        variant: "destructive" 
-      });
-      return;
+  const handleToggleRegistration = async () => {
+    if (isRegistered) {
+      try {
+        await unregister();
+        toast({ title: t.settings.sipProfile.unregistered || "SIP Unregistered" });
+      } catch (error: any) {
+        toast({ 
+          title: t.settings.sipProfile.error || "Error",
+          description: error.message,
+          variant: "destructive" 
+        });
+      }
+    } else {
+      if (!sipSettings?.server || !sipExtension || !sipPassword) {
+        toast({ 
+          title: t.settings.sipProfile.missingConfig,
+          variant: "destructive" 
+        });
+        return;
+      }
+      setLocalRegistering(true);
+      registerTimeoutRef.current = setTimeout(() => {
+        setLocalRegistering(false);
+        toast({ 
+          title: t.settings.sipProfile.registrationTimeout || "Registration timeout",
+          description: t.settings.sipProfile.registrationTimeoutDesc || "Could not connect to SIP server",
+          variant: "destructive" 
+        });
+      }, 15000);
+      try {
+        await register();
+      } catch (error: any) {
+        setLocalRegistering(false);
+        toast({ 
+          title: t.settings.sipProfile.error || "Error",
+          description: error.message,
+          variant: "destructive" 
+        });
+      }
     }
-    await register();
   };
 
-  const handleUnregister = async () => {
-    await unregister();
-  };
-
-  const registrationStatus = isRegistered ? "registered" : (isRegistering ? "registering" : "not_registered");
+  const showSpinner = localRegistering || isRegistering;
   const isGlobalSipEnabled = sipSettings?.isEnabled;
 
   if (!showSipPhone) {
@@ -211,17 +298,23 @@ function UserSipProfileTab({ showSipPhone }: { showSipPhone?: boolean }) {
           </div>
           <div className="flex items-center gap-2 mt-3">
             <span className="text-sm text-muted-foreground">{t.common.status}:</span>
-            {registrationStatus === "registered" ? (
+            {isRegistered ? (
               <Badge variant="default" className="bg-green-600" data-testid="badge-sip-registered">
+                <CheckCircle className="h-3 w-3 mr-1" />
                 {t.settings.sipProfile.registered}
               </Badge>
-            ) : registrationStatus === "registering" ? (
+            ) : registrationError ? (
+              <Badge variant="destructive" data-testid="badge-sip-error">
+                <XCircle className="h-3 w-3 mr-1" />
+                {t.settings.sipProfile.error || "Error"}
+              </Badge>
+            ) : showSpinner ? (
               <Badge variant="secondary" data-testid="badge-sip-registering">
                 <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                {t.settings.sipProfile.testing}
+                {t.settings.sipProfile.registering || "Registering..."}
               </Badge>
             ) : (
-              <Badge variant="destructive" data-testid="badge-sip-not-registered">
+              <Badge variant="outline" data-testid="badge-sip-not-registered">
                 {t.settings.sipProfile.notRegistered}
               </Badge>
             )}
@@ -294,31 +387,38 @@ function UserSipProfileTab({ showSipPhone }: { showSipPhone?: boolean }) {
               )}
               {t.settings.sipProfile.save}
             </Button>
-            {!isRegistered ? (
-              <Button 
-                variant="outline"
-                onClick={handleRegister} 
-                disabled={isRegistering || !sipExtension || !sipPassword}
-                data-testid="button-user-sip-register"
-              >
-                {isRegistering ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <Phone className="h-4 w-4 mr-2" />
-                )}
-                {t.settings.sipProfile.register}
-              </Button>
-            ) : (
-              <Button 
-                variant="outline"
-                onClick={handleUnregister} 
-                data-testid="button-user-sip-unregister"
-              >
+            <Button 
+              variant={isRegistered ? "default" : "outline"}
+              className={isRegistered ? "bg-green-600 hover:bg-green-700" : ""}
+              onClick={handleToggleRegistration} 
+              disabled={showSpinner || (!isRegistered && (!sipExtension || !sipPassword))}
+              data-testid="button-user-sip-toggle"
+            >
+              {showSpinner ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : isRegistered ? (
+                <CheckCircle className="h-4 w-4 mr-2" />
+              ) : (
                 <Phone className="h-4 w-4 mr-2" />
-                {t.settings.sipProfile.unregister}
-              </Button>
-            )}
+              )}
+              {isRegistered 
+                ? (t.settings.sipProfile.registered)
+                : (t.settings.sipProfile.register)}
+            </Button>
           </div>
+          {isRegistered && (
+            <p className="text-xs text-muted-foreground">
+              {t.settings.sipProfile.clickToUnregister || "Click the button above to unregister"}
+            </p>
+          )}
+          {registrationError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950">
+              <p className="text-sm text-red-800 dark:text-red-200 flex items-center gap-2">
+                <AlertCircle className="h-4 w-4" />
+                {registrationError}
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
