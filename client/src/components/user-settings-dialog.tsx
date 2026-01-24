@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Phone, PhoneOff, Save, Loader2, Settings, User, Mail, Shield, PhoneCall, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { Phone, PhoneOff, Save, Loader2, Settings, User, Mail, Shield, PhoneCall, CheckCircle, XCircle, AlertCircle, Activity, Clock, MessageSquare } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useSip } from "@/contexts/sip-context";
 import { useI18n } from "@/i18n";
@@ -57,9 +57,12 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
         </DialogHeader>
 
         <Tabs defaultValue="sip" className="mt-4">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="general" data-testid="tab-user-general">
               {t.common.detail}
+            </TabsTrigger>
+            <TabsTrigger value="activity" data-testid="tab-user-activity">
+              {t.activityReports?.title || "Activity"}
             </TabsTrigger>
             <TabsTrigger value="sip" data-testid="tab-user-sip">
               {t.settings.sipProfile.title}
@@ -68,6 +71,10 @@ export function UserSettingsDialog({ open, onOpenChange }: UserSettingsDialogPro
 
           <TabsContent value="general" className="mt-4">
             <GeneralTab />
+          </TabsContent>
+
+          <TabsContent value="activity" className="mt-4">
+            <UserActivityTab />
           </TabsContent>
 
           <TabsContent value="sip" className="mt-4">
@@ -145,6 +152,126 @@ function GeneralTab() {
         </p>
       </CardContent>
     </Card>
+  );
+}
+
+interface UserActivityStats {
+  summary: {
+    totalCalls: number;
+    totalCallDuration: number;
+    avgCallDuration: number;
+    totalEmails: number;
+    totalSms: number;
+  };
+  dailyStats: Array<{
+    date: string;
+    calls: number;
+    emails: number;
+    sms: number;
+  }>;
+}
+
+function UserActivityTab() {
+  const { t } = useI18n();
+  const { user } = useAuth();
+
+  const queryUrl = user?.id 
+    ? `/api/user-activity-stats?period=last_30_days&userId=${user.id}` 
+    : '/api/user-activity-stats?period=last_30_days';
+
+  const { data: activityStats, isLoading } = useQuery<UserActivityStats>({
+    queryKey: ["/api/user-activity-stats", "last_30_days", user?.id],
+    queryFn: async () => {
+      const res = await fetch(queryUrl, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch activity stats');
+      return res.json();
+    },
+    enabled: !!user?.id,
+  });
+
+  const formatCallDuration = (seconds: number): string => {
+    if (!seconds || seconds === 0) return "0:00";
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+    }
+    return `${minutes}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const summary = activityStats?.summary || {
+    totalCalls: 0,
+    totalCallDuration: 0,
+    avgCallDuration: 0,
+    totalEmails: 0,
+    totalSms: 0,
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+              <Activity className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-base">{t.activityReports?.title || "Activity"}</CardTitle>
+              <CardDescription>{t.activityReports?.last30Days || "Last 30 days"}</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-lg border bg-muted/30 p-3">
+              <div className="flex items-center gap-2">
+                <Phone className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">{t.activityReports?.totalCalls || "Calls"}</span>
+              </div>
+              <p className="text-xl font-bold mt-1" data-testid="text-user-total-calls">{summary.totalCalls}</p>
+            </div>
+            <div className="rounded-lg border bg-muted/30 p-3">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">{t.activityReports?.totalCallDuration || "Duration"}</span>
+              </div>
+              <p className="text-xl font-bold mt-1" data-testid="text-user-call-duration">{formatCallDuration(summary.totalCallDuration)}</p>
+            </div>
+            <div className="rounded-lg border bg-muted/30 p-3">
+              <div className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">{t.activityReports?.totalEmails || "Emails"}</span>
+              </div>
+              <p className="text-xl font-bold mt-1" data-testid="text-user-total-emails">{summary.totalEmails}</p>
+            </div>
+            <div className="rounded-lg border bg-muted/30 p-3">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">{t.activityReports?.totalSms || "SMS"}</span>
+              </div>
+              <p className="text-xl font-bold mt-1" data-testid="text-user-total-sms">{summary.totalSms}</p>
+            </div>
+          </div>
+          <Separator />
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground">
+              {t.activityReports?.avgCallDuration || "Average call duration"}: <span className="font-medium">{formatCallDuration(summary.avgCallDuration)}</span>
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
@@ -271,7 +398,7 @@ function UserSipProfileTab({ showSipPhone }: { showSipPhone?: boolean }) {
     } catch (e) {
       // ignore
     }
-    toast({ title: t.settings.sipProfile.registrationCancelled || "Registration cancelled" });
+    toast({ title: t.settings.sipProfile.registrationCancelled });
   };
 
   const showSpinner = localRegistering || isRegistering;
@@ -408,7 +535,7 @@ function UserSipProfileTab({ showSipPhone }: { showSipPhone?: boolean }) {
                 data-testid="button-user-sip-cancel"
               >
                 <XCircle className="h-4 w-4 mr-2" />
-                {t.settings.sipProfile.cancel || "Cancel"}
+                {t.settings.sipProfile.cancel}
               </Button>
             ) : isRegistered ? (
               <Button 

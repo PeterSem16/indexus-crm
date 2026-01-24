@@ -1075,6 +1075,8 @@ export interface Translations {
       registrationTimeout: string;
       registrationTimeoutDesc: string;
       clickToUnregister: string;
+      cancel: string;
+      registrationCancelled: string;
     };
     contactAdminToChange: string;
     laboratories: string;
