@@ -117,11 +117,14 @@ export function SipPhone({
   });
   const sessionRef = useRef<Session | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const ringtoneRef = useRef<HTMLAudioElement | null>(null);
+  const ringtoneIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const callTimerRef = useRef<NodeJS.Timeout | null>(null);
   const callStartTimeRef = useRef<number>(0);
   const audioContextRef = useRef<AudioContext | null>(null);
   const micGainNodeRef = useRef<GainNode | null>(null);
   const userHungUpRef = useRef<boolean>(false);
+  const pendingCallProcessedRef = useRef<boolean>(false);
 
   const { data: globalSipSettings, isLoading: sipSettingsLoading } = useQuery<SipSettings | null>({
     queryKey: ["/api/sip-settings"],
@@ -209,6 +212,10 @@ export function SipPhone({
     if (callTimerRef.current) {
       clearInterval(callTimerRef.current);
     }
+    if (ringtoneIntervalRef.current) {
+      clearInterval(ringtoneIntervalRef.current);
+      ringtoneIntervalRef.current = null;
+    }
     if (sessionRef.current) {
       try {
         if (sessionRef.current.state === SessionState.Established) {
@@ -228,6 +235,58 @@ export function SipPhone({
       }
     }
   }, []);
+
+  const playRingtone = useCallback(() => {
+    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(440, audioCtx.currentTime);
+    gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
+    
+    oscillator.start(audioCtx.currentTime);
+    oscillator.stop(audioCtx.currentTime + 0.4);
+    
+    setTimeout(() => {
+      const osc2 = audioCtx.createOscillator();
+      const gain2 = audioCtx.createGain();
+      osc2.connect(gain2);
+      gain2.connect(audioCtx.destination);
+      osc2.type = "sine";
+      osc2.frequency.setValueAtTime(480, audioCtx.currentTime);
+      gain2.gain.setValueAtTime(0.15, audioCtx.currentTime);
+      osc2.start(audioCtx.currentTime);
+      osc2.stop(audioCtx.currentTime + 0.4);
+    }, 500);
+  }, []);
+
+  const startRingtone = useCallback(() => {
+    if (ringtoneIntervalRef.current) return;
+    playRingtone();
+    ringtoneIntervalRef.current = setInterval(() => {
+      playRingtone();
+    }, 3000);
+  }, [playRingtone]);
+
+  const stopRingtone = useCallback(() => {
+    if (ringtoneIntervalRef.current) {
+      clearInterval(ringtoneIntervalRef.current);
+      ringtoneIntervalRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (callState === "connecting" || callState === "ringing") {
+      startRingtone();
+    } else {
+      stopRingtone();
+    }
+    return () => stopRingtone();
+  }, [callState, startRingtone, stopRingtone]);
 
   const connect = useCallback(async () => {
     if (!sipConfig.server || !sipConfig.username || !sipConfig.password) {
@@ -386,19 +445,26 @@ export function SipPhone({
   }, [phoneNumber, sipConfig.server, sipConfig.realm, isRegistered, onCallStart, onCallEnd, toast, createCallLogMutation, updateCallLogMutation, userId, currentUser, localCustomerId, localCampaignId, localCustomerName, currentCallLogId, isSipConfigured]);
 
   useEffect(() => {
-    if (pendingCall && isRegistered && callState === "idle") {
+    if (pendingCall && callState === "idle") {
       setPhoneNumber(pendingCall.phoneNumber);
       setLocalCustomerId(pendingCall.customerId?.toString());
       setLocalCampaignId(pendingCall.campaignId?.toString());
       setLocalCustomerName(pendingCall.customerName);
       setLocalLeadScore(pendingCall.leadScore);
       setLocalClientStatus(pendingCall.clientStatus);
+      pendingCallProcessedRef.current = true;
       clearPendingCall();
+    }
+  }, [pendingCall, callState, clearPendingCall]);
+
+  useEffect(() => {
+    if (pendingCallProcessedRef.current && isRegistered && callState === "idle") {
+      pendingCallProcessedRef.current = false;
       setTimeout(() => {
         makeCall();
-      }, 100);
+      }, 50);
     }
-  }, [pendingCall, isRegistered, callState, clearPendingCall]);
+  }, [isRegistered, callState, makeCall]);
 
   const setupAudio = async (session: Session) => {
     const sessionDescriptionHandler = session.sessionDescriptionHandler;
