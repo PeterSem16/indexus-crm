@@ -11,6 +11,13 @@ interface SipSettingsData {
   isEnabled?: boolean;
 }
 
+export interface PendingCall {
+  phoneNumber: string;
+  customerId?: number;
+  campaignId?: number;
+  customerName?: string;
+}
+
 interface SipContextType {
   isRegistered: boolean;
   isRegistering: boolean;
@@ -19,6 +26,9 @@ interface SipContextType {
   unregister: () => Promise<void>;
   userAgentRef: React.MutableRefObject<any>;
   registererRef: React.MutableRefObject<any>;
+  pendingCall: PendingCall | null;
+  makeCall: (call: PendingCall) => void;
+  clearPendingCall: () => void;
 }
 
 const SipContext = createContext<SipContextType | undefined>(undefined);
@@ -28,9 +38,18 @@ export function SipProvider({ children }: { children: ReactNode }) {
   const [isRegistered, setIsRegistered] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
   const [registrationError, setRegistrationError] = useState<string | null>(null);
+  const [pendingCall, setPendingCall] = useState<PendingCall | null>(null);
   
   const userAgentRef = useRef<any>(null);
   const registererRef = useRef<any>(null);
+
+  const makeCall = useCallback((call: PendingCall) => {
+    setPendingCall(call);
+  }, []);
+
+  const clearPendingCall = useCallback(() => {
+    setPendingCall(null);
+  }, []);
 
   const { data: sipSettings } = useQuery<SipSettingsData | null>({
     queryKey: ["/api/sip-settings"],
@@ -151,7 +170,7 @@ export function SipProvider({ children }: { children: ReactNode }) {
   }, [user, unregister]);
 
   return (
-    <SipContext.Provider value={{ isRegistered, isRegistering, registrationError, register, unregister, userAgentRef, registererRef }}>
+    <SipContext.Provider value={{ isRegistered, isRegistering, registrationError, register, unregister, userAgentRef, registererRef, pendingCall, makeCall, clearPendingCall }}>
       {children}
     </SipContext.Provider>
   );

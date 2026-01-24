@@ -75,8 +75,11 @@ export function SipPhone({
   hideSettingsAndRegistration = false
 }: SipPhoneProps) {
   const { toast } = useToast();
-  const { isRegistered, isRegistering, registrationError, register, unregister, userAgentRef, registererRef } = useSip();
+  const { isRegistered, isRegistering, registrationError, register, unregister, userAgentRef, registererRef, pendingCall, clearPendingCall } = useSip();
   const callContext = useCall();
+  const [localCustomerId, setLocalCustomerId] = useState(customerId);
+  const [localCampaignId, setLocalCampaignId] = useState(campaignId);
+  const [localCustomerName, setLocalCustomerName] = useState(customerName);
   const [callState, setCallStateLocal] = useState<CallState>("idle");
   const [phoneNumber, setPhoneNumber] = useState(initialNumber);
   const [isMutedLocal, setIsMutedLocal] = useState(false);
@@ -270,9 +273,9 @@ export function SipPhone({
         direction: "outbound",
         status: "initiated",
         userId: userId || currentUser?.id,
-        customerId,
-        campaignId,
-        customerName,
+        customerId: localCustomerId,
+        campaignId: localCampaignId,
+        customerName: localCustomerName,
       });
       setCurrentCallLogId(callLogData.id);
       
@@ -366,7 +369,20 @@ export function SipPhone({
       });
       setCallState("idle");
     }
-  }, [phoneNumber, sipConfig.server, sipConfig.realm, isRegistered, onCallStart, onCallEnd, toast, createCallLogMutation, updateCallLogMutation, userId, currentUser, customerId, campaignId, customerName, currentCallLogId, isSipConfigured]);
+  }, [phoneNumber, sipConfig.server, sipConfig.realm, isRegistered, onCallStart, onCallEnd, toast, createCallLogMutation, updateCallLogMutation, userId, currentUser, localCustomerId, localCampaignId, localCustomerName, currentCallLogId, isSipConfigured]);
+
+  useEffect(() => {
+    if (pendingCall && isRegistered && callState === "idle") {
+      setPhoneNumber(pendingCall.phoneNumber);
+      setLocalCustomerId(pendingCall.customerId?.toString());
+      setLocalCampaignId(pendingCall.campaignId?.toString());
+      setLocalCustomerName(pendingCall.customerName);
+      clearPendingCall();
+      setTimeout(() => {
+        makeCall();
+      }, 100);
+    }
+  }, [pendingCall, isRegistered, callState, clearPendingCall]);
 
   const setupAudio = async (session: Session) => {
     const sessionDescriptionHandler = session.sessionDescriptionHandler;
@@ -925,52 +941,54 @@ export function SipPhone({
   );
 }
 
-interface SipPhoneFloatingProps extends Pick<SipPhoneProps, "onCallStart" | "onCallEnd" | "customerId" | "campaignId" | "customerName"> {
-  initialNumber?: string;
+interface SipPhoneFloatingProps {
+  phoneNumber: string;
+  customerId?: number;
+  campaignId?: number;
+  customerName?: string;
 }
 
 export function SipPhoneFloating({ 
-  onCallStart, 
-  onCallEnd, 
+  phoneNumber,
   customerId, 
   campaignId, 
-  customerName,
-  initialNumber 
+  customerName 
 }: SipPhoneFloatingProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const { makeCall, isRegistered } = useSip();
+
+  const handleCall = () => {
+    if (!isRegistered) {
+      return;
+    }
+    makeCall({
+      phoneNumber,
+      customerId,
+      campaignId,
+      customerName,
+    });
+  };
+
+  if (!phoneNumber) {
+    return null;
+  }
 
   return (
-    <>
-      <Button
-        className="fixed bottom-4 right-4 h-14 w-14 rounded-full shadow-lg z-50"
-        onClick={() => setIsOpen(!isOpen)}
-        data-testid="button-toggle-phone"
-      >
-        {isOpen ? <X className="h-6 w-6" /> : <Phone className="h-6 w-6" />}
-      </Button>
-      
-      {isOpen && (
-        <div className="fixed bottom-20 right-4 z-50 shadow-xl">
-          <SipPhone 
-            onCallStart={onCallStart} 
-            onCallEnd={onCallEnd}
-            customerId={customerId}
-            campaignId={campaignId}
-            customerName={customerName}
-            initialNumber={initialNumber}
-            hideSettingsAndRegistration
-          />
-        </div>
-      )}
-    </>
+    <Button
+      className="fixed bottom-4 right-4 h-14 w-14 rounded-full shadow-lg z-50"
+      onClick={handleCall}
+      disabled={!isRegistered}
+      data-testid="button-call-floating"
+    >
+      <Phone className="h-6 w-6" />
+    </Button>
   );
 }
 
 interface CallCustomerButtonProps {
   phoneNumber: string;
-  customerId?: string;
+  customerId?: string | number;
   customerName?: string;
-  campaignId?: string;
+  campaignId?: string | number;
   variant?: "icon" | "default" | "small";
 }
 
@@ -981,7 +999,7 @@ export function CallCustomerButton({
   campaignId,
   variant = "default" 
 }: CallCustomerButtonProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const { makeCall, isRegistered } = useSip();
   const { data: authData } = useQuery<{ user: User | null }>({
     queryKey: ["/api/auth/me"],
   });
@@ -989,105 +1007,66 @@ export function CallCustomerButton({
   const currentUser = authData?.user;
   const hasSipEnabled = currentUser && (currentUser as any).sipEnabled;
 
+  const handleCall = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isRegistered) return;
+    makeCall({
+      phoneNumber,
+      customerId: typeof customerId === 'string' ? parseInt(customerId) : customerId,
+      campaignId: typeof campaignId === 'string' ? parseInt(campaignId) : campaignId,
+      customerName,
+    });
+  };
+
   if (!hasSipEnabled || !phoneNumber) {
     return null;
   }
 
   if (variant === "icon") {
     return (
-      <>
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setIsOpen(true);
-          }}
-          data-testid="button-call-customer-icon"
-          title={`Zavolať na ${phoneNumber}`}
-        >
-          <PhoneCall className="h-4 w-4 text-green-600" />
-        </Button>
-        
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogContent className="max-w-sm p-0 overflow-hidden">
-            <SipPhone 
-              initialNumber={phoneNumber}
-              customerId={customerId}
-              customerName={customerName}
-              campaignId={campaignId}
-              hideSettingsAndRegistration
-            />
-          </DialogContent>
-        </Dialog>
-      </>
+      <Button
+        type="button"
+        size="icon"
+        variant="ghost"
+        onClick={handleCall}
+        disabled={!isRegistered}
+        data-testid="button-call-customer-icon"
+        title={`Zavolat na ${phoneNumber}`}
+      >
+        <PhoneCall className="h-4 w-4 text-green-600" />
+      </Button>
     );
   }
 
   if (variant === "small") {
     return (
-      <>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setIsOpen(true);
-          }}
-          data-testid="button-call-customer-small"
-          className="gap-1"
-        >
-          <PhoneCall className="h-3 w-3" />
-          Zavolať
-        </Button>
-        
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogContent className="max-w-sm p-0 overflow-hidden">
-            <SipPhone 
-              initialNumber={phoneNumber}
-              customerId={customerId}
-              customerName={customerName}
-              campaignId={campaignId}
-              hideSettingsAndRegistration
-            />
-          </DialogContent>
-        </Dialog>
-      </>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        onClick={handleCall}
+        disabled={!isRegistered}
+        data-testid="button-call-customer-small"
+        className="gap-1"
+      >
+        <PhoneCall className="h-3 w-3" />
+        Zavolat
+      </Button>
     );
   }
 
   return (
-    <>
-      <Button
-        type="button"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setIsOpen(true);
-        }}
-        data-testid="button-call-customer"
-        className="gap-2"
-      >
-        <PhoneCall className="h-4 w-4" />
-        Zavolať {phoneNumber}
-      </Button>
-      
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-w-sm p-0 overflow-hidden">
-          <SipPhone 
-            initialNumber={phoneNumber}
-            customerId={customerId}
-            customerName={customerName}
-            campaignId={campaignId}
-            hideSettingsAndRegistration
-          />
-        </DialogContent>
-      </Dialog>
-    </>
+    <Button
+      type="button"
+      onClick={handleCall}
+      disabled={!isRegistered}
+      data-testid="button-call-customer"
+      className="gap-2"
+    >
+      <PhoneCall className="h-4 w-4" />
+      Zavolat {phoneNumber}
+    </Button>
   );
 }
 
@@ -1099,6 +1078,7 @@ interface SipPhoneHeaderButtonProps {
 export function SipPhoneHeaderButton({ user, sipContext }: SipPhoneHeaderButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const callContext = useCall();
+  const { pendingCall } = useSip();
   const { data: sipSettings } = useQuery<{
     server?: string;
     port?: number;
@@ -1114,10 +1094,10 @@ export function SipPhoneHeaderButton({ user, sipContext }: SipPhoneHeaderButtonP
   const hasActiveCall = callContext.callState !== "idle" && callContext.callState !== "ended";
 
   useEffect(() => {
-    if (hasActiveCall && !isOpen) {
+    if ((hasActiveCall || pendingCall) && !isOpen) {
       setIsOpen(true);
     }
-  }, [hasActiveCall, isOpen]);
+  }, [hasActiveCall, pendingCall, isOpen]);
 
   if (!user?.sipEnabled || !sipSettings?.isEnabled) {
     return null;

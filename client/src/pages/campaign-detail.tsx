@@ -51,7 +51,6 @@ import { CampaignContactsFilter, type CampaignContactFilters, applyContactFilter
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { SipPhoneFloating } from "@/components/sip-phone";
 
 type EnrichedContact = CampaignContact & { customer?: Customer };
 
@@ -1411,17 +1410,6 @@ Príklad:
         </DialogContent>
       </Dialog>
 
-      <SipPhoneFloating 
-        onCallStart={(number) => {
-          toast({ title: "Hovor začatý", description: `Volanie na ${number}` });
-        }}
-        onCallEnd={(duration, status) => {
-          toast({ 
-            title: "Hovor ukončený", 
-            description: `Trvanie: ${Math.floor(duration / 60)}:${(duration % 60).toString().padStart(2, "0")}` 
-          });
-        }}
-      />
     </div>
   );
 }
