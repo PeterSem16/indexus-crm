@@ -724,11 +724,16 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
       }
     };
 
-    const handleCancelRegistration = () => {
+    const handleCancelRegistration = async () => {
       setLocalRegistering(false);
       if (registerTimeoutRef.current) {
         clearTimeout(registerTimeoutRef.current);
         registerTimeoutRef.current = null;
+      }
+      try {
+        await unregister();
+      } catch (e) {
+        // ignore
       }
       toast({ title: t.users?.sip?.registrationCancelled || "Registrácia zrušená" });
     };

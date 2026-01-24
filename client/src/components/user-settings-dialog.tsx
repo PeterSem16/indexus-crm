@@ -260,11 +260,16 @@ function UserSipProfileTab({ showSipPhone }: { showSipPhone?: boolean }) {
     }
   };
 
-  const handleCancelRegistration = () => {
+  const handleCancelRegistration = async () => {
     setLocalRegistering(false);
     if (registerTimeoutRef.current) {
       clearTimeout(registerTimeoutRef.current);
       registerTimeoutRef.current = null;
+    }
+    try {
+      await unregister();
+    } catch (e) {
+      // ignore
     }
     toast({ title: t.settings.sipProfile.registrationCancelled || "Registration cancelled" });
   };
