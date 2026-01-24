@@ -558,6 +558,29 @@ export function SipPhone({
   }, [endCall, toggleMute, toggleHold, callContext]);
 
   useEffect(() => {
+    callContext.onVolumeChangeFn.current = (vol: number) => {
+      setVolume(vol);
+      if (audioRef.current) {
+        audioRef.current.volume = vol / 100;
+      }
+    };
+    callContext.onMicVolumeChangeFn.current = (vol: number) => {
+      setMicVolume(vol);
+      if (micGainNodeRef.current) {
+        micGainNodeRef.current.gain.value = vol / 100;
+      }
+    };
+  }, [callContext]);
+
+  useEffect(() => {
+    callContext.setVolume(volume);
+  }, [volume, callContext]);
+
+  useEffect(() => {
+    callContext.setMicVolume(micVolume);
+  }, [micVolume, callContext]);
+
+  useEffect(() => {
     if (callState !== "idle" && callState !== "ended") {
       callContext.setCallInfo({
         phoneNumber,

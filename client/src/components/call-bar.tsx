@@ -2,6 +2,7 @@ import { useCall } from "@/contexts/call-context";
 import { useI18n, type Translations } from "@/i18n";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Slider } from "@/components/ui/slider";
 import { 
   Phone, 
   PhoneOff, 
@@ -10,7 +11,9 @@ import {
   Pause, 
   Play,
   Loader2,
-  Grid3X3
+  Grid3X3,
+  Volume2,
+  VolumeX
 } from "lucide-react";
 
 function formatDuration(seconds: number): string {
@@ -27,10 +30,14 @@ export function CallBar() {
     callDuration, 
     isMuted, 
     isOnHold,
+    volume,
+    micVolume,
     endCallFn,
     toggleMuteFn,
     toggleHoldFn,
-    openDialpadFn
+    openDialpadFn,
+    onVolumeChangeFn,
+    onMicVolumeChangeFn
   } = useCall();
 
   if (callState === "idle" || callState === "ended") {
@@ -61,6 +68,18 @@ export function CallBar() {
   const handleOpenDialpad = () => {
     if (openDialpadFn.current) {
       openDialpadFn.current();
+    }
+  };
+
+  const handleVolumeChange = (value: number[]) => {
+    if (onVolumeChangeFn.current) {
+      onVolumeChangeFn.current(value[0]);
+    }
+  };
+
+  const handleMicVolumeChange = (value: number[]) => {
+    if (onMicVolumeChangeFn.current) {
+      onMicVolumeChangeFn.current(value[0]);
     }
   };
 
@@ -100,8 +119,13 @@ export function CallBar() {
           <div className={`w-3 h-3 rounded-full animate-pulse ${getStatusColor()}`} />
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
-              <span className="font-medium text-sm">
-                {callInfo?.callerName || callInfo?.phoneNumber || t.callBar?.unknownCaller || "Unknown"}
+              {callInfo?.callerName && (
+                <span className="font-medium text-sm">
+                  {callInfo.callerName}
+                </span>
+              )}
+              <span className={`text-sm ${callInfo?.callerName ? 'text-muted-foreground' : 'font-medium'}`}>
+                {callInfo?.phoneNumber || t.callBar?.unknownCaller || "Unknown"}
               </span>
               <Badge variant="secondary" className="text-xs">
                 {callInfo?.direction === "inbound" 
@@ -118,6 +142,36 @@ export function CallBar() {
           </div>
         </div>
         
+        <div className="flex items-center gap-4">
+          {isActive && (
+            <>
+              <div className="hidden md:flex items-center gap-2 min-w-[120px]">
+                <Volume2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <Slider
+                  value={[volume]}
+                  onValueChange={handleVolumeChange}
+                  max={100}
+                  step={1}
+                  className="w-20"
+                  data-testid="slider-volume"
+                />
+              </div>
+              
+              <div className="hidden md:flex items-center gap-2 min-w-[120px]">
+                <Mic className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <Slider
+                  value={[micVolume]}
+                  onValueChange={handleMicVolumeChange}
+                  max={100}
+                  step={1}
+                  className="w-20"
+                  data-testid="slider-mic-volume"
+                />
+              </div>
+            </>
+          )}
+        </div>
+
         <div className="flex items-center gap-2">
           {isConnecting && (
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
