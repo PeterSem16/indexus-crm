@@ -196,7 +196,7 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
       const res = await apiRequest("GET", `/api/sip-extensions/available?countryCode=${selectedSipCountry}`);
       return res.json();
     },
-    enabled: !!selectedSipCountry && (sipEnabled || !keepExistingExtension),
+    enabled: !!selectedSipCountry,
   });
   
   useEffect(() => {

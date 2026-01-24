@@ -128,7 +128,7 @@ export function UserFormWizard({ onSuccess, onCancel }: UserFormWizardProps) {
       const res = await apiRequest("GET", `/api/sip-extensions/available?countryCode=${selectedSipCountry}`);
       return res.json();
     },
-    enabled: !!selectedSipCountry && sipEnabled,
+    enabled: !!selectedSipCountry,
   });
 
   const handleExtensionSelect = async (extensionId: string) => {
