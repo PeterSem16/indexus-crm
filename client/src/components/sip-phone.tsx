@@ -1098,6 +1098,7 @@ interface SipPhoneHeaderButtonProps {
 
 export function SipPhoneHeaderButton({ user, sipContext }: SipPhoneHeaderButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const callContext = useCall();
   const { data: sipSettings } = useQuery<{
     server?: string;
     port?: number;
@@ -1109,6 +1110,14 @@ export function SipPhoneHeaderButton({ user, sipContext }: SipPhoneHeaderButtonP
     queryKey: ["/api/sip-settings"],
     retry: false,
   });
+
+  const hasActiveCall = callContext.callState !== "idle" && callContext.callState !== "ended";
+
+  useEffect(() => {
+    if (hasActiveCall && !isOpen) {
+      setIsOpen(true);
+    }
+  }, [hasActiveCall, isOpen]);
 
   if (!user?.sipEnabled || !sipSettings?.isEnabled) {
     return null;
@@ -1137,22 +1146,21 @@ export function SipPhoneHeaderButton({ user, sipContext }: SipPhoneHeaderButtonP
           <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-background" />
         )}
       </Button>
-      {isOpen && (
-        <div className="fixed bottom-4 right-4 z-50 shadow-xl">
-          <div className="relative">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsOpen(false)}
-              className="absolute -top-2 -right-2 z-10 h-6 w-6 rounded-full bg-background shadow"
-              data-testid="button-sip-phone-close"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-            <SipPhone hideSettingsAndRegistration />
-          </div>
+      <div className={`fixed bottom-4 right-4 z-50 shadow-xl ${isOpen ? 'block' : 'hidden'}`}>
+        <div className="relative">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsOpen(false)}
+            className="absolute -top-2 -right-2 z-10 h-6 w-6 rounded-full bg-background shadow"
+            data-testid="button-sip-phone-close"
+            disabled={hasActiveCall}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+          <SipPhone hideSettingsAndRegistration />
         </div>
-      )}
+      </div>
     </>
   );
 }
