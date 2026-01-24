@@ -13,8 +13,8 @@ interface SipSettingsData {
 
 export interface PendingCall {
   phoneNumber: string;
-  customerId?: number;
-  campaignId?: number;
+  customerId?: string;
+  campaignId?: string;
   customerName?: string;
   leadScore?: number;
   clientStatus?: string;

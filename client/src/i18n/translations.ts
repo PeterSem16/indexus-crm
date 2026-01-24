@@ -1912,6 +1912,11 @@ export interface Translations {
     sessionHistory: string;
     sessionHistoryDesc: string;
     showingFirst50: string;
+    showingPage: string;
+    of: string;
+    totalRecords: string;
+    first: string;
+    last: string;
     endSessionTitle: string;
     endSessionDesc: string;
     endSession: string;
@@ -4069,6 +4074,11 @@ export const translations: Record<Locale, Translations> = {
       sessionHistory: 'Session History',
       sessionHistoryDesc: 'Complete log of user login and logout activity',
       showingFirst50: 'Showing first 50 sessions. Apply filters for more specific results.',
+      showingPage: 'Page',
+      of: 'of',
+      totalRecords: 'records',
+      first: 'First',
+      last: 'Last',
       endSessionTitle: 'End Session',
       endSessionDesc: 'Are you sure you want to forcefully end this session? The user will be logged out immediately.',
       endSession: 'End Session',
@@ -6203,6 +6213,11 @@ export const translations: Record<Locale, Translations> = {
       sessionHistory: 'História relácií',
       sessionHistoryDesc: 'Kompletný záznam prihlásení a odhlásení používateľov',
       showingFirst50: 'Zobrazuje sa prvých 50 relácií. Pre presnejšie výsledky použite filtre.',
+      showingPage: 'Strana',
+      of: 'z',
+      totalRecords: 'zaznamov',
+      first: 'Prva',
+      last: 'Posledna',
       endSessionTitle: 'Ukončiť reláciu',
       endSessionDesc: 'Naozaj chcete násilne ukončiť túto reláciu? Používateľ bude okamžite odhlásený.',
       endSession: 'Ukončiť reláciu',
@@ -8285,6 +8300,11 @@ export const translations: Record<Locale, Translations> = {
       sessionHistory: 'Historie relací',
       sessionHistoryDesc: 'Kompletní záznam přihlášení a odhlášení uživatelů',
       showingFirst50: 'Zobrazuje se prvních 50 relací. Pro přesnější výsledky použijte filtry.',
+      showingPage: 'Strana',
+      of: 'z',
+      totalRecords: 'zaznamov',
+      first: 'Prvni',
+      last: 'Posledni',
       endSessionTitle: 'Ukončit relaci',
       endSessionDesc: 'Opravdu chcete násilně ukončit tuto relaci? Uživatel bude okamžitě odhlášen.',
       endSession: 'Ukončit relaci',
@@ -10367,6 +10387,11 @@ export const translations: Record<Locale, Translations> = {
       sessionHistory: 'Munkamenet előzmények',
       sessionHistoryDesc: 'A felhasználói be- és kijelentkezések teljes naplója',
       showingFirst50: 'Az első 50 munkamenet megjelenítése. Pontosabb eredményekért használja a szűrőket.',
+      showingPage: 'Oldal',
+      of: '/',
+      totalRecords: 'rekord',
+      first: 'Elso',
+      last: 'Utolso',
       endSessionTitle: 'Munkamenet befejezése',
       endSessionDesc: 'Biztosan kényszeríti a munkamenet befejezését? A felhasználó azonnal kijelentkezik.',
       endSession: 'Munkamenet befejezése',
@@ -12448,6 +12473,11 @@ export const translations: Record<Locale, Translations> = {
       sessionHistory: 'Istoric sesiuni',
       sessionHistoryDesc: 'Jurnal complet al conectărilor și deconectărilor utilizatorilor',
       showingFirst50: 'Se afișează primele 50 de sesiuni. Aplicați filtre pentru rezultate mai precise.',
+      showingPage: 'Pagina',
+      of: 'din',
+      totalRecords: 'inregistrari',
+      first: 'Prima',
+      last: 'Ultima',
       endSessionTitle: 'Închide sesiunea',
       endSessionDesc: 'Sigur doriți să încheiați forțat această sesiune? Utilizatorul va fi deconectat imediat.',
       endSession: 'Închide sesiunea',
@@ -14530,6 +14560,11 @@ export const translations: Record<Locale, Translations> = {
       sessionHistory: 'Cronologia sessioni',
       sessionHistoryDesc: 'Registro completo delle attività di login e logout degli utenti',
       showingFirst50: 'Visualizzazione delle prime 50 sessioni. Applica filtri per risultati più specifici.',
+      showingPage: 'Pagina',
+      of: 'di',
+      totalRecords: 'record',
+      first: 'Prima',
+      last: 'Ultima',
       endSessionTitle: 'Termina sessione',
       endSessionDesc: 'Sei sicuro di voler terminare forzatamente questa sessione? L\'utente verrà disconnesso immediatamente.',
       endSession: 'Termina sessione',
@@ -16612,6 +16647,11 @@ export const translations: Record<Locale, Translations> = {
       sessionHistory: 'Sitzungsverlauf',
       sessionHistoryDesc: 'Vollständiges Protokoll der Benutzeran- und abmeldungen',
       showingFirst50: 'Anzeige der ersten 50 Sitzungen. Verwenden Sie Filter für genauere Ergebnisse.',
+      showingPage: 'Seite',
+      of: 'von',
+      totalRecords: 'Eintrage',
+      first: 'Erste',
+      last: 'Letzte',
       endSessionTitle: 'Sitzung beenden',
       endSessionDesc: 'Sind Sie sicher, dass Sie diese Sitzung erzwungen beenden möchten? Der Benutzer wird sofort abgemeldet.',
       endSession: 'Sitzung beenden',

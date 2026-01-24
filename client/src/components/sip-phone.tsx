@@ -157,7 +157,7 @@ export function SipPhone({
   });
 
   const updateCallLogMutation = useMutation({
-    mutationFn: async ({ id, data, customerId }: { id: number; data: { status?: string; endedAt?: string; duration?: number; notes?: string }; customerId?: string }) => {
+    mutationFn: async ({ id, data, customerId }: { id: number; data: { status?: string; endedAt?: string; duration?: number; durationSeconds?: number; notes?: string; hungUpBy?: string }; customerId?: string }) => {
       const res = await apiRequest("PATCH", `/api/call-logs/${id}`, data);
       return res.json();
     },
@@ -1003,8 +1003,8 @@ export function SipPhone({
 
 interface SipPhoneFloatingProps {
   phoneNumber: string;
-  customerId?: number;
-  campaignId?: number;
+  customerId?: string;
+  campaignId?: string;
   customerName?: string;
   leadScore?: number;
   clientStatus?: string;
@@ -1083,8 +1083,8 @@ export function CallCustomerButton({
     if (!isRegistered) return;
     makeCall({
       phoneNumber,
-      customerId: typeof customerId === 'string' ? parseInt(customerId) : customerId,
-      campaignId: typeof campaignId === 'string' ? parseInt(campaignId) : campaignId,
+      customerId: typeof customerId === 'number' ? String(customerId) : customerId,
+      campaignId: typeof campaignId === 'number' ? String(campaignId) : campaignId,
       customerName,
       leadScore,
       clientStatus,
