@@ -127,6 +127,17 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
   
   const [selectedJiraUser, setSelectedJiraUser] = useState<string>((initialData as any)?.jiraAccountId || "");
   
+  interface SipExtensionOption {
+    id: string;
+    extension: string;
+    sipUsername: string;
+    countryCode: string;
+  }
+  
+  const [selectedExtensionId, setSelectedExtensionId] = useState<string | null>(null);
+  const [previousSipCountry, setPreviousSipCountry] = useState<string | null>(null);
+  const [keepExistingExtension, setKeepExistingExtension] = useState(isEditing && !!(initialData as any)?.sipExtension);
+  
   const activeRoles = roles.filter(r => r.isActive);
   const systemRolesWithLegacy = activeRoles.filter(r => (r as any).legacyRole);
   const hasSystemRoles = systemRolesWithLegacy.length > 0;
@@ -173,6 +184,49 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
       }
     }
   }, [hasSystemRoles, activeRoles, initialData?.role]);
+  
+  const assignedCountries = form.watch("assignedCountries");
+  const sipEnabled = form.watch("sipEnabled");
+  const selectedSipCountry = assignedCountries.length > 0 ? assignedCountries[0] : null;
+  
+  const { data: availableExtensions = [], isLoading: extensionsLoading } = useQuery<SipExtensionOption[]>({
+    queryKey: ["/api/sip-extensions/available", selectedSipCountry],
+    queryFn: async () => {
+      if (!selectedSipCountry) return [];
+      const res = await apiRequest("GET", `/api/sip-extensions/available?countryCode=${selectedSipCountry}`);
+      return res.json();
+    },
+    enabled: !!selectedSipCountry && sipEnabled,
+  });
+  
+  useEffect(() => {
+    if (selectedSipCountry !== previousSipCountry) {
+      setPreviousSipCountry(selectedSipCountry);
+      if (!isEditing) {
+        setSelectedExtensionId(null);
+        form.setValue("sipExtension", "");
+        form.setValue("sipPassword", "");
+      }
+    }
+  }, [selectedSipCountry, previousSipCountry, form, isEditing]);
+  
+  const handleExtensionSelect = async (extensionId: string) => {
+    const ext = availableExtensions.find(e => e.id === extensionId);
+    if (!ext) return;
+    
+    setSelectedExtensionId(extensionId);
+    form.setValue("sipExtension", ext.extension);
+    
+    try {
+      const res = await apiRequest("GET", `/api/sip-extensions/${extensionId}/password`);
+      if (res.ok) {
+        const { password } = await res.json();
+        form.setValue("sipPassword", password);
+      }
+    } catch (error) {
+      console.error("Failed to fetch SIP password:", error);
+    }
+  };
   
   const handleFormSubmit = (data: UserFormData) => {
     const submitData = { ...data };
@@ -890,43 +944,97 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
           />
           
           <div className="grid gap-4 sm:grid-cols-2">
-            <FormField
-              control={form.control}
-              name="sipExtension"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t.users?.sip?.extension || "Linka (Extension)"}</FormLabel>
-                  <FormControl>
-                    <Input 
-                      placeholder={t.users?.sip?.extensionPlaceholder || "1001"} 
-                      {...field}
-                      data-testid="input-sip-extension"
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    {t.users?.sip?.extensionHint || "Číslo linky pridelené v Asterisk PBX"}
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {selectedSipCountry ? (
+              <FormItem>
+                <FormLabel>{t.users.sip.extension}</FormLabel>
+                {keepExistingExtension ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 p-2 border rounded-md bg-muted/50">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-medium">{form.getValues("sipExtension")}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="ml-auto"
+                        onClick={() => setKeepExistingExtension(false)}
+                        data-testid="button-change-extension"
+                      >
+                        {t.common.change}
+                      </Button>
+                    </div>
+                    <FormDescription>{t.users.sip.currentExtensionHint}</FormDescription>
+                  </div>
+                ) : (
+                  <>
+                    <Select
+                      value={selectedExtensionId || ""}
+                      onValueChange={handleExtensionSelect}
+                    >
+                      <SelectTrigger data-testid="select-sip-extension">
+                        {extensionsLoading ? (
+                          <div className="flex items-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span>{t.common.loading}</span>
+                          </div>
+                        ) : (
+                          <SelectValue placeholder={t.users.sip.selectExtension} />
+                        )}
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableExtensions.length === 0 ? (
+                          <div className="p-2 text-sm text-muted-foreground">
+                            {t.users.sip.noAvailableExtensions}
+                          </div>
+                        ) : (
+                          availableExtensions.map((ext) => (
+                            <SelectItem key={ext.id} value={ext.id}>
+                              {ext.extension} ({ext.countryCode})
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>{t.users.sip.selectExtensionHint}</FormDescription>
+                  </>
+                )}
+                <FormField
+                  control={form.control}
+                  name="sipExtension"
+                  render={({ field }) => (
+                    <Input type="hidden" {...field} />
+                  )}
+                />
+              </FormItem>
+            ) : (
+              <FormItem>
+                <FormLabel>{t.users.sip.extension}</FormLabel>
+                <div className="text-sm text-muted-foreground p-2 border rounded-md bg-muted/50">
+                  {t.users.sip.selectCountryFirst}
+                </div>
+              </FormItem>
+            )}
 
             <FormField
               control={form.control}
               name="sipPassword"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t.users?.sip?.password || "Heslo"}</FormLabel>
+                  <FormLabel>{t.users.sip.password}</FormLabel>
                   <FormControl>
                     <Input 
                       type="password"
-                      placeholder={t.users?.sip?.passwordPlaceholder || "••••••••"} 
+                      placeholder="••••••••"
                       {...field}
+                      readOnly={!!selectedExtensionId || keepExistingExtension}
+                      className={(selectedExtensionId || keepExistingExtension) ? "bg-muted" : ""}
                       data-testid="input-sip-password"
                     />
                   </FormControl>
                   <FormDescription>
-                    {t.users?.sip?.passwordHint || "Heslo pre autentifikáciu SIP linky"}
+                    {(selectedExtensionId || keepExistingExtension)
+                      ? t.users.sip.passwordAutoFilled
+                      : t.users.sip.passwordHint}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

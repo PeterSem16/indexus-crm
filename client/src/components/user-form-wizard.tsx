@@ -45,7 +45,7 @@ const userFormSchema = z.object({
   roleId: z.string().optional(),
   isActive: z.boolean(),
   assignedCountries: z.array(z.string()).min(1, "Vyberte aspoň jednu krajinu"),
-  sipEnabled: z.boolean().optional(),
+  sipEnabled: z.boolean().default(false),
   sipExtension: z.string().optional(),
   sipPassword: z.string().optional(),
   sipDisplayName: z.string().optional(),
@@ -518,7 +518,7 @@ export function UserFormWizard({ onSuccess, onCancel }: UserFormWizardProps) {
             </div>
             <FormControl>
               <Switch
-                checked={field.value}
+                checked={!!field.value}
                 onCheckedChange={field.onChange}
                 data-testid="wizard-switch-sip-enabled"
               />
