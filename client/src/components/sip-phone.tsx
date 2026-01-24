@@ -147,18 +147,26 @@ export function SipPhone({
       const res = await apiRequest("POST", "/api/call-logs", data);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/call-logs"] });
+      if (variables.customerId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "call-logs"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/customers", Number(variables.customerId), "call-logs"] });
+      }
     }
   });
 
   const updateCallLogMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: { status?: string; endedAt?: string; duration?: number; notes?: string } }) => {
+    mutationFn: async ({ id, data, customerId }: { id: number; data: { status?: string; endedAt?: string; duration?: number; notes?: string }; customerId?: string }) => {
       const res = await apiRequest("PATCH", `/api/call-logs/${id}`, data);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/call-logs"] });
+      if (variables.customerId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "call-logs"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/customers", Number(variables.customerId), "call-logs"] });
+      }
     }
   });
 
@@ -306,7 +314,8 @@ export function SipPhone({
             setCallState("ringing");
             updateCallLogMutation.mutate({
               id: callLogId,
-              data: { status: "ringing" }
+              data: { status: "ringing" },
+              customerId: localCustomerId
             });
             break;
           case SessionState.Established:
@@ -317,7 +326,8 @@ export function SipPhone({
             }, 1000);
             updateCallLogMutation.mutate({
               id: callLogId,
-              data: { status: "answered" }
+              data: { status: "answered" },
+              customerId: localCustomerId
             });
             onCallStart?.(phoneNumber, callLogId);
             setupAudio(inviter);
@@ -339,7 +349,8 @@ export function SipPhone({
                 endedAt: new Date().toISOString(),
                 durationSeconds: duration,
                 hungUpBy
-              }
+              },
+              customerId: localCustomerId
             });
             onCallEnd?.(duration, duration > 0 ? "completed" : "failed", callLogId);
             setCurrentCallLogId(null);
@@ -360,7 +371,8 @@ export function SipPhone({
           data: { 
             status: "failed",
             endedAt: new Date().toISOString()
-          }
+          },
+          customerId: localCustomerId
         });
         setCurrentCallLogId(null);
       }
@@ -477,7 +489,8 @@ export function SipPhone({
                 status: "cancelled",
                 endedAt: new Date().toISOString(),
                 hungUpBy: "user"
-              }
+              },
+              customerId: localCustomerId
             });
             setCurrentCallLogId(null);
           }
