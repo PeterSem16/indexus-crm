@@ -1,0 +1,137 @@
+// sip-hold.js
+// SIP.js 0.21.x - implementácia HOLD/UNHOLD cez re-INVITE (session.invite)
+// Použitie: await holdToggle(session)
+
+function sdpSetDirection(sdp, direction /* 'sendonly'|'inactive'|'sendrecv' */) {
+  if (!sdp || typeof sdp !== "string") return sdp;
+
+  const lines = sdp.split(/\r\n/);
+
+  let inAudio = false;
+  let audioHasDirection = false;
+
+  const isDirection = (l) =>
+    l === "a=sendrecv" || l === "a=sendonly" || l === "a=recvonly" || l === "a=inactive";
+
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    if (line.startsWith("m=audio")) {
+      inAudio = true;
+      audioHasDirection = false;
+      out.push(line);
+      continue;
+    }
+
+    if (line.startsWith("m=") && !line.startsWith("m=audio")) {
+      // Koniec audio sekcie - ak v audio nebol direction, doplníme
+      if (inAudio && !audioHasDirection) {
+        out.push(`a=${direction}`);
+      }
+      inAudio = false;
+      out.push(line);
+      continue;
+    }
+
+    if (inAudio && isDirection(line)) {
+      audioHasDirection = true;
+      out.push(`a=${direction}`);
+      continue;
+    }
+
+    out.push(line);
+  }
+
+  // Ak SDP končí v audio sekcii, doplníme direction na konci
+  if (inAudio && !audioHasDirection) {
+    out.push(`a=${direction}`);
+  }
+
+  return out.join("\r\n");
+}
+
+// SDP modifier pre HOLD (sendonly alebo inactive)
+function holdModifier(description) {
+  // description = { body: 'sdp...', contentType: 'application/sdp' }
+  if (!description || !description.body) return description;
+  const newBody = sdpSetDirection(description.body, "sendonly"); // alebo "inactive"
+  return {
+    ...description,
+    body: newBody
+  };
+}
+
+// SDP modifier pre UNHOLD (sendrecv)
+function unholdModifier(description) {
+  if (!description || !description.body) return description;
+  const newBody = sdpSetDirection(description.body, "sendrecv");
+  return {
+    ...description,
+    body: newBody
+  };
+}
+
+function setLocalMicEnabled(session, enabled) {
+  try {
+    const sdh = session.sessionDescriptionHandler;
+    if (!sdh || !sdh.peerConnection) return;
+    const pc = sdh.peerConnection;
+    pc.getSenders().forEach((sender) => {
+      if (sender && sender.track && sender.track.kind === "audio") {
+        sender.track.enabled = !!enabled;
+      }
+    });
+  } catch (e) {
+    // ignore
+  }
+}
+
+async function sendReinviteWithModifier(session, modifier) {
+  if (!session) throw new Error("No session");
+  // SIP.js 0.21.x: session.invite() = re-INVITE na existujúcej session
+  // Pozor: to nie je "createInvite", ale re-INVITE
+  return session.invite({
+    // niekedy pomôže explicitne
+    requestOptions: {
+      extraHeaders: []
+    },
+    sessionDescriptionHandlerModifiers: [modifier]
+  });
+}
+
+async function hold(session) {
+  // lokálne stlm mikrofón (voliteľné)
+  setLocalMicEnabled(session, false);
+
+  // re-INVITE s SDP sendonly
+  await sendReinviteWithModifier(session, holdModifier);
+  session.__isHeld = true;
+}
+
+async function unhold(session) {
+  // re-INVITE s SDP sendrecv
+  await sendReinviteWithModifier(session, unholdModifier);
+
+  // po unholde znovu zapni mikrofón
+  setLocalMicEnabled(session, true);
+
+  session.__isHeld = false;
+}
+
+async function holdToggle(session) {
+  if (!session) return;
+  const held = !!session.__isHeld;
+  if (held) {
+    await unhold(session);
+  } else {
+    await hold(session);
+  }
+}
+
+// exporty
+module.exports = {
+  hold,
+  unhold,
+  holdToggle
+};

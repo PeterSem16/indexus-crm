@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { UserAgent, Registerer, RegistererState, Inviter, Session, SessionState } from "sip.js";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { holdToggle as sipHoldToggle, isHeld as sipIsHeld } from "@/lib/sip-hold";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -369,6 +370,7 @@ export function SipPhone({
             break;
           case SessionState.Established:
             setCallState("active");
+            setIsOnHold(false);
             callStartTimeRef.current = Date.now();
             callTimerRef.current = setInterval(() => {
               setCallDuration(Math.floor((Date.now() - callStartTimeRef.current) / 1000));
@@ -601,36 +603,28 @@ export function SipPhone({
   }, [isMuted]);
 
   const toggleHold = useCallback(async () => {
-    if (!sessionRef.current || sessionRef.current.state !== SessionState.Established) return;
-
-    try {
-      const sessionDescriptionHandler = sessionRef.current.sessionDescriptionHandler;
-      if (!sessionDescriptionHandler) return;
-
-      const peerConnection = (sessionDescriptionHandler as any).peerConnection as RTCPeerConnection;
-      if (!peerConnection) return;
-
-      if (isOnHold) {
-        peerConnection.getSenders().forEach((sender) => {
-          if (sender.track) {
-            sender.track.enabled = true;
-          }
-        });
-        setIsOnHold(false);
-        setCallState("active");
-      } else {
-        peerConnection.getSenders().forEach((sender) => {
-          if (sender.track) {
-            sender.track.enabled = false;
-          }
-        });
-        setIsOnHold(true);
-        setCallState("on_hold");
-      }
-    } catch (error) {
-      console.error("Hold error:", error);
+    if (!sessionRef.current || sessionRef.current.state !== SessionState.Established) {
+      console.warn("[SIP] Cannot toggle hold - no active established session");
+      return;
     }
-  }, [isOnHold]);
+
+    const previousHoldState = sipIsHeld(sessionRef.current);
+    
+    try {
+      const nowHeld = await sipHoldToggle(sessionRef.current);
+      setIsOnHold(nowHeld);
+      setCallState(nowHeld ? "on_hold" : "active");
+    } catch (error) {
+      console.error("[SIP] Hold toggle error:", error);
+      setIsOnHold(previousHoldState);
+      setCallState(previousHoldState ? "on_hold" : "active");
+      toast({
+        title: "Hold error",
+        description: "Failed to toggle hold state via re-INVITE",
+        variant: "destructive"
+      });
+    }
+  }, [toast]);
 
   useEffect(() => {
     callContext.endCallFn.current = endCall;
