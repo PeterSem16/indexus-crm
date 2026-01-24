@@ -1,73 +1,40 @@
 import type { Session } from "sip.js";
 
-interface SessionDescriptionWithBody {
-  body: string;
-  contentType: string;
+interface SessionDescription {
+  sdp?: string;
+  type?: string;
 }
 
-function sdpSetDirection(sdp: string, direction: "sendonly" | "inactive" | "sendrecv"): string {
-  if (!sdp || typeof sdp !== "string") return sdp;
+function sdpHoldModifier(description: SessionDescription): Promise<SessionDescription> {
+  if (!description || !description.sdp) return Promise.resolve(description);
 
-  const lines = sdp.split(/\r\n/);
+  let sdp = description.sdp;
+  
+  sdp = sdp.replace(/a=sendrecv/g, "a=sendonly");
 
-  let inAudio = false;
-  let audioHasDirection = false;
-
-  const isDirection = (l: string) =>
-    l === "a=sendrecv" || l === "a=sendonly" || l === "a=recvonly" || l === "a=inactive";
-
-  const out: string[] = [];
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-
-    if (line.startsWith("m=audio")) {
-      inAudio = true;
-      audioHasDirection = false;
-      out.push(line);
-      continue;
-    }
-
-    if (line.startsWith("m=") && !line.startsWith("m=audio")) {
-      if (inAudio && !audioHasDirection) {
-        out.push(`a=${direction}`);
-      }
-      inAudio = false;
-      out.push(line);
-      continue;
-    }
-
-    if (inAudio && isDirection(line)) {
-      audioHasDirection = true;
-      out.push(`a=${direction}`);
-      continue;
-    }
-
-    out.push(line);
+  if (!/a=(sendonly|inactive|recvonly)/.test(sdp)) {
+    sdp = sdp.replace(/(\r\nm=audio[^\r\n]*\r\n)/, (m) => m + "a=sendonly\r\n");
   }
 
-  if (inAudio && !audioHasDirection) {
-    out.push(`a=${direction}`);
-  }
+  console.log("[SIP Hold] Modified SDP for HOLD - replaced sendrecv with sendonly");
 
-  return out.join("\r\n");
+  return Promise.resolve({
+    ...description,
+    sdp
+  });
 }
 
-function holdModifier(description: SessionDescriptionWithBody): SessionDescriptionWithBody {
-  if (!description || !description.body) return description;
-  const newBody = sdpSetDirection(description.body, "sendonly");
-  return {
-    ...description,
-    body: newBody
-  };
-}
+function sdpUnholdModifier(description: SessionDescription): Promise<SessionDescription> {
+  if (!description || !description.sdp) return Promise.resolve(description);
 
-function unholdModifier(description: SessionDescriptionWithBody): SessionDescriptionWithBody {
-  if (!description || !description.body) return description;
-  const newBody = sdpSetDirection(description.body, "sendrecv");
-  return {
+  const sdp = description.sdp.replace(/a=sendonly|a=inactive|a=recvonly/g, "a=sendrecv");
+
+  console.log("[SIP Hold] Modified SDP for UNHOLD - replaced sendonly with sendrecv");
+
+  return Promise.resolve({
     ...description,
-    body: newBody
-  };
+    sdp
+  });
 }
 
 function setLocalMicEnabled(session: Session, enabled: boolean): void {
@@ -87,7 +54,7 @@ function setLocalMicEnabled(session: Session, enabled: boolean): void {
 
 async function sendReinviteWithModifier(
   session: Session, 
-  modifier: (desc: SessionDescriptionWithBody) => SessionDescriptionWithBody
+  modifier: (desc: SessionDescription) => Promise<SessionDescription>
 ): Promise<void> {
   if (!session) throw new Error("No session");
   
@@ -95,6 +62,8 @@ async function sendReinviteWithModifier(
   if (typeof sessionAny.invite !== "function") {
     throw new Error("Session does not support re-INVITE");
   }
+  
+  console.log("[SIP Hold] Sending re-INVITE with SDP modifier");
   
   return sessionAny.invite({
     requestOptions: {
@@ -110,9 +79,9 @@ export async function hold(session: Session): Promise<void> {
   setLocalMicEnabled(session, false);
   
   try {
-    await sendReinviteWithModifier(session, holdModifier);
+    await sendReinviteWithModifier(session, sdpHoldModifier);
     (session as any).__isHeld = true;
-    console.log("[SIP Hold] Call placed on hold via re-INVITE");
+    console.log("[SIP Hold] Call placed on hold via re-INVITE with sendonly SDP");
   } catch (error) {
     setLocalMicEnabled(session, !wasHeld);
     console.error("[SIP Hold] Failed to place call on hold:", error);
@@ -124,10 +93,10 @@ export async function unhold(session: Session): Promise<void> {
   const wasHeld = !!(session as any).__isHeld;
   
   try {
-    await sendReinviteWithModifier(session, unholdModifier);
+    await sendReinviteWithModifier(session, sdpUnholdModifier);
     setLocalMicEnabled(session, true);
     (session as any).__isHeld = false;
-    console.log("[SIP Hold] Call resumed via re-INVITE");
+    console.log("[SIP Hold] Call resumed via re-INVITE with sendrecv SDP");
   } catch (error) {
     if (wasHeld) {
       setLocalMicEnabled(session, false);
