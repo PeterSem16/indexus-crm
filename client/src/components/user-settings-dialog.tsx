@@ -301,6 +301,13 @@ function UserActivityTab() {
   );
 }
 
+interface SipExtensionOption {
+  id: string;
+  extension: string;
+  sipUsername: string;
+  countryCode: string;
+}
+
 function UserSipProfileTab({ showSipPhone }: { showSipPhone?: boolean }) {
   const { t } = useI18n();
   const { toast } = useToast();
@@ -317,12 +324,44 @@ function UserSipProfileTab({ showSipPhone }: { showSipPhone?: boolean }) {
   const [sipDisplayName, setSipDisplayName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [localRegistering, setLocalRegistering] = useState(false);
+  const [isChangingExtension, setIsChangingExtension] = useState(false);
+  const [selectedExtensionId, setSelectedExtensionId] = useState<string | null>(null);
   const registerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const { data: sipSettings } = useQuery<SipSettingsData | null>({
     queryKey: ["/api/sip-settings"],
     retry: false,
   });
+
+  const userCountry = (user as any)?.assignedCountries?.[0] || null;
+  
+  const { data: availableExtensions = [], isLoading: extensionsLoading } = useQuery<SipExtensionOption[]>({
+    queryKey: ["/api/sip-extensions/available", userCountry],
+    queryFn: async () => {
+      if (!userCountry) return [];
+      const res = await apiRequest("GET", `/api/sip-extensions/available?countryCode=${userCountry}`);
+      return res.json();
+    },
+    enabled: !!userCountry && isChangingExtension,
+  });
+
+  const handleExtensionSelect = async (extensionId: string) => {
+    const ext = availableExtensions.find(e => e.id === extensionId);
+    if (!ext) return;
+    
+    setSelectedExtensionId(extensionId);
+    setSipExtension(ext.extension);
+    
+    try {
+      const res = await apiRequest("GET", `/api/sip-extensions/${extensionId}/password`);
+      if (res.ok) {
+        const { password } = await res.json();
+        setSipPassword(password);
+      }
+    } catch (error) {
+      console.error("Failed to fetch SIP password:", error);
+    }
+  };
 
   useEffect(() => {
     if (user) {
@@ -499,17 +538,90 @@ function UserSipProfileTab({ showSipPhone }: { showSipPhone?: boolean }) {
           {/* Form fields */}
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="userSipExtension">{t.settings.sipProfile.extension}</Label>
-              <Input
-                id="userSipExtension"
-                value={sipExtension}
-                onChange={(e) => setSipExtension(e.target.value)}
-                placeholder="1001"
-                data-testid="input-user-sip-extension"
-              />
-              <p className="text-xs text-muted-foreground">
-                {t.settings.sipProfile.extensionHelp}
-              </p>
+              <Label>{t.settings.sipProfile.extension}</Label>
+              {!isChangingExtension && sipExtension ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 p-2 border rounded-md bg-muted/50">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium">{sipExtension}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="ml-auto"
+                      onClick={() => setIsChangingExtension(true)}
+                      data-testid="button-change-extension"
+                    >
+                      {t.common.change}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {t.settings.sipProfile.extensionHelp}
+                  </p>
+                </div>
+              ) : isChangingExtension && userCountry ? (
+                <div className="space-y-2">
+                  <Select
+                    value={selectedExtensionId || ""}
+                    onValueChange={handleExtensionSelect}
+                  >
+                    <SelectTrigger data-testid="select-sip-extension">
+                      {extensionsLoading ? (
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>{t.common.loading}</span>
+                        </div>
+                      ) : (
+                        <SelectValue placeholder={t.users?.sip?.selectExtension || "Select extension"} />
+                      )}
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableExtensions.length === 0 ? (
+                        <div className="p-2 text-sm text-muted-foreground">
+                          {t.users?.sip?.noAvailableExtensions || "No available extensions"}
+                        </div>
+                      ) : (
+                        availableExtensions.map((ext) => (
+                          <SelectItem key={ext.id} value={ext.id}>
+                            {ext.extension} ({ext.countryCode})
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <div className="flex gap-2">
+                    {sipExtension && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setIsChangingExtension(false);
+                          setSelectedExtensionId(null);
+                          setSipExtension((user as any)?.sipExtension || "");
+                          setSipPassword((user as any)?.sipPassword || "");
+                        }}
+                        data-testid="button-cancel-change-extension"
+                      >
+                        {t.common.cancel}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Input
+                    id="userSipExtension"
+                    value={sipExtension}
+                    onChange={(e) => setSipExtension(e.target.value)}
+                    placeholder="1001"
+                    data-testid="input-user-sip-extension"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {t.settings.sipProfile.extensionHelp}
+                  </p>
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="userSipPassword">{t.settings.sipProfile.password}</Label>
