@@ -67,6 +67,20 @@ export interface Translations {
     refreshData: string;
     dataRefreshed: string;
   };
+  callBar: {
+    connecting: string;
+    ringing: string;
+    active: string;
+    onHold: string;
+    unknownCaller: string;
+    inbound: string;
+    outbound: string;
+    mute: string;
+    unmute: string;
+    hold: string;
+    resume: string;
+    endCall: string;
+  };
   common: {
     save: string;
     cancel: string;
@@ -1963,6 +1977,20 @@ export const translations: Record<Locale, Translations> = {
       downloadError: 'Failed to download report',
       refreshData: 'Refresh',
       dataRefreshed: 'Data refreshed successfully',
+    },
+    callBar: {
+      connecting: 'Connecting...',
+      ringing: 'Ringing...',
+      active: 'Active call',
+      onHold: 'On hold',
+      unknownCaller: 'Unknown',
+      inbound: 'Inbound',
+      outbound: 'Outbound',
+      mute: 'Mute',
+      unmute: 'Unmute',
+      hold: 'Hold',
+      resume: 'Resume',
+      endCall: 'End call',
     },
     common: {
       save: 'Save',
@@ -6179,6 +6207,20 @@ export const translations: Record<Locale, Translations> = {
       dataRefreshed: 'Údaje boli úspešne obnovené',
       refreshError: 'Nepodarilo sa obnoviť údaje',
     },
+    callBar: {
+      connecting: 'Pripájam...',
+      ringing: 'Vyzváňa...',
+      active: 'Aktívny hovor',
+      onHold: 'Podržaný',
+      unknownCaller: 'Neznámy',
+      inbound: 'Prichádzajúci',
+      outbound: 'Odchádzajúci',
+      mute: 'Stlmiť',
+      unmute: 'Zrušiť stlmenie',
+      hold: 'Podržať',
+      resume: 'Pokračovať',
+      endCall: 'Ukončiť hovor',
+    },
   },
   cs: {
     nav: {
@@ -8244,6 +8286,20 @@ export const translations: Record<Locale, Translations> = {
       sessionEndError: 'Nepodařilo se ukončit relaci',
       dataRefreshed: 'Data byla úspěšně obnovena',
       refreshError: 'Nepodařilo se obnovit data',
+    },
+    callBar: {
+      connecting: 'Připojuji...',
+      ringing: 'Vyzvání...',
+      active: 'Aktivní hovor',
+      onHold: 'Podrženo',
+      unknownCaller: 'Neznámý',
+      inbound: 'Příchozí',
+      outbound: 'Odchozí',
+      mute: 'Ztlumit',
+      unmute: 'Zrušit ztlumení',
+      hold: 'Podržet',
+      resume: 'Pokračovat',
+      endCall: 'Ukončit hovor',
     },
   },
   hu: {
@@ -10311,6 +10367,20 @@ export const translations: Record<Locale, Translations> = {
       dataRefreshed: 'Az adatok sikeresen frissültek',
       refreshError: 'Nem sikerült frissíteni az adatokat',
     },
+    callBar: {
+      connecting: 'Csatlakozás...',
+      ringing: 'Csörög...',
+      active: 'Aktív hívás',
+      onHold: 'Tartva',
+      unknownCaller: 'Ismeretlen',
+      inbound: 'Bejövő',
+      outbound: 'Kimenő',
+      mute: 'Némítás',
+      unmute: 'Némítás feloldása',
+      hold: 'Tartás',
+      resume: 'Folytatás',
+      endCall: 'Hívás befejezése',
+    },
   },
   ro: {
     nav: {
@@ -12375,6 +12445,20 @@ export const translations: Record<Locale, Translations> = {
       sessionEndError: 'Nu s-a putut încheia sesiunea',
       dataRefreshed: 'Datele au fost actualizate cu succes',
       refreshError: 'Nu s-au putut actualiza datele',
+    },
+    callBar: {
+      connecting: 'Se conectează...',
+      ringing: 'Sună...',
+      active: 'Apel activ',
+      onHold: 'În așteptare',
+      unknownCaller: 'Necunoscut',
+      inbound: 'Primit',
+      outbound: 'Efectuat',
+      mute: 'Dezactivare sunet',
+      unmute: 'Activare sunet',
+      hold: 'Așteptare',
+      resume: 'Reluare',
+      endCall: 'Încheiere apel',
     },
   },
   it: {
@@ -14442,6 +14526,20 @@ export const translations: Record<Locale, Translations> = {
       dataRefreshed: 'Dati aggiornati con successo',
       refreshError: 'Impossibile aggiornare i dati',
     },
+    callBar: {
+      connecting: 'Connessione...',
+      ringing: 'Squilla...',
+      active: 'Chiamata attiva',
+      onHold: 'In attesa',
+      unknownCaller: 'Sconosciuto',
+      inbound: 'In entrata',
+      outbound: 'In uscita',
+      mute: 'Disattiva audio',
+      unmute: 'Attiva audio',
+      hold: 'Attesa',
+      resume: 'Riprendi',
+      endCall: 'Termina chiamata',
+    },
   },
   de: {
     nav: {
@@ -16507,6 +16605,20 @@ export const translations: Record<Locale, Translations> = {
       sessionEndError: 'Sitzung konnte nicht beendet werden',
       dataRefreshed: 'Daten erfolgreich aktualisiert',
       refreshError: 'Daten konnten nicht aktualisiert werden',
+    },
+    callBar: {
+      connecting: 'Verbindung wird hergestellt...',
+      ringing: 'Klingelt...',
+      active: 'Aktiver Anruf',
+      onHold: 'Gehalten',
+      unknownCaller: 'Unbekannt',
+      inbound: 'Eingehend',
+      outbound: 'Ausgehend',
+      mute: 'Stumm',
+      unmute: 'Stummschaltung aufheben',
+      hold: 'Halten',
+      resume: 'Fortsetzen',
+      endCall: 'Anruf beenden',
     },
   },
 };

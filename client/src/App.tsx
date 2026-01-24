@@ -10,6 +10,8 @@ import { CountryFilterProvider, useCountryFilter } from "@/contexts/country-filt
 import { AuthProvider, useAuth } from "@/contexts/auth-context";
 import { PermissionsProvider } from "@/contexts/permissions-context";
 import { SipProvider, useSip } from "@/contexts/sip-context";
+import { CallProvider } from "@/contexts/call-context";
+import { CallBar } from "@/components/call-bar";
 import { I18nProvider } from "@/i18n";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -118,7 +120,9 @@ function AuthenticatedApp() {
         <I18nWrapper userCountries={user?.assignedCountries || []}>
           <ChatProvider>
           <TourProvider>
+          <CallProvider>
           <SidebarProvider defaultOpen={true} style={style as React.CSSProperties}>
+          <CallBar />
           <div className="flex h-screen w-full">
             <AppSidebar />
             <div className="flex flex-col flex-1 overflow-hidden">
@@ -175,6 +179,7 @@ function AuthenticatedApp() {
           </div>
           <ChatContainer />
           </SidebarProvider>
+          </CallProvider>
           </TourProvider>
           </ChatProvider>
           <Toaster />

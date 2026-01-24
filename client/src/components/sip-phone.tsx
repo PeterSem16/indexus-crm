@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { useSip } from "@/contexts/sip-context";
+import { useCall, type CallState as GlobalCallState } from "@/contexts/call-context";
 import { 
   Phone, 
   PhoneOff, 
@@ -75,10 +76,29 @@ export function SipPhone({
 }: SipPhoneProps) {
   const { toast } = useToast();
   const { isRegistered, isRegistering, registrationError, register, unregister, userAgentRef, registererRef } = useSip();
-  const [callState, setCallState] = useState<CallState>("idle");
+  const callContext = useCall();
+  const [callState, setCallStateLocal] = useState<CallState>("idle");
   const [phoneNumber, setPhoneNumber] = useState(initialNumber);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isOnHold, setIsOnHold] = useState(false);
+  const [isMutedLocal, setIsMutedLocal] = useState(false);
+  const [isOnHoldLocal, setIsOnHoldLocal] = useState(false);
+  
+  const setCallState = useCallback((state: CallState) => {
+    setCallStateLocal(state);
+    callContext.setCallState(state as GlobalCallState);
+  }, [callContext]);
+  
+  const setIsMuted = useCallback((muted: boolean) => {
+    setIsMutedLocal(muted);
+    callContext.setIsMuted(muted);
+  }, [callContext]);
+  
+  const setIsOnHold = useCallback((hold: boolean) => {
+    setIsOnHoldLocal(hold);
+    callContext.setIsOnHold(hold);
+  }, [callContext]);
+  
+  const isMuted = isMutedLocal;
+  const isOnHold = isOnHoldLocal;
   const [volume, setVolume] = useState(80);
   const [micVolume, setMicVolume] = useState(100);
   const [callDuration, setCallDuration] = useState(0);
@@ -514,6 +534,28 @@ export function SipPhone({
       console.error("Hold error:", error);
     }
   }, [isOnHold]);
+
+  useEffect(() => {
+    callContext.endCallFn.current = endCall;
+    callContext.toggleMuteFn.current = toggleMute;
+    callContext.toggleHoldFn.current = toggleHold;
+  }, [endCall, toggleMute, toggleHold, callContext]);
+
+  useEffect(() => {
+    if (callState !== "idle" && callState !== "ended") {
+      callContext.setCallInfo({
+        phoneNumber,
+        callerName: customerName,
+        customerId,
+        campaignId,
+        direction: "outbound",
+        callLogId: currentCallLogId ?? undefined,
+      });
+      callContext.setCallDuration(callDuration);
+    } else {
+      callContext.setCallInfo(null);
+    }
+  }, [callState, phoneNumber, customerName, customerId, campaignId, currentCallLogId, callDuration, callContext]);
 
   const handleVolumeChange = useCallback((value: number[]) => {
     const vol = value[0];
