@@ -474,6 +474,8 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel }: Cus
                             phoneNumber={field.value}
                             customerId={initialData.id}
                             customerName={`${initialData.firstName} ${initialData.lastName}`}
+                            leadScore={initialData.leadScore}
+                            clientStatus={initialData.clientStatus}
                             variant="icon"
                           />
                         )}
@@ -505,6 +507,8 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel }: Cus
                             phoneNumber={field.value}
                             customerId={initialData.id}
                             customerName={`${initialData.firstName} ${initialData.lastName}`}
+                            leadScore={initialData.leadScore}
+                            clientStatus={initialData.clientStatus}
                             variant="icon"
                           />
                         )}
@@ -536,6 +540,8 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel }: Cus
                             phoneNumber={field.value}
                             customerId={initialData.id}
                             customerName={`${initialData.firstName} ${initialData.lastName}`}
+                            leadScore={initialData.leadScore}
+                            clientStatus={initialData.clientStatus}
                             variant="icon"
                           />
                         )}

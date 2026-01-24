@@ -2699,6 +2699,8 @@ function CustomerDetailsContent({
                   phoneNumber={customer.phone}
                   customerId={customer.id}
                   customerName={`${customer.firstName} ${customer.lastName}`}
+                  leadScore={customer.leadScore}
+                  clientStatus={customer.clientStatus}
                   variant="icon"
                 />
               )}
@@ -3049,6 +3051,8 @@ function CustomerDetailsContent({
                   phoneNumber={customer.phone}
                   customerId={customer.id}
                   customerName={`${customer.firstName} ${customer.lastName}`}
+                  leadScore={customer.leadScore}
+                  clientStatus={customer.clientStatus}
                 />
               </div>
             ) : (
@@ -4866,6 +4870,8 @@ export default function CustomersPage() {
               phoneNumber={customer.phone}
               customerId={customer.id}
               customerName={`${customer.firstName} ${customer.lastName}`}
+              leadScore={customer.leadScore}
+              clientStatus={customer.clientStatus}
               variant="icon"
             />
           )}

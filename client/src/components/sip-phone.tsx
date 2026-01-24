@@ -993,13 +993,17 @@ interface SipPhoneFloatingProps {
   customerId?: number;
   campaignId?: number;
   customerName?: string;
+  leadScore?: number;
+  clientStatus?: string;
 }
 
 export function SipPhoneFloating({ 
   phoneNumber,
   customerId, 
   campaignId, 
-  customerName 
+  customerName,
+  leadScore,
+  clientStatus
 }: SipPhoneFloatingProps) {
   const { makeCall, isRegistered } = useSip();
 
@@ -1012,6 +1016,8 @@ export function SipPhoneFloating({
       customerId,
       campaignId,
       customerName,
+      leadScore,
+      clientStatus,
     });
   };
 
@@ -1037,6 +1043,8 @@ interface CallCustomerButtonProps {
   customerName?: string;
   campaignId?: string | number;
   variant?: "icon" | "default" | "small";
+  leadScore?: number;
+  clientStatus?: string;
 }
 
 export function CallCustomerButton({ 
@@ -1044,7 +1052,9 @@ export function CallCustomerButton({
   customerId, 
   customerName, 
   campaignId,
-  variant = "default" 
+  variant = "default",
+  leadScore,
+  clientStatus
 }: CallCustomerButtonProps) {
   const { makeCall, isRegistered } = useSip();
   const { data: authData } = useQuery<{ user: User | null }>({
@@ -1063,6 +1073,8 @@ export function CallCustomerButton({
       customerId: typeof customerId === 'string' ? parseInt(customerId) : customerId,
       campaignId: typeof campaignId === 'string' ? parseInt(campaignId) : campaignId,
       customerName,
+      leadScore,
+      clientStatus,
     });
   };
 
