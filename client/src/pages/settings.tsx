@@ -7,7 +7,7 @@ import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/auth-context";
 import { COUNTRIES, type ComplaintType, type CooperationType, type VipStatus, type HealthInsurance, type LeadScoringCriteria } from "@shared/schema";
 import { Separator } from "@/components/ui/separator";
-import { Droplets, Globe, Shield, Save, Loader2, Plus, Trash2, Settings2, Heart, FlaskConical, Pencil, Star, Target, RefreshCw, Phone } from "lucide-react";
+import { Droplets, Globe, Shield, Save, Loader2, Plus, Trash2, Settings2, Heart, FlaskConical, Pencil, Star, Target, RefreshCw, Phone, Upload, FileText, CheckCircle, AlertCircle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -774,14 +774,46 @@ interface SipSettingsData {
 function SipSettingsTab() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { t } = useI18n();
   
   const [formData, setFormData] = useState<SipSettingsFormData>(defaultSipSettings);
   const [isSaving, setIsSaving] = useState(false);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [importResult, setImportResult] = useState<{created: number; updated: number; errors?: string[]} | null>(null);
 
   const { data: sipSettings, isLoading: loadingSettings } = useQuery<SipSettingsData | null>({
     queryKey: ["/api/sip-settings"],
     retry: false,
   });
+
+  const importMutation = useMutation({
+    mutationFn: async (csvData: string) => {
+      const response = await apiRequest("POST", "/api/sip-extensions/import-csv", { csvData });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setImportResult(data);
+      setCsvFile(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/sip-extensions/available"] });
+      toast({ 
+        title: t.success.saved,
+        description: `${data.created} ${t.common.created}, ${data.updated} ${t.common.updated}`
+      });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: t.errors.saveFailed, 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const handleCsvUpload = async () => {
+    if (!csvFile) return;
+    const text = await csvFile.text();
+    importMutation.mutate(text);
+  };
 
   useEffect(() => {
     if (sipSettings) {
@@ -973,6 +1005,100 @@ function SipSettingsTab() {
           )}
         </CardContent>
       </Card>
+
+      {isAdmin && (
+        <Card>
+          <CardHeader className="flex flex-row items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+              <Upload className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <CardTitle>{t.settings.sipImport?.title || "Import SIP liniek"}</CardTitle>
+              <CardDescription>
+                {t.settings.sipImport?.description || "Nahrajte CSV súbor s extensions, krajinami a heslami"}
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>{t.settings.sipImport?.csvFile || "CSV súbor"}</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="file"
+                  accept=".csv"
+                  onChange={(e) => {
+                    setCsvFile(e.target.files?.[0] || null);
+                    setImportResult(null);
+                  }}
+                  className="flex-1"
+                  data-testid="input-csv-upload"
+                />
+                <Button
+                  onClick={handleCsvUpload}
+                  disabled={!csvFile || importMutation.isPending}
+                  data-testid="button-import-csv"
+                >
+                  {importMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {t.common.loading}
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="mr-2 h-4 w-4" />
+                      {t.settings.sipImport?.importButton || "Importovať"}
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {importResult && (
+              <div className="rounded-lg bg-muted/50 p-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                  <span className="font-medium">{t.settings.sipImport?.importComplete || "Import dokončený"}</span>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  <p>{t.settings.sipImport?.created || "Vytvorených"}: {importResult.created}</p>
+                  <p>{t.settings.sipImport?.updated || "Aktualizovaných"}: {importResult.updated}</p>
+                </div>
+                {importResult.errors && importResult.errors.length > 0 && (
+                  <div className="mt-2 p-2 rounded bg-destructive/10 text-sm">
+                    <div className="flex items-center gap-2 text-destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <span>{t.errors.importErrors || "Chyby pri importe"}:</span>
+                    </div>
+                    <ul className="list-disc list-inside mt-1 text-muted-foreground">
+                      {importResult.errors.slice(0, 5).map((err, i) => (
+                        <li key={i}>{err}</li>
+                      ))}
+                      {importResult.errors.length > 5 && (
+                        <li>...{t.common.andMore || "a ďalších"} {importResult.errors.length - 5}</li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="rounded-lg bg-muted/50 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">{t.settings.sipImport?.csvFormat || "Formát CSV súboru"}</span>
+              </div>
+              <p className="text-sm text-muted-foreground mb-2">
+                {t.settings.sipImport?.formatDescription || "CSV súbor musí obsahovať hlavičku a stĺpce:"}
+              </p>
+              <code className="block text-xs bg-background p-2 rounded">
+                country,extension,sip_username,sip_password<br/>
+                SK,2003,2003,heslo123<br/>
+                CZ,2100,2100,heslo456
+              </code>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

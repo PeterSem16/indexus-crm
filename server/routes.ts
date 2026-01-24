@@ -11397,6 +11397,95 @@ export async function registerRoutes(
     }
   });
 
+  // Import SIP extensions from CSV (admin only)
+  app.post("/api/sip-extensions/import-csv", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || user.role !== "admin") {
+        return res.status(403).json({ error: "Only admins can import extensions" });
+      }
+      
+      const { csvData } = req.body;
+      if (!csvData || typeof csvData !== "string") {
+        return res.status(400).json({ error: "CSV data is required" });
+      }
+      
+      // Parse CSV
+      const lines = csvData.trim().split('\n');
+      if (lines.length < 2) {
+        return res.status(400).json({ error: "CSV must have a header and at least one data row" });
+      }
+      
+      const header = lines[0].toLowerCase().split(',').map(h => h.trim());
+      const countryIndex = header.indexOf('country');
+      const extensionIndex = header.indexOf('extension');
+      const usernameIndex = header.indexOf('sip_username');
+      const passwordIndex = header.indexOf('sip_password');
+      
+      if (extensionIndex === -1 || passwordIndex === -1) {
+        return res.status(400).json({ error: "CSV must have 'extension' and 'sip_password' columns" });
+      }
+      
+      let created = 0;
+      let updated = 0;
+      let errors: string[] = [];
+      
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        
+        const values = line.split(',').map(v => v.trim());
+        const extension = values[extensionIndex];
+        const sipPassword = values[passwordIndex];
+        const sipUsername = usernameIndex !== -1 ? values[usernameIndex] : extension;
+        const countryCode = countryIndex !== -1 ? values[countryIndex] : 'SK';
+        
+        if (!extension || !sipPassword) {
+          errors.push(`Row ${i + 1}: Missing extension or password`);
+          continue;
+        }
+        
+        try {
+          const existing = await storage.getSipExtensionByExtension(extension);
+          const encrypted = encryptSipPassword(sipPassword);
+          
+          if (existing) {
+            // Update existing
+            await storage.updateSipExtension(existing.id, {
+              countryCode,
+              sipUsername,
+              sipPasswordHash: encrypted,
+            });
+            updated++;
+          } else {
+            // Create new
+            await storage.createSipExtension({
+              countryCode,
+              extension,
+              sipUsername,
+              sipPasswordHash: encrypted,
+              assignedToUserId: null,
+              assignedAt: null
+            });
+            created++;
+          }
+        } catch (err) {
+          errors.push(`Row ${i + 1}: Failed to process extension ${extension}`);
+        }
+      }
+      
+      res.json({ 
+        created, 
+        updated, 
+        errors: errors.length > 0 ? errors : undefined,
+        message: `Created ${created}, updated ${updated} SIP extensions` 
+      });
+    } catch (error) {
+      console.error("Failed to import SIP extensions:", error);
+      res.status(500).json({ error: "Failed to import SIP extensions" });
+    }
+  });
+
   // ===== Call Logs Routes =====
   
   // Get all call logs (with optional filters)
