@@ -11610,8 +11610,8 @@ export async function registerRoutes(
         : null;
 
       // Get customers for mapping
-      const customers = await storage.getCustomers();
-      const customerMap = new Map(customers.map(c => [c.id, c]));
+      const customers = await storage.getAllCustomers();
+      const customerMap = new Map(customers.map((c: { id: string; firstName: string; lastName: string }) => [c.id, c]));
 
       // Collect all activity entries
       interface ActivityEntry {
@@ -11639,7 +11639,7 @@ export async function registerRoutes(
         
         if (inRange && matchUser && matchRole) {
           const u = userMap.get(log.userId);
-          const customer = log.customerId ? customerMap.get(log.customerId) : null;
+          const customer = log.customerId ? customerMap.get(log.customerId) as { id: string; firstName: string; lastName: string } | undefined : null;
           entries.push({
             id: `call-${log.id}`,
             userId: log.userId,
@@ -11666,14 +11666,14 @@ export async function registerRoutes(
         
         if (inRange && matchUser && matchRole && (msg.type === 'email' || msg.type === 'sms')) {
           const u = msg.userId ? userMap.get(msg.userId) : null;
-          const customer = msg.customerId ? customerMap.get(msg.customerId) : null;
+          const customer = msg.customerId ? customerMap.get(msg.customerId) as { id: string; firstName: string; lastName: string } | undefined : null;
           entries.push({
             id: `msg-${msg.id}`,
             userId: msg.userId || '',
             userName: u?.fullName || u?.username || "Unknown",
             type: msg.type as 'email' | 'sms',
             timestamp: msgDate,
-            recipient: msg.recipient || undefined,
+            recipient: msg.recipientEmail || msg.recipientPhone || undefined,
             status: msg.status || undefined,
             customerId: msg.customerId || undefined,
             customerName: customer ? `${customer.firstName} ${customer.lastName}` : undefined
