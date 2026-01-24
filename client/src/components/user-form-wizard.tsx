@@ -107,20 +107,28 @@ export function UserFormWizard({ onSuccess, onCancel }: UserFormWizardProps) {
   }
 
   const assignedCountries = form.watch("assignedCountries");
+  const sipEnabled = form.watch("sipEnabled");
   const selectedSipCountry = assignedCountries.length > 0 ? assignedCountries[0] : null;
   const [selectedExtensionId, setSelectedExtensionId] = useState<string | null>(null);
+  const [previousCountry, setPreviousCountry] = useState<string | null>(null);
 
-  const { data: availableExtensions = [], isLoading: extensionsLoading, refetch: refetchExtensions } = useQuery<SipExtensionOption[]>({
+  useEffect(() => {
+    if (selectedSipCountry !== previousCountry) {
+      setPreviousCountry(selectedSipCountry);
+      setSelectedExtensionId(null);
+      form.setValue("sipExtension", "");
+      form.setValue("sipPassword", "");
+    }
+  }, [selectedSipCountry, previousCountry, form]);
+
+  const { data: availableExtensions = [], isLoading: extensionsLoading } = useQuery<SipExtensionOption[]>({
     queryKey: ["/api/sip-extensions/available", selectedSipCountry],
     queryFn: async () => {
       if (!selectedSipCountry) return [];
-      const res = await fetch(`/api/sip-extensions/available?countryCode=${selectedSipCountry}`, {
-        credentials: "include"
-      });
-      if (!res.ok) return [];
+      const res = await apiRequest("GET", `/api/sip-extensions/available?countryCode=${selectedSipCountry}`);
       return res.json();
     },
-    enabled: !!selectedSipCountry && form.watch("sipEnabled"),
+    enabled: !!selectedSipCountry && sipEnabled,
   });
 
   const handleExtensionSelect = async (extensionId: string) => {
@@ -131,9 +139,7 @@ export function UserFormWizard({ onSuccess, onCancel }: UserFormWizardProps) {
     form.setValue("sipExtension", ext.extension);
     
     try {
-      const res = await fetch(`/api/sip-extensions/${extensionId}/password`, {
-        credentials: "include"
-      });
+      const res = await apiRequest("GET", `/api/sip-extensions/${extensionId}/password`);
       if (res.ok) {
         const { password } = await res.json();
         form.setValue("sipPassword", password);
