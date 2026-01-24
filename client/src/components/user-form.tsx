@@ -196,7 +196,7 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
       const res = await apiRequest("GET", `/api/sip-extensions/available?countryCode=${selectedSipCountry}`);
       return res.json();
     },
-    enabled: !!selectedSipCountry && sipEnabled,
+    enabled: !!selectedSipCountry && (sipEnabled || !keepExistingExtension),
   });
   
   useEffect(() => {
@@ -907,7 +907,7 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
             </div>
             <FormControl>
               <Switch
-                checked={field.value}
+                checked={!!field.value}
                 onCheckedChange={field.onChange}
                 data-testid="switch-sip-enabled"
               />
