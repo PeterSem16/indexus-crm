@@ -212,10 +212,9 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
   }, [selectedSipCountry, previousSipCountry, form, isEditing]);
 
   useEffect(() => {
-    if (initialData && (initialData as any).sipEnabled !== undefined) {
-      setSipEnabledLocal(!!(initialData as any).sipEnabled);
-    }
-  }, [initialData]);
+    setSipEnabledLocal(!!(initialData as any)?.sipEnabled);
+    setKeepExistingExtension(isEditing && !!(initialData as any)?.sipExtension);
+  }, [(initialData as any)?.id, (initialData as any)?.sipEnabled]);
   
   const handleExtensionSelect = async (extensionId: string) => {
     const ext = availableExtensions.find(e => e.id === extensionId);
