@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/auth-context";
+import { CHART_PALETTE } from "@/lib/chart-colors";
 import { 
   ArrowLeft, Users, Settings, BarChart3, FileText, 
   Play, Pause, CheckCircle, Clock, Phone, User, Calendar,
@@ -1018,12 +1019,12 @@ export default function CampaignDetailPage() {
                     <PieChart>
                       <Pie
                         data={[
-                          { name: "Pending", value: stats.pendingContacts || 0, color: "#94a3b8" },
-                          { name: "Contacted", value: stats.contactedContacts || 0, color: "#60a5fa" },
-                          { name: "Completed", value: stats.completedContacts || 0, color: "#4ade80" },
-                          { name: "No Answer", value: stats.noAnswerContacts || 0, color: "#facc15" },
-                          { name: "Not Interested", value: stats.notInterestedContacts || 0, color: "#a1a1aa" },
-                          { name: "Failed", value: stats.failedContacts || 0, color: "#f87171" },
+                          { name: "Pending", value: stats.pendingContacts || 0, color: CHART_PALETTE[3] },
+                          { name: "Contacted", value: stats.contactedContacts || 0, color: CHART_PALETTE[1] },
+                          { name: "Completed", value: stats.completedContacts || 0, color: CHART_PALETTE[0] },
+                          { name: "No Answer", value: stats.noAnswerContacts || 0, color: CHART_PALETTE[2] },
+                          { name: "Not Interested", value: stats.notInterestedContacts || 0, color: CHART_PALETTE[4] },
+                          { name: "Failed", value: stats.failedContacts || 0, color: CHART_PALETTE[6] },
                         ].filter(d => d.value > 0)}
                         cx="50%"
                         cy="50%"
@@ -1035,12 +1036,12 @@ export default function CampaignDetailPage() {
                         labelLine={false}
                       >
                         {[
-                          { color: "#94a3b8" },
-                          { color: "#60a5fa" },
-                          { color: "#4ade80" },
-                          { color: "#facc15" },
-                          { color: "#a1a1aa" },
-                          { color: "#f87171" },
+                          { color: CHART_PALETTE[3] },
+                          { color: CHART_PALETTE[1] },
+                          { color: CHART_PALETTE[0] },
+                          { color: CHART_PALETTE[2] },
+                          { color: CHART_PALETTE[4] },
+                          { color: CHART_PALETTE[6] },
                         ].map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}

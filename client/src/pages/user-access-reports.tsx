@@ -89,7 +89,7 @@ interface SessionStats {
   sessionsByHour: Array<{ hour: number; count: number }>;
 }
 
-const CHART_COLORS = ['#6B1C3B', '#8B3A5B', '#AB587B', '#CB769B', '#EB94BB', '#5B8C5A', '#E6B800', '#4A90D9'];
+import { CHART_PALETTE, CHART_COLORS as THEME_COLORS } from '@/lib/chart-colors';
 
 export default function UserAccessReportsPage() {
   const { t, locale } = useI18n();
@@ -605,7 +605,7 @@ export default function UserAccessReportsPage() {
                     labelFormatter={(d) => format(new Date(d as string), 'dd.MM.yyyy', { locale: getDateLocale() })}
                     formatter={(value) => [value, t.userAccessReports.sessions]}
                   />
-                  <Bar dataKey="count" fill="#6B1C3B" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="count" fill={THEME_COLORS.primary} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -630,7 +630,7 @@ export default function UserAccessReportsPage() {
                     labelFormatter={(h) => `${h}:00 - ${Number(h) + 1}:00`}
                     formatter={(value) => [value, t.userAccessReports.sessions]}
                   />
-                  <Line type="monotone" dataKey="count" stroke="#6B1C3B" strokeWidth={2} dot={{ fill: '#6B1C3B' }} />
+                  <Line type="monotone" dataKey="count" stroke={THEME_COLORS.primary} strokeWidth={2} dot={{ fill: THEME_COLORS.primary }} />
                 </LineChart>
               </ResponsiveContainer>
             </div>

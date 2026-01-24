@@ -67,7 +67,7 @@ interface CollaboratorStats {
   hospitalsVisited: number;
 }
 
-const CHART_COLORS = ['hsl(210, 60%, 70%)', 'hsl(170, 50%, 60%)', 'hsl(280, 45%, 70%)', 'hsl(35, 70%, 65%)', 'hsl(340, 50%, 70%)', 'hsl(140, 45%, 60%)', 'hsl(45, 65%, 65%)', 'hsl(200, 55%, 65%)'];
+import { CHART_PALETTE, STATUS_COLORS } from '@/lib/chart-colors';
 
 export default function CollaboratorReportsPage() {
   const { selectedCountries } = useCountryFilter();
@@ -285,10 +285,10 @@ export default function CollaboratorReportsPage() {
 
   const statusData = useMemo(() => {
     return [
-      { name: statusLabels.completed, value: stats.completedVisits, color: '#5B8C5A' },
-      { name: statusLabels.scheduled, value: stats.scheduledVisits, color: '#4A90D9' },
-      { name: statusLabels.inProgress, value: stats.inProgressVisits, color: '#E6B800' },
-      { name: statusLabels.cancelled, value: stats.cancelledVisits, color: '#DC3545' },
+      { name: statusLabels.completed, value: stats.completedVisits, color: CHART_PALETTE[0] },
+      { name: statusLabels.scheduled, value: stats.scheduledVisits, color: CHART_PALETTE[1] },
+      { name: statusLabels.inProgress, value: stats.inProgressVisits, color: CHART_PALETTE[2] },
+      { name: statusLabels.cancelled, value: stats.cancelledVisits, color: CHART_PALETTE[3] },
     ].filter(d => d.value > 0);
   }, [stats, statusLabels]);
 

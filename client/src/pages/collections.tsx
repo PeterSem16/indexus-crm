@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
 import { useCountryFilter } from "@/contexts/country-filter-context";
 import { format } from "date-fns";
+import { CHART_PALETTE, COUNTRY_CHART_COLORS, CHART_COLORS } from "@/lib/chart-colors";
 import { sk, cs, hu, ro, it, de, enUS, type Locale } from "date-fns/locale";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -1272,20 +1273,6 @@ export default function CollectionsPage() {
   const dashboardT = t.collections?.dashboard || {};
   const statesT = t.collections?.states || {};
 
-  const CHART_COLORS = [
-    "#6B1C3B", "#8B3A5B", "#AB587B", "#CB769B", 
-    "#EB94BB", "#4A7C59", "#7BA38F", "#B8D4C3", "#D4A574"
-  ];
-  
-  const COUNTRY_COLORS: Record<string, string> = {
-    SK: "#6B1C3B",
-    CZ: "#1E3A5F",
-    HU: "#2D5A27",
-    RO: "#5C4033",
-    IT: "#1B4D3E",
-    DE: "#4A4A4A",
-    US: "#1A237E"
-  };
 
   const statusData = COLLECTION_STATES.map(state => ({
     name: statesT[state] || state,
@@ -1298,7 +1285,7 @@ export default function CollectionsPage() {
   const countryData = selectedCountries.map(code => ({
     name: code,
     value: filteredCollections.filter(c => c.countryCode === code).length,
-    fill: COUNTRY_COLORS[code] || "#6B1C3B"
+    fill: COUNTRY_CHART_COLORS[code] || CHART_COLORS.primary
   })).filter(d => d.value > 0).sort((a, b) => b.value - a.value);
   
   const hospitalData = hospitals

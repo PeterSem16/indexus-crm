@@ -143,7 +143,7 @@ interface ActivityStats {
   };
 }
 
-const ACTIVITY_CHART_COLORS = ['#7c9885', '#8fbc8f', '#98d8aa', '#b4e4bc'];
+import { ACTIVITY_COLORS, CHART_PALETTE, STATUS_COLORS } from '@/lib/chart-colors';
 
 export default function UsersPage() {
   const { toast } = useToast();
@@ -405,9 +405,9 @@ export default function UsersPage() {
   const channelPieData = useMemo(() => {
     if (!activityStats?.summary) return [];
     return [
-      { name: t.activityReports.voice, value: activityStats.summary.totalCalls, color: '#7c9885' },
-      { name: t.activityReports.emails, value: activityStats.summary.totalEmails, color: '#8fbc8f' },
-      { name: t.activityReports.sms, value: activityStats.summary.totalSms, color: '#98d8aa' },
+      { name: t.activityReports.voice, value: activityStats.summary.totalCalls, color: ACTIVITY_COLORS.calls },
+      { name: t.activityReports.emails, value: activityStats.summary.totalEmails, color: ACTIVITY_COLORS.emails },
+      { name: t.activityReports.sms, value: activityStats.summary.totalSms, color: ACTIVITY_COLORS.sms },
     ].filter(d => d.value > 0);
   }, [activityStats, t]);
 
@@ -1726,9 +1726,9 @@ export default function UsersPage() {
                               labelFormatter={(date) => format(new Date(date), 'dd.MM.yyyy', { locale: getDateLocale() })}
                             />
                             <Legend />
-                            <Area type="monotone" dataKey="calls" name={t.activityReports.calls} stackId="1" stroke="#7c9885" fill="#7c9885" />
-                            <Area type="monotone" dataKey="emails" name={t.activityReports.emails} stackId="1" stroke="#8fbc8f" fill="#8fbc8f" />
-                            <Area type="monotone" dataKey="sms" name={t.activityReports.sms} stackId="1" stroke="#98d8aa" fill="#98d8aa" />
+                            <Area type="monotone" dataKey="calls" name={t.activityReports.calls} stackId="1" stroke={ACTIVITY_COLORS.calls} fill={ACTIVITY_COLORS.calls} />
+                            <Area type="monotone" dataKey="emails" name={t.activityReports.emails} stackId="1" stroke={ACTIVITY_COLORS.emails} fill={ACTIVITY_COLORS.emails} />
+                            <Area type="monotone" dataKey="sms" name={t.activityReports.sms} stackId="1" stroke={ACTIVITY_COLORS.sms} fill={ACTIVITY_COLORS.sms} />
                           </AreaChart>
                         </ResponsiveContainer>
                       ) : (
@@ -1757,7 +1757,7 @@ export default function UsersPage() {
                               labelLine={false}
                               label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                               outerRadius={100}
-                              fill="#8884d8"
+                              fill={CHART_PALETTE[0]}
                               dataKey="value"
                             >
                               {channelPieData.map((entry, index) => (
