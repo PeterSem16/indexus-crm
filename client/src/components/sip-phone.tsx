@@ -80,6 +80,8 @@ export function SipPhone({
   const [localCustomerId, setLocalCustomerId] = useState(customerId);
   const [localCampaignId, setLocalCampaignId] = useState(campaignId);
   const [localCustomerName, setLocalCustomerName] = useState(customerName);
+  const [localLeadScore, setLocalLeadScore] = useState<number | undefined>(undefined);
+  const [localClientStatus, setLocalClientStatus] = useState<string | undefined>(undefined);
   const [callState, setCallStateLocal] = useState<CallState>("idle");
   const [phoneNumber, setPhoneNumber] = useState(initialNumber);
   const [isMutedLocal, setIsMutedLocal] = useState(false);
@@ -377,6 +379,8 @@ export function SipPhone({
       setLocalCustomerId(pendingCall.customerId?.toString());
       setLocalCampaignId(pendingCall.campaignId?.toString());
       setLocalCustomerName(pendingCall.customerName);
+      setLocalLeadScore(pendingCall.leadScore);
+      setLocalClientStatus(pendingCall.clientStatus);
       clearPendingCall();
       setTimeout(() => {
         makeCall();
@@ -570,7 +574,25 @@ export function SipPhone({
         micGainNodeRef.current.gain.value = vol / 100;
       }
     };
-  }, [callContext]);
+    callContext.sendDtmfFn.current = (digit: string) => {
+      if (sessionRef.current && callState === "active") {
+        try {
+          const options = {
+            requestOptions: {
+              body: {
+                contentDisposition: "render",
+                contentType: "application/dtmf-relay",
+                content: `Signal=${digit}\r\nDuration=100`
+              }
+            }
+          };
+          sessionRef.current.info(options);
+        } catch (error) {
+          console.error("Failed to send DTMF:", error);
+        }
+      }
+    };
+  }, [callContext, callState]);
 
   useEffect(() => {
     callContext.setVolume(volume);
@@ -584,17 +606,19 @@ export function SipPhone({
     if (callState !== "idle" && callState !== "ended") {
       callContext.setCallInfo({
         phoneNumber,
-        callerName: customerName,
-        customerId,
-        campaignId,
+        callerName: localCustomerName,
+        customerId: localCustomerId,
+        campaignId: localCampaignId,
         direction: "outbound",
         callLogId: currentCallLogId ?? undefined,
+        leadScore: localLeadScore,
+        clientStatus: localClientStatus,
       });
       callContext.setCallDuration(callDuration);
     } else {
       callContext.setCallInfo(null);
     }
-  }, [callState, phoneNumber, customerName, customerId, campaignId, currentCallLogId, callDuration, callContext]);
+  }, [callState, phoneNumber, localCustomerName, localCustomerId, localCampaignId, currentCallLogId, callDuration, callContext, localLeadScore, localClientStatus]);
 
   const handleVolumeChange = useCallback((value: number[]) => {
     const vol = value[0];

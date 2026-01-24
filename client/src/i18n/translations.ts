@@ -81,6 +81,7 @@ export interface Translations {
     resume: string;
     endCall: string;
     dialpad: string;
+    leadScore: string;
   };
   common: {
     save: string;
@@ -1993,6 +1994,7 @@ export const translations: Record<Locale, Translations> = {
       resume: 'Resume',
       endCall: 'End call',
       dialpad: 'Dialpad',
+      leadScore: 'Score',
     },
     common: {
       save: 'Save',
@@ -6223,6 +6225,7 @@ export const translations: Record<Locale, Translations> = {
       resume: 'Pokračovať',
       endCall: 'Ukončiť hovor',
       dialpad: 'Klávesnica',
+      leadScore: 'Skóre',
     },
   },
   cs: {
@@ -8304,6 +8307,7 @@ export const translations: Record<Locale, Translations> = {
       resume: 'Pokračovat',
       endCall: 'Ukončit hovor',
       dialpad: 'Klávesnice',
+      leadScore: 'Skóre',
     },
   },
   hu: {
@@ -10385,6 +10389,7 @@ export const translations: Record<Locale, Translations> = {
       resume: 'Folytatás',
       endCall: 'Hívás befejezése',
       dialpad: 'Billentyűzet',
+      leadScore: 'Pontszám',
     },
   },
   ro: {
@@ -12465,6 +12470,7 @@ export const translations: Record<Locale, Translations> = {
       resume: 'Reluare',
       endCall: 'Încheiere apel',
       dialpad: 'Tastatură',
+      leadScore: 'Scor',
     },
   },
   it: {
@@ -14546,6 +14552,7 @@ export const translations: Record<Locale, Translations> = {
       resume: 'Riprendi',
       endCall: 'Termina chiamata',
       dialpad: 'Tastierino',
+      leadScore: 'Punteggio',
     },
   },
   de: {
@@ -16627,6 +16634,7 @@ export const translations: Record<Locale, Translations> = {
       resume: 'Fortsetzen',
       endCall: 'Anruf beenden',
       dialpad: 'Tastenfeld',
+      leadScore: 'Punktzahl',
     },
   },
 };

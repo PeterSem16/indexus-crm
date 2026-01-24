@@ -9,6 +9,8 @@ interface CallInfo {
   campaignId?: string;
   direction: "inbound" | "outbound";
   callLogId?: number;
+  leadScore?: number;
+  clientStatus?: string;
 }
 
 interface CallContextType {
@@ -32,6 +34,7 @@ interface CallContextType {
   openDialpadFn: React.MutableRefObject<(() => void) | null>;
   onVolumeChangeFn: React.MutableRefObject<((vol: number) => void) | null>;
   onMicVolumeChangeFn: React.MutableRefObject<((vol: number) => void) | null>;
+  sendDtmfFn: React.MutableRefObject<((digit: string) => void) | null>;
 }
 
 const CallContext = createContext<CallContextType | undefined>(undefined);
@@ -51,6 +54,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const openDialpadFn = useRef<(() => void) | null>(null);
   const onVolumeChangeFn = useRef<((vol: number) => void) | null>(null);
   const onMicVolumeChangeFn = useRef<((vol: number) => void) | null>(null);
+  const sendDtmfFn = useRef<((digit: string) => void) | null>(null);
 
   return (
     <CallContext.Provider value={{
@@ -74,6 +78,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       openDialpadFn,
       onVolumeChangeFn,
       onMicVolumeChangeFn,
+      sendDtmfFn,
     }}>
       {children}
     </CallContext.Provider>

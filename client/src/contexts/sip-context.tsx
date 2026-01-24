@@ -16,6 +16,8 @@ export interface PendingCall {
   customerId?: number;
   campaignId?: number;
   customerName?: string;
+  leadScore?: number;
+  clientStatus?: string;
 }
 
 interface SipContextType {
