@@ -156,14 +156,10 @@ export function SipProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (user && canRegister()) {
+    if (user && canRegister() && !isRegistered && !isRegistering) {
       register();
     }
-    
-    return () => {
-      unregister();
-    };
-  }, [user, sipSettings]);
+  }, [user, sipSettings, canRegister, register, isRegistered, isRegistering]);
 
   useEffect(() => {
     if (!user) {

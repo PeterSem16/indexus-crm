@@ -245,23 +245,13 @@ export function SipPhone({
     gainNode.connect(audioCtx.destination);
     
     oscillator.type = "sine";
-    oscillator.frequency.setValueAtTime(440, audioCtx.currentTime);
-    gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
+    oscillator.frequency.setValueAtTime(425, audioCtx.currentTime);
+    gainNode.gain.setValueAtTime(0.12, audioCtx.currentTime);
     
     oscillator.start(audioCtx.currentTime);
-    oscillator.stop(audioCtx.currentTime + 0.4);
+    oscillator.stop(audioCtx.currentTime + 1.0);
     
-    setTimeout(() => {
-      const osc2 = audioCtx.createOscillator();
-      const gain2 = audioCtx.createGain();
-      osc2.connect(gain2);
-      gain2.connect(audioCtx.destination);
-      osc2.type = "sine";
-      osc2.frequency.setValueAtTime(480, audioCtx.currentTime);
-      gain2.gain.setValueAtTime(0.15, audioCtx.currentTime);
-      osc2.start(audioCtx.currentTime);
-      osc2.stop(audioCtx.currentTime + 0.4);
-    }, 500);
+    setTimeout(() => audioCtx.close(), 1100);
   }, []);
 
   const startRingtone = useCallback(() => {
@@ -269,7 +259,7 @@ export function SipPhone({
     playRingtone();
     ringtoneIntervalRef.current = setInterval(() => {
       playRingtone();
-    }, 3000);
+    }, 5000);
   }, [playRingtone]);
 
   const stopRingtone = useCallback(() => {
@@ -446,16 +436,24 @@ export function SipPhone({
 
   useEffect(() => {
     if (pendingCall && callState === "idle") {
-      setPhoneNumber(pendingCall.phoneNumber);
-      setLocalCustomerId(pendingCall.customerId?.toString());
-      setLocalCampaignId(pendingCall.campaignId?.toString());
-      setLocalCustomerName(pendingCall.customerName);
-      setLocalLeadScore(pendingCall.leadScore);
-      setLocalClientStatus(pendingCall.clientStatus);
-      pendingCallProcessedRef.current = true;
+      const callData = pendingCall;
+      setPhoneNumber(callData.phoneNumber);
+      setLocalCustomerId(callData.customerId?.toString());
+      setLocalCampaignId(callData.campaignId?.toString());
+      setLocalCustomerName(callData.customerName);
+      setLocalLeadScore(callData.leadScore);
+      setLocalClientStatus(callData.clientStatus);
       clearPendingCall();
+      
+      if (isRegistered) {
+        setTimeout(() => {
+          makeCall();
+        }, 50);
+      } else {
+        pendingCallProcessedRef.current = true;
+      }
     }
-  }, [pendingCall, callState, clearPendingCall]);
+  }, [pendingCall, callState, clearPendingCall, isRegistered, makeCall]);
 
   useEffect(() => {
     if (pendingCallProcessedRef.current && isRegistered && callState === "idle") {
