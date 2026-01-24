@@ -72,6 +72,7 @@ export function UserFormWizard({ onSuccess, onCancel }: UserFormWizardProps) {
   const { isHidden, isReadonly } = useModuleFieldPermissions("users");
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
+  const [sipEnabledLocal, setSipEnabledLocal] = useState(false);
 
   const form = useForm<UserFormData>({
     resolver: zodResolver(userFormSchema),
@@ -518,8 +519,11 @@ export function UserFormWizard({ onSuccess, onCancel }: UserFormWizardProps) {
             </div>
             <FormControl>
               <Switch
-                checked={!!field.value}
-                onCheckedChange={field.onChange}
+                checked={sipEnabledLocal}
+                onCheckedChange={(checked) => {
+                  setSipEnabledLocal(checked);
+                  field.onChange(checked);
+                }}
                 data-testid="wizard-switch-sip-enabled"
               />
             </FormControl>
@@ -527,7 +531,7 @@ export function UserFormWizard({ onSuccess, onCancel }: UserFormWizardProps) {
         )}
       />
 
-      {form.watch("sipEnabled") && (
+      {sipEnabledLocal && (
         <div className="grid gap-4 sm:grid-cols-2 pl-4 border-l-2 border-primary/20">
           {selectedSipCountry ? (
             <FormItem>

@@ -137,6 +137,7 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
   const [selectedExtensionId, setSelectedExtensionId] = useState<string | null>(null);
   const [previousSipCountry, setPreviousSipCountry] = useState<string | null>(null);
   const [keepExistingExtension, setKeepExistingExtension] = useState(isEditing && !!(initialData as any)?.sipExtension);
+  const [sipEnabledLocal, setSipEnabledLocal] = useState(!!(initialData as any)?.sipEnabled);
   
   const activeRoles = roles.filter(r => r.isActive);
   const systemRolesWithLegacy = activeRoles.filter(r => (r as any).legacyRole);
@@ -907,8 +908,11 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
             </div>
             <FormControl>
               <Switch
-                checked={!!field.value}
-                onCheckedChange={field.onChange}
+                checked={sipEnabledLocal}
+                onCheckedChange={(checked) => {
+                  setSipEnabledLocal(checked);
+                  field.onChange(checked);
+                }}
                 data-testid="switch-sip-enabled"
               />
             </FormControl>
@@ -916,7 +920,7 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
         )}
       />
 
-      {form.watch("sipEnabled") && (
+      {sipEnabledLocal && (
         <div className="space-y-4 pl-4 border-l-2 border-primary/20">
           <FormField
             control={form.control}
