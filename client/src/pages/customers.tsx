@@ -5320,6 +5320,13 @@ export default function CustomersPage() {
                       <Badge variant="outline" className="text-xs" data-testid="badge-customer-drawer-country">
                         {getCountryFlag(editingCustomer.country)} {editingCustomer.country}
                       </Badge>
+                      <Badge 
+                        variant="secondary" 
+                        className="text-xs"
+                        data-testid="badge-customer-drawer-client-status"
+                      >
+                        {editingCustomer.isClient ? t.customers.details.client : t.customers.details.prospect}
+                      </Badge>
                       <StatusBadge status={editingCustomer.status} />
                       {(() => {
                         const score = editingCustomer.leadScore || 0;

@@ -562,6 +562,8 @@ export interface Translations {
       attachment: string;
       cc: string;
       ccPlaceholder: string;
+      client: string;
+      prospect: string;
     };
   };
   products: {
@@ -2576,6 +2578,8 @@ export const translations: Record<Locale, Translations> = {
         attachment: 'Attachment',
         cc: 'CC',
         ccPlaceholder: 'Enter CC email addresses, separated by commas',
+        client: 'Client',
+        prospect: 'Prospect',
       },
     },
     products: {
@@ -4795,6 +4799,8 @@ export const translations: Record<Locale, Translations> = {
         attachment: 'Príloha',
         cc: 'Kópia',
         ccPlaceholder: 'Zadajte emailové adresy pre kópiu, oddelené čiarkou',
+        client: 'Klient',
+        prospect: 'Potenciálny klient',
       },
     },
     products: {
@@ -7023,6 +7029,8 @@ export const translations: Record<Locale, Translations> = {
         attachment: 'Příloha',
         cc: 'Kopie',
         ccPlaceholder: 'Zadejte e-mailové adresy pro kopii, oddělené čárkou',
+        client: 'Klient',
+        prospect: 'Potenciální klient',
       },
     },
     products: {
@@ -9183,6 +9191,8 @@ export const translations: Record<Locale, Translations> = {
         attachment: 'Melléklet',
         cc: 'Másolat',
         ccPlaceholder: 'Adja meg a másolat e-mail címeket, vesszővel elválasztva',
+        client: 'Ügyfél',
+        prospect: 'Lehetséges ügyfél',
       },
     },
     products: {
@@ -11342,6 +11352,8 @@ export const translations: Record<Locale, Translations> = {
         attachment: 'Atașament',
         cc: 'Copie',
         ccPlaceholder: 'Introduceți adresele de e-mail pentru copie, separate prin virgulă',
+        client: 'Client',
+        prospect: 'Prospect',
       },
     },
     products: {
@@ -13502,6 +13514,8 @@ export const translations: Record<Locale, Translations> = {
         attachment: 'Allegato',
         cc: 'Copia',
         ccPlaceholder: 'Inserire gli indirizzi e-mail per la copia, separati da virgola',
+        client: 'Cliente',
+        prospect: 'Potenziale cliente',
       },
     },
     products: {
@@ -15662,6 +15676,8 @@ export const translations: Record<Locale, Translations> = {
         attachment: 'Anhang',
         cc: 'Kopie',
         ccPlaceholder: 'E-Mail-Adressen für Kopie eingeben, durch Komma getrennt',
+        client: 'Kunde',
+        prospect: 'Interessent',
       },
     },
     products: {
