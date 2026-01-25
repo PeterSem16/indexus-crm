@@ -42,7 +42,6 @@ import { CustomerForm, type CustomerFormData } from "@/components/customer-form"
 import { CustomerFormWizard, type CustomerFormData as WizardCustomerFormData } from "@/components/customer-form-wizard";
 import { PotentialCaseForm, EmbeddedPotentialCaseForm } from "@/components/potential-case-form";
 import { CallCustomerButton } from "@/components/sip-phone";
-import { CustomerDetailDrawer } from "@/components/customer-detail-drawer";
 import { useCountryFilter } from "@/contexts/country-filter-context";
 import { usePermissions } from "@/contexts/permissions-context";
 import { useAuth } from "@/contexts/auth-context";
@@ -5301,17 +5300,25 @@ export default function CustomersPage() {
         </DialogContent>
       </Dialog>
 
-      <CustomerDetailDrawer
-        customer={viewingCustomer}
-        open={!!viewingCustomer}
-        onClose={() => setViewingCustomer(null)}
-        onEdit={() => {
-          setViewingCustomer(null);
-          if (viewingCustomer) {
-            setEditingCustomer(viewingCustomer);
-          }
-        }}
-      />
+      <Sheet open={!!viewingCustomer} onOpenChange={() => setViewingCustomer(null)}>
+        <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>{t.customers.detailsTitle}</SheetTitle>
+            <SheetDescription>
+              {t.customers.detailsDescription}
+            </SheetDescription>
+          </SheetHeader>
+          {viewingCustomer && (
+            <CustomerDetailsContent 
+              customer={viewingCustomer} 
+              onEdit={() => {
+                setViewingCustomer(null);
+                setEditingCustomer(viewingCustomer);
+              }}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
 
       <AlertDialog open={!!deletingCustomer} onOpenChange={() => setDeletingCustomer(null)}>
         <AlertDialogContent>
