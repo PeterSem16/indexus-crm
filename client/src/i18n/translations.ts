@@ -1668,6 +1668,7 @@ export interface Translations {
     categoryName: string;
     categoryDescription: string;
     categoryIcon: string;
+    selectIcon: string;
     categoryColor: string;
     categoryPriority: string;
     categoryCreated: string;
@@ -3976,6 +3977,7 @@ export const translations: Record<Locale, Translations> = {
       categoryName: 'Category Name',
       categoryDescription: 'Description',
       categoryIcon: 'Icon',
+      selectIcon: 'Select icon',
       categoryColor: 'Color',
       categoryPriority: 'Priority',
       categoryCreated: 'Category created successfully',
@@ -6253,6 +6255,7 @@ export const translations: Record<Locale, Translations> = {
       categoryName: 'Názov kategórie',
       categoryDescription: 'Popis',
       categoryIcon: 'Ikona',
+      selectIcon: 'Vyberte ikonu',
       categoryColor: 'Farba',
       categoryPriority: 'Priorita',
       categoryCreated: 'Kategória bola úspešne vytvorená',
@@ -8515,6 +8518,7 @@ export const translations: Record<Locale, Translations> = {
       categoryName: 'Název kategorie',
       categoryDescription: 'Popis',
       categoryIcon: 'Ikona',
+      selectIcon: 'Vyberte ikonu',
       categoryColor: 'Barva',
       categoryPriority: 'Priorita',
       categoryCreated: 'Kategorie byla úspěšně vytvořena',
@@ -10740,6 +10744,7 @@ export const translations: Record<Locale, Translations> = {
       categoryName: 'Kategória neve',
       categoryDescription: 'Leírás',
       categoryIcon: 'Ikon',
+      selectIcon: 'Válasszon ikont',
       categoryColor: 'Szín',
       categoryPriority: 'Prioritás',
       categoryCreated: 'Kategória sikeresen létrehozva',
@@ -12964,6 +12969,7 @@ export const translations: Record<Locale, Translations> = {
       categoryName: 'Nume categorie',
       categoryDescription: 'Descriere',
       categoryIcon: 'Pictogramă',
+      selectIcon: 'Selectați pictograma',
       categoryColor: 'Culoare',
       categoryPriority: 'Prioritate',
       categoryCreated: 'Categorie creată cu succes',
@@ -15189,6 +15195,7 @@ export const translations: Record<Locale, Translations> = {
       categoryName: 'Nome categoria',
       categoryDescription: 'Descrizione',
       categoryIcon: 'Icona',
+      selectIcon: 'Seleziona icona',
       categoryColor: 'Colore',
       categoryPriority: 'Priorità',
       categoryCreated: 'Categoria creata con successo',
@@ -17414,6 +17421,7 @@ export const translations: Record<Locale, Translations> = {
       categoryName: 'Kategoriename',
       categoryDescription: 'Beschreibung',
       categoryIcon: 'Symbol',
+      selectIcon: 'Symbol auswählen',
       categoryColor: 'Farbe',
       categoryPriority: 'Priorität',
       categoryCreated: 'Kategorie erfolgreich erstellt',

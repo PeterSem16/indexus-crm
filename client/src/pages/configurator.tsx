@@ -34,7 +34,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import type { ServiceConfiguration, ServiceInstance, InvoiceTemplate, InvoiceLayout, Product, Role, RoleModulePermission, RoleFieldPermission, Department, BillingDetails, NumberRange, ExchangeRate, EmailRoutingRule, EmailTag, GsmSenderConfig } from "@shared/schema";
 import { EMAIL_PRIORITIES, EMAIL_IMPORTANCE, EMAIL_CONDITION_TYPES, EMAIL_ACTION_TYPES, GSM_SENDER_ID_TYPES } from "@shared/schema";
 import { CRM_MODULES, DEPARTMENTS, type ModuleDefinition, type FieldPermission, type ModuleAccess } from "@shared/permissions-config";
-import { Building2, User, Mail, Phone, Smartphone, RefreshCw, Wallet } from "lucide-react";
+import { Building2, User, Mail, Phone, Smartphone, RefreshCw, Wallet, MessageSquare, Calendar, Clock, Star, Heart, Users, Folder, Send, Inbox, Archive, Bookmark, Tag, Gift, Briefcase, Building, ShoppingCart, Truck, Zap, Award } from "lucide-react";
 import { DepartmentTree } from "@/components/department-tree";
 import { NotificationRulesManager } from "@/components/notification-center";
 
@@ -9858,6 +9858,41 @@ function MessageTemplatesTab() {
   const [categoryIcon, setCategoryIcon] = useState("");
   const [categoryColor, setCategoryColor] = useState("#6B7280");
   const [categoryPriority, setCategoryPriority] = useState(0);
+  const [isIconPickerOpen, setIsIconPickerOpen] = useState(false);
+  
+  // Available icons for category selection
+  const CATEGORY_ICONS = [
+    { name: "Mail", icon: "mail" },
+    { name: "MessageSquare", icon: "message-square" },
+    { name: "Bell", icon: "bell" },
+    { name: "AlertCircle", icon: "alert-circle" },
+    { name: "CheckCircle", icon: "check-circle" },
+    { name: "Calendar", icon: "calendar" },
+    { name: "Clock", icon: "clock" },
+    { name: "Star", icon: "star" },
+    { name: "Heart", icon: "heart" },
+    { name: "User", icon: "user" },
+    { name: "Users", icon: "users" },
+    { name: "Phone", icon: "phone" },
+    { name: "FileText", icon: "file-text" },
+    { name: "Folder", icon: "folder" },
+    { name: "Send", icon: "send" },
+    { name: "Inbox", icon: "inbox" },
+    { name: "Archive", icon: "archive" },
+    { name: "Bookmark", icon: "bookmark" },
+    { name: "Tag", icon: "tag" },
+    { name: "Gift", icon: "gift" },
+    { name: "CreditCard", icon: "credit-card" },
+    { name: "Briefcase", icon: "briefcase" },
+    { name: "Building", icon: "building" },
+    { name: "ShoppingCart", icon: "shopping-cart" },
+    { name: "Truck", icon: "truck" },
+    { name: "Package", icon: "package" },
+    { name: "Award", icon: "award" },
+    { name: "Zap", icon: "zap" },
+    { name: "Shield", icon: "shield" },
+    { name: "Info", icon: "info" },
+  ];
 
   // Queries
   const { data: templates = [], isLoading: templatesLoading } = useQuery<MessageTemplate[]>({
@@ -10387,7 +10422,7 @@ function MessageTemplatesTab() {
                       {t.konfigurator.insertVariable}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-72" align="end">
+                  <PopoverContent className="w-72 z-[10001]" align="end">
                     <div className="space-y-2">
                       <h4 className="font-medium text-sm">{t.konfigurator.availableVariables}</h4>
                       <div className="grid gap-1 max-h-48 overflow-y-auto">
@@ -10531,12 +10566,101 @@ function MessageTemplatesTab() {
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>{t.konfigurator.categoryIcon}</Label>
-                <Input
-                  value={categoryIcon}
-                  onChange={(e) => setCategoryIcon(e.target.value)}
-                  placeholder="📧"
-                  data-testid="input-category-icon"
-                />
+                <Popover open={isIconPickerOpen} onOpenChange={setIsIconPickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start"
+                      data-testid="button-select-icon"
+                    >
+                      {categoryIcon ? (
+                        <span className="flex items-center gap-2">
+                          {categoryIcon === "mail" && <Mail className="h-4 w-4" />}
+                          {categoryIcon === "message-square" && <MessageSquare className="h-4 w-4" />}
+                          {categoryIcon === "bell" && <Bell className="h-4 w-4" />}
+                          {categoryIcon === "alert-circle" && <AlertTriangle className="h-4 w-4" />}
+                          {categoryIcon === "check-circle" && <CheckCircle2 className="h-4 w-4" />}
+                          {categoryIcon === "calendar" && <Calendar className="h-4 w-4" />}
+                          {categoryIcon === "clock" && <Clock className="h-4 w-4" />}
+                          {categoryIcon === "star" && <Star className="h-4 w-4" />}
+                          {categoryIcon === "heart" && <Heart className="h-4 w-4" />}
+                          {categoryIcon === "user" && <User className="h-4 w-4" />}
+                          {categoryIcon === "users" && <Users className="h-4 w-4" />}
+                          {categoryIcon === "phone" && <Phone className="h-4 w-4" />}
+                          {categoryIcon === "file-text" && <FileText className="h-4 w-4" />}
+                          {categoryIcon === "folder" && <Folder className="h-4 w-4" />}
+                          {categoryIcon === "send" && <Send className="h-4 w-4" />}
+                          {categoryIcon === "inbox" && <Inbox className="h-4 w-4" />}
+                          {categoryIcon === "archive" && <Archive className="h-4 w-4" />}
+                          {categoryIcon === "bookmark" && <Bookmark className="h-4 w-4" />}
+                          {categoryIcon === "tag" && <Tag className="h-4 w-4" />}
+                          {categoryIcon === "gift" && <Gift className="h-4 w-4" />}
+                          {categoryIcon === "credit-card" && <CreditCard className="h-4 w-4" />}
+                          {categoryIcon === "briefcase" && <Briefcase className="h-4 w-4" />}
+                          {categoryIcon === "building" && <Building className="h-4 w-4" />}
+                          {categoryIcon === "shopping-cart" && <ShoppingCart className="h-4 w-4" />}
+                          {categoryIcon === "truck" && <Truck className="h-4 w-4" />}
+                          {categoryIcon === "package" && <Package className="h-4 w-4" />}
+                          {categoryIcon === "award" && <Award className="h-4 w-4" />}
+                          {categoryIcon === "zap" && <Zap className="h-4 w-4" />}
+                          {categoryIcon === "shield" && <Shield className="h-4 w-4" />}
+                          {categoryIcon === "info" && <Info className="h-4 w-4" />}
+                          <span className="text-sm">{categoryIcon}</span>
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">{t.konfigurator.selectIcon}</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-72 p-2 z-[10001]" align="start">
+                    <div className="grid grid-cols-6 gap-1">
+                      {CATEGORY_ICONS.map((iconItem) => (
+                        <Button
+                          key={iconItem.icon}
+                          variant={categoryIcon === iconItem.icon ? "secondary" : "ghost"}
+                          size="icon"
+                          className="h-9 w-9"
+                          onClick={() => {
+                            setCategoryIcon(iconItem.icon);
+                            setIsIconPickerOpen(false);
+                          }}
+                          data-testid={`button-icon-${iconItem.icon}`}
+                        >
+                          {iconItem.icon === "mail" && <Mail className="h-4 w-4" />}
+                          {iconItem.icon === "message-square" && <MessageSquare className="h-4 w-4" />}
+                          {iconItem.icon === "bell" && <Bell className="h-4 w-4" />}
+                          {iconItem.icon === "alert-circle" && <AlertTriangle className="h-4 w-4" />}
+                          {iconItem.icon === "check-circle" && <CheckCircle2 className="h-4 w-4" />}
+                          {iconItem.icon === "calendar" && <Calendar className="h-4 w-4" />}
+                          {iconItem.icon === "clock" && <Clock className="h-4 w-4" />}
+                          {iconItem.icon === "star" && <Star className="h-4 w-4" />}
+                          {iconItem.icon === "heart" && <Heart className="h-4 w-4" />}
+                          {iconItem.icon === "user" && <User className="h-4 w-4" />}
+                          {iconItem.icon === "users" && <Users className="h-4 w-4" />}
+                          {iconItem.icon === "phone" && <Phone className="h-4 w-4" />}
+                          {iconItem.icon === "file-text" && <FileText className="h-4 w-4" />}
+                          {iconItem.icon === "folder" && <Folder className="h-4 w-4" />}
+                          {iconItem.icon === "send" && <Send className="h-4 w-4" />}
+                          {iconItem.icon === "inbox" && <Inbox className="h-4 w-4" />}
+                          {iconItem.icon === "archive" && <Archive className="h-4 w-4" />}
+                          {iconItem.icon === "bookmark" && <Bookmark className="h-4 w-4" />}
+                          {iconItem.icon === "tag" && <Tag className="h-4 w-4" />}
+                          {iconItem.icon === "gift" && <Gift className="h-4 w-4" />}
+                          {iconItem.icon === "credit-card" && <CreditCard className="h-4 w-4" />}
+                          {iconItem.icon === "briefcase" && <Briefcase className="h-4 w-4" />}
+                          {iconItem.icon === "building" && <Building className="h-4 w-4" />}
+                          {iconItem.icon === "shopping-cart" && <ShoppingCart className="h-4 w-4" />}
+                          {iconItem.icon === "truck" && <Truck className="h-4 w-4" />}
+                          {iconItem.icon === "package" && <Package className="h-4 w-4" />}
+                          {iconItem.icon === "award" && <Award className="h-4 w-4" />}
+                          {iconItem.icon === "zap" && <Zap className="h-4 w-4" />}
+                          {iconItem.icon === "shield" && <Shield className="h-4 w-4" />}
+                          {iconItem.icon === "info" && <Info className="h-4 w-4" />}
+                        </Button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="space-y-2">
                 <Label>{t.konfigurator.categoryColor}</Label>

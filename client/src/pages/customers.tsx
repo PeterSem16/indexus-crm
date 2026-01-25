@@ -4589,29 +4589,24 @@ export default function CustomersPage() {
       const data = await res.json();
       const docs: { id: string; name: string; type: string; url: string }[] = [];
       
-      // Process contracts
-      if (data.contracts) {
-        data.contracts.forEach((contract: any) => {
-          if (contract.pdfPath) {
+      // API returns array of documents directly
+      if (Array.isArray(data)) {
+        data.forEach((doc: any) => {
+          if (doc.type === "contract" && doc.pdfPath) {
             docs.push({
-              id: `contract-${contract.id}`,
-              name: `${t.customers.details.contract} ${contract.number || contract.id}`,
+              id: `contract-${doc.id}`,
+              name: `${t.customers.details.contract} ${doc.number || doc.id}`,
               type: "contract",
-              url: `/api/contract-instances/${contract.id}/pdf`,
+              url: `/api/contract-instances/${doc.id}/pdf`,
+            });
+          } else if (doc.type === "invoice") {
+            docs.push({
+              id: `invoice-${doc.id}`,
+              name: `${t.customers.details.invoice} ${doc.number || doc.id}`,
+              type: "invoice",
+              url: `/api/invoices/${doc.id}/pdf`,
             });
           }
-        });
-      }
-      
-      // Process invoices
-      if (data.invoices) {
-        data.invoices.forEach((inv: any) => {
-          docs.push({
-            id: `invoice-${inv.id}`,
-            name: `${t.customers.details.invoice} ${inv.number || inv.id}`,
-            type: "invoice",
-            url: `/api/invoices/${inv.id}/pdf`,
-          });
         });
       }
       
