@@ -496,6 +496,9 @@ export interface Translations {
       country: string;
       status: string;
       phone: string;
+      callCustomer: string;
+      copyClientId: string;
+      copyInternalId: string;
       serviceType: string;
       assignedProducts: string;
       loadingProducts: string;
@@ -2513,6 +2516,9 @@ export const translations: Record<Locale, Translations> = {
         country: 'Country',
         status: 'Status',
         phone: 'Phone',
+        callCustomer: 'Call customer',
+        copyClientId: 'Copy client ID to clipboard',
+        copyInternalId: 'Copy internal ID to clipboard',
         serviceType: 'Service Type',
         assignedProducts: 'Assigned Products',
         loadingProducts: 'Loading products...',
@@ -4735,6 +4741,9 @@ export const translations: Record<Locale, Translations> = {
         country: 'Krajina',
         status: 'Stav',
         phone: 'Telefón',
+        callCustomer: 'Zavolať zákazníkovi',
+        copyClientId: 'Skopírovať ID klienta do schránky',
+        copyInternalId: 'Skopírovať interné ID do schránky',
         serviceType: 'Typ služby',
         assignedProducts: 'Priradené produkty',
         loadingProducts: 'Načítavam produkty...',
@@ -6966,6 +6975,9 @@ export const translations: Record<Locale, Translations> = {
         country: 'Země',
         status: 'Stav',
         phone: 'Telefon',
+        callCustomer: 'Zavolat zákazníkovi',
+        copyClientId: 'Zkopírovat ID klienta do schránky',
+        copyInternalId: 'Zkopírovat interní ID do schránky',
         serviceType: 'Typ služby',
         assignedProducts: 'Přiřazené produkty',
         loadingProducts: 'Načítám produkty...',
@@ -9129,6 +9141,9 @@ export const translations: Record<Locale, Translations> = {
         country: 'Ország',
         status: 'Állapot',
         phone: 'Telefon',
+        callCustomer: 'Ügyfél hívása',
+        copyClientId: 'Ügyfélazonosító másolása a vágólapra',
+        copyInternalId: 'Belső azonosító másolása a vágólapra',
         serviceType: 'Szolgáltatás típusa',
         assignedProducts: 'Hozzárendelt termékek',
         loadingProducts: 'Termékek betöltése...',
@@ -11291,6 +11306,9 @@ export const translations: Record<Locale, Translations> = {
         country: 'Țară',
         status: 'Status',
         phone: 'Telefon',
+        callCustomer: 'Apelare client',
+        copyClientId: 'Copiați ID-ul clientului în clipboard',
+        copyInternalId: 'Copiați ID-ul intern în clipboard',
         serviceType: 'Tip serviciu',
         assignedProducts: 'Produse alocate',
         loadingProducts: 'Se încarcă produsele...',
@@ -13454,6 +13472,9 @@ export const translations: Record<Locale, Translations> = {
         country: 'Paese',
         status: 'Stato',
         phone: 'Telefono',
+        callCustomer: 'Chiama cliente',
+        copyClientId: 'Copia ID cliente negli appunti',
+        copyInternalId: 'Copia ID interno negli appunti',
         serviceType: 'Tipo di servizio',
         assignedProducts: 'Prodotti assegnati',
         loadingProducts: 'Caricamento prodotti...',
@@ -15617,6 +15638,9 @@ export const translations: Record<Locale, Translations> = {
         country: 'Land',
         status: 'Status',
         phone: 'Telefon',
+        callCustomer: 'Kunden anrufen',
+        copyClientId: 'Kunden-ID in die Zwischenablage kopieren',
+        copyInternalId: 'Interne ID in die Zwischenablage kopieren',
         serviceType: 'Dienstleistungsart',
         assignedProducts: 'Zugewiesene Produkte',
         loadingProducts: 'Produkte werden geladen...',

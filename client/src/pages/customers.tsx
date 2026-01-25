@@ -68,6 +68,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
@@ -2643,35 +2648,49 @@ function CustomerDetailsContent({
           </h3>
           <p className="text-muted-foreground">{customer.email}</p>
           <div className="flex flex-wrap items-center gap-4 mt-2 text-sm">
-            <Badge
-              variant="outline"
-              className="cursor-pointer hover-elevate"
-              onClick={() => {
-                navigator.clipboard.writeText(customer.id);
-                toast({ title: t.customers.fields.copiedToClipboard });
-              }}
-              data-testid="button-copy-detail-client-id"
-            >
-              <Copy className="h-3 w-3 mr-1" />
-              {t.customers.fields.clientId}
-            </Badge>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge
+                  variant="outline"
+                  className="cursor-pointer hover-elevate"
+                  onClick={() => {
+                    navigator.clipboard.writeText(customer.id);
+                    toast({ title: t.customers.fields.copiedToClipboard });
+                  }}
+                  data-testid="button-copy-detail-client-id"
+                >
+                  <Copy className="h-3 w-3 mr-1" />
+                  {t.customers.fields.clientId}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{t.customers.details.copyClientId}</p>
+              </TooltipContent>
+            </Tooltip>
             {customer.internalId && (
               <div className="flex items-center gap-1">
                 <span className="text-muted-foreground">{t.customers.fields.internalId}:</span>
                 <span className="font-mono text-xs">{customer.internalId}</span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={() => {
-                    navigator.clipboard.writeText(customer.internalId || "");
-                    toast({ title: t.customers.fields.copiedToClipboard });
-                  }}
-                  data-testid="button-copy-detail-internal-id"
-                >
-                  <Copy className="h-3 w-3" />
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => {
+                        navigator.clipboard.writeText(customer.internalId || "");
+                        toast({ title: t.customers.fields.copiedToClipboard });
+                      }}
+                      data-testid="button-copy-detail-internal-id"
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{t.customers.details.copyInternalId}</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
             )}
           </div>
@@ -2694,18 +2713,28 @@ function CustomerDetailsContent({
             </div>
           </div>
           <div>
-            <p className="text-sm font-medium text-muted-foreground">{t.customers.details?.phone || "Phone"}</p>
+            <p className="text-sm font-medium text-muted-foreground">{t.customers.details.phone}</p>
             <div className="flex items-center gap-2 mt-1">
-              <span>{customer.phone || "-"}</span>
-              {customer.phone && (
-                <CallCustomerButton 
-                  phoneNumber={customer.phone}
-                  customerId={customer.id}
-                  customerName={`${customer.firstName} ${customer.lastName}`}
-                  leadScore={customer.leadScore}
-                  clientStatus={customer.clientStatus}
-                  variant="icon"
-                />
+              {customer.phone ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <CallCustomerButton 
+                        phoneNumber={customer.phone}
+                        customerId={customer.id}
+                        customerName={`${customer.firstName} ${customer.lastName}`}
+                        leadScore={customer.leadScore}
+                        clientStatus={customer.clientStatus}
+                        variant="icon"
+                      />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{t.customers.details.callCustomer}: {customer.phone}</p>
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <span className="text-muted-foreground">-</span>
               )}
             </div>
           </div>
