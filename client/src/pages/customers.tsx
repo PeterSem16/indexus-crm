@@ -312,7 +312,7 @@ function DocumentsTab({ customerId }: { customerId: string }) {
                             </Badge>
                           </div>
                           
-                          <p className="font-medium">{doc.number}</p>
+                          <p className="font-medium">{doc.number || `#${doc.id.slice(0, 8)}`}</p>
                           
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-muted-foreground">
                             <span className="flex items-center gap-1">
@@ -3011,13 +3011,25 @@ function CustomerDetailsContent({
               </div>
               <div>
                 <Label className="text-xs">{t.customers.details?.message || "Message"}</Label>
-                <Textarea
-                  value={emailContent}
-                  onChange={(e) => setEmailContent(e.target.value)}
-                  placeholder={t.customers.details?.writeEmailPlaceholder || "Write your email message..."}
-                  className="min-h-[100px]"
-                  data-testid="input-email-content"
-                />
+                <div className="border rounded-md" data-testid="wysiwyg-inline-email">
+                  <ReactQuill
+                    theme="snow"
+                    value={emailContent}
+                    onChange={setEmailContent}
+                    placeholder={t.customers.details?.writeEmailPlaceholder || "Write your email message..."}
+                    modules={{
+                      toolbar: [
+                        [{ 'header': [1, 2, 3, false] }],
+                        ['bold', 'italic', 'underline', 'strike'],
+                        [{ 'color': [] }, { 'background': [] }],
+                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                        ['link'],
+                        ['clean']
+                      ],
+                    }}
+                    style={{ minHeight: '150px' }}
+                  />
+                </div>
               </div>
               <div className="flex justify-end">
                 <Button
@@ -4618,6 +4630,62 @@ export default function CustomersPage() {
   // Email template state
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
 
+  // Replace template variables with actual values
+  const replaceTemplateVariables = useCallback((content: string, customer: Customer | null): string => {
+    if (!content || !customer) return content;
+    
+    const selectedAccount = allEmailAccounts.find(a => a.id === selectedFromAccount);
+    const userPhone = user?.phone ? `${user?.phonePrefix || ""}${user.phone}` : "";
+    const now = new Date();
+    
+    const replacements: Record<string, string> = {
+      // Customer variables
+      "{{customer.firstName}}": customer.firstName || "",
+      "{{customer.lastName}}": customer.lastName || "",
+      "{{customer.fullName}}": `${customer.firstName || ""} ${customer.lastName || ""}`.trim(),
+      "{{customer.email}}": customer.email || "",
+      "{{customer.email2}}": customer.email2 || "",
+      "{{customer.phone}}": customer.phone || "",
+      "{{customer.phone2}}": customer.phone2 || "",
+      "{{customer.address}}": customer.address || "",
+      "{{customer.city}}": customer.city || "",
+      "{{customer.postalCode}}": customer.postalCode || "",
+      "{{customer.country}}": customer.country || "",
+      "{{customer.birthDate}}": customer.birthDate || "",
+      "{{customer.deliveryDate}}": customer.deliveryDate || "",
+      // User variables
+      "{{user.fullName}}": user?.fullName || "",
+      "{{user.email}}": selectedAccount?.email || user?.email || "",
+      "{{user.phone}}": userPhone,
+      "{{user.position}}": user?.position || "",
+      "{{user.signature}}": user?.signature || "",
+      // System variables
+      "{{system.today}}": now.toLocaleDateString("sk-SK"),
+      "{{system.currentDate}}": now.toLocaleDateString("sk-SK"),
+      "{{system.currentTime}}": now.toLocaleTimeString("sk-SK"),
+      "{{system.currentDateTime}}": now.toLocaleString("sk-SK"),
+      "{{system.year}}": now.getFullYear().toString(),
+      "{{system.month}}": (now.getMonth() + 1).toString().padStart(2, "0"),
+      "{{system.day}}": now.getDate().toString().padStart(2, "0"),
+      // Company variables
+      "{{company.name}}": "Cord Blood Center Group",
+      "{{company.address}}": "Gallayova 11, 841 02 Bratislava",
+      "{{company.phone}}": "+421 2 59 200 700",
+      "{{company.email}}": "info@cordbloodcenter.com",
+      "{{company.web}}": "www.cordbloodcenter.com",
+      "{{company.ico}}": "35 948 761",
+      "{{company.dic}}": "2022015780",
+      "{{company.icdph}}": "SK2022015780",
+    };
+    
+    let result = content;
+    for (const [variable, value] of Object.entries(replacements)) {
+      result = result.split(variable).join(value);
+    }
+    
+    return result;
+  }, [user, allEmailAccounts, selectedFromAccount]);
+
   // Detect gender from first name (common female name endings)
   const detectGender = useCallback((firstName: string): "male" | "female" => {
     if (!firstName) return "male";
@@ -5778,8 +5846,10 @@ ${userPhone ? `<p><span style="color: #666;">${customerT.customers.details.mobil
                     onValueChange={(templateId) => {
                       const template = emailTemplates.find(t => t.id === templateId);
                       if (template) {
-                        if (template.subject) setEmailSubject(template.subject);
-                        const content = template.contentHtml || template.content || "";
+                        // Replace variables with actual values
+                        const subject = replaceTemplateVariables(template.subject || "", emailDialogCustomer);
+                        const content = replaceTemplateVariables(template.contentHtml || template.content || "", emailDialogCustomer);
+                        setEmailSubject(subject);
                         setEmailMessage(content);
                         fetch(`/api/message-templates/${templateId}/use`, { method: "POST", credentials: "include" });
                       }
@@ -6100,7 +6170,9 @@ ${userPhone ? `<p><span style="color: #666;">${customerT.customers.details.mobil
                     onValueChange={(templateId) => {
                       const template = smsTemplates.find(t => t.id === templateId);
                       if (template) {
-                        setSmsMessage(template.content);
+                        // Replace variables with actual values
+                        const content = replaceTemplateVariables(template.content, smsDialogCustomer);
+                        setSmsMessage(content);
                         fetch(`/api/message-templates/${templateId}/use`, { method: "POST", credentials: "include" });
                       }
                     }}
