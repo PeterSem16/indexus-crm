@@ -283,11 +283,13 @@ export async function sendEmail(
   to: string[],
   subject: string,
   body: string,
-  isHtml: boolean = true
+  isHtml: boolean = true,
+  cc?: string[],
+  attachments?: Array<{ name: string; contentType: string; contentBase64: string }>
 ): Promise<void> {
   const client = createGraphClient(accessToken);
   
-  const message = {
+  const message: any = {
     subject,
     body: {
       contentType: isHtml ? 'HTML' : 'Text',
@@ -297,6 +299,21 @@ export async function sendEmail(
       emailAddress: { address: email },
     })),
   };
+  
+  if (cc && cc.length > 0) {
+    message.ccRecipients = cc.map(email => ({
+      emailAddress: { address: email },
+    }));
+  }
+  
+  if (attachments && attachments.length > 0) {
+    message.attachments = attachments.map(att => ({
+      '@odata.type': '#microsoft.graph.fileAttachment',
+      name: att.name,
+      contentType: att.contentType,
+      contentBytes: att.contentBase64,
+    }));
+  }
   
   await client.api('/me/sendMail').post({ message });
 }

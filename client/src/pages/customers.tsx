@@ -6077,6 +6077,7 @@ export default function CustomersPage() {
                           mailboxId: selectedFromAccount === "personal" ? null : selectedFromAccount || null,
                           customerId: emailDialogCustomer.id,
                           cc: emailCc.trim() || undefined,
+                          documentIds: selectedDocuments.length > 0 ? selectedDocuments : undefined,
                         });
                         
                         toast({

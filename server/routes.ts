@@ -2509,10 +2509,52 @@ export async function registerRoutes(
         await storage.updateUserMs365Connection(userId, updateData);
       }
       
-      const { to, cc, subject, body, isHtml, mailboxId, attachments, customerId } = req.body;
+      const { to, cc, subject, body, isHtml, mailboxId, attachments, customerId, documentIds } = req.body;
       
       if (!to || !subject || !body) {
         return res.status(400).json({ error: "Missing required fields: to, subject, body" });
+      }
+      
+      // Process document attachments if documentIds provided
+      let finalAttachments = attachments || [];
+      if (documentIds && Array.isArray(documentIds) && documentIds.length > 0) {
+        const fs = await import("fs");
+        const path = await import("path");
+        
+        for (const docId of documentIds) {
+          try {
+            let filePath: string | null = null;
+            let fileName: string = "";
+            
+            if (docId.startsWith("contract-")) {
+              const contractId = docId.replace("contract-", "");
+              const contract = await storage.getContractInstance(contractId);
+              if (contract?.pdfPath) {
+                filePath = contract.pdfPath;
+                fileName = `Zmluva_${contract.number || contractId}.pdf`;
+              }
+            } else if (docId.startsWith("invoice-")) {
+              const invoiceId = docId.replace("invoice-", "");
+              const invoice = await storage.getInvoice(invoiceId);
+              if (invoice?.pdfPath) {
+                filePath = invoice.pdfPath;
+                fileName = `Faktura_${invoice.number || invoiceId}.pdf`;
+              }
+            }
+            
+            if (filePath && fs.existsSync(filePath)) {
+              const fileContent = fs.readFileSync(filePath);
+              const base64Content = fileContent.toString("base64");
+              finalAttachments.push({
+                name: fileName,
+                contentType: "application/pdf",
+                contentBase64: base64Content,
+              });
+            }
+          } catch (docError) {
+            console.error(`[MS365] Error loading document ${docId}:`, docError);
+          }
+        }
       }
       
       // Determine which mailbox to use
@@ -2552,11 +2594,11 @@ export async function registerRoutes(
           body,
           isHtml !== false,
           ccArray,
-          attachments
+          finalAttachments.length > 0 ? finalAttachments : undefined
         );
       } else {
         // Send from user's own mailbox
-        await sendEmail(tokenResult.accessToken, toArray, subject, body, isHtml !== false);
+        await sendEmail(tokenResult.accessToken, toArray, subject, body, isHtml !== false, ccArray, finalAttachments.length > 0 ? finalAttachments : undefined);
       }
       
       // Log email to customer history if customerId is provided
