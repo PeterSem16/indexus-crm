@@ -6454,7 +6454,7 @@ export async function registerRoutes(
       // Send email via MS365
       if (mailboxId && mailboxId !== "default") {
         // Get mailbox address
-        const mailbox = await storage.getMs365Mailbox(mailboxId);
+        const mailbox = await storage.getUserMs365SharedMailbox(mailboxId);
         if (!mailbox) {
           return res.status(404).json({ error: "Mailbox not found" });
         }

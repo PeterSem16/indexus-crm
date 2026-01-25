@@ -6058,10 +6058,7 @@ export default function CustomersPage() {
                   </Button>
                   <Button
                     onClick={async () => {
-                      console.log("[EMAIL DEBUG] Button clicked", { selectedEmails, emailSubject, emailMessage: emailMessage?.substring(0, 50) });
-                      alert(`DEBUG: Button clicked!\nEmails: ${selectedEmails.length}\nSubject: ${emailSubject ? 'yes' : 'no'}\nMessage: ${emailMessage ? 'yes' : 'no'}`);
                       if (selectedEmails.length === 0 || !emailSubject || !emailMessage) {
-                        console.log("[EMAIL DEBUG] Validation failed", { emailsLen: selectedEmails.length, hasSubject: !!emailSubject, hasMessage: !!emailMessage });
                         toast({
                           title: t.common.error,
                           description: t.customers.details.fillAllFields,
@@ -6070,8 +6067,7 @@ export default function CustomersPage() {
                         return;
                       }
                       setIsSendingEmail(true);
-                      console.log("[EMAIL DEBUG] Starting to send email...");
-                      try {
+                                            try {
                         const formData = new FormData();
                         formData.append("to", JSON.stringify(selectedEmails));
                         formData.append("subject", emailSubject);
@@ -6321,15 +6317,11 @@ export default function CustomersPage() {
                   </Button>
                   <Button
                     onClick={async () => {
-                      console.log("[SMS DEBUG] Button clicked", { selectedPhones, smsCc, smsMessage: smsMessage?.substring(0, 50) });
-                      alert(`DEBUG SMS: Button clicked!\nPhones: ${selectedPhones.length}\nCC: ${smsCc}\nMessage: ${smsMessage ? 'yes' : 'no'}`);
                       const allPhones = [...selectedPhones];
                       if (smsCc.trim()) {
                         allPhones.push(smsCc.trim());
                       }
-                      console.log("[SMS DEBUG] All phones:", allPhones);
                       if (allPhones.length === 0 || !smsMessage) {
-                        console.log("[SMS DEBUG] Validation failed", { phonesLen: allPhones.length, hasMessage: !!smsMessage });
                         toast({
                           title: t.common.error,
                           description: t.customers.details.fillAllFields,
@@ -6338,15 +6330,13 @@ export default function CustomersPage() {
                         return;
                       }
                       setIsSendingSms(true);
-                      console.log("[SMS DEBUG] Sending SMS to", allPhones);
-                      try {
+                                            try {
                         await apiRequest("POST", "/api/send-sms", {
                           to: allPhones,
                           message: smsMessage,
                           customerId: smsDialogCustomer.id
                         });
-                        console.log("[SMS DEBUG] SMS sent successfully");
-                        toast({
+                                                toast({
                           title: t.customers.details.smsSentSuccess,
                           description: t.customers.details.smsSentSuccessDesc
                         });
