@@ -4488,6 +4488,8 @@ export default function CustomersPage() {
   // Email and SMS dialog states
   const [emailDialogCustomer, setEmailDialogCustomer] = useState<Customer | null>(null);
   const [smsDialogCustomer, setSmsDialogCustomer] = useState<Customer | null>(null);
+  const [emailDialogOpenedAt, setEmailDialogOpenedAt] = useState<number | null>(null);
+  const [smsDialogOpenedAt, setSmsDialogOpenedAt] = useState<number | null>(null);
   const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
   const [selectedPhones, setSelectedPhones] = useState<string[]>([]);
   const [emailSubject, setEmailSubject] = useState("");
@@ -5642,6 +5644,7 @@ export default function CustomersPage() {
                                   if (editingCustomer.phone2) phones.push(editingCustomer.phone2);
                                   setSelectedPhones(phones.filter(Boolean) as string[]);
                                   setSmsDialogCustomer(editingCustomer);
+                                  setSmsDialogOpenedAt(Date.now());
                                 }}
                                 data-testid="button-sms-from-drawer"
                               >
@@ -5663,6 +5666,7 @@ export default function CustomersPage() {
                             if (editingCustomer.email2) emails.push(editingCustomer.email2);
                             setSelectedEmails(emails.filter(Boolean) as string[]);
                             setEmailDialogCustomer(editingCustomer);
+                            setEmailDialogOpenedAt(Date.now());
                           }}
                           data-testid="button-email-from-drawer"
                           title={t.customers.details.sendEmail}
@@ -6109,6 +6113,11 @@ export default function CustomersPage() {
                           });
                         }
                         
+                        // Calculate composition duration
+                        const compositionDurationSeconds = emailDialogOpenedAt 
+                          ? Math.round((Date.now() - emailDialogOpenedAt) / 1000) 
+                          : null;
+                        
                         await apiRequest("POST", "/api/ms365/send-email-from-mailbox", {
                           to: selectedEmails,
                           subject: emailSubject,
@@ -6119,6 +6128,7 @@ export default function CustomersPage() {
                           cc: emailCc.trim() || undefined,
                           documentIds: selectedDocuments.length > 0 ? selectedDocuments : undefined,
                           attachments: pcAttachments.length > 0 ? pcAttachments : undefined,
+                          compositionDurationSeconds,
                         });
                         
                         toast({
@@ -6366,10 +6376,16 @@ export default function CustomersPage() {
                       }
                       setIsSendingSms(true);
                                             try {
+                        // Calculate composition duration
+                        const compositionDurationSeconds = smsDialogOpenedAt 
+                          ? Math.round((Date.now() - smsDialogOpenedAt) / 1000) 
+                          : null;
+                        
                         await apiRequest("POST", "/api/send-sms", {
                           to: allPhones,
                           message: smsMessage,
-                          customerId: smsDialogCustomer.id
+                          customerId: smsDialogCustomer.id,
+                          compositionDurationSeconds,
                         });
                                                 toast({
                           title: t.customers.details.smsSentSuccess,

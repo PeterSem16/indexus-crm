@@ -2509,7 +2509,7 @@ export async function registerRoutes(
         await storage.updateUserMs365Connection(userId, updateData);
       }
       
-      const { to, cc, subject, body, isHtml, mailboxId, attachments, customerId, documentIds } = req.body;
+      const { to, cc, subject, body, isHtml, mailboxId, attachments, customerId, documentIds, compositionDurationSeconds } = req.body;
       
       if (!to || !subject || !body) {
         return res.status(400).json({ error: "Missing required fields: to, subject, body" });
@@ -2620,6 +2620,7 @@ export async function registerRoutes(
               isHtml: isHtml !== false,
               sentVia: "ms365",
               sharedMailbox: sharedMailboxEmail || null,
+              compositionDurationSeconds: compositionDurationSeconds || null,
             }),
           });
           messageId = message.id;
@@ -6384,7 +6385,7 @@ export async function registerRoutes(
   // Send SMS to multiple recipients (used from customer dialog)
   app.post("/api/send-sms", requireAuth, async (req, res) => {
     try {
-      const { to, message, customerId } = req.body;
+      const { to, message, customerId, compositionDurationSeconds } = req.body;
       
       if (!to || !message) {
         return res.status(400).json({ error: "Missing required fields: to, message" });
@@ -6416,6 +6417,9 @@ export async function registerRoutes(
           recipientPhone: phone,
           status: "pending",
           provider: "bulkgate",
+          metadata: JSON.stringify({
+            compositionDurationSeconds: compositionDurationSeconds || null,
+          }),
         });
         
         if (isBulkGateConfigured()) {
