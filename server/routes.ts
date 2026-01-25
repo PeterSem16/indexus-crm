@@ -6510,6 +6510,194 @@ export async function registerRoutes(
     }
   });
 
+  // Send email with attachments (general endpoint)
+  app.post("/api/send-email", requireAuth, uploadEmailAttachment.array("attachments", 10), async (req, res) => {
+    try {
+      const userId = req.session.user!.id;
+      const { to, subject, body, mailboxId, customerId, documentIds } = req.body;
+      
+      if (!to || !subject || !body) {
+        return res.status(400).json({ error: "Missing required fields: to, subject, body" });
+      }
+      
+      // Parse recipients
+      const recipients: string[] = typeof to === "string" 
+        ? to.split(",").map(e => e.trim()).filter(Boolean)
+        : Array.isArray(to) ? to : [to];
+      
+      if (recipients.length === 0) {
+        return res.status(400).json({ error: "No recipients specified" });
+      }
+      
+      // Get user's MS365 connection from database
+      const ms365Connection = await storage.getUserMs365Connection(userId);
+      
+      if (!ms365Connection || !ms365Connection.isConnected) {
+        return res.status(401).json({ 
+          error: "Not connected to Microsoft 365. Please connect your MS365 account first.",
+          requiresReauth: true
+        });
+      }
+      
+      // Decrypt tokens for use
+      const { decryptTokenSafe } = await import("./lib/token-crypto");
+      let accessToken: string;
+      let refreshToken: string | null;
+      
+      try {
+        accessToken = decryptTokenSafe(ms365Connection.accessToken);
+        refreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+      } catch (decryptError) {
+        console.error("[SendEmail] Token decryption failed:", decryptError);
+        await storage.updateUserMs365Connection(userId, { isConnected: false });
+        return res.status(401).json({ 
+          error: "MS365 session corrupted. Please reconnect your Microsoft 365 account.",
+          requiresReauth: true
+        });
+      }
+      
+      // Get valid access token, refreshing if necessary
+      const { getValidAccessToken, sendEmail, sendEmailFromSharedMailbox } = await import("./lib/ms365");
+      const tokenResult = await getValidAccessToken(
+        accessToken,
+        ms365Connection.tokenExpiresAt,
+        refreshToken
+      );
+      
+      if (!tokenResult) {
+        await storage.updateUserMs365Connection(userId, { isConnected: false });
+        return res.status(401).json({ 
+          error: "MS365 session expired. Please reconnect your Microsoft 365 account.",
+          requiresReauth: true
+        });
+      }
+      
+      // Update stored token if it was refreshed
+      if (tokenResult.refreshed) {
+        const { encryptTokenWithMarker } = await import("./lib/token-crypto");
+        await storage.updateUserMs365Connection(userId, {
+          accessToken: encryptTokenWithMarker(tokenResult.accessToken),
+          tokenExpiresAt: tokenResult.expiresOn,
+        });
+      }
+      
+      // Prepare attachments from uploaded files
+      const attachments: { name: string; contentBytes: string; contentType: string }[] = [];
+      if (req.files && Array.isArray(req.files)) {
+        for (const file of req.files) {
+          attachments.push({
+            name: file.originalname,
+            contentBytes: file.buffer.toString("base64"),
+            contentType: file.mimetype,
+          });
+        }
+      }
+      
+      // Add document attachments if specified
+      if (documentIds) {
+        try {
+          const docIdArray = typeof documentIds === "string" ? JSON.parse(documentIds) : documentIds;
+          for (const docId of docIdArray) {
+            const doc = await storage.getCustomerDocument(docId);
+            if (doc && doc.filePath) {
+              const fs = await import("fs/promises");
+              const path = await import("path");
+              const filePath = path.join(process.cwd(), doc.filePath);
+              try {
+                const fileBuffer = await fs.readFile(filePath);
+                attachments.push({
+                  name: doc.fileName,
+                  contentBytes: fileBuffer.toString("base64"),
+                  contentType: doc.fileType || "application/octet-stream",
+                });
+              } catch (fileError) {
+                console.warn(`[SendEmail] Could not read document ${docId}:`, fileError);
+              }
+            }
+          }
+        } catch (parseError) {
+          console.warn("[SendEmail] Could not parse documentIds:", parseError);
+        }
+      }
+      
+      // Convert attachments to format expected by sendEmailFromSharedMailbox
+      const formattedAttachments = attachments.map(att => ({
+        name: att.name,
+        contentType: att.contentType,
+        contentBase64: att.contentBytes,
+      }));
+      
+      // Send email via MS365
+      if (mailboxId && mailboxId !== "default") {
+        // Get mailbox address
+        const mailbox = await storage.getMs365Mailbox(mailboxId);
+        if (!mailbox) {
+          return res.status(404).json({ error: "Mailbox not found" });
+        }
+        await sendEmailFromSharedMailbox(
+          tokenResult.accessToken,
+          mailbox.emailAddress,
+          recipients,
+          subject,
+          body,
+          true,
+          undefined, // cc
+          formattedAttachments.length > 0 ? formattedAttachments : undefined
+        );
+      } else {
+        // For default mailbox, also use sendEmailFromSharedMailbox with user's email
+        // or fall back to basic sendEmail (which doesn't support attachments)
+        if (formattedAttachments.length > 0 && ms365Connection.email) {
+          await sendEmailFromSharedMailbox(
+            tokenResult.accessToken,
+            ms365Connection.email,
+            recipients,
+            subject,
+            body,
+            true,
+            undefined,
+            formattedAttachments
+          );
+        } else {
+          await sendEmail(
+            tokenResult.accessToken,
+            recipients,
+            subject,
+            body,
+            true
+          );
+        }
+      }
+      
+      // Create communication record if customerId provided
+      if (customerId) {
+        const customer = await storage.getCustomer(customerId);
+        if (customer) {
+          await storage.createCommunicationMessage({
+            customerId,
+            userId,
+            type: "email",
+            direction: "outbound",
+            content: body,
+            subject,
+            recipientEmail: recipients.join(", "),
+            status: "sent",
+            sentAt: new Date(),
+            provider: "ms365",
+          });
+          
+          await logActivity(userId, "send_email", "communication", customerId, 
+            `Email to ${customer.firstName} ${customer.lastName}: ${subject}`);
+        }
+      }
+      
+      res.json({ success: true, message: "Email sent successfully" });
+    } catch (error: any) {
+      console.error("Error sending email:", error);
+      res.status(500).json({ error: "Failed to send email", details: error.message });
+    }
+  });
+
   // ========== BULKGATE SMS GATEWAY ==========
   
   // Get BulkGate status
