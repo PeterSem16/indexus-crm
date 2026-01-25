@@ -2712,10 +2712,10 @@ function CustomerDetailsContent({
               <StatusBadge status={customer.status as any} />
             </div>
           </div>
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">{t.customers.details.phone}</p>
-            <div className="flex items-center gap-2 mt-1">
-              {customer.phone ? (
+          {customer.phone && (
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">{t.customers.details.phone}</p>
+              <div className="flex items-center gap-2 mt-1">
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span>
@@ -2733,11 +2733,9 @@ function CustomerDetailsContent({
                     <p>{t.customers.details.callCustomer}: {customer.phone}</p>
                   </TooltipContent>
                 </Tooltip>
-              ) : (
-                <span className="text-muted-foreground">-</span>
-              )}
+              </div>
             </div>
-          </div>
+          )}
           <div>
             <p className="text-sm font-medium text-muted-foreground">{t.customers.details?.serviceType || "Service Type"}</p>
             <p className="mt-1 capitalize">{customer.serviceType?.replace("_", " ") || "-"}</p>
