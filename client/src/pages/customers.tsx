@@ -5265,16 +5265,7 @@ export default function CustomersPage() {
           {editingCustomer && (
             <>
               <div className="sticky top-0 z-[999] bg-gradient-to-r from-primary/10 via-primary/5 to-background border-b px-6 py-4 relative">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={() => setEditingCustomer(null)}
-                  className="absolute left-2 top-3"
-                  data-testid="button-close-customer-drawer"
-                >
-                  <X className="h-5 w-5" />
-                </Button>
-                <div className="flex items-center gap-4 flex-wrap ml-10">
+                <div className="flex items-center gap-4 flex-wrap pr-20">
                   <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 ring-2 ring-primary/20">
                     <UserCircle className="h-8 w-8 text-primary" />
                   </div>
@@ -5287,9 +5278,26 @@ export default function CustomersPage() {
                         {getCountryFlag(editingCustomer.country)} {editingCustomer.country}
                       </Badge>
                       <StatusBadge status={editingCustomer.status} />
-                      <Badge variant="outline" className="text-xs" data-testid="badge-customer-drawer-leadscore">
-                        {t.leadScoring.title}: {editingCustomer.leadScore || 0}
-                      </Badge>
+                      {(() => {
+                        const score = editingCustomer.leadScore || 0;
+                        let label = t.leadScoring.statuses.cold;
+                        let colorClass = "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
+                        if (score >= 80) {
+                          label = t.leadScoring.statuses.hot;
+                          colorClass = "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300";
+                        } else if (score >= 60) {
+                          label = t.leadScoring.statuses.qualified;
+                          colorClass = "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
+                        } else if (score >= 40) {
+                          label = t.leadScoring.statuses.warm;
+                          colorClass = "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300";
+                        }
+                        return (
+                          <Badge className={`text-xs ${colorClass}`} data-testid="badge-customer-drawer-leadscore">
+                            {label}
+                          </Badge>
+                        );
+                      })()}
                       {editingCustomer.phone && (
                         <span className="text-sm text-muted-foreground flex items-center gap-1" data-testid="text-customer-drawer-phone">
                           <Phone className="h-3 w-3" />
@@ -5298,6 +5306,27 @@ export default function CustomersPage() {
                       )}
                     </div>
                   </div>
+                </div>
+                <div className="absolute right-2 top-3 flex items-center gap-1">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => {
+                      setViewingCustomer(editingCustomer);
+                    }}
+                    data-testid="button-view-customer-from-drawer"
+                    title={t.customers.viewDetails}
+                  >
+                    <Eye className="h-5 w-5" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => setEditingCustomer(null)}
+                    data-testid="button-close-customer-drawer"
+                  >
+                    <X className="h-5 w-5" />
+                  </Button>
                 </div>
               </div>
               

@@ -270,7 +270,7 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel }: Cus
                           {...field} 
                           data-testid="input-firstname" 
                           disabled={isReadonly("first_name")}
-                          className={isReadonly("first_name") ? "bg-muted" : ""}
+                          className={`font-bold ${isReadonly("first_name") ? "bg-muted" : ""}`}
                         />
                       </FormControl>
                       <FormMessage />
@@ -290,7 +290,7 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel }: Cus
                           {...field} 
                           data-testid="input-lastname"
                           disabled={isReadonly("last_name")}
-                          className={isReadonly("last_name") ? "bg-muted" : ""}
+                          className={`font-bold ${isReadonly("last_name") ? "bg-muted" : ""}`}
                         />
                       </FormControl>
                       <FormMessage />
@@ -1327,7 +1327,7 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel }: Cus
           )}
         </Tabs>
 
-        <div className="sticky bottom-0 left-0 right-0 z-[999] bg-background/95 backdrop-blur-sm border-t px-4 py-3 -mx-6 -mb-4 mt-4 flex justify-start gap-3 flex-wrap">
+        <div className="sticky bottom-0 left-0 right-0 z-[999] bg-background/95 backdrop-blur-sm border-t px-4 py-3 -mx-6 -mb-4 mt-4 flex justify-end gap-3 flex-wrap">
           <Button 
             type="button" 
             variant="outline" 
