@@ -3586,7 +3586,50 @@ export async function registerRoutes(
                 priority: "normal",
                 isRead: true
               });
+              
+              // Also log to communication_messages for Activity Reports
+              await storage.createCommunicationMessage({
+                customerId: customer.id,
+                userId,
+                type: "email",
+                subject: subject || "(bez predmetu)",
+                content: body || "",
+                status: "sent",
+                recipients: recipientEmail,
+                metadata: JSON.stringify({
+                  from: actualMailbox,
+                  cc: cc || [],
+                  isHtml: isHtml !== false,
+                  sentVia: "ms365-email-client",
+                }),
+              });
+              
               console.log(`[EmailRouter] Logged outbound email to customer ${customer.firstName} ${customer.lastName} (${customer.email})`);
+            }
+          }
+          
+          // If no matching customers found but email was sent, still log to activity for the user
+          if (to.length > 0) {
+            const allMatchingCustomers = await Promise.all(to.map(email => storage.findCustomersByEmail(email)));
+            const hasAnyMatch = allMatchingCustomers.some(customers => customers.length > 0);
+            if (!hasAnyMatch) {
+              // Log without customer association for Activity Reports
+              await storage.createCommunicationMessage({
+                customerId: null,
+                userId,
+                type: "email",
+                subject: subject || "(bez predmetu)",
+                content: body || "",
+                status: "sent",
+                recipients: to.join(", "),
+                metadata: JSON.stringify({
+                  from: actualMailbox,
+                  cc: cc || [],
+                  isHtml: isHtml !== false,
+                  sentVia: "ms365-email-client",
+                  noCustomerMatch: true,
+                }),
+              });
             }
           }
         } catch (linkError) {
@@ -3648,6 +3691,28 @@ export async function registerRoutes(
       );
       
       if (success) {
+        // Log to communication_messages for Activity Reports
+        try {
+          const actualMailbox = mailboxEmail === "personal" ? ms365Connection.email : mailboxEmail;
+          await storage.createCommunicationMessage({
+            customerId: null,
+            userId,
+            type: "email",
+            subject: "(odpoveď)",
+            content: body || "",
+            status: "sent",
+            recipients: "(reply)",
+            metadata: JSON.stringify({
+              from: actualMailbox,
+              isHtml: isHtml !== false,
+              sentVia: "ms365-email-client",
+              action: replyAll ? "reply_all" : "reply",
+              originalEmailId: emailId,
+            }),
+          });
+        } catch (logError) {
+          console.error("[EmailRouter] Error logging reply to activity:", logError);
+        }
         res.json({ success: true, message: "Reply sent successfully" });
       } else {
         res.status(500).json({ error: "Failed to send reply" });
@@ -3707,6 +3772,59 @@ export async function registerRoutes(
       );
       
       if (success) {
+        // Log to communication_messages for Activity Reports
+        try {
+          const actualMailbox = mailboxEmail === "personal" ? ms365Connection.email : mailboxEmail;
+          
+          for (const recipientEmail of to) {
+            const matchingCustomers = await storage.findCustomersByEmail(recipientEmail);
+            if (matchingCustomers.length > 0) {
+              for (const customer of matchingCustomers) {
+                await storage.createCommunicationMessage({
+                  customerId: customer.id,
+                  userId,
+                  type: "email",
+                  subject: "(preposlanie)",
+                  content: body || "",
+                  status: "sent",
+                  recipients: recipientEmail,
+                  metadata: JSON.stringify({
+                    from: actualMailbox,
+                    isHtml: isHtml !== false,
+                    sentVia: "ms365-email-client",
+                    action: "forward",
+                    originalEmailId: emailId,
+                  }),
+                });
+              }
+            }
+          }
+          
+          // If no matching customers, still log for activity
+          const allMatchingCustomers = await Promise.all(to.map(email => storage.findCustomersByEmail(email)));
+          const hasAnyMatch = allMatchingCustomers.some(customers => customers.length > 0);
+          if (!hasAnyMatch) {
+            await storage.createCommunicationMessage({
+              customerId: null,
+              userId,
+              type: "email",
+              subject: "(preposlanie)",
+              content: body || "",
+              status: "sent",
+              recipients: to.join(", "),
+              metadata: JSON.stringify({
+                from: actualMailbox,
+                isHtml: isHtml !== false,
+                sentVia: "ms365-email-client",
+                action: "forward",
+                originalEmailId: emailId,
+                noCustomerMatch: true,
+              }),
+            });
+          }
+        } catch (logError) {
+          console.error("[EmailRouter] Error logging forward to activity:", logError);
+        }
         res.json({ success: true, message: "Email forwarded successfully" });
       } else {
         res.status(500).json({ error: "Failed to forward email" });
