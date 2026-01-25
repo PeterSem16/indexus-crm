@@ -12359,12 +12359,27 @@ export async function registerRoutes(
         if (inRange && matchUser && matchRole && (msg.type === 'email' || msg.type === 'sms')) {
           const u = msg.userId ? userMap.get(msg.userId) : null;
           const customer = msg.customerId ? customerMap.get(msg.customerId) as { id: string; firstName: string; lastName: string } | undefined : null;
+          
+          // Parse metadata to get composition duration
+          let compositionDuration: number | undefined;
+          if (msg.metadata) {
+            try {
+              const meta = typeof msg.metadata === 'string' ? JSON.parse(msg.metadata) : msg.metadata;
+              if (meta.compositionDurationSeconds) {
+                compositionDuration = meta.compositionDurationSeconds;
+              }
+            } catch (e) {
+              // Ignore parse errors
+            }
+          }
+          
           entries.push({
             id: `msg-${msg.id}`,
             userId: msg.userId || '',
             userName: u?.fullName || u?.username || "Unknown",
             type: msg.type as 'email' | 'sms',
             timestamp: msgDate,
+            duration: compositionDuration,
             recipient: msg.recipientEmail || msg.recipientPhone || undefined,
             status: msg.status || undefined,
             customerId: msg.customerId || undefined,

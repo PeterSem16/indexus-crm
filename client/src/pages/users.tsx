@@ -691,7 +691,7 @@ export default function UsersPage() {
         entry.type,
         entry.recipient || '',
         entry.customerName || '',
-        entry.type === 'call' && entry.duration ? formatCallDuration(entry.duration) : '',
+        entry.duration ? formatCallDuration(entry.duration) : '',
         entry.status || ''
       ]);
 
@@ -747,7 +747,7 @@ export default function UsersPage() {
         entry.type,
         entry.recipient || '',
         entry.customerName || '',
-        entry.type === 'call' && entry.duration ? formatCallDuration(entry.duration) : '',
+        entry.duration ? formatCallDuration(entry.duration) : '',
         entry.status || ''
       ]);
 
@@ -1952,7 +1952,7 @@ export default function UsersPage() {
                                 <TableCell>{entry.recipient || '-'}</TableCell>
                                 <TableCell>{entry.customerName || '-'}</TableCell>
                                 <TableCell className="text-right">
-                                  {entry.type === 'call' && entry.duration ? formatCallDuration(entry.duration) : '-'}
+                                  {entry.duration ? formatCallDuration(entry.duration) : '-'}
                                 </TableCell>
                                 <TableCell>
                                   <Badge variant={entry.status === 'completed' || entry.status === 'sent' ? 'default' : 'secondary'}>
