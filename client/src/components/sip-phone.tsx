@@ -1076,12 +1076,10 @@ export function SipPhoneFloating({
   leadScore,
   clientStatus
 }: SipPhoneFloatingProps) {
-  const { makeCall, isRegistered } = useSip();
+  const { makeCall, isRegistered, isRegistering, register } = useSip();
 
   const handleCall = () => {
-    if (!isRegistered) {
-      return;
-    }
+    // Always set pendingCall - system will wait for registration if needed
     makeCall({
       phoneNumber,
       customerId,
@@ -1090,6 +1088,11 @@ export function SipPhoneFloating({
       leadScore,
       clientStatus,
     });
+    
+    // If not registered yet, trigger registration
+    if (!isRegistered && !isRegistering) {
+      register();
+    }
   };
 
   if (!phoneNumber) {
@@ -1100,10 +1103,14 @@ export function SipPhoneFloating({
     <Button
       className="fixed bottom-4 right-4 h-14 w-14 rounded-full shadow-lg z-50"
       onClick={handleCall}
-      disabled={!isRegistered}
+      disabled={isRegistering}
       data-testid="button-call-floating"
     >
-      <Phone className="h-6 w-6" />
+      {isRegistering ? (
+        <Loader2 className="h-6 w-6 animate-spin" />
+      ) : (
+        <Phone className="h-6 w-6" />
+      )}
     </Button>
   );
 }
@@ -1127,7 +1134,7 @@ export function CallCustomerButton({
   leadScore,
   clientStatus
 }: CallCustomerButtonProps) {
-  const { makeCall, isRegistered } = useSip();
+  const { makeCall, isRegistered, isRegistering, register } = useSip();
   const { data: authData } = useQuery<{ user: User | null }>({
     queryKey: ["/api/auth/me"],
   });
@@ -1138,7 +1145,8 @@ export function CallCustomerButton({
   const handleCall = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!isRegistered) return;
+    
+    // Always set pendingCall - the system will wait for registration if needed
     makeCall({
       phoneNumber,
       customerId: typeof customerId === 'number' ? String(customerId) : customerId,
@@ -1147,6 +1155,11 @@ export function CallCustomerButton({
       leadScore,
       clientStatus,
     });
+    
+    // If not registered yet, trigger registration (call will proceed after registration)
+    if (!isRegistered && !isRegistering) {
+      register();
+    }
   };
 
   if (!hasSipEnabled || !phoneNumber) {
@@ -1160,11 +1173,15 @@ export function CallCustomerButton({
         size="icon"
         variant="ghost"
         onClick={handleCall}
-        disabled={!isRegistered}
+        disabled={isRegistering}
         data-testid="button-call-customer-icon"
-        title={`Zavolat na ${phoneNumber}`}
+        title={isRegistering ? "Pripájanie..." : `Zavolat na ${phoneNumber}`}
       >
-        <PhoneCall className="h-4 w-4 text-primary" />
+        {isRegistering ? (
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        ) : (
+          <PhoneCall className="h-4 w-4 text-primary" />
+        )}
       </Button>
     );
   }
@@ -1176,12 +1193,16 @@ export function CallCustomerButton({
         size="sm"
         variant="outline"
         onClick={handleCall}
-        disabled={!isRegistered}
+        disabled={isRegistering}
         data-testid="button-call-customer-small"
         className="gap-1"
       >
-        <PhoneCall className="h-3 w-3" />
-        Zavolat
+        {isRegistering ? (
+          <Loader2 className="h-3 w-3 animate-spin" />
+        ) : (
+          <PhoneCall className="h-3 w-3" />
+        )}
+        {isRegistering ? "Pripájam..." : "Zavolat"}
       </Button>
     );
   }
@@ -1190,12 +1211,16 @@ export function CallCustomerButton({
     <Button
       type="button"
       onClick={handleCall}
-      disabled={!isRegistered}
+      disabled={isRegistering}
       data-testid="button-call-customer"
       className="gap-2"
     >
-      <PhoneCall className="h-4 w-4" />
-      Zavolat {phoneNumber}
+      {isRegistering ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <PhoneCall className="h-4 w-4" />
+      )}
+      {isRegistering ? "Pripájam..." : `Zavolat ${phoneNumber}`}
     </Button>
   );
 }
