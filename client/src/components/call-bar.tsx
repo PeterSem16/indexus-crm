@@ -217,7 +217,7 @@ export function CallBar() {
                     <Grid3X3 className="h-4 w-4" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-2" align="end">
+                <PopoverContent className="w-auto p-2 z-[10000]" align="end" sideOffset={8}>
                   <div className="grid grid-cols-3 gap-1">
                     {DTMF_KEYS.map((row, rowIndex) => (
                       row.map((digit) => (

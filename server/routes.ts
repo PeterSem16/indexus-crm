@@ -6332,10 +6332,22 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Missing required fields: to, subject, body" });
       }
       
-      // Parse recipients
-      const recipients: string[] = typeof to === "string" 
-        ? to.split(",").map(e => e.trim()).filter(Boolean)
-        : Array.isArray(to) ? to : [to];
+      // Parse recipients - handle JSON array string from FormData
+      let recipients: string[];
+      if (typeof to === "string") {
+        // Try to parse as JSON array first (from FormData with JSON.stringify)
+        try {
+          const parsed = JSON.parse(to);
+          recipients = Array.isArray(parsed) ? parsed : [parsed];
+        } catch {
+          // Fallback to comma-separated string
+          recipients = to.split(",").map(e => e.trim()).filter(Boolean);
+        }
+      } else if (Array.isArray(to)) {
+        recipients = to;
+      } else {
+        recipients = [to];
+      }
       
       if (recipients.length === 0) {
         return res.status(400).json({ error: "No recipients specified" });
