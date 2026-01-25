@@ -550,6 +550,13 @@ export interface Translations {
       generating: string;
       vatLabel: string;
       currencyLabel: string;
+      fillAllFields: string;
+      emailSentSuccess: string;
+      emailSentSuccessDesc: string;
+      emailSendFailed: string;
+      smsSentSuccess: string;
+      smsSentSuccessDesc: string;
+      smsSendFailed: string;
     };
   };
   products: {
@@ -2552,6 +2559,13 @@ export const translations: Record<Locale, Translations> = {
         generating: 'Generating...',
         vatLabel: 'VAT',
         currencyLabel: 'Currency',
+        fillAllFields: 'Please fill in all required fields',
+        emailSentSuccess: 'Email sent',
+        emailSentSuccessDesc: 'Email was sent successfully',
+        emailSendFailed: 'Failed to send email',
+        smsSentSuccess: 'SMS sent',
+        smsSentSuccessDesc: 'SMS was sent successfully',
+        smsSendFailed: 'Failed to send SMS',
       },
     },
     products: {
@@ -4759,6 +4773,13 @@ export const translations: Record<Locale, Translations> = {
         generating: 'Generujem...',
         vatLabel: 'DPH',
         currencyLabel: 'Mena',
+        fillAllFields: 'Vyplňte prosím všetky povinné polia',
+        emailSentSuccess: 'Email odoslaný',
+        emailSentSuccessDesc: 'Email bol úspešne odoslaný',
+        emailSendFailed: 'Nepodarilo sa odoslať email',
+        smsSentSuccess: 'SMS odoslaná',
+        smsSentSuccessDesc: 'SMS bola úspešne odoslaná',
+        smsSendFailed: 'Nepodarilo sa odoslať SMS',
       },
     },
     products: {
@@ -6975,6 +6996,13 @@ export const translations: Record<Locale, Translations> = {
         generating: 'Generuji...',
         vatLabel: 'DPH',
         currencyLabel: 'Měna',
+        fillAllFields: 'Vyplňte prosím všechna povinná pole',
+        emailSentSuccess: 'Email odeslán',
+        emailSentSuccessDesc: 'Email byl úspěšně odeslán',
+        emailSendFailed: 'Nepodařilo se odeslat email',
+        smsSentSuccess: 'SMS odeslána',
+        smsSentSuccessDesc: 'SMS byla úspěšně odeslána',
+        smsSendFailed: 'Nepodařilo se odeslat SMS',
       },
     },
     products: {
@@ -9123,6 +9151,13 @@ export const translations: Record<Locale, Translations> = {
         generating: 'Generálás...',
         vatLabel: 'ÁFA',
         currencyLabel: 'Pénznem',
+        fillAllFields: 'Kérjük, töltse ki az összes kötelező mezőt',
+        emailSentSuccess: 'Email elküldve',
+        emailSentSuccessDesc: 'Az email sikeresen el lett küldve',
+        emailSendFailed: 'Nem sikerült elküldeni az emailt',
+        smsSentSuccess: 'SMS elküldve',
+        smsSentSuccessDesc: 'Az SMS sikeresen el lett küldve',
+        smsSendFailed: 'Nem sikerült elküldeni az SMS-t',
       },
     },
     products: {
@@ -11270,6 +11305,13 @@ export const translations: Record<Locale, Translations> = {
         generating: 'Se generează...',
         vatLabel: 'TVA',
         currencyLabel: 'Monedă',
+        fillAllFields: 'Vă rugăm să completați toate câmpurile obligatorii',
+        emailSentSuccess: 'Email trimis',
+        emailSentSuccessDesc: 'Emailul a fost trimis cu succes',
+        emailSendFailed: 'Nu s-a putut trimite emailul',
+        smsSentSuccess: 'SMS trimis',
+        smsSentSuccessDesc: 'SMS-ul a fost trimis cu succes',
+        smsSendFailed: 'Nu s-a putut trimite SMS-ul',
       },
     },
     products: {
@@ -13418,6 +13460,13 @@ export const translations: Record<Locale, Translations> = {
         generating: 'Generazione...',
         vatLabel: 'IVA',
         currencyLabel: 'Valuta',
+        fillAllFields: 'Si prega di compilare tutti i campi obbligatori',
+        emailSentSuccess: 'Email inviata',
+        emailSentSuccessDesc: 'L\'email è stata inviata con successo',
+        emailSendFailed: 'Impossibile inviare l\'email',
+        smsSentSuccess: 'SMS inviato',
+        smsSentSuccessDesc: 'L\'SMS è stato inviato con successo',
+        smsSendFailed: 'Impossibile inviare l\'SMS',
       },
     },
     products: {
@@ -15566,6 +15615,13 @@ export const translations: Record<Locale, Translations> = {
         generating: 'Wird generiert...',
         vatLabel: 'MwSt',
         currencyLabel: 'Währung',
+        fillAllFields: 'Bitte füllen Sie alle Pflichtfelder aus',
+        emailSentSuccess: 'E-Mail gesendet',
+        emailSentSuccessDesc: 'E-Mail wurde erfolgreich gesendet',
+        emailSendFailed: 'E-Mail konnte nicht gesendet werden',
+        smsSentSuccess: 'SMS gesendet',
+        smsSentSuccessDesc: 'SMS wurde erfolgreich gesendet',
+        smsSendFailed: 'SMS konnte nicht gesendet werden',
       },
     },
     products: {

@@ -34,6 +34,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { PageHeader } from "@/components/page-header";
 import { AdvancedFilters, type CustomerFilters } from "@/components/advanced-filters";
 import { DataTable } from "@/components/data-table";
@@ -4435,6 +4436,15 @@ export default function CustomersPage() {
   const [pendingViewCustomerId, setPendingViewCustomerId] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   
+  // Email and SMS dialog states
+  const [emailDialogCustomer, setEmailDialogCustomer] = useState<Customer | null>(null);
+  const [smsDialogCustomer, setSmsDialogCustomer] = useState<Customer | null>(null);
+  const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
+  const [selectedPhones, setSelectedPhones] = useState<string[]>([]);
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailMessage, setEmailMessage] = useState("");
+  const [smsMessage, setSmsMessage] = useState("");
+  
   // Pagination
   const [page, setPage] = useState(1);
   const pageSize = 30;
@@ -5308,7 +5318,12 @@ export default function CustomersPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => setViewingCustomer(editingCustomer)}
+                          onClick={() => {
+                            const phones = [editingCustomer.phone];
+                            if (editingCustomer.phone2) phones.push(editingCustomer.phone2);
+                            setSelectedPhones(phones.filter(Boolean) as string[]);
+                            setSmsDialogCustomer(editingCustomer);
+                          }}
                           data-testid="button-sms-from-drawer"
                           title={t.customers.details.sendSms}
                         >
@@ -5319,26 +5334,31 @@ export default function CustomersPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => setViewingCustomer(editingCustomer)}
+                          onClick={() => {
+                            const emails = [editingCustomer.email];
+                            if (editingCustomer.email2) emails.push(editingCustomer.email2);
+                            setSelectedEmails(emails.filter(Boolean) as string[]);
+                            setEmailDialogCustomer(editingCustomer);
+                          }}
                           data-testid="button-email-from-drawer"
                           title={t.customers.details.sendEmail}
                         >
                           <Mail className="h-4 w-4" />
                         </Button>
                       )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setViewingCustomer(editingCustomer)}
+                        data-testid="button-view-customer-details"
+                        title={t.customers.detailsTitle}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 </div>
                 <div className="absolute right-2 top-3 flex items-center gap-1 flex-wrap">
-                  <Badge 
-                    variant="outline" 
-                    className="cursor-pointer flex items-center gap-1 text-xs"
-                    onClick={() => setViewingCustomer(editingCustomer)}
-                    data-testid="badge-documents-invoices"
-                  >
-                    <Eye className="h-3 w-3" />
-                    {t.customers.callHistory?.filterDocuments} & {t.customers.details.invoices}
-                  </Badge>
                   <Button 
                     variant="ghost" 
                     size="icon" 
@@ -5431,6 +5451,272 @@ export default function CustomersPage() {
           onClose={() => setPotentialCaseCustomer(null)}
         />
       )}
+
+      {/* Email Dialog */}
+      <Dialog open={!!emailDialogCustomer} onOpenChange={(open) => {
+        if (!open) {
+          setEmailDialogCustomer(null);
+          setSelectedEmails([]);
+          setEmailSubject("");
+          setEmailMessage("");
+        }
+      }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t.customers.details.sendEmail}</DialogTitle>
+            <DialogDescription>
+              {emailDialogCustomer && `${emailDialogCustomer.firstName} ${emailDialogCustomer.lastName}`}
+            </DialogDescription>
+          </DialogHeader>
+          {emailDialogCustomer && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>{t.customers.details.to}</Label>
+                <div className="space-y-2">
+                  {emailDialogCustomer.email && (
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="email1"
+                        checked={selectedEmails.includes(emailDialogCustomer.email)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedEmails([...selectedEmails, emailDialogCustomer.email!]);
+                          } else {
+                            setSelectedEmails(selectedEmails.filter(e => e !== emailDialogCustomer.email));
+                          }
+                        }}
+                        data-testid="checkbox-email-primary"
+                      />
+                      <Label htmlFor="email1" className="font-normal cursor-pointer">
+                        {emailDialogCustomer.email}
+                      </Label>
+                    </div>
+                  )}
+                  {emailDialogCustomer.email2 && (
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="email2"
+                        checked={selectedEmails.includes(emailDialogCustomer.email2)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedEmails([...selectedEmails, emailDialogCustomer.email2!]);
+                          } else {
+                            setSelectedEmails(selectedEmails.filter(e => e !== emailDialogCustomer.email2));
+                          }
+                        }}
+                        data-testid="checkbox-email-secondary"
+                      />
+                      <Label htmlFor="email2" className="font-normal cursor-pointer">
+                        {emailDialogCustomer.email2}
+                      </Label>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="emailSubject">{t.customers.details.subject}</Label>
+                <Input
+                  id="emailSubject"
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  placeholder={t.customers.details.emailSubjectPlaceholder}
+                  data-testid="input-email-subject"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="emailMessage">{t.customers.details.message}</Label>
+                <Textarea
+                  id="emailMessage"
+                  value={emailMessage}
+                  onChange={(e) => setEmailMessage(e.target.value)}
+                  placeholder={t.customers.details.writeEmailPlaceholder}
+                  rows={5}
+                  data-testid="textarea-email-message"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setEmailDialogCustomer(null);
+                    setSelectedEmails([]);
+                    setEmailSubject("");
+                    setEmailMessage("");
+                  }}
+                  data-testid="button-cancel-email"
+                >
+                  {t.common.cancel}
+                </Button>
+                <Button
+                  onClick={async () => {
+                    if (selectedEmails.length === 0 || !emailSubject || !emailMessage) {
+                      toast({
+                        title: t.common.error,
+                        description: t.customers.details.fillAllFields,
+                        variant: "destructive"
+                      });
+                      return;
+                    }
+                    try {
+                      await apiRequest("POST", "/api/send-email", {
+                        to: selectedEmails,
+                        subject: emailSubject,
+                        body: emailMessage,
+                        customerId: emailDialogCustomer.id
+                      });
+                      toast({
+                        title: t.customers.details.emailSentSuccess,
+                        description: t.customers.details.emailSentSuccessDesc
+                      });
+                      setEmailDialogCustomer(null);
+                      setSelectedEmails([]);
+                      setEmailSubject("");
+                      setEmailMessage("");
+                    } catch (error) {
+                      toast({
+                        title: t.common.error,
+                        description: t.customers.details.emailSendFailed,
+                        variant: "destructive"
+                      });
+                    }
+                  }}
+                  disabled={selectedEmails.length === 0 || !emailSubject || !emailMessage}
+                  data-testid="button-send-email"
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  {t.customers.details.sendEmail}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* SMS Dialog */}
+      <Dialog open={!!smsDialogCustomer} onOpenChange={(open) => {
+        if (!open) {
+          setSmsDialogCustomer(null);
+          setSelectedPhones([]);
+          setSmsMessage("");
+        }
+      }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t.customers.details.sendSms}</DialogTitle>
+            <DialogDescription>
+              {smsDialogCustomer && `${smsDialogCustomer.firstName} ${smsDialogCustomer.lastName}`}
+            </DialogDescription>
+          </DialogHeader>
+          {smsDialogCustomer && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>{t.customers.details.to}</Label>
+                <div className="space-y-2">
+                  {smsDialogCustomer.phone && (
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="phone1"
+                        checked={selectedPhones.includes(smsDialogCustomer.phone)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedPhones([...selectedPhones, smsDialogCustomer.phone!]);
+                          } else {
+                            setSelectedPhones(selectedPhones.filter(p => p !== smsDialogCustomer.phone));
+                          }
+                        }}
+                        data-testid="checkbox-phone-primary"
+                      />
+                      <Label htmlFor="phone1" className="font-normal cursor-pointer">
+                        {smsDialogCustomer.phone}
+                      </Label>
+                    </div>
+                  )}
+                  {smsDialogCustomer.phone2 && (
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="phone2"
+                        checked={selectedPhones.includes(smsDialogCustomer.phone2)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedPhones([...selectedPhones, smsDialogCustomer.phone2!]);
+                          } else {
+                            setSelectedPhones(selectedPhones.filter(p => p !== smsDialogCustomer.phone2));
+                          }
+                        }}
+                        data-testid="checkbox-phone-secondary"
+                      />
+                      <Label htmlFor="phone2" className="font-normal cursor-pointer">
+                        {smsDialogCustomer.phone2}
+                      </Label>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="smsMessage">{t.customers.details.message}</Label>
+                <Textarea
+                  id="smsMessage"
+                  value={smsMessage}
+                  onChange={(e) => setSmsMessage(e.target.value)}
+                  placeholder={t.customers.details.writeSmsPlaceholder}
+                  rows={4}
+                  data-testid="textarea-sms-message"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSmsDialogCustomer(null);
+                    setSelectedPhones([]);
+                    setSmsMessage("");
+                  }}
+                  data-testid="button-cancel-sms"
+                >
+                  {t.common.cancel}
+                </Button>
+                <Button
+                  onClick={async () => {
+                    if (selectedPhones.length === 0 || !smsMessage) {
+                      toast({
+                        title: t.common.error,
+                        description: t.customers.details.fillAllFields,
+                        variant: "destructive"
+                      });
+                      return;
+                    }
+                    try {
+                      await apiRequest("POST", "/api/send-sms", {
+                        to: selectedPhones,
+                        message: smsMessage,
+                        customerId: smsDialogCustomer.id
+                      });
+                      toast({
+                        title: t.customers.details.smsSentSuccess,
+                        description: t.customers.details.smsSentSuccessDesc
+                      });
+                      setSmsDialogCustomer(null);
+                      setSelectedPhones([]);
+                      setSmsMessage("");
+                    } catch (error) {
+                      toast({
+                        title: t.common.error,
+                        description: t.customers.details.smsSendFailed,
+                        variant: "destructive"
+                      });
+                    }
+                  }}
+                  disabled={selectedPhones.length === 0 || !smsMessage}
+                  data-testid="button-send-sms"
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  {t.customers.details.sendSms}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
