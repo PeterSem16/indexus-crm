@@ -5257,48 +5257,69 @@ export default function CustomersPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!editingCustomer} onOpenChange={() => setEditingCustomer(null)}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {editingCustomer && (
-                <>
-                  <UserCircle className="h-5 w-5" />
-                  {editingCustomer.firstName} {editingCustomer.lastName}
-                </>
-              )}
-            </DialogTitle>
-            <DialogDescription>
-              Správa zákazníka a história aktivít
-            </DialogDescription>
-          </DialogHeader>
+      <Sheet open={!!editingCustomer} onOpenChange={() => setEditingCustomer(null)}>
+        <SheetContent 
+          side="right" 
+          className="!w-full !max-w-none sm:!max-w-3xl lg:!max-w-4xl xl:!max-w-5xl !p-0 flex flex-col overflow-hidden border-l shadow-2xl"
+        >
           {editingCustomer && (
-            <Tabs defaultValue="data" className="flex-1 flex flex-col overflow-hidden">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="data" className="flex items-center gap-2">
-                  <FileEdit className="h-4 w-4" />
-                  {t.customers.tabs?.data || "Data"}
-                </TabsTrigger>
-                <TabsTrigger value="history" className="flex items-center gap-2">
-                  <History className="h-4 w-4" />
-                  {t.customers.tabs?.history || "History"}
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="data" className="flex-1 overflow-y-auto mt-4">
-                <CustomerForm
-                  initialData={editingCustomer}
-                  onSubmit={(data) => updateMutation.mutate({ ...data, id: editingCustomer.id })}
-                  isLoading={updateMutation.isPending}
-                  onCancel={() => setEditingCustomer(null)}
-                />
-              </TabsContent>
-              <TabsContent value="history" className="flex-1 overflow-y-auto mt-4">
-                <CustomerHistoryTimeline customerId={editingCustomer.id} customerName={`${editingCustomer.firstName} ${editingCustomer.lastName}`} />
-              </TabsContent>
-            </Tabs>
+            <>
+              <div className="sticky top-0 z-[999] bg-gradient-to-r from-primary/10 via-primary/5 to-background border-b px-6 py-4">
+                <div className="flex items-center gap-4 flex-wrap">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 ring-2 ring-primary/20">
+                    <UserCircle className="h-8 w-8 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-xl font-semibold tracking-tight truncate" data-testid="text-customer-drawer-name">
+                      {editingCustomer.firstName} {editingCustomer.lastName}
+                    </h2>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <Badge variant="outline" className="text-xs" data-testid="badge-customer-drawer-country">
+                        {getCountryFlag(editingCustomer.country)} {editingCustomer.country}
+                      </Badge>
+                      <StatusBadge status={editingCustomer.status} />
+                      {editingCustomer.phone && (
+                        <span className="text-sm text-muted-foreground flex items-center gap-1" data-testid="text-customer-drawer-phone">
+                          <Phone className="h-3 w-3" />
+                          {editingCustomer.phone}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <Tabs defaultValue="data" className="flex-1 flex flex-col overflow-hidden">
+                <div className="px-6 pt-4 pb-2 border-b bg-background/80 backdrop-blur-sm">
+                  <TabsList className="grid w-full grid-cols-2 h-11">
+                    <TabsTrigger value="data" className="flex items-center gap-2">
+                      <FileEdit className="h-4 w-4" />
+                      <span className="hidden sm:inline">{t.customers.tabs?.data || "Data"}</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="history" className="flex items-center gap-2">
+                      <History className="h-4 w-4" />
+                      <span className="hidden sm:inline">{t.customers.tabs?.history || "History"}</span>
+                    </TabsTrigger>
+                  </TabsList>
+                </div>
+                
+                <TabsContent value="data" className="flex-1 overflow-y-auto px-6 py-4 m-0">
+                  <CustomerForm
+                    initialData={editingCustomer}
+                    onSubmit={(data) => updateMutation.mutate({ ...data, id: editingCustomer.id })}
+                    isLoading={updateMutation.isPending}
+                    onCancel={() => setEditingCustomer(null)}
+                  />
+                </TabsContent>
+                
+                <TabsContent value="history" className="flex-1 overflow-y-auto px-6 py-4 m-0">
+                  <CustomerHistoryTimeline customerId={editingCustomer.id} customerName={`${editingCustomer.firstName} ${editingCustomer.lastName}`} />
+                </TabsContent>
+              </Tabs>
+            </>
           )}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
       <Sheet open={!!viewingCustomer} onOpenChange={() => setViewingCustomer(null)}>
         <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
