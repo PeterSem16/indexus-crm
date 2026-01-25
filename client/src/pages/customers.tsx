@@ -4573,23 +4573,35 @@ export default function CustomersPage() {
 
   // Fetch customer documents (invoices, contracts) for attachment using unified endpoint
   // Fetch email templates for template selector - always enabled
-  const { data: emailTemplates = [] } = useQuery<{ id: string; name: string; subject: string | null; content: string; contentHtml: string | null; categoryId: string | null; }[]>({
-    queryKey: ["/api/message-templates", "email"],
+  // Get customer language for template filtering
+  const getCustomerLanguage = (customer: Customer | null): string => {
+    if (!customer?.country) return "sk";
+    // Normalize country code to uppercase for COUNTRY_TO_LOCALE lookup
+    const normalizedCountry = customer.country.toUpperCase();
+    return COUNTRY_TO_LOCALE[normalizedCountry] || "sk";
+  };
+
+  const { data: emailTemplates = [] } = useQuery<{ id: string; name: string; subject: string | null; content: string; contentHtml: string | null; categoryId: string | null; language: string | null; }[]>({
+    queryKey: ["/api/message-templates", "email", emailDialogCustomer?.country],
     queryFn: async () => {
-      const res = await fetch("/api/message-templates?type=email&isActive=true", { credentials: "include" });
+      const language = getCustomerLanguage(emailDialogCustomer);
+      const res = await fetch(`/api/message-templates?type=email&isActive=true&language=${language}`, { credentials: "include" });
       if (!res.ok) return [];
       return res.json();
     },
+    enabled: !!emailDialogCustomer,
   });
 
-  // Fetch SMS templates - always enabled
-  const { data: smsTemplates = [] } = useQuery<{ id: string; name: string; content: string; categoryId: string | null; }[]>({
-    queryKey: ["/api/message-templates", "sms"],
+  // Fetch SMS templates - filtered by customer language
+  const { data: smsTemplates = [] } = useQuery<{ id: string; name: string; content: string; categoryId: string | null; language: string | null; }[]>({
+    queryKey: ["/api/message-templates", "sms", smsDialogCustomer?.country],
     queryFn: async () => {
-      const res = await fetch("/api/message-templates?type=sms&isActive=true", { credentials: "include" });
+      const language = getCustomerLanguage(smsDialogCustomer);
+      const res = await fetch(`/api/message-templates?type=sms&isActive=true&language=${language}`, { credentials: "include" });
       if (!res.ok) return [];
       return res.json();
     },
+    enabled: !!smsDialogCustomer,
   });
 
   const { data: customerDocuments = [] } = useQuery<{ id: string; name: string; type: string; url: string }[]>({
@@ -4701,15 +4713,11 @@ export default function CustomersPage() {
     return "male";
   }, []);
 
-  // Generate email template based on customer's country/language using translations
+  // Generate simple email template with just salutation based on customer's country/language
   const generateEmailTemplate = useCallback((customer: Customer) => {
-    const userFullName = user?.fullName || "";
-    const userPhone = user?.phone ? `${user?.phonePrefix || ""}${user.phone}` : "";
-    const selectedAccount = allEmailAccounts.find(a => a.id === selectedFromAccount);
-    const userEmail = selectedAccount?.email || user?.email || "";
-    
     // Use shared COUNTRY_TO_LOCALE mapping for customer's language
-    const customerLocale = COUNTRY_TO_LOCALE[customer.country || "SK"] || "sk";
+    const normalizedCountry = (customer.country || "SK").toUpperCase();
+    const customerLocale = COUNTRY_TO_LOCALE[normalizedCountry] || "sk";
     const customerT = translations[customerLocale];
     
     // Detect gender and use appropriate salutation
@@ -4717,27 +4725,16 @@ export default function CustomersPage() {
     const salutationPrefix = gender === "female" 
       ? customerT.customers.details.emailSalutationFemale 
       : customerT.customers.details.emailSalutationMale;
-    const salutation = `${salutationPrefix} ${customer.lastName},`;
-    const greeting = customerT.customers.details.emailGreeting;
     
-    const template = `
-<p>${salutation}</p>
-<p><br></p>
-<p></p>
-<p><br></p>
-<p>${greeting}</p>
-<p><br></p>
-<p><strong>${userFullName}</strong></p>
-<p style="color: #6B1C3B;">${customerT.customers.details.salesRepresentative}</p>
-<p style="font-weight: bold; color: #6B1C3B;">Cord Blood Center Group</p>
-<p><br></p>
-<p><span style="color: #666;">${customerT.customers.details.addressLabel}:</span> Gallayova 11, 841 02 Bratislava</p>
-${userPhone ? `<p><span style="color: #666;">${customerT.customers.details.mobileLabel}:</span> ${userPhone}</p>` : ""}
-<p><span style="color: #666;">${customerT.customers.details.emailLabel}:</span> <a href="mailto:${userEmail}" style="color: #6B1C3B;">${userEmail}</a></p>
-<p><span style="color: #666;">${customerT.customers.details.webLabel}:</span> <a href="https://www.cordbloodcenter.com" style="color: #6B1C3B;">www.cordbloodcenter.com</a></p>
-`;
-    return template;
-  }, [user, allEmailAccounts, selectedFromAccount, detectGender]);
+    // Handle missing lastName gracefully
+    const lastName = customer.lastName?.trim();
+    const salutation = lastName 
+      ? `${salutationPrefix} ${lastName},` 
+      : `${salutationPrefix},`;
+    
+    // Simple template with just salutation - ready for user to write content
+    return `<p>${salutation}</p><p><br></p>`;
+  }, [detectGender]);
 
   // Auto-select default mailbox and generate template when opening email dialog
   useEffect(() => {
