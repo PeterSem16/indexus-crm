@@ -6113,6 +6113,14 @@ export default function CustomersPage() {
                     {t.customers.details.sendEmail}
                   </Button>
                 </div>
+                {/* Debug info for disabled button */}
+                {(selectedEmails.length === 0 || !emailSubject || !emailMessage) && (
+                  <div className="text-xs text-destructive mt-2">
+                    {selectedEmails.length === 0 && <div>• {t.customers.details.selectEmail || "Vyberte aspoň jeden email"}</div>}
+                    {!emailSubject && <div>• {t.customers.details.enterSubject || "Zadajte predmet"}</div>}
+                    {!emailMessage && <div>• {t.customers.details.enterMessage || "Zadajte správu"}</div>}
+                  </div>
+                )}
               </div>
             </div>
           )}
