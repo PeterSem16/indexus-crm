@@ -813,6 +813,7 @@ export const communicationMessages = pgTable("communication_messages", {
   provider: text("provider"), // bulkgate, sendgrid, etc.
   deliveryStatus: text("delivery_status"), // delivery report status
   errorMessage: text("error_message"),
+  metadata: text("metadata"), // JSON metadata including compositionDurationSeconds
   sentAt: timestamp("sent_at"),
   deliveredAt: timestamp("delivered_at"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
