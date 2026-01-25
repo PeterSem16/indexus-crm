@@ -4619,14 +4619,14 @@ export default function CustomersPage() {
           if (doc.type === "contract" && doc.pdfPath) {
             docs.push({
               id: `contract-${doc.id}`,
-              name: `${t.customers.details.contract} ${doc.number || String(doc.id)}`,
+              name: `${t.contracts?.title || "Zmluva"} ${doc.number || String(doc.id)}`,
               type: "contract",
               url: `/api/contract-instances/${doc.id}/pdf`,
             });
           } else if (doc.type === "invoice" && doc.pdfPath) {
             docs.push({
               id: `invoice-${doc.id}`,
-              name: `${t.customers.details.invoice} ${doc.number || String(doc.id)}`,
+              name: `${t.invoices?.title || "Faktúra"} ${doc.number || String(doc.id)}`,
               type: "invoice",
               url: `/api/invoices/${doc.id}/pdf`,
             });
@@ -6074,7 +6074,7 @@ export default function CustomersPage() {
                           subject: emailSubject,
                           body: emailMessage,
                           isHtml: true,
-                          mailboxId: selectedFromAccount === "default" ? null : selectedFromAccount || null,
+                          mailboxId: selectedFromAccount === "personal" ? null : selectedFromAccount || null,
                           customerId: emailDialogCustomer.id,
                           cc: emailCc.trim() || undefined,
                         });
