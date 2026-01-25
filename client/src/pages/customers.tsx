@@ -4444,6 +4444,10 @@ export default function CustomersPage() {
   const [emailSubject, setEmailSubject] = useState("");
   const [emailMessage, setEmailMessage] = useState("");
   const [smsMessage, setSmsMessage] = useState("");
+  const [selectedFromAccount, setSelectedFromAccount] = useState<string>("");
+  const [emailAttachment, setEmailAttachment] = useState<File | null>(null);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [isSendingSms, setIsSendingSms] = useState(false);
   
   // Pagination
   const [page, setPage] = useState(1);
@@ -4456,6 +4460,19 @@ export default function CustomersPage() {
   const { data: allCustomers = [], isLoading, refetch: refetchCustomers } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
     refetchInterval: 30000, // Auto-refresh every 30 seconds
+  });
+
+  // Fetch user's email accounts (shared mailboxes) for email sending
+  const { user } = useAuth();
+  const { data: sharedMailboxes = [] } = useQuery<{ id: string; email: string; displayName: string; isDefault: boolean }[]>({
+    queryKey: ["/api/users", user?.id, "ms365-shared-mailboxes"],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const res = await fetch(`/api/users/${user.id}/ms365-shared-mailboxes`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!user?.id,
   });
 
   // Handle URL parameter for viewing customer detail (from email-client link)
@@ -5470,6 +5487,22 @@ export default function CustomersPage() {
           </DialogHeader>
           {emailDialogCustomer && (
             <div className="space-y-4">
+              {/* From account selection */}
+              <div className="space-y-2">
+                <Label>{t.customers.details.fromAccount || "From account"}</Label>
+                <Select value={selectedFromAccount} onValueChange={setSelectedFromAccount}>
+                  <SelectTrigger data-testid="select-from-account">
+                    <SelectValue placeholder={t.customers.details.selectAccount || "Select account"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sharedMailboxes.map((mailbox) => (
+                      <SelectItem key={mailbox.id} value={mailbox.id}>
+                        {mailbox.displayName || mailbox.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="space-y-2">
                 <Label>{t.customers.details.to}</Label>
                 <div className="space-y-2">
@@ -5534,6 +5567,33 @@ export default function CustomersPage() {
                   data-testid="textarea-email-message"
                 />
               </div>
+              {/* Attachment */}
+              <div className="space-y-2">
+                <Label>{t.customers.details.attachment || "Attachment"}</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="file"
+                    onChange={(e) => setEmailAttachment(e.target.files?.[0] || null)}
+                    className="flex-1"
+                    data-testid="input-email-attachment"
+                  />
+                  {emailAttachment && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setEmailAttachment(null)}
+                      data-testid="button-remove-attachment"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                {emailAttachment && (
+                  <p className="text-xs text-muted-foreground">
+                    {emailAttachment.name} ({(emailAttachment.size / 1024).toFixed(1)} KB)
+                  </p>
+                )}
+              </div>
               <div className="flex justify-end gap-2">
                 <Button
                   variant="outline"
@@ -5542,6 +5602,8 @@ export default function CustomersPage() {
                     setSelectedEmails([]);
                     setEmailSubject("");
                     setEmailMessage("");
+                    setSelectedFromAccount("");
+                    setEmailAttachment(null);
                   }}
                   data-testid="button-cancel-email"
                 >
@@ -5557,13 +5619,27 @@ export default function CustomersPage() {
                       });
                       return;
                     }
+                    setIsSendingEmail(true);
                     try {
-                      await apiRequest("POST", "/api/send-email", {
-                        to: selectedEmails,
-                        subject: emailSubject,
-                        body: emailMessage,
-                        customerId: emailDialogCustomer.id
+                      const formData = new FormData();
+                      formData.append("to", JSON.stringify(selectedEmails));
+                      formData.append("subject", emailSubject);
+                      formData.append("body", emailMessage);
+                      formData.append("customerId", emailDialogCustomer.id);
+                      if (selectedFromAccount) {
+                        formData.append("mailboxId", selectedFromAccount);
+                      }
+                      if (emailAttachment) {
+                        formData.append("attachment", emailAttachment);
+                      }
+                      
+                      const res = await fetch("/api/send-email", {
+                        method: "POST",
+                        body: formData,
                       });
+                      
+                      if (!res.ok) throw new Error("Failed to send email");
+                      
                       toast({
                         title: t.customers.details.emailSentSuccess,
                         description: t.customers.details.emailSentSuccessDesc
@@ -5572,18 +5648,26 @@ export default function CustomersPage() {
                       setSelectedEmails([]);
                       setEmailSubject("");
                       setEmailMessage("");
+                      setSelectedFromAccount("");
+                      setEmailAttachment(null);
                     } catch (error) {
                       toast({
                         title: t.common.error,
                         description: t.customers.details.emailSendFailed,
                         variant: "destructive"
                       });
+                    } finally {
+                      setIsSendingEmail(false);
                     }
                   }}
-                  disabled={selectedEmails.length === 0 || !emailSubject || !emailMessage}
+                  disabled={selectedEmails.length === 0 || !emailSubject || !emailMessage || isSendingEmail}
                   data-testid="button-send-email"
                 >
-                  <Send className="h-4 w-4 mr-2" />
+                  {isSendingEmail ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4 mr-2" />
+                  )}
                   {t.customers.details.sendEmail}
                 </Button>
               </div>
@@ -5653,13 +5737,19 @@ export default function CustomersPage() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="smsMessage">{t.customers.details.message}</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="smsMessage">{t.customers.details.message}</Label>
+                  <span className={`text-xs ${smsMessage.length > 160 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                    {smsMessage.length}/160
+                  </span>
+                </div>
                 <Textarea
                   id="smsMessage"
                   value={smsMessage}
                   onChange={(e) => setSmsMessage(e.target.value)}
                   placeholder={t.customers.details.writeSmsPlaceholder}
                   rows={4}
+                  maxLength={160}
                   data-testid="textarea-sms-message"
                 />
               </div>
@@ -5685,6 +5775,7 @@ export default function CustomersPage() {
                       });
                       return;
                     }
+                    setIsSendingSms(true);
                     try {
                       await apiRequest("POST", "/api/send-sms", {
                         to: selectedPhones,
@@ -5704,12 +5795,18 @@ export default function CustomersPage() {
                         description: t.customers.details.smsSendFailed,
                         variant: "destructive"
                       });
+                    } finally {
+                      setIsSendingSms(false);
                     }
                   }}
-                  disabled={selectedPhones.length === 0 || !smsMessage}
+                  disabled={selectedPhones.length === 0 || !smsMessage || isSendingSms}
                   data-testid="button-send-sms"
                 >
-                  <Send className="h-4 w-4 mr-2" />
+                  {isSendingSms ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4 mr-2" />
+                  )}
                   {t.customers.details.sendSms}
                 </Button>
               </div>

@@ -557,6 +557,9 @@ export interface Translations {
       smsSentSuccess: string;
       smsSentSuccessDesc: string;
       smsSendFailed: string;
+      fromAccount: string;
+      selectAccount: string;
+      attachment: string;
     };
   };
   products: {
@@ -2566,6 +2569,9 @@ export const translations: Record<Locale, Translations> = {
         smsSentSuccess: 'SMS sent',
         smsSentSuccessDesc: 'SMS was sent successfully',
         smsSendFailed: 'Failed to send SMS',
+        fromAccount: 'From account',
+        selectAccount: 'Select account',
+        attachment: 'Attachment',
       },
     },
     products: {
@@ -4780,6 +4786,9 @@ export const translations: Record<Locale, Translations> = {
         smsSentSuccess: 'SMS odoslaná',
         smsSentSuccessDesc: 'SMS bola úspešne odoslaná',
         smsSendFailed: 'Nepodarilo sa odoslať SMS',
+        fromAccount: 'Z účtu',
+        selectAccount: 'Vyberte účet',
+        attachment: 'Príloha',
       },
     },
     products: {
@@ -7003,6 +7012,9 @@ export const translations: Record<Locale, Translations> = {
         smsSentSuccess: 'SMS odeslána',
         smsSentSuccessDesc: 'SMS byla úspěšně odeslána',
         smsSendFailed: 'Nepodařilo se odeslat SMS',
+        fromAccount: 'Z účtu',
+        selectAccount: 'Vyberte účet',
+        attachment: 'Příloha',
       },
     },
     products: {
@@ -9158,6 +9170,9 @@ export const translations: Record<Locale, Translations> = {
         smsSentSuccess: 'SMS elküldve',
         smsSentSuccessDesc: 'Az SMS sikeresen el lett küldve',
         smsSendFailed: 'Nem sikerült elküldeni az SMS-t',
+        fromAccount: 'Fiókból',
+        selectAccount: 'Fiók kiválasztása',
+        attachment: 'Melléklet',
       },
     },
     products: {
@@ -11312,6 +11327,9 @@ export const translations: Record<Locale, Translations> = {
         smsSentSuccess: 'SMS trimis',
         smsSentSuccessDesc: 'SMS-ul a fost trimis cu succes',
         smsSendFailed: 'Nu s-a putut trimite SMS-ul',
+        fromAccount: 'Din cont',
+        selectAccount: 'Selectați contul',
+        attachment: 'Atașament',
       },
     },
     products: {
@@ -13467,6 +13485,9 @@ export const translations: Record<Locale, Translations> = {
         smsSentSuccess: 'SMS inviato',
         smsSentSuccessDesc: 'L\'SMS è stato inviato con successo',
         smsSendFailed: 'Impossibile inviare l\'SMS',
+        fromAccount: 'Da account',
+        selectAccount: 'Seleziona account',
+        attachment: 'Allegato',
       },
     },
     products: {
@@ -15622,6 +15643,9 @@ export const translations: Record<Locale, Translations> = {
         smsSentSuccess: 'SMS gesendet',
         smsSentSuccessDesc: 'SMS wurde erfolgreich gesendet',
         smsSendFailed: 'SMS konnte nicht gesendet werden',
+        fromAccount: 'Von Konto',
+        selectAccount: 'Konto auswählen',
+        attachment: 'Anhang',
       },
     },
     products: {
