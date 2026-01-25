@@ -4560,7 +4560,7 @@ export default function CustomersPage() {
   }, [personalMs365, sharedMailboxes]);
 
   // Fetch customer documents (invoices, contracts) for attachment using unified endpoint
-  // Fetch email templates for template selector
+  // Fetch email templates for template selector - always enabled
   const { data: emailTemplates = [] } = useQuery<{ id: string; name: string; subject: string | null; content: string; contentHtml: string | null; categoryId: string | null; }[]>({
     queryKey: ["/api/message-templates", "email"],
     queryFn: async () => {
@@ -4568,10 +4568,9 @@ export default function CustomersPage() {
       if (!res.ok) return [];
       return res.json();
     },
-    enabled: !!emailDialogCustomer,
   });
 
-  // Fetch SMS templates
+  // Fetch SMS templates - always enabled
   const { data: smsTemplates = [] } = useQuery<{ id: string; name: string; content: string; categoryId: string | null; }[]>({
     queryKey: ["/api/message-templates", "sms"],
     queryFn: async () => {
@@ -4579,7 +4578,6 @@ export default function CustomersPage() {
       if (!res.ok) return [];
       return res.json();
     },
-    enabled: !!smsDialogCustomer,
   });
 
   const { data: customerDocuments = [] } = useQuery<{ id: string; name: string; type: string; url: string }[]>({
@@ -5776,13 +5774,13 @@ ${userPhone ? `<p><span style="color: #666;">${customerT.customers.details.mobil
                   </Select>
                 </div>
 
-                {/* Template selector */}
-                {emailTemplates.length > 0 && (
-                  <div className="space-y-2">
-                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                      {t.configuration?.messageTemplates || "Template"}
-                    </Label>
-                    <Select onValueChange={(templateId) => {
+                {/* Template selector - always visible */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    {t.configuration?.messageTemplates || "Template"}
+                  </Label>
+                  <Select 
+                    onValueChange={(templateId) => {
                       const template = emailTemplates.find(t => t.id === templateId);
                       if (template) {
                         if (template.subject) setEmailSubject(template.subject);
@@ -5790,20 +5788,24 @@ ${userPhone ? `<p><span style="color: #666;">${customerT.customers.details.mobil
                         setEmailMessage(content);
                         fetch(`/api/message-templates/${templateId}/use`, { method: "POST", credentials: "include" });
                       }
-                    }}>
-                      <SelectTrigger data-testid="select-email-template" className="text-sm">
-                        <SelectValue placeholder={t.configuration?.selectTemplate || "Select template"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {emailTemplates.map((template) => (
-                          <SelectItem key={template.id} value={template.id}>
-                            {template.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+                    }}
+                    disabled={emailTemplates.length === 0}
+                  >
+                    <SelectTrigger data-testid="select-email-template" className="text-sm">
+                      <SelectValue placeholder={emailTemplates.length === 0 
+                        ? (t.konfigurator.noMessageTemplates) 
+                        : (t.configuration?.selectTemplate || "Select template")} 
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {emailTemplates.map((template) => (
+                        <SelectItem key={template.id} value={template.id}>
+                          {template.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 
                 {/* To - Recipients */}
                 <div className="space-y-2">
@@ -6094,32 +6096,36 @@ ${userPhone ? `<p><span style="color: #666;">${customerT.customers.details.mobil
             <div className="flex gap-6">
               {/* Left column - Recipients (40%) */}
               <div className="w-2/5 space-y-4 border-r pr-4">
-                {/* Template selector */}
-                {smsTemplates.length > 0 && (
-                  <div className="space-y-2">
-                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                      {t.configuration?.messageTemplates || "Template"}
-                    </Label>
-                    <Select onValueChange={(templateId) => {
+                {/* Template selector - always visible */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    {t.configuration?.messageTemplates || "Template"}
+                  </Label>
+                  <Select 
+                    onValueChange={(templateId) => {
                       const template = smsTemplates.find(t => t.id === templateId);
                       if (template) {
                         setSmsMessage(template.content);
                         fetch(`/api/message-templates/${templateId}/use`, { method: "POST", credentials: "include" });
                       }
-                    }}>
-                      <SelectTrigger data-testid="select-sms-template" className="text-sm">
-                        <SelectValue placeholder={t.configuration?.selectTemplate || "Select template"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {smsTemplates.map((template) => (
-                          <SelectItem key={template.id} value={template.id}>
-                            {template.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+                    }}
+                    disabled={smsTemplates.length === 0}
+                  >
+                    <SelectTrigger data-testid="select-sms-template" className="text-sm">
+                      <SelectValue placeholder={smsTemplates.length === 0 
+                        ? (t.konfigurator.noMessageTemplates) 
+                        : (t.configuration?.selectTemplate || "Select template")} 
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {smsTemplates.map((template) => (
+                        <SelectItem key={template.id} value={template.id}>
+                          {template.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
                 {/* To - Recipients */}
                 <div className="space-y-2">

@@ -294,6 +294,12 @@ const uploadAvatar = multer({
   },
 });
 
+// Configure multer for email attachments (memory storage for base64 conversion)
+const uploadEmailAttachment = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+});
+
 // Configure multer for email image uploads
 const emailImageStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -2623,6 +2629,194 @@ export async function registerRoutes(
       }
       
       res.status(500).json({ error: "Nepodarilo sa odoslať email. Skúste to znova." });
+    }
+  });
+
+  // Universal email sending endpoint with FormData support and customer document attachments
+  app.post("/api/send-email", requireAuth, uploadEmailAttachment.single("attachment"), async (req, res) => {
+    try {
+      const userId = req.session.user!.id;
+      
+      // Get user's MS365 connection from database
+      const ms365Connection = await storage.getUserMs365Connection(userId);
+      
+      if (!ms365Connection || !ms365Connection.isConnected) {
+        return res.status(401).json({ error: "Not connected to Microsoft 365. Please connect your MS365 account first." });
+      }
+      
+      // Decrypt tokens for use
+      const { decryptTokenSafe } = await import("./lib/token-crypto");
+      let accessToken: string;
+      let refreshToken: string | null;
+      
+      try {
+        accessToken = decryptTokenSafe(ms365Connection.accessToken);
+        refreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+      } catch (decryptError) {
+        console.error("[MS365] Token decryption failed:", decryptError);
+        await storage.updateUserMs365Connection(userId, { isConnected: false });
+        return res.status(401).json({ 
+          error: "MS365 session corrupted. Please reconnect your Microsoft 365 account.",
+          requiresReauth: true
+        });
+      }
+      
+      // Get valid access token, refreshing if necessary
+      const { getValidAccessToken } = await import("./lib/ms365");
+      const tokenResult = await getValidAccessToken(
+        accessToken,
+        ms365Connection.tokenExpiresAt,
+        refreshToken
+      );
+      
+      if (!tokenResult) {
+        await storage.updateUserMs365Connection(userId, { isConnected: false });
+        return res.status(401).json({ 
+          error: "MS365 session expired. Please reconnect your Microsoft 365 account.",
+          requiresReauth: true
+        });
+      }
+      
+      // Update stored token if it was refreshed
+      if (tokenResult.refreshed) {
+        const { encryptTokenWithMarker } = await import("./lib/token-crypto");
+        const updateData: any = {
+          accessToken: encryptTokenWithMarker(tokenResult.accessToken),
+          tokenExpiresAt: tokenResult.expiresOn,
+          lastSyncAt: new Date(),
+        };
+        if (tokenResult.refreshToken) {
+          updateData.refreshToken = encryptTokenWithMarker(tokenResult.refreshToken);
+        }
+        await storage.updateUserMs365Connection(userId, updateData);
+      }
+      
+      const { to, cc, subject, body, isHtml, mailboxId, customerId, documentIds } = req.body;
+      
+      if (!to || !subject || !body) {
+        return res.status(400).json({ error: "Missing required fields: to, subject, body" });
+      }
+      
+      // Determine which mailbox to use
+      let sharedMailboxEmail: string | null = null;
+      
+      if (mailboxId === null || mailboxId === "null") {
+        sharedMailboxEmail = null;
+      } else if (mailboxId && mailboxId !== "undefined") {
+        const mailbox = await storage.getUserMs365SharedMailbox(mailboxId);
+        if (!mailbox || mailbox.userId !== userId) {
+          return res.status(400).json({ error: "Invalid mailbox" });
+        }
+        sharedMailboxEmail = mailbox.email;
+      }
+      
+      const toArray = Array.isArray(to) ? to : [to];
+      const ccArray = cc ? (Array.isArray(cc) ? cc : [cc]) : undefined;
+      const fromEmail = sharedMailboxEmail || ms365Connection.email;
+      
+      // Build attachments array
+      const attachments: { name: string; contentBytes: string; contentType: string }[] = [];
+      
+      // Handle file attachment from FormData
+      if (req.file) {
+        const fileContent = req.file.buffer.toString("base64");
+        attachments.push({
+          name: req.file.originalname,
+          contentBytes: fileContent,
+          contentType: req.file.mimetype,
+        });
+      }
+      
+      // Handle customer document attachments
+      if (documentIds) {
+        const docIds = typeof documentIds === "string" ? JSON.parse(documentIds) : documentIds;
+        const fs = await import("fs/promises");
+        const path = await import("path");
+        
+        for (const docId of docIds) {
+          try {
+            // Parse document ID format: contract-{id} or invoice-{id}
+            if (docId.startsWith("contract-")) {
+              const contractId = docId.replace("contract-", "");
+              const contract = await storage.getContractInstance(contractId);
+              if (contract?.pdfPath) {
+                const pdfBuffer = await fs.readFile(contract.pdfPath);
+                attachments.push({
+                  name: `contract-${contract.contractNumber || contractId}.pdf`,
+                  contentBytes: pdfBuffer.toString("base64"),
+                  contentType: "application/pdf",
+                });
+              }
+            } else if (docId.startsWith("invoice-")) {
+              const invoiceId = docId.replace("invoice-", "");
+              const invoice = await storage.getInvoice(invoiceId);
+              if (invoice?.pdfPath) {
+                const pdfBuffer = await fs.readFile(invoice.pdfPath);
+                attachments.push({
+                  name: `invoice-${invoice.number || invoiceId}.pdf`,
+                  contentBytes: pdfBuffer.toString("base64"),
+                  contentType: "application/pdf",
+                });
+              }
+            }
+          } catch (docError) {
+            console.error(`Error loading document ${docId}:`, docError);
+          }
+        }
+      }
+      
+      const { sendEmail, sendEmailFromSharedMailbox } = await import("./lib/ms365");
+      
+      if (sharedMailboxEmail) {
+        await sendEmailFromSharedMailbox(
+          tokenResult.accessToken,
+          sharedMailboxEmail,
+          toArray,
+          subject,
+          body,
+          isHtml !== "false" && isHtml !== false,
+          ccArray,
+          attachments.length > 0 ? attachments : undefined
+        );
+      } else {
+        await sendEmail(tokenResult.accessToken, toArray, subject, body, isHtml !== "false" && isHtml !== false, undefined, attachments.length > 0 ? attachments : undefined);
+      }
+      
+      // Log email to customer history if customerId is provided
+      if (customerId) {
+        try {
+          await storage.createCustomerEmail({
+            customerId,
+            direction: "outbound",
+            fromEmail: fromEmail,
+            toEmail: toArray.join(", "),
+            subject,
+            body,
+            sentAt: new Date(),
+            status: "sent",
+          });
+        } catch (logError) {
+          console.error("Error logging email to customer history:", logError);
+        }
+      }
+      
+      res.json({ 
+        message: sharedMailboxEmail 
+          ? "Email sent successfully from shared mailbox" 
+          : "Email sent successfully from your mailbox", 
+        from: fromEmail,
+      });
+    } catch (error: any) {
+      console.error("Error sending email:", error);
+      
+      if (error.code === 'ErrorSendAsDenied') {
+        return res.status(403).json({ 
+          error: "No permission to send emails from this mailbox.",
+          code: 'SEND_AS_DENIED'
+        });
+      }
+      
+      res.status(500).json({ error: "Failed to send email. Please try again." });
     }
   });
   

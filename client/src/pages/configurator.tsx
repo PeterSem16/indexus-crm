@@ -10030,13 +10030,17 @@ function MessageTemplatesTab() {
 
   const handleSaveTemplate = () => {
     const tags = templateTags.split(",").map(t => t.trim()).filter(Boolean);
+    // For HTML templates, use contentHtml as content fallback if text content is empty
+    const contentValue = templateFormat === "html" 
+      ? (templateContent || templateContentHtml || " ") 
+      : (templateContent || " ");
     const data: Partial<MessageTemplate> = {
       name: templateName,
       description: templateDescription || undefined,
       type: templateType,
       format: templateFormat,
       subject: templateType === "email" ? templateSubject : undefined,
-      content: templateContent || undefined,
+      content: contentValue,
       contentHtml: templateFormat === "html" ? templateContentHtml : undefined,
       categoryId: templateCategoryId || undefined,
       language: templateLanguage,
