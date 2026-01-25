@@ -86,7 +86,9 @@ export function CallBar() {
     }
   };
 
-  const handleDtmf = (digit: string) => {
+  const handleDtmf = (e: React.MouseEvent, digit: string) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (sendDtmfFn.current) {
       sendDtmfFn.current(digit);
     }
@@ -206,7 +208,7 @@ export function CallBar() {
                 {isOnHold ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
               </Button>
 
-              <Popover open={dialpadOpen} onOpenChange={setDialpadOpen}>
+              <Popover open={dialpadOpen} onOpenChange={setDialpadOpen} modal={false}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
@@ -217,7 +219,13 @@ export function CallBar() {
                     <Grid3X3 className="h-4 w-4" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-2 z-[10000]" align="end" sideOffset={8}>
+                <PopoverContent 
+                  className="w-auto p-2 z-[10000]" 
+                  align="end" 
+                  sideOffset={8} 
+                  onOpenAutoFocus={(e) => e.preventDefault()}
+                  onInteractOutside={(e) => e.preventDefault()}
+                >
                   <div className="grid grid-cols-3 gap-1">
                     {DTMF_KEYS.map((row, rowIndex) => (
                       row.map((digit) => (
@@ -226,7 +234,7 @@ export function CallBar() {
                           variant="outline"
                           size="sm"
                           className="w-12 h-10 text-lg font-medium"
-                          onClick={() => handleDtmf(digit)}
+                          onClick={(e) => handleDtmf(e, digit)}
                           data-testid={`button-dtmf-${digit === "*" ? "star" : digit === "#" ? "hash" : digit}`}
                         >
                           {digit}
