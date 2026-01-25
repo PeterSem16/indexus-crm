@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, MailOpen, Phone, PhoneCall, PhoneOutgoing, PhoneIncoming, Baby, Copy, ListChecks, FileEdit, UserCircle, Clock, PlusCircle, RefreshCw, XCircle, LogIn, LogOut, AlertCircle, CheckCircle2, ArrowRight, Shield, CreditCard, Loader2, Calendar, Globe, Linkedin, Facebook, Twitter, Instagram, Building2, ExternalLink, Sparkles, FileSignature, Receipt, Target, ArrowDownLeft, ArrowUpRight, PenSquare, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, Filter, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, MailOpen, Phone, PhoneCall, PhoneOutgoing, PhoneIncoming, Baby, Copy, ListChecks, FileEdit, UserCircle, Clock, PlusCircle, RefreshCw, XCircle, LogIn, LogOut, AlertCircle, CheckCircle2, ArrowRight, Shield, CreditCard, Loader2, Calendar, Globe, Linkedin, Facebook, Twitter, Instagram, Building2, ExternalLink, Sparkles, FileSignature, Receipt, Target, ArrowDownLeft, ArrowUpRight, PenSquare, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, Filter, X, ChevronDown, ChevronUp, Upload } from "lucide-react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import { Button } from "@/components/ui/button";
@@ -5944,25 +5944,51 @@ export default function CustomersPage() {
                   <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                     {t.customers.details.attachment}
                   </Label>
-                  <Input
-                    type="file"
-                    onChange={(e) => setEmailAttachment(e.target.files?.[0] || null)}
-                    className="text-xs"
-                    data-testid="input-email-attachment"
-                  />
-                  {emailAttachment && (
-                    <div className="flex items-center gap-1">
-                      <p className="text-xs text-muted-foreground truncate flex-1">
-                        {emailAttachment.name}
-                      </p>
+                  {!emailAttachment ? (
+                    <label
+                      htmlFor="email-attachment-input"
+                      className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-muted-foreground/25 rounded-lg cursor-pointer bg-muted/30 hover:bg-muted/50 transition-colors"
+                      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const file = e.dataTransfer.files?.[0];
+                        if (file) setEmailAttachment(file);
+                      }}
+                      data-testid="dropzone-email-attachment"
+                    >
+                      <div className="flex flex-col items-center justify-center pt-2 pb-2">
+                        <Upload className="w-6 h-6 mb-1 text-muted-foreground" />
+                        <p className="text-xs text-muted-foreground text-center">
+                          <span className="font-medium text-primary">{t.common.clickToUpload}</span>
+                          {" "}{t.common.orDragDrop}
+                        </p>
+                      </div>
+                      <input
+                        id="email-attachment-input"
+                        type="file"
+                        className="hidden"
+                        onChange={(e) => setEmailAttachment(e.target.files?.[0] || null)}
+                        data-testid="input-email-attachment"
+                      />
+                    </label>
+                  ) : (
+                    <div className="flex items-center gap-2 p-3 border rounded-lg bg-muted/30">
+                      <FileText className="w-5 h-5 text-primary flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{emailAttachment.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {(emailAttachment.size / 1024).toFixed(1)} KB
+                        </p>
+                      </div>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-5 w-5"
+                        className="h-7 w-7 flex-shrink-0"
                         onClick={() => setEmailAttachment(null)}
                         data-testid="button-remove-attachment"
                       >
-                        <X className="h-3 w-3" />
+                        <X className="h-4 w-4" />
                       </Button>
                     </div>
                   )}
