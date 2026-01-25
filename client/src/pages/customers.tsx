@@ -2648,6 +2648,12 @@ function CustomerDetailsContent({
             {customer.firstName} {customer.lastName}
           </h3>
           <p className="text-muted-foreground">{customer.email}</p>
+          {customer.phone && (
+            <p className="text-muted-foreground flex items-center gap-1 mt-1">
+              <Phone className="h-3 w-3" />
+              {customer.phone}
+            </p>
+          )}
           <div className="flex flex-wrap items-center gap-4 mt-2 text-sm">
             <Tooltip>
               <TooltipTrigger asChild>
@@ -4551,37 +4557,60 @@ export default function CustomersPage() {
     return accounts;
   }, [personalMs365, sharedMailboxes]);
 
-  // Fetch customer documents (invoices, contracts) for attachment
+  // Fetch customer documents (invoices, contracts) for attachment using unified endpoint
+  // Fetch email templates for template selector
+  const { data: emailTemplates = [] } = useQuery<{ id: string; name: string; subject: string | null; content: string; contentHtml: string | null; categoryId: string | null; }[]>({
+    queryKey: ["/api/message-templates", "email"],
+    queryFn: async () => {
+      const res = await fetch("/api/message-templates?type=email&isActive=true", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!emailDialogCustomer,
+  });
+
+  // Fetch SMS templates
+  const { data: smsTemplates = [] } = useQuery<{ id: string; name: string; content: string; categoryId: string | null; }[]>({
+    queryKey: ["/api/message-templates", "sms"],
+    queryFn: async () => {
+      const res = await fetch("/api/message-templates?type=sms&isActive=true", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!smsDialogCustomer,
+  });
+
   const { data: customerDocuments = [] } = useQuery<{ id: string; name: string; type: string; url: string }[]>({
-    queryKey: ["/api/customers", emailDialogCustomer?.id, "documents"],
+    queryKey: ["/api/customers", emailDialogCustomer?.id, "documents-for-email"],
     queryFn: async () => {
       if (!emailDialogCustomer?.id) return [];
-      const [invoicesRes, contractsRes] = await Promise.all([
-        fetch(`/api/customers/${emailDialogCustomer.id}/invoices`),
-        fetch(`/api/customers/${emailDialogCustomer.id}/contracts`),
-      ]);
+      const res = await fetch(`/api/customers/${emailDialogCustomer.id}/documents`, { credentials: "include" });
+      if (!res.ok) return [];
+      const data = await res.json();
       const docs: { id: string; name: string; type: string; url: string }[] = [];
       
-      if (invoicesRes.ok) {
-        const invoices = await invoicesRes.json();
-        invoices.forEach((inv: any) => {
-          docs.push({
-            id: `invoice-${inv.id}`,
-            name: `${t.customers.details.invoice} ${inv.invoiceNumber || inv.id}`,
-            type: "invoice",
-            url: `/api/invoices/${inv.id}/pdf`,
-          });
+      // Process contracts
+      if (data.contracts) {
+        data.contracts.forEach((contract: any) => {
+          if (contract.pdfPath) {
+            docs.push({
+              id: `contract-${contract.id}`,
+              name: `${t.customers.details.contract} ${contract.number || contract.id}`,
+              type: "contract",
+              url: `/api/contract-instances/${contract.id}/pdf`,
+            });
+          }
         });
       }
       
-      if (contractsRes.ok) {
-        const contracts = await contractsRes.json();
-        contracts.forEach((contract: any) => {
+      // Process invoices
+      if (data.invoices) {
+        data.invoices.forEach((inv: any) => {
           docs.push({
-            id: `contract-${contract.id}`,
-            name: `${t.customers.details.contract} - ${contract.templateName || contract.id}`,
-            type: "contract",
-            url: `/api/contract-instances/${contract.id}/pdf`,
+            id: `invoice-${inv.id}`,
+            name: `${t.customers.details.invoice} ${inv.number || inv.id}`,
+            type: "invoice",
+            url: `/api/invoices/${inv.id}/pdf`,
           });
         });
       }
@@ -4594,6 +4623,21 @@ export default function CustomersPage() {
   // Email template state
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
 
+  // Detect gender from first name (common female name endings)
+  const detectGender = useCallback((firstName: string): "male" | "female" => {
+    if (!firstName) return "male";
+    const name = firstName.toLowerCase().trim();
+    // Female name patterns by language/region
+    const femaleEndings = ["a", "ia", "na", "ka", "ta", "ya", "ova", "eva", "ina", "ena", "ela", "ila", "ula", "ie", "ine", "ette", "elle"];
+    const femaleNames = ["anna", "maria", "eva", "jana", "katarina", "petra", "monika", "lucia", "zuzana", "martina", "andrea", "veronika", "ivana", "lenka", "michaela", "tereza", "alexandra", "nikola", "simona", "diana", "gabriela", "kristina", "barbora", "dominika", "natalia", "renata", "silvia", "tatiana", "alena", "helena", "erika", "agnes", "agnes", "eszter", "judit", "katalin", "zsuzsa", "ildiko", "annamaria", "giulia", "francesca", "valentina", "chiara", "sofia", "alessia", "elena", "claudia", "laura", "sara", "emma", "mia", "sophie", "marie", "anne", "lisa", "julia", "lena", "hannah", "leonie", "johanna", "katharina", "charlotte", "amelie"];
+    
+    if (femaleNames.includes(name)) return "female";
+    for (const ending of femaleEndings) {
+      if (name.endsWith(ending)) return "female";
+    }
+    return "male";
+  }, []);
+
   // Generate email template based on customer's country/language using translations
   const generateEmailTemplate = useCallback((customer: Customer) => {
     const userFullName = user?.fullName || "";
@@ -4605,43 +4649,32 @@ export default function CustomersPage() {
     const customerLocale = COUNTRY_TO_LOCALE[customer.country || "SK"] || "sk";
     const customerT = translations[customerLocale];
     
-    // Use customer's language for salutation and greeting
-    const salutation = `${customerT.customers.details.emailSalutation} ${customer.lastName},`;
+    // Detect gender and use appropriate salutation
+    const gender = detectGender(customer.firstName || "");
+    const salutationPrefix = gender === "female" 
+      ? customerT.customers.details.emailSalutationFemale 
+      : customerT.customers.details.emailSalutationMale;
+    const salutation = `${salutationPrefix} ${customer.lastName},`;
     const greeting = customerT.customers.details.emailGreeting;
     
     const template = `
 <p>${salutation}</p>
-<br/>
+<p><br></p>
 <p></p>
-<br/>
+<p><br></p>
 <p>${greeting}</p>
-<br/>
-<table style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
-  <tr>
-    <td style="padding-bottom: 4px;"><strong>${userFullName}</strong></td>
-  </tr>
-  <tr>
-    <td style="color: #6B1C3B; padding-bottom: 8px;">${customerT.customers.details.salesRepresentative}</td>
-  </tr>
-  <tr>
-    <td style="font-weight: bold; color: #6B1C3B;">Cord Blood Center Group</td>
-  </tr>
-  <tr>
-    <td style="padding-top: 8px;">
-      <span style="color: #666;">${customerT.customers.details.addressLabel}:</span> Gallayova 11, 841 02 Bratislava
-    </td>
-  </tr>
-  ${userPhone ? `<tr><td><span style="color: #666;">${customerT.customers.details.mobileLabel}:</span> ${userPhone}</td></tr>` : ""}
-  <tr>
-    <td><span style="color: #666;">${customerT.customers.details.emailLabel}:</span> <a href="mailto:${userEmail}" style="color: #6B1C3B;">${userEmail}</a></td>
-  </tr>
-  <tr>
-    <td><span style="color: #666;">${customerT.customers.details.webLabel}:</span> <a href="https://www.cordbloodcenter.com" style="color: #6B1C3B;">www.cordbloodcenter.com</a></td>
-  </tr>
-</table>
+<p><br></p>
+<p><strong>${userFullName}</strong></p>
+<p style="color: #6B1C3B;">${customerT.customers.details.salesRepresentative}</p>
+<p style="font-weight: bold; color: #6B1C3B;">Cord Blood Center Group</p>
+<p><br></p>
+<p><span style="color: #666;">${customerT.customers.details.addressLabel}:</span> Gallayova 11, 841 02 Bratislava</p>
+${userPhone ? `<p><span style="color: #666;">${customerT.customers.details.mobileLabel}:</span> ${userPhone}</p>` : ""}
+<p><span style="color: #666;">${customerT.customers.details.emailLabel}:</span> <a href="mailto:${userEmail}" style="color: #6B1C3B;">${userEmail}</a></p>
+<p><span style="color: #666;">${customerT.customers.details.webLabel}:</span> <a href="https://www.cordbloodcenter.com" style="color: #6B1C3B;">www.cordbloodcenter.com</a></p>
 `;
     return template;
-  }, [user, allEmailAccounts, selectedFromAccount]);
+  }, [user, allEmailAccounts, selectedFromAccount, detectGender]);
 
   // Auto-select default mailbox and generate template when opening email dialog
   useEffect(() => {
@@ -5521,26 +5554,26 @@ export default function CustomersPage() {
                         );
                       })()}
                       {editingCustomer.phone && (
-                        <span className="text-sm text-muted-foreground flex items-center gap-1" data-testid="text-customer-drawer-phone">
-                          <Phone className="h-3 w-3" />
-                          {editingCustomer.phone}
-                        </span>
-                      )}
-                      {editingCustomer.phone && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            const phones = [editingCustomer.phone];
-                            if (editingCustomer.phone2) phones.push(editingCustomer.phone2);
-                            setSelectedPhones(phones.filter(Boolean) as string[]);
-                            setSmsDialogCustomer(editingCustomer);
-                          }}
-                          data-testid="button-sms-from-drawer"
-                          title={t.customers.details.sendSms}
-                        >
-                          <MessageSquare className="h-4 w-4" />
-                        </Button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                const phones = [editingCustomer.phone];
+                                if (editingCustomer.phone2) phones.push(editingCustomer.phone2);
+                                setSelectedPhones(phones.filter(Boolean) as string[]);
+                                setSmsDialogCustomer(editingCustomer);
+                              }}
+                              data-testid="button-sms-from-drawer"
+                            >
+                              <Phone className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{editingCustomer.phone}</p>
+                          </TooltipContent>
+                        </Tooltip>
                       )}
                       {editingCustomer.email && (
                         <Button
@@ -5721,6 +5754,35 @@ export default function CustomersPage() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Template selector */}
+                {emailTemplates.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      {t.configuration?.messageTemplates || "Template"}
+                    </Label>
+                    <Select onValueChange={(templateId) => {
+                      const template = emailTemplates.find(t => t.id === templateId);
+                      if (template) {
+                        if (template.subject) setEmailSubject(template.subject);
+                        const content = template.contentHtml || template.content || "";
+                        setEmailMessage(content);
+                        fetch(`/api/message-templates/${templateId}/use`, { method: "POST", credentials: "include" });
+                      }
+                    }}>
+                      <SelectTrigger data-testid="select-email-template" className="text-sm">
+                        <SelectValue placeholder={t.configuration?.selectTemplate || "Select template"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {emailTemplates.map((template) => (
+                          <SelectItem key={template.id} value={template.id}>
+                            {template.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 
                 {/* To - Recipients */}
                 <div className="space-y-2">
@@ -6011,6 +6073,33 @@ export default function CustomersPage() {
             <div className="flex gap-6">
               {/* Left column - Recipients (40%) */}
               <div className="w-2/5 space-y-4 border-r pr-4">
+                {/* Template selector */}
+                {smsTemplates.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      {t.configuration?.messageTemplates || "Template"}
+                    </Label>
+                    <Select onValueChange={(templateId) => {
+                      const template = smsTemplates.find(t => t.id === templateId);
+                      if (template) {
+                        setSmsMessage(template.content);
+                        fetch(`/api/message-templates/${templateId}/use`, { method: "POST", credentials: "include" });
+                      }
+                    }}>
+                      <SelectTrigger data-testid="select-sms-template" className="text-sm">
+                        <SelectValue placeholder={t.configuration?.selectTemplate || "Select template"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {smsTemplates.map((template) => (
+                          <SelectItem key={template.id} value={template.id}>
+                            {template.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
                 {/* To - Recipients */}
                 <div className="space-y-2">
                   <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">

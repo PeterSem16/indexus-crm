@@ -18570,6 +18570,137 @@ Guidelines:
     }
   });
 
+  // ============================================
+  // MESSAGE TEMPLATES API
+  // ============================================
+
+  // Template Categories
+  app.get("/api/template-categories", requireAuth, async (req, res) => {
+    try {
+      const categories = await storage.getTemplateCategories();
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching template categories:", error);
+      res.status(500).json({ error: "Failed to fetch template categories" });
+    }
+  });
+
+  app.post("/api/template-categories", requireAuth, requireAdminOrManager, async (req, res) => {
+    try {
+      const category = await storage.createTemplateCategory(req.body);
+      res.status(201).json(category);
+    } catch (error) {
+      console.error("Error creating template category:", error);
+      res.status(500).json({ error: "Failed to create template category" });
+    }
+  });
+
+  app.patch("/api/template-categories/:id", requireAuth, requireAdminOrManager, async (req, res) => {
+    try {
+      const category = await storage.updateTemplateCategory(req.params.id, req.body);
+      if (!category) {
+        return res.status(404).json({ error: "Template category not found" });
+      }
+      res.json(category);
+    } catch (error) {
+      console.error("Error updating template category:", error);
+      res.status(500).json({ error: "Failed to update template category" });
+    }
+  });
+
+  app.delete("/api/template-categories/:id", requireAuth, requireAdminOrManager, async (req, res) => {
+    try {
+      await storage.deleteTemplateCategory(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting template category:", error);
+      res.status(500).json({ error: "Failed to delete template category" });
+    }
+  });
+
+  // Message Templates
+  app.get("/api/message-templates", requireAuth, async (req, res) => {
+    try {
+      const { type, categoryId, language, isActive } = req.query;
+      const filters: any = {};
+      if (type) filters.type = type as string;
+      if (categoryId) filters.categoryId = categoryId as string;
+      if (language) filters.language = language as string;
+      if (isActive !== undefined) filters.isActive = isActive === "true";
+      
+      const templates = await storage.getMessageTemplates(filters);
+      res.json(templates);
+    } catch (error) {
+      console.error("Error fetching message templates:", error);
+      res.status(500).json({ error: "Failed to fetch message templates" });
+    }
+  });
+
+  app.get("/api/message-templates/:id", requireAuth, async (req, res) => {
+    try {
+      const template = await storage.getMessageTemplate(req.params.id);
+      if (!template) {
+        return res.status(404).json({ error: "Message template not found" });
+      }
+      res.json(template);
+    } catch (error) {
+      console.error("Error fetching message template:", error);
+      res.status(500).json({ error: "Failed to fetch message template" });
+    }
+  });
+
+  app.post("/api/message-templates", requireAuth, requireAdminOrManager, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      const template = await storage.createMessageTemplate({
+        ...req.body,
+        createdBy: userId,
+        updatedBy: userId,
+      });
+      res.status(201).json(template);
+    } catch (error) {
+      console.error("Error creating message template:", error);
+      res.status(500).json({ error: "Failed to create message template" });
+    }
+  });
+
+  app.patch("/api/message-templates/:id", requireAuth, requireAdminOrManager, async (req, res) => {
+    try {
+      const userId = (req as any).user?.id;
+      const template = await storage.updateMessageTemplate(req.params.id, {
+        ...req.body,
+        updatedBy: userId,
+      });
+      if (!template) {
+        return res.status(404).json({ error: "Message template not found" });
+      }
+      res.json(template);
+    } catch (error) {
+      console.error("Error updating message template:", error);
+      res.status(500).json({ error: "Failed to update message template" });
+    }
+  });
+
+  app.delete("/api/message-templates/:id", requireAuth, requireAdminOrManager, async (req, res) => {
+    try {
+      await storage.deleteMessageTemplate(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting message template:", error);
+      res.status(500).json({ error: "Failed to delete message template" });
+    }
+  });
+
+  app.post("/api/message-templates/:id/use", requireAuth, async (req, res) => {
+    try {
+      await storage.incrementTemplateUsage(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error incrementing template usage:", error);
+      res.status(500).json({ error: "Failed to increment template usage" });
+    }
+  });
+
   return httpServer;
 }
 

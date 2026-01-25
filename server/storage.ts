@@ -115,11 +115,13 @@ import {
   notifications, notificationRules,
   type Notification, type InsertNotification,
   type NotificationRule, type InsertNotificationRule,
-  collections, collectionLabResults, apiKeys, alertRules, alertInstances,
+  collections, collectionLabResults, apiKeys, alertRules, alertInstances, templateCategories, messageTemplates,
   type Collection, type InsertCollection,
   type CollectionLabResult, type InsertCollectionLabResult,
   type ApiKey, type InsertApiKey,
   type AlertRule, type InsertAlertRule,
+  type TemplateCategory, type InsertTemplateCategory,
+  type MessageTemplate, type InsertMessageTemplate,
   type AlertInstance, type InsertAlertInstance
 } from "@shared/schema";
 import { db } from "./db";
@@ -914,6 +916,20 @@ export interface IStorage {
   acknowledgeAlertInstance(id: string, userId: string): Promise<AlertInstance | undefined>;
   resolveAlertInstance(id: string, userId: string, resolution?: string): Promise<AlertInstance | undefined>;
   updateAlertInstanceNotificationsSent(id: string, count: number): Promise<AlertInstance | undefined>;
+  
+  // Message Templates
+  getTemplateCategories(): Promise<TemplateCategory[]>;
+  getTemplateCategory(id: string): Promise<TemplateCategory | undefined>;
+  createTemplateCategory(data: InsertTemplateCategory): Promise<TemplateCategory>;
+  updateTemplateCategory(id: string, data: Partial<InsertTemplateCategory>): Promise<TemplateCategory | undefined>;
+  deleteTemplateCategory(id: string): Promise<void>;
+  
+  getMessageTemplates(filters?: { type?: string; categoryId?: string; language?: string; isActive?: boolean }): Promise<MessageTemplate[]>;
+  getMessageTemplate(id: string): Promise<MessageTemplate | undefined>;
+  createMessageTemplate(data: InsertMessageTemplate): Promise<MessageTemplate>;
+  updateMessageTemplate(id: string, data: Partial<InsertMessageTemplate>): Promise<MessageTemplate | undefined>;
+  deleteMessageTemplate(id: string): Promise<void>;
+  incrementTemplateUsage(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -5480,6 +5496,87 @@ export class DatabaseStorage implements IStorage {
       .where(eq(alertInstances.id, id))
       .returning();
     return result || undefined;
+  }
+
+  // Message Templates
+  async getTemplateCategories(): Promise<TemplateCategory[]> {
+    return await db.select().from(templateCategories).orderBy(asc(templateCategories.priority));
+  }
+
+  async getTemplateCategory(id: string): Promise<TemplateCategory | undefined> {
+    const [result] = await db.select().from(templateCategories).where(eq(templateCategories.id, id));
+    return result || undefined;
+  }
+
+  async createTemplateCategory(data: InsertTemplateCategory): Promise<TemplateCategory> {
+    const [result] = await db.insert(templateCategories).values(data).returning();
+    return result;
+  }
+
+  async updateTemplateCategory(id: string, data: Partial<InsertTemplateCategory>): Promise<TemplateCategory | undefined> {
+    const [result] = await db.update(templateCategories)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(templateCategories.id, id))
+      .returning();
+    return result || undefined;
+  }
+
+  async deleteTemplateCategory(id: string): Promise<void> {
+    await db.delete(templateCategories).where(eq(templateCategories.id, id));
+  }
+
+  async getMessageTemplates(filters?: { type?: string; categoryId?: string; language?: string; isActive?: boolean }): Promise<MessageTemplate[]> {
+    let query = db.select().from(messageTemplates);
+    const conditions = [];
+    
+    if (filters?.type) {
+      conditions.push(eq(messageTemplates.type, filters.type));
+    }
+    if (filters?.categoryId) {
+      conditions.push(eq(messageTemplates.categoryId, filters.categoryId));
+    }
+    if (filters?.language) {
+      conditions.push(eq(messageTemplates.language, filters.language));
+    }
+    if (filters?.isActive !== undefined) {
+      conditions.push(eq(messageTemplates.isActive, filters.isActive));
+    }
+    
+    if (conditions.length > 0) {
+      return await db.select().from(messageTemplates).where(and(...conditions)).orderBy(desc(messageTemplates.priority), asc(messageTemplates.name));
+    }
+    return await db.select().from(messageTemplates).orderBy(desc(messageTemplates.priority), asc(messageTemplates.name));
+  }
+
+  async getMessageTemplate(id: string): Promise<MessageTemplate | undefined> {
+    const [result] = await db.select().from(messageTemplates).where(eq(messageTemplates.id, id));
+    return result || undefined;
+  }
+
+  async createMessageTemplate(data: InsertMessageTemplate): Promise<MessageTemplate> {
+    const [result] = await db.insert(messageTemplates).values(data).returning();
+    return result;
+  }
+
+  async updateMessageTemplate(id: string, data: Partial<InsertMessageTemplate>): Promise<MessageTemplate | undefined> {
+    const [result] = await db.update(messageTemplates)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(messageTemplates.id, id))
+      .returning();
+    return result || undefined;
+  }
+
+  async deleteMessageTemplate(id: string): Promise<void> {
+    await db.delete(messageTemplates).where(eq(messageTemplates.id, id));
+  }
+
+  async incrementTemplateUsage(id: string): Promise<void> {
+    await db.update(messageTemplates)
+      .set({ 
+        usageCount: sql`COALESCE(${messageTemplates.usageCount}, 0) + 1`,
+        lastUsedAt: new Date()
+      })
+      .where(eq(messageTemplates.id, id));
   }
 }
 

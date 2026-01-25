@@ -9761,6 +9761,799 @@ function GsmSenderTab() {
 }
 
 // ============================================
+// MESSAGE TEMPLATES TAB
+// ============================================
+
+interface MessageTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  type: "email" | "sms";
+  format: "text" | "html";
+  subject?: string;
+  content?: string;
+  contentHtml?: string;
+  categoryId?: string;
+  language: string;
+  tags?: string[];
+  isDefault: boolean;
+  isActive: boolean;
+  usageCount: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface TemplateCategory {
+  id: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+  priority: number;
+  isActive: boolean;
+}
+
+const SYSTEM_VARIABLES = [
+  { key: "{{customer.firstName}}", label: "Meno zákazníka" },
+  { key: "{{customer.lastName}}", label: "Priezvisko zákazníka" },
+  { key: "{{customer.email}}", label: "Email zákazníka" },
+  { key: "{{customer.phone}}", label: "Telefón zákazníka" },
+  { key: "{{order.number}}", label: "Číslo objednávky" },
+  { key: "{{order.date}}", label: "Dátum objednávky" },
+  { key: "{{order.total}}", label: "Celková suma" },
+  { key: "{{company.name}}", label: "Názov spoločnosti" },
+  { key: "{{company.email}}", label: "Email spoločnosti" },
+  { key: "{{company.phone}}", label: "Telefón spoločnosti" },
+  { key: "{{date.today}}", label: "Dnešný dátum" },
+  { key: "{{link.unsubscribe}}", label: "Odkaz na odhlásenie" },
+];
+
+const TEMPLATE_LANGUAGES = [
+  { code: "sk", name: "Slovenčina" },
+  { code: "cs", name: "Čeština" },
+  { code: "en", name: "English" },
+  { code: "hu", name: "Magyar" },
+  { code: "ro", name: "Română" },
+  { code: "it", name: "Italiano" },
+  { code: "de", name: "Deutsch" },
+];
+
+function MessageTemplatesTab() {
+  const { t } = useI18n();
+  const { toast } = useToast();
+  const [activeSubTab, setActiveSubTab] = useState<"templates" | "categories">("templates");
+  
+  // Template dialog state
+  const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<MessageTemplate | null>(null);
+  
+  // Category dialog state
+  const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<TemplateCategory | null>(null);
+  
+  // Filter state
+  const [filterType, setFilterType] = useState<"all" | "email" | "sms">("all");
+  const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [filterLanguage, setFilterLanguage] = useState<string>("all");
+  
+  // Template form state
+  const [templateName, setTemplateName] = useState("");
+  const [templateDescription, setTemplateDescription] = useState("");
+  const [templateType, setTemplateType] = useState<"email" | "sms">("email");
+  const [templateFormat, setTemplateFormat] = useState<"text" | "html">("text");
+  const [templateSubject, setTemplateSubject] = useState("");
+  const [templateContent, setTemplateContent] = useState("");
+  const [templateContentHtml, setTemplateContentHtml] = useState("");
+  const [templateCategoryId, setTemplateCategoryId] = useState("");
+  const [templateLanguage, setTemplateLanguage] = useState("sk");
+  const [templateTags, setTemplateTags] = useState("");
+  const [templateIsDefault, setTemplateIsDefault] = useState(false);
+  const [templateIsActive, setTemplateIsActive] = useState(true);
+  
+  // Category form state
+  const [categoryName, setCategoryName] = useState("");
+  const [categoryDescription, setCategoryDescription] = useState("");
+  const [categoryIcon, setCategoryIcon] = useState("");
+  const [categoryColor, setCategoryColor] = useState("#6B7280");
+  const [categoryPriority, setCategoryPriority] = useState(0);
+
+  // Queries
+  const { data: templates = [], isLoading: templatesLoading } = useQuery<MessageTemplate[]>({
+    queryKey: ["/api/message-templates"],
+  });
+
+  const { data: categories = [], isLoading: categoriesLoading } = useQuery<TemplateCategory[]>({
+    queryKey: ["/api/template-categories"],
+  });
+
+  // Template mutations
+  const createTemplateMutation = useMutation({
+    mutationFn: async (data: Partial<MessageTemplate>) => {
+      const res = await apiRequest("POST", "/api/message-templates", data);
+      if (!res.ok) throw new Error("Failed to create template");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/message-templates"] });
+      toast({ title: t.konfigurator.templateCreated });
+      setIsTemplateDialogOpen(false);
+      resetTemplateForm();
+    },
+    onError: () => {
+      toast({ title: t.errors.saveFailed, variant: "destructive" });
+    },
+  });
+
+  const updateTemplateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<MessageTemplate> }) => {
+      const res = await apiRequest("PATCH", `/api/message-templates/${id}`, data);
+      if (!res.ok) throw new Error("Failed to update template");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/message-templates"] });
+      toast({ title: t.konfigurator.templateUpdated });
+      setIsTemplateDialogOpen(false);
+      resetTemplateForm();
+    },
+    onError: () => {
+      toast({ title: t.errors.saveFailed, variant: "destructive" });
+    },
+  });
+
+  const deleteTemplateMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/message-templates/${id}`);
+      if (!res.ok) throw new Error("Failed to delete template");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/message-templates"] });
+      toast({ title: t.konfigurator.templateDeleted });
+    },
+    onError: () => {
+      toast({ title: t.errors.deleteFailed, variant: "destructive" });
+    },
+  });
+
+  // Category mutations
+  const createCategoryMutation = useMutation({
+    mutationFn: async (data: Partial<TemplateCategory>) => {
+      const res = await apiRequest("POST", "/api/template-categories", data);
+      if (!res.ok) throw new Error("Failed to create category");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/template-categories"] });
+      toast({ title: t.konfigurator.categoryCreated });
+      setIsCategoryDialogOpen(false);
+      resetCategoryForm();
+    },
+    onError: () => {
+      toast({ title: t.errors.saveFailed, variant: "destructive" });
+    },
+  });
+
+  const updateCategoryMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<TemplateCategory> }) => {
+      const res = await apiRequest("PATCH", `/api/template-categories/${id}`, data);
+      if (!res.ok) throw new Error("Failed to update category");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/template-categories"] });
+      toast({ title: t.konfigurator.categoryUpdated });
+      setIsCategoryDialogOpen(false);
+      resetCategoryForm();
+    },
+    onError: () => {
+      toast({ title: t.errors.saveFailed, variant: "destructive" });
+    },
+  });
+
+  const deleteCategoryMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/template-categories/${id}`);
+      if (!res.ok) throw new Error("Failed to delete category");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/template-categories"] });
+      toast({ title: t.konfigurator.categoryDeleted });
+    },
+    onError: () => {
+      toast({ title: t.errors.deleteFailed, variant: "destructive" });
+    },
+  });
+
+  const resetTemplateForm = () => {
+    setEditingTemplate(null);
+    setTemplateName("");
+    setTemplateDescription("");
+    setTemplateType("email");
+    setTemplateFormat("text");
+    setTemplateSubject("");
+    setTemplateContent("");
+    setTemplateContentHtml("");
+    setTemplateCategoryId("");
+    setTemplateLanguage("sk");
+    setTemplateTags("");
+    setTemplateIsDefault(false);
+    setTemplateIsActive(true);
+  };
+
+  const resetCategoryForm = () => {
+    setEditingCategory(null);
+    setCategoryName("");
+    setCategoryDescription("");
+    setCategoryIcon("");
+    setCategoryColor("#6B7280");
+    setCategoryPriority(0);
+  };
+
+  const openTemplateDialog = (template?: MessageTemplate) => {
+    if (template) {
+      setEditingTemplate(template);
+      setTemplateName(template.name);
+      setTemplateDescription(template.description || "");
+      setTemplateType(template.type);
+      setTemplateFormat(template.format);
+      setTemplateSubject(template.subject || "");
+      setTemplateContent(template.content || "");
+      setTemplateContentHtml(template.contentHtml || "");
+      setTemplateCategoryId(template.categoryId || "");
+      setTemplateLanguage(template.language);
+      setTemplateTags((template.tags || []).join(", "));
+      setTemplateIsDefault(template.isDefault);
+      setTemplateIsActive(template.isActive);
+    } else {
+      resetTemplateForm();
+    }
+    setIsTemplateDialogOpen(true);
+  };
+
+  const openCategoryDialog = (category?: TemplateCategory) => {
+    if (category) {
+      setEditingCategory(category);
+      setCategoryName(category.name);
+      setCategoryDescription(category.description || "");
+      setCategoryIcon(category.icon || "");
+      setCategoryColor(category.color || "#6B7280");
+      setCategoryPriority(category.priority);
+    } else {
+      resetCategoryForm();
+    }
+    setIsCategoryDialogOpen(true);
+  };
+
+  const handleSaveTemplate = () => {
+    const tags = templateTags.split(",").map(t => t.trim()).filter(Boolean);
+    const data: Partial<MessageTemplate> = {
+      name: templateName,
+      description: templateDescription || undefined,
+      type: templateType,
+      format: templateFormat,
+      subject: templateType === "email" ? templateSubject : undefined,
+      content: templateContent || undefined,
+      contentHtml: templateFormat === "html" ? templateContentHtml : undefined,
+      categoryId: templateCategoryId || undefined,
+      language: templateLanguage,
+      tags: tags.length > 0 ? tags : undefined,
+      isDefault: templateIsDefault,
+      isActive: templateIsActive,
+    };
+    if (editingTemplate) {
+      updateTemplateMutation.mutate({ id: editingTemplate.id, data });
+    } else {
+      createTemplateMutation.mutate(data);
+    }
+  };
+
+  const handleSaveCategory = () => {
+    const data: Partial<TemplateCategory> = {
+      name: categoryName,
+      description: categoryDescription || undefined,
+      icon: categoryIcon || undefined,
+      color: categoryColor,
+      priority: categoryPriority,
+      isActive: true,
+    };
+    if (editingCategory) {
+      updateCategoryMutation.mutate({ id: editingCategory.id, data });
+    } else {
+      createCategoryMutation.mutate(data);
+    }
+  };
+
+  const insertVariable = (variable: string) => {
+    if (templateFormat === "html") {
+      setTemplateContentHtml(prev => prev + variable);
+    } else {
+      setTemplateContent(prev => prev + variable);
+    }
+  };
+
+  // Filter templates
+  const filteredTemplates = templates.filter(template => {
+    if (filterType !== "all" && template.type !== filterType) return false;
+    if (filterCategory !== "all" && template.categoryId !== filterCategory) return false;
+    if (filterLanguage !== "all" && template.language !== filterLanguage) return false;
+    return true;
+  });
+
+  const getCategoryName = (categoryId?: string) => {
+    if (!categoryId) return "—";
+    const category = categories.find(c => c.id === categoryId);
+    return category?.name || "—";
+  };
+
+  return (
+    <div className="space-y-4">
+      <Tabs value={activeSubTab} onValueChange={(v) => setActiveSubTab(v as "templates" | "categories")}>
+        <TabsList>
+          <TabsTrigger value="templates" data-testid="subtab-templates-list">
+            <FileText className="h-4 w-4 mr-2" />
+            {t.konfigurator.messageTemplates}
+          </TabsTrigger>
+          <TabsTrigger value="categories" data-testid="subtab-template-categories">
+            <Palette className="h-4 w-4 mr-2" />
+            {t.konfigurator.templateCategories}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="templates" className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <Select value={filterType} onValueChange={(v) => setFilterType(v as "all" | "email" | "sms")}>
+                <SelectTrigger className="w-32" data-testid="select-filter-type">
+                  <SelectValue placeholder={t.konfigurator.templateType} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Všetky typy</SelectItem>
+                  <SelectItem value="email">{t.konfigurator.typeEmail}</SelectItem>
+                  <SelectItem value="sms">{t.konfigurator.typeSms}</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={filterCategory} onValueChange={setFilterCategory}>
+                <SelectTrigger className="w-40" data-testid="select-filter-category">
+                  <SelectValue placeholder={t.konfigurator.templateCategory} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Všetky kategórie</SelectItem>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={filterLanguage} onValueChange={setFilterLanguage}>
+                <SelectTrigger className="w-36" data-testid="select-filter-language">
+                  <SelectValue placeholder={t.konfigurator.templateLanguage} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Všetky jazyky</SelectItem>
+                  {TEMPLATE_LANGUAGES.map((lang) => (
+                    <SelectItem key={lang.code} value={lang.code}>{lang.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={() => openTemplateDialog()} data-testid="button-add-template">
+              <Plus className="h-4 w-4 mr-2" />
+              {t.konfigurator.addMessageTemplate}
+            </Button>
+          </div>
+
+          {templatesLoading ? (
+            <div className="flex items-center justify-center p-8">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+          ) : filteredTemplates.length === 0 ? (
+            <div className="text-center p-8 text-muted-foreground">
+              {t.konfigurator.noMessageTemplates}
+            </div>
+          ) : (
+            <div className="border rounded-lg overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-sm font-medium">{t.konfigurator.templateName}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">{t.konfigurator.templateType}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">{t.konfigurator.templateCategory}</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium">{t.konfigurator.templateLanguage}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium">{t.konfigurator.templateIsDefault}</th>
+                    <th className="px-4 py-3 text-center text-sm font-medium">{t.konfigurator.templateUsageCount}</th>
+                    <th className="px-4 py-3 text-right text-sm font-medium">Akcie</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {filteredTemplates.map((template) => (
+                    <tr key={template.id} className={`hover-elevate ${!template.isActive ? 'opacity-50' : ''}`}>
+                      <td className="px-4 py-3">
+                        <div>
+                          <span className="font-medium">{template.name}</span>
+                          {template.description && (
+                            <p className="text-xs text-muted-foreground">{template.description}</p>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge variant={template.type === "email" ? "default" : "secondary"}>
+                          {template.type === "email" ? <Mail className="h-3 w-3 mr-1" /> : <Smartphone className="h-3 w-3 mr-1" />}
+                          {template.type === "email" ? t.konfigurator.typeEmail : t.konfigurator.typeSms}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        {getCategoryName(template.categoryId)}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        {TEMPLATE_LANGUAGES.find(l => l.code === template.language)?.name || template.language}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {template.isDefault && <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" />}
+                      </td>
+                      <td className="px-4 py-3 text-center text-sm">
+                        {template.usageCount || 0}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button size="icon" variant="ghost" onClick={() => openTemplateDialog(template)} data-testid={`button-edit-template-${template.id}`}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button size="icon" variant="ghost" onClick={() => deleteTemplateMutation.mutate(template.id)} data-testid={`button-delete-template-${template.id}`}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="categories" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <p className="text-sm text-muted-foreground">
+              {t.konfigurator.templateCategoriesDescription}
+            </p>
+            <Button onClick={() => openCategoryDialog()} data-testid="button-add-category">
+              <Plus className="h-4 w-4 mr-2" />
+              {t.konfigurator.addCategory}
+            </Button>
+          </div>
+
+          {categoriesLoading ? (
+            <div className="flex items-center justify-center p-8">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+          ) : categories.length === 0 ? (
+            <div className="text-center p-8 text-muted-foreground">
+              {t.konfigurator.noCategories}
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {categories.map((category) => (
+                <Card key={category.id}>
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm"
+                          style={{ backgroundColor: category.color }}
+                        >
+                          {category.icon || category.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <h4 className="font-medium">{category.name}</h4>
+                          {category.description && (
+                            <p className="text-xs text-muted-foreground">{category.description}</p>
+                          )}
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {t.konfigurator.categoryPriority}: {category.priority}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button size="icon" variant="ghost" onClick={() => openCategoryDialog(category)} data-testid={`button-edit-category-${category.id}`}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={() => deleteCategoryMutation.mutate(category.id)} data-testid={`button-delete-category-${category.id}`}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      {/* Template Dialog */}
+      <Dialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {editingTemplate ? t.konfigurator.editMessageTemplate : t.konfigurator.addMessageTemplate}
+            </DialogTitle>
+            <DialogDescription>
+              {t.konfigurator.messageTemplatesDescription}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t.konfigurator.templateName}</Label>
+                <Input
+                  value={templateName}
+                  onChange={(e) => setTemplateName(e.target.value)}
+                  placeholder={t.konfigurator.templateName}
+                  data-testid="input-template-name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{t.konfigurator.templateLanguage}</Label>
+                <Select value={templateLanguage} onValueChange={setTemplateLanguage}>
+                  <SelectTrigger data-testid="select-template-language">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TEMPLATE_LANGUAGES.map((lang) => (
+                      <SelectItem key={lang.code} value={lang.code}>{lang.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>{t.konfigurator.templateDescription}</Label>
+              <Textarea
+                value={templateDescription}
+                onChange={(e) => setTemplateDescription(e.target.value)}
+                placeholder={t.konfigurator.templateDescription}
+                rows={2}
+                data-testid="input-template-description"
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>{t.konfigurator.templateType}</Label>
+                <Select value={templateType} onValueChange={(v) => setTemplateType(v as "email" | "sms")}>
+                  <SelectTrigger data-testid="select-template-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="email">{t.konfigurator.typeEmail}</SelectItem>
+                    <SelectItem value="sms">{t.konfigurator.typeSms}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>{t.konfigurator.templateFormat}</Label>
+                <Select value={templateFormat} onValueChange={(v) => setTemplateFormat(v as "text" | "html")}>
+                  <SelectTrigger data-testid="select-template-format">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="text">{t.konfigurator.formatText}</SelectItem>
+                    <SelectItem value="html">{t.konfigurator.formatHtml}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>{t.konfigurator.templateCategory}</Label>
+                <Select value={templateCategoryId} onValueChange={setTemplateCategoryId}>
+                  <SelectTrigger data-testid="select-template-category">
+                    <SelectValue placeholder={t.konfigurator.selectCategory} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {templateType === "email" && (
+              <div className="space-y-2">
+                <Label>{t.konfigurator.templateSubject}</Label>
+                <Input
+                  value={templateSubject}
+                  onChange={(e) => setTemplateSubject(e.target.value)}
+                  placeholder={t.konfigurator.templateSubject}
+                  data-testid="input-template-subject"
+                />
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>{templateFormat === "html" ? t.konfigurator.templateContentHtml : t.konfigurator.templateContent}</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" data-testid="button-insert-variable">
+                      <Hash className="h-4 w-4 mr-2" />
+                      {t.konfigurator.insertVariable}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-72" align="end">
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-sm">{t.konfigurator.availableVariables}</h4>
+                      <div className="grid gap-1 max-h-48 overflow-y-auto">
+                        {SYSTEM_VARIABLES.map((variable) => (
+                          <Button
+                            key={variable.key}
+                            variant="ghost"
+                            size="sm"
+                            className="justify-start text-xs font-mono"
+                            onClick={() => insertVariable(variable.key)}
+                            data-testid={`button-variable-${variable.key}`}
+                          >
+                            <span className="truncate">{variable.key}</span>
+                            <span className="ml-auto text-muted-foreground truncate">{variable.label}</span>
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+              {templateFormat === "html" ? (
+                <Textarea
+                  value={templateContentHtml}
+                  onChange={(e) => setTemplateContentHtml(e.target.value)}
+                  placeholder="<html>...</html>"
+                  rows={8}
+                  className="font-mono text-sm"
+                  data-testid="input-template-content-html"
+                />
+              ) : (
+                <Textarea
+                  value={templateContent}
+                  onChange={(e) => setTemplateContent(e.target.value)}
+                  placeholder={t.konfigurator.templateContent}
+                  rows={6}
+                  data-testid="input-template-content"
+                />
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>{t.konfigurator.templateTags}</Label>
+              <Input
+                value={templateTags}
+                onChange={(e) => setTemplateTags(e.target.value)}
+                placeholder="tag1, tag2, tag3"
+                data-testid="input-template-tags"
+              />
+              <p className="text-xs text-muted-foreground">Oddeľte tagy čiarkou</p>
+            </div>
+
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={templateIsDefault}
+                  onCheckedChange={setTemplateIsDefault}
+                  data-testid="switch-template-default"
+                />
+                <Label>{t.konfigurator.templateIsDefault}</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={templateIsActive}
+                  onCheckedChange={setTemplateIsActive}
+                  data-testid="switch-template-active"
+                />
+                <Label>{t.konfigurator.templateIsActive}</Label>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsTemplateDialogOpen(false)}>
+              {t.common.cancel}
+            </Button>
+            <Button
+              onClick={handleSaveTemplate}
+              disabled={!templateName || createTemplateMutation.isPending || updateTemplateMutation.isPending}
+              data-testid="button-save-template"
+            >
+              {(createTemplateMutation.isPending || updateTemplateMutation.isPending) && (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              )}
+              {t.common.save}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Category Dialog */}
+      <Dialog open={isCategoryDialogOpen} onOpenChange={setIsCategoryDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editingCategory ? t.konfigurator.editCategory : t.konfigurator.addCategory}
+            </DialogTitle>
+            <DialogDescription>
+              {t.konfigurator.templateCategoriesDescription}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>{t.konfigurator.categoryName}</Label>
+              <Input
+                value={categoryName}
+                onChange={(e) => setCategoryName(e.target.value)}
+                placeholder={t.konfigurator.categoryName}
+                data-testid="input-category-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{t.konfigurator.categoryDescription}</Label>
+              <Textarea
+                value={categoryDescription}
+                onChange={(e) => setCategoryDescription(e.target.value)}
+                placeholder={t.konfigurator.categoryDescription}
+                rows={2}
+                data-testid="input-category-description"
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>{t.konfigurator.categoryIcon}</Label>
+                <Input
+                  value={categoryIcon}
+                  onChange={(e) => setCategoryIcon(e.target.value)}
+                  placeholder="📧"
+                  data-testid="input-category-icon"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{t.konfigurator.categoryColor}</Label>
+                <Input
+                  type="color"
+                  value={categoryColor}
+                  onChange={(e) => setCategoryColor(e.target.value)}
+                  data-testid="input-category-color"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{t.konfigurator.categoryPriority}</Label>
+                <Input
+                  type="number"
+                  value={categoryPriority}
+                  onChange={(e) => setCategoryPriority(parseInt(e.target.value) || 0)}
+                  data-testid="input-category-priority"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCategoryDialogOpen(false)}>
+              {t.common.cancel}
+            </Button>
+            <Button
+              onClick={handleSaveCategory}
+              disabled={!categoryName || createCategoryMutation.isPending || updateCategoryMutation.isPending}
+              data-testid="button-save-category"
+            >
+              {(createCategoryMutation.isPending || updateCategoryMutation.isPending) && (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              )}
+              {t.common.save}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// ============================================
 // EMAIL ROUTER TAB
 // ============================================
 
@@ -14865,12 +15658,19 @@ export default function ConfiguratorPage() {
                     <Smartphone className="h-4 w-4 mr-2" />
                     GSM
                   </TabsTrigger>
+                  <TabsTrigger value="templates" data-testid="subtab-templates">
+                    <FileText className="h-4 w-4 mr-2" />
+                    Šablóny
+                  </TabsTrigger>
                 </TabsList>
                 <TabsContent value="email">
                   <EmailRouterTab />
                 </TabsContent>
                 <TabsContent value="gsm">
                   <GsmSenderTab />
+                </TabsContent>
+                <TabsContent value="templates">
+                  <MessageTemplatesTab />
                 </TabsContent>
               </Tabs>
             </CardContent>

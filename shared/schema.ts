@@ -4572,3 +4572,107 @@ export const alertInstancesRelations = relations(alertInstances, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+// ============================================
+// MESSAGE TEMPLATES SYSTEM
+// Email and SMS templates with variable support
+// ============================================
+
+export const MESSAGE_TEMPLATE_TYPES = ["email", "sms"] as const;
+export const MESSAGE_TEMPLATE_FORMATS = ["text", "html"] as const;
+
+// Template categories for organization
+export const templateCategories = pgTable("template_categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  departmentCode: varchar("department_code", { length: 50 }), // sales, support, marketing, etc.
+  icon: varchar("icon", { length: 50 }), // lucide icon name
+  color: varchar("color", { length: 20 }), // for UI display
+  priority: integer("priority").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertTemplateCategorySchema = createInsertSchema(templateCategories).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertTemplateCategory = z.infer<typeof insertTemplateCategorySchema>;
+export type TemplateCategory = typeof templateCategories.$inferSelect;
+
+// Message templates - email and SMS templates
+export const messageTemplates = pgTable("message_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Basic info
+  name: varchar("name", { length: 200 }).notNull(),
+  description: text("description"),
+  
+  // Type and format
+  type: varchar("type", { length: 20 }).notNull(), // email, sms
+  format: varchar("format", { length: 20 }).notNull().default("text"), // text, html
+  
+  // Content
+  subject: text("subject"), // For emails only
+  content: text("content").notNull(), // Template content with {{variables}}
+  contentHtml: text("content_html"), // HTML version for rich emails
+  
+  // Categorization
+  categoryId: varchar("category_id").references(() => templateCategories.id),
+  tags: text("tags").array(), // Additional tags for filtering
+  
+  // Language
+  language: varchar("language", { length: 10 }).default("sk"), // sk, cs, hu, de, it, ro, en
+  
+  // Default and priority settings
+  isDefault: boolean("is_default").default(false), // Default template for category
+  priority: integer("priority").default(0), // For ordering
+  
+  // AI matching
+  aiMatchScore: integer("ai_match_score"), // AI-calculated relevance score
+  aiSuggestedFor: text("ai_suggested_for").array(), // Types of responses this template is best for
+  lastAiAnalysis: timestamp("last_ai_analysis"),
+  
+  // Usage tracking
+  usageCount: integer("usage_count").default(0),
+  lastUsedAt: timestamp("last_used_at"),
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  
+  // Audit
+  createdBy: varchar("created_by").references(() => users.id),
+  updatedBy: varchar("updated_by").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertMessageTemplateSchema = createInsertSchema(messageTemplates).omit({ 
+  id: true, 
+  usageCount: true,
+  lastUsedAt: true,
+  aiMatchScore: true,
+  lastAiAnalysis: true,
+  createdAt: true, 
+  updatedAt: true 
+});
+export type InsertMessageTemplate = z.infer<typeof insertMessageTemplateSchema>;
+export type MessageTemplate = typeof messageTemplates.$inferSelect;
+
+export const messageTemplatesRelations = relations(messageTemplates, ({ one }) => ({
+  category: one(templateCategories, {
+    fields: [messageTemplates.categoryId],
+    references: [templateCategories.id],
+  }),
+  creator: one(users, {
+    fields: [messageTemplates.createdBy],
+    references: [users.id],
+  }),
+  updater: one(users, {
+    fields: [messageTemplates.updatedBy],
+    references: [users.id],
+  }),
+}));
+
+export const templateCategoriesRelations = relations(templateCategories, ({ many }) => ({
+  templates: many(messageTemplates),
+}));
