@@ -6059,6 +6059,7 @@ export default function CustomersPage() {
                   <Button
                     onClick={async () => {
                       console.log("[EMAIL DEBUG] Button clicked", { selectedEmails, emailSubject, emailMessage: emailMessage?.substring(0, 50) });
+                      alert(`DEBUG: Button clicked!\nEmails: ${selectedEmails.length}\nSubject: ${emailSubject ? 'yes' : 'no'}\nMessage: ${emailMessage ? 'yes' : 'no'}`);
                       if (selectedEmails.length === 0 || !emailSubject || !emailMessage) {
                         console.log("[EMAIL DEBUG] Validation failed", { emailsLen: selectedEmails.length, hasSubject: !!emailSubject, hasMessage: !!emailMessage });
                         toast({
@@ -6321,6 +6322,7 @@ export default function CustomersPage() {
                   <Button
                     onClick={async () => {
                       console.log("[SMS DEBUG] Button clicked", { selectedPhones, smsCc, smsMessage: smsMessage?.substring(0, 50) });
+                      alert(`DEBUG SMS: Button clicked!\nPhones: ${selectedPhones.length}\nCC: ${smsCc}\nMessage: ${smsMessage ? 'yes' : 'no'}`);
                       const allPhones = [...selectedPhones];
                       if (smsCc.trim()) {
                         allPhones.push(smsCc.trim());
