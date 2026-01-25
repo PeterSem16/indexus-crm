@@ -5808,11 +5808,7 @@ export default function CustomersPage() {
                   </Label>
                   <Select value={selectedFromAccount} onValueChange={(value) => {
                     setSelectedFromAccount(value);
-                    // Regenerate template with new sender email
-                    if (emailDialogCustomer) {
-                      const template = generateEmailTemplate(emailDialogCustomer);
-                      setEmailMessage(template);
-                    }
+                    // Note: Do NOT regenerate template when changing from account - preserve user's content
                   }}>
                     <SelectTrigger data-testid="select-from-account" className="text-sm">
                       <SelectValue placeholder={t.customers.details.selectAccount} />
@@ -6093,6 +6089,7 @@ export default function CustomersPage() {
                         const res = await fetch("/api/send-email", {
                           method: "POST",
                           body: formData,
+                          credentials: "include"
                         });
                         
                         if (!res.ok) throw new Error("Failed to send email");

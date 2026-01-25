@@ -6409,6 +6409,107 @@ export async function registerRoutes(
     }
   });
 
+  // Send SMS to multiple recipients (used from customer dialog)
+  app.post("/api/send-sms", requireAuth, async (req, res) => {
+    try {
+      const { to, message, customerId } = req.body;
+      
+      if (!to || !message) {
+        return res.status(400).json({ error: "Missing required fields: to, message" });
+      }
+      
+      const toArray: string[] = Array.isArray(to) ? to : [to];
+      if (toArray.length === 0) {
+        return res.status(400).json({ error: "No recipients specified" });
+      }
+      
+      const user = req.session.user!;
+      let customer = null;
+      
+      if (customerId) {
+        customer = await storage.getCustomer(customerId);
+      }
+      
+      const { sendTransactionalSms, isBulkGateConfigured } = await import("./lib/bulkgate");
+      const results: { phone: string; success: boolean; error?: string; smsId?: string }[] = [];
+      
+      for (const phone of toArray) {
+        // Create message record
+        const messageRecord = await storage.createCommunicationMessage({
+          customerId: customerId || null,
+          userId: user.id,
+          type: "sms",
+          direction: "outbound",
+          content: message,
+          recipientPhone: phone,
+          status: "pending",
+          provider: "bulkgate",
+        });
+        
+        if (isBulkGateConfigured()) {
+          try {
+            const result = await sendTransactionalSms({
+              number: phone,
+              text: message,
+              country: customer?.country || undefined,
+              tag: customerId ? `customer-${customerId}` : undefined,
+            });
+
+            if (result.success) {
+              await storage.updateCommunicationMessage(messageRecord.id, {
+                status: "sent",
+                sentAt: new Date(),
+                externalId: result.smsId,
+              });
+              
+              await logActivity(user.id, "send_sms", "communication", messageRecord.id, 
+                customer ? `SMS to ${customer.firstName} ${customer.lastName}` : `SMS to ${phone}`);
+              
+              results.push({ phone, success: true, smsId: result.smsId });
+            } else {
+              await storage.updateCommunicationMessage(messageRecord.id, {
+                status: "failed",
+                errorMessage: result.error || "BulkGate error",
+              });
+              results.push({ phone, success: false, error: result.error });
+            }
+          } catch (smsError: any) {
+            await storage.updateCommunicationMessage(messageRecord.id, {
+              status: "failed",
+              errorMessage: smsError.message,
+            });
+            results.push({ phone, success: false, error: smsError.message });
+          }
+        } else {
+          // Simulate sending (for demo purposes when no credentials configured)
+          await storage.updateCommunicationMessage(messageRecord.id, {
+            status: "sent",
+            sentAt: new Date(),
+          });
+          
+          await logActivity(user.id, "send_sms", "communication", messageRecord.id, 
+            customer ? `SMS to ${customer.firstName} ${customer.lastName}` : `SMS to ${phone}`, { simulated: true });
+          
+          results.push({ phone, success: true });
+        }
+      }
+      
+      const allSuccess = results.every(r => r.success);
+      const anySuccess = results.some(r => r.success);
+      
+      if (allSuccess) {
+        res.json({ success: true, results });
+      } else if (anySuccess) {
+        res.json({ success: true, partial: true, results });
+      } else {
+        res.status(500).json({ success: false, error: "Failed to send SMS", results });
+      }
+    } catch (error) {
+      console.error("Error sending SMS:", error);
+      res.status(500).json({ error: "Failed to send SMS" });
+    }
+  });
+
   // ========== BULKGATE SMS GATEWAY ==========
   
   // Get BulkGate status
