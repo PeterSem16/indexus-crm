@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
 import { useCountryFilter } from "@/contexts/country-filter-context";
@@ -9889,6 +9889,10 @@ function MessageTemplatesTab() {
   const [templateContent, setTemplateContent] = useState("");
   const [templateContentHtml, setTemplateContentHtml] = useState("");
   const [templateCategoryId, setTemplateCategoryId] = useState("");
+  
+  // Refs for cursor position tracking
+  const quillRef = useRef<ReactQuill>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [templateLanguage, setTemplateLanguage] = useState("sk");
   const [templateTags, setTemplateTags] = useState("");
   const [templateIsDefault, setTemplateIsDefault] = useState(false);
@@ -10154,9 +10158,46 @@ function MessageTemplatesTab() {
 
   const insertVariable = (variable: string) => {
     if (templateFormat === "html") {
-      setTemplateContentHtml(prev => prev + variable);
+      // Insert at cursor position in Quill editor
+      const quill = quillRef.current?.getEditor();
+      if (quill) {
+        // Focus editor first to ensure we have a valid selection
+        quill.focus();
+        let selection = quill.getSelection();
+        
+        if (!selection) {
+          // If still no selection after focus, insert at end
+          const length = quill.getLength();
+          quill.insertText(length - 1, variable);
+          quill.setSelection(length - 1 + variable.length, 0);
+        } else {
+          quill.insertText(selection.index, variable);
+          // Move cursor after inserted variable
+          quill.setSelection(selection.index + variable.length, 0);
+        }
+        // Let onChange handler update the state automatically
+      } else {
+        setTemplateContentHtml(prev => prev + variable);
+      }
     } else {
-      setTemplateContent(prev => prev + variable);
+      // Insert at cursor position in textarea
+      const textarea = textareaRef.current;
+      if (textarea) {
+        // Use textarea.value to avoid stale state
+        const currentValue = textarea.value;
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const newContent = currentValue.substring(0, start) + variable + currentValue.substring(end);
+        setTemplateContent(newContent);
+        // Restore cursor position after variable using requestAnimationFrame
+        const newCursorPos = start + variable.length;
+        requestAnimationFrame(() => {
+          textarea.selectionStart = textarea.selectionEnd = newCursorPos;
+          textarea.focus();
+        });
+      } else {
+        setTemplateContent(prev => prev + variable);
+      }
     }
   };
 
@@ -10505,6 +10546,7 @@ function MessageTemplatesTab() {
               {templateFormat === "html" ? (
                 <div className="border rounded-md" data-testid="input-template-content-html">
                   <ReactQuill
+                    ref={quillRef}
                     theme="snow"
                     value={templateContentHtml}
                     onChange={setTemplateContentHtml}
@@ -10533,6 +10575,7 @@ function MessageTemplatesTab() {
                 </div>
               ) : (
                 <Textarea
+                  ref={textareaRef}
                   value={templateContent}
                   onChange={(e) => setTemplateContent(e.target.value)}
                   placeholder={t.konfigurator.templateContent}
