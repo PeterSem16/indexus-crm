@@ -6058,6 +6058,7 @@ export default function CustomersPage() {
                   </Button>
                   <Button
                     onClick={async () => {
+                      console.log("Send email clicked", { selectedEmails, emailSubject, emailMessage: emailMessage?.substring(0, 50), emailDialogCustomer: emailDialogCustomer?.id });
                       if (selectedEmails.length === 0 || !emailSubject || !emailMessage) {
                         toast({
                           title: t.common.error,
