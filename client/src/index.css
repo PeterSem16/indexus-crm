@@ -520,3 +520,80 @@
     background-position: -200% 0;
   }
 }
+
+/* Quill WYSIWYG Editor Styles */
+.quill {
+  background: hsl(var(--background));
+}
+
+.ql-toolbar.ql-snow {
+  border: none !important;
+  border-bottom: 1px solid hsl(var(--border)) !important;
+  background: hsl(var(--muted));
+  border-radius: calc(var(--radius) - 2px) calc(var(--radius) - 2px) 0 0;
+}
+
+.ql-container.ql-snow {
+  border: none !important;
+  font-family: inherit;
+  font-size: 0.875rem;
+}
+
+.ql-editor {
+  min-height: 120px;
+  padding: 0.75rem;
+  color: hsl(var(--foreground));
+}
+
+.ql-editor.ql-blank::before {
+  color: hsl(var(--muted-foreground));
+  font-style: normal;
+}
+
+.ql-snow .ql-stroke {
+  stroke: hsl(var(--foreground));
+}
+
+.ql-snow .ql-fill {
+  fill: hsl(var(--foreground));
+}
+
+.ql-snow .ql-picker {
+  color: hsl(var(--foreground));
+}
+
+.ql-snow .ql-picker-options {
+  background: hsl(var(--popover));
+  border-color: hsl(var(--border));
+  border-radius: var(--radius);
+}
+
+.ql-snow .ql-picker-item:hover {
+  color: hsl(var(--primary));
+}
+
+.ql-snow button:hover .ql-stroke,
+.ql-snow .ql-picker-label:hover .ql-stroke {
+  stroke: hsl(var(--primary));
+}
+
+.ql-snow button:hover .ql-fill,
+.ql-snow .ql-picker-label:hover .ql-fill {
+  fill: hsl(var(--primary));
+}
+
+.ql-snow button.ql-active .ql-stroke {
+  stroke: hsl(var(--primary));
+}
+
+.ql-snow button.ql-active .ql-fill {
+  fill: hsl(var(--primary));
+}
+
+.dark .ql-toolbar.ql-snow {
+  background: hsl(var(--muted));
+}
+
+.dark .ql-snow .ql-picker-options {
+  background: hsl(var(--popover));
+}

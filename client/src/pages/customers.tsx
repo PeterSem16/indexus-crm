@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, MailOpen, Phone, PhoneCall, PhoneOutgoing, PhoneIncoming, Baby, Copy, ListChecks, FileEdit, UserCircle, Clock, PlusCircle, RefreshCw, XCircle, LogIn, LogOut, AlertCircle, CheckCircle2, ArrowRight, Shield, CreditCard, Loader2, Calendar, Globe, Linkedin, Facebook, Twitter, Instagram, Building2, ExternalLink, Sparkles, FileSignature, Receipt, Target, ArrowDownLeft, ArrowUpRight, PenSquare, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, Filter, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, MailOpen, Phone, PhoneCall, PhoneOutgoing, PhoneIncoming, Baby, Copy, ListChecks, FileEdit, UserCircle, Clock, PlusCircle, RefreshCw, XCircle, LogIn, LogOut, AlertCircle, CheckCircle2, ArrowRight, Shield, CreditCard, Loader2, Calendar, Globe, Linkedin, Facebook, Twitter, Instagram, Building2, ExternalLink, Sparkles, FileSignature, Receipt, Target, ArrowDownLeft, ArrowUpRight, PenSquare, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, Filter, X, ChevronDown, ChevronUp } from "lucide-react";
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -4448,6 +4450,8 @@ export default function CustomersPage() {
   const [emailAttachment, setEmailAttachment] = useState<File | null>(null);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [isSendingSms, setIsSendingSms] = useState(false);
+  const [emailCc, setEmailCc] = useState("");
+  const [showCcField, setShowCcField] = useState(false);
   
   // Pagination
   const [page, setPage] = useState(1);
@@ -4474,6 +4478,18 @@ export default function CustomersPage() {
     },
     enabled: !!user?.id,
   });
+
+  // Auto-select default mailbox when opening email dialog
+  useEffect(() => {
+    if (emailDialogCustomer && sharedMailboxes.length > 0 && !selectedFromAccount) {
+      const defaultMailbox = sharedMailboxes.find(m => m.isDefault);
+      if (defaultMailbox) {
+        setSelectedFromAccount(defaultMailbox.id);
+      } else if (sharedMailboxes[0]) {
+        setSelectedFromAccount(sharedMailboxes[0].id);
+      }
+    }
+  }, [emailDialogCustomer, sharedMailboxes, selectedFromAccount]);
 
   // Handle URL parameter for viewing customer detail (from email-client link)
   useEffect(() => {
@@ -5546,6 +5562,30 @@ export default function CustomersPage() {
                   )}
                 </div>
               </div>
+              {/* CC Field - Optional */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>{t.customers.details.cc || "CC"}</Label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowCcField(!showCcField)}
+                    className="h-6 px-2 text-xs"
+                    data-testid="button-toggle-cc"
+                  >
+                    {showCcField ? <ChevronUp className="h-3 w-3 mr-1" /> : <ChevronDown className="h-3 w-3 mr-1" />}
+                    {showCcField ? t.common.hide || "Hide" : t.common.show || "Show"}
+                  </Button>
+                </div>
+                {showCcField && (
+                  <Input
+                    value={emailCc}
+                    onChange={(e) => setEmailCc(e.target.value)}
+                    placeholder={t.customers.details.ccPlaceholder || "Enter CC email addresses, separated by commas"}
+                    data-testid="input-email-cc"
+                  />
+                )}
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="emailSubject">{t.customers.details.subject}</Label>
                 <Input
@@ -5557,15 +5597,26 @@ export default function CustomersPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="emailMessage">{t.customers.details.message}</Label>
-                <Textarea
-                  id="emailMessage"
-                  value={emailMessage}
-                  onChange={(e) => setEmailMessage(e.target.value)}
-                  placeholder={t.customers.details.writeEmailPlaceholder}
-                  rows={5}
-                  data-testid="textarea-email-message"
-                />
+                <Label>{t.customers.details.message}</Label>
+                <div className="border rounded-md" data-testid="wysiwyg-email-message">
+                  <ReactQuill
+                    theme="snow"
+                    value={emailMessage}
+                    onChange={setEmailMessage}
+                    placeholder={t.customers.details.writeEmailPlaceholder}
+                    modules={{
+                      toolbar: [
+                        [{ 'header': [1, 2, 3, false] }],
+                        ['bold', 'italic', 'underline', 'strike'],
+                        [{ 'color': [] }, { 'background': [] }],
+                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                        ['link'],
+                        ['clean']
+                      ],
+                    }}
+                    style={{ minHeight: '150px' }}
+                  />
+                </div>
               </div>
               {/* Attachment */}
               <div className="space-y-2">
@@ -5604,6 +5655,8 @@ export default function CustomersPage() {
                     setEmailMessage("");
                     setSelectedFromAccount("");
                     setEmailAttachment(null);
+                    setEmailCc("");
+                    setShowCcField(false);
                   }}
                   data-testid="button-cancel-email"
                 >
@@ -5629,6 +5682,9 @@ export default function CustomersPage() {
                       if (selectedFromAccount) {
                         formData.append("mailboxId", selectedFromAccount);
                       }
+                      if (emailCc.trim()) {
+                        formData.append("cc", emailCc.trim());
+                      }
                       if (emailAttachment) {
                         formData.append("attachment", emailAttachment);
                       }
@@ -5650,6 +5706,8 @@ export default function CustomersPage() {
                       setEmailMessage("");
                       setSelectedFromAccount("");
                       setEmailAttachment(null);
+                      setEmailCc("");
+                      setShowCcField(false);
                     } catch (error) {
                       toast({
                         title: t.common.error,

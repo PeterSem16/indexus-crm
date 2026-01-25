@@ -560,6 +560,8 @@ export interface Translations {
       fromAccount: string;
       selectAccount: string;
       attachment: string;
+      cc: string;
+      ccPlaceholder: string;
     };
   };
   products: {
@@ -2572,6 +2574,8 @@ export const translations: Record<Locale, Translations> = {
         fromAccount: 'From account',
         selectAccount: 'Select account',
         attachment: 'Attachment',
+        cc: 'CC',
+        ccPlaceholder: 'Enter CC email addresses, separated by commas',
       },
     },
     products: {
@@ -4789,6 +4793,8 @@ export const translations: Record<Locale, Translations> = {
         fromAccount: 'Z účtu',
         selectAccount: 'Vyberte účet',
         attachment: 'Príloha',
+        cc: 'Kópia',
+        ccPlaceholder: 'Zadajte emailové adresy pre kópiu, oddelené čiarkou',
       },
     },
     products: {
@@ -7015,6 +7021,8 @@ export const translations: Record<Locale, Translations> = {
         fromAccount: 'Z účtu',
         selectAccount: 'Vyberte účet',
         attachment: 'Příloha',
+        cc: 'Kopie',
+        ccPlaceholder: 'Zadejte e-mailové adresy pro kopii, oddělené čárkou',
       },
     },
     products: {
@@ -9173,6 +9181,8 @@ export const translations: Record<Locale, Translations> = {
         fromAccount: 'Fiókból',
         selectAccount: 'Fiók kiválasztása',
         attachment: 'Melléklet',
+        cc: 'Másolat',
+        ccPlaceholder: 'Adja meg a másolat e-mail címeket, vesszővel elválasztva',
       },
     },
     products: {
@@ -11330,6 +11340,8 @@ export const translations: Record<Locale, Translations> = {
         fromAccount: 'Din cont',
         selectAccount: 'Selectați contul',
         attachment: 'Atașament',
+        cc: 'Copie',
+        ccPlaceholder: 'Introduceți adresele de e-mail pentru copie, separate prin virgulă',
       },
     },
     products: {
@@ -13488,6 +13500,8 @@ export const translations: Record<Locale, Translations> = {
         fromAccount: 'Da account',
         selectAccount: 'Seleziona account',
         attachment: 'Allegato',
+        cc: 'Copia',
+        ccPlaceholder: 'Inserire gli indirizzi e-mail per la copia, separati da virgola',
       },
     },
     products: {
@@ -15646,6 +15660,8 @@ export const translations: Record<Locale, Translations> = {
         fromAccount: 'Von Konto',
         selectAccount: 'Konto auswählen',
         attachment: 'Anhang',
+        cc: 'Kopie',
+        ccPlaceholder: 'E-Mail-Adressen für Kopie eingeben, durch Komma getrennt',
       },
     },
     products: {
