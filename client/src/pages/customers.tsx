@@ -6067,32 +6067,16 @@ export default function CustomersPage() {
                         return;
                       }
                       setIsSendingEmail(true);
-                                            try {
-                        const formData = new FormData();
-                        formData.append("to", JSON.stringify(selectedEmails));
-                        formData.append("subject", emailSubject);
-                        formData.append("body", emailMessage);
-                        formData.append("customerId", emailDialogCustomer.id);
-                        if (selectedFromAccount) {
-                          formData.append("mailboxId", selectedFromAccount);
-                        }
-                        if (emailCc.trim()) {
-                          formData.append("cc", emailCc.trim());
-                        }
-                        if (emailAttachment) {
-                          formData.append("attachment", emailAttachment);
-                        }
-                        if (selectedDocuments.length > 0) {
-                          formData.append("documentIds", JSON.stringify(selectedDocuments));
-                        }
-                        
-                        const res = await fetch("/api/send-email", {
-                          method: "POST",
-                          body: formData,
-                          credentials: "include"
+                      try {
+                        await apiRequest("POST", "/api/ms365/send-email-from-mailbox", {
+                          to: selectedEmails,
+                          subject: emailSubject,
+                          body: emailMessage,
+                          isHtml: true,
+                          mailboxId: selectedFromAccount === "default" ? null : selectedFromAccount || null,
+                          customerId: emailDialogCustomer.id,
+                          cc: emailCc.trim() || undefined,
                         });
-                        
-                        if (!res.ok) throw new Error("Failed to send email");
                         
                         toast({
                           title: t.customers.details.emailSentSuccess,
