@@ -49,6 +49,7 @@ import { CallCustomerButton } from "@/components/sip-phone";
 import { useCountryFilter } from "@/contexts/country-filter-context";
 import { usePermissions } from "@/contexts/permissions-context";
 import { useAuth } from "@/contexts/auth-context";
+import { useSip } from "@/contexts/sip-context";
 
 interface AvailableMailbox {
   id: string | null;
@@ -4505,6 +4506,7 @@ export default function CustomersPage() {
 
   // Fetch user's email accounts (shared mailboxes) for email sending
   const { user } = useAuth();
+  const { makeCall } = useSip();
   const { data: sharedMailboxes = [] } = useQuery<{ id: string; email: string; displayName: string; isDefault: boolean }[]>({
     queryKey: ["/api/users", user?.id, "ms365-shared-mailboxes"],
     queryFn: async () => {
@@ -5554,26 +5556,45 @@ ${userPhone ? `<p><span style="color: #666;">${customerT.customers.details.mobil
                         );
                       })()}
                       {editingCustomer.phone && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                const phones = [editingCustomer.phone];
-                                if (editingCustomer.phone2) phones.push(editingCustomer.phone2);
-                                setSelectedPhones(phones.filter(Boolean) as string[]);
-                                setSmsDialogCustomer(editingCustomer);
-                              }}
-                              data-testid="button-sms-from-drawer"
-                            >
-                              <Phone className="h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>{editingCustomer.phone}</p>
-                          </TooltipContent>
-                        </Tooltip>
+                        <>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  if (makeCall && editingCustomer.phone) makeCall(editingCustomer.phone);
+                                }}
+                                data-testid="button-call-from-drawer"
+                              >
+                                <Phone className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{editingCustomer.phone}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  const phones = [editingCustomer.phone];
+                                  if (editingCustomer.phone2) phones.push(editingCustomer.phone2);
+                                  setSelectedPhones(phones.filter(Boolean) as string[]);
+                                  setSmsDialogCustomer(editingCustomer);
+                                }}
+                                data-testid="button-sms-from-drawer"
+                              >
+                                <MessageSquare className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{t.customers.details.sendSms}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </>
                       )}
                       {editingCustomer.email && (
                         <Button

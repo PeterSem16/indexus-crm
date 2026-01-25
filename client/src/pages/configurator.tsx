@@ -8,6 +8,8 @@ import { DataTable } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10404,14 +10406,34 @@ function MessageTemplatesTab() {
                 </Popover>
               </div>
               {templateFormat === "html" ? (
-                <Textarea
-                  value={templateContentHtml}
-                  onChange={(e) => setTemplateContentHtml(e.target.value)}
-                  placeholder="<html>...</html>"
-                  rows={8}
-                  className="font-mono text-sm"
-                  data-testid="input-template-content-html"
-                />
+                <div className="border rounded-md" data-testid="input-template-content-html">
+                  <ReactQuill
+                    theme="snow"
+                    value={templateContentHtml}
+                    onChange={setTemplateContentHtml}
+                    modules={{
+                      toolbar: [
+                        [{ header: [1, 2, 3, false] }],
+                        ["bold", "italic", "underline", "strike"],
+                        [{ color: [] }, { background: [] }],
+                        [{ list: "ordered" }, { list: "bullet" }],
+                        [{ align: [] }],
+                        ["link", "image"],
+                        ["clean"],
+                      ],
+                    }}
+                    formats={[
+                      "header",
+                      "bold", "italic", "underline", "strike",
+                      "color", "background",
+                      "list", "bullet",
+                      "align",
+                      "link", "image",
+                    ]}
+                    placeholder={t.konfigurator.templateContentHtml}
+                    style={{ minHeight: "200px" }}
+                  />
+                </div>
               ) : (
                 <Textarea
                   value={templateContent}
