@@ -1669,6 +1669,10 @@ export interface Translations {
     categoryDescription: string;
     categoryIcon: string;
     selectIcon: string;
+    selectEmailTags: string;
+    order: string;
+    company: string;
+    system: string;
     categoryColor: string;
     categoryPriority: string;
     categoryCreated: string;
@@ -3978,6 +3982,10 @@ export const translations: Record<Locale, Translations> = {
       categoryDescription: 'Description',
       categoryIcon: 'Icon',
       selectIcon: 'Select icon',
+      selectEmailTags: 'Select email tags',
+      order: 'Order',
+      company: 'Company',
+      system: 'System',
       categoryColor: 'Color',
       categoryPriority: 'Priority',
       categoryCreated: 'Category created successfully',
@@ -6256,6 +6264,10 @@ export const translations: Record<Locale, Translations> = {
       categoryDescription: 'Popis',
       categoryIcon: 'Ikona',
       selectIcon: 'Vyberte ikonu',
+      selectEmailTags: 'Vyberte email tagy',
+      order: 'Objednávka',
+      company: 'Spoločnosť',
+      system: 'Systém',
       categoryColor: 'Farba',
       categoryPriority: 'Priorita',
       categoryCreated: 'Kategória bola úspešne vytvorená',
@@ -8519,6 +8531,10 @@ export const translations: Record<Locale, Translations> = {
       categoryDescription: 'Popis',
       categoryIcon: 'Ikona',
       selectIcon: 'Vyberte ikonu',
+      selectEmailTags: 'Vyberte emailové štítky',
+      order: 'Objednávka',
+      company: 'Společnost',
+      system: 'Systém',
       categoryColor: 'Barva',
       categoryPriority: 'Priorita',
       categoryCreated: 'Kategorie byla úspěšně vytvořena',
@@ -10745,6 +10761,10 @@ export const translations: Record<Locale, Translations> = {
       categoryDescription: 'Leírás',
       categoryIcon: 'Ikon',
       selectIcon: 'Válasszon ikont',
+      selectEmailTags: 'Válassza ki az e-mail címkéket',
+      order: 'Megrendelés',
+      company: 'Cég',
+      system: 'Rendszer',
       categoryColor: 'Szín',
       categoryPriority: 'Prioritás',
       categoryCreated: 'Kategória sikeresen létrehozva',
@@ -12970,6 +12990,10 @@ export const translations: Record<Locale, Translations> = {
       categoryDescription: 'Descriere',
       categoryIcon: 'Pictogramă',
       selectIcon: 'Selectați pictograma',
+      selectEmailTags: 'Selectați etichetele de e-mail',
+      order: 'Comandă',
+      company: 'Companie',
+      system: 'Sistem',
       categoryColor: 'Culoare',
       categoryPriority: 'Prioritate',
       categoryCreated: 'Categorie creată cu succes',
@@ -15196,6 +15220,10 @@ export const translations: Record<Locale, Translations> = {
       categoryDescription: 'Descrizione',
       categoryIcon: 'Icona',
       selectIcon: 'Seleziona icona',
+      selectEmailTags: 'Seleziona tag email',
+      order: 'Ordine',
+      company: 'Azienda',
+      system: 'Sistema',
       categoryColor: 'Colore',
       categoryPriority: 'Priorità',
       categoryCreated: 'Categoria creata con successo',
@@ -17422,6 +17450,10 @@ export const translations: Record<Locale, Translations> = {
       categoryDescription: 'Beschreibung',
       categoryIcon: 'Symbol',
       selectIcon: 'Symbol auswählen',
+      selectEmailTags: 'E-Mail-Tags auswählen',
+      order: 'Bestellung',
+      company: 'Unternehmen',
+      system: 'System',
       categoryColor: 'Farbe',
       categoryPriority: 'Priorität',
       categoryCreated: 'Kategorie erfolgreich erstellt',

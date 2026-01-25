@@ -9795,20 +9795,62 @@ interface TemplateCategory {
   isActive: boolean;
 }
 
-const SYSTEM_VARIABLES = [
-  { key: "{{customer.firstName}}", label: "Meno zákazníka" },
-  { key: "{{customer.lastName}}", label: "Priezvisko zákazníka" },
-  { key: "{{customer.email}}", label: "Email zákazníka" },
-  { key: "{{customer.phone}}", label: "Telefón zákazníka" },
-  { key: "{{order.number}}", label: "Číslo objednávky" },
-  { key: "{{order.date}}", label: "Dátum objednávky" },
-  { key: "{{order.total}}", label: "Celková suma" },
-  { key: "{{company.name}}", label: "Názov spoločnosti" },
-  { key: "{{company.email}}", label: "Email spoločnosti" },
-  { key: "{{company.phone}}", label: "Telefón spoločnosti" },
-  { key: "{{date.today}}", label: "Dnešný dátum" },
-  { key: "{{link.unsubscribe}}", label: "Odkaz na odhlásenie" },
-];
+const SYSTEM_VARIABLES = {
+  customer: [
+    { key: "{{customer.firstName}}", label: "Meno" },
+    { key: "{{customer.lastName}}", label: "Priezvisko" },
+    { key: "{{customer.fullName}}", label: "Celé meno" },
+    { key: "{{customer.email}}", label: "Email" },
+    { key: "{{customer.email2}}", label: "Email 2" },
+    { key: "{{customer.phone}}", label: "Telefón" },
+    { key: "{{customer.phone2}}", label: "Telefón 2" },
+    { key: "{{customer.address}}", label: "Adresa" },
+    { key: "{{customer.city}}", label: "Mesto" },
+    { key: "{{customer.postalCode}}", label: "PSČ" },
+    { key: "{{customer.country}}", label: "Krajina" },
+    { key: "{{customer.birthDate}}", label: "Dátum narodenia" },
+    { key: "{{customer.deliveryDate}}", label: "Dátum pôrodu" },
+  ],
+  user: [
+    { key: "{{user.fullName}}", label: "Meno používateľa" },
+    { key: "{{user.email}}", label: "Email používateľa" },
+    { key: "{{user.phone}}", label: "Telefón používateľa" },
+    { key: "{{user.position}}", label: "Pozícia" },
+    { key: "{{user.signature}}", label: "Podpis" },
+  ],
+  order: [
+    { key: "{{order.number}}", label: "Číslo objednávky" },
+    { key: "{{order.date}}", label: "Dátum objednávky" },
+    { key: "{{order.total}}", label: "Celková suma" },
+    { key: "{{order.status}}", label: "Stav objednávky" },
+  ],
+  contract: [
+    { key: "{{contract.number}}", label: "Číslo zmluvy" },
+    { key: "{{contract.date}}", label: "Dátum zmluvy" },
+    { key: "{{contract.validFrom}}", label: "Platná od" },
+    { key: "{{contract.validTo}}", label: "Platná do" },
+    { key: "{{contract.amount}}", label: "Suma zmluvy" },
+  ],
+  invoice: [
+    { key: "{{invoice.number}}", label: "Číslo faktúry" },
+    { key: "{{invoice.date}}", label: "Dátum faktúry" },
+    { key: "{{invoice.dueDate}}", label: "Splatnosť" },
+    { key: "{{invoice.amount}}", label: "Suma faktúry" },
+  ],
+  company: [
+    { key: "{{company.name}}", label: "Názov spoločnosti" },
+    { key: "{{company.email}}", label: "Email spoločnosti" },
+    { key: "{{company.phone}}", label: "Telefón spoločnosti" },
+    { key: "{{company.address}}", label: "Adresa spoločnosti" },
+    { key: "{{company.website}}", label: "Web stránka" },
+  ],
+  system: [
+    { key: "{{date.today}}", label: "Dnešný dátum" },
+    { key: "{{date.tomorrow}}", label: "Zajtrajší dátum" },
+    { key: "{{link.unsubscribe}}", label: "Odkaz na odhlásenie" },
+    { key: "{{link.portal}}", label: "Odkaz na portál" },
+  ],
+};
 
 const TEMPLATE_LANGUAGES = [
   { code: "sk", name: "Slovenčina" },
@@ -9901,6 +9943,10 @@ function MessageTemplatesTab() {
 
   const { data: categories = [], isLoading: categoriesLoading } = useQuery<TemplateCategory[]>({
     queryKey: ["/api/template-categories"],
+  });
+
+  const { data: emailTags = [] } = useQuery<{ id: string; name: string; color: string }[]>({
+    queryKey: ["/api/email-tags"],
   });
 
   // Template mutations
@@ -10314,7 +10360,7 @@ function MessageTemplatesTab() {
 
       {/* Template Dialog */}
       <Dialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingTemplate ? t.konfigurator.editMessageTemplate : t.konfigurator.addMessageTemplate}
@@ -10422,22 +10468,34 @@ function MessageTemplatesTab() {
                       {t.konfigurator.insertVariable}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-72 z-[10001]" align="end">
-                    <div className="space-y-2">
+                  <PopoverContent className="w-[500px] z-[10001]" align="end">
+                    <div className="space-y-3">
                       <h4 className="font-medium text-sm">{t.konfigurator.availableVariables}</h4>
-                      <div className="grid gap-1 max-h-48 overflow-y-auto">
-                        {SYSTEM_VARIABLES.map((variable) => (
-                          <Button
-                            key={variable.key}
-                            variant="ghost"
-                            size="sm"
-                            className="justify-start text-xs font-mono"
-                            onClick={() => insertVariable(variable.key)}
-                            data-testid={`button-variable-${variable.key}`}
-                          >
-                            <span className="truncate">{variable.key}</span>
-                            <span className="ml-auto text-muted-foreground truncate">{variable.label}</span>
-                          </Button>
+                      <div className="grid grid-cols-2 gap-4 max-h-[400px] overflow-y-auto pr-2">
+                        {Object.entries(SYSTEM_VARIABLES).map(([category, variables]) => (
+                          <div key={category} className="space-y-1">
+                            <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide border-b pb-1">
+                              {category === "customer" ? t.customers.title :
+                               category === "user" ? t.users.title :
+                               category === "order" ? t.konfigurator.order :
+                               category === "contract" ? t.nav.contracts :
+                               category === "invoice" ? t.nav.invoices :
+                               category === "company" ? t.konfigurator.company :
+                               t.konfigurator.system}
+                            </h5>
+                            {variables.map((variable) => (
+                              <Button
+                                key={variable.key}
+                                variant="ghost"
+                                size="sm"
+                                className="w-full justify-start text-xs font-mono h-7 px-2"
+                                onClick={() => insertVariable(variable.key)}
+                                data-testid={`button-variable-${variable.key}`}
+                              >
+                                <span className="truncate flex-1 text-left">{variable.label}</span>
+                              </Button>
+                            ))}
+                          </div>
                         ))}
                       </div>
                     </div>
@@ -10485,14 +10543,38 @@ function MessageTemplatesTab() {
             </div>
 
             <div className="space-y-2">
-              <Label>{t.konfigurator.templateTags}</Label>
-              <Input
-                value={templateTags}
-                onChange={(e) => setTemplateTags(e.target.value)}
-                placeholder="tag1, tag2, tag3"
-                data-testid="input-template-tags"
-              />
-              <p className="text-xs text-muted-foreground">Oddeľte tagy čiarkou</p>
+              <Label>{t.konfigurator.selectEmailTags}</Label>
+              <div className="flex flex-wrap gap-2 p-3 border rounded-md min-h-[42px]">
+                {emailTags.length === 0 ? (
+                  <span className="text-sm text-muted-foreground">{t.common.noData}</span>
+                ) : (
+                  emailTags.map((tag) => {
+                    const isSelected = templateTags.split(",").map(t => t.trim()).includes(tag.name);
+                    return (
+                      <Badge
+                        key={tag.id}
+                        variant={isSelected ? "default" : "outline"}
+                        className="cursor-pointer"
+                        style={isSelected ? { backgroundColor: tag.color } : {}}
+                        onClick={() => {
+                          const currentTags = templateTags.split(",").map(t => t.trim()).filter(Boolean);
+                          if (isSelected) {
+                            setTemplateTags(currentTags.filter(t => t !== tag.name).join(", "));
+                          } else {
+                            setTemplateTags([...currentTags, tag.name].join(", "));
+                          }
+                        }}
+                        data-testid={`badge-tag-${tag.id}`}
+                      >
+                        {tag.name}
+                      </Badge>
+                    );
+                  })
+                )}
+              </div>
+              {templateTags && (
+                <p className="text-xs text-muted-foreground">{templateTags}</p>
+              )}
             </div>
 
             <div className="flex items-center gap-6">

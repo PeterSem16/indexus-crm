@@ -4595,14 +4595,14 @@ export default function CustomersPage() {
           if (doc.type === "contract" && doc.pdfPath) {
             docs.push({
               id: `contract-${doc.id}`,
-              name: `${t.customers.details.contract} ${doc.number || doc.id}`,
+              name: `${t.customers.details.contract} ${doc.number || String(doc.id)}`,
               type: "contract",
               url: `/api/contract-instances/${doc.id}/pdf`,
             });
-          } else if (doc.type === "invoice") {
+          } else if (doc.type === "invoice" && doc.pdfPath) {
             docs.push({
               id: `invoice-${doc.id}`,
-              name: `${t.customers.details.invoice} ${doc.number || doc.id}`,
+              name: `${t.customers.details.invoice} ${doc.number || String(doc.id)}`,
               type: "invoice",
               url: `/api/invoices/${doc.id}/pdf`,
             });
@@ -5725,7 +5725,7 @@ ${userPhone ? `<p><span style="color: #666;">${customerT.customers.details.mobil
           setShowCcField(false);
         }
       }}>
-        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t.customers.details.sendEmail}</DialogTitle>
             <DialogDescription>
@@ -5971,7 +5971,7 @@ ${userPhone ? `<p><span style="color: #666;">${customerT.customers.details.mobil
                           ['clean']
                         ],
                       }}
-                      style={{ minHeight: '250px' }}
+                      style={{ minHeight: '350px' }}
                     />
                   </div>
                 </div>
