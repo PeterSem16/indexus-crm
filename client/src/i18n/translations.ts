@@ -562,6 +562,7 @@ export interface Translations {
       attachment: string;
       cc: string;
       ccPlaceholder: string;
+      ccPhonePlaceholder: string;
       client: string;
       prospect: string;
     };
@@ -2578,6 +2579,7 @@ export const translations: Record<Locale, Translations> = {
         attachment: 'Attachment',
         cc: 'CC',
         ccPlaceholder: 'Enter CC email addresses, separated by commas',
+        ccPhonePlaceholder: '+421 9XX XXX XXX',
         client: 'Client',
         prospect: 'Prospect',
       },
@@ -4799,6 +4801,7 @@ export const translations: Record<Locale, Translations> = {
         attachment: 'Príloha',
         cc: 'Kópia',
         ccPlaceholder: 'Zadajte emailové adresy pre kópiu, oddelené čiarkou',
+        ccPhonePlaceholder: '+421 9XX XXX XXX',
         client: 'Klient',
         prospect: 'Potenciálny klient',
       },
@@ -7029,6 +7032,7 @@ export const translations: Record<Locale, Translations> = {
         attachment: 'Příloha',
         cc: 'Kopie',
         ccPlaceholder: 'Zadejte e-mailové adresy pro kopii, oddělené čárkou',
+        ccPhonePlaceholder: '+420 XXX XXX XXX',
         client: 'Klient',
         prospect: 'Potenciální klient',
       },
@@ -9191,6 +9195,7 @@ export const translations: Record<Locale, Translations> = {
         attachment: 'Melléklet',
         cc: 'Másolat',
         ccPlaceholder: 'Adja meg a másolat e-mail címeket, vesszővel elválasztva',
+        ccPhonePlaceholder: '+36 XX XXX XXXX',
         client: 'Ügyfél',
         prospect: 'Lehetséges ügyfél',
       },
@@ -11352,6 +11357,7 @@ export const translations: Record<Locale, Translations> = {
         attachment: 'Atașament',
         cc: 'Copie',
         ccPlaceholder: 'Introduceți adresele de e-mail pentru copie, separate prin virgulă',
+        ccPhonePlaceholder: '+40 XXX XXX XXX',
         client: 'Client',
         prospect: 'Prospect',
       },
@@ -13514,6 +13520,7 @@ export const translations: Record<Locale, Translations> = {
         attachment: 'Allegato',
         cc: 'Copia',
         ccPlaceholder: 'Inserire gli indirizzi e-mail per la copia, separati da virgola',
+        ccPhonePlaceholder: '+39 XXX XXX XXXX',
         client: 'Cliente',
         prospect: 'Potenziale cliente',
       },
@@ -15676,6 +15683,7 @@ export const translations: Record<Locale, Translations> = {
         attachment: 'Anhang',
         cc: 'Kopie',
         ccPlaceholder: 'E-Mail-Adressen für Kopie eingeben, durch Komma getrennt',
+        ccPhonePlaceholder: '+49 XXX XXXXXXX',
         client: 'Kunde',
         prospect: 'Interessent',
       },

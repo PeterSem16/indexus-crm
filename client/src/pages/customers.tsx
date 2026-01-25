@@ -4452,6 +4452,9 @@ export default function CustomersPage() {
   const [isSendingSms, setIsSendingSms] = useState(false);
   const [emailCc, setEmailCc] = useState("");
   const [showCcField, setShowCcField] = useState(false);
+  const [smsCc, setSmsCc] = useState("");
+  const [smsCcCountry, setSmsCcCountry] = useState("SK");
+  const [showSmsCcField, setShowSmsCcField] = useState(false);
   
   // Pagination
   const [page, setPage] = useState(1);
@@ -5510,8 +5513,8 @@ export default function CustomersPage() {
           </DialogHeader>
           {emailDialogCustomer && (
             <div className="flex gap-6">
-              {/* Left column - Recipients & Settings (20%) */}
-              <div className="w-1/5 min-w-[180px] space-y-4 border-r pr-4">
+              {/* Left column - Recipients & Settings (40%) */}
+              <div className="w-2/5 space-y-4 border-r pr-4">
                 {/* From account selection */}
                 <div className="space-y-2">
                   <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -5635,8 +5638,8 @@ export default function CustomersPage() {
                 </div>
               </div>
               
-              {/* Right column - Email Content (80%) */}
-              <div className="flex-1 space-y-4">
+              {/* Right column - Email Content (60%) */}
+              <div className="w-3/5 space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="emailSubject">{t.customers.details.subject}</Label>
                   <Input
@@ -5766,9 +5769,11 @@ export default function CustomersPage() {
           setSmsDialogCustomer(null);
           setSelectedPhones([]);
           setSmsMessage("");
+          setSmsCc("");
+          setShowSmsCcField(false);
         }
       }}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t.customers.details.sendSms}</DialogTitle>
             <DialogDescription>
@@ -5776,123 +5781,187 @@ export default function CustomersPage() {
             </DialogDescription>
           </DialogHeader>
           {smsDialogCustomer && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>{t.customers.details.to}</Label>
+            <div className="flex gap-6">
+              {/* Left column - Recipients (40%) */}
+              <div className="w-2/5 space-y-4 border-r pr-4">
+                {/* To - Recipients */}
                 <div className="space-y-2">
-                  {smsDialogCustomer.phone && (
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="phone1"
-                        checked={selectedPhones.includes(smsDialogCustomer.phone)}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setSelectedPhones([...selectedPhones, smsDialogCustomer.phone!]);
-                          } else {
-                            setSelectedPhones(selectedPhones.filter(p => p !== smsDialogCustomer.phone));
-                          }
-                        }}
-                        data-testid="checkbox-phone-primary"
+                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    {t.customers.details.to}
+                  </Label>
+                  <div className="space-y-2">
+                    {smsDialogCustomer.phone && (
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="phone1"
+                          checked={selectedPhones.includes(smsDialogCustomer.phone)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedPhones([...selectedPhones, smsDialogCustomer.phone!]);
+                            } else {
+                              setSelectedPhones(selectedPhones.filter(p => p !== smsDialogCustomer.phone));
+                            }
+                          }}
+                          data-testid="checkbox-phone-primary"
+                        />
+                        <Label htmlFor="phone1" className="font-normal cursor-pointer text-sm">
+                          {getCountryFlag(smsDialogCustomer.country)} {smsDialogCustomer.phone}
+                        </Label>
+                      </div>
+                    )}
+                    {smsDialogCustomer.phone2 && (
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="phone2"
+                          checked={selectedPhones.includes(smsDialogCustomer.phone2)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedPhones([...selectedPhones, smsDialogCustomer.phone2!]);
+                            } else {
+                              setSelectedPhones(selectedPhones.filter(p => p !== smsDialogCustomer.phone2));
+                            }
+                          }}
+                          data-testid="checkbox-phone-secondary"
+                        />
+                        <Label htmlFor="phone2" className="font-normal cursor-pointer text-sm">
+                          {getCountryFlag(smsDialogCustomer.country)} {smsDialogCustomer.phone2}
+                        </Label>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                {/* CC Field - Additional recipient */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      {t.customers.details.cc}
+                    </Label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowSmsCcField(!showSmsCcField)}
+                      className="h-5 px-1 text-xs"
+                      data-testid="button-toggle-sms-cc"
+                    >
+                      {showSmsCcField ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                    </Button>
+                  </div>
+                  {showSmsCcField && (
+                    <div className="flex gap-2">
+                      <Select value={smsCcCountry} onValueChange={setSmsCcCountry}>
+                        <SelectTrigger className="w-24" data-testid="select-sms-cc-country">
+                          <SelectValue>
+                            {getCountryFlag(smsCcCountry)} {smsCcCountry}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="SK">{getCountryFlag("SK")} SK</SelectItem>
+                          <SelectItem value="CZ">{getCountryFlag("CZ")} CZ</SelectItem>
+                          <SelectItem value="HU">{getCountryFlag("HU")} HU</SelectItem>
+                          <SelectItem value="RO">{getCountryFlag("RO")} RO</SelectItem>
+                          <SelectItem value="IT">{getCountryFlag("IT")} IT</SelectItem>
+                          <SelectItem value="DE">{getCountryFlag("DE")} DE</SelectItem>
+                          <SelectItem value="US">{getCountryFlag("US")} US</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        value={smsCc}
+                        onChange={(e) => setSmsCc(e.target.value)}
+                        placeholder={t.customers.details.ccPhonePlaceholder}
+                        className="flex-1 text-sm"
+                        data-testid="input-sms-cc"
                       />
-                      <Label htmlFor="phone1" className="font-normal cursor-pointer">
-                        {smsDialogCustomer.phone}
-                      </Label>
-                    </div>
-                  )}
-                  {smsDialogCustomer.phone2 && (
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="phone2"
-                        checked={selectedPhones.includes(smsDialogCustomer.phone2)}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setSelectedPhones([...selectedPhones, smsDialogCustomer.phone2!]);
-                          } else {
-                            setSelectedPhones(selectedPhones.filter(p => p !== smsDialogCustomer.phone2));
-                          }
-                        }}
-                        data-testid="checkbox-phone-secondary"
-                      />
-                      <Label htmlFor="phone2" className="font-normal cursor-pointer">
-                        {smsDialogCustomer.phone2}
-                      </Label>
                     </div>
                   )}
                 </div>
               </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="smsMessage">{t.customers.details.message}</Label>
-                  <span className={`text-xs ${smsMessage.length > 160 ? 'text-destructive' : 'text-muted-foreground'}`}>
-                    {smsMessage.length}/160
-                  </span>
+              
+              {/* Right column - Message (60%) */}
+              <div className="w-3/5 space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="smsMessage">{t.customers.details.message}</Label>
+                    <span className={`text-xs ${smsMessage.length > 160 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                      {smsMessage.length}/160
+                    </span>
+                  </div>
+                  <Textarea
+                    id="smsMessage"
+                    value={smsMessage}
+                    onChange={(e) => setSmsMessage(e.target.value)}
+                    placeholder={t.customers.details.writeSmsPlaceholder}
+                    rows={6}
+                    maxLength={160}
+                    data-testid="textarea-sms-message"
+                  />
                 </div>
-                <Textarea
-                  id="smsMessage"
-                  value={smsMessage}
-                  onChange={(e) => setSmsMessage(e.target.value)}
-                  placeholder={t.customers.details.writeSmsPlaceholder}
-                  rows={4}
-                  maxLength={160}
-                  data-testid="textarea-sms-message"
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setSmsDialogCustomer(null);
-                    setSelectedPhones([]);
-                    setSmsMessage("");
-                  }}
-                  data-testid="button-cancel-sms"
-                >
-                  {t.common.cancel}
-                </Button>
-                <Button
-                  onClick={async () => {
-                    if (selectedPhones.length === 0 || !smsMessage) {
-                      toast({
-                        title: t.common.error,
-                        description: t.customers.details.fillAllFields,
-                        variant: "destructive"
-                      });
-                      return;
-                    }
-                    setIsSendingSms(true);
-                    try {
-                      await apiRequest("POST", "/api/send-sms", {
-                        to: selectedPhones,
-                        message: smsMessage,
-                        customerId: smsDialogCustomer.id
-                      });
-                      toast({
-                        title: t.customers.details.smsSentSuccess,
-                        description: t.customers.details.smsSentSuccessDesc
-                      });
+                
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
                       setSmsDialogCustomer(null);
                       setSelectedPhones([]);
                       setSmsMessage("");
-                    } catch (error) {
-                      toast({
-                        title: t.common.error,
-                        description: t.customers.details.smsSendFailed,
-                        variant: "destructive"
-                      });
-                    } finally {
-                      setIsSendingSms(false);
-                    }
-                  }}
-                  disabled={selectedPhones.length === 0 || !smsMessage || isSendingSms}
-                  data-testid="button-send-sms"
-                >
-                  {isSendingSms ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4 mr-2" />
-                  )}
-                  {t.customers.details.sendSms}
-                </Button>
+                      setSmsCc("");
+                      setShowSmsCcField(false);
+                    }}
+                    data-testid="button-cancel-sms"
+                  >
+                    {t.common.cancel}
+                  </Button>
+                  <Button
+                    onClick={async () => {
+                      const allPhones = [...selectedPhones];
+                      if (smsCc.trim()) {
+                        allPhones.push(smsCc.trim());
+                      }
+                      if (allPhones.length === 0 || !smsMessage) {
+                        toast({
+                          title: t.common.error,
+                          description: t.customers.details.fillAllFields,
+                          variant: "destructive"
+                        });
+                        return;
+                      }
+                      setIsSendingSms(true);
+                      try {
+                        await apiRequest("POST", "/api/send-sms", {
+                          to: allPhones,
+                          message: smsMessage,
+                          customerId: smsDialogCustomer.id
+                        });
+                        toast({
+                          title: t.customers.details.smsSentSuccess,
+                          description: t.customers.details.smsSentSuccessDesc
+                        });
+                        setSmsDialogCustomer(null);
+                        setSelectedPhones([]);
+                        setSmsMessage("");
+                        setSmsCc("");
+                        setShowSmsCcField(false);
+                      } catch (error) {
+                        toast({
+                          title: t.common.error,
+                          description: t.customers.details.smsSendFailed,
+                          variant: "destructive"
+                        });
+                      } finally {
+                        setIsSendingSms(false);
+                      }
+                    }}
+                    disabled={(selectedPhones.length === 0 && !smsCc.trim()) || !smsMessage || isSendingSms}
+                    data-testid="button-send-sms"
+                  >
+                    {isSendingSms ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4 mr-2" />
+                    )}
+                    {t.customers.details.sendSms}
+                  </Button>
+                </div>
               </div>
             </div>
           )}
