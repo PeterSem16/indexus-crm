@@ -568,6 +568,15 @@ export interface Translations {
       ccPhonePlaceholder: string;
       client: string;
       prospect: string;
+      personalAccount: string;
+      customerDocuments: string;
+      emailSalutation: string;
+      emailGreeting: string;
+      salesRepresentative: string;
+      addressLabel: string;
+      mobileLabel: string;
+      emailLabel: string;
+      webLabel: string;
     };
   };
   products: {
@@ -2588,6 +2597,15 @@ export const translations: Record<Locale, Translations> = {
         ccPhonePlaceholder: '+421 9XX XXX XXX',
         client: 'Client',
         prospect: 'Prospect',
+        personalAccount: 'Personal',
+        customerDocuments: 'Customer Documents',
+        emailSalutation: 'Dear Mr./Ms.',
+        emailGreeting: 'Best regards,',
+        salesRepresentative: 'Sales Representative',
+        addressLabel: 'Address',
+        mobileLabel: 'Mobile',
+        emailLabel: 'E-mail',
+        webLabel: 'Web',
       },
     },
     products: {
@@ -4813,6 +4831,15 @@ export const translations: Record<Locale, Translations> = {
         ccPhonePlaceholder: '+421 9XX XXX XXX',
         client: 'Klient',
         prospect: 'Potenciálny klient',
+        personalAccount: 'Osobný',
+        customerDocuments: 'Dokumenty zákazníka',
+        emailSalutation: 'Vážený/á pán/pani',
+        emailGreeting: 'S pozdravom,',
+        salesRepresentative: 'Obchodný zástupca',
+        addressLabel: 'Adresa',
+        mobileLabel: 'Mobil',
+        emailLabel: 'E-mail',
+        webLabel: 'Web',
       },
     },
     products: {
@@ -7047,6 +7074,15 @@ export const translations: Record<Locale, Translations> = {
         ccPhonePlaceholder: '+420 XXX XXX XXX',
         client: 'Klient',
         prospect: 'Potenciální klient',
+        personalAccount: 'Osobní',
+        customerDocuments: 'Dokumenty zákazníka',
+        emailSalutation: 'Vážený/á pan/paní',
+        emailGreeting: 'S pozdravem,',
+        salesRepresentative: 'Obchodní zástupce',
+        addressLabel: 'Adresa',
+        mobileLabel: 'Mobil',
+        emailLabel: 'E-mail',
+        webLabel: 'Web',
       },
     },
     products: {
@@ -9213,6 +9249,15 @@ export const translations: Record<Locale, Translations> = {
         ccPhonePlaceholder: '+36 XX XXX XXXX',
         client: 'Ügyfél',
         prospect: 'Lehetséges ügyfél',
+        personalAccount: 'Személyes',
+        customerDocuments: 'Ügyfél dokumentumok',
+        emailSalutation: 'Tisztelt',
+        emailGreeting: 'Tisztelettel,',
+        salesRepresentative: 'Értékesítési képviselő',
+        addressLabel: 'Cím',
+        mobileLabel: 'Mobil',
+        emailLabel: 'E-mail',
+        webLabel: 'Web',
       },
     },
     products: {
@@ -11378,6 +11423,15 @@ export const translations: Record<Locale, Translations> = {
         ccPhonePlaceholder: '+40 XXX XXX XXX',
         client: 'Client',
         prospect: 'Prospect',
+        personalAccount: 'Personal',
+        customerDocuments: 'Documente client',
+        emailSalutation: 'Stimate/ă Domnule/Doamnă',
+        emailGreeting: 'Cu respect,',
+        salesRepresentative: 'Reprezentant de vânzări',
+        addressLabel: 'Adresă',
+        mobileLabel: 'Mobil',
+        emailLabel: 'E-mail',
+        webLabel: 'Web',
       },
     },
     products: {
@@ -13544,6 +13598,15 @@ export const translations: Record<Locale, Translations> = {
         ccPhonePlaceholder: '+39 XXX XXX XXXX',
         client: 'Cliente',
         prospect: 'Potenziale cliente',
+        personalAccount: 'Personale',
+        customerDocuments: 'Documenti cliente',
+        emailSalutation: 'Gentile Sig./Sig.ra',
+        emailGreeting: 'Cordiali saluti,',
+        salesRepresentative: 'Rappresentante commerciale',
+        addressLabel: 'Indirizzo',
+        mobileLabel: 'Cellulare',
+        emailLabel: 'E-mail',
+        webLabel: 'Web',
       },
     },
     products: {
@@ -15710,6 +15773,15 @@ export const translations: Record<Locale, Translations> = {
         ccPhonePlaceholder: '+49 XXX XXXXXXX',
         client: 'Kunde',
         prospect: 'Interessent',
+        personalAccount: 'Persönlich',
+        customerDocuments: 'Kundendokumente',
+        emailSalutation: 'Sehr geehrte/r Frau/Herr',
+        emailGreeting: 'Mit freundlichen Grüßen,',
+        salesRepresentative: 'Vertriebsmitarbeiter',
+        addressLabel: 'Adresse',
+        mobileLabel: 'Mobil',
+        emailLabel: 'E-mail',
+        webLabel: 'Web',
       },
     },
     products: {

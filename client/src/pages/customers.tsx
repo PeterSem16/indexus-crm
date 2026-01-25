@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useI18n } from "@/i18n";
+import { translations, COUNTRY_TO_LOCALE } from "@/i18n/translations";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -4509,17 +4510,158 @@ export default function CustomersPage() {
     enabled: !!user?.id,
   });
 
-  // Auto-select default mailbox when opening email dialog
+  // Fetch user's personal M365 connection
+  const { data: personalMs365 } = useQuery<{ email: string; displayName: string; hasTokens: boolean } | null>({
+    queryKey: ["/api/users", user?.id, "ms365-connection"],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const res = await fetch(`/api/users/${user.id}/ms365-connection`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!user?.id,
+  });
+
+  // Combine personal M365 account with shared mailboxes
+  const allEmailAccounts = useMemo(() => {
+    const accounts: AvailableMailbox[] = [];
+    
+    // Add personal M365 account first if connected
+    if (personalMs365?.hasTokens && personalMs365?.email) {
+      accounts.push({
+        id: "personal",
+        email: personalMs365.email,
+        displayName: personalMs365.displayName || personalMs365.email,
+        type: "personal",
+        isDefault: false,
+      });
+    }
+    
+    // Add shared mailboxes
+    sharedMailboxes.forEach(mailbox => {
+      accounts.push({
+        id: mailbox.id,
+        email: mailbox.email,
+        displayName: mailbox.displayName || mailbox.email,
+        type: "shared",
+        isDefault: mailbox.isDefault,
+      });
+    });
+    
+    return accounts;
+  }, [personalMs365, sharedMailboxes]);
+
+  // Fetch customer documents (invoices, contracts) for attachment
+  const { data: customerDocuments = [] } = useQuery<{ id: string; name: string; type: string; url: string }[]>({
+    queryKey: ["/api/customers", emailDialogCustomer?.id, "documents"],
+    queryFn: async () => {
+      if (!emailDialogCustomer?.id) return [];
+      const [invoicesRes, contractsRes] = await Promise.all([
+        fetch(`/api/customers/${emailDialogCustomer.id}/invoices`),
+        fetch(`/api/customers/${emailDialogCustomer.id}/contracts`),
+      ]);
+      const docs: { id: string; name: string; type: string; url: string }[] = [];
+      
+      if (invoicesRes.ok) {
+        const invoices = await invoicesRes.json();
+        invoices.forEach((inv: any) => {
+          docs.push({
+            id: `invoice-${inv.id}`,
+            name: `${t.customers.details.invoice} ${inv.invoiceNumber || inv.id}`,
+            type: "invoice",
+            url: `/api/invoices/${inv.id}/pdf`,
+          });
+        });
+      }
+      
+      if (contractsRes.ok) {
+        const contracts = await contractsRes.json();
+        contracts.forEach((contract: any) => {
+          docs.push({
+            id: `contract-${contract.id}`,
+            name: `${t.customers.details.contract} - ${contract.templateName || contract.id}`,
+            type: "contract",
+            url: `/api/contract-instances/${contract.id}/pdf`,
+          });
+        });
+      }
+      
+      return docs;
+    },
+    enabled: !!emailDialogCustomer?.id,
+  });
+
+  // Email template state
+  const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
+
+  // Generate email template based on customer's country/language using translations
+  const generateEmailTemplate = useCallback((customer: Customer) => {
+    const userFullName = user?.fullName || "";
+    const userPhone = user?.phone ? `${user?.phonePrefix || ""}${user.phone}` : "";
+    const selectedAccount = allEmailAccounts.find(a => a.id === selectedFromAccount);
+    const userEmail = selectedAccount?.email || user?.email || "";
+    
+    // Use shared COUNTRY_TO_LOCALE mapping for customer's language
+    const customerLocale = COUNTRY_TO_LOCALE[customer.country || "SK"] || "sk";
+    const customerT = translations[customerLocale];
+    
+    // Use customer's language for salutation and greeting
+    const salutation = `${customerT.customers.details.emailSalutation} ${customer.lastName},`;
+    const greeting = customerT.customers.details.emailGreeting;
+    
+    const template = `
+<p>${salutation}</p>
+<br/>
+<p></p>
+<br/>
+<p>${greeting}</p>
+<br/>
+<table style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
+  <tr>
+    <td style="padding-bottom: 4px;"><strong>${userFullName}</strong></td>
+  </tr>
+  <tr>
+    <td style="color: #6B1C3B; padding-bottom: 8px;">${customerT.customers.details.salesRepresentative}</td>
+  </tr>
+  <tr>
+    <td style="font-weight: bold; color: #6B1C3B;">Cord Blood Center Group</td>
+  </tr>
+  <tr>
+    <td style="padding-top: 8px;">
+      <span style="color: #666;">${customerT.customers.details.addressLabel}:</span> Gallayova 11, 841 02 Bratislava
+    </td>
+  </tr>
+  ${userPhone ? `<tr><td><span style="color: #666;">${customerT.customers.details.mobileLabel}:</span> ${userPhone}</td></tr>` : ""}
+  <tr>
+    <td><span style="color: #666;">${customerT.customers.details.emailLabel}:</span> <a href="mailto:${userEmail}" style="color: #6B1C3B;">${userEmail}</a></td>
+  </tr>
+  <tr>
+    <td><span style="color: #666;">${customerT.customers.details.webLabel}:</span> <a href="https://www.cordbloodcenter.com" style="color: #6B1C3B;">www.cordbloodcenter.com</a></td>
+  </tr>
+</table>
+`;
+    return template;
+  }, [user, allEmailAccounts, selectedFromAccount]);
+
+  // Auto-select default mailbox and generate template when opening email dialog
   useEffect(() => {
-    if (emailDialogCustomer && sharedMailboxes.length > 0 && !selectedFromAccount) {
-      const defaultMailbox = sharedMailboxes.find(m => m.isDefault);
+    if (emailDialogCustomer && allEmailAccounts.length > 0 && !selectedFromAccount) {
+      const defaultMailbox = allEmailAccounts.find(m => m.isDefault);
       if (defaultMailbox) {
-        setSelectedFromAccount(defaultMailbox.id);
-      } else if (sharedMailboxes[0]) {
-        setSelectedFromAccount(sharedMailboxes[0].id);
+        setSelectedFromAccount(defaultMailbox.id || "");
+      } else if (allEmailAccounts[0]) {
+        setSelectedFromAccount(allEmailAccounts[0].id || "");
       }
     }
-  }, [emailDialogCustomer, sharedMailboxes, selectedFromAccount]);
+  }, [emailDialogCustomer, allEmailAccounts, selectedFromAccount]);
+
+  // Generate email template when dialog opens
+  useEffect(() => {
+    if (emailDialogCustomer && !emailMessage) {
+      const template = generateEmailTemplate(emailDialogCustomer);
+      setEmailMessage(template);
+    }
+  }, [emailDialogCustomer, generateEmailTemplate]);
 
   // Handle URL parameter for viewing customer detail (from email-client link)
   useEffect(() => {
@@ -5529,6 +5671,11 @@ export default function CustomersPage() {
           setSelectedEmails([]);
           setEmailSubject("");
           setEmailMessage("");
+          setSelectedDocuments([]);
+          setSelectedFromAccount("");
+          setEmailAttachment(null);
+          setEmailCc("");
+          setShowCcField(false);
         }
       }}>
         <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -5547,14 +5694,28 @@ export default function CustomersPage() {
                   <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                     {t.customers.details.fromAccount}
                   </Label>
-                  <Select value={selectedFromAccount} onValueChange={setSelectedFromAccount}>
+                  <Select value={selectedFromAccount} onValueChange={(value) => {
+                    setSelectedFromAccount(value);
+                    // Regenerate template with new sender email
+                    if (emailDialogCustomer) {
+                      const template = generateEmailTemplate(emailDialogCustomer);
+                      setEmailMessage(template);
+                    }
+                  }}>
                     <SelectTrigger data-testid="select-from-account" className="text-sm">
                       <SelectValue placeholder={t.customers.details.selectAccount} />
                     </SelectTrigger>
                     <SelectContent>
-                      {sharedMailboxes.map((mailbox) => (
-                        <SelectItem key={mailbox.id} value={mailbox.id}>
-                          {mailbox.displayName || mailbox.email}
+                      {allEmailAccounts.map((account) => (
+                        <SelectItem key={account.id || "personal"} value={account.id || "personal"}>
+                          <div className="flex items-center gap-2">
+                            <span>{account.displayName}</span>
+                            {account.type === "personal" && (
+                              <Badge variant="outline" className="text-[10px] px-1 py-0">
+                                {t.customers.details.personalAccount}
+                              </Badge>
+                            )}
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -5663,6 +5824,41 @@ export default function CustomersPage() {
                     </div>
                   )}
                 </div>
+                
+                {/* Customer Documents */}
+                {customerDocuments.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      {t.customers.details.customerDocuments}
+                    </Label>
+                    <div className="space-y-1 max-h-32 overflow-y-auto border rounded-md p-2">
+                      {customerDocuments.map((doc) => (
+                        <div key={doc.id} className="flex items-center gap-2">
+                          <Checkbox
+                            id={doc.id}
+                            checked={selectedDocuments.includes(doc.id)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setSelectedDocuments([...selectedDocuments, doc.id]);
+                              } else {
+                                setSelectedDocuments(selectedDocuments.filter(d => d !== doc.id));
+                              }
+                            }}
+                            data-testid={`checkbox-doc-${doc.id}`}
+                          />
+                          <Label htmlFor={doc.id} className="font-normal cursor-pointer text-xs truncate flex items-center gap-1">
+                            {doc.type === "invoice" ? (
+                              <Receipt className="h-3 w-3 text-muted-foreground" />
+                            ) : (
+                              <FileSignature className="h-3 w-3 text-muted-foreground" />
+                            )}
+                            {doc.name}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
               
               {/* Right column - Email Content (60%) */}
@@ -5743,6 +5939,9 @@ export default function CustomersPage() {
                         if (emailAttachment) {
                           formData.append("attachment", emailAttachment);
                         }
+                        if (selectedDocuments.length > 0) {
+                          formData.append("documentIds", JSON.stringify(selectedDocuments));
+                        }
                         
                         const res = await fetch("/api/send-email", {
                           method: "POST",
@@ -5763,6 +5962,7 @@ export default function CustomersPage() {
                         setEmailAttachment(null);
                         setEmailCc("");
                         setShowCcField(false);
+                        setSelectedDocuments([]);
                       } catch (error) {
                         toast({
                           title: t.common.error,
