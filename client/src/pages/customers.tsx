@@ -5310,7 +5310,7 @@ export default function CustomersPage() {
                           size="icon"
                           onClick={() => setViewingCustomer(editingCustomer)}
                           data-testid="button-sms-from-drawer"
-                          title={t.customers.actions.sendSms}
+                          title={t.customers.details.sendSms}
                         >
                           <MessageSquare className="h-4 w-4" />
                         </Button>
@@ -5321,7 +5321,7 @@ export default function CustomersPage() {
                           size="icon"
                           onClick={() => setViewingCustomer(editingCustomer)}
                           data-testid="button-email-from-drawer"
-                          title={t.customers.actions.sendEmail}
+                          title={t.customers.details.sendEmail}
                         >
                           <Mail className="h-4 w-4" />
                         </Button>
@@ -5337,7 +5337,7 @@ export default function CustomersPage() {
                     data-testid="badge-documents-invoices"
                   >
                     <Eye className="h-3 w-3" />
-                    {t.customers.details.documents} & {t.customers.details.invoices}
+                    {t.customers.callHistory?.filterDocuments} & {t.customers.details.invoices}
                   </Badge>
                   <Button 
                     variant="ghost" 
