@@ -6069,6 +6069,20 @@ export default function CustomersPage() {
                       }
                       setIsSendingEmail(true);
                       try {
+                        // Convert PC file attachment to base64 if present
+                        let pcAttachments: Array<{ name: string; contentType: string; contentBase64: string }> = [];
+                        if (emailAttachment) {
+                          const fileBuffer = await emailAttachment.arrayBuffer();
+                          const base64 = btoa(
+                            new Uint8Array(fileBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+                          );
+                          pcAttachments.push({
+                            name: emailAttachment.name,
+                            contentType: emailAttachment.type || 'application/octet-stream',
+                            contentBase64: base64,
+                          });
+                        }
+                        
                         await apiRequest("POST", "/api/ms365/send-email-from-mailbox", {
                           to: selectedEmails,
                           subject: emailSubject,
@@ -6078,6 +6092,7 @@ export default function CustomersPage() {
                           customerId: emailDialogCustomer.id,
                           cc: emailCc.trim() || undefined,
                           documentIds: selectedDocuments.length > 0 ? selectedDocuments : undefined,
+                          attachments: pcAttachments.length > 0 ? pcAttachments : undefined,
                         });
                         
                         toast({
