@@ -1164,7 +1164,7 @@ export function CallCustomerButton({
         data-testid="button-call-customer-icon"
         title={`Zavolat na ${phoneNumber}`}
       >
-        <PhoneCall className="h-4 w-4 text-green-600" />
+        <PhoneCall className="h-4 w-4 text-primary" />
       </Button>
     );
   }

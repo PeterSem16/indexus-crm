@@ -5264,13 +5264,22 @@ export default function CustomersPage() {
         >
           {editingCustomer && (
             <>
-              <div className="sticky top-0 z-[999] bg-gradient-to-r from-primary/10 via-primary/5 to-background border-b px-6 py-4">
-                <div className="flex items-center gap-4 flex-wrap">
+              <div className="sticky top-0 z-[999] bg-gradient-to-r from-primary/10 via-primary/5 to-background border-b px-6 py-4 relative">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => setEditingCustomer(null)}
+                  className="absolute left-2 top-3"
+                  data-testid="button-close-customer-drawer"
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+                <div className="flex items-center gap-4 flex-wrap ml-10">
                   <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 ring-2 ring-primary/20">
                     <UserCircle className="h-8 w-8 text-primary" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h2 className="text-xl font-semibold tracking-tight truncate" data-testid="text-customer-drawer-name">
+                    <h2 className="text-xl font-bold tracking-tight truncate" data-testid="text-customer-drawer-name">
                       {editingCustomer.firstName} {editingCustomer.lastName}
                     </h2>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -5278,6 +5287,9 @@ export default function CustomersPage() {
                         {getCountryFlag(editingCustomer.country)} {editingCustomer.country}
                       </Badge>
                       <StatusBadge status={editingCustomer.status} />
+                      <Badge variant="outline" className="text-xs" data-testid="badge-customer-drawer-leadscore">
+                        {t.leadScoring.title}: {editingCustomer.leadScore || 0}
+                      </Badge>
                       {editingCustomer.phone && (
                         <span className="text-sm text-muted-foreground flex items-center gap-1" data-testid="text-customer-drawer-phone">
                           <Phone className="h-3 w-3" />

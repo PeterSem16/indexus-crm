@@ -226,8 +226,8 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel }: Cus
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className={`grid w-full ${initialData?.clientStatus === "acquired" ? "grid-cols-5" : "grid-cols-4"} gap-1`}>
             <TabsTrigger value="klientka" data-testid="tab-klientka">{t.customers.tabs.client}</TabsTrigger>
-            <TabsTrigger value="marketing" data-testid="tab-marketing">{t.customers.tabs.marketing}</TabsTrigger>
             <TabsTrigger value="adresy" data-testid="tab-adresy">{t.customers.tabs.addresses}</TabsTrigger>
+            <TabsTrigger value="marketing" data-testid="tab-marketing">{t.customers.tabs.marketing}</TabsTrigger>
             <TabsTrigger value="ine" data-testid="tab-ine">{t.customers.tabs.other}</TabsTrigger>
             {initialData?.clientStatus === "acquired" && (
               <TabsTrigger value="case" data-testid="tab-case">Case</TabsTrigger>
@@ -1327,7 +1327,7 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel }: Cus
           )}
         </Tabs>
 
-        <div className="flex justify-end gap-3 pt-4 border-t">
+        <div className="sticky bottom-0 left-0 right-0 z-[999] bg-background/95 backdrop-blur-sm border-t px-4 py-3 -mx-6 -mb-4 mt-4 flex justify-start gap-3 flex-wrap">
           <Button 
             type="button" 
             variant="outline" 
