@@ -5304,21 +5304,41 @@ export default function CustomersPage() {
                           {editingCustomer.phone}
                         </span>
                       )}
+                      {editingCustomer.phone && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setViewingCustomer(editingCustomer)}
+                          data-testid="button-sms-from-drawer"
+                          title={t.customers.actions.sendSms}
+                        >
+                          <MessageSquare className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {editingCustomer.email && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setViewingCustomer(editingCustomer)}
+                          data-testid="button-email-from-drawer"
+                          title={t.customers.actions.sendEmail}
+                        >
+                          <Mail className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </div>
-                <div className="absolute right-2 top-3 flex items-center gap-1">
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={() => {
-                      setViewingCustomer(editingCustomer);
-                    }}
-                    data-testid="button-view-customer-from-drawer"
-                    title={t.customers.viewDetails}
+                <div className="absolute right-2 top-3 flex items-center gap-1 flex-wrap">
+                  <Badge 
+                    variant="outline" 
+                    className="cursor-pointer flex items-center gap-1 text-xs"
+                    onClick={() => setViewingCustomer(editingCustomer)}
+                    data-testid="badge-documents-invoices"
                   >
-                    <Eye className="h-5 w-5" />
-                  </Button>
+                    <Eye className="h-3 w-3" />
+                    {t.customers.details.documents} & {t.customers.details.invoices}
+                  </Badge>
                   <Button 
                     variant="ghost" 
                     size="icon" 
