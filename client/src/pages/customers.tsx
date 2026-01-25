@@ -5501,7 +5501,7 @@ export default function CustomersPage() {
           setEmailMessage("");
         }
       }}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t.customers.details.sendEmail}</DialogTitle>
             <DialogDescription>
@@ -5509,204 +5509,171 @@ export default function CustomersPage() {
             </DialogDescription>
           </DialogHeader>
           {emailDialogCustomer && (
-            <div className="space-y-4">
-              {/* From account selection */}
-              <div className="space-y-2">
-                <Label>{t.customers.details.fromAccount || "From account"}</Label>
-                <Select value={selectedFromAccount} onValueChange={setSelectedFromAccount}>
-                  <SelectTrigger data-testid="select-from-account">
-                    <SelectValue placeholder={t.customers.details.selectAccount || "Select account"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sharedMailboxes.map((mailbox) => (
-                      <SelectItem key={mailbox.id} value={mailbox.id}>
-                        {mailbox.displayName || mailbox.email}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>{t.customers.details.to}</Label>
+            <div className="flex gap-6">
+              {/* Left column - Recipients & Settings (20%) */}
+              <div className="w-1/5 min-w-[180px] space-y-4 border-r pr-4">
+                {/* From account selection */}
                 <div className="space-y-2">
-                  {emailDialogCustomer.email && (
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="email1"
-                        checked={selectedEmails.includes(emailDialogCustomer.email)}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setSelectedEmails([...selectedEmails, emailDialogCustomer.email!]);
-                          } else {
-                            setSelectedEmails(selectedEmails.filter(e => e !== emailDialogCustomer.email));
-                          }
-                        }}
-                        data-testid="checkbox-email-primary"
-                      />
-                      <Label htmlFor="email1" className="font-normal cursor-pointer">
-                        {emailDialogCustomer.email}
-                      </Label>
-                    </div>
+                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    {t.customers.details.fromAccount}
+                  </Label>
+                  <Select value={selectedFromAccount} onValueChange={setSelectedFromAccount}>
+                    <SelectTrigger data-testid="select-from-account" className="text-sm">
+                      <SelectValue placeholder={t.customers.details.selectAccount} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sharedMailboxes.map((mailbox) => (
+                        <SelectItem key={mailbox.id} value={mailbox.id}>
+                          {mailbox.displayName || mailbox.email}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {/* To - Recipients */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    {t.customers.details.to}
+                  </Label>
+                  <div className="space-y-2">
+                    {emailDialogCustomer.email && (
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="email1"
+                          checked={selectedEmails.includes(emailDialogCustomer.email)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedEmails([...selectedEmails, emailDialogCustomer.email!]);
+                            } else {
+                              setSelectedEmails(selectedEmails.filter(e => e !== emailDialogCustomer.email));
+                            }
+                          }}
+                          data-testid="checkbox-email-primary"
+                        />
+                        <Label htmlFor="email1" className="font-normal cursor-pointer text-sm truncate">
+                          {emailDialogCustomer.email}
+                        </Label>
+                      </div>
+                    )}
+                    {emailDialogCustomer.email2 && (
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="email2"
+                          checked={selectedEmails.includes(emailDialogCustomer.email2)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedEmails([...selectedEmails, emailDialogCustomer.email2!]);
+                            } else {
+                              setSelectedEmails(selectedEmails.filter(e => e !== emailDialogCustomer.email2));
+                            }
+                          }}
+                          data-testid="checkbox-email-secondary"
+                        />
+                        <Label htmlFor="email2" className="font-normal cursor-pointer text-sm truncate">
+                          {emailDialogCustomer.email2}
+                        </Label>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                {/* CC Field */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      {t.customers.details.cc}
+                    </Label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowCcField(!showCcField)}
+                      className="h-5 px-1 text-xs"
+                      data-testid="button-toggle-cc"
+                    >
+                      {showCcField ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                    </Button>
+                  </div>
+                  {showCcField && (
+                    <Input
+                      value={emailCc}
+                      onChange={(e) => setEmailCc(e.target.value)}
+                      placeholder={t.customers.details.ccPlaceholder}
+                      className="text-sm"
+                      data-testid="input-email-cc"
+                    />
                   )}
-                  {emailDialogCustomer.email2 && (
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="email2"
-                        checked={selectedEmails.includes(emailDialogCustomer.email2)}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setSelectedEmails([...selectedEmails, emailDialogCustomer.email2!]);
-                          } else {
-                            setSelectedEmails(selectedEmails.filter(e => e !== emailDialogCustomer.email2));
-                          }
-                        }}
-                        data-testid="checkbox-email-secondary"
-                      />
-                      <Label htmlFor="email2" className="font-normal cursor-pointer">
-                        {emailDialogCustomer.email2}
-                      </Label>
-                    </div>
-                  )}
                 </div>
-              </div>
-              {/* CC Field - Optional */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>{t.customers.details.cc || "CC"}</Label>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowCcField(!showCcField)}
-                    className="h-6 px-2 text-xs"
-                    data-testid="button-toggle-cc"
-                  >
-                    {showCcField ? <ChevronUp className="h-3 w-3 mr-1" /> : <ChevronDown className="h-3 w-3 mr-1" />}
-                    {showCcField ? t.common.hide || "Hide" : t.common.show || "Show"}
-                  </Button>
-                </div>
-                {showCcField && (
-                  <Input
-                    value={emailCc}
-                    onChange={(e) => setEmailCc(e.target.value)}
-                    placeholder={t.customers.details.ccPlaceholder || "Enter CC email addresses, separated by commas"}
-                    data-testid="input-email-cc"
-                  />
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="emailSubject">{t.customers.details.subject}</Label>
-                <Input
-                  id="emailSubject"
-                  value={emailSubject}
-                  onChange={(e) => setEmailSubject(e.target.value)}
-                  placeholder={t.customers.details.emailSubjectPlaceholder}
-                  data-testid="input-email-subject"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{t.customers.details.message}</Label>
-                <div className="border rounded-md" data-testid="wysiwyg-email-message">
-                  <ReactQuill
-                    theme="snow"
-                    value={emailMessage}
-                    onChange={setEmailMessage}
-                    placeholder={t.customers.details.writeEmailPlaceholder}
-                    modules={{
-                      toolbar: [
-                        [{ 'header': [1, 2, 3, false] }],
-                        ['bold', 'italic', 'underline', 'strike'],
-                        [{ 'color': [] }, { 'background': [] }],
-                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                        ['link'],
-                        ['clean']
-                      ],
-                    }}
-                    style={{ minHeight: '150px' }}
-                  />
-                </div>
-              </div>
-              {/* Attachment */}
-              <div className="space-y-2">
-                <Label>{t.customers.details.attachment || "Attachment"}</Label>
-                <div className="flex items-center gap-2">
+                
+                {/* Attachment */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    {t.customers.details.attachment}
+                  </Label>
                   <Input
                     type="file"
                     onChange={(e) => setEmailAttachment(e.target.files?.[0] || null)}
-                    className="flex-1"
+                    className="text-xs"
                     data-testid="input-email-attachment"
                   />
                   {emailAttachment && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setEmailAttachment(null)}
-                      data-testid="button-remove-attachment"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <p className="text-xs text-muted-foreground truncate flex-1">
+                        {emailAttachment.name}
+                      </p>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5"
+                        onClick={() => setEmailAttachment(null)}
+                        data-testid="button-remove-attachment"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
                   )}
                 </div>
-                {emailAttachment && (
-                  <p className="text-xs text-muted-foreground">
-                    {emailAttachment.name} ({(emailAttachment.size / 1024).toFixed(1)} KB)
-                  </p>
-                )}
               </div>
-              <div className="flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setEmailDialogCustomer(null);
-                    setSelectedEmails([]);
-                    setEmailSubject("");
-                    setEmailMessage("");
-                    setSelectedFromAccount("");
-                    setEmailAttachment(null);
-                    setEmailCc("");
-                    setShowCcField(false);
-                  }}
-                  data-testid="button-cancel-email"
-                >
-                  {t.common.cancel}
-                </Button>
-                <Button
-                  onClick={async () => {
-                    if (selectedEmails.length === 0 || !emailSubject || !emailMessage) {
-                      toast({
-                        title: t.common.error,
-                        description: t.customers.details.fillAllFields,
-                        variant: "destructive"
-                      });
-                      return;
-                    }
-                    setIsSendingEmail(true);
-                    try {
-                      const formData = new FormData();
-                      formData.append("to", JSON.stringify(selectedEmails));
-                      formData.append("subject", emailSubject);
-                      formData.append("body", emailMessage);
-                      formData.append("customerId", emailDialogCustomer.id);
-                      if (selectedFromAccount) {
-                        formData.append("mailboxId", selectedFromAccount);
-                      }
-                      if (emailCc.trim()) {
-                        formData.append("cc", emailCc.trim());
-                      }
-                      if (emailAttachment) {
-                        formData.append("attachment", emailAttachment);
-                      }
-                      
-                      const res = await fetch("/api/send-email", {
-                        method: "POST",
-                        body: formData,
-                      });
-                      
-                      if (!res.ok) throw new Error("Failed to send email");
-                      
-                      toast({
-                        title: t.customers.details.emailSentSuccess,
-                        description: t.customers.details.emailSentSuccessDesc
-                      });
+              
+              {/* Right column - Email Content (80%) */}
+              <div className="flex-1 space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="emailSubject">{t.customers.details.subject}</Label>
+                  <Input
+                    id="emailSubject"
+                    value={emailSubject}
+                    onChange={(e) => setEmailSubject(e.target.value)}
+                    placeholder={t.customers.details.emailSubjectPlaceholder}
+                    data-testid="input-email-subject"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t.customers.details.message}</Label>
+                  <div className="border rounded-md" data-testid="wysiwyg-email-message">
+                    <ReactQuill
+                      theme="snow"
+                      value={emailMessage}
+                      onChange={setEmailMessage}
+                      placeholder={t.customers.details.writeEmailPlaceholder}
+                      modules={{
+                        toolbar: [
+                          [{ 'header': [1, 2, 3, false] }],
+                          ['bold', 'italic', 'underline', 'strike'],
+                          [{ 'color': [] }, { 'background': [] }],
+                          [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                          ['link'],
+                          ['clean']
+                        ],
+                      }}
+                      style={{ minHeight: '250px' }}
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
                       setEmailDialogCustomer(null);
                       setSelectedEmails([]);
                       setEmailSubject("");
@@ -5715,26 +5682,78 @@ export default function CustomersPage() {
                       setEmailAttachment(null);
                       setEmailCc("");
                       setShowCcField(false);
-                    } catch (error) {
-                      toast({
-                        title: t.common.error,
-                        description: t.customers.details.emailSendFailed,
-                        variant: "destructive"
-                      });
-                    } finally {
-                      setIsSendingEmail(false);
-                    }
-                  }}
-                  disabled={selectedEmails.length === 0 || !emailSubject || !emailMessage || isSendingEmail}
-                  data-testid="button-send-email"
-                >
-                  {isSendingEmail ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4 mr-2" />
-                  )}
-                  {t.customers.details.sendEmail}
-                </Button>
+                    }}
+                    data-testid="button-cancel-email"
+                  >
+                    {t.common.cancel}
+                  </Button>
+                  <Button
+                    onClick={async () => {
+                      if (selectedEmails.length === 0 || !emailSubject || !emailMessage) {
+                        toast({
+                          title: t.common.error,
+                          description: t.customers.details.fillAllFields,
+                          variant: "destructive"
+                        });
+                        return;
+                      }
+                      setIsSendingEmail(true);
+                      try {
+                        const formData = new FormData();
+                        formData.append("to", JSON.stringify(selectedEmails));
+                        formData.append("subject", emailSubject);
+                        formData.append("body", emailMessage);
+                        formData.append("customerId", emailDialogCustomer.id);
+                        if (selectedFromAccount) {
+                          formData.append("mailboxId", selectedFromAccount);
+                        }
+                        if (emailCc.trim()) {
+                          formData.append("cc", emailCc.trim());
+                        }
+                        if (emailAttachment) {
+                          formData.append("attachment", emailAttachment);
+                        }
+                        
+                        const res = await fetch("/api/send-email", {
+                          method: "POST",
+                          body: formData,
+                        });
+                        
+                        if (!res.ok) throw new Error("Failed to send email");
+                        
+                        toast({
+                          title: t.customers.details.emailSentSuccess,
+                          description: t.customers.details.emailSentSuccessDesc
+                        });
+                        setEmailDialogCustomer(null);
+                        setSelectedEmails([]);
+                        setEmailSubject("");
+                        setEmailMessage("");
+                        setSelectedFromAccount("");
+                        setEmailAttachment(null);
+                        setEmailCc("");
+                        setShowCcField(false);
+                      } catch (error) {
+                        toast({
+                          title: t.common.error,
+                          description: t.customers.details.emailSendFailed,
+                          variant: "destructive"
+                        });
+                      } finally {
+                        setIsSendingEmail(false);
+                      }
+                    }}
+                    disabled={selectedEmails.length === 0 || !emailSubject || !emailMessage || isSendingEmail}
+                    data-testid="button-send-email"
+                  >
+                    {isSendingEmail ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4 mr-2" />
+                    )}
+                    {t.customers.details.sendEmail}
+                  </Button>
+                </div>
               </div>
             </div>
           )}
