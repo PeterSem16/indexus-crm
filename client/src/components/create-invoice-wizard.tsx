@@ -524,25 +524,9 @@ export function CreateInvoiceWizard({
     
     // Fetch billset details to get individual components
     try {
-      const response = await fetch(`/api/product-sets/${billset.id}`, { credentials: "include" });
-      if (!response.ok) {
-        // Fallback to single item if fetch fails
-        const totalAmount = billset.calculatedTotals?.totalGrossAmount || billset.totalGrossAmount || billset.totalNetAmount || "0";
-        const newItem: InvoiceItem = {
-          id: crypto.randomUUID(),
-          name: billset.name,
-          quantity: 1,
-          unitPrice: totalAmount,
-          vatRate: billingInfo?.defaultVatRate || "20",
-          total: totalAmount,
-          billsetId: billset.id,
-        };
-        setItems(prev => [...prev, newItem]);
-        setSelectedBillsetId(billset.id);
-        return;
-      }
-      
+      const response = await apiRequest("GET", `/api/product-sets/${billset.id}`);
       const details: ProductSetDetail = await response.json();
+      console.log("[Invoice] Fetched billset details:", details);
       console.log("[Invoice] Billset details:", JSON.stringify(details, null, 2));
       const newItems: InvoiceItem[] = [];
       
