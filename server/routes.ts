@@ -2,11 +2,12 @@ import express, { type Express, type Request, type Response, type NextFunction }
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { startOfDay, endOfDay, subDays } from "date-fns";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { db } from "./db";
 import { storage } from "./storage";
 import { 
   insertUserSchema, insertCustomerSchema, updateUserSchema, loginSchema, userSessions, communicationMessages,
+  invoiceItems, invoicePayments,
   insertProductSchema, insertCustomerProductSchema, insertBillingDetailsSchema,
   insertCustomerNoteSchema, insertActivityLogSchema, sendEmailSchema, sendSmsSchema,
   insertComplaintTypeSchema, insertCooperationTypeSchema, insertVipStatusSchema, insertHealthInsuranceSchema,
@@ -4917,6 +4918,324 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to fetch customer invoices" });
     }
   });
+
+  // Get single invoice with items and payments
+  app.get("/api/invoices/:id", requireAuth, async (req, res) => {
+    try {
+      const invoice = await storage.getInvoice(req.params.id);
+      if (!invoice) {
+        return res.status(404).json({ error: "Invoice not found" });
+      }
+      
+      // Get invoice items
+      const items = await db.select().from(invoiceItems).where(eq(invoiceItems.invoiceId, req.params.id));
+      
+      // Get invoice payments
+      const payments = await db.select().from(invoicePayments).where(eq(invoicePayments.invoiceId, req.params.id));
+      
+      res.json({ ...invoice, items, payments });
+    } catch (error) {
+      console.error("Error fetching invoice:", error);
+      res.status(500).json({ error: "Failed to fetch invoice" });
+    }
+  });
+
+  // Create new invoice
+  app.post("/api/invoices", requireAuth, async (req, res) => {
+    try {
+      const { items, ...invoiceData } = req.body;
+      
+      // Generate invoice number if not provided
+      if (!invoiceData.invoiceNumber) {
+        const prefix = "INV";
+        const date = new Date();
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+        invoiceData.invoiceNumber = `${prefix}-${year}${month}-${random}`;
+      }
+      
+      // Set specific symbol as invoice number if not provided
+      if (!invoiceData.specificSymbol) {
+        invoiceData.specificSymbol = invoiceData.invoiceNumber;
+      }
+      
+      const invoice = await storage.createInvoice(invoiceData);
+      
+      // Create invoice items if provided
+      if (items && Array.isArray(items)) {
+        for (const item of items) {
+          await db.insert(invoiceItems).values({
+            invoiceId: invoice.id,
+            name: item.name,
+            description: item.description,
+            quantity: item.quantity || "1",
+            unitPrice: item.unitPrice,
+            vatRate: item.vatRate || "0",
+            totalPrice: item.totalPrice,
+            accountingCode: item.accountingCode,
+            sortOrder: item.sortOrder || 0,
+          });
+        }
+      }
+      
+      res.status(201).json(invoice);
+    } catch (error) {
+      console.error("Error creating invoice:", error);
+      res.status(500).json({ error: "Failed to create invoice" });
+    }
+  });
+
+  // Update invoice
+  app.put("/api/invoices/:id", requireAuth, async (req, res) => {
+    try {
+      const { items, payments, ...invoiceData } = req.body;
+      
+      const existing = await storage.getInvoice(req.params.id);
+      if (!existing) {
+        return res.status(404).json({ error: "Invoice not found" });
+      }
+      
+      // Update invoice
+      invoiceData.updatedAt = new Date();
+      const updated = await storage.updateInvoice(req.params.id, invoiceData);
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating invoice:", error);
+      res.status(500).json({ error: "Failed to update invoice" });
+    }
+  });
+
+  // Delete invoice
+  app.delete("/api/invoices/:id", requireAuth, async (req, res) => {
+    try {
+      const existing = await storage.getInvoice(req.params.id);
+      if (!existing) {
+        return res.status(404).json({ error: "Invoice not found" });
+      }
+      
+      // Delete related items and payments first
+      await db.delete(invoiceItems).where(eq(invoiceItems.invoiceId, req.params.id));
+      await db.delete(invoicePayments).where(eq(invoicePayments.invoiceId, req.params.id));
+      
+      await storage.deleteInvoice(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting invoice:", error);
+      res.status(500).json({ error: "Failed to delete invoice" });
+    }
+  });
+
+  // Invoice Items CRUD
+  app.get("/api/invoices/:invoiceId/items", requireAuth, async (req, res) => {
+    try {
+      const items = await db.select().from(invoiceItems)
+        .where(eq(invoiceItems.invoiceId, req.params.invoiceId))
+        .orderBy(invoiceItems.sortOrder);
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching invoice items:", error);
+      res.status(500).json({ error: "Failed to fetch invoice items" });
+    }
+  });
+
+  app.post("/api/invoices/:invoiceId/items", requireAuth, async (req, res) => {
+    try {
+      const [item] = await db.insert(invoiceItems).values({
+        invoiceId: req.params.invoiceId,
+        name: req.body.name,
+        description: req.body.description,
+        quantity: req.body.quantity || "1",
+        unitPrice: req.body.unitPrice,
+        vatRate: req.body.vatRate || "0",
+        totalPrice: req.body.totalPrice,
+        accountingCode: req.body.accountingCode,
+        sortOrder: req.body.sortOrder || 0,
+      }).returning();
+      
+      // Recalculate invoice totals
+      await recalculateInvoiceTotals(req.params.invoiceId);
+      
+      res.status(201).json(item);
+    } catch (error) {
+      console.error("Error creating invoice item:", error);
+      res.status(500).json({ error: "Failed to create invoice item" });
+    }
+  });
+
+  app.put("/api/invoices/:invoiceId/items/:itemId", requireAuth, async (req, res) => {
+    try {
+      const [item] = await db.update(invoiceItems)
+        .set({
+          name: req.body.name,
+          description: req.body.description,
+          quantity: req.body.quantity,
+          unitPrice: req.body.unitPrice,
+          vatRate: req.body.vatRate,
+          totalPrice: req.body.totalPrice,
+          accountingCode: req.body.accountingCode,
+          sortOrder: req.body.sortOrder,
+        })
+        .where(eq(invoiceItems.id, req.params.itemId))
+        .returning();
+      
+      // Recalculate invoice totals
+      await recalculateInvoiceTotals(req.params.invoiceId);
+      
+      res.json(item);
+    } catch (error) {
+      console.error("Error updating invoice item:", error);
+      res.status(500).json({ error: "Failed to update invoice item" });
+    }
+  });
+
+  app.delete("/api/invoices/:invoiceId/items/:itemId", requireAuth, async (req, res) => {
+    try {
+      await db.delete(invoiceItems).where(eq(invoiceItems.id, req.params.itemId));
+      
+      // Recalculate invoice totals
+      await recalculateInvoiceTotals(req.params.invoiceId);
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting invoice item:", error);
+      res.status(500).json({ error: "Failed to delete invoice item" });
+    }
+  });
+
+  // Invoice Payments CRUD
+  app.get("/api/invoices/:invoiceId/payments", requireAuth, async (req, res) => {
+    try {
+      const payments = await db.select().from(invoicePayments)
+        .where(eq(invoicePayments.invoiceId, req.params.invoiceId))
+        .orderBy(invoicePayments.createdAt);
+      res.json(payments);
+    } catch (error) {
+      console.error("Error fetching invoice payments:", error);
+      res.status(500).json({ error: "Failed to fetch invoice payments" });
+    }
+  });
+
+  app.post("/api/invoices/:invoiceId/payments", requireAuth, async (req, res) => {
+    try {
+      const [payment] = await db.insert(invoicePayments).values({
+        invoiceId: req.params.invoiceId,
+        transactionName: req.body.transactionName,
+        amount: req.body.amount,
+        amountInAccountingCurrency: req.body.amountInAccountingCurrency,
+        paidAmount: req.body.paidAmount,
+        paidAmountInAccountingCurrency: req.body.paidAmountInAccountingCurrency,
+        status: req.body.status || "pending",
+        paymentDate: req.body.paymentDate ? new Date(req.body.paymentDate) : null,
+        externalReference: req.body.externalReference,
+        notes: req.body.notes,
+      }).returning();
+      
+      // Update invoice paid amount
+      await updateInvoicePaidAmount(req.params.invoiceId);
+      
+      res.status(201).json(payment);
+    } catch (error) {
+      console.error("Error creating invoice payment:", error);
+      res.status(500).json({ error: "Failed to create invoice payment" });
+    }
+  });
+
+  app.put("/api/invoices/:invoiceId/payments/:paymentId", requireAuth, async (req, res) => {
+    try {
+      const [payment] = await db.update(invoicePayments)
+        .set({
+          transactionName: req.body.transactionName,
+          amount: req.body.amount,
+          amountInAccountingCurrency: req.body.amountInAccountingCurrency,
+          paidAmount: req.body.paidAmount,
+          paidAmountInAccountingCurrency: req.body.paidAmountInAccountingCurrency,
+          status: req.body.status,
+          paymentDate: req.body.paymentDate ? new Date(req.body.paymentDate) : null,
+          externalReference: req.body.externalReference,
+          notes: req.body.notes,
+        })
+        .where(eq(invoicePayments.id, req.params.paymentId))
+        .returning();
+      
+      // Update invoice paid amount
+      await updateInvoicePaidAmount(req.params.invoiceId);
+      
+      res.json(payment);
+    } catch (error) {
+      console.error("Error updating invoice payment:", error);
+      res.status(500).json({ error: "Failed to update invoice payment" });
+    }
+  });
+
+  app.delete("/api/invoices/:invoiceId/payments/:paymentId", requireAuth, async (req, res) => {
+    try {
+      await db.delete(invoicePayments).where(eq(invoicePayments.id, req.params.paymentId));
+      
+      // Update invoice paid amount
+      await updateInvoicePaidAmount(req.params.invoiceId);
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting invoice payment:", error);
+      res.status(500).json({ error: "Failed to delete invoice payment" });
+    }
+  });
+
+  // Helper function to recalculate invoice totals from items
+  async function recalculateInvoiceTotals(invoiceId: string) {
+    const items = await db.select().from(invoiceItems).where(eq(invoiceItems.invoiceId, invoiceId));
+    
+    let subtotal = 0;
+    let vatAmount = 0;
+    
+    for (const item of items) {
+      const itemTotal = parseFloat(item.totalPrice || "0");
+      const itemVatRate = parseFloat(item.vatRate || "0") / 100;
+      const itemSubtotal = itemTotal / (1 + itemVatRate);
+      subtotal += itemSubtotal;
+      vatAmount += itemTotal - itemSubtotal;
+    }
+    
+    const totalAmount = subtotal + vatAmount;
+    
+    await storage.updateInvoice(invoiceId, {
+      subtotal: subtotal.toFixed(2),
+      vatAmount: vatAmount.toFixed(2),
+      totalAmount: totalAmount.toFixed(2),
+      updatedAt: new Date(),
+    });
+  }
+
+  // Helper function to update invoice paid amount
+  async function updateInvoicePaidAmount(invoiceId: string) {
+    const payments = await db.select().from(invoicePayments)
+      .where(and(eq(invoicePayments.invoiceId, invoiceId), eq(invoicePayments.status, "completed")));
+    
+    let paidAmount = 0;
+    for (const payment of payments) {
+      paidAmount += parseFloat(payment.paidAmount || "0");
+    }
+    
+    const invoice = await storage.getInvoice(invoiceId);
+    if (!invoice) return;
+    
+    const totalAmount = parseFloat(invoice.totalAmount || "0");
+    let status = invoice.status;
+    
+    if (paidAmount >= totalAmount && totalAmount > 0) {
+      status = "paid";
+    } else if (paidAmount > 0) {
+      status = "partially_paid";
+    }
+    
+    await storage.updateInvoice(invoiceId, {
+      paidAmount: paidAmount.toFixed(2),
+      status,
+      updatedAt: new Date(),
+    });
+  }
 
   // Get all documents (contracts + invoices) for a customer with creator info
   app.get("/api/customers/:customerId/documents", requireAuth, async (req, res) => {

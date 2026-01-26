@@ -689,17 +689,6 @@ export const billingCompanyCouriers = pgTable("billing_company_couriers", {
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
-// Invoice items - individual line items in an invoice
-export const invoiceItems = pgTable("invoice_items", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  invoiceId: varchar("invoice_id").notNull(),
-  productId: varchar("product_id"),
-  description: text("description").notNull(),
-  quantity: integer("quantity").notNull().default(1),
-  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
-  lineTotal: decimal("line_total", { precision: 10, scale: 2 }).notNull(),
-});
-
 // Customer products - products assigned to customers
 export const customerProducts = pgTable("customer_products", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -717,15 +706,31 @@ export const customerProducts = pgTable("customer_products", {
 export const invoices = pgTable("invoices", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   invoiceNumber: text("invoice_number").notNull().unique(),
+  legacyId: text("legacy_id"), // ID from old system
   customerId: varchar("customer_id").notNull(),
+  billingDetailsId: varchar("billing_details_id"), // Reference to billing company
+  bankAccountId: varchar("bank_account_id"), // Reference to bank account
+  productId: varchar("product_id"), // Reference to product
+  instancePriceId: varchar("instance_price_id"), // Reference to billing set
   subtotal: decimal("subtotal", { precision: 10, scale: 2 }),
   vatRate: decimal("vat_rate", { precision: 5, scale: 2 }),
   vatAmount: decimal("vat_amount", { precision: 10, scale: 2 }),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).default("0"), // Amount already paid
   currency: text("currency").notNull().default("EUR"),
-  status: text("status").notNull().default("generated"), // generated, sent, paid, overdue
+  status: text("status").notNull().default("generated"), // generated, sent, paid, partially_paid, overdue, cancelled
   paymentTermDays: integer("payment_term_days").notNull().default(14),
-  dueDate: timestamp("due_date"),
+  deliveryDate: timestamp("delivery_date"), // Dátum dodania
+  issueDate: timestamp("issue_date"), // Dátum vystavenia
+  sendDate: timestamp("send_date"), // Dátum odoslania
+  dueDate: timestamp("due_date"), // Dátum splatnosti
+  periodFrom: timestamp("period_from"), // Fakturačné obdobie od
+  periodTo: timestamp("period_to"), // Fakturačné obdobie do
+  variableSymbol: text("variable_symbol"), // Variabilný symbol
+  constantSymbol: text("constant_symbol"), // Konštantný symbol
+  specificSymbol: text("specific_symbol"), // Špecifický symbol
+  barcodeType: text("barcode_type"), // Typ čiarového kódu
+  barcodeValue: text("barcode_value"), // Hodnota čiarového kódu
   generatedAt: timestamp("generated_at").notNull().default(sql`now()`),
   pdfPath: text("pdf_path"),
   billingCompanyName: text("billing_company_name"),
@@ -735,6 +740,39 @@ export const invoices = pgTable("invoices", {
   billingBankName: text("billing_bank_name"),
   billingBankIban: text("billing_bank_iban"),
   billingBankSwift: text("billing_bank_swift"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at"),
+});
+
+// Invoice items - individual line items on invoice
+export const invoiceItems = pgTable("invoice_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  invoiceId: varchar("invoice_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  quantity: decimal("quantity", { precision: 10, scale: 2 }).notNull().default("1"),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  vatRate: decimal("vat_rate", { precision: 5, scale: 2 }).default("0"),
+  totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
+  accountingCode: text("accounting_code"),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+// Invoice payments - payment records for invoices
+export const invoicePayments = pgTable("invoice_payments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  invoiceId: varchar("invoice_id").notNull(),
+  transactionName: text("transaction_name").notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  amountInAccountingCurrency: decimal("amount_in_accounting_currency", { precision: 10, scale: 2 }),
+  paidAmount: decimal("paid_amount", { precision: 10, scale: 2 }).notNull(),
+  paidAmountInAccountingCurrency: decimal("paid_amount_in_accounting_currency", { precision: 10, scale: 2 }),
+  status: text("status").notNull().default("pending"), // pending, completed, failed, refunded
+  paymentDate: timestamp("payment_date"),
+  externalReference: text("external_reference"), // Bank transaction reference
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
 // Customer notes - individual notes on customer records
@@ -991,6 +1029,7 @@ export const invoicesRelations = relations(invoices, ({ one, many }) => ({
     references: [customers.id],
   }),
   items: many(invoiceItems),
+  payments: many(invoicePayments),
 }));
 
 export const invoiceItemsRelations = relations(invoiceItems, ({ one }) => ({
@@ -998,9 +1037,12 @@ export const invoiceItemsRelations = relations(invoiceItems, ({ one }) => ({
     fields: [invoiceItems.invoiceId],
     references: [invoices.id],
   }),
-  product: one(products, {
-    fields: [invoiceItems.productId],
-    references: [products.id],
+}));
+
+export const invoicePaymentsRelations = relations(invoicePayments, ({ one }) => ({
+  invoice: one(invoices, {
+    fields: [invoicePayments.invoiceId],
+    references: [invoices.id],
   }),
 }));
 

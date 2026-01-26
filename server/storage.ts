@@ -232,6 +232,7 @@ export interface IStorage {
   getAllInvoices(): Promise<Invoice[]>;
   createInvoice(invoice: InsertInvoice): Promise<Invoice>;
   updateInvoice(id: string, data: Partial<InsertInvoice>): Promise<Invoice | undefined>;
+  deleteInvoice(id: string): Promise<boolean>;
   getNextInvoiceNumber(): Promise<string>;
 
   // Billing Details (Billing Companies)
@@ -1469,6 +1470,11 @@ export class DatabaseStorage implements IStorage {
       .where(eq(invoices.id, id))
       .returning();
     return invoice || undefined;
+  }
+
+  async deleteInvoice(id: string): Promise<boolean> {
+    const result = await db.delete(invoices).where(eq(invoices.id, id));
+    return true;
   }
 
   async getNextInvoiceNumber(): Promise<string> {

@@ -385,6 +385,7 @@ export interface Translations {
       activity: string;
       history: string;
       data: string;
+      invoices?: string;
     };
     callHistory?: {
       title: string;
@@ -637,6 +638,58 @@ export interface Translations {
     selectAll: string;
     generateSelected: string;
     generating: string;
+    createInvoice?: string;
+    editInvoice?: string;
+    filterByStatus?: string;
+    billingCompany?: string;
+    issueDate?: string;
+    totalAmount?: string;
+    showing?: string;
+    statusGenerated?: string;
+    statusDraft?: string;
+    statusSent?: string;
+    statusPaid?: string;
+    statusPartiallyPaid?: string;
+    statusOverdue?: string;
+    statusCancelled?: string;
+    tabDetails?: string;
+    tabItems?: string;
+    tabPayments?: string;
+    legacyId?: string;
+    legacyIdPlaceholder?: string;
+    selectBillingCompany?: string;
+    dates?: string;
+    deliveryDate?: string;
+    sendDate?: string;
+    period?: string;
+    periodFrom?: string;
+    periodTo?: string;
+    paymentDetails?: string;
+    variableSymbol?: string;
+    constantSymbol?: string;
+    specificSymbol?: string;
+    copyInvoiceNumber?: string;
+    barcodeType?: string;
+    selectBarcodeType?: string;
+    amounts?: string;
+    subtotal?: string;
+    vatAmount?: string;
+    fullyPaid?: string;
+    invoiceItems?: string;
+    addItem?: string;
+    noItems?: string;
+    itemName?: string;
+    quantity?: string;
+    unitPrice?: string;
+    totalPrice?: string;
+    payments?: string;
+    addPayment?: string;
+    noPayments?: string;
+    transactionName?: string;
+    paidAmount?: string;
+    invoiceUpdated?: string;
+    invoiceCreated?: string;
+    saveFailed?: string;
   };
   users: {
     title: string;
@@ -2078,7 +2131,7 @@ export const translations: Record<Locale, Translations> = {
       dashboard: 'Dashboard',
       customers: 'Customers',
       products: 'Products',
-      invoices: 'Invoices',
+      invoices: 'Invoices Bulk',
       hospitalsAndClinics: 'Hospitals & Clinics',
       collaborators: 'Collaborators',
       collaboratorReports: 'Reports',
@@ -2449,6 +2502,7 @@ export const translations: Record<Locale, Translations> = {
         activity: 'Activity',
         history: 'History',
         data: 'Data',
+        invoices: 'Invoices',
       },
       callHistory: {
         title: 'Call History',
@@ -2723,6 +2777,58 @@ export const translations: Record<Locale, Translations> = {
       selectAll: 'Select All',
       generateSelected: 'Generate for Selected',
       generating: 'Generating...',
+      createInvoice: 'New Invoice',
+      editInvoice: 'Edit Invoice',
+      filterByStatus: 'Filter by status',
+      billingCompany: 'Billing Company',
+      issueDate: 'Issue Date',
+      totalAmount: 'Total',
+      showing: 'Showing',
+      statusGenerated: 'Generated',
+      statusDraft: 'Draft',
+      statusSent: 'Sent',
+      statusPaid: 'Paid',
+      statusPartiallyPaid: 'Partially Paid',
+      statusOverdue: 'Overdue',
+      statusCancelled: 'Cancelled',
+      tabDetails: 'Details',
+      tabItems: 'Items',
+      tabPayments: 'Payments',
+      legacyId: 'Legacy ID',
+      legacyIdPlaceholder: 'ID from old system',
+      selectBillingCompany: 'Select billing company',
+      dates: 'Dates',
+      deliveryDate: 'Delivery Date',
+      sendDate: 'Send Date',
+      period: 'Billing Period',
+      periodFrom: 'From',
+      periodTo: 'To',
+      paymentDetails: 'Payment Details',
+      variableSymbol: 'Variable Symbol',
+      constantSymbol: 'Constant Symbol',
+      specificSymbol: 'Specific Symbol',
+      copyInvoiceNumber: 'Copy invoice number',
+      barcodeType: 'Barcode Type',
+      selectBarcodeType: 'Select type',
+      amounts: 'Amounts',
+      subtotal: 'Subtotal',
+      vatAmount: 'VAT',
+      fullyPaid: 'Paid',
+      invoiceItems: 'Invoice Items',
+      addItem: 'Add Item',
+      noItems: 'No items',
+      itemName: 'Name',
+      quantity: 'Quantity',
+      unitPrice: 'Unit Price',
+      totalPrice: 'Total',
+      payments: 'Payments',
+      addPayment: 'Add Payment',
+      noPayments: 'No payments',
+      transactionName: 'Transaction',
+      paidAmount: 'Paid Amount',
+      invoiceUpdated: 'Invoice updated',
+      invoiceCreated: 'Invoice created',
+      saveFailed: 'Failed to save invoice',
     },
     users: {
       title: 'Users',
@@ -4385,7 +4491,7 @@ export const translations: Record<Locale, Translations> = {
       dashboard: 'Prehľad',
       customers: 'Zákazníci',
       products: 'Produkty',
-      invoices: 'Faktúry',
+      invoices: 'Faktúry hromadné',
       hospitalsAndClinics: 'Nemocnice & Ambulancie',
       collaborators: 'Spolupracovníci',
       collaboratorReports: 'Reporty',
@@ -4740,6 +4846,7 @@ export const translations: Record<Locale, Translations> = {
         activity: 'Aktivita',
         history: 'Historia',
         data: 'Udaje',
+        invoices: 'Faktúry',
       },
       callHistory: {
         title: 'Historia hovorov',
@@ -5014,6 +5121,58 @@ export const translations: Record<Locale, Translations> = {
       overdue: 'Po splatnosti',
       sent: 'Odoslané',
       generated: 'Vygenerované',
+      createInvoice: 'Nová faktúra',
+      editInvoice: 'Upraviť faktúru',
+      filterByStatus: 'Filtrovať podľa stavu',
+      billingCompany: 'Fakturačná spoločnosť',
+      issueDate: 'Dátum vystavenia',
+      totalAmount: 'Celkom',
+      showing: 'Zobrazujem',
+      statusGenerated: 'Vygenerovaná',
+      statusDraft: 'Koncept',
+      statusSent: 'Odoslaná',
+      statusPaid: 'Zaplatená',
+      statusPartiallyPaid: 'Čiastočne zaplatená',
+      statusOverdue: 'Po splatnosti',
+      statusCancelled: 'Zrušená',
+      tabDetails: 'Detail',
+      tabItems: 'Položky',
+      tabPayments: 'Úhrady',
+      legacyId: 'Legacy ID',
+      legacyIdPlaceholder: 'ID zo starého systému',
+      selectBillingCompany: 'Vyberte fakturačnú spoločnosť',
+      dates: 'Dátumy',
+      deliveryDate: 'Dátum dodania',
+      sendDate: 'Dátum odoslania',
+      period: 'Fakturačné obdobie',
+      periodFrom: 'Od',
+      periodTo: 'Do',
+      paymentDetails: 'Fakturačné náležitosti',
+      variableSymbol: 'Variabilný symbol',
+      constantSymbol: 'Konštantný symbol',
+      specificSymbol: 'Špecifický symbol',
+      copyInvoiceNumber: 'Kopírovať číslo faktúry',
+      barcodeType: 'Typ čiarového kódu',
+      selectBarcodeType: 'Vyberte typ',
+      amounts: 'Cena',
+      subtotal: 'Cena bez dane',
+      vatAmount: 'DPH',
+      fullyPaid: 'Uhradená',
+      invoiceItems: 'Položky faktúry',
+      addItem: 'Pridať položku',
+      noItems: 'Žiadne položky',
+      itemName: 'Názov',
+      quantity: 'Množstvo',
+      unitPrice: 'Jedn. cena',
+      totalPrice: 'Celkom',
+      payments: 'Úhrady',
+      addPayment: 'Pridať úhradu',
+      noPayments: 'Žiadne úhrady',
+      transactionName: 'Názov transakcie',
+      paidAmount: 'Zaplatené',
+      invoiceUpdated: 'Faktúra aktualizovaná',
+      invoiceCreated: 'Faktúra vytvorená',
+      saveFailed: 'Nepodarilo sa uložiť faktúru',
     },
     users: {
       title: 'Používatelia',
@@ -6685,7 +6844,7 @@ export const translations: Record<Locale, Translations> = {
       dashboard: 'Přehled',
       customers: 'Zákazníci',
       products: 'Produkty',
-      invoices: 'Faktury',
+      invoices: 'Faktury hromadné',
       hospitalsAndClinics: 'Nemocnice & Ambulance',
       collaborators: 'Spolupracovníci',
       collaboratorReports: 'Reporty',
@@ -7040,6 +7199,7 @@ export const translations: Record<Locale, Translations> = {
         activity: 'Aktivita',
         history: 'Historie',
         data: 'Udaje',
+        invoices: 'Faktury',
       },
       callHistory: {
         title: 'Historie hovoru',
@@ -8917,7 +9077,7 @@ export const translations: Record<Locale, Translations> = {
       dashboard: 'Irányítópult',
       customers: 'Ügyfelek',
       products: 'Termékek',
-      invoices: 'Számlák',
+      invoices: 'Számlák tömeges',
       hospitalsAndClinics: 'Korhazak & Klinikak',
       collaborators: 'Munkatársak',
       collaboratorReports: 'Jelentések',
@@ -9272,6 +9432,7 @@ export const translations: Record<Locale, Translations> = {
         activity: 'Tevekenyseg',
         history: 'Elozmenyek',
         data: 'Adatok',
+        invoices: 'Számlák',
       },
       callHistory: {
         title: 'Hivas elozmenyek',
@@ -11149,7 +11310,7 @@ export const translations: Record<Locale, Translations> = {
       dashboard: 'Panou de control',
       customers: 'Clienți',
       products: 'Produse',
-      invoices: 'Facturi',
+      invoices: 'Facturi în masă',
       hospitalsAndClinics: 'Spitale & Clinici',
       collaborators: 'Colaboratori',
       collaboratorReports: 'Rapoarte',
@@ -11503,6 +11664,7 @@ export const translations: Record<Locale, Translations> = {
         activity: 'Activitate',
         history: 'Istoric',
         data: 'Date',
+        invoices: 'Facturi',
       },
       callHistory: {
         title: 'Istoric apeluri',
@@ -13380,7 +13542,7 @@ export const translations: Record<Locale, Translations> = {
       dashboard: 'Dashboard',
       customers: 'Clienti',
       products: 'Prodotti',
-      invoices: 'Fatture',
+      invoices: 'Fatture in blocco',
       hospitalsAndClinics: 'Ospedali & Cliniche',
       collaborators: 'Collaboratori',
       collaboratorReports: 'Report',
@@ -13735,6 +13897,7 @@ export const translations: Record<Locale, Translations> = {
         activity: 'Attivita',
         history: 'Cronologia',
         data: 'Dati',
+        invoices: 'Fatture',
       },
       callHistory: {
         title: 'Cronologia chiamate',
@@ -15612,7 +15775,7 @@ export const translations: Record<Locale, Translations> = {
       dashboard: 'Dashboard',
       customers: 'Kunden',
       products: 'Produkte',
-      invoices: 'Rechnungen',
+      invoices: 'Rechnungen Bulk',
       hospitalsAndClinics: 'Krankenhauser & Kliniken',
       collaborators: 'Mitarbeiter',
       collaboratorReports: 'Berichte',
@@ -15967,6 +16130,7 @@ export const translations: Record<Locale, Translations> = {
         activity: 'Aktivitaet',
         history: 'Verlauf',
         data: 'Daten',
+        invoices: 'Rechnungen',
       },
       callHistory: {
         title: 'Anrufverlauf',

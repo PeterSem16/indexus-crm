@@ -379,6 +379,777 @@ function DocumentsTab({ customerId }: { customerId: string }) {
   );
 }
 
+// Invoice type for the invoices tab
+interface CustomerInvoice {
+  id: string;
+  invoiceNumber: string;
+  legacyId?: string;
+  customerId: string;
+  billingDetailsId?: string;
+  status: string;
+  totalAmount: string;
+  paidAmount?: string;
+  currency: string;
+  issueDate?: string;
+  dueDate?: string;
+  billingCompanyName?: string;
+  createdAt?: string;
+}
+
+function InvoicesTab({ customerId, customerCountry }: { customerId: string; customerCountry?: string }) {
+  const { t, language } = useI18n();
+  const { toast } = useToast();
+  const [sortField, setSortField] = useState<"invoiceNumber" | "issueDate" | "dueDate" | "totalAmount" | "status">("issueDate");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [selectedInvoice, setSelectedInvoice] = useState<CustomerInvoice | null>(null);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const perPage = 30;
+
+  const { data: invoices = [], isLoading, refetch } = useQuery<CustomerInvoice[]>({
+    queryKey: ["/api/customers", customerId, "invoices"],
+    queryFn: async () => {
+      const res = await fetch(`/api/customers/${customerId}/invoices`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch invoices");
+      return res.json();
+    },
+    refetchOnWindowFocus: true,
+  });
+
+  const { data: billingCompanies = [] } = useQuery<any[]>({
+    queryKey: ["/api/billing-details"],
+    queryFn: async () => {
+      const res = await fetch("/api/billing-details", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch billing companies");
+      return res.json();
+    },
+  });
+
+  // Filter and sort invoices
+  const filteredInvoices = useMemo(() => {
+    let result = [...invoices];
+    
+    // Filter by status
+    if (statusFilter !== "all") {
+      result = result.filter(inv => inv.status === statusFilter);
+    }
+    
+    // Sort
+    result.sort((a, b) => {
+      let comparison = 0;
+      switch (sortField) {
+        case "invoiceNumber":
+          comparison = (a.invoiceNumber || "").localeCompare(b.invoiceNumber || "");
+          break;
+        case "issueDate":
+          comparison = new Date(a.issueDate || a.createdAt || 0).getTime() - new Date(b.issueDate || b.createdAt || 0).getTime();
+          break;
+        case "dueDate":
+          comparison = new Date(a.dueDate || 0).getTime() - new Date(b.dueDate || 0).getTime();
+          break;
+        case "totalAmount":
+          comparison = parseFloat(a.totalAmount || "0") - parseFloat(b.totalAmount || "0");
+          break;
+        case "status":
+          comparison = (a.status || "").localeCompare(b.status || "");
+          break;
+      }
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+    
+    return result;
+  }, [invoices, statusFilter, sortField, sortDirection]);
+
+  // Paginate
+  const totalPages = Math.ceil(filteredInvoices.length / perPage);
+  const paginatedInvoices = filteredInvoices.slice((page - 1) * perPage, page * perPage);
+
+  const handleSort = (field: typeof sortField) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("desc");
+    }
+  };
+
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case "paid": return "default";
+      case "sent": return "secondary";
+      case "generated": case "draft": return "outline";
+      case "overdue": case "cancelled": return "destructive";
+      case "partially_paid": return "secondary";
+      default: return "outline";
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    const labels: Record<string, string> = {
+      generated: t.invoices?.statusGenerated || "Vygenerovaná",
+      draft: t.invoices?.statusDraft || "Koncept",
+      sent: t.invoices?.statusSent || "Odoslaná",
+      paid: t.invoices?.statusPaid || "Zaplatená",
+      partially_paid: t.invoices?.statusPartiallyPaid || "Čiastočne zaplatená",
+      overdue: t.invoices?.statusOverdue || "Po splatnosti",
+      cancelled: t.invoices?.statusCancelled || "Zrušená",
+    };
+    return labels[status] || status;
+  };
+
+  const getBillingCompanyShort = (billingDetailsId?: string, billingCompanyName?: string) => {
+    if (billingDetailsId) {
+      const company = billingCompanies.find(c => c.id === billingDetailsId);
+      if (company) {
+        // Return abbreviation or short name
+        const name = company.companyName || company.name || "";
+        if (name.length > 15) {
+          return name.split(" ").map((w: string) => w[0]).join("").toUpperCase();
+        }
+        return name;
+      }
+    }
+    if (billingCompanyName) {
+      if (billingCompanyName.length > 15) {
+        return billingCompanyName.split(" ").map(w => w[0]).join("").toUpperCase();
+      }
+      return billingCompanyName;
+    }
+    return "-";
+  };
+
+  const formatDate = (date?: string) => {
+    if (!date) return "-";
+    return new Date(date).toLocaleDateString(language === "sk" ? "sk-SK" : language === "cs" ? "cs-CZ" : "en-US");
+  };
+
+  const formatCurrency = (amount?: string, currency?: string) => {
+    if (!amount) return "-";
+    const num = parseFloat(amount);
+    return new Intl.NumberFormat(language === "sk" ? "sk-SK" : language === "cs" ? "cs-CZ" : "en-US", {
+      style: "currency",
+      currency: currency || "EUR",
+    }).format(num);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-32">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[180px]" data-testid="select-status-filter">
+              <SelectValue placeholder={t.invoices?.filterByStatus || "Filtrovať podľa stavu"} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t.common?.all || "Všetky"}</SelectItem>
+              <SelectItem value="generated">{t.invoices?.statusGenerated || "Vygenerovaná"}</SelectItem>
+              <SelectItem value="sent">{t.invoices?.statusSent || "Odoslaná"}</SelectItem>
+              <SelectItem value="paid">{t.invoices?.statusPaid || "Zaplatená"}</SelectItem>
+              <SelectItem value="partially_paid">{t.invoices?.statusPartiallyPaid || "Čiastočne zaplatená"}</SelectItem>
+              <SelectItem value="overdue">{t.invoices?.statusOverdue || "Po splatnosti"}</SelectItem>
+              <SelectItem value="cancelled">{t.invoices?.statusCancelled || "Zrušená"}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <Button onClick={() => setIsCreateOpen(true)} data-testid="button-create-invoice">
+          <Plus className="h-4 w-4 mr-2" />
+          {t.invoices?.createInvoice || "Nová faktúra"}
+        </Button>
+      </div>
+
+      {filteredInvoices.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          <Receipt className="h-12 w-12 mx-auto mb-2 opacity-50" />
+          <p>{t.invoices?.noInvoices || "Žiadne faktúry"}</p>
+        </div>
+      ) : (
+        <>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="cursor-pointer" onClick={() => handleSort("invoiceNumber")}>
+                  {t.invoices?.invoiceNumber || "Číslo faktúry"}
+                  {sortField === "invoiceNumber" && (sortDirection === "asc" ? <ArrowUp className="inline h-3 w-3 ml-1" /> : <ArrowDown className="inline h-3 w-3 ml-1" />)}
+                </TableHead>
+                <TableHead>{t.invoices?.billingCompany || "Fakturačná spoločnosť"}</TableHead>
+                <TableHead className="cursor-pointer" onClick={() => handleSort("status")}>
+                  {t.invoices?.status || "Stav"}
+                  {sortField === "status" && (sortDirection === "asc" ? <ArrowUp className="inline h-3 w-3 ml-1" /> : <ArrowDown className="inline h-3 w-3 ml-1" />)}
+                </TableHead>
+                <TableHead className="cursor-pointer" onClick={() => handleSort("issueDate")}>
+                  {t.invoices?.issueDate || "Dátum vystavenia"}
+                  {sortField === "issueDate" && (sortDirection === "asc" ? <ArrowUp className="inline h-3 w-3 ml-1" /> : <ArrowDown className="inline h-3 w-3 ml-1" />)}
+                </TableHead>
+                <TableHead className="cursor-pointer" onClick={() => handleSort("dueDate")}>
+                  {t.invoices?.dueDate || "Dátum splatnosti"}
+                  {sortField === "dueDate" && (sortDirection === "asc" ? <ArrowUp className="inline h-3 w-3 ml-1" /> : <ArrowDown className="inline h-3 w-3 ml-1" />)}
+                </TableHead>
+                <TableHead className="text-right cursor-pointer" onClick={() => handleSort("totalAmount")}>
+                  {t.invoices?.totalAmount || "Suma"}
+                  {sortField === "totalAmount" && (sortDirection === "asc" ? <ArrowUp className="inline h-3 w-3 ml-1" /> : <ArrowDown className="inline h-3 w-3 ml-1" />)}
+                </TableHead>
+                <TableHead className="w-[50px]"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginatedInvoices.map(invoice => (
+                <TableRow key={invoice.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedInvoice(invoice)} data-testid={`row-invoice-${invoice.id}`}>
+                  <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
+                  <TableCell>{getBillingCompanyShort(invoice.billingDetailsId, invoice.billingCompanyName)}</TableCell>
+                  <TableCell>
+                    <Badge variant={getStatusBadgeVariant(invoice.status)}>
+                      {getStatusLabel(invoice.status)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{formatDate(invoice.issueDate || invoice.createdAt)}</TableCell>
+                  <TableCell>{formatDate(invoice.dueDate)}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(invoice.totalAmount, invoice.currency)}</TableCell>
+                  <TableCell>
+                    <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setSelectedInvoice(invoice); }} data-testid={`button-edit-invoice-${invoice.id}`}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                {t.common?.showing || "Zobrazujem"} {((page - 1) * perPage) + 1}-{Math.min(page * perPage, filteredInvoices.length)} {t.common?.of || "z"} {filteredInvoices.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} data-testid="button-prev-page">
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm">{page} / {totalPages}</span>
+                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} data-testid="button-next-page">
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Invoice Detail/Edit Drawer */}
+      {selectedInvoice && (
+        <InvoiceDrawer
+          invoice={selectedInvoice}
+          customerId={customerId}
+          customerCountry={customerCountry}
+          onClose={() => setSelectedInvoice(null)}
+          onSave={() => { refetch(); setSelectedInvoice(null); }}
+        />
+      )}
+
+      {/* Create Invoice Drawer */}
+      {isCreateOpen && (
+        <InvoiceDrawer
+          invoice={null}
+          customerId={customerId}
+          customerCountry={customerCountry}
+          onClose={() => setIsCreateOpen(false)}
+          onSave={() => { refetch(); setIsCreateOpen(false); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// Invoice Drawer Component for create/edit
+function InvoiceDrawer({ 
+  invoice, 
+  customerId, 
+  customerCountry,
+  onClose, 
+  onSave 
+}: { 
+  invoice: CustomerInvoice | null;
+  customerId: string;
+  customerCountry?: string;
+  onClose: () => void;
+  onSave: () => void;
+}) {
+  const { t, language } = useI18n();
+  const { toast } = useToast();
+  const isEdit = !!invoice;
+  const [activeTab, setActiveTab] = useState("details");
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Form state
+  const [formData, setFormData] = useState({
+    invoiceNumber: invoice?.invoiceNumber || "",
+    legacyId: invoice?.legacyId || "",
+    billingDetailsId: invoice?.billingDetailsId || "",
+    bankAccountId: "",
+    productId: "",
+    instancePriceId: "",
+    deliveryDate: "",
+    issueDate: invoice?.issueDate ? new Date(invoice.issueDate).toISOString().split("T")[0] : "",
+    sendDate: "",
+    dueDate: invoice?.dueDate ? new Date(invoice.dueDate).toISOString().split("T")[0] : "",
+    periodFrom: "",
+    periodTo: "",
+    variableSymbol: "",
+    constantSymbol: "",
+    specificSymbol: "",
+    barcodeType: "",
+    status: invoice?.status || "generated",
+    totalAmount: invoice?.totalAmount || "0",
+    subtotal: "0",
+    vatAmount: "0",
+    currency: invoice?.currency || "EUR",
+  });
+
+  // Fetch billing companies for the customer's country
+  const { data: billingCompanies = [] } = useQuery<any[]>({
+    queryKey: ["/api/billing-details", customerCountry],
+    queryFn: async () => {
+      const res = await fetch("/api/billing-details", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch billing companies");
+      const all = await res.json();
+      return customerCountry ? all.filter((c: any) => c.countryCode === customerCountry) : all;
+    },
+  });
+
+  // Fetch invoice items
+  const { data: items = [], refetch: refetchItems } = useQuery<any[]>({
+    queryKey: ["/api/invoices", invoice?.id, "items"],
+    queryFn: async () => {
+      if (!invoice?.id) return [];
+      const res = await fetch(`/api/invoices/${invoice.id}/items`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!invoice?.id,
+  });
+
+  // Fetch invoice payments
+  const { data: payments = [], refetch: refetchPayments } = useQuery<any[]>({
+    queryKey: ["/api/invoices", invoice?.id, "payments"],
+    queryFn: async () => {
+      if (!invoice?.id) return [];
+      const res = await fetch(`/api/invoices/${invoice.id}/payments`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!invoice?.id,
+  });
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const url = isEdit ? `/api/invoices/${invoice.id}` : "/api/invoices";
+      const method = isEdit ? "PUT" : "POST";
+      
+      const payload = {
+        ...formData,
+        customerId,
+        deliveryDate: formData.deliveryDate ? new Date(formData.deliveryDate) : null,
+        issueDate: formData.issueDate ? new Date(formData.issueDate) : null,
+        sendDate: formData.sendDate ? new Date(formData.sendDate) : null,
+        dueDate: formData.dueDate ? new Date(formData.dueDate) : null,
+        periodFrom: formData.periodFrom ? new Date(formData.periodFrom) : null,
+        periodTo: formData.periodTo ? new Date(formData.periodTo) : null,
+      };
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) throw new Error("Failed to save invoice");
+
+      toast({
+        title: isEdit ? (t.invoices?.invoiceUpdated || "Faktúra aktualizovaná") : (t.invoices?.invoiceCreated || "Faktúra vytvorená"),
+      });
+      onSave();
+    } catch (error) {
+      toast({
+        title: t.common?.error || "Chyba",
+        description: t.invoices?.saveFailed || "Nepodarilo sa uložiť faktúru",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const setToday = (field: string) => {
+    const today = new Date().toISOString().split("T")[0];
+    setFormData(prev => ({ ...prev, [field]: today }));
+  };
+
+  return (
+    <Sheet open={true} onOpenChange={onClose}>
+      <SheetContent className="w-[600px] sm:max-w-[600px] overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>
+            {isEdit ? `${t.invoices?.editInvoice || "Upraviť faktúru"} ${invoice.invoiceNumber}` : (t.invoices?.createInvoice || "Nová faktúra")}
+          </SheetTitle>
+        </SheetHeader>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="details">{t.invoices?.tabDetails || "Detail"}</TabsTrigger>
+            <TabsTrigger value="items" disabled={!isEdit}>{t.invoices?.tabItems || "Položky"}</TabsTrigger>
+            <TabsTrigger value="payments" disabled={!isEdit}>{t.invoices?.tabPayments || "Úhrady"}</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="details" className="space-y-4 mt-4">
+            {/* Invoice Number */}
+            <div className="space-y-2">
+              <Label>{t.invoices?.invoiceNumber || "Číslo faktúry"}</Label>
+              <Input 
+                value={formData.invoiceNumber} 
+                onChange={e => setFormData(prev => ({ ...prev, invoiceNumber: e.target.value }))}
+                placeholder="INV-2026-0001"
+                data-testid="input-invoice-number"
+              />
+            </div>
+
+            {/* Legacy ID */}
+            <div className="space-y-2">
+              <Label>{t.invoices?.legacyId || "Legacy ID"}</Label>
+              <Input 
+                value={formData.legacyId} 
+                onChange={e => setFormData(prev => ({ ...prev, legacyId: e.target.value }))}
+                placeholder={t.invoices?.legacyIdPlaceholder || "ID zo starého systému"}
+                data-testid="input-legacy-id"
+              />
+            </div>
+
+            {/* Billing Company */}
+            <div className="space-y-2">
+              <Label>{t.invoices?.billingCompany || "Dodávateľ"}</Label>
+              <Select value={formData.billingDetailsId} onValueChange={v => setFormData(prev => ({ ...prev, billingDetailsId: v }))}>
+                <SelectTrigger data-testid="select-billing-company">
+                  <SelectValue placeholder={t.invoices?.selectBillingCompany || "Vyberte fakturačnú spoločnosť"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {billingCompanies.map((company: any) => (
+                    <SelectItem key={company.id} value={company.id}>
+                      {company.companyName || company.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Separator className="my-4" />
+            <h4 className="font-medium text-sm text-muted-foreground">{t.invoices?.dates || "Dátumy"}</h4>
+
+            {/* Dates */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t.invoices?.deliveryDate || "Dátum dodania"}</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    type="date" 
+                    value={formData.deliveryDate} 
+                    onChange={e => setFormData(prev => ({ ...prev, deliveryDate: e.target.value }))}
+                    data-testid="input-delivery-date"
+                  />
+                  <Button type="button" variant="outline" size="icon" onClick={() => setToday("deliveryDate")} title={t.common?.today || "Dnes"}>
+                    <Calendar className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>{t.invoices?.issueDate || "Dátum vystavenia"}</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    type="date" 
+                    value={formData.issueDate} 
+                    onChange={e => setFormData(prev => ({ ...prev, issueDate: e.target.value }))}
+                    data-testid="input-issue-date"
+                  />
+                  <Button type="button" variant="outline" size="icon" onClick={() => setToday("issueDate")} title={t.common?.today || "Dnes"}>
+                    <Calendar className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>{t.invoices?.sendDate || "Dátum odoslania"}</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    type="date" 
+                    value={formData.sendDate} 
+                    onChange={e => setFormData(prev => ({ ...prev, sendDate: e.target.value }))}
+                    data-testid="input-send-date"
+                  />
+                  <Button type="button" variant="outline" size="icon" onClick={() => setToday("sendDate")} title={t.common?.today || "Dnes"}>
+                    <Calendar className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>{t.invoices?.dueDate || "Dátum splatnosti"}</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    type="date" 
+                    value={formData.dueDate} 
+                    onChange={e => setFormData(prev => ({ ...prev, dueDate: e.target.value }))}
+                    data-testid="input-due-date"
+                  />
+                  <Button type="button" variant="outline" size="icon" onClick={() => setToday("dueDate")} title={t.common?.today || "Dnes"}>
+                    <Calendar className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <Separator className="my-4" />
+            <h4 className="font-medium text-sm text-muted-foreground">{t.invoices?.period || "Fakturačné obdobie"}</h4>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t.invoices?.periodFrom || "Od"}</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    type="date" 
+                    value={formData.periodFrom} 
+                    onChange={e => setFormData(prev => ({ ...prev, periodFrom: e.target.value }))}
+                    data-testid="input-period-from"
+                  />
+                  <Button type="button" variant="outline" size="icon" onClick={() => setToday("periodFrom")} title={t.common?.today || "Dnes"}>
+                    <Calendar className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>{t.invoices?.periodTo || "Do"}</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    type="date" 
+                    value={formData.periodTo} 
+                    onChange={e => setFormData(prev => ({ ...prev, periodTo: e.target.value }))}
+                    data-testid="input-period-to"
+                  />
+                  <Button type="button" variant="outline" size="icon" onClick={() => setToday("periodTo")} title={t.common?.today || "Dnes"}>
+                    <Calendar className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <Separator className="my-4" />
+            <h4 className="font-medium text-sm text-muted-foreground">{t.invoices?.paymentDetails || "Fakturačné náležitosti"}</h4>
+
+            {/* Payment symbols */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t.invoices?.variableSymbol || "Variabilný symbol"}</Label>
+                <Input 
+                  value={formData.variableSymbol} 
+                  onChange={e => setFormData(prev => ({ ...prev, variableSymbol: e.target.value }))}
+                  data-testid="input-variable-symbol"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{t.invoices?.constantSymbol || "Konštantný symbol"}</Label>
+                <Input 
+                  value={formData.constantSymbol} 
+                  onChange={e => setFormData(prev => ({ ...prev, constantSymbol: e.target.value }))}
+                  data-testid="input-constant-symbol"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{t.invoices?.specificSymbol || "Špecifický symbol"}</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    value={formData.specificSymbol} 
+                    onChange={e => setFormData(prev => ({ ...prev, specificSymbol: e.target.value }))}
+                    data-testid="input-specific-symbol"
+                  />
+                  <Button type="button" variant="outline" size="icon" onClick={() => setFormData(prev => ({ ...prev, specificSymbol: prev.invoiceNumber }))} title={t.invoices?.copyInvoiceNumber || "Kopírovať číslo faktúry"}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>{t.invoices?.barcodeType || "Typ čiarového kódu"}</Label>
+                <Select value={formData.barcodeType} onValueChange={v => setFormData(prev => ({ ...prev, barcodeType: v }))}>
+                  <SelectTrigger data-testid="select-barcode-type">
+                    <SelectValue placeholder={t.invoices?.selectBarcodeType || "Vyberte typ"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="qr">QR kód</SelectItem>
+                    <SelectItem value="ean13">EAN-13</SelectItem>
+                    <SelectItem value="code128">Code 128</SelectItem>
+                    <SelectItem value="payme">Pay by Square</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <Separator className="my-4" />
+            <h4 className="font-medium text-sm text-muted-foreground">{t.invoices?.amounts || "Cena"}</h4>
+
+            {/* Amounts */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t.invoices?.subtotal || "Cena bez dane"}</Label>
+                <Input 
+                  type="number" 
+                  step="0.01"
+                  value={formData.subtotal} 
+                  onChange={e => setFormData(prev => ({ ...prev, subtotal: e.target.value }))}
+                  data-testid="input-subtotal"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{t.invoices?.vatAmount || "DPH"}</Label>
+                <Input 
+                  type="number" 
+                  step="0.01"
+                  value={formData.vatAmount} 
+                  onChange={e => setFormData(prev => ({ ...prev, vatAmount: e.target.value }))}
+                  data-testid="input-vat-amount"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{t.invoices?.totalAmount || "Cena s daňou"}</Label>
+                <Input 
+                  type="number" 
+                  step="0.01"
+                  value={formData.totalAmount} 
+                  onChange={e => setFormData(prev => ({ ...prev, totalAmount: e.target.value }))}
+                  data-testid="input-total-amount"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{t.invoices?.status || "Stav"}</Label>
+                <Select value={formData.status} onValueChange={v => setFormData(prev => ({ ...prev, status: v }))}>
+                  <SelectTrigger data-testid="select-status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="generated">{t.invoices?.statusGenerated || "Vygenerovaná"}</SelectItem>
+                    <SelectItem value="sent">{t.invoices?.statusSent || "Odoslaná"}</SelectItem>
+                    <SelectItem value="paid">{t.invoices?.statusPaid || "Zaplatená"}</SelectItem>
+                    <SelectItem value="partially_paid">{t.invoices?.statusPartiallyPaid || "Čiastočne zaplatená"}</SelectItem>
+                    <SelectItem value="overdue">{t.invoices?.statusOverdue || "Po splatnosti"}</SelectItem>
+                    <SelectItem value="cancelled">{t.invoices?.statusCancelled || "Zrušená"}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Paid indicator */}
+            {invoice?.status === "paid" && (
+              <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-md">
+                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                <span className="text-green-700 dark:text-green-400 font-medium">
+                  {t.invoices?.fullyPaid}: {new Intl.NumberFormat(language === "sk" ? "sk-SK" : language === "cs" ? "cs-CZ" : "en-US", { style: "currency", currency: formData.currency }).format(parseFloat(invoice?.paidAmount || "0"))}
+                </span>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="items" className="space-y-4 mt-4">
+            <div className="flex justify-between items-center">
+              <h4 className="font-medium">{t.invoices?.invoiceItems || "Položky faktúry"}</h4>
+              <Button size="sm" variant="outline" data-testid="button-add-item">
+                <Plus className="h-4 w-4 mr-1" />
+                {t.invoices?.addItem || "Pridať položku"}
+              </Button>
+            </div>
+            
+            {items.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">{t.invoices?.noItems || "Žiadne položky"}</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t.invoices?.itemName || "Názov"}</TableHead>
+                    <TableHead className="text-right">{t.invoices?.quantity || "Množstvo"}</TableHead>
+                    <TableHead className="text-right">{t.invoices?.unitPrice || "Jedn. cena"}</TableHead>
+                    <TableHead className="text-right">{t.invoices?.totalPrice || "Celkom"}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {items.map((item: any) => (
+                    <TableRow key={item.id}>
+                      <TableCell>{item.name}</TableCell>
+                      <TableCell className="text-right">{item.quantity}</TableCell>
+                      <TableCell className="text-right">{parseFloat(item.unitPrice || "0").toFixed(2)}</TableCell>
+                      <TableCell className="text-right">{parseFloat(item.totalPrice || "0").toFixed(2)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </TabsContent>
+
+          <TabsContent value="payments" className="space-y-4 mt-4">
+            <div className="flex justify-between items-center">
+              <h4 className="font-medium">{t.invoices?.payments || "Úhrady"}</h4>
+              <Button size="sm" variant="outline" data-testid="button-add-payment">
+                <Plus className="h-4 w-4 mr-1" />
+                {t.invoices?.addPayment || "Pridať úhradu"}
+              </Button>
+            </div>
+            
+            {payments.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">{t.invoices?.noPayments || "Žiadne úhrady"}</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t.invoices?.transactionName || "Názov transakcie"}</TableHead>
+                    <TableHead className="text-right">{t.invoices?.amount || "Suma"}</TableHead>
+                    <TableHead className="text-right">{t.invoices?.paidAmount || "Zaplatené"}</TableHead>
+                    <TableHead>{t.invoices?.status || "Stav"}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {payments.map((payment: any) => (
+                    <TableRow key={payment.id}>
+                      <TableCell>{payment.transactionName}</TableCell>
+                      <TableCell className="text-right">{parseFloat(payment.amount || "0").toFixed(2)}</TableCell>
+                      <TableCell className="text-right">{parseFloat(payment.paidAmount || "0").toFixed(2)}</TableCell>
+                      <TableCell>
+                        <Badge variant={payment.status === "completed" ? "default" : "secondary"}>
+                          {payment.status}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </TabsContent>
+        </Tabs>
+
+        <div className="flex justify-end gap-2 mt-6">
+          <Button variant="outline" onClick={onClose} data-testid="button-cancel">
+            {t.common?.cancel || "Zrušiť"}
+          </Button>
+          <Button onClick={handleSave} disabled={isSaving} data-testid="button-save-invoice">
+            {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {t.common?.save || "Uložiť"}
+          </Button>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 function GdprTab({ customerId }: { customerId: string }) {
   const { t } = useI18n();
   const { toast } = useToast();
@@ -2754,7 +3525,7 @@ function CustomerDetailsContent({
       <Separator />
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className={`grid w-full ${customer.clientStatus === "acquired" ? "grid-cols-8" : "grid-cols-7"}`}>
+        <TabsList className={`grid w-full ${customer.clientStatus === "acquired" ? "grid-cols-9" : "grid-cols-8"}`}>
           <TabsTrigger value="overview" data-testid="tab-overview">
             <Package className="h-4 w-4 mr-2" />
             {t.customers.tabs.overview}
@@ -2768,6 +3539,10 @@ function CustomerDetailsContent({
           <TabsTrigger value="documents" data-testid="tab-documents">
             <FileText className="h-4 w-4 mr-2" />
             Dokumenty
+          </TabsTrigger>
+          <TabsTrigger value="invoices" data-testid="tab-invoices">
+            <Receipt className="h-4 w-4 mr-2" />
+            {t.customers.tabs?.invoices || "Faktúry"}
           </TabsTrigger>
           <TabsTrigger value="communicate" data-testid="tab-communicate">
             <Mail className="h-4 w-4 mr-2" />
@@ -3272,6 +4047,10 @@ function CustomerDetailsContent({
 
         <TabsContent value="documents" className="space-y-6 mt-4">
           <DocumentsTab customerId={customer.id} />
+        </TabsContent>
+
+        <TabsContent value="invoices" className="space-y-6 mt-4">
+          <InvoicesTab customerId={customer.id} customerCountry={customer.country} />
         </TabsContent>
 
         <TabsContent value="gdpr" className="space-y-6 mt-4">
