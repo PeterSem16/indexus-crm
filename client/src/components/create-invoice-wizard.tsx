@@ -141,6 +141,22 @@ interface InstancePrice {
   isActive: boolean;
 }
 
+interface MarketProductInstance {
+  id: string;
+  productId: string;
+  countryCode: string;
+  name: string;
+  isActive: boolean;
+}
+
+interface CustomerProduct {
+  id: string;
+  customerId: string;
+  productId: string;
+  billsetId?: string;
+  product?: Product;
+}
+
 interface Customer {
   id: string;
   firstName: string;
@@ -208,6 +224,7 @@ export function CreateInvoiceWizard({
   const [currentStep, setCurrentStep] = useState(0);
   const [items, setItems] = useState<InvoiceItem[]>([]);
   const [generatedInvoiceNumber, setGeneratedInvoiceNumber] = useState<string>("");
+  const [selectedProductId, setSelectedProductId] = useState<string>("");
 
   const today = new Date();
   const dueDate = new Date(today);
@@ -273,6 +290,32 @@ export function CreateInvoiceWizard({
     enabled: open,
   });
 
+  const { data: customerProducts = [] } = useQuery<CustomerProduct[]>({
+    queryKey: ["/api/customers", customerId, "products"],
+    queryFn: async () => {
+      if (!customerId) return [];
+      const response = await fetch(`/api/customers/${customerId}/products`, {
+        credentials: "include",
+      });
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: open && !!customerId,
+  });
+
+  const { data: productInstances = [] } = useQuery<MarketProductInstance[]>({
+    queryKey: ["/api/products", selectedProductId, "instances"],
+    queryFn: async () => {
+      if (!selectedProductId) return [];
+      const response = await fetch(`/api/products/${selectedProductId}/instances`, {
+        credentials: "include",
+      });
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: open && !!selectedProductId,
+  });
+
   const activeNumberRanges = useMemo(() => {
     return numberRanges.filter(nr => nr.isActive);
   }, [numberRanges]);
@@ -289,8 +332,33 @@ export function CreateInvoiceWizard({
   }, [products, countryCode]);
 
   const filteredInstancePrices = useMemo(() => {
-    return instancePrices.filter(ip => ip.isActive && (!ip.countryCode || ip.countryCode === countryCode));
-  }, [instancePrices, countryCode]);
+    if (!selectedProductId || productInstances.length === 0) return [];
+    const instanceIds = productInstances
+      .filter(pi => pi.isActive && pi.countryCode === countryCode)
+      .map(pi => pi.id);
+    return instancePrices.filter(ip => 
+      ip.isActive && 
+      instanceIds.includes(ip.instanceId) &&
+      (!ip.countryCode || ip.countryCode === countryCode)
+    );
+  }, [instancePrices, productInstances, selectedProductId, countryCode]);
+
+  // Auto-select assigned product from customer
+  useEffect(() => {
+    if (customerId && customerProducts.length > 0 && !selectedProductId) {
+      const assignedProduct = customerProducts[0];
+      if (assignedProduct?.productId) {
+        setSelectedProductId(assignedProduct.productId);
+        // Auto-add assigned billset if available
+        if (assignedProduct.billsetId) {
+          const billset = instancePrices.find(ip => ip.id === assignedProduct.billsetId);
+          if (billset && items.length === 0) {
+            addItem(billset);
+          }
+        }
+      }
+    }
+  }, [customerId, customerProducts, selectedProductId, instancePrices]);
 
   const selectedNumberRange = useMemo(() => {
     const rangeId = form.watch("numberRangeId");
@@ -348,6 +416,7 @@ export function CreateInvoiceWizard({
     setCurrentStep(0);
     setItems([]);
     setGeneratedInvoiceNumber("");
+    setSelectedProductId("");
     form.reset();
     onClose();
   };
@@ -904,29 +973,63 @@ export function CreateInvoiceWizard({
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <Card>
                       <CardHeader>
-                        <CardTitle className="text-sm">{t.invoices?.availableItems || "Available Items"}</CardTitle>
+                        <CardTitle className="text-sm">{t.products?.title || "Product"}</CardTitle>
                       </CardHeader>
-                      <CardContent className="max-h-[300px] overflow-y-auto space-y-2">
-                        {filteredInstancePrices.length === 0 ? (
-                          <p className="text-muted-foreground text-sm">{t.invoices?.noItemsAvailable || "No items available for this country"}</p>
-                        ) : (
-                          filteredInstancePrices.map((price) => (
-                            <div key={price.id} className="flex items-center justify-between p-2 border rounded-md hover:bg-muted/50">
-                              <div>
-                                <p className="font-medium text-sm">{price.name}</p>
-                                <p className="text-xs text-muted-foreground">{formatCurrency(parseFloat(price.price))}</p>
-                              </div>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => addItem(price)}
-                                data-testid={`btn-add-item-${price.id}`}
-                              >
-                                <Plus className="h-4 w-4" />
-                              </Button>
+                      <CardContent className="space-y-4">
+                        <div>
+                          <Label className="text-sm">{t.invoices?.selectProduct || "Select Product"}</Label>
+                          <Select value={selectedProductId} onValueChange={setSelectedProductId}>
+                            <SelectTrigger data-testid="select-product" className="mt-1">
+                              <SelectValue placeholder={t.invoices?.selectProduct || "Select product"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {filteredProducts.length === 0 ? (
+                                <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+                                  {t.invoices?.noProductsAvailable || "No products available"}
+                                </div>
+                              ) : (
+                                filteredProducts.map((product) => (
+                                  <SelectItem key={product.id} value={product.id}>
+                                    {product.name}
+                                  </SelectItem>
+                                ))
+                              )}
+                            </SelectContent>
+                          </Select>
+                          {customerId && customerProducts.length > 0 && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {t.invoices?.assignedProduct || "Assigned product loaded automatically"}
+                            </p>
+                          )}
+                        </div>
+
+                        {selectedProductId && (
+                          <div>
+                            <Label className="text-sm">{t.invoices?.billsets || "Billsets"}</Label>
+                            <div className="max-h-[200px] overflow-y-auto space-y-2 mt-2">
+                              {filteredInstancePrices.length === 0 ? (
+                                <p className="text-muted-foreground text-sm py-2">{t.invoices?.noBillsetsAvailable || "No billsets available for this product"}</p>
+                              ) : (
+                                filteredInstancePrices.map((price) => (
+                                  <div key={price.id} className="flex items-center justify-between p-2 border rounded-md hover:bg-muted/50">
+                                    <div>
+                                      <p className="font-medium text-sm">{price.name}</p>
+                                      <p className="text-xs text-muted-foreground">{formatCurrency(parseFloat(price.price))}</p>
+                                    </div>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => addItem(price)}
+                                      data-testid={`btn-add-item-${price.id}`}
+                                    >
+                                      <Plus className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                ))
+                              )}
                             </div>
-                          ))
+                          </div>
                         )}
                       </CardContent>
                     </Card>
