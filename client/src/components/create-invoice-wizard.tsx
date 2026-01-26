@@ -1431,7 +1431,10 @@ export function CreateInvoiceWizard({
 
                     <Card>
                       <CardHeader>
-                        <CardTitle className="text-sm">{t.invoices?.selectedItems || "Selected Items"} ({items.length})</CardTitle>
+                        <CardTitle className="text-sm flex items-center gap-2">
+                          {t.invoices?.selectedItems || "Selected Items"} ({items.length})
+                          <Badge variant="outline" className="text-xs bg-green-100 text-green-800">v2.1</Badge>
+                        </CardTitle>
                       </CardHeader>
                       <CardContent>
                         {items.length === 0 ? (
