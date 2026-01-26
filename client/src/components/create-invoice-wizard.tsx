@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Receipt, Calendar, CreditCard, Package, FileText, Loader2, Plus, Trash2, Check } from "lucide-react";
+import { Receipt, Calendar, CalendarDays, CreditCard, Package, FileText, Loader2, Plus, Trash2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
