@@ -38,6 +38,14 @@ import {
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { PageHeader } from "@/components/page-header";
 import { AdvancedFilters, type CustomerFilters } from "@/components/advanced-filters";
 import { DataTable } from "@/components/data-table";
@@ -397,7 +405,7 @@ interface CustomerInvoice {
 }
 
 function InvoicesTab({ customerId, customerCountry }: { customerId: string; customerCountry?: string }) {
-  const { t, language } = useI18n();
+  const { t, locale } = useI18n();
   const { toast } = useToast();
   const [sortField, setSortField] = useState<"invoiceNumber" | "issueDate" | "dueDate" | "totalAmount" | "status">("issueDate");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
@@ -521,13 +529,13 @@ function InvoicesTab({ customerId, customerCountry }: { customerId: string; cust
 
   const formatDate = (date?: string) => {
     if (!date) return "-";
-    return new Date(date).toLocaleDateString(language === "sk" ? "sk-SK" : language === "cs" ? "cs-CZ" : "en-US");
+    return new Date(date).toLocaleDateString(locale === "sk" ? "sk-SK" : locale === "cs" ? "cs-CZ" : "en-US");
   };
 
   const formatCurrency = (amount?: string, currency?: string) => {
     if (!amount) return "-";
     const num = parseFloat(amount);
-    return new Intl.NumberFormat(language === "sk" ? "sk-SK" : language === "cs" ? "cs-CZ" : "en-US", {
+    return new Intl.NumberFormat(locale === "sk" ? "sk-SK" : locale === "cs" ? "cs-CZ" : "en-US", {
       style: "currency",
       currency: currency || "EUR",
     }).format(num);
@@ -682,7 +690,7 @@ function InvoiceDrawer({
   onClose: () => void;
   onSave: () => void;
 }) {
-  const { t, language } = useI18n();
+  const { t, locale } = useI18n();
   const { toast } = useToast();
   const isEdit = !!invoice;
   const [activeTab, setActiveTab] = useState("details");
@@ -1055,7 +1063,7 @@ function InvoiceDrawer({
               <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-md">
                 <CheckCircle2 className="h-5 w-5 text-green-600" />
                 <span className="text-green-700 dark:text-green-400 font-medium">
-                  {t.invoices?.fullyPaid}: {new Intl.NumberFormat(language === "sk" ? "sk-SK" : language === "cs" ? "cs-CZ" : "en-US", { style: "currency", currency: formData.currency }).format(parseFloat(invoice?.paidAmount || "0"))}
+                  {t.invoices?.fullyPaid}: {new Intl.NumberFormat(locale === "sk" ? "sk-SK" : locale === "cs" ? "cs-CZ" : "en-US", { style: "currency", currency: formData.currency }).format(parseFloat(invoice?.paidAmount || "0"))}
                 </span>
               </div>
             )}
