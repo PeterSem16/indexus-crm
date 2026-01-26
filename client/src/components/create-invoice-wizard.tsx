@@ -685,8 +685,11 @@ export function CreateInvoiceWizard({
 
   const calculateTotals = () => {
     const subtotal = items.reduce((sum, item) => sum + parseFloat(item.total), 0);
-    const vatRate = parseFloat(billingInfo?.defaultVatRate || "20") / 100;
-    const vatAmount = subtotal * vatRate;
+    const vatAmount = items.reduce((sum, item) => {
+      const itemTotal = parseFloat(item.total);
+      const itemVatRate = parseFloat(item.vatRate || "0") / 100;
+      return sum + (itemTotal * itemVatRate);
+    }, 0);
     const total = subtotal + vatAmount;
     return { subtotal, vatAmount, total };
   };
@@ -782,7 +785,7 @@ export function CreateInvoiceWizard({
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Receipt className="h-5 w-5" />
@@ -1726,7 +1729,7 @@ export function CreateInvoiceWizard({
                           <span data-testid="summary-subtotal">{formatCurrency(totals.subtotal)}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">{t.invoices?.vatAmount || "VAT"} ({billingInfo?.defaultVatRate || "20"}%)</span>
+                          <span className="text-muted-foreground">{t.invoices?.vatAmount || "VAT"}</span>
                           <span data-testid="summary-vat">{formatCurrency(totals.vatAmount)}</span>
                         </div>
                         <div className="flex justify-between border-t pt-2">
