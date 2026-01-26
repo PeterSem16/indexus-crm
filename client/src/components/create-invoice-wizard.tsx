@@ -332,23 +332,17 @@ export function CreateInvoiceWizard({
 
   const filteredInstancePrices = useMemo(() => {
     if (!selectedProductId || productInstances.length === 0) return [];
-    // Get instances for selected product and country
+    // productInstances already contains only instances for selectedProductId
+    // Filter by country, fallback to all active if no country match
     let relevantInstances = productInstances.filter(pi => 
-      pi.isActive && 
-      pi.productId === selectedProductId && 
-      pi.countryCode === countryCode
+      pi.isActive && pi.countryCode === countryCode
     );
-    // Fallback to all active instances for selected product if no country match
     if (relevantInstances.length === 0) {
-      relevantInstances = productInstances.filter(pi => 
-        pi.isActive && 
-        pi.productId === selectedProductId
-      );
+      relevantInstances = productInstances.filter(pi => pi.isActive);
     }
     const instanceIds = relevantInstances.map(pi => pi.id);
     return instancePrices.filter(ip => 
-      ip.isActive && 
-      instanceIds.includes(ip.instanceId)
+      ip.isActive && instanceIds.includes(ip.instanceId)
     );
   }, [instancePrices, productInstances, selectedProductId, countryCode]);
 
