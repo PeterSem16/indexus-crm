@@ -232,6 +232,18 @@ export function CreateInvoiceWizard({
   const [items, setItems] = useState<InvoiceItem[]>([]);
   const [selectedProductId, setSelectedProductId] = useState<string>("");
   const [isAddingBillset, setIsAddingBillset] = useState<string | null>(null);
+  const [billsetLoaded, setBillsetLoaded] = useState(false);
+  
+  // Reset state when wizard opens
+  useEffect(() => {
+    if (open) {
+      console.log("[Invoice v2.3] Wizard opened - resetting state");
+      setItems([]);
+      setBillsetLoaded(false);
+      setCurrentStep(0);
+      setSelectedProductId("");
+    }
+  }, [open]);
 
   const today = new Date();
   const dueDate = new Date(today);
@@ -439,24 +451,28 @@ export function CreateInvoiceWizard({
     );
   }, [productSets, selectedProductId]);
 
-  // Auto-select assigned product from customer
+  // Auto-select assigned product and load billset components - runs ONCE on mount
   useEffect(() => {
-    if (customerId && customerProducts.length > 0 && !selectedProductId) {
+    console.log("[Invoice v2.3] useEffect triggered - customerId:", customerId, "customerProducts:", customerProducts.length, "billsetLoaded:", billsetLoaded);
+    if (customerId && customerProducts.length > 0 && !billsetLoaded) {
       const assignedProduct = customerProducts[0];
+      console.log("[Invoice v2.3] Assigned product:", assignedProduct);
       if (assignedProduct?.productId) {
         setSelectedProductId(assignedProduct.productId);
-        // Auto-add assigned billset if available - always reload to get components
+        // Auto-add assigned billset if available
         if (assignedProduct.billsetId) {
           const billset = productSets.find(ps => ps.id === assignedProduct.billsetId);
+          console.log("[Invoice v2.3] Found billset:", billset?.name);
           if (billset) {
-            // Clear old items first and reload with components
+            setBillsetLoaded(true);
+            // Clear items and load billset components
             setItems([]);
             addItemFromBillset(billset);
           }
         }
       }
     }
-  }, [customerId, customerProducts, selectedProductId, productSets]);
+  }, [customerId, customerProducts, productSets, billsetLoaded]);
 
   const selectedNumberRange = useMemo(() => {
     const rangeId = form.watch("numberRangeId");
