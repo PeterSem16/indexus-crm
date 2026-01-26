@@ -10687,6 +10687,39 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/configurator/number-ranges/:id/generate", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const result = await storage.generateNextNumber(id);
+      
+      if (!result) {
+        const range = await storage.getNumberRange(id);
+        if (!range) {
+          return res.status(404).json({ error: "Number range not found" });
+        }
+        if (!range.isActive) {
+          return res.status(400).json({ error: "Number range is not active" });
+        }
+        return res.status(409).json({ error: "Number range exhausted or concurrent conflict, please retry" });
+      }
+
+      await logActivity(
+        req.session.user!.id,
+        "generated_invoice_number",
+        "number_range",
+        id,
+        result.invoiceNumber,
+        undefined,
+        req.ip
+      );
+
+      res.json(result);
+    } catch (error) {
+      console.error("Failed to generate invoice number:", error);
+      res.status(500).json({ error: "Failed to generate invoice number" });
+    }
+  });
+
   app.patch("/api/configurator/number-ranges/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;

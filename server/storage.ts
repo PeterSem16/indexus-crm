@@ -478,9 +478,11 @@ export interface IStorage {
   // Number Ranges
   getAllNumberRanges(): Promise<NumberRange[]>;
   getNumberRangesByCountry(countryCodes: string[]): Promise<NumberRange[]>;
+  getNumberRange(id: string): Promise<NumberRange | undefined>;
   createNumberRange(data: InsertNumberRange): Promise<NumberRange>;
   updateNumberRange(id: string, data: Partial<InsertNumberRange>): Promise<NumberRange | undefined>;
   deleteNumberRange(id: string): Promise<boolean>;
+  generateNextNumber(id: string): Promise<{ nextNumber: number; invoiceNumber: string } | null>;
 
   // Invoice Templates
   getAllInvoiceTemplates(): Promise<InvoiceTemplate[]>;
@@ -2798,6 +2800,11 @@ export class DatabaseStorage implements IStorage {
       .orderBy(numberRanges.name);
   }
 
+  async getNumberRange(id: string): Promise<NumberRange | undefined> {
+    const [range] = await db.select().from(numberRanges).where(eq(numberRanges.id, id));
+    return range || undefined;
+  }
+
   async createNumberRange(data: InsertNumberRange): Promise<NumberRange> {
     const [created] = await db.insert(numberRanges).values(data).returning();
     return created;
@@ -2814,6 +2821,39 @@ export class DatabaseStorage implements IStorage {
   async deleteNumberRange(id: string): Promise<boolean> {
     const result = await db.delete(numberRanges).where(eq(numberRanges.id, id)).returning();
     return result.length > 0;
+  }
+
+  async generateNextNumber(id: string): Promise<{ nextNumber: number; invoiceNumber: string } | null> {
+    const range = await this.getNumberRange(id);
+    if (!range || !range.isActive) {
+      return null;
+    }
+    
+    const currentLastNumber = range.lastNumberUsed || 0;
+    const nextNumber = currentLastNumber + 1;
+    
+    if (nextNumber > range.endNumber) {
+      return null;
+    }
+    
+    const [updated] = await db.update(numberRanges)
+      .set({ lastNumberUsed: nextNumber, updatedAt: new Date() })
+      .where(and(
+        eq(numberRanges.id, id),
+        range.lastNumberUsed 
+          ? eq(numberRanges.lastNumberUsed, currentLastNumber)
+          : isNull(numberRanges.lastNumberUsed)
+      ))
+      .returning();
+    
+    if (!updated) {
+      return null;
+    }
+    
+    const paddedNumber = String(nextNumber).padStart(range.digitsToGenerate, "0");
+    const invoiceNumber = `${range.prefix || ""}${paddedNumber}${range.suffix || ""}`;
+    
+    return { nextNumber, invoiceNumber };
   }
 
   // Invoice Templates

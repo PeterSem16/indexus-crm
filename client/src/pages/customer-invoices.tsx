@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, Eye, Receipt, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckCircle2 } from "lucide-react";
+import { Search, Eye, Receipt, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckCircle2, Plus } from "lucide-react";
+import { CreateInvoiceWizard } from "@/components/create-invoice-wizard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -116,6 +117,7 @@ export default function CustomerInvoicesPage() {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [page, setPage] = useState(1);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [showCreateWizard, setShowCreateWizard] = useState(false);
   const perPage = 30;
 
   const { data: invoices = [], isLoading } = useQuery<Invoice[]>({
@@ -266,9 +268,23 @@ export default function CustomerInvoicesPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t.nav.customerInvoices}
-        description={t.invoices?.description || "Manage customer invoices"}
+      <div className="flex items-center justify-between">
+        <PageHeader
+          title={t.nav.customerInvoices}
+          description={t.invoices?.description || "Manage customer invoices"}
+        />
+        <Button
+          onClick={() => setShowCreateWizard(true)}
+          data-testid="button-create-invoice"
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          {t.invoices?.createInvoice || "Create Invoice"}
+        </Button>
+      </div>
+
+      <CreateInvoiceWizard
+        open={showCreateWizard}
+        onClose={() => setShowCreateWizard(false)}
       />
 
       <Card>
