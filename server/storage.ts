@@ -191,6 +191,7 @@ export interface IStorage {
   deleteInstancePrice(id: string): Promise<boolean>;
 
   // Instance Payment Options
+  getInstancePaymentOption(id: string): Promise<any | undefined>;
   getInstancePaymentOptions(instanceId: string, instanceType: string): Promise<any[]>;
   createInstancePaymentOption(data: any): Promise<any>;
   updateInstancePaymentOption(id: string, data: any): Promise<any | undefined>;
@@ -1277,6 +1278,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Instance Payment Options
+  async getInstancePaymentOption(id: string): Promise<any | undefined> {
+    const [option] = await db.select().from(instancePaymentOptions).where(eq(instancePaymentOptions.id, id));
+    return option || undefined;
+  }
+
   async getInstancePaymentOptions(instanceId: string, instanceType: string): Promise<any[]> {
     return await db.select().from(instancePaymentOptions).where(
       and(eq(instancePaymentOptions.instanceId, instanceId), eq(instancePaymentOptions.instanceType, instanceType))
