@@ -13050,6 +13050,7 @@ export async function registerRoutes(
     try {
       const countryFilter = req.query.country as string | undefined;
       const productIdFilter = req.query.productId as string | undefined;
+      console.log("[ProductSets] Fetching sets - country:", countryFilter, "productId:", productIdFilter);
       
       // If productId is provided, get sets for that product only
       if (productIdFilter) {
@@ -13060,7 +13061,9 @@ export async function registerRoutes(
         const product = await storage.getProduct(productIdFilter);
         
         // Enrich each set with collections and storage components
+        console.log("[ProductSets] Found", sets.length, "sets for product", productIdFilter);
         const enrichedSets = await Promise.all(sets.map(s => enrichBillsetWithComponents(s, product?.name)));
+        console.log("[ProductSets] Returning", enrichedSets.length, "enriched sets");
         return res.json(enrichedSets);
       }
       
