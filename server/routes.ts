@@ -12943,6 +12943,109 @@ export async function registerRoutes(
   }
   
   // Get all product sets (for contract product selection)
+  // Helper function to enrich a billset with its collections and storage components
+  async function enrichBillsetWithComponents(set: any, productName?: string) {
+    const collections = await storage.getProductSetCollections(set.id);
+    const storageItems = await storage.getProductSetStorage(set.id);
+    
+    // Enrich collections with instance names and price details
+    const enrichedCollections = await Promise.all(collections.map(async (col: any) => {
+      let enriched = { ...col };
+      if (col.instanceId) {
+        const instance = await storage.getMarketProductInstance(col.instanceId);
+        enriched.instanceName = instance?.name || null;
+      }
+      if (col.priceId) {
+        const price = await storage.getInstancePrice(col.priceId);
+        enriched.priceName = price?.name || null;
+        enriched.priceAmount = price?.price || null;
+      }
+      if (col.discountId) {
+        const discount = await storage.getInstanceDiscount(col.discountId);
+        enriched.discountName = discount?.name || null;
+        enriched.discountPercent = discount?.percentageValue || null;
+        enriched.discountFixed = discount?.fixedValue || null;
+      }
+      if (col.vatRateId) {
+        const vat = await storage.getInstanceVatRate(col.vatRateId);
+        enriched.vatName = vat?.name || null;
+        enriched.vatPercent = vat?.ratePercentage || null;
+        enriched.vatRate = vat?.ratePercentage || null;
+      }
+      if (col.paymentOptionId) {
+        const paymentOption = await storage.getInstancePaymentOption(col.paymentOptionId);
+        enriched.paymentType = paymentOption?.paymentType || null;
+        enriched.paymentOptionName = paymentOption?.name || null;
+      }
+      return enriched;
+    }));
+    
+    // Enrich storage with service names and price details
+    const enrichedStorage = await Promise.all(storageItems.map(async (stor: any) => {
+      let enriched = { ...stor };
+      if (stor.serviceId) {
+        const service = await storage.getMarketProductService(stor.serviceId);
+        enriched.serviceName = service?.name || null;
+      }
+      if (stor.priceId) {
+        const price = await storage.getInstancePrice(stor.priceId);
+        enriched.priceName = price?.name || null;
+        enriched.priceAmount = price?.price || null;
+      }
+      if (stor.discountId) {
+        const discount = await storage.getInstanceDiscount(stor.discountId);
+        enriched.discountName = discount?.name || null;
+        enriched.discountPercent = discount?.percentageValue || null;
+        enriched.discountFixed = discount?.fixedValue || null;
+      }
+      if (stor.vatRateId) {
+        const vat = await storage.getInstanceVatRate(stor.vatRateId);
+        enriched.vatName = vat?.name || null;
+        enriched.vatPercent = vat?.ratePercentage || null;
+        enriched.vatRate = vat?.ratePercentage || null;
+      }
+      if (stor.paymentOptionId) {
+        const paymentOption = await storage.getInstancePaymentOption(stor.paymentOptionId);
+        enriched.paymentType = paymentOption?.paymentType || null;
+        enriched.paymentOptionName = paymentOption?.name || null;
+      }
+      return enriched;
+    }));
+    
+    // Calculate totals
+    let totalNet = 0;
+    let totalVat = 0;
+    let totalGross = 0;
+    let totalDiscount = 0;
+    
+    for (const col of enrichedCollections) {
+      totalNet += parseFloat(col.lineNetAmount || "0");
+      totalVat += parseFloat(col.lineVatAmount || "0");
+      totalGross += parseFloat(col.lineGrossAmount || "0");
+      totalDiscount += parseFloat(col.lineDiscountAmount || "0");
+    }
+    
+    for (const stor of enrichedStorage) {
+      totalNet += parseFloat(stor.lineNetAmount || "0");
+      totalVat += parseFloat(stor.lineVatAmount || "0");
+      totalGross += parseFloat(stor.lineGrossAmount || "0");
+      totalDiscount += parseFloat(stor.lineDiscountAmount || "0");
+    }
+    
+    return {
+      ...set,
+      productName: productName || null,
+      collections: enrichedCollections,
+      storage: enrichedStorage,
+      calculatedTotals: {
+        totalNetAmount: totalNet.toFixed(2),
+        totalGrossAmount: totalGross.toFixed(2),
+        totalVatAmount: totalVat.toFixed(2),
+        totalDiscountAmount: totalDiscount.toFixed(2)
+      }
+    };
+  }
+
   app.get("/api/product-sets", requireAuth, async (req, res) => {
     try {
       const countryFilter = req.query.country as string | undefined;
@@ -12956,20 +13059,8 @@ export async function registerRoutes(
         }
         const product = await storage.getProduct(productIdFilter);
         
-        // Calculate totals for each set
-        const enrichedSets = await Promise.all(sets.map(async (s) => {
-          const totals = await calculateBillsetTotals(s.id);
-          return {
-            ...s,
-            productName: product?.name || "",
-            calculatedTotals: {
-              totalNetAmount: totals.totalNet.toFixed(2),
-              totalGrossAmount: totals.totalGross.toFixed(2),
-              totalVatAmount: totals.totalVat.toFixed(2),
-              totalDiscountAmount: totals.totalDiscount.toFixed(2)
-            }
-          };
-        }));
+        // Enrich each set with collections and storage components
+        const enrichedSets = await Promise.all(sets.map(s => enrichBillsetWithComponents(s, product?.name)));
         return res.json(enrichedSets);
       }
       
@@ -12981,17 +13072,8 @@ export async function registerRoutes(
         const sets = await storage.getProductSets(product.id);
         for (const set of sets) {
           if (!countryFilter || !set.countryCode || set.countryCode.toUpperCase() === countryFilter.toUpperCase()) {
-            const totals = await calculateBillsetTotals(set.id);
-            allSets.push({
-              ...set,
-              productName: product.name,
-              calculatedTotals: {
-                totalNetAmount: totals.totalNet.toFixed(2),
-                totalGrossAmount: totals.totalGross.toFixed(2),
-                totalVatAmount: totals.totalVat.toFixed(2),
-                totalDiscountAmount: totals.totalDiscount.toFixed(2)
-              }
-            });
+            const enrichedSet = await enrichBillsetWithComponents(set, product.name);
+            allSets.push(enrichedSet);
           }
         }
       }

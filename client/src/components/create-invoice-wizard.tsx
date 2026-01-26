@@ -303,6 +303,39 @@ export function CreateInvoiceWizard({
   const countryCode = customerCountry || customer?.country || "SK";
   const constantSymbols = CONSTANT_SYMBOLS[countryCode] || CONSTANT_SYMBOLS["SK"];
 
+  type ProductSetCollection = {
+    id: string;
+    instanceName: string | null;
+    priceName: string | null;
+    priceAmount: string | null;
+    quantity: number;
+    lineNetAmount: string | null;
+    lineGrossAmount: string | null;
+    lineDiscountAmount: string | null;
+    lineVatAmount: string | null;
+    discountPercent: string | null;
+    discountName: string | null;
+    paymentType: string | null;
+    vatRate: string | null;
+  };
+
+  type ProductSetStorage = {
+    id: string;
+    storageName: string | null;
+    storageType: string | null;
+    serviceName: string | null;
+    priceOverride: string | null;
+    quantity: number;
+    lineNetAmount: string | null;
+    lineGrossAmount: string | null;
+    lineDiscountAmount: string | null;
+    lineVatAmount: string | null;
+    discountPercent: string | null;
+    discountName: string | null;
+    paymentType: string | null;
+    vatRate: string | null;
+  };
+
   type ProductSet = {
     id: string;
     name: string;
@@ -313,6 +346,8 @@ export function CreateInvoiceWizard({
     totalGrossAmount: string | null;
     totalNetAmount: string | null;
     isActive: boolean;
+    collections?: ProductSetCollection[];
+    storage?: ProductSetStorage[];
     calculatedTotals?: {
       totalNetAmount: string;
       totalGrossAmount: string;
@@ -453,22 +488,22 @@ export function CreateInvoiceWizard({
 
   // Auto-select assigned product and load billset components - runs ONCE on mount
   useEffect(() => {
-    console.log("[Invoice v2.4] useEffect triggered - customerId:", customerId, "customerProducts:", customerProducts.length, "billsetLoaded:", billsetLoaded);
+    console.log("[Invoice v2.5] useEffect triggered - customerId:", customerId, "customerProducts:", customerProducts.length, "billsetLoaded:", billsetLoaded);
     if (customerId && customerProducts.length > 0 && !billsetLoaded) {
       const assignedProduct = customerProducts[0];
-      console.log("[Invoice v2.4] Assigned product:", assignedProduct);
+      console.log("[Invoice v2.5] Assigned product:", assignedProduct);
       if (assignedProduct?.productId) {
         setSelectedProductId(assignedProduct.productId);
         // Auto-add assigned billset if available
         if (assignedProduct.billsetId) {
           const billset = productSets.find(ps => ps.id === assignedProduct.billsetId);
-          console.log("[Invoice v2.4] Found billset:", billset?.name);
+          console.log("[Invoice v2.5] Found billset:", billset?.name);
           if (billset) {
             setBillsetLoaded(true);
             // Clear items and load billset components
             setItems([]);
             // Use void to properly handle async function in useEffect
-            void addItemFromBillset(billset);
+            addItemFromBillset(billset);
           }
         }
       }
@@ -537,118 +572,84 @@ export function CreateInvoiceWizard({
     return `${currencyCode} ${amount.toFixed(2)}`;
   };
 
-  const addItemFromBillset = async (billset: ProductSet) => {
-    console.log("[Invoice v2.4] addItemFromBillset called for:", billset.id, billset.name);
+  const addItemFromBillset = (billset: ProductSet) => {
+    console.log("[Invoice v2.5] addItemFromBillset called for:", billset.id, billset.name);
+    console.log("[Invoice v2.5] Billset has collections:", billset.collections?.length || 0, "storage:", billset.storage?.length || 0);
     setIsAddingBillset(billset.id);
     
-    // Fetch billset details to get individual components
-    try {
-      const url = `/api/product-sets/${billset.id}`;
-      console.log("[Invoice v2.4] Fetching from:", url);
-      const response = await fetch(url, {
-        method: "GET",
-        credentials: "include",
-      });
-      console.log("[Invoice v2.4] Response status:", response.status, response.statusText);
-      if (!response.ok) {
-        const errText = await response.text();
-        console.error("[Invoice v2.4] Error response:", errText);
-        throw new Error(`HTTP ${response.status}: ${errText}`);
-      }
-      const details: ProductSetDetail = await response.json();
-      console.log("[Invoice v2.4] Fetched billset details:", details);
-      console.log("[Invoice] Billset details:", JSON.stringify(details, null, 2));
-      const newItems: InvoiceItem[] = [];
-      
-      // Add collection components
-      if (details.collections && details.collections.length > 0) {
-        for (const col of details.collections) {
-          // Use lineGrossAmount for VAT items, lineNetAmount for non-VAT items
-          const hasVat = col.vatRate && parseFloat(String(col.vatRate)) > 0;
-          const itemTotal = hasVat 
-            ? (col.lineGrossAmount || col.lineNetAmount || col.priceAmount || "0")
-            : (col.lineNetAmount || col.priceAmount || "0");
-          const discountInfo = parseFloat(col.lineDiscountAmount || "0") > 0 
-            ? ` (-${col.discountPercent}% ${col.discountName || ""})` 
-            : "";
-          const paymentInfo = col.paymentType === "installment" ? " [Splátka]" : "";
-          const qty = col.quantity || 1;
-          
-          // VAT rate: use component's VAT or 0 if not set (no VAT)
-          const vatRateValue = col.vatRate !== undefined && col.vatRate !== null && col.vatRate !== "" 
-            ? String(col.vatRate) 
-            : "0";
-          
-          console.log(`[Invoice] Collection ${col.instanceName}: vatRate=${vatRateValue}, total=${itemTotal}, hasVat=${hasVat}`);
-          
-          newItems.push({
-            id: crypto.randomUUID(),
-            name: `${col.instanceName || "Odber"}${paymentInfo}${discountInfo}`,
-            quantity: qty,
-            unitPrice: (parseFloat(itemTotal) / qty).toFixed(2),
-            vatRate: vatRateValue,
-            total: itemTotal,
-            billsetId: billset.id,
-          });
-        }
-      }
-      
-      // Add storage components
-      if (details.storage && details.storage.length > 0) {
-        for (const stor of details.storage) {
-          // Use lineGrossAmount for VAT items, lineNetAmount for non-VAT items
-          const hasVat = stor.vatRate && parseFloat(String(stor.vatRate)) > 0;
-          const itemTotal = hasVat 
-            ? (stor.lineGrossAmount || stor.lineNetAmount || stor.priceOverride || "0")
-            : (stor.lineNetAmount || stor.priceOverride || "0");
-          const discountInfo = parseFloat(stor.lineDiscountAmount || "0") > 0 
-            ? ` (-${stor.discountPercent}% ${stor.discountName || ""})` 
-            : "";
-          const paymentInfo = stor.paymentType === "installment" ? " [Splátka]" : "";
-          const qty = stor.quantity || 1;
-          
-          // VAT rate: use component's VAT or 0 if not set (no VAT)
-          const vatRateValue = stor.vatRate !== undefined && stor.vatRate !== null && stor.vatRate !== "" 
-            ? String(stor.vatRate) 
-            : "0";
-          
-          console.log(`[Invoice] Storage ${stor.serviceName}: vatRate=${vatRateValue}, total=${itemTotal}, hasVat=${hasVat}`);
-          
-          newItems.push({
-            id: crypto.randomUUID(),
-            name: `${stor.serviceName || stor.storageName || "Uskladnenie"}${paymentInfo}${discountInfo}`,
-            quantity: qty,
-            unitPrice: (parseFloat(itemTotal) / qty).toFixed(2),
-            vatRate: vatRateValue,
-            total: itemTotal,
-            billsetId: billset.id,
-          });
-        }
-      }
-      
-      // If no components found, add single summary item
-      if (newItems.length === 0) {
-        const totalAmount = billset.calculatedTotals?.totalGrossAmount || billset.totalGrossAmount || billset.totalNetAmount || "0";
+    const newItems: InvoiceItem[] = [];
+    
+    // Add collection components - data is already in billset from /api/product-sets
+    if (billset.collections && billset.collections.length > 0) {
+      for (const col of billset.collections) {
+        // Use lineGrossAmount for VAT items, lineNetAmount for non-VAT items
+        const hasVat = col.vatRate && parseFloat(String(col.vatRate)) > 0;
+        const itemTotal = hasVat 
+          ? (col.lineGrossAmount || col.lineNetAmount || col.priceAmount || "0")
+          : (col.lineNetAmount || col.priceAmount || "0");
+        const discountInfo = parseFloat(col.lineDiscountAmount || "0") > 0 
+          ? ` (-${col.discountPercent}% ${col.discountName || ""})` 
+          : "";
+        const paymentInfo = col.paymentType === "installment" ? " [Splátka]" : "";
+        const qty = col.quantity || 1;
+        
+        // VAT rate: use component's VAT or 0 if not set (no VAT)
+        const vatRateValue = col.vatRate !== undefined && col.vatRate !== null && col.vatRate !== "" 
+          ? String(col.vatRate) 
+          : "0";
+        
+        console.log(`[Invoice v2.5] Collection ${col.instanceName}: vatRate=${vatRateValue}, total=${itemTotal}, hasVat=${hasVat}`);
+        
         newItems.push({
           id: crypto.randomUUID(),
-          name: billset.name,
-          quantity: 1,
-          unitPrice: totalAmount,
-          vatRate: billingInfo?.defaultVatRate || "20",
-          total: totalAmount,
+          name: `${col.instanceName || "Odber"}${paymentInfo}${discountInfo}`,
+          quantity: qty,
+          unitPrice: (parseFloat(itemTotal) / qty).toFixed(2),
+          vatRate: vatRateValue,
+          total: itemTotal,
           billsetId: billset.id,
         });
       }
-      
-      console.log("[Invoice] Adding", newItems.length, "items from billset");
-      setItems(prev => [...prev, ...newItems]);
-      setSelectedBillsetId(billset.id);
-      setIsAddingBillset(null);
-    } catch (error) {
-      console.error("Failed to fetch billset details:", error);
-      // Fallback to single item
+    }
+    
+    // Add storage components - data is already in billset from /api/product-sets
+    if (billset.storage && billset.storage.length > 0) {
+      for (const stor of billset.storage) {
+        // Use lineGrossAmount for VAT items, lineNetAmount for non-VAT items
+        const hasVat = stor.vatRate && parseFloat(String(stor.vatRate)) > 0;
+        const itemTotal = hasVat 
+          ? (stor.lineGrossAmount || stor.lineNetAmount || stor.priceOverride || "0")
+          : (stor.lineNetAmount || stor.priceOverride || "0");
+        const discountInfo = parseFloat(stor.lineDiscountAmount || "0") > 0 
+          ? ` (-${stor.discountPercent}% ${stor.discountName || ""})` 
+          : "";
+        const paymentInfo = stor.paymentType === "installment" ? " [Splátka]" : "";
+        const qty = stor.quantity || 1;
+        
+        // VAT rate: use component's VAT or 0 if not set (no VAT)
+        const vatRateValue = stor.vatRate !== undefined && stor.vatRate !== null && stor.vatRate !== "" 
+          ? String(stor.vatRate) 
+          : "0";
+        
+        console.log(`[Invoice v2.5] Storage ${stor.serviceName}: vatRate=${vatRateValue}, total=${itemTotal}, hasVat=${hasVat}`);
+        
+        newItems.push({
+          id: crypto.randomUUID(),
+          name: `${stor.serviceName || stor.storageName || "Uskladnenie"}${paymentInfo}${discountInfo}`,
+          quantity: qty,
+          unitPrice: (parseFloat(itemTotal) / qty).toFixed(2),
+          vatRate: vatRateValue,
+          total: itemTotal,
+          billsetId: billset.id,
+        });
+      }
+    }
+    
+    // If no components found, add single summary item
+    if (newItems.length === 0) {
       const totalAmount = billset.calculatedTotals?.totalGrossAmount || billset.totalGrossAmount || billset.totalNetAmount || "0";
-      const newItem: InvoiceItem = {
+      console.log("[Invoice v2.5] No components found, adding summary item with total:", totalAmount);
+      newItems.push({
         id: crypto.randomUUID(),
         name: billset.name,
         quantity: 1,
@@ -656,12 +657,15 @@ export function CreateInvoiceWizard({
         vatRate: billingInfo?.defaultVatRate || "20",
         total: totalAmount,
         billsetId: billset.id,
-      };
-      setItems(prev => [...prev, newItem]);
-      setSelectedBillsetId(billset.id);
-      setIsAddingBillset(null);
+      });
     }
+    
+    console.log("[Invoice v2.5] Adding", newItems.length, "items from billset");
+    setItems(prev => [...prev, ...newItems]);
+    setSelectedBillsetId(billset.id);
+    setIsAddingBillset(null);
   };
+
 
   const removeItem = (itemId: string) => {
     setItems(prev => prev.filter(i => i.id !== itemId));
@@ -1428,7 +1432,7 @@ export function CreateInvoiceWizard({
                                       type="button"
                                       variant={items.some(i => i.billsetId === billset.id) ? "default" : "ghost"}
                                       size="icon"
-                                      onClick={(e) => { e.stopPropagation(); void addItemFromBillset(billset); }}
+                                      onClick={(e) => { e.stopPropagation(); addItemFromBillset(billset); }}
                                       disabled={items.some(i => i.billsetId === billset.id) || isAddingBillset === billset.id}
                                       data-testid={`btn-add-item-${billset.id}`}
                                     >
@@ -1447,7 +1451,7 @@ export function CreateInvoiceWizard({
                       <CardHeader>
                         <CardTitle className="text-sm flex items-center gap-2">
                           {t.invoices?.selectedItems || "Selected Items"} ({items.length})
-                          <Badge variant="outline" className="text-xs bg-blue-100 text-blue-800">v2.4</Badge>
+                          <Badge variant="outline" className="text-xs bg-blue-100 text-blue-800">v2.5</Badge>
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
