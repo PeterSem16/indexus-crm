@@ -574,98 +574,111 @@ export function CreateInvoiceWizard({
     return `${currencyCode} ${amount.toFixed(2)}`;
   };
 
-  const addItemFromBillset = (billset: ProductSet) => {
-    console.log("[Invoice v2.6] addItemFromBillset called for:", billset.id, billset.name);
-    console.log("[Invoice v2.6] Billset has collections:", billset.collections?.length || 0, "storage:", billset.storage?.length || 0);
+  const addItemFromBillset = async (billset: ProductSet) => {
+    console.log("[Invoice v2.7] addItemFromBillset called for:", billset.id, billset.name);
     setIsAddingBillset(billset.id);
     
-    const newItems: InvoiceItem[] = [];
-    
-    // Add collection components - data is already in billset from /api/product-sets
-    if (billset.collections && billset.collections.length > 0) {
-      for (const col of billset.collections) {
-        // Use lineGrossAmount for VAT items, lineNetAmount for non-VAT items
-        const hasVat = col.vatRate && parseFloat(String(col.vatRate)) > 0;
-        const itemTotal = hasVat 
-          ? (col.lineGrossAmount || col.lineNetAmount || col.priceAmount || "0")
-          : (col.lineNetAmount || col.priceAmount || "0");
-        const discountInfo = parseFloat(col.lineDiscountAmount || "0") > 0 
-          ? ` (-${col.discountPercent}% ${col.discountName || ""})` 
-          : "";
-        const paymentInfo = col.paymentType === "installment" ? " [Splátka]" : "";
-        const qty = col.quantity || 1;
-        
-        // VAT rate: use component's VAT or 0 if not set (no VAT)
-        const vatRateValue = col.vatRate !== undefined && col.vatRate !== null && col.vatRate !== "" 
-          ? String(col.vatRate) 
-          : "0";
-        
-        console.log(`[Invoice v2.6] Collection ${col.instanceName}: vatRate=${vatRateValue}, total=${itemTotal}, hasVat=${hasVat}`);
-        
+    try {
+      // Fetch detailed billset data with enriched vatRate from API
+      const response = await fetch(`/api/product-sets/${billset.id}`, { credentials: "include" });
+      if (!response.ok) {
+        throw new Error("Failed to fetch billset details");
+      }
+      const detailedBillset = await response.json();
+      console.log("[Invoice v2.7] Fetched billset details, collections:", detailedBillset.collections?.length || 0, "storage:", detailedBillset.storage?.length || 0);
+      
+      const newItems: InvoiceItem[] = [];
+      
+      // Add collection components with vatRate from API
+      if (detailedBillset.collections && detailedBillset.collections.length > 0) {
+        for (const col of detailedBillset.collections) {
+          // Use lineGrossAmount for VAT items, lineNetAmount for non-VAT items
+          const vatRateValue = col.vatRate !== undefined && col.vatRate !== null && col.vatRate !== "" 
+            ? String(col.vatRate) 
+            : "0";
+          const hasVat = parseFloat(vatRateValue) > 0;
+          const itemTotal = hasVat 
+            ? (col.lineGrossAmount || col.lineNetAmount || col.priceAmount || "0")
+            : (col.lineNetAmount || col.priceAmount || "0");
+          const discountInfo = parseFloat(col.lineDiscountAmount || "0") > 0 
+            ? ` (-${col.discountPercent}% ${col.discountName || ""})` 
+            : "";
+          const paymentInfo = col.paymentType === "installment" ? " [Splátka]" : "";
+          const qty = col.quantity || 1;
+          
+          console.log(`[Invoice v2.7] Collection ${col.instanceName}: vatRate=${vatRateValue}, total=${itemTotal}, hasVat=${hasVat}`);
+          
+          newItems.push({
+            id: crypto.randomUUID(),
+            name: `${col.instanceName || "Odber"}${paymentInfo}${discountInfo}`,
+            quantity: qty,
+            unitPrice: (parseFloat(itemTotal) / qty).toFixed(2),
+            vatRate: vatRateValue,
+            total: itemTotal,
+            billsetId: billset.id,
+          });
+        }
+      }
+      
+      // Add storage components with vatRate from API
+      if (detailedBillset.storage && detailedBillset.storage.length > 0) {
+        for (const stor of detailedBillset.storage) {
+          // Use lineGrossAmount for VAT items, lineNetAmount for non-VAT items
+          const vatRateValue = stor.vatRate !== undefined && stor.vatRate !== null && stor.vatRate !== "" 
+            ? String(stor.vatRate) 
+            : "0";
+          const hasVat = parseFloat(vatRateValue) > 0;
+          const itemTotal = hasVat 
+            ? (stor.lineGrossAmount || stor.lineNetAmount || stor.priceOverride || "0")
+            : (stor.lineNetAmount || stor.priceOverride || "0");
+          const discountInfo = parseFloat(stor.lineDiscountAmount || "0") > 0 
+            ? ` (-${stor.discountPercent}% ${stor.discountName || ""})` 
+            : "";
+          const paymentInfo = stor.paymentType === "installment" ? " [Splátka]" : "";
+          const qty = stor.quantity || 1;
+          
+          console.log(`[Invoice v2.7] Storage ${stor.serviceName}: vatRate=${vatRateValue}, total=${itemTotal}, hasVat=${hasVat}`);
+          
+          newItems.push({
+            id: crypto.randomUUID(),
+            name: `${stor.serviceName || stor.storageName || "Uskladnenie"}${paymentInfo}${discountInfo}`,
+            quantity: qty,
+            unitPrice: (parseFloat(itemTotal) / qty).toFixed(2),
+            vatRate: vatRateValue,
+            total: itemTotal,
+            billsetId: billset.id,
+          });
+        }
+      }
+      
+      // If no components found, add single summary item
+      if (newItems.length === 0) {
+        const totalAmount = detailedBillset.calculatedTotals?.totalGrossAmount || detailedBillset.totalGrossAmount || detailedBillset.totalNetAmount || "0";
+        console.log("[Invoice v2.7] No components found, adding summary item with total:", totalAmount);
         newItems.push({
           id: crypto.randomUUID(),
-          name: `${col.instanceName || "Odber"}${paymentInfo}${discountInfo}`,
-          quantity: qty,
-          unitPrice: (parseFloat(itemTotal) / qty).toFixed(2),
-          vatRate: vatRateValue,
-          total: itemTotal,
+          name: billset.name,
+          quantity: 1,
+          unitPrice: totalAmount,
+          vatRate: billingInfo?.defaultVatRate || "20",
+          total: totalAmount,
           billsetId: billset.id,
         });
       }
-    }
-    
-    // Add storage components - data is already in billset from /api/product-sets
-    if (billset.storage && billset.storage.length > 0) {
-      for (const stor of billset.storage) {
-        // Use lineGrossAmount for VAT items, lineNetAmount for non-VAT items
-        const hasVat = stor.vatRate && parseFloat(String(stor.vatRate)) > 0;
-        const itemTotal = hasVat 
-          ? (stor.lineGrossAmount || stor.lineNetAmount || stor.priceOverride || "0")
-          : (stor.lineNetAmount || stor.priceOverride || "0");
-        const discountInfo = parseFloat(stor.lineDiscountAmount || "0") > 0 
-          ? ` (-${stor.discountPercent}% ${stor.discountName || ""})` 
-          : "";
-        const paymentInfo = stor.paymentType === "installment" ? " [Splátka]" : "";
-        const qty = stor.quantity || 1;
-        
-        // VAT rate: use component's VAT or 0 if not set (no VAT)
-        const vatRateValue = stor.vatRate !== undefined && stor.vatRate !== null && stor.vatRate !== "" 
-          ? String(stor.vatRate) 
-          : "0";
-        
-        console.log(`[Invoice v2.6] Storage ${stor.serviceName}: vatRate=${vatRateValue}, total=${itemTotal}, hasVat=${hasVat}`);
-        
-        newItems.push({
-          id: crypto.randomUUID(),
-          name: `${stor.serviceName || stor.storageName || "Uskladnenie"}${paymentInfo}${discountInfo}`,
-          quantity: qty,
-          unitPrice: (parseFloat(itemTotal) / qty).toFixed(2),
-          vatRate: vatRateValue,
-          total: itemTotal,
-          billsetId: billset.id,
-        });
-      }
-    }
-    
-    // If no components found, add single summary item
-    if (newItems.length === 0) {
-      const totalAmount = billset.calculatedTotals?.totalGrossAmount || billset.totalGrossAmount || billset.totalNetAmount || "0";
-      console.log("[Invoice v2.6] No components found, adding summary item with total:", totalAmount);
-      newItems.push({
-        id: crypto.randomUUID(),
-        name: billset.name,
-        quantity: 1,
-        unitPrice: totalAmount,
-        vatRate: billingInfo?.defaultVatRate || "20",
-        total: totalAmount,
-        billsetId: billset.id,
+      
+      console.log("[Invoice v2.7] Adding", newItems.length, "items from billset");
+      setItems(prev => [...prev, ...newItems]);
+      setSelectedBillsetId(billset.id);
+    } catch (error) {
+      console.error("[Invoice v2.7] Failed to add billset:", error);
+      toast({
+        title: t.common?.error || "Error",
+        description: "Failed to load billset details",
+        variant: "destructive",
       });
+    } finally {
+      setIsAddingBillset(null);
     }
-    
-    console.log("[Invoice v2.6] Adding", newItems.length, "items from billset");
-    setItems(prev => [...prev, ...newItems]);
-    setSelectedBillsetId(billset.id);
-    setIsAddingBillset(null);
   };
 
 
