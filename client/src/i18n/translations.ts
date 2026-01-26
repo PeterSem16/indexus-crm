@@ -16,6 +16,7 @@ export interface Translations {
     customers: string;
     products: string;
     invoices: string;
+    customerInvoices: string;
     hospitalsAndClinics: string;
     collaborators: string;
     collaboratorReports: string;
@@ -2132,6 +2133,7 @@ export const translations: Record<Locale, Translations> = {
       customers: 'Customers',
       products: 'Products',
       invoices: 'Invoices Bulk',
+      customerInvoices: 'Invoices',
       hospitalsAndClinics: 'Hospitals & Clinics',
       collaborators: 'Collaborators',
       collaboratorReports: 'Reports',
@@ -4492,6 +4494,7 @@ export const translations: Record<Locale, Translations> = {
       customers: 'Zákazníci',
       products: 'Produkty',
       invoices: 'Faktúry hromadné',
+      customerInvoices: 'Faktúry',
       hospitalsAndClinics: 'Nemocnice & Ambulancie',
       collaborators: 'Spolupracovníci',
       collaboratorReports: 'Reporty',
@@ -6845,6 +6848,7 @@ export const translations: Record<Locale, Translations> = {
       customers: 'Zákazníci',
       products: 'Produkty',
       invoices: 'Faktury hromadné',
+      customerInvoices: 'Faktury',
       hospitalsAndClinics: 'Nemocnice & Ambulance',
       collaborators: 'Spolupracovníci',
       collaboratorReports: 'Reporty',
@@ -9078,6 +9082,7 @@ export const translations: Record<Locale, Translations> = {
       customers: 'Ügyfelek',
       products: 'Termékek',
       invoices: 'Számlák tömeges',
+      customerInvoices: 'Számlák',
       hospitalsAndClinics: 'Korhazak & Klinikak',
       collaborators: 'Munkatársak',
       collaboratorReports: 'Jelentések',
@@ -11311,6 +11316,7 @@ export const translations: Record<Locale, Translations> = {
       customers: 'Clienți',
       products: 'Produse',
       invoices: 'Facturi în masă',
+      customerInvoices: 'Facturi',
       hospitalsAndClinics: 'Spitale & Clinici',
       collaborators: 'Colaboratori',
       collaboratorReports: 'Rapoarte',
@@ -13543,6 +13549,7 @@ export const translations: Record<Locale, Translations> = {
       customers: 'Clienti',
       products: 'Prodotti',
       invoices: 'Fatture in blocco',
+      customerInvoices: 'Fatture',
       hospitalsAndClinics: 'Ospedali & Cliniche',
       collaborators: 'Collaboratori',
       collaboratorReports: 'Report',
@@ -15776,6 +15783,7 @@ export const translations: Record<Locale, Translations> = {
       customers: 'Kunden',
       products: 'Produkte',
       invoices: 'Rechnungen Bulk',
+      customerInvoices: 'Rechnungen',
       hospitalsAndClinics: 'Krankenhauser & Kliniken',
       collaborators: 'Mitarbeiter',
       collaboratorReports: 'Berichte',

@@ -81,6 +81,7 @@ export function AppSidebar() {
     { title: t.nav.customers, url: "/customers", testId: "customers", moduleKey: "customers" },
     { title: t.nav.contracts, url: "/contracts", testId: "contracts", moduleKey: "contracts" },
     { title: t.nav.collections, url: "/collections", testId: "collections", moduleKey: "collections" },
+    { title: t.nav.customerInvoices, url: "/customer-invoices", testId: "customer-invoices", moduleKey: "invoices" },
   ];
 
   const collaboratorSubItems = [
