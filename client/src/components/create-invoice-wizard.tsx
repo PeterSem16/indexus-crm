@@ -223,7 +223,6 @@ export function CreateInvoiceWizard({
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(0);
   const [items, setItems] = useState<InvoiceItem[]>([]);
-  const [generatedInvoiceNumber, setGeneratedInvoiceNumber] = useState<string>("");
   const [selectedProductId, setSelectedProductId] = useState<string>("");
 
   const today = new Date();
@@ -333,13 +332,23 @@ export function CreateInvoiceWizard({
 
   const filteredInstancePrices = useMemo(() => {
     if (!selectedProductId || productInstances.length === 0) return [];
-    const instanceIds = productInstances
-      .filter(pi => pi.isActive && pi.countryCode === countryCode)
-      .map(pi => pi.id);
+    // Get instances for selected product and country
+    let relevantInstances = productInstances.filter(pi => 
+      pi.isActive && 
+      pi.productId === selectedProductId && 
+      pi.countryCode === countryCode
+    );
+    // Fallback to all active instances for selected product if no country match
+    if (relevantInstances.length === 0) {
+      relevantInstances = productInstances.filter(pi => 
+        pi.isActive && 
+        pi.productId === selectedProductId
+      );
+    }
+    const instanceIds = relevantInstances.map(pi => pi.id);
     return instancePrices.filter(ip => 
       ip.isActive && 
-      instanceIds.includes(ip.instanceId) &&
-      (!ip.countryCode || ip.countryCode === countryCode)
+      instanceIds.includes(ip.instanceId)
     );
   }, [instancePrices, productInstances, selectedProductId, countryCode]);
 
@@ -371,23 +380,6 @@ export function CreateInvoiceWizard({
     return `${selectedNumberRange.prefix || ""}${String(nextNumber).padStart(selectedNumberRange.digitsToGenerate || 6, "0")}${selectedNumberRange.suffix || ""}`;
   }, [selectedNumberRange]);
 
-  const generateInvoiceNumberMutation = useMutation({
-    mutationFn: async (numberRangeId: string) => {
-      const response = await apiRequest("POST", `/api/configurator/number-ranges/${numberRangeId}/generate`);
-      return response.json();
-    },
-    onSuccess: (data) => {
-      setGeneratedInvoiceNumber(data.invoiceNumber);
-      form.setValue("variableSymbol", data.invoiceNumber);
-    },
-    onError: () => {
-      toast({
-        title: t.common?.error || "Error",
-        description: "Failed to generate invoice number",
-        variant: "destructive",
-      });
-    },
-  });
 
   const createInvoiceMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -415,7 +407,6 @@ export function CreateInvoiceWizard({
   const handleClose = () => {
     setCurrentStep(0);
     setItems([]);
-    setGeneratedInvoiceNumber("");
     setSelectedProductId("");
     form.reset();
     onClose();
@@ -423,9 +414,6 @@ export function CreateInvoiceWizard({
 
   const handleNumberRangeChange = (numberRangeId: string) => {
     form.setValue("numberRangeId", numberRangeId);
-    if (numberRangeId) {
-      generateInvoiceNumberMutation.mutate(numberRangeId);
-    }
   };
 
   const setToday = (prefix: "issueDate" | "dueDate" | "deliveryDate") => {
@@ -469,9 +457,26 @@ export function CreateInvoiceWizard({
     return { subtotal, vatAmount, total };
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const values = form.getValues();
     const totals = calculateTotals();
+
+    // Generate invoice number on final submission
+    let invoiceNumber = "";
+    if (values.numberRangeId) {
+      try {
+        const response = await apiRequest("POST", `/api/configurator/number-ranges/${values.numberRangeId}/generate`);
+        const data = await response.json();
+        invoiceNumber = data.invoiceNumber;
+      } catch (error) {
+        toast({
+          title: t.common?.error || "Error",
+          description: "Failed to generate invoice number",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
 
     const issueDate = new Date(values.issueDateYear, values.issueDateMonth - 1, values.issueDateDay);
     const dueDate = new Date(values.dueDateYear, values.dueDateMonth - 1, values.dueDateDay);
@@ -479,17 +484,17 @@ export function CreateInvoiceWizard({
       new Date(values.deliveryDateYear, (values.deliveryDateMonth || 1) - 1, values.deliveryDateDay || 1) : null;
 
     const invoiceData = {
-      invoiceNumber: generatedInvoiceNumber,
+      invoiceNumber,
       customerId: values.customerId || customerId,
       billingDetailsId: billingInfo?.id,
       issueDate: issueDate.toISOString(),
       dueDate: dueDate.toISOString(),
       deliveryDate: deliveryDate?.toISOString(),
-      variableSymbol: values.variableSymbol,
+      variableSymbol: values.variableSymbol || invoiceNumber,
       constantSymbol: values.constantSymbol,
       specificSymbol: values.specificSymbol,
       barcodeType: values.barcodeType,
-      barcodeValue: values.barcodeValue || generatedInvoiceNumber,
+      barcodeValue: values.barcodeValue || invoiceNumber,
       subtotal: totals.subtotal.toFixed(2),
       vatRate: billingInfo?.defaultVatRate || "20",
       vatAmount: totals.vatAmount.toFixed(2),
@@ -519,7 +524,7 @@ export function CreateInvoiceWizard({
 
   const canProceed = () => {
     switch (currentStep) {
-      case 0: return !!generatedInvoiceNumber;
+      case 0: return !!form.watch("numberRangeId");
       case 1: return true;
       case 2: return true;
       case 3: return items.length > 0;
@@ -635,31 +640,19 @@ export function CreateInvoiceWizard({
                     )}
                   />
 
-                  {(selectedNumberRange || generatedInvoiceNumber) && (
+                  {selectedNumberRange && previewInvoiceNumber && (
                     <Card>
                       <CardContent className="pt-4">
                         <div className="flex items-center justify-between">
                           <div>
-                            <Label className="text-muted-foreground">{t.invoices?.generatedNumber || "Generated Invoice Number"}</Label>
-                            {generateInvoiceNumberMutation.isPending ? (
-                              <div className="flex items-center gap-2">
-                                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                                <span className="text-lg text-muted-foreground">{previewInvoiceNumber}</span>
-                              </div>
-                            ) : generatedInvoiceNumber ? (
-                              <p className="text-2xl font-bold text-primary" data-testid="text-generated-invoice-number">{generatedInvoiceNumber}</p>
-                            ) : previewInvoiceNumber ? (
-                              <p className="text-2xl font-bold text-muted-foreground" data-testid="text-preview-invoice-number">{previewInvoiceNumber}</p>
-                            ) : null}
+                            <Label className="text-muted-foreground">{t.invoices?.nextNumber || "Next Invoice Number"}</Label>
+                            <p className="text-2xl font-bold text-muted-foreground" data-testid="text-preview-invoice-number">{previewInvoiceNumber}</p>
                           </div>
-                          {generatedInvoiceNumber ? (
-                            <Badge variant="secondary">{t.invoices?.statusGenerated || "Generated"}</Badge>
-                          ) : generateInvoiceNumberMutation.isPending ? (
-                            <Badge variant="outline">{t.common?.loading || "Loading..."}</Badge>
-                          ) : (
-                            <Badge variant="outline">{t.invoices?.preview || "Preview"}</Badge>
-                          )}
+                          <Badge variant="outline">{t.invoices?.preview || "Preview"}</Badge>
                         </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          {t.invoices?.previewNote || "Final number will be generated when invoice is created"}
+                        </p>
                       </CardContent>
                     </Card>
                   )}
@@ -953,7 +946,7 @@ export function CreateInvoiceWizard({
                         <FormItem>
                           <FormLabel>{t.invoices?.barcodeValue || "Barcode Value"}</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder={generatedInvoiceNumber || "..."} data-testid="input-barcode-value" />
+                            <Input {...field} placeholder={previewInvoiceNumber || "..."} data-testid="input-barcode-value" />
                           </FormControl>
                           <p className="text-xs text-muted-foreground">{t.invoices?.barcodeValueNote || "Leave empty to use invoice number"}</p>
                         </FormItem>
@@ -1103,7 +1096,7 @@ export function CreateInvoiceWizard({
                       <CardContent className="space-y-3">
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">{t.invoices?.invoiceNumber || "Invoice Number"}</span>
-                          <span className="font-medium" data-testid="summary-invoice-number">{generatedInvoiceNumber}</span>
+                          <span className="font-medium" data-testid="summary-invoice-number">{previewInvoiceNumber} <Badge variant="outline" className="ml-2">{t.invoices?.preview || "Preview"}</Badge></span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">{t.invoices?.issueDate || "Issue Date"}</span>
