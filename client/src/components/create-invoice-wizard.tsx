@@ -481,23 +481,25 @@ export function CreateInvoiceWizard({
 
   const filteredProductSets = useMemo(() => {
     if (!selectedProductId) return [];
-    return productSets.filter(ps => 
-      ps.isActive && ps.productId === selectedProductId
-    );
+    // API already filters by productId, just filter by isActive
+    console.log("[Invoice v2.6] productSets:", productSets.length, "selectedProductId:", selectedProductId);
+    const filtered = productSets.filter(ps => ps.isActive);
+    console.log("[Invoice v2.6] filteredProductSets:", filtered.length);
+    return filtered;
   }, [productSets, selectedProductId]);
 
   // Auto-select assigned product and load billset components - runs ONCE on mount
   useEffect(() => {
-    console.log("[Invoice v2.5] useEffect triggered - customerId:", customerId, "customerProducts:", customerProducts.length, "billsetLoaded:", billsetLoaded);
+    console.log("[Invoice v2.6] useEffect triggered - customerId:", customerId, "customerProducts:", customerProducts.length, "billsetLoaded:", billsetLoaded);
     if (customerId && customerProducts.length > 0 && !billsetLoaded) {
       const assignedProduct = customerProducts[0];
-      console.log("[Invoice v2.5] Assigned product:", assignedProduct);
+      console.log("[Invoice v2.6] Assigned product:", assignedProduct);
       if (assignedProduct?.productId) {
         setSelectedProductId(assignedProduct.productId);
         // Auto-add assigned billset if available
         if (assignedProduct.billsetId) {
           const billset = productSets.find(ps => ps.id === assignedProduct.billsetId);
-          console.log("[Invoice v2.5] Found billset:", billset?.name);
+          console.log("[Invoice v2.6] Found billset:", billset?.name);
           if (billset) {
             setBillsetLoaded(true);
             // Clear items and load billset components
@@ -573,8 +575,8 @@ export function CreateInvoiceWizard({
   };
 
   const addItemFromBillset = (billset: ProductSet) => {
-    console.log("[Invoice v2.5] addItemFromBillset called for:", billset.id, billset.name);
-    console.log("[Invoice v2.5] Billset has collections:", billset.collections?.length || 0, "storage:", billset.storage?.length || 0);
+    console.log("[Invoice v2.6] addItemFromBillset called for:", billset.id, billset.name);
+    console.log("[Invoice v2.6] Billset has collections:", billset.collections?.length || 0, "storage:", billset.storage?.length || 0);
     setIsAddingBillset(billset.id);
     
     const newItems: InvoiceItem[] = [];
@@ -598,7 +600,7 @@ export function CreateInvoiceWizard({
           ? String(col.vatRate) 
           : "0";
         
-        console.log(`[Invoice v2.5] Collection ${col.instanceName}: vatRate=${vatRateValue}, total=${itemTotal}, hasVat=${hasVat}`);
+        console.log(`[Invoice v2.6] Collection ${col.instanceName}: vatRate=${vatRateValue}, total=${itemTotal}, hasVat=${hasVat}`);
         
         newItems.push({
           id: crypto.randomUUID(),
@@ -631,7 +633,7 @@ export function CreateInvoiceWizard({
           ? String(stor.vatRate) 
           : "0";
         
-        console.log(`[Invoice v2.5] Storage ${stor.serviceName}: vatRate=${vatRateValue}, total=${itemTotal}, hasVat=${hasVat}`);
+        console.log(`[Invoice v2.6] Storage ${stor.serviceName}: vatRate=${vatRateValue}, total=${itemTotal}, hasVat=${hasVat}`);
         
         newItems.push({
           id: crypto.randomUUID(),
@@ -648,7 +650,7 @@ export function CreateInvoiceWizard({
     // If no components found, add single summary item
     if (newItems.length === 0) {
       const totalAmount = billset.calculatedTotals?.totalGrossAmount || billset.totalGrossAmount || billset.totalNetAmount || "0";
-      console.log("[Invoice v2.5] No components found, adding summary item with total:", totalAmount);
+      console.log("[Invoice v2.6] No components found, adding summary item with total:", totalAmount);
       newItems.push({
         id: crypto.randomUUID(),
         name: billset.name,
@@ -660,7 +662,7 @@ export function CreateInvoiceWizard({
       });
     }
     
-    console.log("[Invoice v2.5] Adding", newItems.length, "items from billset");
+    console.log("[Invoice v2.6] Adding", newItems.length, "items from billset");
     setItems(prev => [...prev, ...newItems]);
     setSelectedBillsetId(billset.id);
     setIsAddingBillset(null);
@@ -1451,7 +1453,7 @@ export function CreateInvoiceWizard({
                       <CardHeader>
                         <CardTitle className="text-sm flex items-center gap-2">
                           {t.invoices?.selectedItems || "Selected Items"} ({items.length})
-                          <Badge variant="outline" className="text-xs bg-blue-100 text-blue-800">v2.5</Badge>
+                          <Badge variant="outline" className="text-xs bg-blue-100 text-blue-800">v2.6</Badge>
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
