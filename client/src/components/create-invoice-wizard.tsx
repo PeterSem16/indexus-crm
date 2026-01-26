@@ -274,7 +274,7 @@ export function CreateInvoiceWizard({
   });
 
   const activeNumberRanges = useMemo(() => {
-    return numberRanges.filter(nr => nr.isActive && nr.year === new Date().getFullYear());
+    return numberRanges.filter(nr => nr.isActive);
   }, [numberRanges]);
 
   const countryCode = customerCountry || customer?.country || "SK";
@@ -528,11 +528,26 @@ export function CreateInvoiceWizard({
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {activeNumberRanges.map((range) => (
-                              <SelectItem key={range.id} value={range.id}>
-                                {range.name} ({range.type}) - {range.prefix || ""}{String(range.lastNumberUsed + 1).padStart(range.digitsToGenerate, "0")}{range.suffix || ""}
-                              </SelectItem>
-                            ))}
+                            {activeNumberRanges.length === 0 ? (
+                              <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+                                {t.invoices?.noNumberRanges || "No number ranges available"}
+                              </div>
+                            ) : (
+                              activeNumberRanges.map((range) => {
+                                const nextNumber = (range.lastNumberUsed || 0) + 1;
+                                const formattedNumber = `${range.prefix || ""}${String(nextNumber).padStart(range.digitsToGenerate || 6, "0")}${range.suffix || ""}`;
+                                return (
+                                  <SelectItem key={range.id} value={range.id}>
+                                    <div className="flex flex-col">
+                                      <span className="font-medium">{range.name}</span>
+                                      <span className="text-xs text-muted-foreground">
+                                        {t.invoices?.nextNumber || "Next"}: {formattedNumber}
+                                      </span>
+                                    </div>
+                                  </SelectItem>
+                                );
+                              })
+                            )}
                           </SelectContent>
                         </Select>
                         <FormMessage />
