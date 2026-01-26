@@ -2829,7 +2829,7 @@ export class DatabaseStorage implements IStorage {
       return null;
     }
     
-    const currentLastNumber = range.lastNumberUsed || 0;
+    const currentLastNumber = range.lastNumberUsed ?? 0;
     const nextNumber = currentLastNumber + 1;
     
     if (nextNumber > range.endNumber) {
@@ -2840,9 +2840,7 @@ export class DatabaseStorage implements IStorage {
       .set({ lastNumberUsed: nextNumber, updatedAt: new Date() })
       .where(and(
         eq(numberRanges.id, id),
-        range.lastNumberUsed 
-          ? eq(numberRanges.lastNumberUsed, currentLastNumber)
-          : isNull(numberRanges.lastNumberUsed)
+        eq(numberRanges.lastNumberUsed, currentLastNumber)
       ))
       .returning();
     
