@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Search, Eye, Pencil, Receipt, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Copy, CheckCircle2, Calendar, Trash2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Search, Eye, Receipt, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,8 +31,6 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useI18n } from "@/i18n";
 import { useCountryFilter } from "@/contexts/country-filter-context";
-import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface Invoice {
   id: string;
@@ -98,10 +96,19 @@ interface BillingDetails {
   companyName: string;
 }
 
+const localeMap: Record<string, string> = {
+  en: "en-US",
+  sk: "sk-SK",
+  cs: "cs-CZ",
+  hu: "hu-HU",
+  ro: "ro-RO",
+  it: "it-IT",
+  de: "de-DE",
+};
+
 export default function CustomerInvoicesPage() {
   const { t, locale } = useI18n();
   const { selectedCountries } = useCountryFilter();
-  const { toast } = useToast();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -109,7 +116,6 @@ export default function CustomerInvoicesPage() {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [page, setPage] = useState(1);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const perPage = 30;
 
   const { data: invoices = [], isLoading } = useQuery<Invoice[]>({
@@ -138,13 +144,13 @@ export default function CustomerInvoicesPage() {
 
   const formatDate = (date?: string) => {
     if (!date) return "-";
-    return new Date(date).toLocaleDateString(locale === "sk" ? "sk-SK" : locale === "cs" ? "cs-CZ" : "en-US");
+    return new Date(date).toLocaleDateString(localeMap[locale] || "en-US");
   };
 
   const formatCurrency = (amount?: string, currency?: string) => {
     if (!amount) return "-";
     const num = parseFloat(amount);
-    return new Intl.NumberFormat(locale === "sk" ? "sk-SK" : locale === "cs" ? "cs-CZ" : "en-US", {
+    return new Intl.NumberFormat(localeMap[locale] || "en-US", {
       style: "currency",
       currency: currency || "EUR",
     }).format(num);
@@ -303,41 +309,41 @@ export default function CustomerInvoicesPage() {
             </div>
           ) : (
             <>
-              <Table>
+              <Table data-testid="table-invoices">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort("invoiceNumber")}>
+                    <TableHead className="cursor-pointer" onClick={() => handleSort("invoiceNumber")} data-testid="th-sort-invoiceNumber">
                       <div className="flex items-center">
                         {t.invoices?.invoiceNumber || "Invoice #"}
                         <SortIcon field="invoiceNumber" />
                       </div>
                     </TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort("customerName")}>
+                    <TableHead className="cursor-pointer" onClick={() => handleSort("customerName")} data-testid="th-sort-customerName">
                       <div className="flex items-center">
                         {t.customers?.title || "Customer"}
                         <SortIcon field="customerName" />
                       </div>
                     </TableHead>
-                    <TableHead>{t.invoices?.billingCompany || "Billing Company"}</TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort("status")}>
+                    <TableHead data-testid="th-billingCompany">{t.invoices?.billingCompany || "Billing Company"}</TableHead>
+                    <TableHead className="cursor-pointer" onClick={() => handleSort("status")} data-testid="th-sort-status">
                       <div className="flex items-center">
                         {t.invoices?.status || "Status"}
                         <SortIcon field="status" />
                       </div>
                     </TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort("issueDate")}>
+                    <TableHead className="cursor-pointer" onClick={() => handleSort("issueDate")} data-testid="th-sort-issueDate">
                       <div className="flex items-center">
                         {t.invoices?.issueDate || "Issue Date"}
                         <SortIcon field="issueDate" />
                       </div>
                     </TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort("dueDate")}>
+                    <TableHead className="cursor-pointer" onClick={() => handleSort("dueDate")} data-testid="th-sort-dueDate">
                       <div className="flex items-center">
                         {t.invoices?.dueDate || "Due Date"}
                         <SortIcon field="dueDate" />
                       </div>
                     </TableHead>
-                    <TableHead className="cursor-pointer text-right" onClick={() => handleSort("totalAmount")}>
+                    <TableHead className="cursor-pointer text-right" onClick={() => handleSort("totalAmount")} data-testid="th-sort-totalAmount">
                       <div className="flex items-center justify-end">
                         {t.invoices?.totalAmount || "Total"}
                         <SortIcon field="totalAmount" />
@@ -348,18 +354,18 @@ export default function CustomerInvoicesPage() {
                 </TableHeader>
                 <TableBody>
                   {paginatedInvoices.map((invoice) => (
-                    <TableRow key={invoice.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedInvoice(invoice)}>
-                      <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
-                      <TableCell>{invoice.customerName}</TableCell>
-                      <TableCell>{invoice.billingCompanyName}</TableCell>
+                    <TableRow key={invoice.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedInvoice(invoice)} data-testid={`row-invoice-${invoice.id}`}>
+                      <TableCell className="font-medium" data-testid={`text-invoiceNumber-${invoice.id}`}>{invoice.invoiceNumber}</TableCell>
+                      <TableCell data-testid={`text-customerName-${invoice.id}`}>{invoice.customerName}</TableCell>
+                      <TableCell data-testid={`text-billingCompany-${invoice.id}`}>{invoice.billingCompanyName}</TableCell>
                       <TableCell>
-                        <Badge variant={getStatusVariant(invoice.status)}>
+                        <Badge variant={getStatusVariant(invoice.status)} data-testid={`badge-status-${invoice.id}`}>
                           {getStatusLabel(invoice.status)}
                         </Badge>
                       </TableCell>
-                      <TableCell>{formatDate(invoice.issueDate)}</TableCell>
-                      <TableCell>{formatDate(invoice.dueDate)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(invoice.totalAmount, invoice.currency)}</TableCell>
+                      <TableCell data-testid={`text-issueDate-${invoice.id}`}>{formatDate(invoice.issueDate)}</TableCell>
+                      <TableCell data-testid={`text-dueDate-${invoice.id}`}>{formatDate(invoice.dueDate)}</TableCell>
+                      <TableCell className="text-right" data-testid={`text-totalAmount-${invoice.id}`}>{formatCurrency(invoice.totalAmount, invoice.currency)}</TableCell>
                       <TableCell>
                         <Button
                           variant="ghost"
@@ -380,7 +386,7 @@ export default function CustomerInvoicesPage() {
 
               {totalPages > 1 && (
                 <div className="flex items-center justify-between mt-4">
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-sm text-muted-foreground" data-testid="text-pagination-info">
                     {t.common?.showing || "Showing"} {((page - 1) * perPage) + 1}-{Math.min(page * perPage, filteredInvoices.length)} {t.common?.of || "of"} {filteredInvoices.length}
                   </span>
                   <div className="flex items-center gap-2">
@@ -440,8 +446,7 @@ function InvoiceDetailDrawer({
   getStatusLabel: (status: string) => string;
   getStatusVariant: (status: string) => "default" | "secondary" | "destructive" | "outline";
 }) {
-  const { t, locale } = useI18n();
-  const { toast } = useToast();
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState("details");
 
   const { data: items = [], isLoading: itemsLoading } = useQuery<InvoiceItem[]>({
@@ -471,11 +476,11 @@ function InvoiceDetailDrawer({
           </SheetTitle>
         </SheetHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6" data-testid="tabs-invoice-detail">
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="details">{t.invoices?.tabDetails || "Details"}</TabsTrigger>
-            <TabsTrigger value="items">{t.invoices?.tabItems || "Items"}</TabsTrigger>
-            <TabsTrigger value="payments">{t.invoices?.tabPayments || "Payments"}</TabsTrigger>
+            <TabsTrigger value="details" data-testid="tab-details">{t.invoices?.tabDetails || "Details"}</TabsTrigger>
+            <TabsTrigger value="items" data-testid="tab-items">{t.invoices?.tabItems || "Items"}</TabsTrigger>
+            <TabsTrigger value="payments" data-testid="tab-payments">{t.invoices?.tabPayments || "Payments"}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="details" className="space-y-4 mt-4">
