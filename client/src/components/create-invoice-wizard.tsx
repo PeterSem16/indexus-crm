@@ -231,6 +231,7 @@ export function CreateInvoiceWizard({
   const [currentStep, setCurrentStep] = useState(0);
   const [items, setItems] = useState<InvoiceItem[]>([]);
   const [selectedProductId, setSelectedProductId] = useState<string>("");
+  const [isAddingBillset, setIsAddingBillset] = useState<string | null>(null);
 
   const today = new Date();
   const dueDate = new Date(today);
@@ -518,6 +519,9 @@ export function CreateInvoiceWizard({
   };
 
   const addItemFromBillset = async (billset: ProductSet) => {
+    console.log("[Invoice] addItemFromBillset called for:", billset.id, billset.name);
+    setIsAddingBillset(billset.id);
+    
     // Fetch billset details to get individual components
     try {
       const response = await fetch(`/api/product-sets/${billset.id}`, { credentials: "include" });
@@ -622,8 +626,10 @@ export function CreateInvoiceWizard({
         });
       }
       
+      console.log("[Invoice] Adding", newItems.length, "items from billset");
       setItems(prev => [...prev, ...newItems]);
       setSelectedBillsetId(billset.id);
+      setIsAddingBillset(null);
     } catch (error) {
       console.error("Failed to fetch billset details:", error);
       // Fallback to single item
@@ -639,6 +645,7 @@ export function CreateInvoiceWizard({
       };
       setItems(prev => [...prev, newItem]);
       setSelectedBillsetId(billset.id);
+      setIsAddingBillset(null);
     }
   };
 
@@ -1407,11 +1414,11 @@ export function CreateInvoiceWizard({
                                       type="button"
                                       variant={items.some(i => i.billsetId === billset.id) ? "default" : "ghost"}
                                       size="icon"
-                                      onClick={(e) => { e.stopPropagation(); addItemFromBillset(billset); }}
-                                      disabled={items.some(i => i.billsetId === billset.id)}
+                                      onClick={(e) => { e.stopPropagation(); void addItemFromBillset(billset); }}
+                                      disabled={items.some(i => i.billsetId === billset.id) || isAddingBillset === billset.id}
                                       data-testid={`btn-add-item-${billset.id}`}
                                     >
-                                      {items.some(i => i.billsetId === billset.id) ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                                      {isAddingBillset === billset.id ? <Loader2 className="h-4 w-4 animate-spin" /> : items.some(i => i.billsetId === billset.id) ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
                                     </Button>
                                   </div>
                                 ))
