@@ -13011,6 +13011,12 @@ export async function registerRoutes(
           const vat = await storage.getInstanceVatRate(col.vatRateId);
           enriched.vatName = vat?.name || null;
           enriched.vatPercent = vat?.ratePercentage || null;
+          enriched.vatRate = vat?.ratePercentage || null;
+        }
+        if (col.paymentOptionId) {
+          const paymentOption = await storage.getInstancePaymentOption(col.paymentOptionId);
+          enriched.paymentType = paymentOption?.paymentType || null;
+          enriched.paymentOptionName = paymentOption?.name || null;
         }
         return enriched;
       }));
@@ -13026,6 +13032,23 @@ export async function registerRoutes(
           const price = await storage.getInstancePrice(stor.priceId);
           enriched.priceName = price?.name || null;
           enriched.priceAmount = price?.price || null;
+        }
+        if (stor.discountId) {
+          const discount = await storage.getInstanceDiscount(stor.discountId);
+          enriched.discountName = discount?.name || null;
+          enriched.discountPercent = discount?.percentageValue || null;
+          enriched.discountFixed = discount?.fixedValue || null;
+        }
+        if (stor.vatRateId) {
+          const vat = await storage.getInstanceVatRate(stor.vatRateId);
+          enriched.vatName = vat?.name || null;
+          enriched.vatPercent = vat?.ratePercentage || null;
+          enriched.vatRate = vat?.ratePercentage || null;
+        }
+        if (stor.paymentOptionId) {
+          const paymentOption = await storage.getInstancePaymentOption(stor.paymentOptionId);
+          enriched.paymentType = paymentOption?.paymentType || null;
+          enriched.paymentOptionName = paymentOption?.name || null;
         }
         return enriched;
       }));

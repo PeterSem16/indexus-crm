@@ -196,6 +196,12 @@ const invoiceSchema = z.object({
   deliveryDateDay: z.number().min(1).max(31).optional(),
   deliveryDateMonth: z.number().min(1).max(12).optional(),
   deliveryDateYear: z.number().min(2000).max(2100).optional(),
+  periodFromDay: z.number().min(1).max(31).optional(),
+  periodFromMonth: z.number().min(1).max(12).optional(),
+  periodFromYear: z.number().min(2000).max(2100).optional(),
+  periodToDay: z.number().min(1).max(31).optional(),
+  periodToMonth: z.number().min(1).max(12).optional(),
+  periodToYear: z.number().min(2000).max(2100).optional(),
   variableSymbol: z.string().optional(),
   constantSymbol: z.string().optional(),
   specificSymbol: z.string().optional(),
@@ -244,6 +250,12 @@ export function CreateInvoiceWizard({
       deliveryDateDay: today.getDate(),
       deliveryDateMonth: today.getMonth() + 1,
       deliveryDateYear: today.getFullYear(),
+      periodFromDay: today.getDate(),
+      periodFromMonth: today.getMonth() + 1,
+      periodFromYear: today.getFullYear(),
+      periodToDay: today.getDate(),
+      periodToMonth: today.getMonth() + 1,
+      periodToYear: today.getFullYear(),
       variableSymbol: "",
       constantSymbol: "",
       specificSymbol: "",
@@ -295,6 +307,16 @@ export function CreateInvoiceWizard({
     name: string;
     productId: string;
     currency: string;
+    totalNetAmount: string | null;
+    totalGrossAmount: string | null;
+    totalDiscountAmount: string | null;
+    totalVatAmount: string | null;
+    calculatedTotals?: {
+      totalNetAmount: string;
+      totalGrossAmount: string;
+      totalDiscountAmount: string;
+      totalVatAmount: string;
+    };
     collections: Array<{
       id: string;
       instanceName: string | null;
@@ -303,15 +325,28 @@ export function CreateInvoiceWizard({
       quantity: number;
       lineNetAmount: string | null;
       lineGrossAmount: string | null;
+      lineDiscountAmount: string | null;
+      lineVatAmount: string | null;
+      discountPercent: string | null;
+      discountName: string | null;
+      paymentType: string | null;
+      vatRate: string | null;
     }>;
     storage: Array<{
       id: string;
       storageName: string | null;
       storageType: string | null;
+      serviceName: string | null;
       priceOverride: string | null;
       quantity: number;
       lineNetAmount: string | null;
       lineGrossAmount: string | null;
+      lineDiscountAmount: string | null;
+      lineVatAmount: string | null;
+      discountPercent: string | null;
+      discountName: string | null;
+      paymentType: string | null;
+      vatRate: string | null;
     }>;
   };
 
@@ -461,11 +496,19 @@ export function CreateInvoiceWizard({
     form.setValue("numberRangeId", numberRangeId);
   };
 
-  const setToday = (prefix: "issueDate" | "dueDate" | "deliveryDate") => {
+  const setToday = (prefix: "issueDate" | "dueDate" | "deliveryDate" | "periodFrom" | "periodTo") => {
     const now = new Date();
     form.setValue(`${prefix}Day` as any, now.getDate());
     form.setValue(`${prefix}Month` as any, now.getMonth() + 1);
     form.setValue(`${prefix}Year` as any, now.getFullYear());
+  };
+
+  const formatCurrencyWithCode = (amount: number, currencyCode: string = "EUR") => {
+    const symbols: Record<string, string> = {
+      EUR: "€", CZK: "Kč", HUF: "Ft", RON: "lei", USD: "$", GBP: "£"
+    };
+    const symbol = symbols[currencyCode] || currencyCode;
+    return `${currencyCode} ${amount.toFixed(2)}`;
   };
 
   const addItemFromBillset = (billset: ProductSet) => {
@@ -937,6 +980,140 @@ export function CreateInvoiceWizard({
                         />
                       </div>
                     </div>
+
+                    {/* Period From */}
+                    <div className="p-4 border rounded-lg bg-muted/30">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-blue-500" />
+                          <Label className="font-medium">{t.invoices?.periodFrom || "Period From"}</Label>
+                          <span className="text-xs text-muted-foreground">({t.common?.optional || "optional"})</span>
+                        </div>
+                        <Button type="button" variant="outline" size="sm" onClick={() => setToday("periodFrom")} data-testid="btn-today-period-from">
+                          {t.common?.today || "Today"}
+                        </Button>
+                      </div>
+                      <div className="flex gap-2 items-center">
+                        <FormField
+                          control={form.control}
+                          name="periodFromDay"
+                          render={({ field }) => (
+                            <div className="flex flex-col gap-1">
+                              <span className="text-xs text-muted-foreground">{t.common?.day || "Day"}</span>
+                              <Select value={field.value?.toString() || ""} onValueChange={(v) => field.onChange(v ? parseInt(v) : undefined)}>
+                                <SelectTrigger className="w-20" data-testid="select-period-from-day">
+                                  <SelectValue placeholder="-" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {days.map((d) => <SelectItem key={d} value={d.toString()}>{d}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="periodFromMonth"
+                          render={({ field }) => (
+                            <div className="flex flex-col gap-1">
+                              <span className="text-xs text-muted-foreground">{t.common?.month || "Month"}</span>
+                              <Select value={field.value?.toString() || ""} onValueChange={(v) => field.onChange(v ? parseInt(v) : undefined)}>
+                                <SelectTrigger className="w-20" data-testid="select-period-from-month">
+                                  <SelectValue placeholder="-" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {months.map((m) => <SelectItem key={m} value={m.toString()}>{m}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="periodFromYear"
+                          render={({ field }) => (
+                            <div className="flex flex-col gap-1">
+                              <span className="text-xs text-muted-foreground">{t.common?.year || "Year"}</span>
+                              <Select value={field.value?.toString() || ""} onValueChange={(v) => field.onChange(v ? parseInt(v) : undefined)}>
+                                <SelectTrigger className="w-24" data-testid="select-period-from-year">
+                                  <SelectValue placeholder="-" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {years.map((y) => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Period To */}
+                    <div className="p-4 border rounded-lg bg-muted/30">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-purple-500" />
+                          <Label className="font-medium">{t.invoices?.periodTo || "Period To"}</Label>
+                          <span className="text-xs text-muted-foreground">({t.common?.optional || "optional"})</span>
+                        </div>
+                        <Button type="button" variant="outline" size="sm" onClick={() => setToday("periodTo")} data-testid="btn-today-period-to">
+                          {t.common?.today || "Today"}
+                        </Button>
+                      </div>
+                      <div className="flex gap-2 items-center">
+                        <FormField
+                          control={form.control}
+                          name="periodToDay"
+                          render={({ field }) => (
+                            <div className="flex flex-col gap-1">
+                              <span className="text-xs text-muted-foreground">{t.common?.day || "Day"}</span>
+                              <Select value={field.value?.toString() || ""} onValueChange={(v) => field.onChange(v ? parseInt(v) : undefined)}>
+                                <SelectTrigger className="w-20" data-testid="select-period-to-day">
+                                  <SelectValue placeholder="-" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {days.map((d) => <SelectItem key={d} value={d.toString()}>{d}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="periodToMonth"
+                          render={({ field }) => (
+                            <div className="flex flex-col gap-1">
+                              <span className="text-xs text-muted-foreground">{t.common?.month || "Month"}</span>
+                              <Select value={field.value?.toString() || ""} onValueChange={(v) => field.onChange(v ? parseInt(v) : undefined)}>
+                                <SelectTrigger className="w-20" data-testid="select-period-to-month">
+                                  <SelectValue placeholder="-" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {months.map((m) => <SelectItem key={m} value={m.toString()}>{m}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="periodToYear"
+                          render={({ field }) => (
+                            <div className="flex flex-col gap-1">
+                              <span className="text-xs text-muted-foreground">{t.common?.year || "Year"}</span>
+                              <Select value={field.value?.toString() || ""} onValueChange={(v) => field.onChange(v ? parseInt(v) : undefined)}>
+                                <SelectTrigger className="w-24" data-testid="select-period-to-year">
+                                  <SelectValue placeholder="-" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {years.map((y) => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1099,9 +1276,8 @@ export function CreateInvoiceWizard({
                                   >
                                     <div>
                                       <p className="font-medium text-sm">{billset.name}</p>
-                                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                        <span>{formatCurrency(parseFloat(billset.totalGrossAmount || billset.totalNetAmount || "0"))}</span>
-                                        <Badge variant="outline" className="text-[10px] px-1 py-0">{billset.currency}</Badge>
+                                      <div className="flex items-center gap-2 text-xs">
+                                        <span className="font-medium">{formatCurrencyWithCode(parseFloat(billset.totalGrossAmount || billset.totalNetAmount || "0"), billset.currency)}</span>
                                       </div>
                                     </div>
                                     <Button
@@ -1179,32 +1355,67 @@ export function CreateInvoiceWizard({
                     <div className="mt-6 space-y-4">
                       <h4 className="font-medium text-sm flex items-center gap-2">
                         <Package className="h-4 w-4" />
-                        {t.konfigurator?.billsetContents || "Billset Contents"}
+                        {t.konfigurator?.invoicePreview || "Invoice Preview"}
+                        <Badge variant="outline" className="ml-2">{billsetDetails.currency}</Badge>
                       </h4>
 
                       {(billsetDetails.collections?.length || 0) > 0 && (
                         <Card>
                           <CardHeader className="py-3">
                             <CardTitle className="text-sm text-blue-600 dark:text-blue-400">
-                              {t.konfigurator?.collectionsInSet || "Collections in Set"}
+                              {t.konfigurator?.collectionsInSet || "Collections"}
                             </CardTitle>
                           </CardHeader>
                           <CardContent className="pt-0">
-                            <div className="space-y-2">
+                            <div className="space-y-3">
                               {billsetDetails.collections?.map((col, idx) => (
-                                <div key={col.id} className="py-1.5 px-2 rounded bg-blue-50 dark:bg-blue-900/20 border-l-2 border-blue-400">
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                                      {idx + 1}. {col.instanceName || t.konfigurator?.collectionItem || "Collection"}
-                                      {col.quantity > 1 && ` (${col.quantity}x)`}
-                                    </span>
-                                    <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">
-                                      {formatCurrency(parseFloat(col.lineGrossAmount || col.lineNetAmount || "0"))}
-                                    </span>
+                                <div key={col.id} className="py-2 px-3 rounded bg-blue-50 dark:bg-blue-900/20 border-l-2 border-blue-400">
+                                  <div className="flex justify-between items-start">
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                                          {idx + 1}. {col.instanceName || t.konfigurator?.collectionItem || "Collection"}
+                                          {col.quantity > 1 && ` (${col.quantity}x)`}
+                                        </span>
+                                        {col.paymentType && (
+                                          <Badge variant={col.paymentType === "installment" ? "secondary" : "outline"} className="text-[10px] px-1 py-0">
+                                            {col.paymentType === "installment" ? (t.konfigurator?.installment || "Installment") : (t.konfigurator?.oneTime || "One-time")}
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      {col.priceName && (
+                                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">{col.priceName}</p>
+                                      )}
+                                      <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                                        {col.priceAmount && (
+                                          <span>{t.konfigurator?.unitPrice || "Unit"}: {formatCurrencyWithCode(parseFloat(col.priceAmount), billsetDetails.currency)}</span>
+                                        )}
+                                        {col.vatRate && (
+                                          <span>{t.konfigurator?.vat || "VAT"}: {col.vatRate}%</span>
+                                        )}
+                                      </div>
+                                      {parseFloat(col.lineDiscountAmount || "0") > 0 && (
+                                        <div className="flex items-center gap-1 mt-1">
+                                          <Badge variant="destructive" className="text-[10px] px-1 py-0">
+                                            -{col.discountPercent}% {col.discountName || t.konfigurator?.discount || "Discount"}
+                                          </Badge>
+                                          <span className="text-xs text-destructive">
+                                            -{formatCurrencyWithCode(parseFloat(col.lineDiscountAmount), billsetDetails.currency)}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="text-right">
+                                      <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">
+                                        {formatCurrencyWithCode(parseFloat(col.lineGrossAmount || col.lineNetAmount || "0"), billsetDetails.currency)}
+                                      </span>
+                                      {col.lineVatAmount && parseFloat(col.lineVatAmount) > 0 && (
+                                        <p className="text-[10px] text-muted-foreground">
+                                          {t.konfigurator?.inclVat || "incl. VAT"} {formatCurrencyWithCode(parseFloat(col.lineVatAmount), billsetDetails.currency)}
+                                        </p>
+                                      )}
+                                    </div>
                                   </div>
-                                  {col.priceName && (
-                                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">{col.priceName}</p>
-                                  )}
                                 </div>
                               ))}
                             </div>
@@ -1216,31 +1427,93 @@ export function CreateInvoiceWizard({
                         <Card>
                           <CardHeader className="py-3">
                             <CardTitle className="text-sm text-green-600 dark:text-green-400">
-                              {t.konfigurator?.storageInSet || "Storage in Set"}
+                              {t.konfigurator?.storageInSet || "Storage"}
                             </CardTitle>
                           </CardHeader>
                           <CardContent className="pt-0">
-                            <div className="space-y-2">
+                            <div className="space-y-3">
                               {billsetDetails.storage?.map((stor, idx) => (
-                                <div key={stor.id} className="py-1.5 px-2 rounded bg-green-50 dark:bg-green-900/20 border-l-2 border-green-400">
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-sm font-medium text-green-900 dark:text-green-100">
-                                      {idx + 1}. {stor.storageName || t.konfigurator?.storageItem || "Storage"}
-                                      {stor.quantity > 1 && ` (${stor.quantity}x)`}
-                                    </span>
-                                    <span className="text-sm font-semibold text-green-700 dark:text-green-300">
-                                      {formatCurrency(parseFloat(stor.lineGrossAmount || stor.lineNetAmount || stor.priceOverride || "0"))}
-                                    </span>
+                                <div key={stor.id} className="py-2 px-3 rounded bg-green-50 dark:bg-green-900/20 border-l-2 border-green-400">
+                                  <div className="flex justify-between items-start">
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-sm font-medium text-green-900 dark:text-green-100">
+                                          {idx + 1}. {stor.serviceName || stor.storageName || t.konfigurator?.storageItem || "Storage"}
+                                          {stor.quantity > 1 && ` (${stor.quantity}x)`}
+                                        </span>
+                                        {stor.paymentType && (
+                                          <Badge variant={stor.paymentType === "installment" ? "secondary" : "outline"} className="text-[10px] px-1 py-0">
+                                            {stor.paymentType === "installment" ? (t.konfigurator?.installment || "Installment") : (t.konfigurator?.oneTime || "One-time")}
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      {stor.storageType && (
+                                        <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">{stor.storageType}</p>
+                                      )}
+                                      <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                                        {stor.priceOverride && (
+                                          <span>{t.konfigurator?.unitPrice || "Unit"}: {formatCurrencyWithCode(parseFloat(stor.priceOverride), billsetDetails.currency)}</span>
+                                        )}
+                                        {stor.vatRate && (
+                                          <span>{t.konfigurator?.vat || "VAT"}: {stor.vatRate}%</span>
+                                        )}
+                                      </div>
+                                      {parseFloat(stor.lineDiscountAmount || "0") > 0 && (
+                                        <div className="flex items-center gap-1 mt-1">
+                                          <Badge variant="destructive" className="text-[10px] px-1 py-0">
+                                            -{stor.discountPercent}% {stor.discountName || t.konfigurator?.discount || "Discount"}
+                                          </Badge>
+                                          <span className="text-xs text-destructive">
+                                            -{formatCurrencyWithCode(parseFloat(stor.lineDiscountAmount), billsetDetails.currency)}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="text-right">
+                                      <span className="text-sm font-semibold text-green-700 dark:text-green-300">
+                                        {formatCurrencyWithCode(parseFloat(stor.lineGrossAmount || stor.lineNetAmount || stor.priceOverride || "0"), billsetDetails.currency)}
+                                      </span>
+                                      {stor.lineVatAmount && parseFloat(stor.lineVatAmount) > 0 && (
+                                        <p className="text-[10px] text-muted-foreground">
+                                          {t.konfigurator?.inclVat || "incl. VAT"} {formatCurrencyWithCode(parseFloat(stor.lineVatAmount), billsetDetails.currency)}
+                                        </p>
+                                      )}
+                                    </div>
                                   </div>
-                                  {stor.storageType && (
-                                    <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">{stor.storageType}</p>
-                                  )}
                                 </div>
                               ))}
                             </div>
                           </CardContent>
                         </Card>
                       )}
+
+                      {/* Invoice Totals */}
+                      <Card className="border-2 border-primary/20">
+                        <CardContent className="pt-4">
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">{t.konfigurator?.netAmount || "Net Amount"}</span>
+                              <span>{formatCurrencyWithCode(parseFloat(billsetDetails.calculatedTotals?.totalNetAmount || billsetDetails.totalNetAmount || "0"), billsetDetails.currency)}</span>
+                            </div>
+                            {parseFloat(billsetDetails.calculatedTotals?.totalDiscountAmount || billsetDetails.totalDiscountAmount || "0") > 0 && (
+                              <div className="flex justify-between text-sm text-destructive">
+                                <span>{t.konfigurator?.totalDiscount || "Total Discount"}</span>
+                                <span>-{formatCurrencyWithCode(parseFloat(billsetDetails.calculatedTotals?.totalDiscountAmount || billsetDetails.totalDiscountAmount || "0"), billsetDetails.currency)}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">{t.konfigurator?.vatAmount || "VAT Amount"}</span>
+                              <span>{formatCurrencyWithCode(parseFloat(billsetDetails.calculatedTotals?.totalVatAmount || billsetDetails.totalVatAmount || "0"), billsetDetails.currency)}</span>
+                            </div>
+                            <div className="border-t pt-2 mt-2">
+                              <div className="flex justify-between font-semibold">
+                                <span>{t.konfigurator?.totalGross || "Total (Gross)"}</span>
+                                <span className="text-lg">{formatCurrencyWithCode(parseFloat(billsetDetails.calculatedTotals?.totalGrossAmount || billsetDetails.totalGrossAmount || "0"), billsetDetails.currency)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
                     </div>
                   )}
                 </div>
