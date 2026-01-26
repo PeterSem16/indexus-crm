@@ -292,6 +292,17 @@ export function CreateInvoiceWizard({
     return instancePrices.filter(ip => ip.isActive && (!ip.countryCode || ip.countryCode === countryCode));
   }, [instancePrices, countryCode]);
 
+  const selectedNumberRange = useMemo(() => {
+    const rangeId = form.watch("numberRangeId");
+    return activeNumberRanges.find(r => r.id === rangeId);
+  }, [activeNumberRanges, form.watch("numberRangeId")]);
+
+  const previewInvoiceNumber = useMemo(() => {
+    if (!selectedNumberRange) return null;
+    const nextNumber = (selectedNumberRange.lastNumberUsed || 0) + 1;
+    return `${selectedNumberRange.prefix || ""}${String(nextNumber).padStart(selectedNumberRange.digitsToGenerate || 6, "0")}${selectedNumberRange.suffix || ""}`;
+  }, [selectedNumberRange]);
+
   const generateInvoiceNumberMutation = useMutation({
     mutationFn: async (numberRangeId: string) => {
       const response = await apiRequest("POST", `/api/configurator/number-ranges/${numberRangeId}/generate`);
@@ -555,15 +566,30 @@ export function CreateInvoiceWizard({
                     )}
                   />
 
-                  {generatedInvoiceNumber && (
+                  {(selectedNumberRange || generatedInvoiceNumber) && (
                     <Card>
                       <CardContent className="pt-4">
                         <div className="flex items-center justify-between">
                           <div>
                             <Label className="text-muted-foreground">{t.invoices?.generatedNumber || "Generated Invoice Number"}</Label>
-                            <p className="text-2xl font-bold text-primary" data-testid="text-generated-invoice-number">{generatedInvoiceNumber}</p>
+                            {generateInvoiceNumberMutation.isPending ? (
+                              <div className="flex items-center gap-2">
+                                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                                <span className="text-lg text-muted-foreground">{previewInvoiceNumber}</span>
+                              </div>
+                            ) : generatedInvoiceNumber ? (
+                              <p className="text-2xl font-bold text-primary" data-testid="text-generated-invoice-number">{generatedInvoiceNumber}</p>
+                            ) : previewInvoiceNumber ? (
+                              <p className="text-2xl font-bold text-muted-foreground" data-testid="text-preview-invoice-number">{previewInvoiceNumber}</p>
+                            ) : null}
                           </div>
-                          <Badge variant="secondary">{t.invoices?.statusGenerated || "Generated"}</Badge>
+                          {generatedInvoiceNumber ? (
+                            <Badge variant="secondary">{t.invoices?.statusGenerated || "Generated"}</Badge>
+                          ) : generateInvoiceNumberMutation.isPending ? (
+                            <Badge variant="outline">{t.common?.loading || "Loading..."}</Badge>
+                          ) : (
+                            <Badge variant="outline">{t.invoices?.preview || "Preview"}</Badge>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
