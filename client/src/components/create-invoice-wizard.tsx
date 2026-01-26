@@ -517,19 +517,104 @@ export function CreateInvoiceWizard({
     return `${currencyCode} ${amount.toFixed(2)}`;
   };
 
-  const addItemFromBillset = (billset: ProductSet) => {
-    const totalAmount = billset.calculatedTotals?.totalGrossAmount || billset.totalGrossAmount || billset.totalNetAmount || "0";
-    const newItem: InvoiceItem = {
-      id: crypto.randomUUID(),
-      name: billset.name,
-      quantity: 1,
-      unitPrice: totalAmount,
-      vatRate: billingInfo?.defaultVatRate || "20",
-      total: totalAmount,
-      billsetId: billset.id,
-    };
-    setItems(prev => [...prev, newItem]);
-    setSelectedBillsetId(billset.id);
+  const addItemFromBillset = async (billset: ProductSet) => {
+    // Fetch billset details to get individual components
+    try {
+      const response = await fetch(`/api/product-sets/${billset.id}`, { credentials: "include" });
+      if (!response.ok) {
+        // Fallback to single item if fetch fails
+        const totalAmount = billset.calculatedTotals?.totalGrossAmount || billset.totalGrossAmount || billset.totalNetAmount || "0";
+        const newItem: InvoiceItem = {
+          id: crypto.randomUUID(),
+          name: billset.name,
+          quantity: 1,
+          unitPrice: totalAmount,
+          vatRate: billingInfo?.defaultVatRate || "20",
+          total: totalAmount,
+          billsetId: billset.id,
+        };
+        setItems(prev => [...prev, newItem]);
+        setSelectedBillsetId(billset.id);
+        return;
+      }
+      
+      const details: ProductSetDetail = await response.json();
+      const newItems: InvoiceItem[] = [];
+      
+      // Add collection components
+      if (details.collections && details.collections.length > 0) {
+        for (const col of details.collections) {
+          const unitPrice = col.lineGrossAmount || col.lineNetAmount || col.priceAmount || "0";
+          const discountInfo = parseFloat(col.lineDiscountAmount || "0") > 0 
+            ? ` (-${col.discountPercent}% ${col.discountName || ""})` 
+            : "";
+          const paymentInfo = col.paymentType === "installment" ? " [Splátka]" : "";
+          
+          newItems.push({
+            id: crypto.randomUUID(),
+            name: `${col.instanceName || "Odber"}${paymentInfo}${discountInfo}`,
+            quantity: col.quantity || 1,
+            unitPrice: (parseFloat(unitPrice) / (col.quantity || 1)).toFixed(2),
+            vatRate: col.vatRate || billingInfo?.defaultVatRate || "20",
+            total: unitPrice,
+            billsetId: billset.id,
+          });
+        }
+      }
+      
+      // Add storage components
+      if (details.storage && details.storage.length > 0) {
+        for (const stor of details.storage) {
+          const unitPrice = stor.lineGrossAmount || stor.lineNetAmount || stor.priceOverride || "0";
+          const discountInfo = parseFloat(stor.lineDiscountAmount || "0") > 0 
+            ? ` (-${stor.discountPercent}% ${stor.discountName || ""})` 
+            : "";
+          const paymentInfo = stor.paymentType === "installment" ? " [Splátka]" : "";
+          
+          newItems.push({
+            id: crypto.randomUUID(),
+            name: `${stor.serviceName || stor.storageName || "Uskladnenie"}${paymentInfo}${discountInfo}`,
+            quantity: stor.quantity || 1,
+            unitPrice: (parseFloat(unitPrice) / (stor.quantity || 1)).toFixed(2),
+            vatRate: stor.vatRate || billingInfo?.defaultVatRate || "20",
+            total: unitPrice,
+            billsetId: billset.id,
+          });
+        }
+      }
+      
+      // If no components found, add single summary item
+      if (newItems.length === 0) {
+        const totalAmount = billset.calculatedTotals?.totalGrossAmount || billset.totalGrossAmount || billset.totalNetAmount || "0";
+        newItems.push({
+          id: crypto.randomUUID(),
+          name: billset.name,
+          quantity: 1,
+          unitPrice: totalAmount,
+          vatRate: billingInfo?.defaultVatRate || "20",
+          total: totalAmount,
+          billsetId: billset.id,
+        });
+      }
+      
+      setItems(prev => [...prev, ...newItems]);
+      setSelectedBillsetId(billset.id);
+    } catch (error) {
+      console.error("Failed to fetch billset details:", error);
+      // Fallback to single item
+      const totalAmount = billset.calculatedTotals?.totalGrossAmount || billset.totalGrossAmount || billset.totalNetAmount || "0";
+      const newItem: InvoiceItem = {
+        id: crypto.randomUUID(),
+        name: billset.name,
+        quantity: 1,
+        unitPrice: totalAmount,
+        vatRate: billingInfo?.defaultVatRate || "20",
+        total: totalAmount,
+        billsetId: billset.id,
+      };
+      setItems(prev => [...prev, newItem]);
+      setSelectedBillsetId(billset.id);
+    }
   };
 
   const removeItem = (itemId: string) => {
@@ -1324,7 +1409,9 @@ export function CreateInvoiceWizard({
                             <TableHeader>
                               <TableRow>
                                 <TableHead>{t.invoices?.itemName || "Name"}</TableHead>
-                                <TableHead className="w-20">{t.invoices?.quantity || "Qty"}</TableHead>
+                                <TableHead className="w-16 text-right">{t.invoices?.quantity || "Qty"}</TableHead>
+                                <TableHead className="text-right">{t.konfigurator?.unitPrice || "Unit"}</TableHead>
+                                <TableHead className="w-16 text-center">{t.konfigurator?.vat || "VAT"}</TableHead>
                                 <TableHead className="text-right">{t.invoices?.total || "Total"}</TableHead>
                                 <TableHead className="w-10"></TableHead>
                               </TableRow>
@@ -1332,18 +1419,22 @@ export function CreateInvoiceWizard({
                             <TableBody>
                               {items.map((item) => (
                                 <TableRow key={item.id}>
-                                  <TableCell className="text-sm">{item.name}</TableCell>
-                                  <TableCell>
+                                  <TableCell className="text-sm font-medium">{item.name}</TableCell>
+                                  <TableCell className="text-right">
                                     <Input
                                       type="number"
                                       min="1"
                                       value={item.quantity}
                                       onChange={(e) => updateItemQuantity(item.id, parseInt(e.target.value) || 1)}
-                                      className="w-16 h-8"
+                                      className="w-14 h-7 text-right text-sm"
                                       data-testid={`input-qty-${item.id}`}
                                     />
                                   </TableCell>
-                                  <TableCell className="text-right">{formatCurrency(parseFloat(item.total))}</TableCell>
+                                  <TableCell className="text-right text-sm text-muted-foreground">{formatCurrency(parseFloat(item.unitPrice))}</TableCell>
+                                  <TableCell className="text-center">
+                                    <Badge variant="outline" className="text-xs">{item.vatRate}%</Badge>
+                                  </TableCell>
+                                  <TableCell className="text-right font-medium">{formatCurrency(parseFloat(item.total))}</TableCell>
                                   <TableCell>
                                     <Button
                                       type="button"
