@@ -453,21 +453,22 @@ export function CreateInvoiceWizard({
 
   // Auto-select assigned product and load billset components - runs ONCE on mount
   useEffect(() => {
-    console.log("[Invoice v2.3] useEffect triggered - customerId:", customerId, "customerProducts:", customerProducts.length, "billsetLoaded:", billsetLoaded);
+    console.log("[Invoice v2.4] useEffect triggered - customerId:", customerId, "customerProducts:", customerProducts.length, "billsetLoaded:", billsetLoaded);
     if (customerId && customerProducts.length > 0 && !billsetLoaded) {
       const assignedProduct = customerProducts[0];
-      console.log("[Invoice v2.3] Assigned product:", assignedProduct);
+      console.log("[Invoice v2.4] Assigned product:", assignedProduct);
       if (assignedProduct?.productId) {
         setSelectedProductId(assignedProduct.productId);
         // Auto-add assigned billset if available
         if (assignedProduct.billsetId) {
           const billset = productSets.find(ps => ps.id === assignedProduct.billsetId);
-          console.log("[Invoice v2.3] Found billset:", billset?.name);
+          console.log("[Invoice v2.4] Found billset:", billset?.name);
           if (billset) {
             setBillsetLoaded(true);
             // Clear items and load billset components
             setItems([]);
-            addItemFromBillset(billset);
+            // Use void to properly handle async function in useEffect
+            void addItemFromBillset(billset);
           }
         }
       }
@@ -537,25 +538,25 @@ export function CreateInvoiceWizard({
   };
 
   const addItemFromBillset = async (billset: ProductSet) => {
-    console.log("[Invoice v2.2] addItemFromBillset called for:", billset.id, billset.name);
+    console.log("[Invoice v2.4] addItemFromBillset called for:", billset.id, billset.name);
     setIsAddingBillset(billset.id);
     
     // Fetch billset details to get individual components
     try {
       const url = `/api/product-sets/${billset.id}`;
-      console.log("[Invoice v2.2] Fetching from:", url);
+      console.log("[Invoice v2.4] Fetching from:", url);
       const response = await fetch(url, {
         method: "GET",
         credentials: "include",
       });
-      console.log("[Invoice v2.2] Response status:", response.status, response.statusText);
+      console.log("[Invoice v2.4] Response status:", response.status, response.statusText);
       if (!response.ok) {
         const errText = await response.text();
-        console.error("[Invoice v2.2] Error response:", errText);
+        console.error("[Invoice v2.4] Error response:", errText);
         throw new Error(`HTTP ${response.status}: ${errText}`);
       }
       const details: ProductSetDetail = await response.json();
-      console.log("[Invoice v2.2] Fetched billset details:", details);
+      console.log("[Invoice v2.4] Fetched billset details:", details);
       console.log("[Invoice] Billset details:", JSON.stringify(details, null, 2));
       const newItems: InvoiceItem[] = [];
       
@@ -1446,7 +1447,7 @@ export function CreateInvoiceWizard({
                       <CardHeader>
                         <CardTitle className="text-sm flex items-center gap-2">
                           {t.invoices?.selectedItems || "Selected Items"} ({items.length})
-                          <Badge variant="outline" className="text-xs bg-blue-100 text-blue-800">v2.2</Badge>
+                          <Badge variant="outline" className="text-xs bg-blue-100 text-blue-800">v2.4</Badge>
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
