@@ -185,6 +185,7 @@ export interface IStorage {
   // Instance Prices
   getInstancePrice(id: string): Promise<any | undefined>;
   getInstancePrices(instanceId: string, instanceType: string): Promise<any[]>;
+  getAllInstancePrices(): Promise<any[]>;
   createInstancePrice(data: any): Promise<any>;
   updateInstancePrice(id: string, data: any): Promise<any | undefined>;
   deleteInstancePrice(id: string): Promise<boolean>;
@@ -1254,6 +1255,10 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(instancePrices).where(
       and(eq(instancePrices.instanceId, instanceId), eq(instancePrices.instanceType, instanceType))
     );
+  }
+
+  async getAllInstancePrices(): Promise<any[]> {
+    return await db.select().from(instancePrices).where(eq(instancePrices.isActive, true));
   }
 
   async createInstancePrice(data: any): Promise<any> {

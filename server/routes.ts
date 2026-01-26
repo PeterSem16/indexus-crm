@@ -4501,6 +4501,16 @@ export async function registerRoutes(
   });
 
   // Instance Prices API
+  app.get("/api/configurator/instance-prices", requireAuth, async (req, res) => {
+    try {
+      const prices = await storage.getAllInstancePrices();
+      res.json(prices);
+    } catch (error) {
+      console.error("Error fetching all instance prices:", error);
+      res.status(500).json({ error: "Failed to fetch prices" });
+    }
+  });
+
   app.get("/api/instance-prices/:instanceId/:instanceType", requireAuth, async (req, res) => {
     try {
       const prices = await storage.getInstancePrices(req.params.instanceId, req.params.instanceType);

@@ -181,6 +181,7 @@ interface InvoiceItem {
   unitPrice: string;
   vatRate: string;
   total: string;
+  billsetId?: string;
 }
 
 const invoiceSchema = z.object({
@@ -269,19 +270,81 @@ export function CreateInvoiceWizard({
     enabled: open,
   });
 
-  const { data: instancePrices = [] } = useQuery<InstancePrice[]>({
-    queryKey: ["/api/configurator/instance-prices"],
+  const { data: customer } = useQuery<Customer>({
+    queryKey: ["/api/customers", customerId],
+    enabled: open && !!customerId,
+  });
+
+  const countryCode = customerCountry || customer?.country || "SK";
+  const constantSymbols = CONSTANT_SYMBOLS[countryCode] || CONSTANT_SYMBOLS["SK"];
+
+  type ProductSet = {
+    id: string;
+    name: string;
+    productId: string;
+    productName?: string;
+    countryCode: string | null;
+    currency: string;
+    totalGrossAmount: string | null;
+    totalNetAmount: string | null;
+    isActive: boolean;
+  };
+
+  type ProductSetDetail = {
+    id: string;
+    name: string;
+    productId: string;
+    currency: string;
+    collections: Array<{
+      id: string;
+      instanceName: string | null;
+      priceName: string | null;
+      priceAmount: string | null;
+      quantity: number;
+      lineNetAmount: string | null;
+      lineGrossAmount: string | null;
+    }>;
+    storage: Array<{
+      id: string;
+      storageName: string | null;
+      storageType: string | null;
+      priceOverride: string | null;
+      quantity: number;
+      lineNetAmount: string | null;
+      lineGrossAmount: string | null;
+    }>;
+  };
+
+  const { data: productSets = [] } = useQuery<ProductSet[]>({
+    queryKey: ["/api/product-sets", countryCode, selectedProductId],
+    queryFn: async () => {
+      let url = `/api/product-sets?country=${encodeURIComponent(countryCode)}`;
+      if (selectedProductId) {
+        url += `&productId=${encodeURIComponent(selectedProductId)}`;
+      }
+      const response = await fetch(url, { credentials: "include" });
+      if (!response.ok) return [];
+      return response.json();
+    },
     enabled: open,
+  });
+
+  const [selectedBillsetId, setSelectedBillsetId] = useState<string | null>(null);
+
+  const { data: billsetDetails } = useQuery<ProductSetDetail>({
+    queryKey: ["/api/product-sets", selectedBillsetId],
+    queryFn: async () => {
+      if (!selectedBillsetId) return null;
+      const response = await fetch(`/api/product-sets/${selectedBillsetId}`, { credentials: "include" });
+      if (!response.ok) return null;
+      return response.json();
+    },
+    enabled: !!selectedBillsetId,
   });
 
   const { data: customers = [] } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
     enabled: open && !customerId,
-  });
-
-  const { data: customer } = useQuery<Customer>({
-    queryKey: ["/api/customers", customerId],
-    enabled: open && !!customerId,
   });
 
   const { data: billingDetails = [] } = useQuery<BillingDetails[]>({
@@ -319,9 +382,6 @@ export function CreateInvoiceWizard({
     return numberRanges.filter(nr => nr.isActive);
   }, [numberRanges]);
 
-  const countryCode = customerCountry || customer?.country || "SK";
-  const constantSymbols = CONSTANT_SYMBOLS[countryCode] || CONSTANT_SYMBOLS["SK"];
-
   const billingInfo = useMemo(() => {
     return billingDetails.find(b => b.countryCode === countryCode);
   }, [billingDetails, countryCode]);
@@ -330,21 +390,12 @@ export function CreateInvoiceWizard({
     return products.filter(p => p.isActive && p.countries.includes(countryCode));
   }, [products, countryCode]);
 
-  const filteredInstancePrices = useMemo(() => {
-    if (!selectedProductId || productInstances.length === 0) return [];
-    // productInstances already contains only instances for selectedProductId
-    // Filter by country, fallback to all active if no country match
-    let relevantInstances = productInstances.filter(pi => 
-      pi.isActive && pi.countryCode === countryCode
+  const filteredProductSets = useMemo(() => {
+    if (!selectedProductId) return [];
+    return productSets.filter(ps => 
+      ps.isActive && ps.productId === selectedProductId
     );
-    if (relevantInstances.length === 0) {
-      relevantInstances = productInstances.filter(pi => pi.isActive);
-    }
-    const instanceIds = relevantInstances.map(pi => pi.id);
-    return instancePrices.filter(ip => 
-      ip.isActive && instanceIds.includes(ip.instanceId)
-    );
-  }, [instancePrices, productInstances, selectedProductId, countryCode]);
+  }, [productSets, selectedProductId]);
 
   // Auto-select assigned product from customer
   useEffect(() => {
@@ -354,14 +405,14 @@ export function CreateInvoiceWizard({
         setSelectedProductId(assignedProduct.productId);
         // Auto-add assigned billset if available
         if (assignedProduct.billsetId) {
-          const billset = instancePrices.find(ip => ip.id === assignedProduct.billsetId);
+          const billset = productSets.find(ps => ps.id === assignedProduct.billsetId);
           if (billset && items.length === 0) {
-            addItem(billset);
+            addItemFromBillset(billset);
           }
         }
       }
     }
-  }, [customerId, customerProducts, selectedProductId, instancePrices]);
+  }, [customerId, customerProducts, selectedProductId, productSets]);
 
   const selectedNumberRange = useMemo(() => {
     const rangeId = form.watch("numberRangeId");
@@ -417,16 +468,19 @@ export function CreateInvoiceWizard({
     form.setValue(`${prefix}Year` as any, now.getFullYear());
   };
 
-  const addItem = (price: InstancePrice) => {
+  const addItemFromBillset = (billset: ProductSet) => {
+    const totalAmount = billset.totalGrossAmount || billset.totalNetAmount || "0";
     const newItem: InvoiceItem = {
       id: crypto.randomUUID(),
-      name: price.name,
+      name: billset.name,
       quantity: 1,
-      unitPrice: price.price,
+      unitPrice: totalAmount,
       vatRate: billingInfo?.defaultVatRate || "20",
-      total: price.price,
+      total: totalAmount,
+      billsetId: billset.id,
     };
     setItems(prev => [...prev, newItem]);
+    setSelectedBillsetId(billset.id);
   };
 
   const removeItem = (itemId: string) => {
@@ -687,161 +741,198 @@ export function CreateInvoiceWizard({
                     {t.invoices?.dateSettings || "Date Settings"}
                   </h3>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label>{t.invoices?.issueDate || "Issue Date"}</Label>
-                        <Button type="button" variant="ghost" size="sm" onClick={() => setToday("issueDate")} data-testid="btn-today-issue">
+                  <div className="space-y-4">
+                    <div className="p-4 border rounded-lg bg-muted/30">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-primary" />
+                          <Label className="font-medium">{t.invoices?.issueDate || "Issue Date"}</Label>
+                        </div>
+                        <Button type="button" variant="outline" size="sm" onClick={() => setToday("issueDate")} data-testid="btn-today-issue">
                           {t.common?.today || "Today"}
                         </Button>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 items-center">
                         <FormField
                           control={form.control}
                           name="issueDateDay"
                           render={({ field }) => (
-                            <Select value={field.value?.toString()} onValueChange={(v) => field.onChange(parseInt(v))}>
-                              <SelectTrigger className="w-20" data-testid="select-issue-day">
-                                <SelectValue placeholder={t.common?.day || "Day"} />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {days.map((d) => <SelectItem key={d} value={d.toString()}>{d}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
+                            <div className="flex flex-col gap-1">
+                              <span className="text-xs text-muted-foreground">{t.common?.day || "Day"}</span>
+                              <Select value={field.value?.toString()} onValueChange={(v) => field.onChange(parseInt(v))}>
+                                <SelectTrigger className="w-20" data-testid="select-issue-day">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {days.map((d) => <SelectItem key={d} value={d.toString()}>{d}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
                           )}
                         />
                         <FormField
                           control={form.control}
                           name="issueDateMonth"
                           render={({ field }) => (
-                            <Select value={field.value?.toString()} onValueChange={(v) => field.onChange(parseInt(v))}>
-                              <SelectTrigger className="w-20" data-testid="select-issue-month">
-                                <SelectValue placeholder={t.common?.month || "Month"} />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {months.map((m) => <SelectItem key={m} value={m.toString()}>{m}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
+                            <div className="flex flex-col gap-1">
+                              <span className="text-xs text-muted-foreground">{t.common?.month || "Month"}</span>
+                              <Select value={field.value?.toString()} onValueChange={(v) => field.onChange(parseInt(v))}>
+                                <SelectTrigger className="w-20" data-testid="select-issue-month">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {months.map((m) => <SelectItem key={m} value={m.toString()}>{m}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
                           )}
                         />
                         <FormField
                           control={form.control}
                           name="issueDateYear"
                           render={({ field }) => (
-                            <Select value={field.value?.toString()} onValueChange={(v) => field.onChange(parseInt(v))}>
-                              <SelectTrigger className="w-24" data-testid="select-issue-year">
-                                <SelectValue placeholder={t.common?.year || "Year"} />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {years.map((y) => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
+                            <div className="flex flex-col gap-1">
+                              <span className="text-xs text-muted-foreground">{t.common?.year || "Year"}</span>
+                              <Select value={field.value?.toString()} onValueChange={(v) => field.onChange(parseInt(v))}>
+                                <SelectTrigger className="w-24" data-testid="select-issue-year">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {years.map((y) => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
                           )}
                         />
                       </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label>{t.invoices?.dueDate || "Due Date"}</Label>
-                        <Button type="button" variant="ghost" size="sm" onClick={() => setToday("dueDate")} data-testid="btn-today-due">
+                    <div className="p-4 border rounded-lg bg-muted/30">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-destructive" />
+                          <Label className="font-medium">{t.invoices?.dueDate || "Due Date"}</Label>
+                        </div>
+                        <Button type="button" variant="outline" size="sm" onClick={() => setToday("dueDate")} data-testid="btn-today-due">
                           {t.common?.today || "Today"}
                         </Button>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 items-center">
                         <FormField
                           control={form.control}
                           name="dueDateDay"
                           render={({ field }) => (
-                            <Select value={field.value?.toString()} onValueChange={(v) => field.onChange(parseInt(v))}>
-                              <SelectTrigger className="w-20" data-testid="select-due-day">
-                                <SelectValue placeholder={t.common?.day || "Day"} />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {days.map((d) => <SelectItem key={d} value={d.toString()}>{d}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
+                            <div className="flex flex-col gap-1">
+                              <span className="text-xs text-muted-foreground">{t.common?.day || "Day"}</span>
+                              <Select value={field.value?.toString()} onValueChange={(v) => field.onChange(parseInt(v))}>
+                                <SelectTrigger className="w-20" data-testid="select-due-day">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {days.map((d) => <SelectItem key={d} value={d.toString()}>{d}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
                           )}
                         />
                         <FormField
                           control={form.control}
                           name="dueDateMonth"
                           render={({ field }) => (
-                            <Select value={field.value?.toString()} onValueChange={(v) => field.onChange(parseInt(v))}>
-                              <SelectTrigger className="w-20" data-testid="select-due-month">
-                                <SelectValue placeholder={t.common?.month || "Month"} />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {months.map((m) => <SelectItem key={m} value={m.toString()}>{m}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
+                            <div className="flex flex-col gap-1">
+                              <span className="text-xs text-muted-foreground">{t.common?.month || "Month"}</span>
+                              <Select value={field.value?.toString()} onValueChange={(v) => field.onChange(parseInt(v))}>
+                                <SelectTrigger className="w-20" data-testid="select-due-month">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {months.map((m) => <SelectItem key={m} value={m.toString()}>{m}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
                           )}
                         />
                         <FormField
                           control={form.control}
                           name="dueDateYear"
                           render={({ field }) => (
-                            <Select value={field.value?.toString()} onValueChange={(v) => field.onChange(parseInt(v))}>
-                              <SelectTrigger className="w-24" data-testid="select-due-year">
-                                <SelectValue placeholder={t.common?.year || "Year"} />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {years.map((y) => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
+                            <div className="flex flex-col gap-1">
+                              <span className="text-xs text-muted-foreground">{t.common?.year || "Year"}</span>
+                              <Select value={field.value?.toString()} onValueChange={(v) => field.onChange(parseInt(v))}>
+                                <SelectTrigger className="w-24" data-testid="select-due-year">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {years.map((y) => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
                           )}
                         />
                       </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label>{t.invoices?.deliveryDate || "Delivery Date"}</Label>
-                        <Button type="button" variant="ghost" size="sm" onClick={() => setToday("deliveryDate")} data-testid="btn-today-delivery">
+                    <div className="p-4 border rounded-lg bg-muted/30">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-muted-foreground" />
+                          <Label className="font-medium">{t.invoices?.deliveryDate || "Delivery Date"}</Label>
+                          <span className="text-xs text-muted-foreground">({t.common?.optional || "optional"})</span>
+                        </div>
+                        <Button type="button" variant="outline" size="sm" onClick={() => setToday("deliveryDate")} data-testid="btn-today-delivery">
                           {t.common?.today || "Today"}
                         </Button>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 items-center">
                         <FormField
                           control={form.control}
                           name="deliveryDateDay"
                           render={({ field }) => (
-                            <Select value={field.value?.toString() || ""} onValueChange={(v) => field.onChange(v ? parseInt(v) : undefined)}>
-                              <SelectTrigger className="w-20" data-testid="select-delivery-day">
-                                <SelectValue placeholder={t.common?.day || "Day"} />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {days.map((d) => <SelectItem key={d} value={d.toString()}>{d}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
+                            <div className="flex flex-col gap-1">
+                              <span className="text-xs text-muted-foreground">{t.common?.day || "Day"}</span>
+                              <Select value={field.value?.toString() || ""} onValueChange={(v) => field.onChange(v ? parseInt(v) : undefined)}>
+                                <SelectTrigger className="w-20" data-testid="select-delivery-day">
+                                  <SelectValue placeholder="-" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {days.map((d) => <SelectItem key={d} value={d.toString()}>{d}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
                           )}
                         />
                         <FormField
                           control={form.control}
                           name="deliveryDateMonth"
                           render={({ field }) => (
-                            <Select value={field.value?.toString() || ""} onValueChange={(v) => field.onChange(v ? parseInt(v) : undefined)}>
-                              <SelectTrigger className="w-20" data-testid="select-delivery-month">
-                                <SelectValue placeholder={t.common?.month || "Month"} />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {months.map((m) => <SelectItem key={m} value={m.toString()}>{m}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
+                            <div className="flex flex-col gap-1">
+                              <span className="text-xs text-muted-foreground">{t.common?.month || "Month"}</span>
+                              <Select value={field.value?.toString() || ""} onValueChange={(v) => field.onChange(v ? parseInt(v) : undefined)}>
+                                <SelectTrigger className="w-20" data-testid="select-delivery-month">
+                                  <SelectValue placeholder="-" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {months.map((m) => <SelectItem key={m} value={m.toString()}>{m}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
                           )}
                         />
                         <FormField
                           control={form.control}
                           name="deliveryDateYear"
                           render={({ field }) => (
-                            <Select value={field.value?.toString() || ""} onValueChange={(v) => field.onChange(v ? parseInt(v) : undefined)}>
-                              <SelectTrigger className="w-24" data-testid="select-delivery-year">
-                                <SelectValue placeholder={t.common?.year || "Year"} />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {years.map((y) => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
+                            <div className="flex flex-col gap-1">
+                              <span className="text-xs text-muted-foreground">{t.common?.year || "Year"}</span>
+                              <Select value={field.value?.toString() || ""} onValueChange={(v) => field.onChange(v ? parseInt(v) : undefined)}>
+                                <SelectTrigger className="w-24" data-testid="select-delivery-year">
+                                  <SelectValue placeholder="-" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {years.map((y) => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
                           )}
                         />
                       </div>
@@ -994,23 +1085,34 @@ export function CreateInvoiceWizard({
                           <div>
                             <Label className="text-sm">{t.invoices?.billsets || "Billsets"}</Label>
                             <div className="max-h-[200px] overflow-y-auto space-y-2 mt-2">
-                              {filteredInstancePrices.length === 0 ? (
+                              {filteredProductSets.length === 0 ? (
                                 <p className="text-muted-foreground text-sm py-2">{t.invoices?.noBillsetsAvailable || "No billsets available for this product"}</p>
                               ) : (
-                                filteredInstancePrices.map((price) => (
-                                  <div key={price.id} className="flex items-center justify-between p-2 border rounded-md hover:bg-muted/50">
+                                filteredProductSets.map((billset) => (
+                                  <div 
+                                    key={billset.id} 
+                                    className={cn(
+                                      "flex items-center justify-between p-2 border rounded-md cursor-pointer transition-colors",
+                                      selectedBillsetId === billset.id ? "border-primary bg-primary/10" : "hover:bg-muted/50"
+                                    )}
+                                    onClick={() => setSelectedBillsetId(billset.id)}
+                                  >
                                     <div>
-                                      <p className="font-medium text-sm">{price.name}</p>
-                                      <p className="text-xs text-muted-foreground">{formatCurrency(parseFloat(price.price))}</p>
+                                      <p className="font-medium text-sm">{billset.name}</p>
+                                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                        <span>{formatCurrency(parseFloat(billset.totalGrossAmount || billset.totalNetAmount || "0"))}</span>
+                                        <Badge variant="outline" className="text-[10px] px-1 py-0">{billset.currency}</Badge>
+                                      </div>
                                     </div>
                                     <Button
                                       type="button"
-                                      variant="ghost"
+                                      variant={items.some(i => i.billsetId === billset.id) ? "default" : "ghost"}
                                       size="icon"
-                                      onClick={() => addItem(price)}
-                                      data-testid={`btn-add-item-${price.id}`}
+                                      onClick={(e) => { e.stopPropagation(); addItemFromBillset(billset); }}
+                                      disabled={items.some(i => i.billsetId === billset.id)}
+                                      data-testid={`btn-add-item-${billset.id}`}
                                     >
-                                      <Plus className="h-4 w-4" />
+                                      {items.some(i => i.billsetId === billset.id) ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
                                     </Button>
                                   </div>
                                 ))
@@ -1072,6 +1174,75 @@ export function CreateInvoiceWizard({
                       </CardContent>
                     </Card>
                   </div>
+
+                  {selectedBillsetId && billsetDetails && (
+                    <div className="mt-6 space-y-4">
+                      <h4 className="font-medium text-sm flex items-center gap-2">
+                        <Package className="h-4 w-4" />
+                        {t.konfigurator?.billsetContents || "Billset Contents"}
+                      </h4>
+
+                      {(billsetDetails.collections?.length || 0) > 0 && (
+                        <Card>
+                          <CardHeader className="py-3">
+                            <CardTitle className="text-sm text-blue-600 dark:text-blue-400">
+                              {t.konfigurator?.collectionsInSet || "Collections in Set"}
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="pt-0">
+                            <div className="space-y-2">
+                              {billsetDetails.collections?.map((col, idx) => (
+                                <div key={col.id} className="py-1.5 px-2 rounded bg-blue-50 dark:bg-blue-900/20 border-l-2 border-blue-400">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                                      {idx + 1}. {col.instanceName || t.konfigurator?.collectionItem || "Collection"}
+                                      {col.quantity > 1 && ` (${col.quantity}x)`}
+                                    </span>
+                                    <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">
+                                      {formatCurrency(parseFloat(col.lineGrossAmount || col.lineNetAmount || "0"))}
+                                    </span>
+                                  </div>
+                                  {col.priceName && (
+                                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">{col.priceName}</p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {(billsetDetails.storage?.length || 0) > 0 && (
+                        <Card>
+                          <CardHeader className="py-3">
+                            <CardTitle className="text-sm text-green-600 dark:text-green-400">
+                              {t.konfigurator?.storageInSet || "Storage in Set"}
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="pt-0">
+                            <div className="space-y-2">
+                              {billsetDetails.storage?.map((stor, idx) => (
+                                <div key={stor.id} className="py-1.5 px-2 rounded bg-green-50 dark:bg-green-900/20 border-l-2 border-green-400">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-sm font-medium text-green-900 dark:text-green-100">
+                                      {idx + 1}. {stor.storageName || t.konfigurator?.storageItem || "Storage"}
+                                      {stor.quantity > 1 && ` (${stor.quantity}x)`}
+                                    </span>
+                                    <span className="text-sm font-semibold text-green-700 dark:text-green-300">
+                                      {formatCurrency(parseFloat(stor.lineGrossAmount || stor.lineNetAmount || stor.priceOverride || "0"))}
+                                    </span>
+                                  </div>
+                                  {stor.storageType && (
+                                    <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">{stor.storageType}</p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
