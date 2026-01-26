@@ -12918,6 +12918,30 @@ export async function registerRoutes(
     }
   });
 
+  // Helper function to calculate billset totals from components
+  async function calculateBillsetTotals(setId: string): Promise<{totalNet: number, totalGross: number, totalVat: number, totalDiscount: number}> {
+    const collections = await storage.getProductSetCollections(setId);
+    const storageItems = await storage.getProductSetStorage(setId);
+    
+    let totalNet = 0, totalGross = 0, totalVat = 0, totalDiscount = 0;
+    
+    for (const col of collections) {
+      totalNet += parseFloat((col as any).lineNetAmount || "0");
+      totalGross += parseFloat((col as any).lineGrossAmount || "0");
+      totalVat += parseFloat((col as any).lineVatAmount || "0");
+      totalDiscount += parseFloat((col as any).lineDiscountAmount || "0");
+    }
+    
+    for (const stor of storageItems) {
+      totalNet += parseFloat((stor as any).lineNetAmount || "0");
+      totalGross += parseFloat((stor as any).lineGrossAmount || "0");
+      totalVat += parseFloat((stor as any).lineVatAmount || "0");
+      totalDiscount += parseFloat((stor as any).lineDiscountAmount || "0");
+    }
+    
+    return { totalNet, totalGross, totalVat, totalDiscount };
+  }
+  
   // Get all product sets (for contract product selection)
   app.get("/api/product-sets", requireAuth, async (req, res) => {
     try {
@@ -12931,9 +12955,20 @@ export async function registerRoutes(
           sets = sets.filter(s => !s.countryCode || s.countryCode.toUpperCase() === countryFilter.toUpperCase());
         }
         const product = await storage.getProduct(productIdFilter);
-        const enrichedSets = sets.map(s => ({
-          ...s,
-          productName: product?.name || ""
+        
+        // Calculate totals for each set
+        const enrichedSets = await Promise.all(sets.map(async (s) => {
+          const totals = await calculateBillsetTotals(s.id);
+          return {
+            ...s,
+            productName: product?.name || "",
+            calculatedTotals: {
+              totalNetAmount: totals.totalNet.toFixed(2),
+              totalGrossAmount: totals.totalGross.toFixed(2),
+              totalVatAmount: totals.totalVat.toFixed(2),
+              totalDiscountAmount: totals.totalDiscount.toFixed(2)
+            }
+          };
         }));
         return res.json(enrichedSets);
       }
@@ -12946,9 +12981,16 @@ export async function registerRoutes(
         const sets = await storage.getProductSets(product.id);
         for (const set of sets) {
           if (!countryFilter || !set.countryCode || set.countryCode.toUpperCase() === countryFilter.toUpperCase()) {
+            const totals = await calculateBillsetTotals(set.id);
             allSets.push({
               ...set,
-              productName: product.name
+              productName: product.name,
+              calculatedTotals: {
+                totalNetAmount: totals.totalNet.toFixed(2),
+                totalGrossAmount: totals.totalGross.toFixed(2),
+                totalVatAmount: totals.totalVat.toFixed(2),
+                totalDiscountAmount: totals.totalDiscount.toFixed(2)
+              }
             });
           }
         }

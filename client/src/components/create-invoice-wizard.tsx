@@ -300,6 +300,12 @@ export function CreateInvoiceWizard({
     totalGrossAmount: string | null;
     totalNetAmount: string | null;
     isActive: boolean;
+    calculatedTotals?: {
+      totalNetAmount: string;
+      totalGrossAmount: string;
+      totalVatAmount: string;
+      totalDiscountAmount: string;
+    };
   };
 
   type ProductSetDetail = {
@@ -981,8 +987,16 @@ export function CreateInvoiceWizard({
                       </div>
                     </div>
 
+                    {/* Billing Period Section Header */}
+                    <div className="mt-6 pt-4 border-t">
+                      <h4 className="text-sm font-semibold text-primary flex items-center gap-2 mb-4">
+                        <CalendarDays className="h-4 w-4" />
+                        {t.invoices?.billingPeriod || "Billing Period"} <span className="text-xs font-normal text-muted-foreground">({t.common?.optional || "optional"})</span>
+                      </h4>
+                    </div>
+
                     {/* Period From */}
-                    <div className="p-4 border rounded-lg bg-muted/30">
+                    <div className="p-4 border rounded-lg bg-blue-50/50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
                           <div className="w-2 h-2 rounded-full bg-blue-500" />
@@ -1049,12 +1063,11 @@ export function CreateInvoiceWizard({
                     </div>
 
                     {/* Period To */}
-                    <div className="p-4 border rounded-lg bg-muted/30">
+                    <div className="p-4 border rounded-lg bg-purple-50/50 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
                           <div className="w-2 h-2 rounded-full bg-purple-500" />
                           <Label className="font-medium">{t.invoices?.periodTo || "Period To"}</Label>
-                          <span className="text-xs text-muted-foreground">({t.common?.optional || "optional"})</span>
                         </div>
                         <Button type="button" variant="outline" size="sm" onClick={() => setToday("periodTo")} data-testid="btn-today-period-to">
                           {t.common?.today || "Today"}
@@ -1277,7 +1290,7 @@ export function CreateInvoiceWizard({
                                     <div>
                                       <p className="font-medium text-sm">{billset.name}</p>
                                       <div className="flex items-center gap-2 text-xs">
-                                        <span className="font-medium">{formatCurrencyWithCode(parseFloat(billset.totalGrossAmount || billset.totalNetAmount || "0"), billset.currency)}</span>
+                                        <span className="font-medium">{formatCurrencyWithCode(parseFloat(billset.calculatedTotals?.totalGrossAmount || billset.totalGrossAmount || billset.totalNetAmount || "0"), billset.currency)}</span>
                                       </div>
                                     </div>
                                     <Button
