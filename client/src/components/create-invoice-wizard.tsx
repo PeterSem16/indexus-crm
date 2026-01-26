@@ -524,7 +524,15 @@ export function CreateInvoiceWizard({
     
     // Fetch billset details to get individual components
     try {
-      const response = await apiRequest("GET", `/api/product-sets/${billset.id}`);
+      console.log("[Invoice] Fetching from:", `/api/product-sets/${billset.id}`);
+      const response = await fetch(`/api/product-sets/${billset.id}`, {
+        method: "GET",
+        credentials: "include",
+      });
+      console.log("[Invoice] Response status:", response.status);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
       const details: ProductSetDetail = await response.json();
       console.log("[Invoice] Fetched billset details:", details);
       console.log("[Invoice] Billset details:", JSON.stringify(details, null, 2));
