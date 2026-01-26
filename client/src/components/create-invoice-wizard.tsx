@@ -518,7 +518,7 @@ export function CreateInvoiceWizard({
   };
 
   const addItemFromBillset = (billset: ProductSet) => {
-    const totalAmount = billset.totalGrossAmount || billset.totalNetAmount || "0";
+    const totalAmount = billset.calculatedTotals?.totalGrossAmount || billset.totalGrossAmount || billset.totalNetAmount || "0";
     const newItem: InvoiceItem = {
       id: crypto.randomUUID(),
       name: billset.name,
