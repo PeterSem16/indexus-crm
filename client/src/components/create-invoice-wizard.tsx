@@ -519,22 +519,25 @@ export function CreateInvoiceWizard({
   };
 
   const addItemFromBillset = async (billset: ProductSet) => {
-    console.log("[Invoice] addItemFromBillset called for:", billset.id, billset.name);
+    console.log("[Invoice v2.2] addItemFromBillset called for:", billset.id, billset.name);
     setIsAddingBillset(billset.id);
     
     // Fetch billset details to get individual components
     try {
-      console.log("[Invoice] Fetching from:", `/api/product-sets/${billset.id}`);
-      const response = await fetch(`/api/product-sets/${billset.id}`, {
+      const url = `/api/product-sets/${billset.id}`;
+      console.log("[Invoice v2.2] Fetching from:", url);
+      const response = await fetch(url, {
         method: "GET",
         credentials: "include",
       });
-      console.log("[Invoice] Response status:", response.status);
+      console.log("[Invoice v2.2] Response status:", response.status, response.statusText);
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const errText = await response.text();
+        console.error("[Invoice v2.2] Error response:", errText);
+        throw new Error(`HTTP ${response.status}: ${errText}`);
       }
       const details: ProductSetDetail = await response.json();
-      console.log("[Invoice] Fetched billset details:", details);
+      console.log("[Invoice v2.2] Fetched billset details:", details);
       console.log("[Invoice] Billset details:", JSON.stringify(details, null, 2));
       const newItems: InvoiceItem[] = [];
       
@@ -1425,7 +1428,7 @@ export function CreateInvoiceWizard({
                       <CardHeader>
                         <CardTitle className="text-sm flex items-center gap-2">
                           {t.invoices?.selectedItems || "Selected Items"} ({items.length})
-                          <Badge variant="outline" className="text-xs bg-green-100 text-green-800">v2.1</Badge>
+                          <Badge variant="outline" className="text-xs bg-blue-100 text-blue-800">v2.2</Badge>
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
