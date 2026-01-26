@@ -10782,6 +10782,59 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/configurator/number-ranges/:id/copy", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { targetCountryCode, billingDetailsId } = req.body;
+
+      if (!targetCountryCode || typeof targetCountryCode !== "string") {
+        return res.status(400).json({ error: "Target country code is required" });
+      }
+
+      const sourceRange = await storage.getNumberRange(id);
+      if (!sourceRange) {
+        return res.status(404).json({ error: "Source number range not found" });
+      }
+
+      if (targetCountryCode === sourceRange.countryCode) {
+        return res.status(400).json({ error: "Target country must be different from source country" });
+      }
+
+      const newRange = await storage.createNumberRange({
+        name: `${sourceRange.name} (${targetCountryCode})`,
+        countryCode: targetCountryCode,
+        billingDetailsId: billingDetailsId || null,
+        year: sourceRange.year,
+        useServiceCode: sourceRange.useServiceCode,
+        type: sourceRange.type,
+        prefix: sourceRange.prefix,
+        suffix: sourceRange.suffix,
+        digitsToGenerate: sourceRange.digitsToGenerate,
+        startNumber: 1,
+        endNumber: sourceRange.endNumber,
+        lastNumberUsed: 0,
+        accountingCode: sourceRange.accountingCode,
+        description: sourceRange.description,
+        isActive: true,
+      });
+
+      await logActivity(
+        req.session.user!.id,
+        "copied_number_range",
+        "number_range",
+        newRange.id,
+        { sourceId: id, targetCountry: targetCountryCode },
+        undefined,
+        req.ip
+      );
+
+      res.json(newRange);
+    } catch (error) {
+      console.error("Failed to copy number range:", error);
+      res.status(500).json({ error: "Failed to copy number range" });
+    }
+  });
+
   // Invoice Templates
   app.get("/api/configurator/invoice-templates", requireAuth, async (req, res) => {
     try {

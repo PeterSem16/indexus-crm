@@ -7900,6 +7900,11 @@ function NumberRangesTab() {
   const [wizardStep, setWizardStep] = useState(1);
   const [search, setSearch] = useState("");
   const totalSteps = 4;
+  
+  const [copyDialogOpen, setCopyDialogOpen] = useState(false);
+  const [copyingRange, setCopyingRange] = useState<NumberRange | null>(null);
+  const [copyTargetCountry, setCopyTargetCountry] = useState("");
+  const [copyBillingDetailsId, setCopyBillingDetailsId] = useState("");
 
   const currentYear = new Date().getFullYear();
   const yearOptions = Array.from({ length: 61 }, (_, i) => currentYear - 30 + i);
@@ -7994,6 +7999,56 @@ function NumberRangesTab() {
       toast({ title: t.konfigurator.numberRangeDeleted });
     },
   });
+
+  const { data: copyBillingCompanies = [] } = useQuery<BillingDetails[]>({
+    queryKey: ["/api/billing-details", copyTargetCountry],
+    queryFn: async () => {
+      if (!copyTargetCountry) return [];
+      const res = await fetch(`/api/billing-details?country=${copyTargetCountry}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: copyDialogOpen && !!copyTargetCountry,
+  });
+
+  const copyMutation = useMutation({
+    mutationFn: (data: { id: string; targetCountryCode: string; billingDetailsId?: string }) =>
+      apiRequest("POST", `/api/configurator/number-ranges/${data.id}/copy`, {
+        targetCountryCode: data.targetCountryCode,
+        billingDetailsId: data.billingDetailsId || null,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/configurator/number-ranges"] });
+      setCopyDialogOpen(false);
+      setCopyingRange(null);
+      setCopyTargetCountry("");
+      setCopyBillingDetailsId("");
+      toast({ title: t.konfigurator.numberRangeCopied || "Number range copied successfully" });
+    },
+    onError: (error: Error) => {
+      toast({ 
+        title: t.common.error || "Error",
+        description: error.message || t.konfigurator.copyNumberRangeFailed || "Failed to copy number range",
+        variant: "destructive"
+      });
+    },
+  });
+
+  const handleCopy = (range: NumberRange) => {
+    setCopyingRange(range);
+    setCopyTargetCountry("");
+    setCopyBillingDetailsId("");
+    setCopyDialogOpen(true);
+  };
+
+  const handleCopySubmit = () => {
+    if (!copyingRange || !copyTargetCountry) return;
+    copyMutation.mutate({
+      id: copyingRange.id,
+      targetCountryCode: copyTargetCountry,
+      billingDetailsId: copyBillingDetailsId || undefined,
+    });
+  };
 
   const handleEdit = (range: NumberRange) => {
     setEditingRange(range);
@@ -8123,6 +8178,15 @@ function NumberRangesTab() {
             data-testid={`button-edit-range-${range.id}`}
           >
             <Pencil className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => handleCopy(range)}
+            data-testid={`button-copy-range-${range.id}`}
+            title={t.konfigurator.copyToCountry || "Copy to another country"}
+          >
+            <Copy className="h-4 w-4" />
           </Button>
           <Button
             variant="ghost"
@@ -8575,6 +8639,77 @@ function NumberRangesTab() {
           getRowKey={(range) => range.id}
         />
       )}
+
+      <Dialog open={copyDialogOpen} onOpenChange={setCopyDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t.konfigurator.copyNumberRange || "Copy Number Range"}</DialogTitle>
+            <DialogDescription>
+              {t.konfigurator.copyNumberRangeDescription || "Copy this number range to another country. The new range will start from number 1."}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {copyingRange && (
+            <div className="space-y-4">
+              <div className="p-3 bg-muted rounded-md">
+                <p className="text-sm font-medium">{t.konfigurator.sourceRange || "Source"}: {copyingRange.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {copyingRange.prefix || ""}{copyingRange.useServiceCode ? "[CODE]" : ""}{String(1).padStart(copyingRange.digitsToGenerate, "0")}{copyingRange.suffix || ""}
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>{t.konfigurator.targetCountry || "Target Country"}</Label>
+                <Select value={copyTargetCountry} onValueChange={(v) => { setCopyTargetCountry(v); setCopyBillingDetailsId(""); }}>
+                  <SelectTrigger data-testid="select-copy-target-country">
+                    <SelectValue placeholder={t.konfigurator.selectCountry || "Select country"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {COUNTRIES.filter(c => c.code !== copyingRange.countryCode).map((country) => (
+                      <SelectItem key={country.code} value={country.code}>
+                        {country.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {copyTargetCountry && copyBillingCompanies.length > 0 && (
+                <div className="space-y-2">
+                  <Label>{t.konfigurator.billingCompany || "Billing Company"}</Label>
+                  <Select value={copyBillingDetailsId} onValueChange={setCopyBillingDetailsId}>
+                    <SelectTrigger data-testid="select-copy-billing-company">
+                      <SelectValue placeholder={t.konfigurator.selectBillingCompany || "Select billing company (optional)"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">{t.common.none || "None"}</SelectItem>
+                      {copyBillingCompanies.map((company) => (
+                        <SelectItem key={company.id} value={company.id}>
+                          {company.companyName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCopyDialogOpen(false)}>
+              {t.common.cancel}
+            </Button>
+            <Button 
+              onClick={handleCopySubmit} 
+              disabled={!copyTargetCountry || copyMutation.isPending}
+              data-testid="button-confirm-copy"
+            >
+              {copyMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {t.common.copy || "Copy"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1245,6 +1245,12 @@ export interface Translations {
     numberRangeCreated: string;
     numberRangeUpdated: string;
     numberRangeDeleted: string;
+    numberRangeCopied: string;
+    copyNumberRange: string;
+    copyNumberRangeDescription: string;
+    sourceRange: string;
+    targetCountry: string;
+    copyToCountry: string;
     numberRangeFormDescription: string;
     noNumberRanges: string;
     billingCompany: string;
@@ -3598,6 +3604,12 @@ export const translations: Record<Locale, Translations> = {
       numberRangeCreated: 'Number range created successfully',
       numberRangeUpdated: 'Number range updated successfully',
       numberRangeDeleted: 'Number range deleted successfully',
+      numberRangeCopied: 'Number range copied successfully',
+      copyNumberRange: 'Copy Number Range',
+      copyNumberRangeDescription: 'Copy this number range to another country. The new range will start from number 1.',
+      sourceRange: 'Source',
+      targetCountry: 'Target Country',
+      copyToCountry: 'Copy to another country',
       billingCompany: 'Billing Company',
       selectBillingCompany: 'Select billing company',
       selectCountryPlaceholder: 'Select country',
@@ -5936,6 +5948,12 @@ export const translations: Record<Locale, Translations> = {
       numberRangeCreated: 'Číselná rada bola úspešne vytvorená',
       numberRangeUpdated: 'Číselná rada bola úspešne aktualizovaná',
       numberRangeDeleted: 'Číselná rada bola úspešne vymazaná',
+      numberRangeCopied: 'Číselná rada bola úspešne skopírovaná',
+      copyNumberRange: 'Kopírovať číselnú radu',
+      copyNumberRangeDescription: 'Skopírovať číselnú radu do inej krajiny. Nová rada bude začínať od čísla 1.',
+      sourceRange: 'Zdroj',
+      targetCountry: 'Cieľová krajina',
+      copyToCountry: 'Kopírovať do inej krajiny',
       billingCompany: 'Fakturačná spoločnosť',
       selectBillingCompany: 'Vyberte fakturačnú spoločnosť',
       selectCountryPlaceholder: 'Vyberte krajinu',
@@ -8207,6 +8225,12 @@ export const translations: Record<Locale, Translations> = {
       numberRangeCreated: 'Číselná řada byla úspěšně vytvořena',
       numberRangeUpdated: 'Číselná řada byla úspěšně aktualizována',
       numberRangeDeleted: 'Číselná řada byla úspěšně smazána',
+      numberRangeCopied: 'Číselná řada byla úspěšně zkopírována',
+      copyNumberRange: 'Kopírovat číselnou řadu',
+      copyNumberRangeDescription: 'Zkopírovat číselnou řadu do jiné země. Nová řada bude začínat od čísla 1.',
+      sourceRange: 'Zdroj',
+      targetCountry: 'Cílová země',
+      copyToCountry: 'Kopírovat do jiné země',
       billingCompany: 'Fakturační společnost',
       selectBillingCompany: 'Vyberte fakturační společnost',
       selectCountryPlaceholder: 'Vyberte zemi',
@@ -10441,6 +10465,12 @@ export const translations: Record<Locale, Translations> = {
       numberRangeCreated: 'Számtartomány sikeresen létrehozva',
       numberRangeUpdated: 'Számtartomány sikeresen frissítve',
       numberRangeDeleted: 'Számtartomány sikeresen törölve',
+      numberRangeCopied: 'Számtartomány sikeresen másolva',
+      copyNumberRange: 'Számtartomány másolása',
+      copyNumberRangeDescription: 'Számtartomány másolása másik országba. Az új tartomány 1-től kezdődik.',
+      sourceRange: 'Forrás',
+      targetCountry: 'Célország',
+      copyToCountry: 'Másolás másik országba',
       billingCompany: 'Számlázó cég',
       selectBillingCompany: 'Válasszon számlázó céget',
       selectCountryPlaceholder: 'Válasszon országot',
@@ -12674,6 +12704,12 @@ export const translations: Record<Locale, Translations> = {
       numberRangeCreated: 'Interval numeric creat cu succes',
       numberRangeUpdated: 'Interval numeric actualizat cu succes',
       numberRangeDeleted: 'Interval numeric șters cu succes',
+      numberRangeCopied: 'Interval numeric copiat cu succes',
+      copyNumberRange: 'Copiază interval numeric',
+      copyNumberRangeDescription: 'Copiază acest interval numeric în altă țară. Noul interval va începe de la numărul 1.',
+      sourceRange: 'Sursă',
+      targetCountry: 'Țara țintă',
+      copyToCountry: 'Copiază în altă țară',
       billingCompany: 'Companie de facturare',
       selectBillingCompany: 'Selectați compania de facturare',
       selectCountryPlaceholder: 'Selectați țara',
@@ -14908,6 +14944,12 @@ export const translations: Record<Locale, Translations> = {
       numberRangeCreated: 'Intervallo numerico creato con successo',
       numberRangeUpdated: 'Intervallo numerico aggiornato con successo',
       numberRangeDeleted: 'Intervallo numerico eliminato con successo',
+      numberRangeCopied: 'Intervallo numerico copiato con successo',
+      copyNumberRange: 'Copia intervallo numerico',
+      copyNumberRangeDescription: 'Copia questo intervallo numerico in un altro paese. Il nuovo intervallo inizierà dal numero 1.',
+      sourceRange: 'Fonte',
+      targetCountry: 'Paese di destinazione',
+      copyToCountry: 'Copia in un altro paese',
       billingCompany: 'Società di fatturazione',
       selectBillingCompany: 'Seleziona società di fatturazione',
       selectCountryPlaceholder: 'Seleziona paese',
@@ -17142,6 +17184,12 @@ export const translations: Record<Locale, Translations> = {
       numberRangeCreated: 'Nummernkreis erfolgreich erstellt',
       numberRangeUpdated: 'Nummernkreis erfolgreich aktualisiert',
       numberRangeDeleted: 'Nummernkreis erfolgreich gelöscht',
+      numberRangeCopied: 'Nummernkreis erfolgreich kopiert',
+      copyNumberRange: 'Nummernkreis kopieren',
+      copyNumberRangeDescription: 'Nummernkreis in ein anderes Land kopieren. Der neue Kreis beginnt bei Nummer 1.',
+      sourceRange: 'Quelle',
+      targetCountry: 'Zielland',
+      copyToCountry: 'In ein anderes Land kopieren',
       billingCompany: 'Rechnungsunternehmen',
       selectBillingCompany: 'Rechnungsunternehmen auswählen',
       selectCountryPlaceholder: 'Land auswählen',
