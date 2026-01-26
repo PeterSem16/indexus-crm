@@ -445,10 +445,12 @@ export function CreateInvoiceWizard({
       const assignedProduct = customerProducts[0];
       if (assignedProduct?.productId) {
         setSelectedProductId(assignedProduct.productId);
-        // Auto-add assigned billset if available
+        // Auto-add assigned billset if available - always reload to get components
         if (assignedProduct.billsetId) {
           const billset = productSets.find(ps => ps.id === assignedProduct.billsetId);
-          if (billset && items.length === 0) {
+          if (billset) {
+            // Clear old items first and reload with components
+            setItems([]);
             addItemFromBillset(billset);
           }
         }
