@@ -8677,12 +8677,15 @@ function NumberRangesTab() {
               {copyTargetCountry && copyBillingCompanies.length > 0 && (
                 <div className="space-y-2">
                   <Label>{t.konfigurator.billingCompany || "Billing Company"}</Label>
-                  <Select value={copyBillingDetailsId} onValueChange={setCopyBillingDetailsId}>
+                  <Select 
+                    value={copyBillingDetailsId || "__none__"} 
+                    onValueChange={(v) => setCopyBillingDetailsId(v === "__none__" ? "" : v)}
+                  >
                     <SelectTrigger data-testid="select-copy-billing-company">
                       <SelectValue placeholder={t.konfigurator.selectBillingCompany || "Select billing company (optional)"} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">{t.common.none || "None"}</SelectItem>
+                      <SelectItem value="__none__">{t.common.none || "None"}</SelectItem>
                       {copyBillingCompanies.map((company) => (
                         <SelectItem key={company.id} value={company.id}>
                           {company.companyName}
