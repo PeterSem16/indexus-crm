@@ -13136,9 +13136,9 @@ export async function registerRoutes(
         }
         if (col.vatRateId) {
           const vat = await storage.getInstanceVatRate(col.vatRateId);
-          enriched.vatName = vat?.name || null;
-          enriched.vatPercent = vat?.ratePercentage || null;
-          enriched.vatRate = vat?.ratePercentage || null;
+          enriched.vatName = vat?.description || null;
+          enriched.vatPercent = vat?.vatRate || null;
+          enriched.vatRate = vat?.vatRate || null;
         }
         if (col.paymentOptionId) {
           const paymentOption = await storage.getInstancePaymentOption(col.paymentOptionId);
@@ -13168,9 +13168,9 @@ export async function registerRoutes(
         }
         if (stor.vatRateId) {
           const vat = await storage.getInstanceVatRate(stor.vatRateId);
-          enriched.vatName = vat?.name || null;
-          enriched.vatPercent = vat?.ratePercentage || null;
-          enriched.vatRate = vat?.ratePercentage || null;
+          enriched.vatName = vat?.description || null;
+          enriched.vatPercent = vat?.vatRate || null;
+          enriched.vatRate = vat?.vatRate || null;
         }
         if (stor.paymentOptionId) {
           const paymentOption = await storage.getInstancePaymentOption(stor.paymentOptionId);
