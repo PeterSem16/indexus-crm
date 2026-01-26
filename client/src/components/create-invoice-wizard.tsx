@@ -539,24 +539,37 @@ export function CreateInvoiceWizard({
       }
       
       const details: ProductSetDetail = await response.json();
+      console.log("[Invoice] Billset details:", JSON.stringify(details, null, 2));
       const newItems: InvoiceItem[] = [];
       
       // Add collection components
       if (details.collections && details.collections.length > 0) {
         for (const col of details.collections) {
-          const unitPrice = col.lineGrossAmount || col.lineNetAmount || col.priceAmount || "0";
+          // Use lineGrossAmount for VAT items, lineNetAmount for non-VAT items
+          const hasVat = col.vatRate && parseFloat(String(col.vatRate)) > 0;
+          const itemTotal = hasVat 
+            ? (col.lineGrossAmount || col.lineNetAmount || col.priceAmount || "0")
+            : (col.lineNetAmount || col.priceAmount || "0");
           const discountInfo = parseFloat(col.lineDiscountAmount || "0") > 0 
             ? ` (-${col.discountPercent}% ${col.discountName || ""})` 
             : "";
           const paymentInfo = col.paymentType === "installment" ? " [Splátka]" : "";
+          const qty = col.quantity || 1;
+          
+          // VAT rate: use component's VAT or 0 if not set (no VAT)
+          const vatRateValue = col.vatRate !== undefined && col.vatRate !== null && col.vatRate !== "" 
+            ? String(col.vatRate) 
+            : "0";
+          
+          console.log(`[Invoice] Collection ${col.instanceName}: vatRate=${vatRateValue}, total=${itemTotal}, hasVat=${hasVat}`);
           
           newItems.push({
             id: crypto.randomUUID(),
             name: `${col.instanceName || "Odber"}${paymentInfo}${discountInfo}`,
-            quantity: col.quantity || 1,
-            unitPrice: (parseFloat(unitPrice) / (col.quantity || 1)).toFixed(2),
-            vatRate: col.vatRate || billingInfo?.defaultVatRate || "20",
-            total: unitPrice,
+            quantity: qty,
+            unitPrice: (parseFloat(itemTotal) / qty).toFixed(2),
+            vatRate: vatRateValue,
+            total: itemTotal,
             billsetId: billset.id,
           });
         }
@@ -565,19 +578,31 @@ export function CreateInvoiceWizard({
       // Add storage components
       if (details.storage && details.storage.length > 0) {
         for (const stor of details.storage) {
-          const unitPrice = stor.lineGrossAmount || stor.lineNetAmount || stor.priceOverride || "0";
+          // Use lineGrossAmount for VAT items, lineNetAmount for non-VAT items
+          const hasVat = stor.vatRate && parseFloat(String(stor.vatRate)) > 0;
+          const itemTotal = hasVat 
+            ? (stor.lineGrossAmount || stor.lineNetAmount || stor.priceOverride || "0")
+            : (stor.lineNetAmount || stor.priceOverride || "0");
           const discountInfo = parseFloat(stor.lineDiscountAmount || "0") > 0 
             ? ` (-${stor.discountPercent}% ${stor.discountName || ""})` 
             : "";
           const paymentInfo = stor.paymentType === "installment" ? " [Splátka]" : "";
+          const qty = stor.quantity || 1;
+          
+          // VAT rate: use component's VAT or 0 if not set (no VAT)
+          const vatRateValue = stor.vatRate !== undefined && stor.vatRate !== null && stor.vatRate !== "" 
+            ? String(stor.vatRate) 
+            : "0";
+          
+          console.log(`[Invoice] Storage ${stor.serviceName}: vatRate=${vatRateValue}, total=${itemTotal}, hasVat=${hasVat}`);
           
           newItems.push({
             id: crypto.randomUUID(),
             name: `${stor.serviceName || stor.storageName || "Uskladnenie"}${paymentInfo}${discountInfo}`,
-            quantity: stor.quantity || 1,
-            unitPrice: (parseFloat(unitPrice) / (stor.quantity || 1)).toFixed(2),
-            vatRate: stor.vatRate || billingInfo?.defaultVatRate || "20",
-            total: unitPrice,
+            quantity: qty,
+            unitPrice: (parseFloat(itemTotal) / qty).toFixed(2),
+            vatRate: vatRateValue,
+            total: itemTotal,
             billsetId: billset.id,
           });
         }
