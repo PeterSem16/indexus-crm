@@ -58,6 +58,7 @@ import { useCountryFilter } from "@/contexts/country-filter-context";
 import { usePermissions } from "@/contexts/permissions-context";
 import { useAuth } from "@/contexts/auth-context";
 import { useSip } from "@/contexts/sip-context";
+import { CreateInvoiceWizard } from "@/components/create-invoice-wizard";
 
 interface AvailableMailbox {
   id: string | null;
@@ -2762,6 +2763,7 @@ function CustomerDetailsContent({
   const [isInvoiceDetailOpen, setIsInvoiceDetailOpen] = useState(false);
   const [selectedInvoiceDetailProduct, setSelectedInvoiceDetailProduct] = useState<any>(null);
   const [isManualInvoiceOpen, setIsManualInvoiceOpen] = useState(false);
+  const [showCreateInvoiceWizard, setShowCreateInvoiceWizard] = useState(false);
   const [invoiceLines, setInvoiceLines] = useState<InvoiceLineItem[]>([]);
   const [newLineProductId, setNewLineProductId] = useState<string>("");
   const [newLineQty, setNewLineQty] = useState<string>("1");
@@ -3548,10 +3550,6 @@ function CustomerDetailsContent({
             <FileText className="h-4 w-4 mr-2" />
             Dokumenty
           </TabsTrigger>
-          <TabsTrigger value="invoices" data-testid="tab-invoices">
-            <Receipt className="h-4 w-4 mr-2" />
-            {t.customers.tabs?.invoices || "Faktúry"}
-          </TabsTrigger>
           <TabsTrigger value="communicate" data-testid="tab-communicate">
             <Mail className="h-4 w-4 mr-2" />
             {t.customers.tabs.contact}
@@ -4057,9 +4055,6 @@ function CustomerDetailsContent({
           <DocumentsTab customerId={customer.id} />
         </TabsContent>
 
-        <TabsContent value="invoices" className="space-y-6 mt-4">
-          <InvoicesTab customerId={customer.id} customerCountry={customer.country} />
-        </TabsContent>
 
         <TabsContent value="gdpr" className="space-y-6 mt-4">
           <GdprTab customerId={customer.id} />
@@ -4355,13 +4350,20 @@ function CustomerDetailsContent({
         </Button>
         <Button
           variant="outline"
-          onClick={() => setIsManualInvoiceOpen(true)}
+          onClick={() => setShowCreateInvoiceWizard(true)}
           data-testid="button-create-invoice-from-view"
         >
           <Receipt className="h-4 w-4 mr-2" />
           {t.customers.details?.createInvoice || "Vytvoriť faktúru"}
         </Button>
       </div>
+
+      <CreateInvoiceWizard
+        open={showCreateInvoiceWizard}
+        onClose={() => setShowCreateInvoiceWizard(false)}
+        customerId={customer.id}
+        customerCountry={customer.country}
+      />
 
       <Dialog open={isManualInvoiceOpen} onOpenChange={setIsManualInvoiceOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">

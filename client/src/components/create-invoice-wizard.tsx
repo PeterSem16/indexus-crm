@@ -236,7 +236,15 @@ export function CreateInvoiceWizard({
   });
 
   const { data: numberRanges = [] } = useQuery<NumberRange[]>({
-    queryKey: ["/api/configurator/number-ranges", { countries: customerCountry }],
+    queryKey: ["/api/configurator/number-ranges", customerCountry],
+    queryFn: async () => {
+      const params = customerCountry ? `?countries=${customerCountry}` : "";
+      const response = await fetch(`/api/configurator/number-ranges${params}`, {
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to fetch number ranges");
+      return response.json();
+    },
     enabled: open,
   });
 
