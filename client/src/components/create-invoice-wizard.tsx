@@ -1006,17 +1006,19 @@ export function CreateInvoiceWizard({
 
         console.log("[InvoiceWizard] Creating first invoice with data:", firstInvoiceData);
         try {
+          console.log("[InvoiceWizard] About to call apiRequest for POST /api/invoices");
           const response = await apiRequest("POST", "/api/invoices", firstInvoiceData);
           console.log("[InvoiceWizard] Invoice creation response status:", response.status);
           const createdInvoice = await response.json();
           console.log("[InvoiceWizard] Created invoice:", createdInvoice);
           parentInvoiceId = createdInvoice.id;
           firstInvoiceCreated = true;
-        } catch (error) {
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
           console.error("[InvoiceWizard] Failed to create first invoice:", error);
           toast({
             title: t.common?.error || "Error",
-            description: t.invoices?.createFailed || "Failed to create first invoice",
+            description: `${t.invoices?.createFailed || "Failed to create first invoice"}: ${errorMessage}`,
             variant: "destructive",
           });
           return;
