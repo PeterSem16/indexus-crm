@@ -787,6 +787,32 @@ export const invoicePayments = pgTable("invoice_payments", {
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
+// Scheduled invoices - pending installment invoices waiting to be created
+export const scheduledInvoices = pgTable("scheduled_invoices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull(),
+  billingDetailsId: varchar("billing_details_id"),
+  numberRangeId: varchar("number_range_id"),
+  scheduledDate: timestamp("scheduled_date").notNull(), // When this invoice should be created
+  installmentNumber: integer("installment_number").notNull(), // Which installment (2, 3, 4, etc.)
+  totalInstallments: integer("total_installments").notNull(), // Total number of installments
+  status: text("status").notNull().default("pending"), // pending, created, cancelled
+  currency: text("currency").notNull().default("EUR"),
+  paymentTermDays: integer("payment_term_days").notNull().default(14),
+  constantSymbol: text("constant_symbol"),
+  specificSymbol: text("specific_symbol"),
+  barcodeType: text("barcode_type"),
+  items: jsonb("items").notNull(), // Array of invoice items
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  vatAmount: decimal("vat_amount", { precision: 10, scale: 2 }),
+  subtotal: decimal("subtotal", { precision: 10, scale: 2 }),
+  vatRate: decimal("vat_rate", { precision: 5, scale: 2 }),
+  parentInvoiceId: varchar("parent_invoice_id"), // Reference to the first invoice in the series
+  createdInvoiceId: varchar("created_invoice_id"), // Reference to created invoice (when status = created)
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  createdBy: varchar("created_by"), // User who created the scheduled invoice
+});
+
 // Customer notes - individual notes on customer records
 export const customerNotes = pgTable("customer_notes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1472,6 +1498,14 @@ export const insertInvoiceItemSchema = createInsertSchema(invoiceItems).omit({
   quantity: z.number().int().positive().optional().default(1),
 });
 
+export const insertScheduledInvoiceSchema = createInsertSchema(scheduledInvoices).omit({
+  id: true,
+  createdAt: true,
+  createdInvoiceId: true,
+}).extend({
+  status: z.string().optional().default("pending"),
+});
+
 // Customer product schemas
 export const insertCustomerProductSchema = createInsertSchema(customerProducts).omit({
   id: true,
@@ -1576,6 +1610,8 @@ export type InsertBillingCompanyCourier = z.infer<typeof insertBillingCompanyCou
 export type BillingCompanyCourier = typeof billingCompanyCouriers.$inferSelect;
 export type InsertInvoiceItem = z.infer<typeof insertInvoiceItemSchema>;
 export type InvoiceItem = typeof invoiceItems.$inferSelect;
+export type InsertScheduledInvoice = z.infer<typeof insertScheduledInvoiceSchema>;
+export type ScheduledInvoice = typeof scheduledInvoices.$inferSelect;
 export type InsertCustomerNote = z.infer<typeof insertCustomerNoteSchema>;
 export type CustomerNote = typeof customerNotes.$inferSelect;
 export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
