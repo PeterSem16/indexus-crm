@@ -1,6 +1,9 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Search, Eye, Receipt, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckCircle2, Plus } from "lucide-react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Search, Eye, Receipt, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckCircle2, Plus, Users, FileText } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { CreateInvoiceWizard } from "@/components/create-invoice-wizard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -109,6 +112,7 @@ const localeMap: Record<string, string> = {
 
 export default function CustomerInvoicesPage() {
   const { t, locale } = useI18n();
+  const { toast } = useToast();
   const { selectedCountries } = useCountryFilter();
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -118,6 +122,9 @@ export default function CustomerInvoicesPage() {
   const [page, setPage] = useState(1);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [showCreateWizard, setShowCreateWizard] = useState(false);
+  const [activeTab, setActiveTab] = useState("list");
+  const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
+  const [bulkSearch, setBulkSearch] = useState("");
   const perPage = 30;
 
   const { data: invoices = [], isLoading } = useQuery<Invoice[]>({
@@ -143,6 +150,59 @@ export default function CustomerInvoicesPage() {
     billingDetails.forEach(b => map.set(b.id, b));
     return map;
   }, [billingDetails]);
+
+  const bulkGenerateMutation = useMutation({
+    mutationFn: (customerIds: string[]) => 
+      apiRequest("POST", "/api/invoices/bulk-generate", { customerIds }),
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      setSelectedCustomers([]);
+      setActiveTab("list");
+      toast({ title: t.success?.created || "Success" });
+    },
+    onError: () => {
+      toast({ title: t.errors?.saveFailed || "Error", variant: "destructive" });
+    },
+  });
+
+  const toggleCustomer = (customerId: string) => {
+    setSelectedCustomers(prev => 
+      prev.includes(customerId) 
+        ? prev.filter(id => id !== customerId)
+        : [...prev, customerId]
+    );
+  };
+
+  const selectAllCustomers = () => {
+    const filteredIds = filteredCustomersForBulk.map(c => c.id);
+    if (filteredIds.every(id => selectedCustomers.includes(id))) {
+      setSelectedCustomers(prev => prev.filter(id => !filteredIds.includes(id)));
+    } else {
+      setSelectedCustomers(prev => Array.from(new Set([...prev, ...filteredIds])));
+    }
+  };
+
+  const filteredCustomersForBulk = useMemo(() => {
+    let result = customers;
+    
+    // Apply country filter if countries are selected
+    if (selectedCountries && selectedCountries.length > 0) {
+      result = result.filter(c => c.country && (selectedCountries as string[]).includes(c.country));
+    }
+    
+    // Apply text search
+    if (bulkSearch) {
+      const term = bulkSearch.toLowerCase();
+      result = result.filter(c => 
+        c.firstName?.toLowerCase().includes(term) ||
+        c.lastName?.toLowerCase().includes(term) ||
+        c.email?.toLowerCase().includes(term) ||
+        c.country?.toLowerCase().includes(term)
+      );
+    }
+    
+    return result;
+  }, [customers, bulkSearch, selectedCountries]);
 
   const formatDate = (date?: string) => {
     if (!date) return "-";
@@ -273,13 +333,15 @@ export default function CustomerInvoicesPage() {
           title={t.nav.customerInvoices}
           description={t.invoices?.description || "Manage customer invoices"}
         />
-        <Button
-          onClick={() => setShowCreateWizard(true)}
-          data-testid="button-create-invoice"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          {t.invoices?.createInvoice || "Create Invoice"}
-        </Button>
+        {activeTab === "list" && (
+          <Button
+            onClick={() => setShowCreateWizard(true)}
+            data-testid="button-create-invoice"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            {t.invoices?.createInvoice || "Create Invoice"}
+          </Button>
+        )}
       </div>
 
       <CreateInvoiceWizard
@@ -287,22 +349,35 @@ export default function CustomerInvoicesPage() {
         onClose={() => setShowCreateWizard(false)}
       />
 
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex flex-wrap gap-4 mb-6">
-            <div className="flex-1 min-w-[200px]">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder={t.common?.search || "Search..."}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9"
-                  data-testid="input-search-invoices"
-                />
-              </div>
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="mb-4">
+          <TabsTrigger value="list" data-testid="tab-invoices-list">
+            <FileText className="h-4 w-4 mr-2" />
+            {t.invoices?.listTab || "Invoice List"}
+          </TabsTrigger>
+          <TabsTrigger value="bulk" data-testid="tab-invoices-bulk">
+            <Users className="h-4 w-4 mr-2" />
+            {t.invoices?.bulkTab || "Bulk Generate"}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="list">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex flex-wrap gap-4 mb-6">
+                <div className="flex-1 min-w-[200px]">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder={t.common?.search || "Search..."}
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-9"
+                      data-testid="input-search-invoices"
+                    />
+                  </div>
+                </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-[200px]" data-testid="select-status-filter">
                 <SelectValue placeholder={t.invoices?.filterByStatus || "Filter by status"} />
               </SelectTrigger>
@@ -432,8 +507,100 @@ export default function CustomerInvoicesPage() {
               )}
             </>
           )}
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="bulk">
+          <Card>
+            <CardContent className="p-6">
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex-1 min-w-[200px]">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder={t.common?.search || "Search customers..."}
+                        value={bulkSearch}
+                        onChange={(e) => setBulkSearch(e.target.value)}
+                        className="pl-9"
+                        data-testid="input-search-bulk-customers"
+                      />
+                    </div>
+                  </div>
+                  <Badge variant="secondary" data-testid="badge-selected-count">
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                    {selectedCustomers.length} {t.common?.selected || "selected"}
+                  </Badge>
+                  <Button
+                    onClick={() => bulkGenerateMutation.mutate(selectedCustomers)}
+                    disabled={selectedCustomers.length === 0 || bulkGenerateMutation.isPending}
+                    data-testid="button-generate-bulk"
+                  >
+                    {bulkGenerateMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <FileText className="h-4 w-4 mr-2" />
+                    )}
+                    {t.invoices?.generateSelected || "Generate Invoices"}
+                  </Button>
+                </div>
+
+                <p className="text-sm text-muted-foreground">
+                  {t.invoices?.bulkGenerateDescription || "Select customers to generate invoices for. Only customers with assigned products will be invoiced."}
+                </p>
+
+                <div className="border rounded-lg divide-y max-h-[60vh] overflow-y-auto">
+                  <div className="flex items-center gap-3 p-3 bg-muted/50 sticky top-0">
+                    <Checkbox 
+                      id="select-all-bulk"
+                      checked={filteredCustomersForBulk.length > 0 && filteredCustomersForBulk.every(c => selectedCustomers.includes(c.id))}
+                      onCheckedChange={selectAllCustomers}
+                      data-testid="checkbox-select-all-bulk"
+                    />
+                    <Label htmlFor="select-all-bulk" className="text-sm font-medium cursor-pointer">
+                      {t.invoices?.selectAll || "Select all"} ({filteredCustomersForBulk.length})
+                    </Label>
+                  </div>
+
+                  {filteredCustomersForBulk.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>{t.customers?.noData || "No customers found"}</p>
+                    </div>
+                  ) : (
+                    filteredCustomersForBulk.map((customer) => (
+                      <div 
+                        key={customer.id} 
+                        className="flex items-center gap-3 p-3 hover-elevate cursor-pointer"
+                        onClick={() => toggleCustomer(customer.id)}
+                        data-testid={`row-bulk-customer-${customer.id}`}
+                      >
+                        <Checkbox 
+                          id={`bulk-customer-${customer.id}`}
+                          checked={selectedCustomers.includes(customer.id)}
+                          onCheckedChange={() => toggleCustomer(customer.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          data-testid={`checkbox-bulk-customer-${customer.id}`}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{customer.firstName} {customer.lastName}</p>
+                          <p className="text-sm text-muted-foreground truncate">{customer.email}</p>
+                        </div>
+                        {customer.country && (
+                          <Badge variant="outline" className="shrink-0">
+                            {customer.country}
+                          </Badge>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       <InvoiceDetailDrawer
         invoice={selectedInvoice}

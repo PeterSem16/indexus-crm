@@ -372,6 +372,7 @@ export interface Translations {
     notes: string;
     searchPlaceholder: string;
     noCustomers: string;
+    noData?: string;
     tabs: {
       client: string;
       marketing: string;
@@ -698,6 +699,14 @@ export interface Translations {
     documentType?: string;
     proforma?: string;
     correspondenceAddress?: string;
+    listTab?: string;
+    bulkTab?: string;
+    invoiceDetail?: string;
+    total?: string;
+    paymentDate?: string;
+    paymentAmount?: string;
+    paymentMethod?: string;
+    paymentStatus?: string;
   };
   users: {
     title: string;
@@ -2503,6 +2512,7 @@ export const translations: Record<Locale, Translations> = {
       notes: 'Notes',
       searchPlaceholder: 'Search customers...',
       noCustomers: 'No customers found for selected countries',
+      noData: 'No customers found',
       tabs: {
         client: 'Client',
         marketing: 'Marketing',
@@ -2904,6 +2914,14 @@ export const translations: Record<Locale, Translations> = {
       documentType: 'Document Type',
       proforma: 'Proforma',
       correspondenceAddress: 'Correspondence Address',
+      listTab: 'Invoice List',
+      bulkTab: 'Bulk Generate',
+      invoiceDetail: 'Invoice Detail',
+      total: 'Total',
+      paymentDate: 'Payment Date',
+      paymentAmount: 'Amount',
+      paymentMethod: 'Payment Method',
+      paymentStatus: 'Status',
     },
     users: {
       title: 'Users',
@@ -4899,6 +4917,7 @@ export const translations: Record<Locale, Translations> = {
       detailsDescription: 'Zobraziť informácie o zákazníkovi, produkty a faktúry',
       searchPlaceholder: 'Hľadať zákazníkov...',
       noCustomers: 'Žiadni zákazníci nenájdení pre vybrané krajiny',
+      noData: 'Žiadni zákazníci nenájdení',
       addCustomer: 'Pridať zákazníka',
       editCustomer: 'Upraviť zákazníka',
       deleteCustomer: 'Odstrániť zákazníka',
@@ -5315,6 +5334,14 @@ export const translations: Record<Locale, Translations> = {
       documentType: 'Typ dokumentu',
       proforma: 'Proforma',
       correspondenceAddress: 'Korešpondenčná adresa',
+      listTab: 'Zoznam faktúr',
+      bulkTab: 'Hromadné generovanie',
+      invoiceDetail: 'Detail faktúry',
+      total: 'Celkom',
+      paymentDate: 'Dátum platby',
+      paymentAmount: 'Suma',
+      paymentMethod: 'Spôsob platby',
+      paymentStatus: 'Stav',
     },
     users: {
       title: 'Používatelia',
@@ -7319,6 +7346,7 @@ export const translations: Record<Locale, Translations> = {
       detailsDescription: 'Zobrazit informace o zákazníkovi, produkty a faktury',
       searchPlaceholder: 'Hledat zákazníky...',
       noCustomers: 'Žádní zákazníci nenalezeni pro vybrané země',
+      noData: 'Žádní zákazníci nenalezeni',
       addCustomer: 'Přidat zákazníka',
       editCustomer: 'Upravit zákazníka',
       deleteCustomer: 'Odstranit zákazníka',
@@ -7735,6 +7763,14 @@ export const translations: Record<Locale, Translations> = {
       documentType: 'Typ dokumentu',
       proforma: 'Proforma',
       correspondenceAddress: 'Korespondenční adresa',
+      listTab: 'Seznam faktur',
+      bulkTab: 'Hromadné generování',
+      invoiceDetail: 'Detail faktury',
+      total: 'Celkem',
+      paymentDate: 'Datum platby',
+      paymentAmount: 'Částka',
+      paymentMethod: 'Způsob platby',
+      paymentStatus: 'Stav',
     },
     users: {
       title: 'Uživatelé',
@@ -9671,6 +9707,7 @@ export const translations: Record<Locale, Translations> = {
       detailsDescription: 'Ügyfél információk, termékek és számlák megtekintése',
       searchPlaceholder: 'Ügyfelek keresése...',
       noCustomers: 'Nem találhatók ügyfelek a kiválasztott országokhoz',
+      noData: 'Nem találhatók ügyfelek',
       addCustomer: 'Ügyfél hozzáadása',
       editCustomer: 'Ügyfél szerkesztése',
       deleteCustomer: 'Ügyfél törlése',
@@ -10087,6 +10124,14 @@ export const translations: Record<Locale, Translations> = {
       documentType: 'Dokumentum típus',
       proforma: 'Proforma',
       correspondenceAddress: 'Levelezési cím',
+      listTab: 'Számla lista',
+      bulkTab: 'Tömeges generálás',
+      invoiceDetail: 'Számla részletei',
+      total: 'Összesen',
+      paymentDate: 'Fizetés dátuma',
+      paymentAmount: 'Összeg',
+      paymentMethod: 'Fizetési mód',
+      paymentStatus: 'Állapot',
     },
     users: {
       title: 'Felhasználók',
@@ -12022,6 +12067,7 @@ export const translations: Record<Locale, Translations> = {
       detailsDescription: 'Vizualizare informații client, produse și facturi',
       searchPlaceholder: 'Căutare clienți...',
       noCustomers: 'Nu s-au găsit clienți pentru țările selectate',
+      noData: 'Nu s-au găsit clienți',
       addCustomer: 'Adaugă client',
       editCustomer: 'Editează client',
       deleteCustomer: 'Șterge client',
@@ -12438,6 +12484,14 @@ export const translations: Record<Locale, Translations> = {
       documentType: 'Tip document',
       proforma: 'Proforma',
       correspondenceAddress: 'Adresă de corespondență',
+      listTab: 'Lista facturilor',
+      bulkTab: 'Generare în masă',
+      invoiceDetail: 'Detalii factură',
+      total: 'Total',
+      paymentDate: 'Data plății',
+      paymentAmount: 'Sumă',
+      paymentMethod: 'Metodă de plată',
+      paymentStatus: 'Stare',
     },
     users: {
       title: 'Utilizatori',
@@ -14374,6 +14428,7 @@ export const translations: Record<Locale, Translations> = {
       detailsDescription: 'Visualizza informazioni cliente, prodotti e fatture',
       searchPlaceholder: 'Cerca clienti...',
       noCustomers: 'Nessun cliente trovato per i paesi selezionati',
+      noData: 'Nessun cliente trovato',
       addCustomer: 'Aggiungi cliente',
       editCustomer: 'Modifica cliente',
       deleteCustomer: 'Elimina cliente',
@@ -14790,6 +14845,14 @@ export const translations: Record<Locale, Translations> = {
       documentType: 'Tipo documento',
       proforma: 'Proforma',
       correspondenceAddress: 'Indirizzo di corrispondenza',
+      listTab: 'Elenco fatture',
+      bulkTab: 'Generazione massiva',
+      invoiceDetail: 'Dettaglio fattura',
+      total: 'Totale',
+      paymentDate: 'Data pagamento',
+      paymentAmount: 'Importo',
+      paymentMethod: 'Metodo di pagamento',
+      paymentStatus: 'Stato',
     },
     users: {
       title: 'Utenti',
@@ -16726,6 +16789,7 @@ export const translations: Record<Locale, Translations> = {
       detailsDescription: 'Kundeninformationen, Produkte und Rechnungen anzeigen',
       searchPlaceholder: 'Kunden suchen...',
       noCustomers: 'Keine Kunden für ausgewählte Länder gefunden',
+      noData: 'Keine Kunden gefunden',
       addCustomer: 'Kunde hinzufügen',
       editCustomer: 'Kunde bearbeiten',
       deleteCustomer: 'Kunde löschen',
@@ -17142,6 +17206,14 @@ export const translations: Record<Locale, Translations> = {
       documentType: 'Dokumenttyp',
       proforma: 'Proforma',
       correspondenceAddress: 'Korrespondenzadresse',
+      listTab: 'Rechnungsliste',
+      bulkTab: 'Massengeneration',
+      invoiceDetail: 'Rechnungsdetails',
+      total: 'Gesamt',
+      paymentDate: 'Zahlungsdatum',
+      paymentAmount: 'Betrag',
+      paymentMethod: 'Zahlungsmethode',
+      paymentStatus: 'Status',
     },
     users: {
       title: 'Benutzer',

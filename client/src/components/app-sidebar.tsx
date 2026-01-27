@@ -72,7 +72,6 @@ export function AppSidebar() {
   const mainNavItems = [
     { title: t.nav.dashboard, url: "/", icon: LayoutDashboard, testId: "dashboard", moduleKey: "dashboard" },
     { title: t.nav.hospitalsAndClinics, url: "/hospitals", icon: Building2, testId: "hospitals", moduleKey: "hospitals" },
-    { title: t.nav.invoices, url: "/invoices", icon: FileText, testId: "invoices", moduleKey: "invoices" },
     { title: t.nav.campaigns, url: "/campaigns", icon: Megaphone, testId: "campaigns", moduleKey: "campaigns" },
     { title: "Pipeline", url: "/pipeline", icon: Kanban, testId: "pipeline", moduleKey: "pipeline" },
   ];
