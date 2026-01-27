@@ -200,6 +200,8 @@ interface InvoiceItem {
   total: string;
   billsetId?: string;
   paymentType?: string; // "installment" | "oneTime" | null
+  installmentCount?: number;
+  frequency?: string; // "monthly" | "yearly" etc
 }
 
 const invoiceSchema = z.object({
@@ -704,6 +706,8 @@ export function CreateInvoiceWizard({
             total: itemTotal,
             billsetId: billset.id,
             paymentType: col.paymentType || null,
+            installmentCount: col.installmentCount || (col.paymentType === "installment" ? 6 : undefined),
+            frequency: col.frequency || (col.paymentType === "installment" ? "monthly" : undefined),
           });
         }
       }
@@ -736,6 +740,8 @@ export function CreateInvoiceWizard({
             total: itemTotal,
             billsetId: billset.id,
             paymentType: stor.paymentType || null,
+            installmentCount: stor.installmentCount || (stor.paymentType === "installment" ? 6 : undefined),
+            frequency: stor.frequency || (stor.paymentType === "installment" ? "monthly" : undefined),
           });
         }
       }
@@ -786,13 +792,13 @@ export function CreateInvoiceWizard({
   };
 
   const calculateTotals = () => {
-    const subtotal = items.reduce((sum, item) => sum + parseFloat(item.total), 0);
+    const total = items.reduce((sum, item) => sum + parseFloat(item.total), 0);
     const vatAmount = items.reduce((sum, item) => {
       const itemTotal = parseFloat(item.total);
       const itemVatRate = parseFloat(item.vatRate || "0") / 100;
-      return sum + (itemTotal * itemVatRate);
+      return sum + (itemTotal * itemVatRate / (1 + itemVatRate));
     }, 0);
-    const total = subtotal + vatAmount;
+    const subtotal = total - vatAmount;
     return { subtotal, vatAmount, total };
   };
 
@@ -855,7 +861,7 @@ export function CreateInvoiceWizard({
 
   const steps = [
     { id: "number", title: t.invoices?.stepNumber || "Invoice Number", icon: <FileText className="h-4 w-4" /> },
-    { id: "dates", title: t.invoices?.stepDates || "Dates", icon: <Calendar className="h-4 w-4" /> },
+    { id: "dates", title: t.invoices?.stepCompanyDates || "Billing Company & Dates", icon: <Calendar className="h-4 w-4" /> },
     { id: "payment", title: t.invoices?.stepPayment || "Payment Details", icon: <CreditCard className="h-4 w-4" /> },
     { id: "items", title: t.invoices?.stepItems || "Items", icon: <Package className="h-4 w-4" /> },
     { id: "summary", title: t.invoices?.stepSummary || "Summary", icon: <Receipt className="h-4 w-4" /> },
@@ -1075,6 +1081,69 @@ export function CreateInvoiceWizard({
 
               {currentStep === 1 && (
                 <div className="space-y-6">
+                  {/* Billing Company Selection - First */}
+                  <div className="p-4 border rounded-lg bg-muted/30">
+                    <h3 className="text-lg font-semibold flex items-center gap-2 pb-2 border-b mb-4">
+                      <Receipt className="h-5 w-5" />
+                      {t.invoices?.billingCompany || "Billing Company"}
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>{t.invoices?.selectBillingCompany || "Select Company"}</Label>
+                        <Select 
+                          value={selectedBillingCompanyId} 
+                          onValueChange={(v) => {
+                            setSelectedBillingCompanyId(v);
+                            setSelectedBillingAccountId("");
+                          }}
+                        >
+                          <SelectTrigger data-testid="select-billing-company">
+                            <SelectValue placeholder={t.invoices?.selectCompany || "Select company"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {filteredBillingCompanies.map((company) => (
+                              <SelectItem key={company.id} value={company.id}>
+                                {company.companyName}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {selectedBillingCompany && (
+                          <p className="text-xs text-muted-foreground">
+                            {t.invoices?.country || "Country"}: {selectedBillingCompany.countryCode}
+                          </p>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{t.invoices?.bankAccount || "Bank Account"}</Label>
+                        <Select 
+                          value={selectedBillingAccountId} 
+                          onValueChange={setSelectedBillingAccountId}
+                          disabled={billingAccounts.length === 0}
+                        >
+                          <SelectTrigger data-testid="select-billing-account">
+                            <SelectValue placeholder={billingAccounts.length === 0 ? (t.invoices?.noAccounts || "No accounts") : (t.invoices?.selectAccount || "Select account")} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {billingAccounts.map((account) => (
+                              <SelectItem key={account.id} value={account.id}>
+                                {account.name} ({account.currency})
+                                {account.isDefault && <Badge variant="secondary" className="ml-2 text-[10px]">{t.common?.default || "Default"}</Badge>}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {selectedBillingAccount && (
+                          <div className="text-xs text-muted-foreground space-y-0.5">
+                            <p><span className="font-medium">IBAN:</span> {selectedBillingAccount.iban}</p>
+                            {selectedBillingAccount.swift && <p><span className="font-medium">SWIFT:</span> {selectedBillingAccount.swift}</p>}
+                            <p><span className="font-medium">{t.invoices?.bank || "Bank"}:</span> {selectedBillingAccount.bankName}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Left Column - Date Settings */}
                     <div className="space-y-4">
@@ -1418,69 +1487,6 @@ export function CreateInvoiceWizard({
                             )}
                           />
                         </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Billing Company Selection */}
-                  <div className="p-4 border rounded-lg bg-muted/30">
-                    <h3 className="text-lg font-semibold flex items-center gap-2 pb-2 border-b mb-4">
-                      <Receipt className="h-5 w-5" />
-                      {t.invoices?.billingCompany || "Billing Company"}
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>{t.invoices?.selectBillingCompany || "Select Company"}</Label>
-                        <Select 
-                          value={selectedBillingCompanyId} 
-                          onValueChange={(v) => {
-                            setSelectedBillingCompanyId(v);
-                            setSelectedBillingAccountId("");
-                          }}
-                        >
-                          <SelectTrigger data-testid="select-billing-company">
-                            <SelectValue placeholder={t.invoices?.selectCompany || "Select company"} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {filteredBillingCompanies.map((company) => (
-                              <SelectItem key={company.id} value={company.id}>
-                                {company.companyName}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {selectedBillingCompany && (
-                          <p className="text-xs text-muted-foreground">
-                            {t.invoices?.country || "Country"}: {selectedBillingCompany.countryCode}
-                          </p>
-                        )}
-                      </div>
-                      <div className="space-y-2">
-                        <Label>{t.invoices?.bankAccount || "Bank Account"}</Label>
-                        <Select 
-                          value={selectedBillingAccountId} 
-                          onValueChange={setSelectedBillingAccountId}
-                          disabled={billingAccounts.length === 0}
-                        >
-                          <SelectTrigger data-testid="select-billing-account">
-                            <SelectValue placeholder={billingAccounts.length === 0 ? (t.invoices?.noAccounts || "No accounts") : (t.invoices?.selectAccount || "Select account")} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {billingAccounts.map((account) => (
-                              <SelectItem key={account.id} value={account.id}>
-                                {account.name} ({account.currency})
-                                {account.isDefault && <Badge variant="secondary" className="ml-2 text-[10px]">{t.common?.default || "Default"}</Badge>}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {selectedBillingAccount && (
-                          <div className="text-xs text-muted-foreground space-y-0.5">
-                            <p><span className="font-medium">IBAN:</span> {selectedBillingAccount.iban}</p>
-                            {selectedBillingAccount.swift && <p><span className="font-medium">SWIFT:</span> {selectedBillingAccount.swift}</p>}
-                            <p><span className="font-medium">{t.invoices?.bank || "Bank"}:</span> {selectedBillingAccount.bankName}</p>
-                          </div>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -2062,59 +2068,167 @@ export function CreateInvoiceWizard({
                     </Card>
                   </div>
 
-                  {/* Installment Payment Schedule */}
+                  {/* Invoice Generation Plan - Multi-invoice breakdown */}
                   {items.some(item => item.paymentType === 'installment') && (
-                    <Card className="border-2 border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10">
+                    <Card className="border-2 border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-900/10">
                       <CardHeader>
                         <CardTitle className="text-sm flex items-center gap-2">
-                          <CalendarDays className="h-4 w-4 text-amber-600" />
-                          {t.invoices?.installmentSchedule || "Installment Payment Schedule"}
+                          <CalendarDays className="h-4 w-4 text-purple-600" />
+                          {t.invoices?.invoiceGenerationPlan || "Invoice Generation Plan"}
+                          <Badge variant="secondary" className="ml-2">{t.invoices?.multiInvoice || "Multi-Invoice"}</Badge>
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-4">
                         {(() => {
                           const installmentItems = items.filter(item => item.paymentType === 'installment');
-                          const installmentTotal = installmentItems.reduce((sum, item) => sum + parseFloat(item.total), 0);
-                          const numberOfInstallments = 6;
-                          const firstPayment = Math.ceil(installmentTotal / numberOfInstallments * 100) / 100;
-                          const monthlyPayment = Math.floor((installmentTotal - firstPayment) / (numberOfInstallments - 1) * 100) / 100;
+                          const oneTimeItems = items.filter(item => item.paymentType !== 'installment');
+                          const oneTimeTotal = oneTimeItems.reduce((sum, item) => sum + parseFloat(item.total), 0);
+                          
+                          const maxInstallments = Math.max(...installmentItems.map(item => item.installmentCount || 6), 1);
+                          
+                          const getInstallmentAmount = (item: InvoiceItem, installmentNum: number) => {
+                            const count = item.installmentCount || 6;
+                            if (installmentNum > count) return 0;
+                            const total = parseFloat(item.total);
+                            const baseAmount = Math.floor(total / count * 100) / 100;
+                            const remainder = Math.round((total - (baseAmount * count)) * 100) / 100;
+                            return installmentNum === 1 ? baseAmount + remainder : baseAmount;
+                          };
+                          
+                          const getInvoiceDate = (installmentNum: number, baseDate: Date) => {
+                            const date = new Date(baseDate);
+                            const hasYearly = installmentItems.some(item => item.frequency === 'yearly');
+                            if (hasYearly) {
+                              date.setFullYear(date.getFullYear() + installmentNum - 1);
+                            } else {
+                              date.setMonth(date.getMonth() + installmentNum - 1);
+                            }
+                            return date;
+                          };
+                          
+                          const invoices = Array.from({ length: maxInstallments }).map((_, idx) => {
+                            const installmentNum = idx + 1;
+                            const baseDate = new Date();
+                            const invoiceDate = getInvoiceDate(installmentNum, baseDate);
+                            
+                            const installmentItemsForThisInvoice = installmentItems
+                              .filter(item => installmentNum <= (item.installmentCount || 6))
+                              .map(item => ({
+                                name: `${item.name} (${t.invoices?.installment || "Installment"} ${installmentNum}/${item.installmentCount || 6})`,
+                                amount: getInstallmentAmount(item, installmentNum),
+                                type: 'installment' as const
+                              }));
+                            
+                            const installmentTotalForInvoice = installmentItemsForThisInvoice.reduce((sum, item) => sum + item.amount, 0);
+                            
+                            if (idx === 0) {
+                              return {
+                                number: installmentNum,
+                                date: invoiceDate,
+                                items: [
+                                  ...oneTimeItems.map(item => ({
+                                    name: item.name,
+                                    amount: parseFloat(item.total),
+                                    type: 'one-time' as const
+                                  })),
+                                  ...installmentItemsForThisInvoice
+                                ],
+                                total: oneTimeTotal + installmentTotalForInvoice,
+                                isFirst: true
+                              };
+                            } else {
+                              return {
+                                number: installmentNum,
+                                date: invoiceDate,
+                                items: installmentItemsForThisInvoice,
+                                total: installmentTotalForInvoice,
+                                isFirst: false
+                              };
+                            }
+                          }).filter(inv => inv.items.length > 0);
                           
                           return (
                             <>
-                              <div className="grid grid-cols-2 gap-4">
-                                <div className="p-3 rounded-lg bg-amber-100 dark:bg-amber-900/30">
-                                  <p className="text-xs text-muted-foreground">{t.invoices?.firstPayment || "First Payment"}</p>
-                                  <p className="text-lg font-bold text-amber-700 dark:text-amber-400">{formatCurrency(firstPayment)}</p>
-                                  <p className="text-xs text-muted-foreground">{t.invoices?.dueImmediately || "Due immediately"}</p>
-                                </div>
-                                <div className="p-3 rounded-lg bg-muted/50">
-                                  <p className="text-xs text-muted-foreground">{t.invoices?.monthlyPayment || "Monthly Payment"}</p>
-                                  <p className="text-lg font-bold">{formatCurrency(monthlyPayment)}</p>
-                                  <p className="text-xs text-muted-foreground">{numberOfInstallments - 1}x {t.invoices?.months || "months"}</p>
-                                </div>
-                              </div>
-                              <div className="space-y-2">
-                                <p className="text-xs font-medium text-muted-foreground">{t.invoices?.paymentCalendar || "Payment Calendar"}</p>
-                                <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
-                                  {Array.from({ length: numberOfInstallments }).map((_, idx) => {
-                                    const paymentDate = new Date();
-                                    paymentDate.setMonth(paymentDate.getMonth() + idx);
-                                    return (
-                                      <div key={idx} className={cn(
-                                        "p-2 rounded text-center text-xs",
-                                        idx === 0 ? "bg-amber-200 dark:bg-amber-800" : "bg-muted/50"
-                                      )}>
-                                        <p className="font-medium">{idx + 1}.</p>
-                                        <p className="text-muted-foreground">{paymentDate.toLocaleDateString('sk-SK', { month: 'short', year: '2-digit' })}</p>
-                                        <p className="font-semibold">{formatCurrency(idx === 0 ? firstPayment : monthlyPayment)}</p>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="p-3 rounded-lg bg-purple-100 dark:bg-purple-900/30 border border-purple-300 dark:border-purple-700">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <Badge className="bg-purple-600">{t.invoices?.firstInvoice || "1st Invoice"}</Badge>
+                                    <span className="text-xs text-muted-foreground">{t.invoices?.generateNow || "Generate now"}</span>
+                                  </div>
+                                  <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">{formatCurrency(invoices[0].total)}</p>
+                                  <div className="mt-2 space-y-1">
+                                    {invoices[0].items.map((item, i) => (
+                                      <div key={i} className="flex justify-between text-xs">
+                                        <span className={item.type === 'one-time' ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400'}>
+                                          {item.type === 'one-time' ? '(J)' : '(S)'} {item.name}
+                                        </span>
+                                        <span>{formatCurrency(item.amount)}</span>
                                       </div>
-                                    );
-                                  })}
+                                    ))}
+                                  </div>
+                                </div>
+                                {invoices.length > 1 && (
+                                  <div className="p-3 rounded-lg bg-muted/50 border">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <Badge variant="outline">{t.invoices?.futureInvoices || "Future Invoices"}</Badge>
+                                      <span className="text-xs text-muted-foreground">{invoices.length - 1}x</span>
+                                    </div>
+                                    <div className="space-y-1">
+                                      {invoices.slice(1).map((inv, i) => (
+                                        <div key={i} className="flex justify-between text-sm">
+                                          <span className="text-muted-foreground">{inv.date.toLocaleDateString('sk-SK', { month: 'short', year: '2-digit' })}</span>
+                                          <span className="font-medium">{formatCurrency(inv.total)}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                    <p className="text-xs text-muted-foreground mt-2 border-t pt-2">
+                                      {t.invoices?.onlyInstallments || "Only installment payments"}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-xs font-medium text-muted-foreground">{t.invoices?.invoiceCalendar || "Invoice Calendar"}</p>
+                                  <div className="flex items-center gap-2 text-xs">
+                                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500"></span> {t.invoices?.oneTimePayment || "One-time"}</span>
+                                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500"></span> {t.invoices?.installmentPayment || "Installment"}</span>
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+                                  {invoices.map((inv, idx) => (
+                                    <div key={idx} className={cn(
+                                      "p-2 rounded text-center text-xs border",
+                                      idx === 0 ? "bg-purple-100 dark:bg-purple-900/30 border-purple-300 dark:border-purple-700" : "bg-muted/30 border-muted"
+                                    )}>
+                                      <p className="font-medium flex items-center justify-center gap-1">
+                                        {idx === 0 && <FileText className="h-3 w-3 text-purple-600" />}
+                                        {t.invoices?.invoice || "Invoice"} #{idx + 1}
+                                      </p>
+                                      <p className="text-muted-foreground">{inv.date.toLocaleDateString('sk-SK', { month: 'short', year: '2-digit' })}</p>
+                                      <p className="font-semibold">{formatCurrency(inv.total)}</p>
+                                      {idx === 0 && (
+                                        <Badge variant="secondary" className="mt-1 text-[10px]">{t.invoices?.ready || "Ready"}</Badge>
+                                      )}
+                                      {idx > 0 && (
+                                        <Badge variant="outline" className="mt-1 text-[10px]">{t.invoices?.scheduled || "Scheduled"}</Badge>
+                                      )}
+                                    </div>
+                                  ))}
                                 </div>
                               </div>
+                              
                               <div className="flex justify-between pt-2 border-t">
-                                <span className="text-sm text-muted-foreground">{t.invoices?.totalInstallments || "Total (all installments)"}</span>
-                                <span className="font-semibold">{formatCurrency(installmentTotal)}</span>
+                                <span className="text-sm text-muted-foreground">{t.invoices?.totalAllInvoices || "Total (all invoices)"}</span>
+                                <span className="font-semibold">{formatCurrency(invoices.reduce((sum, inv) => sum + inv.total, 0))}</span>
+                              </div>
+                              
+                              <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                                <p className="text-xs text-amber-700 dark:text-amber-400 flex items-center gap-2">
+                                  <CalendarDays className="h-4 w-4" />
+                                  {t.invoices?.scheduledInvoicesNote || "Scheduled invoices will be queued and you'll receive a notification when each is ready to generate."}
+                                </p>
                               </div>
                             </>
                           );
