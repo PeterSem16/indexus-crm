@@ -646,6 +646,36 @@ export function CreateInvoiceWizard({
     form.setValue(`${prefix}Year` as any, now.getFullYear());
   };
 
+  const setDueDateFromIssue = (daysToAdd: number) => {
+    const issueDay = form.getValues("issueDateDay");
+    const issueMonth = form.getValues("issueDateMonth");
+    const issueYear = form.getValues("issueDateYear");
+    const issueDate = new Date(issueYear, issueMonth - 1, issueDay);
+    issueDate.setDate(issueDate.getDate() + daysToAdd);
+    form.setValue("dueDateDay", issueDate.getDate());
+    form.setValue("dueDateMonth", issueDate.getMonth() + 1);
+    form.setValue("dueDateYear", issueDate.getFullYear());
+  };
+
+  const setBillingPeriod = (months: number) => {
+    const fromDay = form.getValues("periodFromDay") || new Date().getDate();
+    const fromMonth = form.getValues("periodFromMonth") || new Date().getMonth() + 1;
+    const fromYear = form.getValues("periodFromYear") || new Date().getFullYear();
+    
+    if (!form.getValues("periodFromDay")) {
+      form.setValue("periodFromDay", fromDay);
+      form.setValue("periodFromMonth", fromMonth);
+      form.setValue("periodFromYear", fromYear);
+    }
+    
+    const toDate = new Date(fromYear, fromMonth - 1, fromDay);
+    toDate.setMonth(toDate.getMonth() + months);
+    toDate.setDate(toDate.getDate() - 1);
+    form.setValue("periodToDay", toDate.getDate());
+    form.setValue("periodToMonth", toDate.getMonth() + 1);
+    form.setValue("periodToYear", toDate.getFullYear());
+  };
+
   const formatCurrencyWithCode = (amount: number, currencyCode: string = "EUR") => {
     const symbols: Record<string, string> = {
       EUR: "€", CZK: "Kč", HUF: "Ft", RON: "lei", USD: "$", GBP: "£"
@@ -1233,6 +1263,20 @@ export function CreateInvoiceWizard({
                             {t.common?.today || "Today"}
                           </Button>
                         </div>
+                        <div className="flex flex-wrap gap-1 mb-3">
+                          <Button type="button" variant="secondary" size="sm" onClick={() => setDueDateFromIssue(7)} data-testid="btn-due-7">
+                            7 {t.common?.days || "days"}
+                          </Button>
+                          <Button type="button" variant="secondary" size="sm" onClick={() => setDueDateFromIssue(14)} data-testid="btn-due-14">
+                            14 {t.common?.days || "days"}
+                          </Button>
+                          <Button type="button" variant="secondary" size="sm" onClick={() => setDueDateFromIssue(21)} data-testid="btn-due-21">
+                            21 {t.common?.days || "days"}
+                          </Button>
+                          <Button type="button" variant="secondary" size="sm" onClick={() => setDueDateFromIssue(30)} data-testid="btn-due-30">
+                            30 {t.common?.days || "days"}
+                          </Button>
+                        </div>
                         <div className="flex gap-2 items-center">
                           <FormField
                             control={form.control}
@@ -1362,6 +1406,43 @@ export function CreateInvoiceWizard({
                         {t.invoices?.billingPeriod || "Billing Period"}
                         <span className="text-xs font-normal text-muted-foreground">({t.common?.optional || "optional"})</span>
                       </h3>
+
+                      <div className="flex flex-wrap gap-1 p-3 bg-muted/30 rounded-lg border">
+                        <span className="text-xs text-muted-foreground w-full mb-1">{t.invoices?.quickPeriod || "Quick period selection"}:</span>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(6)} data-testid="btn-period-6m">
+                          6 {t.invoices?.months || "months"}
+                        </Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(12)} data-testid="btn-period-1y">
+                          1 {t.invoices?.year || "year"}
+                        </Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(24)} data-testid="btn-period-2y">
+                          2 {t.invoices?.years || "years"}
+                        </Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(36)} data-testid="btn-period-3y">
+                          3 {t.invoices?.years || "years"}
+                        </Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(48)} data-testid="btn-period-4y">
+                          4 {t.invoices?.years || "years"}
+                        </Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(60)} data-testid="btn-period-5y">
+                          5 {t.invoices?.years || "years"}
+                        </Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(72)} data-testid="btn-period-6y">
+                          6 {t.invoices?.years || "years"}
+                        </Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(84)} data-testid="btn-period-7y">
+                          7 {t.invoices?.years || "years"}
+                        </Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(96)} data-testid="btn-period-8y">
+                          8 {t.invoices?.years || "years"}
+                        </Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(108)} data-testid="btn-period-9y">
+                          9 {t.invoices?.years || "years"}
+                        </Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(120)} data-testid="btn-period-10y">
+                          10 {t.invoices?.years || "years"}
+                        </Button>
+                      </div>
 
                       {/* Period From */}
                       <div className="p-4 border rounded-lg bg-blue-50/50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800">

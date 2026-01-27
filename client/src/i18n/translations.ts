@@ -691,6 +691,10 @@ export interface Translations {
     invoiceUpdated?: string;
     invoiceCreated?: string;
     saveFailed?: string;
+    quickPeriod?: string;
+    months?: string;
+    year?: string;
+    years?: string;
   };
   users: {
     title: string;
@@ -2890,6 +2894,10 @@ export const translations: Record<Locale, Translations> = {
       installmentPayment: 'Installment',
       ready: 'Ready',
       scheduled: 'Scheduled',
+      quickPeriod: 'Quick period selection',
+      months: 'months',
+      year: 'year',
+      years: 'years',
     },
     users: {
       title: 'Users',
@@ -5294,6 +5302,10 @@ export const translations: Record<Locale, Translations> = {
       installmentPayment: 'Splátka',
       ready: 'Pripravené',
       scheduled: 'Naplánované',
+      quickPeriod: 'Rýchly výber obdobia',
+      months: 'mesiacov',
+      year: 'rok',
+      years: 'rokov',
     },
     users: {
       title: 'Používatelia',
@@ -7707,6 +7719,10 @@ export const translations: Record<Locale, Translations> = {
       installmentPayment: 'Splátka',
       ready: 'Připraveno',
       scheduled: 'Naplánováno',
+      quickPeriod: 'Rychlý výběr období',
+      months: 'měsíců',
+      year: 'rok',
+      years: 'let',
     },
     users: {
       title: 'Uživatelé',
@@ -10052,6 +10068,10 @@ export const translations: Record<Locale, Translations> = {
       installmentPayment: 'Részlet',
       ready: 'Kész',
       scheduled: 'Ütemezett',
+      quickPeriod: 'Gyors időszak választás',
+      months: 'hónap',
+      year: 'év',
+      years: 'év',
     },
     users: {
       title: 'Felhasználók',
@@ -12396,6 +12416,10 @@ export const translations: Record<Locale, Translations> = {
       installmentPayment: 'Rată',
       ready: 'Gata',
       scheduled: 'Programat',
+      quickPeriod: 'Selectare rapidă perioadă',
+      months: 'luni',
+      year: 'an',
+      years: 'ani',
     },
     users: {
       title: 'Utilizatori',
@@ -14741,6 +14765,10 @@ export const translations: Record<Locale, Translations> = {
       installmentPayment: 'Rata',
       ready: 'Pronto',
       scheduled: 'Programmato',
+      quickPeriod: 'Selezione rapida periodo',
+      months: 'mesi',
+      year: 'anno',
+      years: 'anni',
     },
     users: {
       title: 'Utenti',
@@ -17086,6 +17114,10 @@ export const translations: Record<Locale, Translations> = {
       installmentPayment: 'Rate',
       ready: 'Bereit',
       scheduled: 'Geplant',
+      quickPeriod: 'Schnelle Periodenauswahl',
+      months: 'Monate',
+      year: 'Jahr',
+      years: 'Jahre',
     },
     users: {
       title: 'Benutzer',
