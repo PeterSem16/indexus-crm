@@ -868,10 +868,13 @@ export function CreateInvoiceWizard({
   };
 
   const handleSubmit = async () => {
+    console.log("[InvoiceWizard] handleSubmit called");
     const values = form.getValues();
+    console.log("[InvoiceWizard] Form values:", values);
     const installmentItems = items.filter(item => item.paymentType === 'installment');
     const oneTimeItems = items.filter(item => item.paymentType !== 'installment');
     const hasInstallments = installmentItems.length > 0;
+    console.log("[InvoiceWizard] hasInstallments:", hasInstallments, "installmentItems:", installmentItems.length, "oneTimeItems:", oneTimeItems.length);
 
     const baseIssueDate = new Date(values.issueDateYear, values.issueDateMonth - 1, values.issueDateDay);
     const baseDueDate = new Date(values.dueDateYear, values.dueDateMonth - 1, values.dueDateDay);
@@ -942,17 +945,22 @@ export function CreateInvoiceWizard({
 
       // STEP 1: Create the first invoice immediately
       const firstInstallmentItems = buildInstallmentItems(1, true);
+      console.log("[InvoiceWizard] firstInstallmentItems:", firstInstallmentItems);
       if (firstInstallmentItems.length > 0) {
         const { invoiceTotal, invoiceVatAmount, invoiceSubtotal } = calculateItemsTotals(firstInstallmentItems);
+        console.log("[InvoiceWizard] Totals:", { invoiceTotal, invoiceVatAmount, invoiceSubtotal });
         
         // Generate invoice number for first invoice
         let invoiceNumber = "";
         if (values.numberRangeId) {
+          console.log("[InvoiceWizard] Generating invoice number for range:", values.numberRangeId);
           try {
             const response = await apiRequest("POST", `/api/configurator/number-ranges/${values.numberRangeId}/generate`);
             const data = await response.json();
             invoiceNumber = data.invoiceNumber;
+            console.log("[InvoiceWizard] Generated invoice number:", invoiceNumber);
           } catch (error) {
+            console.error("[InvoiceWizard] Failed to generate invoice number:", error);
             toast({
               title: t.common?.error || "Error",
               description: "Failed to generate invoice number",
@@ -960,6 +968,8 @@ export function CreateInvoiceWizard({
             });
             return;
           }
+        } else {
+          console.log("[InvoiceWizard] No numberRangeId provided");
         }
 
         const firstInvoiceData = {
@@ -986,12 +996,16 @@ export function CreateInvoiceWizard({
           totalInstallments: maxInstallments,
         };
 
+        console.log("[InvoiceWizard] Creating first invoice with data:", firstInvoiceData);
         try {
           const response = await apiRequest("POST", "/api/invoices", firstInvoiceData);
+          console.log("[InvoiceWizard] Invoice creation response status:", response.status);
           const createdInvoice = await response.json();
+          console.log("[InvoiceWizard] Created invoice:", createdInvoice);
           parentInvoiceId = createdInvoice.id;
           firstInvoiceCreated = true;
         } catch (error) {
+          console.error("[InvoiceWizard] Failed to create first invoice:", error);
           toast({
             title: t.common?.error || "Error",
             description: t.invoices?.createFailed || "Failed to create first invoice",
