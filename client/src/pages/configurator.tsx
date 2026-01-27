@@ -7901,6 +7901,17 @@ function NumberRangesTab() {
   const [search, setSearch] = useState("");
   const totalSteps = 4;
   
+  // Filtering & Sorting state
+  const [countryFilter, setCountryFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [yearFilter, setYearFilter] = useState<string>("all");
+  const [sortField, setSortField] = useState<string>("name");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+  
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
   const [copyingRange, setCopyingRange] = useState<NumberRange | null>(null);
   const [copyTargetCountry, setCopyTargetCountry] = useState("");
@@ -8104,20 +8115,55 @@ function NumberRangesTab() {
     }
   };
 
-  const filteredRanges = ranges.filter(range => {
-    if (!search) return true;
-    const searchLower = search.toLowerCase();
-    const countryName = COUNTRIES.find(c => c.code === range.countryCode)?.name || "";
-    return (
-      range.name.toLowerCase().includes(searchLower) ||
-      range.countryCode.toLowerCase().includes(searchLower) ||
-      countryName.toLowerCase().includes(searchLower) ||
-      (range.prefix || "").toLowerCase().includes(searchLower) ||
-      (range.suffix || "").toLowerCase().includes(searchLower) ||
-      String(range.year).includes(searchLower) ||
-      range.type.toLowerCase().includes(searchLower)
-    );
-  });
+  // Get unique years for filter dropdown
+  const availableYears = [...new Set(ranges.map(r => r.year))].sort((a, b) => b - a);
+  
+  const filteredRanges = ranges
+    .filter(range => {
+      // Apply country filter
+      if (countryFilter !== "all" && range.countryCode !== countryFilter) return false;
+      // Apply type filter
+      if (typeFilter !== "all" && range.type !== typeFilter) return false;
+      // Apply year filter
+      if (yearFilter !== "all" && String(range.year) !== yearFilter) return false;
+      // Apply search
+      if (!search) return true;
+      const searchLower = search.toLowerCase();
+      const countryName = COUNTRIES.find(c => c.code === range.countryCode)?.name || "";
+      return (
+        range.name.toLowerCase().includes(searchLower) ||
+        range.countryCode.toLowerCase().includes(searchLower) ||
+        countryName.toLowerCase().includes(searchLower) ||
+        (range.prefix || "").toLowerCase().includes(searchLower) ||
+        (range.suffix || "").toLowerCase().includes(searchLower) ||
+        String(range.year).includes(searchLower) ||
+        range.type.toLowerCase().includes(searchLower)
+      );
+    })
+    .sort((a, b) => {
+      let aVal: any, bVal: any;
+      switch (sortField) {
+        case "name": aVal = a.name; bVal = b.name; break;
+        case "year": aVal = a.year; bVal = b.year; break;
+        case "countryCode": aVal = a.countryCode; bVal = b.countryCode; break;
+        case "type": aVal = a.type; bVal = b.type; break;
+        case "lastNumberUsed": aVal = a.lastNumberUsed || 0; bVal = b.lastNumberUsed || 0; break;
+        default: aVal = a.name; bVal = b.name;
+      }
+      if (typeof aVal === "string") {
+        return sortDirection === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      }
+      return sortDirection === "asc" ? aVal - bVal : bVal - aVal;
+    });
+  
+  // Pagination
+  const totalPages = Math.ceil(filteredRanges.length / pageSize);
+  const paginatedRanges = filteredRanges.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  
+  // Reset page when filters change
+  const handleFilterChange = () => {
+    setCurrentPage(1);
+  };
 
   const columns = [
     { 
@@ -8128,10 +8174,11 @@ function NumberRangesTab() {
     { 
       key: "countryCode",
       header: t.common.country,
-      cell: (range: NumberRange) => {
-        const country = COUNTRIES.find(c => c.code === range.countryCode);
-        return country ? country.name : range.countryCode;
-      },
+      cell: (range: NumberRange) => (
+        <Badge variant="outline" className="font-mono">
+          {range.countryCode}
+        </Badge>
+      ),
     },
     { 
       key: "year",
@@ -8217,7 +8264,7 @@ function NumberRangesTab() {
           <Input
             placeholder={t.common.search}
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
             className="pl-9"
             data-testid="input-search-number-ranges"
           />
@@ -8628,16 +8675,135 @@ function NumberRangesTab() {
           </DialogContent>
         </Dialog>
       </div>
-      {filteredRanges.length === 0 ? (
+      
+      {/* Filters Row */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <Select value={countryFilter} onValueChange={(v) => { setCountryFilter(v); handleFilterChange(); }}>
+          <SelectTrigger className="w-[140px]" data-testid="filter-country">
+            <SelectValue placeholder={t.common.country || "Country"} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t.common.all || "All"}</SelectItem>
+            {COUNTRIES.map((country) => (
+              <SelectItem key={country.code} value={country.code}>
+                <span className="flex items-center gap-2">
+                  <Badge variant="outline" className="font-mono text-xs">{country.code}</Badge>
+                  <span>{country.name}</span>
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        
+        <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v); handleFilterChange(); }}>
+          <SelectTrigger className="w-[140px]" data-testid="filter-type">
+            <SelectValue placeholder={t.konfigurator.numberRangeType || "Type"} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t.common.all || "All"}</SelectItem>
+            <SelectItem value="invoice">{t.konfigurator.invoice}</SelectItem>
+            <SelectItem value="proforma">{t.konfigurator.proformaInvoice}</SelectItem>
+          </SelectContent>
+        </Select>
+        
+        <Select value={yearFilter} onValueChange={(v) => { setYearFilter(v); handleFilterChange(); }}>
+          <SelectTrigger className="w-[120px]" data-testid="filter-year">
+            <SelectValue placeholder={t.konfigurator.numberRangeYear || "Year"} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t.common.all || "All"}</SelectItem>
+            {availableYears.map((year) => (
+              <SelectItem key={year} value={String(year)}>{year}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        
+        <Select value={`${sortField}-${sortDirection}`} onValueChange={(v) => {
+          const [field, dir] = v.split("-");
+          setSortField(field);
+          setSortDirection(dir as "asc" | "desc");
+        }}>
+          <SelectTrigger className="w-[180px]" data-testid="sort-select">
+            <SelectValue placeholder={t.common.sort || "Sort"} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="name-asc">{t.konfigurator.numberRangeName} (A-Z)</SelectItem>
+            <SelectItem value="name-desc">{t.konfigurator.numberRangeName} (Z-A)</SelectItem>
+            <SelectItem value="year-desc">{t.konfigurator.numberRangeYear} ({t.common.descending || "Desc"})</SelectItem>
+            <SelectItem value="year-asc">{t.konfigurator.numberRangeYear} ({t.common.ascending || "Asc"})</SelectItem>
+            <SelectItem value="countryCode-asc">{t.common.country} (A-Z)</SelectItem>
+            <SelectItem value="countryCode-desc">{t.common.country} (Z-A)</SelectItem>
+            <SelectItem value="type-asc">{t.konfigurator.numberRangeType} (A-Z)</SelectItem>
+          </SelectContent>
+        </Select>
+        
+        <span className="text-sm text-muted-foreground ml-auto">
+          {filteredRanges.length} {t.common.results || "results"}
+        </span>
+      </div>
+      
+      {paginatedRanges.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
-          {search ? (t.common.noData || "No results found") : t.konfigurator.noNumberRanges}
+          {search || countryFilter !== "all" || typeFilter !== "all" || yearFilter !== "all" 
+            ? (t.common.noData || "No results found") 
+            : t.konfigurator.noNumberRanges}
         </div>
       ) : (
         <DataTable 
           columns={columns} 
-          data={filteredRanges} 
+          data={paginatedRanges} 
           getRowKey={(range) => range.id}
         />
+      )}
+      
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">
+            {t.common.page || "Page"} {currentPage} / {totalPages}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+              data-testid="pagination-first"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft className="h-4 w-4 -ml-2" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              data-testid="pagination-prev"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="px-2 text-sm font-medium">{currentPage}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              data-testid="pagination-next"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages}
+              data-testid="pagination-last"
+            >
+              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-4 w-4 -ml-2" />
+            </Button>
+          </div>
+        </div>
       )}
 
       <Dialog open={copyDialogOpen} onOpenChange={setCopyDialogOpen}>
@@ -15913,10 +16079,6 @@ export default function ConfiguratorPage() {
             <Building2 className="h-4 w-4 shrink-0" />
             <span className="hidden md:inline">{t.konfigurator.billingCompanies || "Billing"}</span>
           </TabsTrigger>
-          <TabsTrigger value="number-ranges" className="flex items-center gap-2 text-xs sm:text-sm" data-testid="tab-number-ranges">
-            <Hash className="h-4 w-4 shrink-0" />
-            <span className="hidden md:inline">{t.konfigurator.numberRanges}</span>
-          </TabsTrigger>
           <TabsTrigger value="invoicing" className="flex items-center gap-2 text-xs sm:text-sm" data-testid="tab-invoicing">
             <FileText className="h-4 w-4 shrink-0" />
             <span className="hidden md:inline">{t.konfigurator.invoiceEditor}</span>
@@ -15968,6 +16130,10 @@ export default function ConfiguratorPage() {
                     <Building2 className="h-4 w-4 mr-2" />
                     Fakturačné spoločnosti
                   </TabsTrigger>
+                  <TabsTrigger value="number-ranges" data-testid="subtab-number-ranges">
+                    <Hash className="h-4 w-4 mr-2" />
+                    {t.konfigurator.numberRanges}
+                  </TabsTrigger>
                   <TabsTrigger value="system-settings" data-testid="subtab-system-settings">
                     <Settings className="h-4 w-4 mr-2" />
                     Systémové nastavenia
@@ -15975,6 +16141,9 @@ export default function ConfiguratorPage() {
                 </TabsList>
                 <TabsContent value="companies">
                   <BillingCompaniesTab />
+                </TabsContent>
+                <TabsContent value="number-ranges">
+                  <NumberRangesTab />
                 </TabsContent>
                 <TabsContent value="system-settings">
                   <CountrySystemSettingsTab />
@@ -15984,17 +16153,6 @@ export default function ConfiguratorPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="number-ranges">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t.konfigurator.numberRanges}</CardTitle>
-              <CardDescription>{t.konfigurator.numberRangesDescription}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <NumberRangesTab />
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         <TabsContent value="invoicing">
           <Card>

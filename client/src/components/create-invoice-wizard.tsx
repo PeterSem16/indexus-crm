@@ -1041,7 +1041,7 @@ export function CreateInvoiceWizard({
           <Form {...form}>
             <div className="min-h-[300px]">
               {currentStep === 0 && (
-                <div className="grid grid-cols-1 lg:grid-cols-[40%_60%] gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-[40%_1fr] gap-6 overflow-hidden">
                   {/* Left Column - Step 1: Select Number Range (40%) */}
                   <div className="space-y-4">
                     <div className="flex items-center gap-2 pb-2 border-b">
@@ -1143,7 +1143,7 @@ export function CreateInvoiceWizard({
                   </div>
 
                   {/* Right Column - Step 2: Customer (60%) */}
-                  <div className="space-y-4 lg:border-l lg:pl-6">
+                  <div className="space-y-4 lg:border-l lg:pl-6 min-w-0 overflow-hidden">
                     <div className="flex items-center gap-2 pb-2 border-b">
                       <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-medium">2</div>
                       <h3 className="text-lg font-semibold">{t.invoices?.selectCustomer || "Select Customer"}</h3>
