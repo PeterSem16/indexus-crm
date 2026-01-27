@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Search, Eye, Receipt, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckCircle2, Plus, Users, FileText } from "lucide-react";
+import { Search, Eye, Receipt, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckCircle2, Plus, Users, FileText, Calendar, Clock, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -100,6 +100,31 @@ interface BillingDetails {
   companyName: string;
 }
 
+interface ScheduledInvoice {
+  id: string;
+  customerId: string;
+  billingDetailsId?: string;
+  numberRangeId?: string;
+  scheduledDate: string;
+  installmentNumber: number;
+  totalInstallments: number;
+  status: string;
+  currency: string;
+  paymentTermDays: number;
+  constantSymbol?: string;
+  specificSymbol?: string;
+  barcodeType?: string;
+  items: any[];
+  totalAmount: string;
+  vatAmount?: string;
+  subtotal?: string;
+  vatRate?: string;
+  parentInvoiceId?: string;
+  createdInvoiceId?: string;
+  createdAt: string;
+  createdBy?: string;
+}
+
 const localeMap: Record<string, string> = {
   en: "en-US",
   sk: "sk-SK",
@@ -137,6 +162,33 @@ export default function CustomerInvoicesPage() {
 
   const { data: billingDetails = [] } = useQuery<BillingDetails[]>({
     queryKey: ["/api/billing-details"],
+  });
+
+  const { data: scheduledInvoices = [], isLoading: isLoadingScheduled } = useQuery<ScheduledInvoice[]>({
+    queryKey: ["/api/scheduled-invoices"],
+  });
+
+  const createFromScheduledMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("POST", `/api/scheduled-invoices/${id}/create`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/scheduled-invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      toast({ title: t.common?.success || "Success", description: t.invoices?.invoiceCreated || "Invoice created successfully" });
+    },
+    onError: () => {
+      toast({ title: t.common?.error || "Error", description: t.invoices?.createFailed || "Failed to create invoice", variant: "destructive" });
+    },
+  });
+
+  const deleteScheduledMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/scheduled-invoices/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/scheduled-invoices"] });
+      toast({ title: t.common?.success || "Success", description: t.invoices?.deleted || "Scheduled invoice deleted" });
+    },
+    onError: () => {
+      toast({ title: t.common?.error || "Error", description: t.invoices?.deleteFailed || "Failed to delete", variant: "destructive" });
+    },
   });
 
   const customerMap = useMemo(() => {
@@ -355,6 +407,15 @@ export default function CustomerInvoicesPage() {
             <FileText className="h-4 w-4 mr-2" />
             {t.invoices?.listTab || "Invoice List"}
           </TabsTrigger>
+          <TabsTrigger value="scheduled" data-testid="tab-invoices-scheduled">
+            <Clock className="h-4 w-4 mr-2" />
+            {t.invoices?.scheduledTab || "Scheduled"}
+            {scheduledInvoices.filter(s => s.status === "pending").length > 0 && (
+              <Badge variant="secondary" className="ml-2">
+                {scheduledInvoices.filter(s => s.status === "pending").length}
+              </Badge>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="bulk" data-testid="tab-invoices-bulk">
             <Users className="h-4 w-4 mr-2" />
             {t.invoices?.bulkTab || "Bulk Generate"}
@@ -507,6 +568,108 @@ export default function CustomerInvoicesPage() {
               )}
             </>
           )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="scheduled">
+          <Card>
+            <CardContent className="p-6">
+              {isLoadingScheduled ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : scheduledInvoices.filter(s => s.status === "pending").length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>{t.invoices?.noScheduledInvoices || "No scheduled invoices"}</p>
+                  <p className="text-sm mt-2">{t.invoices?.scheduledInvoicesDescription || "Future installment invoices will appear here"}</p>
+                </div>
+              ) : (
+                <Table data-testid="table-scheduled-invoices">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t.invoices?.scheduledDate || "Scheduled Date"}</TableHead>
+                      <TableHead>{t.customers?.title || "Customer"}</TableHead>
+                      <TableHead>{t.invoices?.installment || "Installment"}</TableHead>
+                      <TableHead className="text-right">{t.invoices?.amount || "Amount"}</TableHead>
+                      <TableHead>{t.invoices?.status || "Status"}</TableHead>
+                      <TableHead className="text-right">{t.common?.actions || "Actions"}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {scheduledInvoices
+                      .filter(s => s.status === "pending")
+                      .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime())
+                      .map((scheduled) => {
+                        const customer = customerMap.get(scheduled.customerId);
+                        const isOverdue = new Date(scheduled.scheduledDate) < new Date();
+                        return (
+                          <TableRow key={scheduled.id} data-testid={`row-scheduled-${scheduled.id}`}>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Calendar className="h-4 w-4 text-muted-foreground" />
+                                <span className={isOverdue ? "text-destructive font-medium" : ""}>
+                                  {formatDate(scheduled.scheduledDate)}
+                                </span>
+                                {isOverdue && (
+                                  <Badge variant="destructive" className="text-xs">
+                                    {t.invoices?.overdue || "Overdue"}
+                                  </Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {customer ? `${customer.firstName} ${customer.lastName}` : scheduled.customerId}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">
+                                {scheduled.installmentNumber}/{scheduled.totalInstallments}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right font-medium">
+                              {formatCurrency(scheduled.totalAmount, scheduled.currency)}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="secondary">
+                                <Clock className="h-3 w-3 mr-1" />
+                                {t.invoices?.pending || "Pending"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <Button
+                                  size="sm"
+                                  onClick={() => createFromScheduledMutation.mutate(scheduled.id)}
+                                  disabled={createFromScheduledMutation.isPending}
+                                  data-testid={`button-create-from-scheduled-${scheduled.id}`}
+                                >
+                                  {createFromScheduledMutation.isPending ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <>
+                                      <FileText className="h-4 w-4 mr-1" />
+                                      {t.invoices?.createInvoice || "Create Invoice"}
+                                    </>
+                                  )}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => deleteScheduledMutation.mutate(scheduled.id)}
+                                  disabled={deleteScheduledMutation.isPending}
+                                  data-testid={`button-delete-scheduled-${scheduled.id}`}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

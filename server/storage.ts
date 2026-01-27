@@ -1,5 +1,5 @@
 import { 
-  users, customers, products, customerProducts, invoices, billingDetails, invoiceItems,
+  users, customers, products, customerProducts, invoices, billingDetails, invoiceItems, scheduledInvoices,
   customerNotes, activityLogs, communicationMessages,
   complaintTypes, cooperationTypes, vipStatuses, collectionStatuses, healthInsuranceCompanies,
   laboratories, hospitals, clinics, visitEvents, voiceNotes, mobilePushTokens,
@@ -23,6 +23,7 @@ import {
   type BillingCompanyCollaborator, type InsertBillingCompanyCollaborator,
   type BillingCompanyCourier, type InsertBillingCompanyCourier,
   type InvoiceItem, type InsertInvoiceItem,
+  type ScheduledInvoice, type InsertScheduledInvoice,
   type CustomerNote, type InsertCustomerNote,
   type ActivityLog, type InsertActivityLog,
   type CommunicationMessage, type InsertCommunicationMessage,
@@ -279,6 +280,13 @@ export interface IStorage {
   getInvoiceItems(invoiceId: string): Promise<InvoiceItem[]>;
   createInvoiceItem(item: InsertInvoiceItem): Promise<InvoiceItem>;
   createInvoiceItems(items: InsertInvoiceItem[]): Promise<InvoiceItem[]>;
+
+  // Scheduled Invoices
+  getScheduledInvoices(customerId?: string): Promise<ScheduledInvoice[]>;
+  getScheduledInvoiceById(id: string): Promise<ScheduledInvoice | undefined>;
+  createScheduledInvoice(data: InsertScheduledInvoice): Promise<ScheduledInvoice>;
+  updateScheduledInvoice(id: string, data: Partial<InsertScheduledInvoice>): Promise<ScheduledInvoice | undefined>;
+  deleteScheduledInvoice(id: string): Promise<boolean>;
 
   // Customer Notes
   getCustomerNotes(customerId: string): Promise<CustomerNote[]>;
@@ -1753,6 +1761,36 @@ export class DatabaseStorage implements IStorage {
   async createInvoiceItems(items: InsertInvoiceItem[]): Promise<InvoiceItem[]> {
     if (items.length === 0) return [];
     return db.insert(invoiceItems).values(items).returning();
+  }
+
+  // Scheduled Invoices
+  async getScheduledInvoices(customerId?: string): Promise<ScheduledInvoice[]> {
+    if (customerId) {
+      return db.select().from(scheduledInvoices)
+        .where(eq(scheduledInvoices.customerId, customerId))
+        .orderBy(scheduledInvoices.scheduledDate);
+    }
+    return db.select().from(scheduledInvoices).orderBy(scheduledInvoices.scheduledDate);
+  }
+
+  async getScheduledInvoiceById(id: string): Promise<ScheduledInvoice | undefined> {
+    const result = await db.select().from(scheduledInvoices).where(eq(scheduledInvoices.id, id));
+    return result[0];
+  }
+
+  async createScheduledInvoice(data: InsertScheduledInvoice): Promise<ScheduledInvoice> {
+    const result = await db.insert(scheduledInvoices).values(data).returning();
+    return result[0];
+  }
+
+  async updateScheduledInvoice(id: string, data: Partial<InsertScheduledInvoice>): Promise<ScheduledInvoice | undefined> {
+    const result = await db.update(scheduledInvoices).set(data).where(eq(scheduledInvoices.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteScheduledInvoice(id: string): Promise<boolean> {
+    const result = await db.delete(scheduledInvoices).where(eq(scheduledInvoices.id, id)).returning();
+    return result.length > 0;
   }
 
   // Customer Notes

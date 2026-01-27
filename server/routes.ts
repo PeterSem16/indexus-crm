@@ -6120,6 +6120,128 @@ export async function registerRoutes(
     }
   });
 
+  // Scheduled Invoices API
+  app.get("/api/scheduled-invoices", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.query.customerId as string | undefined;
+      const scheduled = await storage.getScheduledInvoices(customerId);
+      res.json(scheduled);
+    } catch (error) {
+      console.error("Error fetching scheduled invoices:", error);
+      res.status(500).json({ error: "Failed to fetch scheduled invoices" });
+    }
+  });
+
+  app.get("/api/scheduled-invoices/:id", requireAuth, async (req, res) => {
+    try {
+      const scheduled = await storage.getScheduledInvoiceById(req.params.id);
+      if (!scheduled) {
+        return res.status(404).json({ error: "Scheduled invoice not found" });
+      }
+      res.json(scheduled);
+    } catch (error) {
+      console.error("Error fetching scheduled invoice:", error);
+      res.status(500).json({ error: "Failed to fetch scheduled invoice" });
+    }
+  });
+
+  app.post("/api/scheduled-invoices", requireAuth, async (req, res) => {
+    try {
+      const scheduled = await storage.createScheduledInvoice({
+        ...req.body,
+        createdBy: req.session.user?.id,
+      });
+      res.status(201).json(scheduled);
+    } catch (error) {
+      console.error("Error creating scheduled invoice:", error);
+      res.status(500).json({ error: "Failed to create scheduled invoice" });
+    }
+  });
+
+  app.patch("/api/scheduled-invoices/:id", requireAuth, async (req, res) => {
+    try {
+      const scheduled = await storage.updateScheduledInvoice(req.params.id, req.body);
+      if (!scheduled) {
+        return res.status(404).json({ error: "Scheduled invoice not found" });
+      }
+      res.json(scheduled);
+    } catch (error) {
+      console.error("Error updating scheduled invoice:", error);
+      res.status(500).json({ error: "Failed to update scheduled invoice" });
+    }
+  });
+
+  app.delete("/api/scheduled-invoices/:id", requireAuth, async (req, res) => {
+    try {
+      const deleted = await storage.deleteScheduledInvoice(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Scheduled invoice not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting scheduled invoice:", error);
+      res.status(500).json({ error: "Failed to delete scheduled invoice" });
+    }
+  });
+
+  // Create invoice from scheduled invoice
+  app.post("/api/scheduled-invoices/:id/create", requireAuth, async (req, res) => {
+    try {
+      const scheduled = await storage.getScheduledInvoiceById(req.params.id);
+      if (!scheduled) {
+        return res.status(404).json({ error: "Scheduled invoice not found" });
+      }
+      if (scheduled.status !== "pending") {
+        return res.status(400).json({ error: "Scheduled invoice is not pending" });
+      }
+
+      // Create the actual invoice from the scheduled data
+      const invoice = await storage.createInvoice({
+        customerId: scheduled.customerId,
+        billingDetailsId: scheduled.billingDetailsId,
+        numberRangeId: scheduled.numberRangeId,
+        currency: scheduled.currency,
+        totalAmount: scheduled.totalAmount,
+        vatAmount: scheduled.vatAmount || "0",
+        subtotal: scheduled.subtotal || scheduled.totalAmount,
+        vatRate: scheduled.vatRate || "0",
+        status: "generated",
+        paymentTermDays: scheduled.paymentTermDays,
+        constantSymbol: scheduled.constantSymbol,
+        specificSymbol: scheduled.specificSymbol,
+        barcodeType: scheduled.barcodeType,
+        documentType: "invoice",
+      });
+
+      // Create invoice items from the scheduled items
+      const items = scheduled.items as any[];
+      if (items && items.length > 0) {
+        await storage.createInvoiceItems(
+          items.map((item: any) => ({
+            invoiceId: invoice.id,
+            productId: item.productId,
+            description: item.description,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            totalPrice: item.totalPrice,
+            vatRate: item.vatRate,
+          }))
+        );
+      }
+
+      // Update scheduled invoice status
+      await storage.updateScheduledInvoice(scheduled.id, {
+        status: "created",
+        createdInvoiceId: invoice.id,
+      } as any);
+
+      res.status(201).json(invoice);
+    } catch (error) {
+      console.error("Error creating invoice from scheduled:", error);
+      res.status(500).json({ error: "Failed to create invoice" });
+    }
+  });
+
   // Customer Notes API
   app.get("/api/customers/:customerId/notes", requireAuth, async (req, res) => {
     try {

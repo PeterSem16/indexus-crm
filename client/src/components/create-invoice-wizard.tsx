@@ -206,6 +206,7 @@ interface InvoiceItem {
   vatRate: string;
   total: string;
   billsetId?: string;
+  productId?: string;
   paymentType?: string; // "installment" | "oneTime" | null
   installmentCount?: number;
   frequency?: string; // "monthly" | "yearly" etc
@@ -879,28 +880,19 @@ export function CreateInvoiceWizard({
     const paymentTermDays = Math.round((baseDueDate.getTime() - baseIssueDate.getTime()) / (1000 * 60 * 60 * 24));
 
     if (hasInstallments) {
-      // Create multiple invoices for installments
+      // NEW LOGIC: Create first invoice immediately, queue future installments
       const maxInstallments = Math.max(...installmentItems.map(item => item.installmentCount || 6), 1);
       const hasYearly = installmentItems.some(item => item.frequency === 'yearly');
-      let createdCount = 0;
-      let failedCount = 0;
+      let firstInvoiceCreated = false;
+      let scheduledCount = 0;
+      let parentInvoiceId = "";
 
-      for (let installmentNum = 1; installmentNum <= maxInstallments; installmentNum++) {
-        // Calculate invoice date for this installment
-        const invoiceDate = new Date(baseIssueDate);
-        if (hasYearly) {
-          invoiceDate.setFullYear(invoiceDate.getFullYear() + installmentNum - 1);
-        } else {
-          invoiceDate.setMonth(invoiceDate.getMonth() + installmentNum - 1);
-        }
-        const invoiceDueDate = new Date(invoiceDate);
-        invoiceDueDate.setDate(invoiceDueDate.getDate() + paymentTermDays);
-
-        // Build items for this installment invoice
-        const invoiceItems: Array<{name: string; quantity: string; unitPrice: string; vatRate: string; totalPrice: string}> = [];
+      // Helper function to build items for a specific installment
+      const buildInstallmentItems = (installmentNum: number, includeOneTime: boolean) => {
+        const invoiceItems: Array<{name: string; quantity: string; unitPrice: string; vatRate: string; totalPrice: string; productId?: string}> = [];
         
         // Add one-time items only to first invoice
-        if (installmentNum === 1) {
+        if (includeOneTime) {
           oneTimeItems.forEach(item => {
             invoiceItems.push({
               name: item.name,
@@ -908,6 +900,7 @@ export function CreateInvoiceWizard({
               unitPrice: item.unitPrice,
               vatRate: item.vatRate,
               totalPrice: item.total,
+              productId: item.productId,
             });
           });
         }
@@ -927,14 +920,16 @@ export function CreateInvoiceWizard({
               unitPrice: thisAmount.toFixed(2),
               vatRate: item.vatRate,
               totalPrice: thisAmount.toFixed(2),
+              productId: item.productId,
             });
           }
         });
 
-        // Skip if no items for this invoice
-        if (invoiceItems.length === 0) continue;
+        return invoiceItems;
+      };
 
-        // Calculate totals for this invoice
+      // Calculate totals for items
+      const calculateItemsTotals = (invoiceItems: Array<{totalPrice: string; vatRate: string}>) => {
         const invoiceTotal = invoiceItems.reduce((sum, item) => sum + parseFloat(item.totalPrice), 0);
         const invoiceVatAmount = invoiceItems.reduce((sum, item) => {
           const itemTotal = parseFloat(item.totalPrice);
@@ -942,8 +937,15 @@ export function CreateInvoiceWizard({
           return sum + (itemTotal * itemVatRate / (1 + itemVatRate));
         }, 0);
         const invoiceSubtotal = invoiceTotal - invoiceVatAmount;
+        return { invoiceTotal, invoiceVatAmount, invoiceSubtotal };
+      };
 
-        // Generate invoice number
+      // STEP 1: Create the first invoice immediately
+      const firstInstallmentItems = buildInstallmentItems(1, true);
+      if (firstInstallmentItems.length > 0) {
+        const { invoiceTotal, invoiceVatAmount, invoiceSubtotal } = calculateItemsTotals(firstInstallmentItems);
+        
+        // Generate invoice number for first invoice
         let invoiceNumber = "";
         if (values.numberRangeId) {
           try {
@@ -951,17 +953,21 @@ export function CreateInvoiceWizard({
             const data = await response.json();
             invoiceNumber = data.invoiceNumber;
           } catch (error) {
-            failedCount++;
-            continue;
+            toast({
+              title: t.common?.error || "Error",
+              description: "Failed to generate invoice number",
+              variant: "destructive",
+            });
+            return;
           }
         }
 
-        const invoiceData = {
+        const firstInvoiceData = {
           invoiceNumber,
           customerId: values.customerId || customerId,
           billingDetailsId: billingInfo?.id,
-          issueDate: invoiceDate.toISOString(),
-          dueDate: invoiceDueDate.toISOString(),
+          issueDate: baseIssueDate.toISOString(),
+          dueDate: baseDueDate.toISOString(),
           deliveryDate: deliveryDate?.toISOString(),
           variableSymbol: invoiceNumber,
           constantSymbol: values.constantSymbol,
@@ -975,25 +981,79 @@ export function CreateInvoiceWizard({
           currency: billingInfo?.currency || "EUR",
           status: "generated",
           paymentTermDays: billingInfo?.defaultPaymentTerm || 14,
-          items: invoiceItems,
-          installmentNumber: installmentNum,
+          items: firstInstallmentItems,
+          installmentNumber: 1,
           totalInstallments: maxInstallments,
         };
 
         try {
-          await apiRequest("POST", "/api/invoices", invoiceData);
-          createdCount++;
+          const response = await apiRequest("POST", "/api/invoices", firstInvoiceData);
+          const createdInvoice = await response.json();
+          parentInvoiceId = createdInvoice.id;
+          firstInvoiceCreated = true;
         } catch (error) {
-          failedCount++;
+          toast({
+            title: t.common?.error || "Error",
+            description: t.invoices?.createFailed || "Failed to create first invoice",
+            variant: "destructive",
+          });
+          return;
         }
       }
 
-      if (createdCount > 0) {
+      // STEP 2: Queue future installments (2, 3, 4, ...) to scheduled_invoices
+      for (let installmentNum = 2; installmentNum <= maxInstallments; installmentNum++) {
+        // Calculate scheduled date for this installment
+        const scheduledDate = new Date(baseIssueDate);
+        if (hasYearly) {
+          scheduledDate.setFullYear(scheduledDate.getFullYear() + installmentNum - 1);
+        } else {
+          scheduledDate.setMonth(scheduledDate.getMonth() + installmentNum - 1);
+        }
+
+        // Build items for this installment (no one-time items)
+        const futureItems = buildInstallmentItems(installmentNum, false);
+        if (futureItems.length === 0) continue;
+
+        const { invoiceTotal, invoiceVatAmount, invoiceSubtotal } = calculateItemsTotals(futureItems);
+
+        const scheduledData = {
+          customerId: values.customerId || customerId,
+          billingDetailsId: billingInfo?.id,
+          numberRangeId: values.numberRangeId,
+          scheduledDate: scheduledDate.toISOString(),
+          installmentNumber: installmentNum,
+          totalInstallments: maxInstallments,
+          status: "pending",
+          currency: billingInfo?.currency || "EUR",
+          paymentTermDays: billingInfo?.defaultPaymentTerm || 14,
+          constantSymbol: values.constantSymbol,
+          specificSymbol: values.specificSymbol,
+          barcodeType: values.barcodeType,
+          items: futureItems,
+          totalAmount: invoiceTotal.toFixed(2),
+          vatAmount: invoiceVatAmount.toFixed(2),
+          subtotal: invoiceSubtotal.toFixed(2),
+          vatRate: billingInfo?.defaultVatRate || "20",
+          parentInvoiceId: parentInvoiceId,
+        };
+
+        try {
+          await apiRequest("POST", "/api/scheduled-invoices", scheduledData);
+          scheduledCount++;
+        } catch (error) {
+          console.error(`Failed to schedule installment ${installmentNum}:`, error);
+        }
+      }
+
+      if (firstInvoiceCreated) {
+        const scheduledMsg = scheduledCount > 0 ? ` (${scheduledCount} ${t.invoices?.scheduledForLater || "scheduled for later"})` : "";
         toast({
           title: t.common?.success || "Success",
-          description: `${t.invoices?.createSuccess || "Invoices created successfully"}: ${createdCount}/${maxInstallments}`,
+          description: `${t.invoices?.createSuccess || "Invoice created successfully"}${scheduledMsg}`,
         });
         queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/scheduled-invoices"] });
         handleClose();
       } else {
         toast({
