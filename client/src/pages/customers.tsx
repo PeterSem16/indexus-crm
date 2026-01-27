@@ -3504,7 +3504,17 @@ function CustomerDetailsContent({
           {customer.phone && (
             <div>
               <p className="text-sm font-medium text-muted-foreground">{t.customers.details.phone}</p>
-              <p className="mt-1">{customer.phone}</p>
+              <div className="flex items-center gap-2 mt-1">
+                <span>{customer.phone}</span>
+                <CallCustomerButton 
+                  phoneNumber={customer.phone}
+                  customerId={customer.id}
+                  customerName={`${customer.firstName} ${customer.lastName}`}
+                  leadScore={customer.leadScore}
+                  clientStatus={customer.clientStatus}
+                  variant="icon"
+                />
+              </div>
             </div>
           )}
           <div>
