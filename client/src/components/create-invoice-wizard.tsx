@@ -1052,32 +1052,32 @@ export function CreateInvoiceWizard({
                     {customerId ? (
                       <Card className="bg-muted/30">
                         <CardContent className="pt-4">
-                          <div className="flex items-start gap-4">
-                            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                          <div className="flex items-start gap-4 min-w-0">
+                            <div className="h-12 w-12 shrink-0 rounded-full bg-primary/10 flex items-center justify-center">
                               <Users className="h-6 w-6 text-primary" />
                             </div>
-                            <div className="flex-1">
-                              <p className="font-semibold text-lg">{selectedCustomer?.firstName} {selectedCustomer?.lastName}</p>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-lg truncate">{selectedCustomer?.firstName} {selectedCustomer?.lastName}</p>
                               {selectedCustomer?.email && (
-                                <p className="text-sm text-muted-foreground">{selectedCustomer.email}</p>
+                                <p className="text-sm text-muted-foreground truncate">{selectedCustomer.email}</p>
                               )}
                               {selectedCustomer?.correspondenceAddress && (
-                                <div className="mt-3 p-3 bg-background rounded-lg border">
+                                <div className="mt-3 p-3 bg-background rounded-lg border min-w-0">
                                   <Label className="text-xs text-muted-foreground">{t.invoices?.correspondenceAddress || "Correspondence Address"}</Label>
-                                  <p className="text-sm mt-1">{selectedCustomer.correspondenceAddress}</p>
+                                  <p className="text-sm mt-1 break-words">{selectedCustomer.correspondenceAddress}</p>
                                   {(selectedCustomer.corrCity || selectedCustomer.corrPostalCode) && (
-                                    <p className="text-sm text-muted-foreground">
+                                    <p className="text-sm text-muted-foreground break-words">
                                       {[selectedCustomer.corrPostalCode, selectedCustomer.corrCity].filter(Boolean).join(" ")}
                                     </p>
                                   )}
                                 </div>
                               )}
                               {!selectedCustomer?.correspondenceAddress && selectedCustomer?.address && (
-                                <div className="mt-3 p-3 bg-background rounded-lg border">
+                                <div className="mt-3 p-3 bg-background rounded-lg border min-w-0">
                                   <Label className="text-xs text-muted-foreground">{t.customers?.address || "Address"}</Label>
-                                  <p className="text-sm mt-1">{selectedCustomer.address}</p>
+                                  <p className="text-sm mt-1 break-words">{selectedCustomer.address}</p>
                                   {(selectedCustomer.city || selectedCustomer.postalCode) && (
-                                    <p className="text-sm text-muted-foreground">
+                                    <p className="text-sm text-muted-foreground break-words">
                                       {[selectedCustomer.postalCode, selectedCustomer.city].filter(Boolean).join(" ")}
                                     </p>
                                   )}
