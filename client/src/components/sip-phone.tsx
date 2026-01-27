@@ -1103,14 +1103,10 @@ export function SipPhoneFloating({
     <Button
       className="fixed bottom-4 right-4 h-14 w-14 rounded-full shadow-lg z-50"
       onClick={handleCall}
-      disabled={isRegistering}
+      disabled={!isRegistered}
       data-testid="button-call-floating"
     >
-      {isRegistering ? (
-        <Loader2 className="h-6 w-6 animate-spin" />
-      ) : (
-        <Phone className="h-6 w-6" />
-      )}
+      <Phone className={`h-6 w-6 ${!isRegistered ? "opacity-50" : ""}`} />
     </Button>
   );
 }
@@ -1173,15 +1169,11 @@ export function CallCustomerButton({
         size="icon"
         variant="ghost"
         onClick={handleCall}
-        disabled={isRegistering}
+        disabled={!isRegistered}
         data-testid="button-call-customer-icon"
-        title={isRegistering ? "Pripájanie..." : `Zavolat na ${phoneNumber}`}
+        title={!isRegistered ? "SIP nie je pripojený" : `Zavolat na ${phoneNumber}`}
       >
-        {isRegistering ? (
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-        ) : (
-          <PhoneCall className="h-4 w-4 text-primary" />
-        )}
+        <PhoneCall className={`h-4 w-4 ${isRegistered ? "text-primary" : "text-muted-foreground"}`} />
       </Button>
     );
   }
@@ -1193,16 +1185,12 @@ export function CallCustomerButton({
         size="sm"
         variant="outline"
         onClick={handleCall}
-        disabled={isRegistering}
+        disabled={!isRegistered}
         data-testid="button-call-customer-small"
         className="gap-1"
       >
-        {isRegistering ? (
-          <Loader2 className="h-3 w-3 animate-spin" />
-        ) : (
-          <PhoneCall className="h-3 w-3" />
-        )}
-        {isRegistering ? "Pripájam..." : "Zavolat"}
+        <PhoneCall className={`h-3 w-3 ${!isRegistered ? "text-muted-foreground" : ""}`} />
+        {isRegistered ? "Zavolat" : "Nepripojený"}
       </Button>
     );
   }
@@ -1211,16 +1199,12 @@ export function CallCustomerButton({
     <Button
       type="button"
       onClick={handleCall}
-      disabled={isRegistering}
+      disabled={!isRegistered}
       data-testid="button-call-customer"
       className="gap-2"
     >
-      {isRegistering ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
-      ) : (
-        <PhoneCall className="h-4 w-4" />
-      )}
-      {isRegistering ? "Pripájam..." : `Zavolat ${phoneNumber}`}
+      <PhoneCall className={`h-4 w-4 ${!isRegistered ? "text-muted-foreground" : ""}`} />
+      {isRegistered ? `Zavolat ${phoneNumber}` : "SIP nepripojený"}
     </Button>
   );
 }

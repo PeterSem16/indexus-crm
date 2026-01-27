@@ -230,6 +230,15 @@ export const vipStatuses = pgTable("vip_statuses", {
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
+// Collection statuses - status of cord blood collection
+export const collectionStatuses = pgTable("collection_statuses", {
+  id: integer("id").primaryKey(),
+  name: text("name").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
 // Health insurance companies - configurable per country in settings
 export const healthInsuranceCompanies = pgTable("health_insurance_companies", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1162,6 +1171,13 @@ export const insertVipStatusSchema = createInsertSchema(vipStatuses).omit({
   isActive: z.boolean().optional().default(true),
 });
 
+export const insertCollectionStatusSchema = createInsertSchema(collectionStatuses).omit({
+  createdAt: true,
+}).extend({
+  isActive: z.boolean().optional().default(true),
+  sortOrder: z.number().int().optional().default(0),
+});
+
 export const insertHealthInsuranceSchema = createInsertSchema(healthInsuranceCompanies).omit({
   id: true,
   createdAt: true,
@@ -1569,6 +1585,8 @@ export type InsertCooperationType = z.infer<typeof insertCooperationTypeSchema>;
 export type CooperationType = typeof cooperationTypes.$inferSelect;
 export type InsertVipStatus = z.infer<typeof insertVipStatusSchema>;
 export type VipStatus = typeof vipStatuses.$inferSelect;
+export type InsertCollectionStatus = z.infer<typeof insertCollectionStatusSchema>;
+export type CollectionStatus = typeof collectionStatuses.$inferSelect;
 export type InsertHealthInsurance = z.infer<typeof insertHealthInsuranceSchema>;
 export type HealthInsurance = typeof healthInsuranceCompanies.$inferSelect;
 export type InsertLaboratory = z.infer<typeof insertLaboratorySchema>;

@@ -31,9 +31,13 @@ const dateLocales: Record<string, Locale> = {
   sk, cs, hu, ro, it, de, en: enUS
 };
 
-const COLLECTION_STATES = [
-  "created", "paired", "evaluated", "verified", "stored", "transferred", "released", "awaiting_disposal", "disposed"
-] as const;
+// Collection statuses loaded from database
+interface CollectionStatusType {
+  id: number;
+  name: string;
+  isActive: boolean;
+  sortOrder: number | null;
+}
 
 const CHILD_GENDERS = ["male", "female"] as const;
 
@@ -161,6 +165,10 @@ export default function CollectionsPage() {
 
   const { data: productSets = [] } = useQuery<ProductSet[]>({
     queryKey: ["/api/product-sets"],
+  });
+
+  const { data: collectionStatuses = [] } = useQuery<CollectionStatusType[]>({
+    queryKey: ["/api/config/collection-statuses"],
   });
 
   const { data: labResults, isLoading: isLoadingLabResults } = useQuery<CollectionLabResult[]>({
@@ -346,19 +354,9 @@ export default function CollectionsPage() {
 
   const getStateLabel = (state: string | null) => {
     if (!state) return notAvailable;
-    const states = t.collections?.states;
-    const labels: Record<string, string> = {
-      created: states?.created || notAvailable,
-      paired: states?.paired || notAvailable,
-      evaluated: states?.evaluated || notAvailable,
-      verified: states?.verified || notAvailable,
-      stored: states?.stored || notAvailable,
-      transferred: states?.transferred || notAvailable,
-      released: states?.released || notAvailable,
-      awaiting_disposal: states?.awaiting_disposal || notAvailable,
-      disposed: states?.disposed || notAvailable,
-    };
-    return labels[state] || notAvailable;
+    // Find status by ID (state contains the ID as string)
+    const status = collectionStatuses.find(s => String(s.id) === state);
+    return status?.name || state || notAvailable;
   };
 
   const handleDelete = (col: Collection) => {
@@ -768,8 +766,8 @@ export default function CollectionsPage() {
             <SelectValue placeholder={t.common.select} />
           </SelectTrigger>
           <SelectContent>
-            {COLLECTION_STATES.map((state) => (
-              <SelectItem key={state} value={state}>{getStateLabel(state)}</SelectItem>
+            {collectionStatuses.map((status) => (
+              <SelectItem key={status.id} value={String(status.id)}>{status.name}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -1189,21 +1187,21 @@ export default function CollectionsPage() {
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-medium">{t.collections?.workflowProgress}</h3>
-                    <Badge variant={collection?.state === "stored" ? "default" : "secondary"}>
-                      {t.collections?.currentStatus}: {getStateLabel(collection?.state || "")}
+                    <Badge variant="default">
+                      {t.collections?.currentStatus}: {collectionStatuses.find(s => String(s.id) === collection?.state)?.name || collection?.state || "-"}
                     </Badge>
                   </div>
                   <div className="relative">
                     <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
                     <div className="space-y-6">
-                      {COLLECTION_STATES.map((state, index) => {
-                        const currentIndex = COLLECTION_STATES.indexOf(collection?.state || "created");
-                        const isCompleted = index < currentIndex;
-                        const isCurrent = index === currentIndex;
-                        const isPending = index > currentIndex;
+                      {collectionStatuses.map((status, index) => {
+                        const currentStatusIndex = collectionStatuses.findIndex(s => String(s.id) === collection?.state);
+                        const isCompleted = index < currentStatusIndex;
+                        const isCurrent = index === currentStatusIndex;
+                        const isPending = index > currentStatusIndex;
                         
                         return (
-                          <div key={state} className="relative flex items-start gap-4 pl-10">
+                          <div key={status.id} className="relative flex items-start gap-4 pl-10">
                             <div className={`absolute left-2 w-5 h-5 rounded-full border-2 flex items-center justify-center ${
                               isCompleted ? "bg-primary border-primary" :
                               isCurrent ? "bg-primary border-primary" :
@@ -1215,7 +1213,7 @@ export default function CollectionsPage() {
                             <div className={`flex-1 ${isPending ? "opacity-50" : ""}`}>
                               <div className="flex items-center gap-2">
                                 <span className={`font-medium ${isCurrent ? "text-primary" : ""}`}>
-                                  {getStateLabel(state)}
+                                  {status.name}
                                 </span>
                                 {isCurrent && (
                                   <Badge variant="outline" className="text-xs">
@@ -1223,17 +1221,6 @@ export default function CollectionsPage() {
                                   </Badge>
                                 )}
                               </div>
-                              <p className="text-sm text-muted-foreground mt-1">
-                                {index === 0 && t.collections?.timelineDescriptions?.created}
-                                {index === 1 && t.collections?.timelineDescriptions?.paired}
-                                {index === 2 && t.collections?.timelineDescriptions?.evaluated}
-                                {index === 3 && t.collections?.timelineDescriptions?.verified}
-                                {index === 4 && t.collections?.timelineDescriptions?.stored}
-                                {index === 5 && t.collections?.timelineDescriptions?.transferred}
-                                {index === 6 && t.collections?.timelineDescriptions?.released}
-                                {index === 7 && t.collections?.timelineDescriptions?.pending_disposal}
-                                {index === 8 && t.collections?.timelineDescriptions?.disposed}
-                              </p>
                             </div>
                           </div>
                         );
@@ -1244,13 +1231,13 @@ export default function CollectionsPage() {
                     <div className="p-4 bg-primary/10 rounded-lg">
                       <p className="text-sm text-muted-foreground">{t.collections?.completedSteps}</p>
                       <p className="text-2xl font-bold text-primary">
-                        {COLLECTION_STATES.indexOf(collection?.state || "created")}
+                        {Math.max(0, collectionStatuses.findIndex(s => String(s.id) === collection?.state))}
                       </p>
                     </div>
                     <div className="p-4 bg-muted/50 rounded-lg">
                       <p className="text-sm text-muted-foreground">{t.collections?.remainingSteps}</p>
                       <p className="text-2xl font-bold">
-                        {COLLECTION_STATES.length - COLLECTION_STATES.indexOf(collection?.state || "created") - 1}
+                        {Math.max(0, collectionStatuses.length - collectionStatuses.findIndex(s => String(s.id) === collection?.state) - 1)}
                       </p>
                     </div>
                   </div>
@@ -1274,10 +1261,10 @@ export default function CollectionsPage() {
   const statesT = t.collections?.states || {};
 
 
-  const statusData = COLLECTION_STATES.map(state => ({
-    name: statesT[state] || state,
-    value: filteredCollections.filter(c => c.state === state).length,
-    state
+  const statusData = collectionStatuses.map(status => ({
+    name: status.name,
+    value: filteredCollections.filter(c => c.state === String(status.id)).length,
+    state: String(status.id)
   })).filter(d => d.value > 0);
   
   const totalForPercent = statusData.reduce((acc, d) => acc + d.value, 0);

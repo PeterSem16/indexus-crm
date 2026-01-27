@@ -1,7 +1,7 @@
 import { 
   users, customers, products, customerProducts, invoices, billingDetails, invoiceItems,
   customerNotes, activityLogs, communicationMessages,
-  complaintTypes, cooperationTypes, vipStatuses, healthInsuranceCompanies,
+  complaintTypes, cooperationTypes, vipStatuses, collectionStatuses, healthInsuranceCompanies,
   laboratories, hospitals, clinics, visitEvents, voiceNotes, mobilePushTokens,
   collaborators, collaboratorAddresses, collaboratorOtherData, collaboratorAgreements,
   customerPotentialCases, leadScoringCriteria,
@@ -29,6 +29,7 @@ import {
   type ComplaintType, type InsertComplaintType,
   type CooperationType, type InsertCooperationType,
   type VipStatus, type InsertVipStatus,
+  type CollectionStatus, type InsertCollectionStatus,
   type HealthInsurance, type InsertHealthInsurance,
   type Laboratory, type InsertLaboratory,
   type Hospital, type InsertHospital,
@@ -369,6 +370,13 @@ export interface IStorage {
   createVipStatus(data: InsertVipStatus): Promise<VipStatus>;
   updateVipStatus(id: string, data: Partial<InsertVipStatus>): Promise<VipStatus | undefined>;
   deleteVipStatus(id: string): Promise<boolean>;
+
+  // Collection Statuses
+  getAllCollectionStatuses(): Promise<CollectionStatus[]>;
+  getCollectionStatusById(id: number): Promise<CollectionStatus | undefined>;
+  createCollectionStatus(data: InsertCollectionStatus): Promise<CollectionStatus>;
+  updateCollectionStatus(id: number, data: Partial<InsertCollectionStatus>): Promise<CollectionStatus | undefined>;
+  deleteCollectionStatus(id: number): Promise<boolean>;
 
   // Health Insurance Companies
   getAllHealthInsuranceCompanies(): Promise<HealthInsurance[]>;
@@ -2244,6 +2252,31 @@ export class DatabaseStorage implements IStorage {
 
   async deleteVipStatus(id: string): Promise<boolean> {
     const result = await db.delete(vipStatuses).where(eq(vipStatuses.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Collection Statuses
+  async getAllCollectionStatuses(): Promise<CollectionStatus[]> {
+    return db.select().from(collectionStatuses).orderBy(collectionStatuses.sortOrder);
+  }
+
+  async getCollectionStatusById(id: number): Promise<CollectionStatus | undefined> {
+    const [status] = await db.select().from(collectionStatuses).where(eq(collectionStatuses.id, id));
+    return status || undefined;
+  }
+
+  async createCollectionStatus(data: InsertCollectionStatus): Promise<CollectionStatus> {
+    const [created] = await db.insert(collectionStatuses).values(data).returning();
+    return created;
+  }
+
+  async updateCollectionStatus(id: number, data: Partial<InsertCollectionStatus>): Promise<CollectionStatus | undefined> {
+    const [updated] = await db.update(collectionStatuses).set(data).where(eq(collectionStatuses.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteCollectionStatus(id: number): Promise<boolean> {
+    const result = await db.delete(collectionStatuses).where(eq(collectionStatuses.id, id)).returning();
     return result.length > 0;
   }
 

@@ -7901,6 +7901,50 @@ export async function registerRoutes(
     }
   });
 
+  // Collection Statuses
+  app.get("/api/config/collection-statuses", requireAuth, async (req, res) => {
+    try {
+      const statuses = await storage.getAllCollectionStatuses();
+      res.json(statuses);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch collection statuses" });
+    }
+  });
+
+  app.post("/api/config/collection-statuses", requireAuth, async (req, res) => {
+    try {
+      const status = await storage.createCollectionStatus(req.body);
+      await logActivity(req.session.user!.id, "create", "collection_status", String(status.id), status.name);
+      res.status(201).json(status);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create collection status" });
+    }
+  });
+
+  app.put("/api/config/collection-statuses/:id", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const status = await storage.updateCollectionStatus(id, req.body);
+      if (!status) return res.status(404).json({ error: "Collection status not found" });
+      await logActivity(req.session.user!.id, "update", "collection_status", String(status.id), status.name);
+      res.json(status);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update collection status" });
+    }
+  });
+
+  app.delete("/api/config/collection-statuses/:id", requireAuth, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteCollectionStatus(id);
+      if (!success) return res.status(404).json({ error: "Collection status not found" });
+      await logActivity(req.session.user!.id, "delete", "collection_status", req.params.id, "");
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete collection status" });
+    }
+  });
+
   // Health Insurance Companies
   app.get("/api/config/health-insurance", requireAuth, async (req, res) => {
     try {
