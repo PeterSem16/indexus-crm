@@ -5503,11 +5503,11 @@ export async function registerRoutes(
       if (invoiceItems.length > 0) {
         for (const item of invoiceItems) {
           const price = parseFloat(item.unitPrice);
-          const lineTotal = parseFloat(item.lineTotal);
+          const lineTotal = parseFloat(item.totalPrice);
           subtotal += lineTotal;
 
           const y = doc.y;
-          doc.text(item.description, 50, y, { width: 200 });
+          doc.text(item.description || item.name || "", 50, y, { width: 200 });
           doc.text(item.quantity.toString(), 250, y, { width: 50, align: "center" });
           doc.text(`${price.toFixed(2)} ${invoice.currency}`, 300, y, { width: 100, align: "right" });
           doc.text(`${lineTotal.toFixed(2)} ${invoice.currency}`, 400, y, { width: 100, align: "right" });
@@ -6037,17 +6037,18 @@ export async function registerRoutes(
 
       // Calculate totals
       let subtotal = 0;
-      const invoiceItems: Array<{ productId: string | null; description: string; quantity: number; unitPrice: string; lineTotal: string }> = [];
+      const invoiceItems: Array<{ name: string; productId: string | null; description: string; quantity: number; unitPrice: string; totalPrice: string }> = [];
 
       for (const item of items) {
         const lineTotal = parseFloat(item.unitPrice) * item.quantity;
         subtotal += lineTotal;
         invoiceItems.push({
+          name: item.name || item.description || "Item",
           productId: item.productId || null,
           description: item.description,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
-          lineTotal: lineTotal.toFixed(2),
+          totalPrice: lineTotal.toFixed(2),
         });
       }
 
@@ -6081,11 +6082,12 @@ export async function registerRoutes(
       await storage.createInvoiceItems(
         invoiceItems.map(item => ({
           invoiceId: invoice.id,
+          name: item.name,
           productId: item.productId,
           description: item.description,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
-          lineTotal: item.lineTotal,
+          totalPrice: item.totalPrice,
         }))
       );
 
@@ -6219,6 +6221,7 @@ export async function registerRoutes(
         await storage.createInvoiceItems(
           items.map((item: any) => ({
             invoiceId: invoice.id,
+            name: item.name || item.description || "Item",
             productId: item.productId,
             description: item.description,
             quantity: item.quantity,
