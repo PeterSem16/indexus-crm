@@ -5037,6 +5037,7 @@ export async function registerRoutes(
             unitPrice: String(item.unitPrice || 0),
             vatRate: String(item.vatRate || 0),
             totalPrice: String(item.totalPrice || 0),
+            lineTotal: String(item.totalPrice || 0),
             accountingCode: item.accountingCode,
             sortOrder: item.sortOrder || 0,
           });
@@ -5116,6 +5117,7 @@ export async function registerRoutes(
         unitPrice: req.body.unitPrice,
         vatRate: req.body.vatRate || "0",
         totalPrice: req.body.totalPrice,
+        lineTotal: req.body.totalPrice || req.body.lineTotal || "0",
         accountingCode: req.body.accountingCode,
         sortOrder: req.body.sortOrder || 0,
       }).returning();
