@@ -934,7 +934,7 @@ export function CreateInvoiceWizard({
 
   const days = Array.from({ length: 31 }, (_, i) => i + 1);
   const months = Array.from({ length: 12 }, (_, i) => i + 1);
-  const years = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() + i - 2);
+  const years = Array.from({ length: 30 }, (_, i) => new Date().getFullYear() + i - 2);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat(locale === "sk" ? "sk-SK" : "en-US", {
@@ -1511,19 +1511,48 @@ export function CreateInvoiceWizard({
 
                       <div className="flex flex-wrap gap-1 p-3 bg-muted/30 rounded-lg border">
                         <span className="text-xs text-muted-foreground w-full mb-1">{t.invoices?.quickPeriod || "Quick period selection"}:</span>
-                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(6)} data-testid="btn-period-6m">6m</Button>
-                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(12)} data-testid="btn-period-1y">1y</Button>
-                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(24)} data-testid="btn-period-2y">2y</Button>
-                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(36)} data-testid="btn-period-3y">3y</Button>
-                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(48)} data-testid="btn-period-4y">4y</Button>
-                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(60)} data-testid="btn-period-5y">5y</Button>
-                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(72)} data-testid="btn-period-6y">6y</Button>
-                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(84)} data-testid="btn-period-7y">7y</Button>
-                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(96)} data-testid="btn-period-8y">8y</Button>
-                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(108)} data-testid="btn-period-9y">9y</Button>
-                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(120)} data-testid="btn-period-10y">10y</Button>
-                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(180)} data-testid="btn-period-15y">15y</Button>
-                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(240)} data-testid="btn-period-20y">20y</Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(6)} data-testid="btn-period-6m">
+                          6 {t.invoices?.months || "months"}
+                        </Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(12)} data-testid="btn-period-1y">
+                          1 {t.invoices?.year || "year"}
+                        </Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(24)} data-testid="btn-period-2y">
+                          2 {t.invoices?.years || "years"}
+                        </Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(36)} data-testid="btn-period-3y">
+                          3 {t.invoices?.years || "years"}
+                        </Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(48)} data-testid="btn-period-4y">
+                          4 {t.invoices?.years || "years"}
+                        </Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(60)} data-testid="btn-period-5y">
+                          5 {t.invoices?.years || "years"}
+                        </Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(72)} data-testid="btn-period-6y">
+                          6 {t.invoices?.years || "years"}
+                        </Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(84)} data-testid="btn-period-7y">
+                          7 {t.invoices?.years || "years"}
+                        </Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(96)} data-testid="btn-period-8y">
+                          8 {t.invoices?.years || "years"}
+                        </Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(108)} data-testid="btn-period-9y">
+                          9 {t.invoices?.years || "years"}
+                        </Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(120)} data-testid="btn-period-10y">
+                          10 {t.invoices?.years || "years"}
+                        </Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(180)} data-testid="btn-period-15y">
+                          15 {t.invoices?.years || "years"}
+                        </Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(240)} data-testid="btn-period-20y">
+                          20 {t.invoices?.years || "years"}
+                        </Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(300)} data-testid="btn-period-25y">
+                          25 {t.invoices?.years || "years"}
+                        </Button>
                       </div>
 
                       {/* Period From */}

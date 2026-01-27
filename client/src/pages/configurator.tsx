@@ -8682,71 +8682,133 @@ function NumberRangesTab() {
         </Dialog>
       </div>
       
-      {/* Filters Row */}
-      <div className="flex flex-wrap gap-2 items-center">
-        <Select value={countryFilter} onValueChange={(v) => { setCountryFilter(v); handleFilterChange(); }}>
-          <SelectTrigger className="w-[140px]" data-testid="filter-country">
-            <SelectValue placeholder={t.common.country || "Country"} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t.common.all || "All"}</SelectItem>
-            {COUNTRIES.map((country) => (
-              <SelectItem key={country.code} value={country.code}>
-                <span className="flex items-center gap-2">
-                  <Badge variant="outline" className="font-mono text-xs">{country.code}</Badge>
-                  <span>{country.name}</span>
-                </span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        
-        <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v); handleFilterChange(); }}>
-          <SelectTrigger className="w-[140px]" data-testid="filter-type">
-            <SelectValue placeholder={t.konfigurator.numberRangeType || "Type"} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t.common.all || "All"}</SelectItem>
-            <SelectItem value="invoice">{t.konfigurator.invoice}</SelectItem>
-            <SelectItem value="proforma">{t.konfigurator.proformaInvoice}</SelectItem>
-          </SelectContent>
-        </Select>
-        
-        <Select value={yearFilter} onValueChange={(v) => { setYearFilter(v); handleFilterChange(); }}>
-          <SelectTrigger className="w-[120px]" data-testid="filter-year">
-            <SelectValue placeholder={t.konfigurator.numberRangeYear || "Year"} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t.common.all || "All"}</SelectItem>
-            {availableYears.map((year) => (
-              <SelectItem key={year} value={String(year)}>{year}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        
-        <Select value={`${sortField}-${sortDirection}`} onValueChange={(v) => {
-          const [field, dir] = v.split("-");
-          setSortField(field);
-          setSortDirection(dir as "asc" | "desc");
-        }}>
-          <SelectTrigger className="w-[180px]" data-testid="sort-select">
-            <SelectValue placeholder={t.common.sort || "Sort"} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="name-asc">{t.konfigurator.numberRangeName} (A-Z)</SelectItem>
-            <SelectItem value="name-desc">{t.konfigurator.numberRangeName} (Z-A)</SelectItem>
-            <SelectItem value="year-desc">{t.konfigurator.numberRangeYear} ({t.common.descending || "Desc"})</SelectItem>
-            <SelectItem value="year-asc">{t.konfigurator.numberRangeYear} ({t.common.ascending || "Asc"})</SelectItem>
-            <SelectItem value="countryCode-asc">{t.common.country} (A-Z)</SelectItem>
-            <SelectItem value="countryCode-desc">{t.common.country} (Z-A)</SelectItem>
-            <SelectItem value="type-asc">{t.konfigurator.numberRangeType} (A-Z)</SelectItem>
-          </SelectContent>
-        </Select>
-        
-        <span className="text-sm text-muted-foreground ml-auto">
-          {filteredRanges.length} {t.common.results || "results"}
-        </span>
-      </div>
+      {/* Filters Card */}
+      <Card className="bg-muted/30">
+        <CardContent className="pt-4 pb-3">
+          <div className="flex flex-wrap gap-3 items-end">
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">{t.common.country || "Country"}</Label>
+              <div className="flex flex-wrap gap-1">
+                <Button 
+                  variant={countryFilter === "all" ? "default" : "outline"} 
+                  size="sm"
+                  onClick={() => { setCountryFilter("all"); handleFilterChange(); }}
+                  data-testid="filter-country-all"
+                >
+                  {t.common.all || "All"}
+                </Button>
+                {COUNTRIES.map((country) => (
+                  <Button
+                    key={country.code}
+                    variant={countryFilter === country.code ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => { setCountryFilter(country.code); handleFilterChange(); }}
+                    data-testid={`filter-country-${country.code}`}
+                  >
+                    <span className="mr-1">{country.flag}</span>
+                    {country.code}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            
+            <div className="h-8 w-px bg-border hidden lg:block" />
+            
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">{t.konfigurator.numberRangeType || "Type"}</Label>
+              <div className="flex gap-1">
+                <Button 
+                  variant={typeFilter === "all" ? "default" : "outline"} 
+                  size="sm"
+                  onClick={() => { setTypeFilter("all"); handleFilterChange(); }}
+                  data-testid="filter-type-all"
+                >
+                  {t.common.all || "All"}
+                </Button>
+                <Button 
+                  variant={typeFilter === "invoice" ? "default" : "outline"} 
+                  size="sm"
+                  onClick={() => { setTypeFilter("invoice"); handleFilterChange(); }}
+                  data-testid="filter-type-invoice"
+                >
+                  {t.konfigurator.invoice}
+                </Button>
+                <Button 
+                  variant={typeFilter === "proforma" ? "default" : "outline"} 
+                  size="sm"
+                  onClick={() => { setTypeFilter("proforma"); handleFilterChange(); }}
+                  data-testid="filter-type-proforma"
+                >
+                  {t.konfigurator.proformaInvoice}
+                </Button>
+              </div>
+            </div>
+            
+            <div className="h-8 w-px bg-border hidden lg:block" />
+            
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">{t.konfigurator.numberRangeYear || "Year"}</Label>
+              <Select value={yearFilter} onValueChange={(v) => { setYearFilter(v); handleFilterChange(); }}>
+                <SelectTrigger className="w-[100px]" data-testid="filter-year">
+                  <SelectValue placeholder={t.common.all || "All"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t.common.all || "All"}</SelectItem>
+                  {availableYears.map((year) => (
+                    <SelectItem key={year} value={String(year)}>{year}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="h-8 w-px bg-border hidden lg:block" />
+            
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">{t.common.sort || "Sort"}</Label>
+              <Select value={`${sortField}-${sortDirection}`} onValueChange={(v) => {
+                const [field, dir] = v.split("-");
+                setSortField(field);
+                setSortDirection(dir as "asc" | "desc");
+              }}>
+                <SelectTrigger className="w-[160px]" data-testid="sort-select">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name-asc">{t.konfigurator.numberRangeName} (A-Z)</SelectItem>
+                  <SelectItem value="name-desc">{t.konfigurator.numberRangeName} (Z-A)</SelectItem>
+                  <SelectItem value="year-desc">{t.konfigurator.numberRangeYear} ↓</SelectItem>
+                  <SelectItem value="year-asc">{t.konfigurator.numberRangeYear} ↑</SelectItem>
+                  <SelectItem value="countryCode-asc">{t.common.country} (A-Z)</SelectItem>
+                  <SelectItem value="countryCode-desc">{t.common.country} (Z-A)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="ml-auto flex items-center gap-2">
+              {(countryFilter !== "all" || typeFilter !== "all" || yearFilter !== "all" || search) && (
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => {
+                    setCountryFilter("all");
+                    setTypeFilter("all");
+                    setYearFilter("all");
+                    setSearch("");
+                    handleFilterChange();
+                  }}
+                  data-testid="clear-filters"
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  {t.common.clear || "Clear"}
+                </Button>
+              )}
+              <Badge variant="secondary">
+                {filteredRanges.length} {t.common.results || "results"}
+              </Badge>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
       
       {paginatedRanges.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
