@@ -980,31 +980,44 @@ export function CreateInvoiceWizard({
           console.log("[InvoiceWizard] No numberRangeId provided");
         }
 
-        const firstInvoiceData = {
-          invoiceNumber,
-          customerId: values.customerId || customerId,
-          billingDetailsId: billingInfo?.id,
-          issueDate: baseIssueDate.toISOString(),
-          dueDate: baseDueDate.toISOString(),
-          deliveryDate: deliveryDate?.toISOString(),
-          variableSymbol: invoiceNumber,
-          constantSymbol: values.constantSymbol,
-          specificSymbol: values.specificSymbol,
-          barcodeType: values.barcodeType,
-          barcodeValue: invoiceNumber,
-          subtotal: invoiceSubtotal.toFixed(2),
-          vatRate: billingInfo?.defaultVatRate || "20",
-          vatAmount: invoiceVatAmount.toFixed(2),
-          totalAmount: invoiceTotal.toFixed(2),
-          currency: billingInfo?.currency || "EUR",
-          status: "generated",
-          paymentTermDays: billingInfo?.defaultPaymentTerm || 14,
-          items: firstInstallmentItems,
-          installmentNumber: 1,
-          totalInstallments: maxInstallments,
-        };
+        let firstInvoiceData;
+        try {
+          firstInvoiceData = {
+            invoiceNumber,
+            customerId: values.customerId || customerId,
+            billingDetailsId: billingInfo?.id,
+            issueDate: baseIssueDate.toISOString(),
+            dueDate: baseDueDate.toISOString(),
+            deliveryDate: deliveryDate?.toISOString(),
+            variableSymbol: invoiceNumber,
+            constantSymbol: values.constantSymbol,
+            specificSymbol: values.specificSymbol,
+            barcodeType: values.barcodeType,
+            barcodeValue: invoiceNumber,
+            subtotal: invoiceSubtotal.toFixed(2),
+            vatRate: billingInfo?.defaultVatRate || "20",
+            vatAmount: invoiceVatAmount.toFixed(2),
+            totalAmount: invoiceTotal.toFixed(2),
+            currency: billingInfo?.currency || "EUR",
+            status: "generated",
+            paymentTermDays: billingInfo?.defaultPaymentTerm || 14,
+            items: firstInstallmentItems,
+            installmentNumber: 1,
+            totalInstallments: maxInstallments,
+          };
+        } catch (dataError: unknown) {
+          const errMsg = dataError instanceof Error ? dataError.message : String(dataError);
+          console.error("[InvoiceWizard] Error preparing invoice data:", dataError);
+          toast({
+            title: "Error preparing data",
+            description: errMsg,
+            variant: "destructive",
+          });
+          setIsSubmitting(false);
+          return;
+        }
 
-        console.log("[InvoiceWizard] Creating first invoice with data:", firstInvoiceData);
+        console.log("[InvoiceWizard] Creating first invoice with data:", JSON.stringify(firstInvoiceData));
         try {
           console.log("[InvoiceWizard] About to call apiRequest for POST /api/invoices");
           const response = await apiRequest("POST", "/api/invoices", firstInvoiceData);
@@ -1021,6 +1034,7 @@ export function CreateInvoiceWizard({
             description: `${t.invoices?.createFailed || "Failed to create first invoice"}: ${errorMessage}`,
             variant: "destructive",
           });
+          setIsSubmitting(false);
           return;
         }
       }
