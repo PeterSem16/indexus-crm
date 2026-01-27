@@ -7,7 +7,7 @@ import { db } from "./db";
 import { storage } from "./storage";
 import { 
   insertUserSchema, insertCustomerSchema, updateUserSchema, loginSchema, userSessions, communicationMessages,
-  invoiceItems, invoicePayments,
+  invoices, invoiceItems, invoicePayments,
   insertProductSchema, insertCustomerProductSchema, insertBillingDetailsSchema,
   insertCustomerNoteSchema, insertActivityLogSchema, sendEmailSchema, sendSmsSchema,
   insertComplaintTypeSchema, insertCooperationTypeSchema, insertVipStatusSchema, insertHealthInsuranceSchema,
