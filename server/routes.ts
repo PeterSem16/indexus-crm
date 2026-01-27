@@ -4953,62 +4953,102 @@ export async function registerRoutes(
   // Create new invoice
   app.post("/api/invoices", requireAuth, async (req, res) => {
     console.log("[InvoiceCreate] Received POST /api/invoices request");
-    console.log("[InvoiceCreate] Request body:", JSON.stringify(req.body, null, 2));
     try {
-      const { items, ...invoiceData } = req.body;
-      
-      // Convert date strings to Date objects
-      if (invoiceData.issueDate && typeof invoiceData.issueDate === 'string') {
-        invoiceData.issueDate = new Date(invoiceData.issueDate);
-      }
-      if (invoiceData.dueDate && typeof invoiceData.dueDate === 'string') {
-        invoiceData.dueDate = new Date(invoiceData.dueDate);
-      }
-      if (invoiceData.deliveryDate && typeof invoiceData.deliveryDate === 'string') {
-        invoiceData.deliveryDate = new Date(invoiceData.deliveryDate);
-      }
-      if (invoiceData.paidAt && typeof invoiceData.paidAt === 'string') {
-        invoiceData.paidAt = new Date(invoiceData.paidAt);
-      }
+      const { items, ...rawData } = req.body;
+      console.log("[InvoiceCreate] Raw data keys:", Object.keys(rawData));
       
       // Generate invoice number if not provided
-      if (!invoiceData.invoiceNumber) {
-        const prefix = "INV";
+      let invoiceNumber = rawData.invoiceNumber;
+      if (!invoiceNumber) {
         const date = new Date();
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-        invoiceData.invoiceNumber = `${prefix}-${year}${month}-${random}`;
+        invoiceNumber = `INV-${year}${month}-${random}`;
       }
       
-      // Set specific symbol as invoice number if not provided
-      if (!invoiceData.specificSymbol) {
-        invoiceData.specificSymbol = invoiceData.invoiceNumber;
+      // Build clean invoice data with explicit field mapping
+      const invoiceData: Record<string, unknown> = {
+        invoiceNumber,
+        customerId: rawData.customerId,
+        totalAmount: rawData.totalAmount || "0",
+      };
+      
+      // Optional string fields
+      if (rawData.billingDetailsId) invoiceData.billingDetailsId = rawData.billingDetailsId;
+      if (rawData.bankAccountId) invoiceData.bankAccountId = rawData.bankAccountId;
+      if (rawData.productId) invoiceData.productId = rawData.productId;
+      if (rawData.instancePriceId) invoiceData.instancePriceId = rawData.instancePriceId;
+      if (rawData.currency) invoiceData.currency = rawData.currency;
+      if (rawData.status) invoiceData.status = rawData.status;
+      if (rawData.variableSymbol) invoiceData.variableSymbol = rawData.variableSymbol;
+      if (rawData.constantSymbol) invoiceData.constantSymbol = rawData.constantSymbol;
+      invoiceData.specificSymbol = rawData.specificSymbol || invoiceNumber;
+      if (rawData.billingCompanyName) invoiceData.billingCompanyName = rawData.billingCompanyName;
+      if (rawData.billingAddress) invoiceData.billingAddress = rawData.billingAddress;
+      if (rawData.billingCity) invoiceData.billingCity = rawData.billingCity;
+      if (rawData.billingTaxId) invoiceData.billingTaxId = rawData.billingTaxId;
+      if (rawData.billingBankName) invoiceData.billingBankName = rawData.billingBankName;
+      if (rawData.billingBankIban) invoiceData.billingBankIban = rawData.billingBankIban;
+      if (rawData.billingBankSwift) invoiceData.billingBankSwift = rawData.billingBankSwift;
+      
+      // Numeric fields
+      if (rawData.subtotal) invoiceData.subtotal = rawData.subtotal;
+      if (rawData.vatRate) invoiceData.vatRate = rawData.vatRate;
+      if (rawData.vatAmount) invoiceData.vatAmount = rawData.vatAmount;
+      if (rawData.paidAmount) invoiceData.paidAmount = rawData.paidAmount;
+      if (rawData.paymentTermDays) invoiceData.paymentTermDays = rawData.paymentTermDays;
+      
+      // Date fields - convert strings to Date objects
+      if (rawData.issueDate) {
+        invoiceData.issueDate = typeof rawData.issueDate === 'string' ? new Date(rawData.issueDate) : rawData.issueDate;
+      }
+      if (rawData.dueDate) {
+        invoiceData.dueDate = typeof rawData.dueDate === 'string' ? new Date(rawData.dueDate) : rawData.dueDate;
+      }
+      if (rawData.deliveryDate) {
+        invoiceData.deliveryDate = typeof rawData.deliveryDate === 'string' ? new Date(rawData.deliveryDate) : rawData.deliveryDate;
+      }
+      if (rawData.sendDate) {
+        invoiceData.sendDate = typeof rawData.sendDate === 'string' ? new Date(rawData.sendDate) : rawData.sendDate;
+      }
+      if (rawData.periodFrom) {
+        invoiceData.periodFrom = typeof rawData.periodFrom === 'string' ? new Date(rawData.periodFrom) : rawData.periodFrom;
+      }
+      if (rawData.periodTo) {
+        invoiceData.periodTo = typeof rawData.periodTo === 'string' ? new Date(rawData.periodTo) : rawData.periodTo;
       }
       
-      const invoice = await storage.createInvoice(invoiceData);
+      console.log("[InvoiceCreate] Creating invoice with number:", invoiceNumber);
+      
+      // Insert invoice directly using db
+      const [invoice] = await db.insert(invoices).values(invoiceData as any).returning();
+      console.log("[InvoiceCreate] Invoice created with ID:", invoice.id);
       
       // Create invoice items if provided
-      if (items && Array.isArray(items)) {
+      if (items && Array.isArray(items) && items.length > 0) {
+        console.log("[InvoiceCreate] Creating", items.length, "items");
         for (const item of items) {
           await db.insert(invoiceItems).values({
             invoiceId: invoice.id,
-            name: item.name,
+            name: item.name || "Item",
             description: item.description,
-            quantity: item.quantity || "1",
-            unitPrice: item.unitPrice,
-            vatRate: item.vatRate || "0",
-            totalPrice: item.totalPrice,
+            quantity: String(item.quantity || 1),
+            unitPrice: String(item.unitPrice || 0),
+            vatRate: String(item.vatRate || 0),
+            totalPrice: String(item.totalPrice || 0),
             accountingCode: item.accountingCode,
             sortOrder: item.sortOrder || 0,
           });
         }
       }
       
+      console.log("[InvoiceCreate] Success - returning invoice");
       res.status(201).json(invoice);
-    } catch (error) {
-      console.error("Error creating invoice:", error);
-      res.status(500).json({ error: "Failed to create invoice" });
+    } catch (error: any) {
+      console.error("[InvoiceCreate] Error:", error.message);
+      console.error("[InvoiceCreate] Stack:", error.stack);
+      res.status(500).json({ error: "Failed to create invoice", details: error.message });
     }
   });
 
