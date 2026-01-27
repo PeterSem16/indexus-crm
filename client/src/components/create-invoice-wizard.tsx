@@ -597,6 +597,12 @@ export function CreateInvoiceWizard({
     return `${selectedNumberRange.prefix || ""}${String(nextNumber).padStart(selectedNumberRange.digitsToGenerate || 6, "0")}${selectedNumberRange.suffix || ""}`;
   }, [selectedNumberRange]);
 
+  // Auto-fill variable symbol from invoice number
+  useEffect(() => {
+    if (previewInvoiceNumber && !form.getValues("variableSymbol")) {
+      form.setValue("variableSymbol", previewInvoiceNumber);
+    }
+  }, [previewInvoiceNumber, form]);
 
   const createInvoiceMutation = useMutation({
     mutationFn: async (data: any) => {
