@@ -3050,7 +3050,7 @@ function CustomerDetailsContent({
           <div className="text-muted-foreground">
             Status: <span className="line-through">{previousStatus}</span> → <strong>{newStatus}</strong>
           </div>
-          {details.notes && <div className="mt-1 text-xs italic">{details.notes as string}</div>}
+          {details.notes && <div className="mt-1 text-xs italic">{String(details.notes)}</div>}
         </div>
       );
     }
