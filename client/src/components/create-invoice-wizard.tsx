@@ -868,59 +868,191 @@ export function CreateInvoiceWizard({
 
   const handleSubmit = async () => {
     const values = form.getValues();
-    const totals = calculateTotals();
+    const installmentItems = items.filter(item => item.paymentType === 'installment');
+    const oneTimeItems = items.filter(item => item.paymentType !== 'installment');
+    const hasInstallments = installmentItems.length > 0;
 
-    // Generate invoice number on final submission
-    let invoiceNumber = "";
-    if (values.numberRangeId) {
-      try {
-        const response = await apiRequest("POST", `/api/configurator/number-ranges/${values.numberRangeId}/generate`);
-        const data = await response.json();
-        invoiceNumber = data.invoiceNumber;
-      } catch (error) {
-        toast({
-          title: t.common?.error || "Error",
-          description: "Failed to generate invoice number",
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-
-    const issueDate = new Date(values.issueDateYear, values.issueDateMonth - 1, values.issueDateDay);
-    const dueDate = new Date(values.dueDateYear, values.dueDateMonth - 1, values.dueDateDay);
+    const baseIssueDate = new Date(values.issueDateYear, values.issueDateMonth - 1, values.issueDateDay);
+    const baseDueDate = new Date(values.dueDateYear, values.dueDateMonth - 1, values.dueDateDay);
     const deliveryDate = values.deliveryDateYear ? 
       new Date(values.deliveryDateYear, (values.deliveryDateMonth || 1) - 1, values.deliveryDateDay || 1) : null;
+    const paymentTermDays = Math.round((baseDueDate.getTime() - baseIssueDate.getTime()) / (1000 * 60 * 60 * 24));
 
-    const invoiceData = {
-      invoiceNumber,
-      customerId: values.customerId || customerId,
-      billingDetailsId: billingInfo?.id,
-      issueDate: issueDate.toISOString(),
-      dueDate: dueDate.toISOString(),
-      deliveryDate: deliveryDate?.toISOString(),
-      variableSymbol: values.variableSymbol || invoiceNumber,
-      constantSymbol: values.constantSymbol,
-      specificSymbol: values.specificSymbol,
-      barcodeType: values.barcodeType,
-      barcodeValue: values.barcodeValue || invoiceNumber,
-      subtotal: totals.subtotal.toFixed(2),
-      vatRate: billingInfo?.defaultVatRate || "20",
-      vatAmount: totals.vatAmount.toFixed(2),
-      totalAmount: totals.total.toFixed(2),
-      currency: billingInfo?.currency || "EUR",
-      status: "generated",
-      paymentTermDays: billingInfo?.defaultPaymentTerm || 14,
-      items: items.map(item => ({
-        name: item.name,
-        quantity: item.quantity.toString(),
-        unitPrice: item.unitPrice,
-        vatRate: item.vatRate,
-        totalPrice: item.total,
-      })),
-    };
+    if (hasInstallments) {
+      // Create multiple invoices for installments
+      const maxInstallments = Math.max(...installmentItems.map(item => item.installmentCount || 6), 1);
+      const hasYearly = installmentItems.some(item => item.frequency === 'yearly');
+      let createdCount = 0;
+      let failedCount = 0;
 
-    createInvoiceMutation.mutate(invoiceData);
+      for (let installmentNum = 1; installmentNum <= maxInstallments; installmentNum++) {
+        // Calculate invoice date for this installment
+        const invoiceDate = new Date(baseIssueDate);
+        if (hasYearly) {
+          invoiceDate.setFullYear(invoiceDate.getFullYear() + installmentNum - 1);
+        } else {
+          invoiceDate.setMonth(invoiceDate.getMonth() + installmentNum - 1);
+        }
+        const invoiceDueDate = new Date(invoiceDate);
+        invoiceDueDate.setDate(invoiceDueDate.getDate() + paymentTermDays);
+
+        // Build items for this installment invoice
+        const invoiceItems: Array<{name: string; quantity: string; unitPrice: string; vatRate: string; totalPrice: string}> = [];
+        
+        // Add one-time items only to first invoice
+        if (installmentNum === 1) {
+          oneTimeItems.forEach(item => {
+            invoiceItems.push({
+              name: item.name,
+              quantity: item.quantity.toString(),
+              unitPrice: item.unitPrice,
+              vatRate: item.vatRate,
+              totalPrice: item.total,
+            });
+          });
+        }
+
+        // Add installment items that apply to this invoice
+        installmentItems.forEach(item => {
+          const count = item.installmentCount || 6;
+          if (installmentNum <= count) {
+            const total = parseFloat(item.total);
+            const baseAmount = Math.floor((total / count) * 100) / 100;
+            const remainder = Math.round((total - baseAmount * count) * 100) / 100;
+            const thisAmount = installmentNum === 1 ? baseAmount + remainder : baseAmount;
+            
+            invoiceItems.push({
+              name: `${item.name} (${t.invoices?.installment || "Installment"} ${installmentNum}/${count})`,
+              quantity: "1",
+              unitPrice: thisAmount.toFixed(2),
+              vatRate: item.vatRate,
+              totalPrice: thisAmount.toFixed(2),
+            });
+          }
+        });
+
+        // Skip if no items for this invoice
+        if (invoiceItems.length === 0) continue;
+
+        // Calculate totals for this invoice
+        const invoiceTotal = invoiceItems.reduce((sum, item) => sum + parseFloat(item.totalPrice), 0);
+        const invoiceVatAmount = invoiceItems.reduce((sum, item) => {
+          const itemTotal = parseFloat(item.totalPrice);
+          const itemVatRate = parseFloat(item.vatRate || "0") / 100;
+          return sum + (itemTotal * itemVatRate / (1 + itemVatRate));
+        }, 0);
+        const invoiceSubtotal = invoiceTotal - invoiceVatAmount;
+
+        // Generate invoice number
+        let invoiceNumber = "";
+        if (values.numberRangeId) {
+          try {
+            const response = await apiRequest("POST", `/api/configurator/number-ranges/${values.numberRangeId}/generate`);
+            const data = await response.json();
+            invoiceNumber = data.invoiceNumber;
+          } catch (error) {
+            failedCount++;
+            continue;
+          }
+        }
+
+        const invoiceData = {
+          invoiceNumber,
+          customerId: values.customerId || customerId,
+          billingDetailsId: billingInfo?.id,
+          issueDate: invoiceDate.toISOString(),
+          dueDate: invoiceDueDate.toISOString(),
+          deliveryDate: deliveryDate?.toISOString(),
+          variableSymbol: invoiceNumber,
+          constantSymbol: values.constantSymbol,
+          specificSymbol: values.specificSymbol,
+          barcodeType: values.barcodeType,
+          barcodeValue: invoiceNumber,
+          subtotal: invoiceSubtotal.toFixed(2),
+          vatRate: billingInfo?.defaultVatRate || "20",
+          vatAmount: invoiceVatAmount.toFixed(2),
+          totalAmount: invoiceTotal.toFixed(2),
+          currency: billingInfo?.currency || "EUR",
+          status: "generated",
+          paymentTermDays: billingInfo?.defaultPaymentTerm || 14,
+          items: invoiceItems,
+          installmentNumber: installmentNum,
+          totalInstallments: maxInstallments,
+        };
+
+        try {
+          await apiRequest("POST", "/api/invoices", invoiceData);
+          createdCount++;
+        } catch (error) {
+          failedCount++;
+        }
+      }
+
+      if (createdCount > 0) {
+        toast({
+          title: t.common?.success || "Success",
+          description: `${t.invoices?.createSuccess || "Invoices created successfully"}: ${createdCount}/${maxInstallments}`,
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+        handleClose();
+      } else {
+        toast({
+          title: t.common?.error || "Error",
+          description: t.invoices?.createFailed || "Failed to create invoices",
+          variant: "destructive",
+        });
+      }
+    } else {
+      // Single invoice (no installments)
+      const totals = calculateTotals();
+
+      // Generate invoice number on final submission
+      let invoiceNumber = "";
+      if (values.numberRangeId) {
+        try {
+          const response = await apiRequest("POST", `/api/configurator/number-ranges/${values.numberRangeId}/generate`);
+          const data = await response.json();
+          invoiceNumber = data.invoiceNumber;
+        } catch (error) {
+          toast({
+            title: t.common?.error || "Error",
+            description: "Failed to generate invoice number",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
+      const invoiceData = {
+        invoiceNumber,
+        customerId: values.customerId || customerId,
+        billingDetailsId: billingInfo?.id,
+        issueDate: baseIssueDate.toISOString(),
+        dueDate: baseDueDate.toISOString(),
+        deliveryDate: deliveryDate?.toISOString(),
+        variableSymbol: values.variableSymbol || invoiceNumber,
+        constantSymbol: values.constantSymbol,
+        specificSymbol: values.specificSymbol,
+        barcodeType: values.barcodeType,
+        barcodeValue: values.barcodeValue || invoiceNumber,
+        subtotal: totals.subtotal.toFixed(2),
+        vatRate: billingInfo?.defaultVatRate || "20",
+        vatAmount: totals.vatAmount.toFixed(2),
+        totalAmount: totals.total.toFixed(2),
+        currency: billingInfo?.currency || "EUR",
+        status: "generated",
+        paymentTermDays: billingInfo?.defaultPaymentTerm || 14,
+        items: items.map(item => ({
+          name: item.name,
+          quantity: item.quantity.toString(),
+          unitPrice: item.unitPrice,
+          vatRate: item.vatRate,
+          totalPrice: item.total,
+        })),
+      };
+
+      createInvoiceMutation.mutate(invoiceData);
+    }
   };
 
   const steps = [
