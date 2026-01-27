@@ -12974,8 +12974,10 @@ export async function registerRoutes(
       }
       if (col.paymentOptionId) {
         const paymentOption = await storage.getInstancePaymentOption(col.paymentOptionId);
-        enriched.paymentType = paymentOption?.paymentType || null;
+        enriched.paymentType = paymentOption?.isMultiPayment ? 'installment' : (paymentOption?.type || 'one-time');
         enriched.paymentOptionName = paymentOption?.name || null;
+        enriched.installmentCount = paymentOption?.installmentCount || null;
+        enriched.frequency = paymentOption?.frequency || null;
       }
       return enriched;
     }));
@@ -13006,8 +13008,10 @@ export async function registerRoutes(
       }
       if (stor.paymentOptionId) {
         const paymentOption = await storage.getInstancePaymentOption(stor.paymentOptionId);
-        enriched.paymentType = paymentOption?.paymentType || null;
+        enriched.paymentType = paymentOption?.isMultiPayment ? 'installment' : (paymentOption?.type || 'one-time');
         enriched.paymentOptionName = paymentOption?.name || null;
+        enriched.installmentCount = paymentOption?.installmentCount || null;
+        enriched.frequency = paymentOption?.frequency || null;
       }
       return enriched;
     }));
@@ -13142,8 +13146,10 @@ export async function registerRoutes(
         }
         if (col.paymentOptionId) {
           const paymentOption = await storage.getInstancePaymentOption(col.paymentOptionId);
-          enriched.paymentType = paymentOption?.paymentType || null;
+          enriched.paymentType = paymentOption?.isMultiPayment ? 'installment' : (paymentOption?.type || 'one-time');
           enriched.paymentOptionName = paymentOption?.name || null;
+          enriched.installmentCount = paymentOption?.installmentCount || null;
+          enriched.frequency = paymentOption?.frequency || null;
         }
         return enriched;
       }));
@@ -13174,8 +13180,10 @@ export async function registerRoutes(
         }
         if (stor.paymentOptionId) {
           const paymentOption = await storage.getInstancePaymentOption(stor.paymentOptionId);
-          enriched.paymentType = paymentOption?.paymentType || null;
+          enriched.paymentType = paymentOption?.isMultiPayment ? 'installment' : (paymentOption?.type || 'one-time');
           enriched.paymentOptionName = paymentOption?.name || null;
+          enriched.installmentCount = paymentOption?.installmentCount || null;
+          enriched.frequency = paymentOption?.frequency || null;
         }
         return enriched;
       }));
