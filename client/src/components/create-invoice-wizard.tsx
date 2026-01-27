@@ -644,7 +644,7 @@ export function CreateInvoiceWizard({
         title: t.common?.success || "Success",
         description: t.invoices?.createSuccess || "Invoice created successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"], exact: false });
       onSuccess?.(data.id);
       handleClose();
     },
@@ -1090,7 +1090,7 @@ export function CreateInvoiceWizard({
           title: t.common?.success || "Success",
           description: `${t.invoices?.createSuccess || "Invoice created successfully"}${scheduledMsg}`,
         });
-        queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/invoices"], exact: false });
         queryClient.invalidateQueries({ queryKey: ["/api/scheduled-invoices"] });
         handleClose();
       } else {
