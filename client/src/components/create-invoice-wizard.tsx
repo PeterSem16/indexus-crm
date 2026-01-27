@@ -798,7 +798,7 @@ export function CreateInvoiceWizard({
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Receipt className="h-5 w-5" />
@@ -938,346 +938,352 @@ export function CreateInvoiceWizard({
 
               {currentStep === 1 && (
                 <div className="space-y-6">
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <Calendar className="h-5 w-5" />
-                    {t.invoices?.dateSettings || "Date Settings"}
-                  </h3>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Left Column - Date Settings */}
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold flex items-center gap-2 pb-2 border-b">
+                        <Calendar className="h-5 w-5" />
+                        {t.invoices?.dateSettings || "Date Settings"}
+                      </h3>
 
-                  <div className="space-y-4">
-                    <div className="p-4 border rounded-lg bg-muted/30">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-primary" />
-                          <Label className="font-medium">{t.invoices?.issueDate || "Issue Date"}</Label>
+                      <div className="p-4 border rounded-lg bg-muted/30">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-primary" />
+                            <Label className="font-medium">{t.invoices?.issueDate || "Issue Date"}</Label>
+                          </div>
+                          <Button type="button" variant="outline" size="sm" onClick={() => setToday("issueDate")} data-testid="btn-today-issue">
+                            {t.common?.today || "Today"}
+                          </Button>
                         </div>
-                        <Button type="button" variant="outline" size="sm" onClick={() => setToday("issueDate")} data-testid="btn-today-issue">
-                          {t.common?.today || "Today"}
-                        </Button>
+                        <div className="flex gap-2 items-center">
+                          <FormField
+                            control={form.control}
+                            name="issueDateDay"
+                            render={({ field }) => (
+                              <div className="flex flex-col gap-1">
+                                <span className="text-xs text-muted-foreground">{t.common?.day || "Day"}</span>
+                                <Select value={field.value?.toString()} onValueChange={(v) => field.onChange(parseInt(v))}>
+                                  <SelectTrigger className="w-20" data-testid="select-issue-day">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {days.map((d) => <SelectItem key={d} value={d.toString()}>{d}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="issueDateMonth"
+                            render={({ field }) => (
+                              <div className="flex flex-col gap-1">
+                                <span className="text-xs text-muted-foreground">{t.common?.month || "Month"}</span>
+                                <Select value={field.value?.toString()} onValueChange={(v) => field.onChange(parseInt(v))}>
+                                  <SelectTrigger className="w-20" data-testid="select-issue-month">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {months.map((m) => <SelectItem key={m} value={m.toString()}>{m}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="issueDateYear"
+                            render={({ field }) => (
+                              <div className="flex flex-col gap-1">
+                                <span className="text-xs text-muted-foreground">{t.common?.year || "Year"}</span>
+                                <Select value={field.value?.toString()} onValueChange={(v) => field.onChange(parseInt(v))}>
+                                  <SelectTrigger className="w-24" data-testid="select-issue-year">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {years.map((y) => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+                          />
+                        </div>
                       </div>
-                      <div className="flex gap-2 items-center">
-                        <FormField
-                          control={form.control}
-                          name="issueDateDay"
-                          render={({ field }) => (
-                            <div className="flex flex-col gap-1">
-                              <span className="text-xs text-muted-foreground">{t.common?.day || "Day"}</span>
-                              <Select value={field.value?.toString()} onValueChange={(v) => field.onChange(parseInt(v))}>
-                                <SelectTrigger className="w-20" data-testid="select-issue-day">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {days.map((d) => <SelectItem key={d} value={d.toString()}>{d}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="issueDateMonth"
-                          render={({ field }) => (
-                            <div className="flex flex-col gap-1">
-                              <span className="text-xs text-muted-foreground">{t.common?.month || "Month"}</span>
-                              <Select value={field.value?.toString()} onValueChange={(v) => field.onChange(parseInt(v))}>
-                                <SelectTrigger className="w-20" data-testid="select-issue-month">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {months.map((m) => <SelectItem key={m} value={m.toString()}>{m}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="issueDateYear"
-                          render={({ field }) => (
-                            <div className="flex flex-col gap-1">
-                              <span className="text-xs text-muted-foreground">{t.common?.year || "Year"}</span>
-                              <Select value={field.value?.toString()} onValueChange={(v) => field.onChange(parseInt(v))}>
-                                <SelectTrigger className="w-24" data-testid="select-issue-year">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {years.map((y) => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          )}
-                        />
+
+                      <div className="p-4 border rounded-lg bg-muted/30">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-destructive" />
+                            <Label className="font-medium">{t.invoices?.dueDate || "Due Date"}</Label>
+                          </div>
+                          <Button type="button" variant="outline" size="sm" onClick={() => setToday("dueDate")} data-testid="btn-today-due">
+                            {t.common?.today || "Today"}
+                          </Button>
+                        </div>
+                        <div className="flex gap-2 items-center">
+                          <FormField
+                            control={form.control}
+                            name="dueDateDay"
+                            render={({ field }) => (
+                              <div className="flex flex-col gap-1">
+                                <span className="text-xs text-muted-foreground">{t.common?.day || "Day"}</span>
+                                <Select value={field.value?.toString()} onValueChange={(v) => field.onChange(parseInt(v))}>
+                                  <SelectTrigger className="w-20" data-testid="select-due-day">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {days.map((d) => <SelectItem key={d} value={d.toString()}>{d}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="dueDateMonth"
+                            render={({ field }) => (
+                              <div className="flex flex-col gap-1">
+                                <span className="text-xs text-muted-foreground">{t.common?.month || "Month"}</span>
+                                <Select value={field.value?.toString()} onValueChange={(v) => field.onChange(parseInt(v))}>
+                                  <SelectTrigger className="w-20" data-testid="select-due-month">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {months.map((m) => <SelectItem key={m} value={m.toString()}>{m}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="dueDateYear"
+                            render={({ field }) => (
+                              <div className="flex flex-col gap-1">
+                                <span className="text-xs text-muted-foreground">{t.common?.year || "Year"}</span>
+                                <Select value={field.value?.toString()} onValueChange={(v) => field.onChange(parseInt(v))}>
+                                  <SelectTrigger className="w-24" data-testid="select-due-year">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {years.map((y) => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="p-4 border rounded-lg bg-muted/30">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-muted-foreground" />
+                            <Label className="font-medium">{t.invoices?.deliveryDate || "Delivery Date"}</Label>
+                            <span className="text-xs text-muted-foreground">({t.common?.optional || "optional"})</span>
+                          </div>
+                          <Button type="button" variant="outline" size="sm" onClick={() => setToday("deliveryDate")} data-testid="btn-today-delivery">
+                            {t.common?.today || "Today"}
+                          </Button>
+                        </div>
+                        <div className="flex gap-2 items-center">
+                          <FormField
+                            control={form.control}
+                            name="deliveryDateDay"
+                            render={({ field }) => (
+                              <div className="flex flex-col gap-1">
+                                <span className="text-xs text-muted-foreground">{t.common?.day || "Day"}</span>
+                                <Select value={field.value?.toString() || ""} onValueChange={(v) => field.onChange(v ? parseInt(v) : undefined)}>
+                                  <SelectTrigger className="w-20" data-testid="select-delivery-day">
+                                    <SelectValue placeholder="-" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {days.map((d) => <SelectItem key={d} value={d.toString()}>{d}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="deliveryDateMonth"
+                            render={({ field }) => (
+                              <div className="flex flex-col gap-1">
+                                <span className="text-xs text-muted-foreground">{t.common?.month || "Month"}</span>
+                                <Select value={field.value?.toString() || ""} onValueChange={(v) => field.onChange(v ? parseInt(v) : undefined)}>
+                                  <SelectTrigger className="w-20" data-testid="select-delivery-month">
+                                    <SelectValue placeholder="-" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {months.map((m) => <SelectItem key={m} value={m.toString()}>{m}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="deliveryDateYear"
+                            render={({ field }) => (
+                              <div className="flex flex-col gap-1">
+                                <span className="text-xs text-muted-foreground">{t.common?.year || "Year"}</span>
+                                <Select value={field.value?.toString() || ""} onValueChange={(v) => field.onChange(v ? parseInt(v) : undefined)}>
+                                  <SelectTrigger className="w-24" data-testid="select-delivery-year">
+                                    <SelectValue placeholder="-" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {years.map((y) => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+                          />
+                        </div>
                       </div>
                     </div>
 
-                    <div className="p-4 border rounded-lg bg-muted/30">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-destructive" />
-                          <Label className="font-medium">{t.invoices?.dueDate || "Due Date"}</Label>
-                        </div>
-                        <Button type="button" variant="outline" size="sm" onClick={() => setToday("dueDate")} data-testid="btn-today-due">
-                          {t.common?.today || "Today"}
-                        </Button>
-                      </div>
-                      <div className="flex gap-2 items-center">
-                        <FormField
-                          control={form.control}
-                          name="dueDateDay"
-                          render={({ field }) => (
-                            <div className="flex flex-col gap-1">
-                              <span className="text-xs text-muted-foreground">{t.common?.day || "Day"}</span>
-                              <Select value={field.value?.toString()} onValueChange={(v) => field.onChange(parseInt(v))}>
-                                <SelectTrigger className="w-20" data-testid="select-due-day">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {days.map((d) => <SelectItem key={d} value={d.toString()}>{d}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="dueDateMonth"
-                          render={({ field }) => (
-                            <div className="flex flex-col gap-1">
-                              <span className="text-xs text-muted-foreground">{t.common?.month || "Month"}</span>
-                              <Select value={field.value?.toString()} onValueChange={(v) => field.onChange(parseInt(v))}>
-                                <SelectTrigger className="w-20" data-testid="select-due-month">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {months.map((m) => <SelectItem key={m} value={m.toString()}>{m}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="dueDateYear"
-                          render={({ field }) => (
-                            <div className="flex flex-col gap-1">
-                              <span className="text-xs text-muted-foreground">{t.common?.year || "Year"}</span>
-                              <Select value={field.value?.toString()} onValueChange={(v) => field.onChange(parseInt(v))}>
-                                <SelectTrigger className="w-24" data-testid="select-due-year">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {years.map((y) => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          )}
-                        />
-                      </div>
-                    </div>
+                    {/* Vertical Separator */}
+                    <div className="hidden lg:block absolute left-1/2 top-0 bottom-0 w-px bg-border" style={{ transform: 'translateX(-50%)' }} />
 
-                    <div className="p-4 border rounded-lg bg-muted/30">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-muted-foreground" />
-                          <Label className="font-medium">{t.invoices?.deliveryDate || "Delivery Date"}</Label>
-                          <span className="text-xs text-muted-foreground">({t.common?.optional || "optional"})</span>
-                        </div>
-                        <Button type="button" variant="outline" size="sm" onClick={() => setToday("deliveryDate")} data-testid="btn-today-delivery">
-                          {t.common?.today || "Today"}
-                        </Button>
-                      </div>
-                      <div className="flex gap-2 items-center">
-                        <FormField
-                          control={form.control}
-                          name="deliveryDateDay"
-                          render={({ field }) => (
-                            <div className="flex flex-col gap-1">
-                              <span className="text-xs text-muted-foreground">{t.common?.day || "Day"}</span>
-                              <Select value={field.value?.toString() || ""} onValueChange={(v) => field.onChange(v ? parseInt(v) : undefined)}>
-                                <SelectTrigger className="w-20" data-testid="select-delivery-day">
-                                  <SelectValue placeholder="-" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {days.map((d) => <SelectItem key={d} value={d.toString()}>{d}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="deliveryDateMonth"
-                          render={({ field }) => (
-                            <div className="flex flex-col gap-1">
-                              <span className="text-xs text-muted-foreground">{t.common?.month || "Month"}</span>
-                              <Select value={field.value?.toString() || ""} onValueChange={(v) => field.onChange(v ? parseInt(v) : undefined)}>
-                                <SelectTrigger className="w-20" data-testid="select-delivery-month">
-                                  <SelectValue placeholder="-" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {months.map((m) => <SelectItem key={m} value={m.toString()}>{m}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="deliveryDateYear"
-                          render={({ field }) => (
-                            <div className="flex flex-col gap-1">
-                              <span className="text-xs text-muted-foreground">{t.common?.year || "Year"}</span>
-                              <Select value={field.value?.toString() || ""} onValueChange={(v) => field.onChange(v ? parseInt(v) : undefined)}>
-                                <SelectTrigger className="w-24" data-testid="select-delivery-year">
-                                  <SelectValue placeholder="-" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {years.map((y) => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          )}
-                        />
-                      </div>
-                    </div>
+                    {/* Right Column - Billing Period */}
+                    <div className="space-y-4 lg:border-l lg:pl-6">
+                      <h3 className="text-lg font-semibold flex items-center gap-2 pb-2 border-b">
+                        <CalendarDays className="h-5 w-5" />
+                        {t.invoices?.billingPeriod || "Billing Period"}
+                        <span className="text-xs font-normal text-muted-foreground">({t.common?.optional || "optional"})</span>
+                      </h3>
 
-                    {/* Billing Period Section Header */}
-                    <div className="mt-6 pt-4 border-t">
-                      <h4 className="text-sm font-semibold text-primary flex items-center gap-2 mb-4">
-                        <CalendarDays className="h-4 w-4" />
-                        {t.invoices?.billingPeriod || "Billing Period"} <span className="text-xs font-normal text-muted-foreground">({t.common?.optional || "optional"})</span>
-                      </h4>
-                    </div>
-
-                    {/* Period From */}
-                    <div className="p-4 border rounded-lg bg-blue-50/50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-blue-500" />
-                          <Label className="font-medium">{t.invoices?.periodFrom || "Period From"}</Label>
-                          <span className="text-xs text-muted-foreground">({t.common?.optional || "optional"})</span>
+                      {/* Period From */}
+                      <div className="p-4 border rounded-lg bg-blue-50/50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-blue-500" />
+                            <Label className="font-medium">{t.invoices?.periodFrom || "Period From"}</Label>
+                          </div>
+                          <Button type="button" variant="outline" size="sm" onClick={() => setToday("periodFrom")} data-testid="btn-today-period-from">
+                            {t.common?.today || "Today"}
+                          </Button>
                         </div>
-                        <Button type="button" variant="outline" size="sm" onClick={() => setToday("periodFrom")} data-testid="btn-today-period-from">
-                          {t.common?.today || "Today"}
-                        </Button>
-                      </div>
-                      <div className="flex gap-2 items-center">
-                        <FormField
-                          control={form.control}
-                          name="periodFromDay"
-                          render={({ field }) => (
-                            <div className="flex flex-col gap-1">
-                              <span className="text-xs text-muted-foreground">{t.common?.day || "Day"}</span>
-                              <Select value={field.value?.toString() || ""} onValueChange={(v) => field.onChange(v ? parseInt(v) : undefined)}>
-                                <SelectTrigger className="w-20" data-testid="select-period-from-day">
-                                  <SelectValue placeholder="-" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {days.map((d) => <SelectItem key={d} value={d.toString()}>{d}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="periodFromMonth"
-                          render={({ field }) => (
-                            <div className="flex flex-col gap-1">
-                              <span className="text-xs text-muted-foreground">{t.common?.month || "Month"}</span>
-                              <Select value={field.value?.toString() || ""} onValueChange={(v) => field.onChange(v ? parseInt(v) : undefined)}>
-                                <SelectTrigger className="w-20" data-testid="select-period-from-month">
-                                  <SelectValue placeholder="-" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {months.map((m) => <SelectItem key={m} value={m.toString()}>{m}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="periodFromYear"
-                          render={({ field }) => (
-                            <div className="flex flex-col gap-1">
-                              <span className="text-xs text-muted-foreground">{t.common?.year || "Year"}</span>
-                              <Select value={field.value?.toString() || ""} onValueChange={(v) => field.onChange(v ? parseInt(v) : undefined)}>
-                                <SelectTrigger className="w-24" data-testid="select-period-from-year">
-                                  <SelectValue placeholder="-" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {years.map((y) => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          )}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Period To */}
-                    <div className="p-4 border rounded-lg bg-purple-50/50 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-purple-500" />
-                          <Label className="font-medium">{t.invoices?.periodTo || "Period To"}</Label>
+                        <div className="flex gap-2 items-center">
+                          <FormField
+                            control={form.control}
+                            name="periodFromDay"
+                            render={({ field }) => (
+                              <div className="flex flex-col gap-1">
+                                <span className="text-xs text-muted-foreground">{t.common?.day || "Day"}</span>
+                                <Select value={field.value?.toString() || ""} onValueChange={(v) => field.onChange(v ? parseInt(v) : undefined)}>
+                                  <SelectTrigger className="w-20" data-testid="select-period-from-day">
+                                    <SelectValue placeholder="-" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {days.map((d) => <SelectItem key={d} value={d.toString()}>{d}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="periodFromMonth"
+                            render={({ field }) => (
+                              <div className="flex flex-col gap-1">
+                                <span className="text-xs text-muted-foreground">{t.common?.month || "Month"}</span>
+                                <Select value={field.value?.toString() || ""} onValueChange={(v) => field.onChange(v ? parseInt(v) : undefined)}>
+                                  <SelectTrigger className="w-20" data-testid="select-period-from-month">
+                                    <SelectValue placeholder="-" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {months.map((m) => <SelectItem key={m} value={m.toString()}>{m}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="periodFromYear"
+                            render={({ field }) => (
+                              <div className="flex flex-col gap-1">
+                                <span className="text-xs text-muted-foreground">{t.common?.year || "Year"}</span>
+                                <Select value={field.value?.toString() || ""} onValueChange={(v) => field.onChange(v ? parseInt(v) : undefined)}>
+                                  <SelectTrigger className="w-24" data-testid="select-period-from-year">
+                                    <SelectValue placeholder="-" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {years.map((y) => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+                          />
                         </div>
-                        <Button type="button" variant="outline" size="sm" onClick={() => setToday("periodTo")} data-testid="btn-today-period-to">
-                          {t.common?.today || "Today"}
-                        </Button>
                       </div>
-                      <div className="flex gap-2 items-center">
-                        <FormField
-                          control={form.control}
-                          name="periodToDay"
-                          render={({ field }) => (
-                            <div className="flex flex-col gap-1">
-                              <span className="text-xs text-muted-foreground">{t.common?.day || "Day"}</span>
-                              <Select value={field.value?.toString() || ""} onValueChange={(v) => field.onChange(v ? parseInt(v) : undefined)}>
-                                <SelectTrigger className="w-20" data-testid="select-period-to-day">
-                                  <SelectValue placeholder="-" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {days.map((d) => <SelectItem key={d} value={d.toString()}>{d}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="periodToMonth"
-                          render={({ field }) => (
-                            <div className="flex flex-col gap-1">
-                              <span className="text-xs text-muted-foreground">{t.common?.month || "Month"}</span>
-                              <Select value={field.value?.toString() || ""} onValueChange={(v) => field.onChange(v ? parseInt(v) : undefined)}>
-                                <SelectTrigger className="w-20" data-testid="select-period-to-month">
-                                  <SelectValue placeholder="-" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {months.map((m) => <SelectItem key={m} value={m.toString()}>{m}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="periodToYear"
-                          render={({ field }) => (
-                            <div className="flex flex-col gap-1">
-                              <span className="text-xs text-muted-foreground">{t.common?.year || "Year"}</span>
-                              <Select value={field.value?.toString() || ""} onValueChange={(v) => field.onChange(v ? parseInt(v) : undefined)}>
-                                <SelectTrigger className="w-24" data-testid="select-period-to-year">
-                                  <SelectValue placeholder="-" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {years.map((y) => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          )}
-                        />
+
+                      {/* Period To */}
+                      <div className="p-4 border rounded-lg bg-purple-50/50 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-purple-500" />
+                            <Label className="font-medium">{t.invoices?.periodTo || "Period To"}</Label>
+                          </div>
+                          <Button type="button" variant="outline" size="sm" onClick={() => setToday("periodTo")} data-testid="btn-today-period-to">
+                            {t.common?.today || "Today"}
+                          </Button>
+                        </div>
+                        <div className="flex gap-2 items-center">
+                          <FormField
+                            control={form.control}
+                            name="periodToDay"
+                            render={({ field }) => (
+                              <div className="flex flex-col gap-1">
+                                <span className="text-xs text-muted-foreground">{t.common?.day || "Day"}</span>
+                                <Select value={field.value?.toString() || ""} onValueChange={(v) => field.onChange(v ? parseInt(v) : undefined)}>
+                                  <SelectTrigger className="w-20" data-testid="select-period-to-day">
+                                    <SelectValue placeholder="-" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {days.map((d) => <SelectItem key={d} value={d.toString()}>{d}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="periodToMonth"
+                            render={({ field }) => (
+                              <div className="flex flex-col gap-1">
+                                <span className="text-xs text-muted-foreground">{t.common?.month || "Month"}</span>
+                                <Select value={field.value?.toString() || ""} onValueChange={(v) => field.onChange(v ? parseInt(v) : undefined)}>
+                                  <SelectTrigger className="w-20" data-testid="select-period-to-month">
+                                    <SelectValue placeholder="-" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {months.map((m) => <SelectItem key={m} value={m.toString()}>{m}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="periodToYear"
+                            render={({ field }) => (
+                              <div className="flex flex-col gap-1">
+                                <span className="text-xs text-muted-foreground">{t.common?.year || "Year"}</span>
+                                <Select value={field.value?.toString() || ""} onValueChange={(v) => field.onChange(v ? parseInt(v) : undefined)}>
+                                  <SelectTrigger className="w-24" data-testid="select-period-to-year">
+                                    <SelectValue placeholder="-" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {years.map((y) => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1291,95 +1297,156 @@ export function CreateInvoiceWizard({
                     {t.invoices?.paymentDetails || "Payment Details"}
                   </h3>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="variableSymbol"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{t.invoices?.variableSymbol || "Variable Symbol"}</FormLabel>
-                          <FormControl>
-                            <Input {...field} readOnly className="bg-muted" data-testid="input-variable-symbol" />
-                          </FormControl>
-                          <p className="text-xs text-muted-foreground">{t.invoices?.variableSymbolNote || "Auto-filled from invoice number"}</p>
-                        </FormItem>
-                      )}
-                    />
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Left - Payment Symbols */}
+                    <div className="space-y-4">
+                      <Card>
+                        <CardHeader className="py-3">
+                          <CardTitle className="text-sm">{t.invoices?.paymentSymbols || "Payment Symbols"}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <FormField
+                            control={form.control}
+                            name="variableSymbol"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{t.invoices?.variableSymbol || "Variable Symbol"}</FormLabel>
+                                <FormControl>
+                                  <div className="relative">
+                                    <Input {...field} readOnly className="bg-muted font-mono text-lg" data-testid="input-variable-symbol" />
+                                    {previewInvoiceNumber && (
+                                      <Badge variant="secondary" className="absolute right-2 top-1/2 -translate-y-1/2 text-xs">
+                                        {t.invoices?.nextNumber || "Next"}: {previewInvoiceNumber}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </FormControl>
+                                <p className="text-xs text-muted-foreground">{t.invoices?.variableSymbolNote || "Auto-filled from invoice number"}</p>
+                              </FormItem>
+                            )}
+                          />
 
-                    <FormField
-                      control={form.control}
-                      name="constantSymbol"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{t.invoices?.constantSymbol || "Constant Symbol"}</FormLabel>
-                          <Select value={field.value} onValueChange={field.onChange}>
-                            <FormControl>
-                              <SelectTrigger data-testid="select-constant-symbol">
-                                <SelectValue placeholder={t.invoices?.selectConstantSymbol || "Select"} />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {constantSymbols.map((cs) => (
-                                <SelectItem key={cs.code} value={cs.code}>
-                                  {cs.code} - {cs.description}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </FormItem>
-                      )}
-                    />
+                          <FormField
+                            control={form.control}
+                            name="constantSymbol"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{t.invoices?.constantSymbol || "Constant Symbol"}</FormLabel>
+                                <Select value={field.value} onValueChange={field.onChange}>
+                                  <FormControl>
+                                    <SelectTrigger data-testid="select-constant-symbol">
+                                      <SelectValue placeholder={t.invoices?.selectConstantSymbol || "Select"} />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    {constantSymbols.map((cs) => (
+                                      <SelectItem key={cs.code} value={cs.code}>
+                                        {cs.code} - {cs.description}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </FormItem>
+                            )}
+                          />
 
-                    <FormField
-                      control={form.control}
-                      name="specificSymbol"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{t.invoices?.specificSymbol || "Specific Symbol"} ({t.common?.optional || "Optional"})</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="..." data-testid="input-specific-symbol" />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                          <FormField
+                            control={form.control}
+                            name="specificSymbol"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{t.invoices?.specificSymbol || "Specific Symbol"} ({t.common?.optional || "Optional"})</FormLabel>
+                                <FormControl>
+                                  <Input {...field} placeholder="..." data-testid="input-specific-symbol" />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                        </CardContent>
+                      </Card>
+                    </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="barcodeType"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{t.invoices?.barcodeType || "Barcode Type"}</FormLabel>
-                          <Select value={field.value} onValueChange={field.onChange}>
-                            <FormControl>
-                              <SelectTrigger data-testid="select-barcode-type">
-                                <SelectValue />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="QR">QR Code</SelectItem>
-                              <SelectItem value="CODE128">Code 128</SelectItem>
-                              <SelectItem value="EAN13">EAN-13</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </FormItem>
-                      )}
-                    />
+                    {/* Right - Barcode Preview */}
+                    <div className="space-y-4">
+                      <Card>
+                        <CardHeader className="py-3">
+                          <CardTitle className="text-sm">{t.invoices?.barcodePreview || "Barcode Preview"}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <FormField
+                            control={form.control}
+                            name="barcodeType"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>{t.invoices?.barcodeType || "Barcode Type"}</FormLabel>
+                                <Select value={field.value} onValueChange={field.onChange}>
+                                  <FormControl>
+                                    <SelectTrigger data-testid="select-barcode-type">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="QR">QR Code (PAY by Square)</SelectItem>
+                                    <SelectItem value="CODE128">Code 128</SelectItem>
+                                    <SelectItem value="EAN13">EAN-13</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </FormItem>
+                            )}
+                          />
 
-                    <FormField
-                      control={form.control}
-                      name="barcodeValue"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{t.invoices?.barcodeValue || "Barcode Value"}</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder={previewInvoiceNumber || "..."} data-testid="input-barcode-value" />
-                          </FormControl>
-                          <p className="text-xs text-muted-foreground">{t.invoices?.barcodeValueNote || "Leave empty to use invoice number"}</p>
-                        </FormItem>
-                      )}
-                    />
+                          {/* Barcode Visual Preview */}
+                          <div className="border rounded-lg p-4 bg-white dark:bg-gray-900">
+                            <div className="flex items-center justify-center min-h-[120px]">
+                              {form.watch("barcodeType") === "QR" ? (
+                                <div className="text-center">
+                                  <div className="w-24 h-24 mx-auto border-2 border-dashed border-muted-foreground/50 rounded flex items-center justify-center bg-muted/20">
+                                    <div className="grid grid-cols-5 gap-0.5">
+                                      {Array.from({ length: 25 }).map((_, i) => (
+                                        <div key={i} className={`w-3 h-3 ${Math.random() > 0.5 ? 'bg-foreground' : 'bg-transparent'}`} />
+                                      ))}
+                                    </div>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground mt-2">QR Code Preview</p>
+                                </div>
+                              ) : (
+                                <div className="text-center">
+                                  <div className="flex items-end justify-center gap-0.5 h-16">
+                                    {Array.from({ length: 30 }).map((_, i) => (
+                                      <div key={i} className={`bg-foreground`} style={{ width: Math.random() > 0.5 ? '2px' : '1px', height: `${40 + Math.random() * 24}px` }} />
+                                    ))}
+                                  </div>
+                                  <p className="text-xs text-muted-foreground mt-2">{form.watch("barcodeType")} Preview</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Barcode Data Components */}
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">{t.invoices?.barcodeData || "Barcode Data Components"}</Label>
+                            <div className="space-y-1 text-xs">
+                              <div className="flex justify-between p-2 rounded bg-muted/50">
+                                <span className="text-muted-foreground">Variable Symbol:</span>
+                                <span className="font-mono">{form.watch("variableSymbol") || previewInvoiceNumber || "-"}</span>
+                              </div>
+                              <div className="flex justify-between p-2 rounded bg-muted/50">
+                                <span className="text-muted-foreground">Constant Symbol:</span>
+                                <span className="font-mono">{form.watch("constantSymbol") || "-"}</span>
+                              </div>
+                              <div className="flex justify-between p-2 rounded bg-muted/50">
+                                <span className="text-muted-foreground">Specific Symbol:</span>
+                                <span className="font-mono">{form.watch("specificSymbol") || "-"}</span>
+                              </div>
+                              <div className="flex justify-between p-2 rounded bg-muted/50">
+                                <span className="text-muted-foreground">{t.invoices?.amount || "Amount"}:</span>
+                                <span className="font-mono font-semibold">{formatCurrency(totals.total)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1469,7 +1536,6 @@ export function CreateInvoiceWizard({
                       <CardHeader>
                         <CardTitle className="text-sm flex items-center gap-2">
                           {t.invoices?.selectedItems || "Selected Items"} ({items.length})
-                          <Badge variant="outline" className="text-xs bg-blue-100 text-blue-800">v2.6</Badge>
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
@@ -1741,10 +1807,26 @@ export function CreateInvoiceWizard({
                           <span className="text-muted-foreground">{t.invoices?.subtotal || "Subtotal"}</span>
                           <span data-testid="summary-subtotal">{formatCurrency(totals.subtotal)}</span>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">{t.invoices?.vatAmount || "VAT"}</span>
-                          <span data-testid="summary-vat">{formatCurrency(totals.vatAmount)}</span>
-                        </div>
+                        {/* Show VAT rates breakdown */}
+                        {(() => {
+                          const vatRates = [...new Set(items.map(item => item.vatRate))];
+                          return vatRates.map(rate => {
+                            const rateItems = items.filter(item => item.vatRate === rate);
+                            const rateVatAmount = rateItems.reduce((sum, item) => {
+                              const net = parseFloat(item.unitPrice) * item.quantity;
+                              return sum + (net * parseFloat(rate) / 100);
+                            }, 0);
+                            return (
+                              <div key={rate} className="flex justify-between">
+                                <span className="text-muted-foreground flex items-center gap-2">
+                                  {t.invoices?.vatAmount || "VAT"} 
+                                  <Badge variant="outline" className="text-xs">{rate}%</Badge>
+                                </span>
+                                <span>{formatCurrency(rateVatAmount)}</span>
+                              </div>
+                            );
+                          });
+                        })()}
                         <div className="flex justify-between border-t pt-2">
                           <span className="font-semibold">{t.invoices?.totalAmount || "Total"}</span>
                           <span className="font-bold text-lg text-primary" data-testid="summary-total">{formatCurrency(totals.total)}</span>
@@ -1752,6 +1834,75 @@ export function CreateInvoiceWizard({
                       </CardContent>
                     </Card>
                   </div>
+
+                  {/* Installment Payment Schedule */}
+                  {billsetDetails && items.some(item => {
+                    const col = billsetDetails.collections?.find(c => c.id === item.id || item.name.includes(c.instanceName || ''));
+                    const stor = billsetDetails.storage?.find(s => s.id === item.id || item.name.includes(s.serviceName || s.storageName || ''));
+                    return (col?.paymentType === 'installment') || (stor?.paymentType === 'installment');
+                  }) && (
+                    <Card className="border-2 border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10">
+                      <CardHeader>
+                        <CardTitle className="text-sm flex items-center gap-2">
+                          <CalendarDays className="h-4 w-4 text-amber-600" />
+                          {t.invoices?.installmentSchedule || "Installment Payment Schedule"}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {(() => {
+                          const installmentItems = items.filter(item => {
+                            const col = billsetDetails?.collections?.find(c => item.name.includes(c.instanceName || ''));
+                            const stor = billsetDetails?.storage?.find(s => item.name.includes(s.serviceName || s.storageName || ''));
+                            return (col?.paymentType === 'installment') || (stor?.paymentType === 'installment');
+                          });
+                          const installmentTotal = installmentItems.reduce((sum, item) => sum + parseFloat(item.total), 0);
+                          const numberOfInstallments = 6;
+                          const firstPayment = Math.ceil(installmentTotal / numberOfInstallments * 100) / 100;
+                          const monthlyPayment = Math.floor((installmentTotal - firstPayment) / (numberOfInstallments - 1) * 100) / 100;
+                          
+                          return (
+                            <>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="p-3 rounded-lg bg-amber-100 dark:bg-amber-900/30">
+                                  <p className="text-xs text-muted-foreground">{t.invoices?.firstPayment || "First Payment"}</p>
+                                  <p className="text-lg font-bold text-amber-700 dark:text-amber-400">{formatCurrency(firstPayment)}</p>
+                                  <p className="text-xs text-muted-foreground">{t.invoices?.dueImmediately || "Due immediately"}</p>
+                                </div>
+                                <div className="p-3 rounded-lg bg-muted/50">
+                                  <p className="text-xs text-muted-foreground">{t.invoices?.monthlyPayment || "Monthly Payment"}</p>
+                                  <p className="text-lg font-bold">{formatCurrency(monthlyPayment)}</p>
+                                  <p className="text-xs text-muted-foreground">{numberOfInstallments - 1}x {t.invoices?.months || "months"}</p>
+                                </div>
+                              </div>
+                              <div className="space-y-2">
+                                <p className="text-xs font-medium text-muted-foreground">{t.invoices?.paymentCalendar || "Payment Calendar"}</p>
+                                <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+                                  {Array.from({ length: numberOfInstallments }).map((_, idx) => {
+                                    const paymentDate = new Date();
+                                    paymentDate.setMonth(paymentDate.getMonth() + idx);
+                                    return (
+                                      <div key={idx} className={cn(
+                                        "p-2 rounded text-center text-xs",
+                                        idx === 0 ? "bg-amber-200 dark:bg-amber-800" : "bg-muted/50"
+                                      )}>
+                                        <p className="font-medium">{idx + 1}.</p>
+                                        <p className="text-muted-foreground">{paymentDate.toLocaleDateString('sk-SK', { month: 'short', year: '2-digit' })}</p>
+                                        <p className="font-semibold">{formatCurrency(idx === 0 ? firstPayment : monthlyPayment)}</p>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                              <div className="flex justify-between pt-2 border-t">
+                                <span className="text-sm text-muted-foreground">{t.invoices?.totalInstallments || "Total (all installments)"}</span>
+                                <span className="font-semibold">{formatCurrency(installmentTotal)}</span>
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </CardContent>
+                    </Card>
+                  )}
 
                   <Card>
                     <CardHeader>
@@ -1764,6 +1915,7 @@ export function CreateInvoiceWizard({
                             <TableHead>{t.invoices?.itemName || "Name"}</TableHead>
                             <TableHead className="text-right">{t.invoices?.quantity || "Qty"}</TableHead>
                             <TableHead className="text-right">{t.invoices?.unitPrice || "Unit Price"}</TableHead>
+                            <TableHead className="text-center">{t.konfigurator?.vat || "VAT"}</TableHead>
                             <TableHead className="text-right">{t.invoices?.total || "Total"}</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -1773,6 +1925,9 @@ export function CreateInvoiceWizard({
                               <TableCell>{item.name}</TableCell>
                               <TableCell className="text-right">{item.quantity}</TableCell>
                               <TableCell className="text-right">{formatCurrency(parseFloat(item.unitPrice))}</TableCell>
+                              <TableCell className="text-center">
+                                <Badge variant="outline" className="text-xs">{item.vatRate}%</Badge>
+                              </TableCell>
                               <TableCell className="text-right">{formatCurrency(parseFloat(item.total))}</TableCell>
                             </TableRow>
                           ))}
