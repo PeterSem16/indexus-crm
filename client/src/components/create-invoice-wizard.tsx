@@ -182,6 +182,7 @@ interface InvoiceItem {
   vatRate: string;
   total: string;
   billsetId?: string;
+  paymentType?: string; // "installment" | "oneTime" | null
 }
 
 const invoiceSchema = z.object({
@@ -616,6 +617,7 @@ export function CreateInvoiceWizard({
             vatRate: vatRateValue,
             total: itemTotal,
             billsetId: billset.id,
+            paymentType: col.paymentType || null,
           });
         }
       }
@@ -647,6 +649,7 @@ export function CreateInvoiceWizard({
             vatRate: vatRateValue,
             total: itemTotal,
             billsetId: billset.id,
+            paymentType: stor.paymentType || null,
           });
         }
       }
@@ -1143,9 +1146,6 @@ export function CreateInvoiceWizard({
                       </div>
                     </div>
 
-                    {/* Vertical Separator */}
-                    <div className="hidden lg:block absolute left-1/2 top-0 bottom-0 w-px bg-border" style={{ transform: 'translateX(-50%)' }} />
-
                     {/* Right Column - Billing Period */}
                     <div className="space-y-4 lg:border-l lg:pl-6">
                       <h3 className="text-lg font-semibold flex items-center gap-2 pb-2 border-b">
@@ -1313,10 +1313,10 @@ export function CreateInvoiceWizard({
                                 <FormLabel>{t.invoices?.variableSymbol || "Variable Symbol"}</FormLabel>
                                 <FormControl>
                                   <div className="relative">
-                                    <Input {...field} readOnly className="bg-muted font-mono text-lg" data-testid="input-variable-symbol" />
+                                    <Input {...field} readOnly className="bg-muted font-mono text-lg pr-40" data-testid="input-variable-symbol" />
                                     {previewInvoiceNumber && (
                                       <Badge variant="secondary" className="absolute right-2 top-1/2 -translate-y-1/2 text-xs">
-                                        {t.invoices?.nextNumber || "Next"}: {previewInvoiceNumber}
+                                        {t.invoices?.invoice || "Invoice"} #{previewInvoiceNumber}
                                       </Badge>
                                     )}
                                   </div>
@@ -1836,11 +1836,7 @@ export function CreateInvoiceWizard({
                   </div>
 
                   {/* Installment Payment Schedule */}
-                  {billsetDetails && items.some(item => {
-                    const col = billsetDetails.collections?.find(c => c.id === item.id || item.name.includes(c.instanceName || ''));
-                    const stor = billsetDetails.storage?.find(s => s.id === item.id || item.name.includes(s.serviceName || s.storageName || ''));
-                    return (col?.paymentType === 'installment') || (stor?.paymentType === 'installment');
-                  }) && (
+                  {items.some(item => item.paymentType === 'installment') && (
                     <Card className="border-2 border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10">
                       <CardHeader>
                         <CardTitle className="text-sm flex items-center gap-2">
@@ -1850,11 +1846,7 @@ export function CreateInvoiceWizard({
                       </CardHeader>
                       <CardContent className="space-y-4">
                         {(() => {
-                          const installmentItems = items.filter(item => {
-                            const col = billsetDetails?.collections?.find(c => item.name.includes(c.instanceName || ''));
-                            const stor = billsetDetails?.storage?.find(s => item.name.includes(s.serviceName || s.storageName || ''));
-                            return (col?.paymentType === 'installment') || (stor?.paymentType === 'installment');
-                          });
+                          const installmentItems = items.filter(item => item.paymentType === 'installment');
                           const installmentTotal = installmentItems.reduce((sum, item) => sum + parseFloat(item.total), 0);
                           const numberOfInstallments = 6;
                           const firstPayment = Math.ceil(installmentTotal / numberOfInstallments * 100) / 100;
@@ -1940,35 +1932,37 @@ export function CreateInvoiceWizard({
             </div>
           </Form>
 
-          <div className="flex justify-between border-t pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleClose}
-              data-testid="btn-cancel"
-            >
-              {t.common?.cancel || "Cancel"}
-            </Button>
-            
-            <div className="flex gap-2">
-              {currentStep > 0 && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setCurrentStep(prev => prev - 1)}
-                  data-testid="btn-previous"
-                >
-                  {t.common?.previous || "Previous"}
-                </Button>
-              )}
+          {/* Floating Navigation Bar */}
+          <div className="sticky bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t shadow-lg -mx-6 px-6 py-4">
+            <div className="flex justify-between items-center">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleClose}
+                data-testid="btn-cancel"
+              >
+                {t.common?.cancel || "Cancel"}
+              </Button>
               
-              {currentStep < steps.length - 1 ? (
-                <Button
-                  type="button"
-                  onClick={() => setCurrentStep(prev => prev + 1)}
-                  disabled={!canProceed()}
-                  data-testid="btn-next"
-                >
+              <div className="flex gap-2">
+                {currentStep > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setCurrentStep(prev => prev - 1)}
+                    data-testid="btn-previous"
+                  >
+                    {t.common?.previous || "Previous"}
+                  </Button>
+                )}
+                
+                {currentStep < steps.length - 1 ? (
+                  <Button
+                    type="button"
+                    onClick={() => setCurrentStep(prev => prev + 1)}
+                    disabled={!canProceed()}
+                    data-testid="btn-next"
+                  >
                   {t.common?.next || "Next"}
                 </Button>
               ) : (
@@ -1982,6 +1976,7 @@ export function CreateInvoiceWizard({
                   {t.invoices?.createInvoice || "Create Invoice"}
                 </Button>
               )}
+              </div>
             </div>
           </div>
         </div>
