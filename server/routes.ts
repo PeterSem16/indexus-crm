@@ -4952,6 +4952,8 @@ export async function registerRoutes(
 
   // Create new invoice
   app.post("/api/invoices", requireAuth, async (req, res) => {
+    console.log("[InvoiceCreate] Received POST /api/invoices request");
+    console.log("[InvoiceCreate] Request body:", JSON.stringify(req.body, null, 2));
     try {
       const { items, ...invoiceData } = req.body;
       
