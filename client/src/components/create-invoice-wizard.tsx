@@ -170,9 +170,25 @@ interface BillingDetails {
   id: string;
   companyName: string;
   countryCode: string;
+  countryCodes?: string[];
   currency?: string;
   defaultVatRate?: string;
   defaultPaymentTerm?: number;
+  bankIban?: string;
+  bankSwift?: string;
+  bankName?: string;
+}
+
+interface BillingAccount {
+  id: string;
+  billingDetailsId: string;
+  name: string;
+  bankName: string;
+  iban: string;
+  swift: string;
+  currency: string;
+  isDefault: boolean;
+  isActive: boolean;
 }
 
 interface InvoiceItem {
@@ -320,6 +336,8 @@ export function CreateInvoiceWizard({
     discountName: string | null;
     paymentType: string | null;
     vatRate: string | null;
+    installmentCount: number | null;
+    frequency: string | null;
   };
 
   type ProductSetStorage = {
@@ -337,6 +355,8 @@ export function CreateInvoiceWizard({
     discountName: string | null;
     paymentType: string | null;
     vatRate: string | null;
+    installmentCount: number | null;
+    frequency: string | null;
   };
 
   type ProductSet = {
@@ -422,6 +442,8 @@ export function CreateInvoiceWizard({
   });
 
   const [selectedBillsetId, setSelectedBillsetId] = useState<string | null>(null);
+  const [selectedBillingCompanyId, setSelectedBillingCompanyId] = useState<string>("");
+  const [selectedBillingAccountId, setSelectedBillingAccountId] = useState<string>("");
 
   const { data: billsetDetails } = useQuery<ProductSetDetail>({
     queryKey: ["/api/product-sets", selectedBillsetId],
@@ -473,6 +495,53 @@ export function CreateInvoiceWizard({
   const activeNumberRanges = useMemo(() => {
     return numberRanges.filter(nr => nr.isActive);
   }, [numberRanges]);
+
+  // Filter billing companies by customer country
+  const filteredBillingCompanies = useMemo(() => {
+    return billingDetails.filter(b => 
+      b.countryCode === countryCode || 
+      (b.countryCodes && b.countryCodes.includes(countryCode))
+    );
+  }, [billingDetails, countryCode]);
+
+  // Query billing accounts for selected billing company
+  const { data: billingAccounts = [] } = useQuery<BillingAccount[]>({
+    queryKey: ["/api/billing-details", selectedBillingCompanyId, "accounts"],
+    queryFn: async () => {
+      if (!selectedBillingCompanyId) return [];
+      const response = await fetch(`/api/billing-details/${selectedBillingCompanyId}/accounts`, {
+        credentials: "include",
+      });
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: open && !!selectedBillingCompanyId,
+  });
+
+  // Auto-select default billing company when filtered companies change
+  useEffect(() => {
+    if (filteredBillingCompanies.length > 0 && !selectedBillingCompanyId) {
+      setSelectedBillingCompanyId(filteredBillingCompanies[0].id);
+    }
+  }, [filteredBillingCompanies, selectedBillingCompanyId]);
+
+  // Auto-select default billing account when accounts load
+  useEffect(() => {
+    if (billingAccounts.length > 0 && !selectedBillingAccountId) {
+      const defaultAccount = billingAccounts.find(a => a.isDefault) || billingAccounts[0];
+      setSelectedBillingAccountId(defaultAccount.id);
+    }
+  }, [billingAccounts, selectedBillingAccountId]);
+
+  // Get selected billing account details
+  const selectedBillingAccount = useMemo(() => {
+    return billingAccounts.find(a => a.id === selectedBillingAccountId);
+  }, [billingAccounts, selectedBillingAccountId]);
+
+  // Get selected billing company details  
+  const selectedBillingCompany = useMemo(() => {
+    return filteredBillingCompanies.find(b => b.id === selectedBillingCompanyId);
+  }, [filteredBillingCompanies, selectedBillingCompanyId]);
 
   const billingInfo = useMemo(() => {
     return billingDetails.find(b => b.countryCode === countryCode);
@@ -834,10 +903,19 @@ export function CreateInvoiceWizard({
       const ks = constantSymbol || "";
       const ss = specificSymbol || "";
       const amount = totals.total;
-      const iban = billingInfo?.bankAccount || "";
+      // Use selected billing account IBAN, fallback to billing company bankIban
+      const iban = selectedBillingAccount?.iban || selectedBillingCompany?.bankIban || billingInfo?.bankIban || "";
+      const swift = selectedBillingAccount?.swift || selectedBillingCompany?.bankSwift || "";
+      const currency = selectedBillingAccount?.currency || selectedBillingCompany?.currency || "EUR";
       
-      // PAY by Square format: SPD*1.0*ACC:IBAN*AM:AMOUNT*CC:CURRENCY*X-VS:VS*X-KS:KS*X-SS:SS
-      const qrData = `SPD*1.0*ACC:${iban}*AM:${amount.toFixed(2)}*CC:EUR*X-VS:${vs}*X-KS:${ks}*X-SS:${ss}`;
+      // PAY by Square format: SPD*1.0*ACC:IBAN+SWIFT*AM:AMOUNT*CC:CURRENCY*X-VS:VS*X-KS:KS*X-SS:SS
+      let qrData = `SPD*1.0*ACC:${iban}`;
+      if (swift) {
+        qrData += `+${swift}`;
+      }
+      qrData += `*AM:${amount.toFixed(2)}*CC:${currency}*X-VS:${vs}`;
+      if (ks) qrData += `*X-KS:${ks}`;
+      if (ss) qrData += `*X-SS:${ss}`;
       
       try {
         const dataUrl = await QRCode.toDataURL(qrData, { 
@@ -853,7 +931,7 @@ export function CreateInvoiceWizard({
     };
     
     generateQRCode();
-  }, [barcodeType, variableSymbol, constantSymbol, specificSymbol, totals.total, billingInfo?.bankAccount, previewInvoiceNumber]);
+  }, [barcodeType, variableSymbol, constantSymbol, specificSymbol, totals.total, selectedBillingAccount, selectedBillingCompany, billingInfo, previewInvoiceNumber]);
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
@@ -1343,6 +1421,69 @@ export function CreateInvoiceWizard({
                       </div>
                     </div>
                   </div>
+
+                  {/* Billing Company Selection */}
+                  <div className="p-4 border rounded-lg bg-muted/30">
+                    <h3 className="text-lg font-semibold flex items-center gap-2 pb-2 border-b mb-4">
+                      <Receipt className="h-5 w-5" />
+                      {t.invoices?.billingCompany || "Billing Company"}
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>{t.invoices?.selectBillingCompany || "Select Company"}</Label>
+                        <Select 
+                          value={selectedBillingCompanyId} 
+                          onValueChange={(v) => {
+                            setSelectedBillingCompanyId(v);
+                            setSelectedBillingAccountId("");
+                          }}
+                        >
+                          <SelectTrigger data-testid="select-billing-company">
+                            <SelectValue placeholder={t.invoices?.selectCompany || "Select company"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {filteredBillingCompanies.map((company) => (
+                              <SelectItem key={company.id} value={company.id}>
+                                {company.companyName}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {selectedBillingCompany && (
+                          <p className="text-xs text-muted-foreground">
+                            {t.invoices?.country || "Country"}: {selectedBillingCompany.countryCode}
+                          </p>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{t.invoices?.bankAccount || "Bank Account"}</Label>
+                        <Select 
+                          value={selectedBillingAccountId} 
+                          onValueChange={setSelectedBillingAccountId}
+                          disabled={billingAccounts.length === 0}
+                        >
+                          <SelectTrigger data-testid="select-billing-account">
+                            <SelectValue placeholder={billingAccounts.length === 0 ? (t.invoices?.noAccounts || "No accounts") : (t.invoices?.selectAccount || "Select account")} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {billingAccounts.map((account) => (
+                              <SelectItem key={account.id} value={account.id}>
+                                {account.name} ({account.currency})
+                                {account.isDefault && <Badge variant="secondary" className="ml-2 text-[10px]">{t.common?.default || "Default"}</Badge>}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {selectedBillingAccount && (
+                          <div className="text-xs text-muted-foreground space-y-0.5">
+                            <p><span className="font-medium">IBAN:</span> {selectedBillingAccount.iban}</p>
+                            {selectedBillingAccount.swift && <p><span className="font-medium">SWIFT:</span> {selectedBillingAccount.swift}</p>}
+                            <p><span className="font-medium">{t.invoices?.bank || "Bank"}:</span> {selectedBillingAccount.bankName}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -1689,7 +1830,7 @@ export function CreateInvoiceWizard({
                                 <div key={col.id} className="py-2 px-3 rounded bg-blue-50 dark:bg-blue-900/20 border-l-2 border-blue-400">
                                   <div className="flex justify-between items-start">
                                     <div className="flex-1">
-                                      <div className="flex items-center gap-2">
+                                      <div className="flex items-center gap-2 flex-wrap">
                                         <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
                                           {idx + 1}. {col.instanceName || t.konfigurator?.collectionItem || "Collection"}
                                           {col.quantity > 1 && ` (${col.quantity}x)`}
@@ -1697,6 +1838,11 @@ export function CreateInvoiceWizard({
                                         {col.paymentType && (
                                           <Badge variant={col.paymentType === "installment" ? "secondary" : "outline"} className="text-[10px] px-1 py-0">
                                             {col.paymentType === "installment" ? (t.konfigurator?.installment || "Installment") : (t.konfigurator?.oneTime || "One-time")}
+                                          </Badge>
+                                        )}
+                                        {col.paymentType === "installment" && col.installmentCount && (
+                                          <Badge variant="outline" className="text-[10px] px-1 py-0 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border-purple-300">
+                                            {col.installmentCount}x {col.frequency === "monthly" ? (t.konfigurator?.monthly || "monthly") : col.frequency}
                                           </Badge>
                                         )}
                                       </div>
@@ -1753,7 +1899,7 @@ export function CreateInvoiceWizard({
                                 <div key={stor.id} className="py-2 px-3 rounded bg-green-50 dark:bg-green-900/20 border-l-2 border-green-400">
                                   <div className="flex justify-between items-start">
                                     <div className="flex-1">
-                                      <div className="flex items-center gap-2">
+                                      <div className="flex items-center gap-2 flex-wrap">
                                         <span className="text-sm font-medium text-green-900 dark:text-green-100">
                                           {idx + 1}. {stor.serviceName || stor.storageName || t.konfigurator?.storageItem || "Storage"}
                                           {stor.quantity > 1 && ` (${stor.quantity}x)`}
@@ -1761,6 +1907,11 @@ export function CreateInvoiceWizard({
                                         {stor.paymentType && (
                                           <Badge variant={stor.paymentType === "installment" ? "secondary" : "outline"} className="text-[10px] px-1 py-0">
                                             {stor.paymentType === "installment" ? (t.konfigurator?.installment || "Installment") : (t.konfigurator?.oneTime || "One-time")}
+                                          </Badge>
+                                        )}
+                                        {stor.paymentType === "installment" && stor.installmentCount && (
+                                          <Badge variant="outline" className="text-[10px] px-1 py-0 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border-purple-300">
+                                            {stor.installmentCount}x {stor.frequency === "monthly" ? (t.konfigurator?.monthly || "monthly") : stor.frequency}
                                           </Badge>
                                         )}
                                       </div>
