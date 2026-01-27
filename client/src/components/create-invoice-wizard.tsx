@@ -1018,6 +1018,7 @@ export function CreateInvoiceWizard({
         }
 
         console.log("[InvoiceWizard] Creating first invoice with data:", JSON.stringify(firstInvoiceData));
+        window.alert("DEBUG: About to call POST /api/invoices with invoice number: " + firstInvoiceData.invoiceNumber);
         try {
           console.log("[InvoiceWizard] About to call apiRequest for POST /api/invoices");
           const response = await apiRequest("POST", "/api/invoices", firstInvoiceData);
