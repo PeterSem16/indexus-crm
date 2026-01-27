@@ -695,6 +695,9 @@ export interface Translations {
     months?: string;
     year?: string;
     years?: string;
+    documentType?: string;
+    proforma?: string;
+    correspondenceAddress?: string;
   };
   users: {
     title: string;
@@ -2898,6 +2901,9 @@ export const translations: Record<Locale, Translations> = {
       months: 'months',
       year: 'year',
       years: 'years',
+      documentType: 'Document Type',
+      proforma: 'Proforma',
+      correspondenceAddress: 'Correspondence Address',
     },
     users: {
       title: 'Users',
@@ -5306,6 +5312,9 @@ export const translations: Record<Locale, Translations> = {
       months: 'mesiacov',
       year: 'rok',
       years: 'rokov',
+      documentType: 'Typ dokumentu',
+      proforma: 'Proforma',
+      correspondenceAddress: 'Korešpondenčná adresa',
     },
     users: {
       title: 'Používatelia',
@@ -7723,6 +7732,9 @@ export const translations: Record<Locale, Translations> = {
       months: 'měsíců',
       year: 'rok',
       years: 'let',
+      documentType: 'Typ dokumentu',
+      proforma: 'Proforma',
+      correspondenceAddress: 'Korespondenční adresa',
     },
     users: {
       title: 'Uživatelé',
@@ -10072,6 +10084,9 @@ export const translations: Record<Locale, Translations> = {
       months: 'hónap',
       year: 'év',
       years: 'év',
+      documentType: 'Dokumentum típus',
+      proforma: 'Proforma',
+      correspondenceAddress: 'Levelezési cím',
     },
     users: {
       title: 'Felhasználók',
@@ -12420,6 +12435,9 @@ export const translations: Record<Locale, Translations> = {
       months: 'luni',
       year: 'an',
       years: 'ani',
+      documentType: 'Tip document',
+      proforma: 'Proforma',
+      correspondenceAddress: 'Adresă de corespondență',
     },
     users: {
       title: 'Utilizatori',
@@ -14769,6 +14787,9 @@ export const translations: Record<Locale, Translations> = {
       months: 'mesi',
       year: 'anno',
       years: 'anni',
+      documentType: 'Tipo documento',
+      proforma: 'Proforma',
+      correspondenceAddress: 'Indirizzo di corrispondenza',
     },
     users: {
       title: 'Utenti',
@@ -17118,6 +17139,9 @@ export const translations: Record<Locale, Translations> = {
       months: 'Monate',
       year: 'Jahr',
       years: 'Jahre',
+      documentType: 'Dokumenttyp',
+      proforma: 'Proforma',
+      correspondenceAddress: 'Korrespondenzadresse',
     },
     users: {
       title: 'Benutzer',

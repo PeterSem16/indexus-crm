@@ -321,7 +321,19 @@ export function CreateInvoiceWizard({
     enabled: open && !!customerId,
   });
 
-  const countryCode = customerCountry || customer?.country || "SK";
+  const { data: customers = [] } = useQuery<Customer[]>({
+    queryKey: ["/api/customers"],
+    enabled: open && !customerId,
+  });
+
+  const formCustomerId = form.watch("customerId");
+  const selectedCustomer = useMemo(() => {
+    if (customerId && customer) return customer;
+    if (formCustomerId) return customers.find(c => c.id === formCustomerId);
+    return null;
+  }, [customerId, customer, formCustomerId, customers]);
+
+  const countryCode = customerCountry || selectedCustomer?.country || customer?.country || "SK";
   const constantSymbols = CONSTANT_SYMBOLS[countryCode] || CONSTANT_SYMBOLS["SK"];
 
   type ProductSetCollection = {
@@ -446,6 +458,7 @@ export function CreateInvoiceWizard({
   const [selectedBillsetId, setSelectedBillsetId] = useState<string | null>(null);
   const [selectedBillingCompanyId, setSelectedBillingCompanyId] = useState<string>("");
   const [selectedBillingAccountId, setSelectedBillingAccountId] = useState<string>("");
+  const [selectedDocumentType, setSelectedDocumentType] = useState<"invoice" | "proforma">("invoice");
 
   const { data: billsetDetails } = useQuery<ProductSetDetail>({
     queryKey: ["/api/product-sets", selectedBillsetId],
@@ -456,11 +469,6 @@ export function CreateInvoiceWizard({
       return response.json();
     },
     enabled: !!selectedBillsetId,
-  });
-
-  const { data: customers = [] } = useQuery<Customer[]>({
-    queryKey: ["/api/customers"],
-    enabled: open && !customerId,
   });
 
   const { data: billingDetails = [] } = useQuery<BillingDetails[]>({
@@ -495,8 +503,12 @@ export function CreateInvoiceWizard({
   });
 
   const activeNumberRanges = useMemo(() => {
-    return numberRanges.filter(nr => nr.isActive);
-  }, [numberRanges]);
+    return numberRanges.filter(nr => 
+      nr.isActive && 
+      nr.type === selectedDocumentType &&
+      (nr.countryCode === countryCode || !nr.countryCode)
+    );
+  }, [numberRanges, selectedDocumentType, countryCode]);
 
   // Filter billing companies by customer country
   const filteredBillingCompanies = useMemo(() => {
@@ -1023,95 +1035,169 @@ export function CreateInvoiceWizard({
           <Form {...form}>
             <div className="min-h-[300px]">
               {currentStep === 0 && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <FileText className="h-5 w-5" />
-                    {t.invoices?.selectNumberRange || "Select Number Range"}
-                  </h3>
-                  
-                  <FormField
-                    control={form.control}
-                    name="numberRangeId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t.invoices?.numberRange || "Number Range"}</FormLabel>
-                        <Select value={field.value} onValueChange={handleNumberRangeChange}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-number-range">
-                              <SelectValue placeholder={t.invoices?.selectNumberRange || "Select number range"} />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {activeNumberRanges.length === 0 ? (
-                              <div className="px-2 py-4 text-center text-sm text-muted-foreground">
-                                {t.invoices?.noNumberRanges || "No number ranges available"}
-                              </div>
-                            ) : (
-                              activeNumberRanges.map((range) => {
-                                const nextNumber = (range.lastNumberUsed || 0) + 1;
-                                const formattedNumber = `${range.prefix || ""}${String(nextNumber).padStart(range.digitsToGenerate || 6, "0")}${range.suffix || ""}`;
-                                return (
-                                  <SelectItem key={range.id} value={range.id}>
-                                    <div className="flex flex-col">
-                                      <span className="font-medium">{range.name}</span>
-                                      <span className="text-xs text-muted-foreground">
-                                        {t.invoices?.nextNumber || "Next"}: {formattedNumber}
-                                      </span>
-                                    </div>
-                                  </SelectItem>
-                                );
-                              })
-                            )}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                <div className="grid grid-cols-1 lg:grid-cols-[40%_60%] gap-6">
+                  {/* Left Column - Step 1: Select Number Range (40%) */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 pb-2 border-b">
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-medium">1</div>
+                      <h3 className="text-lg font-semibold">{t.invoices?.selectNumberRange || "Select Number Range"}</h3>
+                    </div>
+                    
+                    {/* Document Type Selection */}
+                    <div className="space-y-2">
+                      <Label>{t.invoices?.documentType || "Document Type"}</Label>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant={selectedDocumentType === "invoice" ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => {
+                            setSelectedDocumentType("invoice");
+                            form.setValue("numberRangeId", "");
+                          }}
+                          className="flex-1"
+                          data-testid="btn-type-invoice"
+                        >
+                          <FileText className="h-4 w-4 mr-2" />
+                          {t.invoices?.invoice || "Invoice"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={selectedDocumentType === "proforma" ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => {
+                            setSelectedDocumentType("proforma");
+                            form.setValue("numberRangeId", "");
+                          }}
+                          className="flex-1"
+                          data-testid="btn-type-proforma"
+                        >
+                          <FileText className="h-4 w-4 mr-2" />
+                          {t.invoices?.proforma || "Proforma"}
+                        </Button>
+                      </div>
+                    </div>
 
-                  {selectedNumberRange && previewInvoiceNumber && (
-                    <Card>
-                      <CardContent className="pt-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <Label className="text-muted-foreground">{t.invoices?.nextNumber || "Next Invoice Number"}</Label>
-                            <p className="text-2xl font-bold text-muted-foreground" data-testid="text-preview-invoice-number">{previewInvoiceNumber}</p>
-                          </div>
-                          <Badge variant="outline">{t.invoices?.preview || "Preview"}</Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-2">
-                          {t.invoices?.previewNote || "Final number will be generated when invoice is created"}
-                        </p>
-                      </CardContent>
-                    </Card>
-                  )}
-
-                  {!customerId && (
                     <FormField
                       control={form.control}
-                      name="customerId"
+                      name="numberRangeId"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>{t.customers?.title || "Customer"}</FormLabel>
-                          <Select value={field.value} onValueChange={field.onChange}>
+                          <FormLabel>{t.invoices?.numberRange || "Number Range"}</FormLabel>
+                          <Select value={field.value} onValueChange={handleNumberRangeChange}>
                             <FormControl>
-                              <SelectTrigger data-testid="select-customer">
-                                <SelectValue placeholder={t.invoices?.selectCustomer || "Select customer"} />
+                              <SelectTrigger data-testid="select-number-range">
+                                <SelectValue placeholder={t.invoices?.selectNumberRange || "Select number range"} />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {customers.map((c) => (
-                                <SelectItem key={c.id} value={c.id}>
-                                  {c.firstName} {c.lastName}
-                                </SelectItem>
-                              ))}
+                              {activeNumberRanges.length === 0 ? (
+                                <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+                                  {t.invoices?.noNumberRanges || "No number ranges available"}
+                                </div>
+                              ) : (
+                                activeNumberRanges.map((range) => {
+                                  const nextNumber = (range.lastNumberUsed || 0) + 1;
+                                  const formattedNumber = `${range.prefix || ""}${String(nextNumber).padStart(range.digitsToGenerate || 6, "0")}${range.suffix || ""}`;
+                                  return (
+                                    <SelectItem key={range.id} value={range.id}>
+                                      <div className="flex flex-col">
+                                        <span className="font-medium">{range.name}</span>
+                                        <span className="text-xs text-muted-foreground">
+                                          {t.invoices?.nextNumber || "Next"}: {formattedNumber}
+                                        </span>
+                                      </div>
+                                    </SelectItem>
+                                  );
+                                })
+                              )}
                             </SelectContent>
                           </Select>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                  )}
+
+                    {selectedNumberRange && previewInvoiceNumber && (
+                      <Card>
+                        <CardContent className="pt-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <Label className="text-muted-foreground">{t.invoices?.nextNumber || "Next Invoice Number"}</Label>
+                              <p className="text-2xl font-bold text-muted-foreground" data-testid="text-preview-invoice-number">{previewInvoiceNumber}</p>
+                            </div>
+                            <Badge variant="outline">{t.invoices?.preview || "Preview"}</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            {t.invoices?.previewNote || "Final number will be generated when invoice is created"}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+
+                  {/* Right Column - Step 2: Customer (60%) */}
+                  <div className="space-y-4 lg:border-l lg:pl-6">
+                    <div className="flex items-center gap-2 pb-2 border-b">
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-medium">2</div>
+                      <h3 className="text-lg font-semibold">{t.invoices?.selectCustomer || "Select Customer"}</h3>
+                    </div>
+
+                    {customerId ? (
+                      <Card className="bg-muted/30">
+                        <CardContent className="pt-4">
+                          <div className="flex items-start gap-4">
+                            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                              <Users className="h-6 w-6 text-primary" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-semibold text-lg">{selectedCustomer?.firstName} {selectedCustomer?.lastName}</p>
+                              {selectedCustomer?.email && (
+                                <p className="text-sm text-muted-foreground">{selectedCustomer.email}</p>
+                              )}
+                              {selectedCustomer?.correspondenceAddress && (
+                                <div className="mt-3 p-3 bg-background rounded-lg border">
+                                  <Label className="text-xs text-muted-foreground">{t.invoices?.correspondenceAddress || "Correspondence Address"}</Label>
+                                  <p className="text-sm mt-1">{selectedCustomer.correspondenceAddress}</p>
+                                </div>
+                              )}
+                              {!selectedCustomer?.correspondenceAddress && selectedCustomer?.address && (
+                                <div className="mt-3 p-3 bg-background rounded-lg border">
+                                  <Label className="text-xs text-muted-foreground">{t.customers?.address || "Address"}</Label>
+                                  <p className="text-sm mt-1">{selectedCustomer.address}</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <FormField
+                        control={form.control}
+                        name="customerId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t.customers?.title || "Customer"}</FormLabel>
+                            <Select value={field.value} onValueChange={field.onChange}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-customer">
+                                  <SelectValue placeholder={t.invoices?.selectCustomer || "Select customer"} />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {customers.map((c) => (
+                                  <SelectItem key={c.id} value={c.id}>
+                                    {c.firstName} {c.lastName}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                  </div>
                 </div>
               )}
 
