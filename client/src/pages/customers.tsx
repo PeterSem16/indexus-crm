@@ -3504,25 +3504,7 @@ function CustomerDetailsContent({
           {customer.phone && (
             <div>
               <p className="text-sm font-medium text-muted-foreground">{t.customers.details.phone}</p>
-              <div className="flex items-center gap-2 mt-1">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span>
-                      <CallCustomerButton 
-                        phoneNumber={customer.phone}
-                        customerId={customer.id}
-                        customerName={`${customer.firstName} ${customer.lastName}`}
-                        leadScore={customer.leadScore}
-                        clientStatus={customer.clientStatus}
-                        variant="icon"
-                      />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{t.customers.details.callCustomer}: {customer.phone}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
+              <p className="mt-1">{customer.phone}</p>
             </div>
           )}
           <div>
@@ -5964,16 +5946,6 @@ export default function CustomersPage() {
       className: "text-right",
       cell: (customer: Customer) => (
         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          {customer.phone && (
-            <CallCustomerButton 
-              phoneNumber={customer.phone}
-              customerId={customer.id}
-              customerName={`${customer.firstName} ${customer.lastName}`}
-              leadScore={customer.leadScore}
-              clientStatus={customer.clientStatus}
-              variant="icon"
-            />
-          )}
           {customer.clientStatus === "potential" && (
             <Button
               variant="ghost"
