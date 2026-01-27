@@ -5309,7 +5309,7 @@ export default function CustomersPage() {
 
   // Fetch user's email accounts (shared mailboxes) for email sending
   const { user } = useAuth();
-  const { makeCall } = useSip();
+  const { makeCall, isRegistered } = useSip();
   const { data: sharedMailboxes = [] } = useQuery<{ id: string; email: string; displayName: string; isDefault: boolean }[]>({
     queryKey: ["/api/users", user?.id, "ms365-shared-mailboxes"],
     queryFn: async () => {
@@ -6404,47 +6404,40 @@ export default function CustomersPage() {
                           </Badge>
                         );
                       })()}
+                      {editingCustomer.phone && isRegistered && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            if (makeCall && editingCustomer.phone) {
+                              const customerName = [editingCustomer.firstName, editingCustomer.lastName].filter(Boolean).join(" ");
+                              makeCall({
+                                phoneNumber: editingCustomer.phone,
+                                customerId: editingCustomer.id,
+                                customerName: customerName || undefined,
+                              });
+                            }
+                          }}
+                          data-testid="button-call-from-drawer"
+                        >
+                          <Phone className="h-4 w-4" />
+                        </Button>
+                      )}
                       {editingCustomer.phone && (
-                        <>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => {
-                                  if (makeCall && editingCustomer.phone) makeCall(editingCustomer.phone);
-                                }}
-                                data-testid="button-call-from-drawer"
-                              >
-                                <Phone className="h-4 w-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>{editingCustomer.phone}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => {
-                                  const phones = [editingCustomer.phone];
-                                  if (editingCustomer.phone2) phones.push(editingCustomer.phone2);
-                                  setSelectedPhones(phones.filter(Boolean) as string[]);
-                                  setSmsDialogCustomer(editingCustomer);
-                                  setSmsDialogOpenedAt(Date.now());
-                                }}
-                                data-testid="button-sms-from-drawer"
-                              >
-                                <MessageSquare className="h-4 w-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>{t.customers.details.sendSms}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            const phones = [editingCustomer.phone];
+                            if (editingCustomer.phone2) phones.push(editingCustomer.phone2);
+                            setSelectedPhones(phones.filter(Boolean) as string[]);
+                            setSmsDialogCustomer(editingCustomer);
+                            setSmsDialogOpenedAt(Date.now());
+                          }}
+                          data-testid="button-sms-from-drawer"
+                        >
+                          <MessageSquare className="h-4 w-4" />
+                        </Button>
                       )}
                       {editingCustomer.email && (
                         <Button
@@ -6458,7 +6451,6 @@ export default function CustomersPage() {
                             setEmailDialogOpenedAt(Date.now());
                           }}
                           data-testid="button-email-from-drawer"
-                          title={t.customers.details.sendEmail}
                         >
                           <Mail className="h-4 w-4" />
                         </Button>
