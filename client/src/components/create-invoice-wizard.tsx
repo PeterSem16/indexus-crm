@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import QRCode from "qrcode";
 import { Receipt, Calendar, CalendarDays, CreditCard, Package, FileText, Loader2, Plus, Trash2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -234,6 +235,7 @@ export function CreateInvoiceWizard({
   const [selectedProductId, setSelectedProductId] = useState<string>("");
   const [isAddingBillset, setIsAddingBillset] = useState<string | null>(null);
   const [billsetLoaded, setBillsetLoaded] = useState(false);
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>("");
   
   // Reset state when wizard opens
   useEffect(() => {
@@ -586,7 +588,22 @@ export function CreateInvoiceWizard({
         throw new Error("Failed to fetch billset details");
       }
       const detailedBillset = await response.json();
-      console.log("[Invoice v2.7] Fetched billset details, collections:", detailedBillset.collections?.length || 0, "storage:", detailedBillset.storage?.length || 0);
+      console.log("[Invoice v2.8] Fetched billset details:", JSON.stringify({
+        id: detailedBillset.id,
+        name: detailedBillset.name,
+        collectionsCount: detailedBillset.collections?.length || 0,
+        storageCount: detailedBillset.storage?.length || 0,
+        collections: detailedBillset.collections?.map((c: any) => ({ 
+          instanceName: c.instanceName, 
+          paymentType: c.paymentType,
+          paymentOptionId: c.paymentOptionId
+        })),
+        storage: detailedBillset.storage?.map((s: any) => ({ 
+          serviceName: s.serviceName, 
+          paymentType: s.paymentType,
+          paymentOptionId: s.paymentOptionId
+        }))
+      }, null, 2));
       
       const newItems: InvoiceItem[] = [];
       
@@ -607,7 +624,7 @@ export function CreateInvoiceWizard({
           const paymentInfo = col.paymentType === "installment" ? " [Splátka]" : "";
           const qty = col.quantity || 1;
           
-          console.log(`[Invoice v2.7] Collection ${col.instanceName}: vatRate=${vatRateValue}, total=${itemTotal}, hasVat=${hasVat}`);
+          console.log(`[Invoice v2.8] Collection ${col.instanceName}: vatRate=${vatRateValue}, total=${itemTotal}, hasVat=${hasVat}, paymentType=${col.paymentType}`);
           
           newItems.push({
             id: crypto.randomUUID(),
@@ -639,7 +656,7 @@ export function CreateInvoiceWizard({
           const paymentInfo = stor.paymentType === "installment" ? " [Splátka]" : "";
           const qty = stor.quantity || 1;
           
-          console.log(`[Invoice v2.7] Storage ${stor.serviceName}: vatRate=${vatRateValue}, total=${itemTotal}, hasVat=${hasVat}`);
+          console.log(`[Invoice v2.8] Storage ${stor.serviceName}: vatRate=${vatRateValue}, total=${itemTotal}, hasVat=${hasVat}, paymentType=${stor.paymentType}`);
           
           newItems.push({
             id: crypto.randomUUID(),
@@ -669,7 +686,7 @@ export function CreateInvoiceWizard({
         });
       }
       
-      console.log("[Invoice v2.7] Adding", newItems.length, "items from billset");
+      console.log("[Invoice v2.8] Adding", newItems.length, "items from billset with paymentTypes:", newItems.map(i => ({ name: i.name, paymentType: i.paymentType })));
       setItems(prev => [...prev, ...newItems]);
       setSelectedBillsetId(billset.id);
     } catch (error) {
@@ -798,6 +815,45 @@ export function CreateInvoiceWizard({
   };
 
   const totals = calculateTotals();
+
+  // Watch form values for QR code generation
+  const barcodeType = form.watch("barcodeType");
+  const variableSymbol = form.watch("variableSymbol");
+  const constantSymbol = form.watch("constantSymbol");
+  const specificSymbol = form.watch("specificSymbol");
+
+  // Generate real QR code for payment
+  useEffect(() => {
+    const generateQRCode = async () => {
+      if (barcodeType !== "QR") {
+        setQrCodeDataUrl("");
+        return;
+      }
+      
+      const vs = variableSymbol || previewInvoiceNumber || "";
+      const ks = constantSymbol || "";
+      const ss = specificSymbol || "";
+      const amount = totals.total;
+      const iban = billingInfo?.bankAccount || "";
+      
+      // PAY by Square format: SPD*1.0*ACC:IBAN*AM:AMOUNT*CC:CURRENCY*X-VS:VS*X-KS:KS*X-SS:SS
+      const qrData = `SPD*1.0*ACC:${iban}*AM:${amount.toFixed(2)}*CC:EUR*X-VS:${vs}*X-KS:${ks}*X-SS:${ss}`;
+      
+      try {
+        const dataUrl = await QRCode.toDataURL(qrData, { 
+          width: 200, 
+          margin: 2,
+          color: { dark: '#000000', light: '#ffffff' }
+        });
+        setQrCodeDataUrl(dataUrl);
+      } catch (err) {
+        console.error("QR code generation error:", err);
+        setQrCodeDataUrl("");
+      }
+    };
+    
+    generateQRCode();
+  }, [barcodeType, variableSymbol, constantSymbol, specificSymbol, totals.total, billingInfo?.bankAccount, previewInvoiceNumber]);
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
@@ -1389,6 +1445,8 @@ export function CreateInvoiceWizard({
                                     <SelectItem value="QR">QR Code (PAY by Square)</SelectItem>
                                     <SelectItem value="CODE128">Code 128</SelectItem>
                                     <SelectItem value="EAN13">EAN-13</SelectItem>
+                                    <SelectItem value="DATAMATRIX">Data Matrix</SelectItem>
+                                    <SelectItem value="PDF417">PDF417</SelectItem>
                                   </SelectContent>
                                 </Select>
                               </FormItem>
@@ -1397,26 +1455,44 @@ export function CreateInvoiceWizard({
 
                           {/* Barcode Visual Preview */}
                           <div className="border rounded-lg p-4 bg-white dark:bg-gray-900">
-                            <div className="flex items-center justify-center min-h-[120px]">
+                            <div className="flex items-center justify-center min-h-[160px]">
                               {form.watch("barcodeType") === "QR" ? (
                                 <div className="text-center">
-                                  <div className="w-24 h-24 mx-auto border-2 border-dashed border-muted-foreground/50 rounded flex items-center justify-center bg-muted/20">
-                                    <div className="grid grid-cols-5 gap-0.5">
-                                      {Array.from({ length: 25 }).map((_, i) => (
-                                        <div key={i} className={`w-3 h-3 ${Math.random() > 0.5 ? 'bg-foreground' : 'bg-transparent'}`} />
-                                      ))}
+                                  {qrCodeDataUrl ? (
+                                    <img 
+                                      src={qrCodeDataUrl} 
+                                      alt="Payment QR Code" 
+                                      className="w-32 h-32 mx-auto rounded"
+                                      data-testid="qr-code-preview"
+                                    />
+                                  ) : (
+                                    <div className="w-32 h-32 mx-auto border-2 border-dashed border-muted-foreground/50 rounded flex items-center justify-center bg-muted/20">
+                                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                                     </div>
-                                  </div>
-                                  <p className="text-xs text-muted-foreground mt-2">QR Code Preview</p>
+                                  )}
+                                  <p className="text-xs text-muted-foreground mt-2">PAY by Square QR</p>
                                 </div>
-                              ) : (
+                              ) : form.watch("barcodeType") === "CODE128" ? (
                                 <div className="text-center">
-                                  <div className="flex items-end justify-center gap-0.5 h-16">
-                                    {Array.from({ length: 30 }).map((_, i) => (
-                                      <div key={i} className={`bg-foreground`} style={{ width: Math.random() > 0.5 ? '2px' : '1px', height: `${40 + Math.random() * 24}px` }} />
+                                  <div className="flex items-end justify-center gap-0.5 h-16 px-4 py-2 bg-white rounded">
+                                    {Array.from({ length: 40 }).map((_, i) => (
+                                      <div key={i} className="bg-black" style={{ width: i % 3 === 0 ? '2px' : '1px', height: `${50 + (i % 5) * 3}px` }} />
                                     ))}
                                   </div>
-                                  <p className="text-xs text-muted-foreground mt-2">{form.watch("barcodeType")} Preview</p>
+                                  <p className="text-xs text-muted-foreground mt-2">Code 128 Barcode</p>
+                                </div>
+                              ) : form.watch("barcodeType") === "EAN13" ? (
+                                <div className="text-center">
+                                  <div className="flex items-end justify-center gap-0.5 h-16 px-4 py-2 bg-white rounded">
+                                    {Array.from({ length: 95 }).map((_, i) => (
+                                      <div key={i} className="bg-black" style={{ width: '1px', height: i === 0 || i === 2 || i === 46 || i === 48 || i === 92 || i === 94 ? '56px' : '48px' }} />
+                                    ))}
+                                  </div>
+                                  <p className="text-xs text-muted-foreground mt-2">EAN-13 Barcode</p>
+                                </div>
+                              ) : (
+                                <div className="text-center text-muted-foreground">
+                                  <p>{t.invoices?.selectBarcodeType || "Select barcode type"}</p>
                                 </div>
                               )}
                             </div>
@@ -1458,7 +1534,7 @@ export function CreateInvoiceWizard({
                     {t.invoices?.selectItems || "Select Items"}
                   </h3>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-[30%_70%] gap-6">
                     <Card>
                       <CardHeader>
                         <CardTitle className="text-sm">{t.products?.title || "Product"}</CardTitle>
