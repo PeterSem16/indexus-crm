@@ -7,7 +7,7 @@ import { db } from "./db";
 import { storage } from "./storage";
 import { 
   insertUserSchema, insertCustomerSchema, updateUserSchema, loginSchema, userSessions, communicationMessages,
-  invoices, invoiceItems, invoicePayments,
+  invoices, invoiceItems, invoicePayments, scheduledInvoices,
   insertProductSchema, insertCustomerProductSchema, insertBillingDetailsSchema,
   insertCustomerNoteSchema, insertActivityLogSchema, sendEmailSchema, sendSmsSchema,
   insertComplaintTypeSchema, insertCooperationTypeSchema, insertVipStatusSchema, insertHealthInsuranceSchema,
@@ -5169,6 +5169,64 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error deleting invoice item:", error);
       res.status(500).json({ error: "Failed to delete invoice item" });
+    }
+  });
+
+  // Scheduled Invoices CRUD (for installment payments)
+  app.get("/api/scheduled-invoices", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.query.customerId as string | undefined;
+      let query = db.select().from(scheduledInvoices);
+      if (customerId) {
+        query = query.where(eq(scheduledInvoices.customerId, customerId)) as typeof query;
+      }
+      const results = await query.orderBy(desc(scheduledInvoices.scheduledDate));
+      res.json(results);
+    } catch (error) {
+      console.error("Error fetching scheduled invoices:", error);
+      res.status(500).json({ error: "Failed to fetch scheduled invoices" });
+    }
+  });
+
+  app.post("/api/scheduled-invoices", requireAuth, async (req, res) => {
+    try {
+      console.log("[ScheduledInvoice] Creating scheduled invoice:", JSON.stringify(req.body, null, 2));
+      const [scheduled] = await db.insert(scheduledInvoices).values({
+        customerId: req.body.customerId,
+        billingDetailsId: req.body.billingDetailsId,
+        numberRangeId: req.body.numberRangeId,
+        scheduledDate: new Date(req.body.scheduledDate),
+        installmentNumber: req.body.installmentNumber,
+        totalInstallments: req.body.totalInstallments,
+        status: req.body.status || "pending",
+        currency: req.body.currency || "EUR",
+        paymentTermDays: req.body.paymentTermDays || 14,
+        constantSymbol: req.body.constantSymbol,
+        specificSymbol: req.body.specificSymbol,
+        barcodeType: req.body.barcodeType,
+        items: req.body.items,
+        totalAmount: String(req.body.totalAmount),
+        vatAmount: req.body.vatAmount ? String(req.body.vatAmount) : null,
+        subtotal: req.body.subtotal ? String(req.body.subtotal) : null,
+        vatRate: req.body.vatRate ? String(req.body.vatRate) : null,
+        parentInvoiceId: req.body.parentInvoiceId,
+        createdBy: (req.session as any)?.userId,
+      }).returning();
+      console.log("[ScheduledInvoice] Created:", scheduled.id);
+      res.status(201).json(scheduled);
+    } catch (error: any) {
+      console.error("Error creating scheduled invoice:", error);
+      res.status(500).json({ error: "Failed to create scheduled invoice", details: error?.message });
+    }
+  });
+
+  app.delete("/api/scheduled-invoices/:id", requireAuth, async (req, res) => {
+    try {
+      await db.delete(scheduledInvoices).where(eq(scheduledInvoices.id, req.params.id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting scheduled invoice:", error);
+      res.status(500).json({ error: "Failed to delete scheduled invoice" });
     }
   });
 
