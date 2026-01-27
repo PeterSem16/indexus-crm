@@ -1041,11 +1041,84 @@ export function CreateInvoiceWizard({
           <Form {...form}>
             <div className="min-h-[300px]">
               {currentStep === 0 && (
-                <div className="grid grid-cols-1 lg:grid-cols-[40%_1fr] gap-6 overflow-hidden">
-                  {/* Left Column - Step 1: Select Number Range (40%) */}
-                  <div className="space-y-4">
+                <div className="grid grid-cols-1 lg:grid-cols-[1fr_40%] gap-6 overflow-hidden">
+                  {/* Left Column - Step 1: Customer (60%) */}
+                  <div className="space-y-4 min-w-0 overflow-hidden">
                     <div className="flex items-center gap-2 pb-2 border-b">
                       <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-medium">1</div>
+                      <h3 className="text-lg font-semibold">{t.invoices?.selectCustomer || "Select Customer"}</h3>
+                    </div>
+
+                    {customerId ? (
+                      <Card className="bg-muted/30">
+                        <CardContent className="pt-4">
+                          <div className="flex items-start gap-4">
+                            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                              <Users className="h-6 w-6 text-primary" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-semibold text-lg">{selectedCustomer?.firstName} {selectedCustomer?.lastName}</p>
+                              {selectedCustomer?.email && (
+                                <p className="text-sm text-muted-foreground">{selectedCustomer.email}</p>
+                              )}
+                              {selectedCustomer?.correspondenceAddress && (
+                                <div className="mt-3 p-3 bg-background rounded-lg border">
+                                  <Label className="text-xs text-muted-foreground">{t.invoices?.correspondenceAddress || "Correspondence Address"}</Label>
+                                  <p className="text-sm mt-1">{selectedCustomer.correspondenceAddress}</p>
+                                  {(selectedCustomer.corrCity || selectedCustomer.corrPostalCode) && (
+                                    <p className="text-sm text-muted-foreground">
+                                      {[selectedCustomer.corrPostalCode, selectedCustomer.corrCity].filter(Boolean).join(" ")}
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                              {!selectedCustomer?.correspondenceAddress && selectedCustomer?.address && (
+                                <div className="mt-3 p-3 bg-background rounded-lg border">
+                                  <Label className="text-xs text-muted-foreground">{t.customers?.address || "Address"}</Label>
+                                  <p className="text-sm mt-1">{selectedCustomer.address}</p>
+                                  {(selectedCustomer.city || selectedCustomer.postalCode) && (
+                                    <p className="text-sm text-muted-foreground">
+                                      {[selectedCustomer.postalCode, selectedCustomer.city].filter(Boolean).join(" ")}
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <FormField
+                        control={form.control}
+                        name="customerId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t.customers?.title || "Customer"}</FormLabel>
+                            <Select value={field.value} onValueChange={field.onChange}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-customer">
+                                  <SelectValue placeholder={t.invoices?.selectCustomer || "Select customer"} />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {customers.map((c) => (
+                                  <SelectItem key={c.id} value={c.id}>
+                                    {c.firstName} {c.lastName}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                  </div>
+
+                  {/* Right Column - Step 2: Select Number Range (40%) */}
+                  <div className="space-y-4 lg:border-l lg:pl-6 min-w-0 overflow-hidden">
+                    <div className="flex items-center gap-2 pb-2 border-b">
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-medium">2</div>
                       <h3 className="text-lg font-semibold">{t.invoices?.selectNumberRange || "Select Number Range"}</h3>
                     </div>
                     
@@ -1139,79 +1212,6 @@ export function CreateInvoiceWizard({
                           </p>
                         </CardContent>
                       </Card>
-                    )}
-                  </div>
-
-                  {/* Right Column - Step 2: Customer (60%) */}
-                  <div className="space-y-4 lg:border-l lg:pl-6 min-w-0 overflow-hidden">
-                    <div className="flex items-center gap-2 pb-2 border-b">
-                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-medium">2</div>
-                      <h3 className="text-lg font-semibold">{t.invoices?.selectCustomer || "Select Customer"}</h3>
-                    </div>
-
-                    {customerId ? (
-                      <Card className="bg-muted/30">
-                        <CardContent className="pt-4">
-                          <div className="flex items-start gap-4">
-                            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                              <Users className="h-6 w-6 text-primary" />
-                            </div>
-                            <div className="flex-1">
-                              <p className="font-semibold text-lg">{selectedCustomer?.firstName} {selectedCustomer?.lastName}</p>
-                              {selectedCustomer?.email && (
-                                <p className="text-sm text-muted-foreground">{selectedCustomer.email}</p>
-                              )}
-                              {selectedCustomer?.correspondenceAddress && (
-                                <div className="mt-3 p-3 bg-background rounded-lg border">
-                                  <Label className="text-xs text-muted-foreground">{t.invoices?.correspondenceAddress || "Correspondence Address"}</Label>
-                                  <p className="text-sm mt-1">{selectedCustomer.correspondenceAddress}</p>
-                                  {(selectedCustomer.corrCity || selectedCustomer.corrPostalCode) && (
-                                    <p className="text-sm text-muted-foreground">
-                                      {[selectedCustomer.corrPostalCode, selectedCustomer.corrCity].filter(Boolean).join(" ")}
-                                    </p>
-                                  )}
-                                </div>
-                              )}
-                              {!selectedCustomer?.correspondenceAddress && selectedCustomer?.address && (
-                                <div className="mt-3 p-3 bg-background rounded-lg border">
-                                  <Label className="text-xs text-muted-foreground">{t.customers?.address || "Address"}</Label>
-                                  <p className="text-sm mt-1">{selectedCustomer.address}</p>
-                                  {(selectedCustomer.city || selectedCustomer.postalCode) && (
-                                    <p className="text-sm text-muted-foreground">
-                                      {[selectedCustomer.postalCode, selectedCustomer.city].filter(Boolean).join(" ")}
-                                    </p>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ) : (
-                      <FormField
-                        control={form.control}
-                        name="customerId"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>{t.customers?.title || "Customer"}</FormLabel>
-                            <Select value={field.value} onValueChange={field.onChange}>
-                              <FormControl>
-                                <SelectTrigger data-testid="select-customer">
-                                  <SelectValue placeholder={t.invoices?.selectCustomer || "Select customer"} />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {customers.map((c) => (
-                                  <SelectItem key={c.id} value={c.id}>
-                                    {c.firstName} {c.lastName}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
                     )}
                   </div>
                 </div>
@@ -1511,39 +1511,19 @@ export function CreateInvoiceWizard({
 
                       <div className="flex flex-wrap gap-1 p-3 bg-muted/30 rounded-lg border">
                         <span className="text-xs text-muted-foreground w-full mb-1">{t.invoices?.quickPeriod || "Quick period selection"}:</span>
-                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(6)} data-testid="btn-period-6m">
-                          6 {t.invoices?.months || "months"}
-                        </Button>
-                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(12)} data-testid="btn-period-1y">
-                          1 {t.invoices?.year || "year"}
-                        </Button>
-                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(24)} data-testid="btn-period-2y">
-                          2 {t.invoices?.years || "years"}
-                        </Button>
-                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(36)} data-testid="btn-period-3y">
-                          3 {t.invoices?.years || "years"}
-                        </Button>
-                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(48)} data-testid="btn-period-4y">
-                          4 {t.invoices?.years || "years"}
-                        </Button>
-                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(60)} data-testid="btn-period-5y">
-                          5 {t.invoices?.years || "years"}
-                        </Button>
-                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(72)} data-testid="btn-period-6y">
-                          6 {t.invoices?.years || "years"}
-                        </Button>
-                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(84)} data-testid="btn-period-7y">
-                          7 {t.invoices?.years || "years"}
-                        </Button>
-                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(96)} data-testid="btn-period-8y">
-                          8 {t.invoices?.years || "years"}
-                        </Button>
-                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(108)} data-testid="btn-period-9y">
-                          9 {t.invoices?.years || "years"}
-                        </Button>
-                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(120)} data-testid="btn-period-10y">
-                          10 {t.invoices?.years || "years"}
-                        </Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(6)} data-testid="btn-period-6m">6m</Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(12)} data-testid="btn-period-1y">1y</Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(24)} data-testid="btn-period-2y">2y</Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(36)} data-testid="btn-period-3y">3y</Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(48)} data-testid="btn-period-4y">4y</Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(60)} data-testid="btn-period-5y">5y</Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(72)} data-testid="btn-period-6y">6y</Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(84)} data-testid="btn-period-7y">7y</Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(96)} data-testid="btn-period-8y">8y</Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(108)} data-testid="btn-period-9y">9y</Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(120)} data-testid="btn-period-10y">10y</Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(180)} data-testid="btn-period-15y">15y</Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setBillingPeriod(240)} data-testid="btn-period-20y">20y</Button>
                       </div>
 
                       {/* Period From */}

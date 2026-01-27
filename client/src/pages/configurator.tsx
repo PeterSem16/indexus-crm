@@ -8174,11 +8174,17 @@ function NumberRangesTab() {
     { 
       key: "countryCode",
       header: t.common.country,
-      cell: (range: NumberRange) => (
-        <Badge variant="outline" className="font-mono">
-          {range.countryCode}
-        </Badge>
-      ),
+      cell: (range: NumberRange) => {
+        const country = COUNTRIES.find(c => c.code === range.countryCode);
+        return (
+          <div className="flex items-center gap-2">
+            <span className="text-lg">{country?.flag || ""}</span>
+            <Badge variant="outline" className="font-mono text-xs">
+              {range.countryCode}
+            </Badge>
+          </div>
+        );
+      },
     },
     { 
       key: "year",
