@@ -1026,11 +1026,9 @@ export function CreateInvoiceWizard({
           console.log("[InvoiceWizard] Created invoice:", createdInvoice);
           parentInvoiceId = createdInvoice.id;
           firstInvoiceCreated = true;
-          window.alert("DEBUG SUCCESS: Invoice created with ID: " + createdInvoice.id);
         } catch (error: unknown) {
           const errorMessage = error instanceof Error ? error.message : String(error);
           console.error("[InvoiceWizard] Failed to create first invoice:", error);
-          window.alert("DEBUG ERROR: " + errorMessage);
           toast({
             title: t.common?.error || "Error",
             description: `${t.invoices?.createFailed || "Failed to create first invoice"}: ${errorMessage}`,

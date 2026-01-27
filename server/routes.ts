@@ -4957,6 +4957,20 @@ export async function registerRoutes(
     try {
       const { items, ...invoiceData } = req.body;
       
+      // Convert date strings to Date objects
+      if (invoiceData.issueDate && typeof invoiceData.issueDate === 'string') {
+        invoiceData.issueDate = new Date(invoiceData.issueDate);
+      }
+      if (invoiceData.dueDate && typeof invoiceData.dueDate === 'string') {
+        invoiceData.dueDate = new Date(invoiceData.dueDate);
+      }
+      if (invoiceData.deliveryDate && typeof invoiceData.deliveryDate === 'string') {
+        invoiceData.deliveryDate = new Date(invoiceData.deliveryDate);
+      }
+      if (invoiceData.paidAt && typeof invoiceData.paidAt === 'string') {
+        invoiceData.paidAt = new Date(invoiceData.paidAt);
+      }
+      
       // Generate invoice number if not provided
       if (!invoiceData.invoiceNumber) {
         const prefix = "INV";
