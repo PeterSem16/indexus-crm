@@ -263,6 +263,7 @@ export function CreateInvoiceWizard({
   const [isAddingBillset, setIsAddingBillset] = useState<string | null>(null);
   const [billsetLoaded, setBillsetLoaded] = useState(false);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Reset state when wizard opens
   useEffect(() => {
@@ -868,7 +869,14 @@ export function CreateInvoiceWizard({
   };
 
   const handleSubmit = async () => {
-    console.log("[InvoiceWizard] handleSubmit called");
+    console.log("[InvoiceWizard] handleSubmit called, isSubmitting:", isSubmitting);
+    if (isSubmitting) {
+      console.log("[InvoiceWizard] Already submitting, ignoring duplicate call");
+      return;
+    }
+    setIsSubmitting(true);
+    
+    try {
     const values = form.getValues();
     console.log("[InvoiceWizard] Form values:", values);
     const installmentItems = items.filter(item => item.paymentType === 'installment');
@@ -1126,6 +1134,9 @@ export function CreateInvoiceWizard({
       };
 
       createInvoiceMutation.mutate(invoiceData);
+    }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -2728,10 +2739,10 @@ export function CreateInvoiceWizard({
                 <Button
                   type="button"
                   onClick={handleSubmit}
-                  disabled={createInvoiceMutation.isPending || !canProceed()}
+                  disabled={createInvoiceMutation.isPending || isSubmitting || !canProceed()}
                   data-testid="btn-create-invoice"
                 >
-                  {createInvoiceMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  {(createInvoiceMutation.isPending || isSubmitting) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   {t.invoices?.createInvoice || "Create Invoice"}
                 </Button>
               )}
