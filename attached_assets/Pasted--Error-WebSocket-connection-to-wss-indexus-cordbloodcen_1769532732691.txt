@@ -1,0 +1,44 @@
+[Error] WebSocket connection to 'wss://indexus.cordbloodcenter.com/ws/notifications?userId=62b874a9-d7b5-4432-bf74-8a62c0815218' failed: The network connection was lost.
+[Error] [Notifications] WebSocket error: – Event
+Event
+	(anonymná funkcia) (index-jC5ykDi9.js:127:8232)
+[Error] WebSocket connection to 'wss://indexus.cordbloodcenter.com/ws/chat' failed: There was a bad response from the server.
+[Error] WebSocket error: – Event
+Event
+	(anonymná funkcia) (index-jC5ykDi9.js:126:100137)
+[Error] WebSocket connection to 'wss://indexus.cordbloodcenter.com/ws/notifications?userId=62b874a9-d7b5-4432-bf74-8a62c0815218' failed: The network connection was lost.
+[Error] [Notifications] WebSocket error: – Event
+Event
+	(anonymná funkcia) (index-jC5ykDi9.js:127:8232)
+[Error] WebSocket connection to 'wss://indexus.cordbloodcenter.com/ws/notifications?userId=62b874a9-d7b5-4432-bf74-8a62c0815218' failed: The network connection was lost.
+[Error] [Notifications] WebSocket error: – Event
+Event
+	(anonymná funkcia) (index-jC5ykDi9.js:127:8232)
+[Error] WebSocket connection to 'wss://indexus.cordbloodcenter.com/ws/notifications?userId=62b874a9-d7b5-4432-bf74-8a62c0815218' failed: The network connection was lost.
+[Error] [Notifications] WebSocket error: – Event
+Event
+	(anonymná funkcia) (index-jC5ykDi9.js:127:8232)
+[Error] WebSocket connection to 'wss://indexus.cordbloodcenter.com/ws/chat' failed: There was a bad response from the server.
+[Error] WebSocket error: – Event
+Event
+	(anonymná funkcia) (index-jC5ykDi9.js:126:100137)
+[Error] WebSocket connection to 'wss://indexus.cordbloodcenter.com/ws/notifications?userId=62b874a9-d7b5-4432-bf74-8a62c0815218' failed: The network connection was lost.
+[Error] [Notifications] WebSocket error: – Event
+Event
+	(anonymná funkcia) (index-jC5ykDi9.js:127:8232)
+[Error] WebSocket connection to 'wss://indexus.cordbloodcenter.com/ws/notifications?userId=62b874a9-d7b5-4432-bf74-8a62c0815218' failed: The network connection was lost.
+[Error] [Notifications] WebSocket error: – Event
+Event
+	(anonymná funkcia) (index-jC5ykDi9.js:127:8232)
+[Error] WebSocket connection to 'wss://indexus.cordbloodcenter.com/ws/chat' failed: There was a bad response from the server.
+[Error] WebSocket error: – Event
+Event
+	(anonymná funkcia) (index-jC5ykDi9.js:126:100137)
+[Error] WebSocket connection to 'wss://indexus.cordbloodcenter.com/ws/notifications?userId=62b874a9-d7b5-4432-bf74-8a62c0815218' failed: The network connection was lost.
+[Error] [Notifications] WebSocket error: – Event
+Event
+	(anonymná funkcia) (index-jC5ykDi9.js:127:8232)
+[Error] WebSocket connection to 'wss://indexus.cordbloodcenter.com/ws/notifications?userId=62b874a9-d7b5-4432-bf74-8a62c0815218' failed: The network connection was lost.
+[Error] [Notifications] WebSocket error: – Event
+Event
+	(anonymná funkcia) (index-jC5ykDi9.js:127:8232)
