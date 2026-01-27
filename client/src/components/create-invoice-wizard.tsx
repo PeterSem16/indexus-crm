@@ -164,6 +164,12 @@ interface Customer {
   lastName: string;
   email?: string;
   country?: string;
+  address?: string;
+  city?: string;
+  postalCode?: string;
+  correspondenceAddress?: string;
+  corrCity?: string;
+  corrPostalCode?: string;
 }
 
 interface BillingDetails {
@@ -989,7 +995,7 @@ export function CreateInvoiceWizard({
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
-      <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Receipt className="h-5 w-5" />
@@ -1159,12 +1165,22 @@ export function CreateInvoiceWizard({
                                 <div className="mt-3 p-3 bg-background rounded-lg border">
                                   <Label className="text-xs text-muted-foreground">{t.invoices?.correspondenceAddress || "Correspondence Address"}</Label>
                                   <p className="text-sm mt-1">{selectedCustomer.correspondenceAddress}</p>
+                                  {(selectedCustomer.corrCity || selectedCustomer.corrPostalCode) && (
+                                    <p className="text-sm text-muted-foreground">
+                                      {[selectedCustomer.corrPostalCode, selectedCustomer.corrCity].filter(Boolean).join(" ")}
+                                    </p>
+                                  )}
                                 </div>
                               )}
                               {!selectedCustomer?.correspondenceAddress && selectedCustomer?.address && (
                                 <div className="mt-3 p-3 bg-background rounded-lg border">
                                   <Label className="text-xs text-muted-foreground">{t.customers?.address || "Address"}</Label>
                                   <p className="text-sm mt-1">{selectedCustomer.address}</p>
+                                  {(selectedCustomer.city || selectedCustomer.postalCode) && (
+                                    <p className="text-sm text-muted-foreground">
+                                      {[selectedCustomer.postalCode, selectedCustomer.city].filter(Boolean).join(" ")}
+                                    </p>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -1938,6 +1954,7 @@ export function CreateInvoiceWizard({
                         {items.length === 0 ? (
                           <p className="text-muted-foreground text-sm text-center py-4">{t.invoices?.noItemsSelected || "No items selected"}</p>
                         ) : (
+                          <div className="overflow-x-auto">
                           <Table>
                             <TableHeader>
                               <TableRow>
@@ -1983,6 +2000,7 @@ export function CreateInvoiceWizard({
                               ))}
                             </TableBody>
                           </Table>
+                          </div>
                         )}
                       </CardContent>
                     </Card>
@@ -2415,6 +2433,7 @@ export function CreateInvoiceWizard({
                       <CardTitle className="text-sm">{t.invoices?.items || "Items"} ({items.length})</CardTitle>
                     </CardHeader>
                     <CardContent>
+                      <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
                           <TableRow>
@@ -2439,6 +2458,7 @@ export function CreateInvoiceWizard({
                           ))}
                         </TableBody>
                       </Table>
+                      </div>
                     </CardContent>
                   </Card>
                 </div>
