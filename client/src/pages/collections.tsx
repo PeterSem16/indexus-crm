@@ -35,6 +35,8 @@ const dateLocales: Record<string, Locale> = {
 interface CollectionStatusType {
   id: number;
   name: string;
+  code: string;
+  branch: number;
   isActive: boolean;
   sortOrder: number | null;
 }
@@ -1140,6 +1142,88 @@ export default function CollectionsPage() {
           backUrl="/collections"
         />
         
+        <Card className="mb-6 overflow-hidden">
+          <CardContent className="p-0">
+            {(() => {
+              const branch1Statuses = collectionStatuses.filter(s => s.branch === 1).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+              const branch2Statuses = collectionStatuses.filter(s => s.branch === 2).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+              const currentStatus = collectionStatuses.find(s => String(s.id) === collection?.state);
+              const currentBranch = currentStatus?.branch || 0;
+              const currentSortOrder = currentStatus?.sortOrder || 0;
+              
+              return (
+                <div className="grid grid-cols-2 gap-0">
+                  <div className={`p-6 ${currentBranch === 1 ? 'bg-primary/10 border-b-4 border-primary' : 'bg-muted/30'}`}>
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentBranch === 1 ? 'bg-primary text-white' : 'bg-muted'}`}>
+                        <Check className="h-4 w-4" />
+                      </div>
+                      <h3 className={`font-semibold text-lg ${currentBranch === 1 ? 'text-primary' : 'text-muted-foreground'}`}>
+                        Vydaný odber
+                      </h3>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {branch1Statuses.map((status, index) => {
+                        const isActive = currentBranch === 1 && (status.sortOrder || 0) <= currentSortOrder;
+                        const isCurrent = String(status.id) === collection?.state;
+                        return (
+                          <div key={status.id} className="flex-1 flex flex-col items-center">
+                            <div className="flex items-center w-full">
+                              <div className={`w-full h-1 ${index === 0 ? 'rounded-l' : ''} ${index === branch1Statuses.length - 1 ? 'rounded-r' : ''} ${isActive ? 'bg-primary' : 'bg-muted'}`} />
+                            </div>
+                            <div className={`mt-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                              isCurrent ? 'bg-primary text-white ring-4 ring-primary/30 scale-125' : 
+                              isActive ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
+                            }`}>
+                              {status.code}
+                            </div>
+                            <span className={`mt-1 text-xs text-center leading-tight ${isCurrent ? 'font-bold text-primary' : isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
+                              {status.name}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  
+                  <div className={`p-6 border-l ${currentBranch === 2 ? 'bg-destructive/10 border-b-4 border-destructive' : 'bg-muted/30'}`}>
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentBranch === 2 ? 'bg-destructive text-white' : 'bg-muted'}`}>
+                        <Activity className="h-4 w-4" />
+                      </div>
+                      <h3 className={`font-semibold text-lg ${currentBranch === 2 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                        Likvidácia
+                      </h3>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {branch2Statuses.map((status, index) => {
+                        const isActive = currentBranch === 2 && (status.sortOrder || 0) <= currentSortOrder;
+                        const isCurrent = String(status.id) === collection?.state;
+                        return (
+                          <div key={status.id} className="flex-1 flex flex-col items-center">
+                            <div className="flex items-center w-full">
+                              <div className={`w-full h-1 ${index === 0 ? 'rounded-l' : ''} ${index === branch2Statuses.length - 1 ? 'rounded-r' : ''} ${isActive ? 'bg-destructive' : 'bg-muted'}`} />
+                            </div>
+                            <div className={`mt-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                              isCurrent ? 'bg-destructive text-white ring-4 ring-destructive/30 scale-125' : 
+                              isActive ? 'bg-destructive text-white' : 'bg-muted text-muted-foreground'
+                            }`}>
+                              {status.code}
+                            </div>
+                            <span className={`mt-1 text-xs text-center leading-tight ${isCurrent ? 'font-bold text-destructive' : isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
+                              {status.name}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </CardContent>
+        </Card>
+        
         <Card>
           <CardContent className="pt-6">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -1164,10 +1248,6 @@ export default function CollectionsPage() {
                   <FlaskConical className="h-4 w-4 mr-2" />
                   {t.collections?.labResults}
                 </TabsTrigger>
-                <TabsTrigger value="timeline" data-testid="tab-timeline">
-                  <Activity className="h-4 w-4 mr-2" />
-                  {t.collections?.timeline}
-                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="client">{renderClientForm()}</TabsContent>
@@ -1182,66 +1262,6 @@ export default function CollectionsPage() {
                 ) : (
                   renderLabResultsForm()
                 )}
-              </TabsContent>
-              <TabsContent value="timeline">
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-medium">{t.collections?.workflowProgress}</h3>
-                    <Badge variant="default">
-                      {t.collections?.currentStatus}: {collectionStatuses.find(s => String(s.id) === collection?.state)?.name || collection?.state || "-"}
-                    </Badge>
-                  </div>
-                  <div className="relative">
-                    <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
-                    <div className="space-y-6">
-                      {collectionStatuses.map((status, index) => {
-                        const currentStatusIndex = collectionStatuses.findIndex(s => String(s.id) === collection?.state);
-                        const isCompleted = index < currentStatusIndex;
-                        const isCurrent = index === currentStatusIndex;
-                        const isPending = index > currentStatusIndex;
-                        
-                        return (
-                          <div key={status.id} className="relative flex items-start gap-4 pl-10">
-                            <div className={`absolute left-2 w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                              isCompleted ? "bg-primary border-primary" :
-                              isCurrent ? "bg-primary border-primary" :
-                              "bg-background border-muted-foreground"
-                            }`}>
-                              {isCompleted && <Check className="h-3 w-3 text-white" />}
-                              {isCurrent && <div className="w-2 h-2 rounded-full bg-white" />}
-                            </div>
-                            <div className={`flex-1 ${isPending ? "opacity-50" : ""}`}>
-                              <div className="flex items-center gap-2">
-                                <span className={`font-medium ${isCurrent ? "text-primary" : ""}`}>
-                                  {status.name}
-                                </span>
-                                {isCurrent && (
-                                  <Badge variant="outline" className="text-xs">
-                                    {t.collections?.currentStatus}
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-                    <div className="p-4 bg-primary/10 rounded-lg">
-                      <p className="text-sm text-muted-foreground">{t.collections?.completedSteps}</p>
-                      <p className="text-2xl font-bold text-primary">
-                        {Math.max(0, collectionStatuses.findIndex(s => String(s.id) === collection?.state))}
-                      </p>
-                    </div>
-                    <div className="p-4 bg-muted/50 rounded-lg">
-                      <p className="text-sm text-muted-foreground">{t.collections?.remainingSteps}</p>
-                      <p className="text-2xl font-bold">
-                        {Math.max(0, collectionStatuses.length - collectionStatuses.findIndex(s => String(s.id) === collection?.state) - 1)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
               </TabsContent>
             </Tabs>
 
