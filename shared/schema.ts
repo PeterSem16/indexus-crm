@@ -231,9 +231,12 @@ export const vipStatuses = pgTable("vip_statuses", {
 });
 
 // Collection statuses - status of cord blood collection
+// Two branches: 1 = Vydaný (released), 2 = Likvidácia (disposal)
 export const collectionStatuses = pgTable("collection_statuses", {
   id: integer("id").primaryKey(),
   name: text("name").notNull(),
+  code: text("code").notNull().default(""), // e.g. "1", "1.1", "2.3"
+  branch: integer("branch").notNull().default(1), // 1 = vydaný, 2 = likvidácia
   isActive: boolean("is_active").notNull().default(true),
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
