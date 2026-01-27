@@ -44,6 +44,7 @@ import { useI18n } from "@/i18n";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/auth-context";
 
 const CONSTANT_SYMBOLS: Record<string, { code: string; description: string }[]> = {
   SK: [
@@ -254,6 +255,7 @@ export function CreateInvoiceWizard({
 }: CreateInvoiceWizardProps) {
   const { t, locale } = useI18n();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
   const [items, setItems] = useState<InvoiceItem[]>([]);
   const [selectedProductId, setSelectedProductId] = useState<string>("");
@@ -327,10 +329,18 @@ export function CreateInvoiceWizard({
     enabled: open && !!customerId,
   });
 
-  const { data: customers = [] } = useQuery<Customer[]>({
+  const { data: allCustomers = [] } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
     enabled: open && !customerId,
   });
+
+  // Filter customers by user's assigned countries
+  const customers = useMemo(() => {
+    if (!user?.assignedCountries || user.assignedCountries.length === 0) {
+      return allCustomers;
+    }
+    return allCustomers.filter(c => c.country && user.assignedCountries.includes(c.country));
+  }, [allCustomers, user?.assignedCountries]);
 
   const formCustomerId = form.watch("customerId");
   const selectedCustomer = useMemo(() => {
