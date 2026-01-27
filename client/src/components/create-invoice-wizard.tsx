@@ -639,12 +639,18 @@ export function CreateInvoiceWizard({
       const response = await apiRequest("POST", "/api/invoices", data);
       return response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       toast({
         title: t.common?.success || "Success",
         description: t.invoices?.createSuccess || "Invoice created successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/invoices"], exact: false });
+      await queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey;
+          return Array.isArray(key) && typeof key[0] === 'string' && key[0].startsWith('/api/invoices');
+        },
+        refetchType: 'all'
+      });
       onSuccess?.(data.id);
       handleClose();
     },
@@ -1090,8 +1096,14 @@ export function CreateInvoiceWizard({
           title: t.common?.success || "Success",
           description: `${t.invoices?.createSuccess || "Invoice created successfully"}${scheduledMsg}`,
         });
-        queryClient.invalidateQueries({ queryKey: ["/api/invoices"], exact: false });
-        queryClient.invalidateQueries({ queryKey: ["/api/scheduled-invoices"] });
+        await queryClient.invalidateQueries({ 
+          predicate: (query) => {
+            const key = query.queryKey;
+            return Array.isArray(key) && typeof key[0] === 'string' && key[0].startsWith('/api/invoices');
+          },
+          refetchType: 'all'
+        });
+        await queryClient.invalidateQueries({ queryKey: ["/api/scheduled-invoices"] });
         handleClose();
       } else {
         toast({
