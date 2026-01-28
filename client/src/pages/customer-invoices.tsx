@@ -62,6 +62,22 @@ interface Invoice {
   createdAt?: string;
   customerName?: string;
   billingCompanyName?: string;
+  // Billing company metadata
+  billingAddress?: string;
+  billingCity?: string;
+  billingZip?: string;
+  billingCountry?: string;
+  billingTaxId?: string;
+  billingVatId?: string;
+  // Bank account metadata
+  billingBankName?: string;
+  billingBankIban?: string;
+  billingBankSwift?: string;
+  billingBankAccountNumber?: string;
+  // QR codes
+  qrCodeEnabled?: boolean;
+  qrCodeData?: string;
+  epcQrCodeData?: string;
 }
 
 interface InvoiceItem {
@@ -1156,6 +1172,90 @@ function InvoiceDetailDrawer({
                 <span className="text-green-700 dark:text-green-400 font-medium">
                   {t.invoices?.fullyPaid || "Fully Paid"}: {formatCurrency(invoice.paidAmount, invoice.currency)}
                 </span>
+              </div>
+            )}
+
+            {/* Billing Company Metadata */}
+            {invoice.billingCompanyName && (
+              <div className="border-t pt-4 mt-4">
+                <h4 className="font-medium mb-3">{t.invoices?.billingCompany || "Billing Company"}</h4>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="col-span-2">
+                    <Label className="text-muted-foreground text-xs">{t.invoices?.companyName || "Company"}</Label>
+                    <p className="font-medium">{invoice.billingCompanyName}</p>
+                  </div>
+                  {(invoice.billingAddress || invoice.billingCity || invoice.billingCountry) && (
+                    <div className="col-span-2">
+                      <Label className="text-muted-foreground text-xs">{t.customers?.address || "Address"}</Label>
+                      <p>{invoice.billingAddress || "-"}</p>
+                      <p>{[invoice.billingZip, invoice.billingCity, invoice.billingCountry].filter(Boolean).join(", ") || "-"}</p>
+                    </div>
+                  )}
+                  <div>
+                    <Label className="text-muted-foreground text-xs">{t.invoices?.taxId || "Tax ID"}</Label>
+                    <p>{invoice.billingTaxId || "-"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-xs">{t.invoices?.vatId || "VAT ID"}</Label>
+                    <p>{invoice.billingVatId || "-"}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Bank Account Metadata */}
+            {invoice.billingBankIban && (
+              <div className="border-t pt-4 mt-4">
+                <h4 className="font-medium mb-3">{t.invoices?.bankAccount || "Bank Account"}</h4>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="col-span-2">
+                    <Label className="text-muted-foreground text-xs">{t.invoices?.bankName || "Bank"}</Label>
+                    <p className="font-medium">{invoice.billingBankName || "-"}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <Label className="text-muted-foreground text-xs">IBAN</Label>
+                    <p className="font-mono text-xs">{invoice.billingBankIban}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-xs">SWIFT/BIC</Label>
+                    <p className="font-mono">{invoice.billingBankSwift || "-"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-xs">{t.invoices?.accountNumber || "Account #"}</Label>
+                    <p className="font-mono">{invoice.billingBankAccountNumber || "-"}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* QR Codes */}
+            {invoice.qrCodeEnabled && (invoice.qrCodeData || invoice.epcQrCodeData) && (
+              <div className="border-t pt-4 mt-4">
+                <h4 className="font-medium mb-3">{t.invoices?.qrCodes || "QR Codes"}</h4>
+                <div className="flex gap-6">
+                  {invoice.qrCodeData && (
+                    <div className="text-center">
+                      <img 
+                        src={invoice.qrCodeData} 
+                        alt="Pay by Square" 
+                        className="w-24 h-24 rounded border"
+                        data-testid={`img-qr-pay-by-square-${invoice.id}`}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1" data-testid={`text-qr-pay-by-square-label-${invoice.id}`}>PAY by Square</p>
+                    </div>
+                  )}
+                  {invoice.epcQrCodeData && (
+                    <div className="text-center">
+                      <img 
+                        src={invoice.epcQrCodeData} 
+                        alt="EPC QR" 
+                        className="w-24 h-24 rounded border"
+                        data-testid={`img-qr-epc-${invoice.id}`}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1" data-testid={`text-qr-epc-label-${invoice.id}`}>EPC QR</p>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </TabsContent>
