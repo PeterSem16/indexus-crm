@@ -78,6 +78,8 @@ interface Invoice {
   qrCodeEnabled?: boolean;
   qrCodeData?: string;
   epcQrCodeData?: string;
+  // Wizard tracking
+  wizardCreatedAt?: string;
 }
 
 interface InvoiceItem {
@@ -170,6 +172,8 @@ interface ScheduledInvoice {
   qrCodeData?: string;
   epcQrCodeData?: string;
   qrCodeEnabled?: boolean;
+  // Wizard tracking
+  wizardCreatedAt?: string;
 }
 
 const localeMap: Record<string, string> = {
@@ -198,6 +202,7 @@ export default function CustomerInvoicesPage() {
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
   const [bulkSearch, setBulkSearch] = useState("");
   const [selectedScheduledInvoice, setSelectedScheduledInvoice] = useState<ScheduledInvoice | null>(null);
+  const [scheduledPage, setScheduledPage] = useState(1);
   const perPage = 15;
 
   const { data: invoices = [], isLoading } = useQuery<Invoice[]>({
@@ -652,6 +657,7 @@ export default function CustomerInvoicesPage() {
                   <p className="text-sm mt-2">{t.invoices?.scheduledInvoicesDescription || "Future installment invoices will appear here"}</p>
                 </div>
               ) : (
+                <>
                 <Table data-testid="table-scheduled-invoices">
                   <TableHeader>
                     <TableRow>
@@ -665,10 +671,13 @@ export default function CustomerInvoicesPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {scheduledInvoices
-                      .filter(s => s.status === "pending")
-                      .sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime())
-                      .map((scheduled) => {
+                    {(() => {
+                      const filtered = scheduledInvoices
+                        .filter(s => s.status === "pending")
+                        .sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime());
+                      const startIdx = (scheduledPage - 1) * perPage;
+                      const paginated = filtered.slice(startIdx, startIdx + perPage);
+                      return paginated.map((scheduled) => {
                         const customer = customerMap.get(scheduled.customerId);
                         const isOverdue = new Date(scheduled.scheduledDate) < new Date();
                         return (
@@ -751,9 +760,45 @@ export default function CustomerInvoicesPage() {
                             </TableCell>
                           </TableRow>
                         );
-                      })}
+                      });
+                    })()}
                   </TableBody>
                 </Table>
+                {/* Scheduled Invoices Pagination */}
+                {(() => {
+                  const filtered = scheduledInvoices.filter(s => s.status === "pending");
+                  const scheduledTotalPages = Math.ceil(filtered.length / perPage);
+                  if (scheduledTotalPages <= 1) return null;
+                  return (
+                    <div className="flex items-center justify-between mt-4">
+                      <div className="text-sm text-muted-foreground">
+                        {t.common?.page || "Page"} {scheduledPage} {t.common?.of || "of"} {scheduledTotalPages} ({filtered.length} {t.common?.items || "items"})
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => setScheduledPage(p => Math.max(1, p - 1))}
+                          disabled={scheduledPage === 1}
+                          data-testid="button-scheduled-prev-page"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <span className="text-sm">{scheduledPage} / {scheduledTotalPages}</span>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => setScheduledPage(p => Math.min(scheduledTotalPages, p + 1))}
+                          disabled={scheduledPage >= scheduledTotalPages}
+                          data-testid="button-scheduled-next-page"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })()}
+                </>
               )}
             </CardContent>
           </Card>
