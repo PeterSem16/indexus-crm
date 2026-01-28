@@ -262,7 +262,8 @@ export function CreateInvoiceWizard({
   const [selectedProductId, setSelectedProductId] = useState<string>("");
   const [isAddingBillset, setIsAddingBillset] = useState<string | null>(null);
   const [billsetLoaded, setBillsetLoaded] = useState(false);
-  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>("");
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>("");  // Pay by Square
+  const [epcQrCodeDataUrl, setEpcQrCodeDataUrl] = useState<string>("");  // EPC QR
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Reset state when wizard opens
@@ -908,9 +909,10 @@ export function CreateInvoiceWizard({
       billingBankSwift: account?.swift || billing?.bankSwift,
       billingBankAccountNumber: account?.accountNumber,
       bankAccountId: account?.id,
-      // QR code configuration
+      // QR code configuration (dual QR codes)
       qrCodeType: barcodeType || "PAY",
-      qrCodeData: qrCodeDataUrl,
+      qrCodeData: qrCodeDataUrl, // Pay by Square (SK/CZ)
+      epcQrCodeData: epcQrCodeDataUrl, // EPC QR (EU standard)
       qrCodeEnabled: barcodeType ? true : false,
     };
   };
@@ -1256,11 +1258,12 @@ export function CreateInvoiceWizard({
   const constantSymbol = form.watch("constantSymbol");
   const specificSymbol = form.watch("specificSymbol");
 
-  // Generate real QR code for payment
+  // Generate both QR codes for payment (Pay by Square + EPC QR)
   useEffect(() => {
-    const generateQRCode = async () => {
+    const generateQRCodes = async () => {
       if (barcodeType !== "QR") {
         setQrCodeDataUrl("");
+        setEpcQrCodeDataUrl("");
         return;
       }
       
@@ -1272,30 +1275,59 @@ export function CreateInvoiceWizard({
       const iban = selectedBillingAccount?.iban || selectedBillingCompany?.bankIban || billingInfo?.bankIban || "";
       const swift = selectedBillingAccount?.swift || selectedBillingCompany?.bankSwift || "";
       const currency = selectedBillingAccount?.currency || selectedBillingCompany?.currency || "EUR";
+      const recipientName = selectedBillingCompany?.companyName || billingInfo?.companyName || "";
       
-      // PAY by Square format: SPD*1.0*ACC:IBAN+SWIFT*AM:AMOUNT*CC:CURRENCY*X-VS:VS*X-KS:KS*X-SS:SS
-      let qrData = `SPD*1.0*ACC:${iban}`;
+      // 1. PAY by Square format (SK/CZ): SPD*1.0*ACC:IBAN+SWIFT*AM:AMOUNT*CC:CURRENCY*X-VS:VS*X-KS:KS*X-SS:SS
+      let payBySquareData = `SPD*1.0*ACC:${iban}`;
       if (swift) {
-        qrData += `+${swift}`;
+        payBySquareData += `+${swift}`;
       }
-      qrData += `*AM:${amount.toFixed(2)}*CC:${currency}*X-VS:${vs}`;
-      if (ks) qrData += `*X-KS:${ks}`;
-      if (ss) qrData += `*X-SS:${ss}`;
+      payBySquareData += `*AM:${amount.toFixed(2)}*CC:${currency}*X-VS:${vs}`;
+      if (ks) payBySquareData += `*X-KS:${ks}`;
+      if (ss) payBySquareData += `*X-SS:${ss}`;
+      
+      // 2. EPC QR format (EU standard):
+      // BCD\n002\n1\nSCT\nBIC\nName\nIBAN\nEUR123.45\n\n\nReference\n
+      const epcLines = [
+        "BCD",           // Service Tag
+        "002",           // Version
+        "1",             // Character set (1=UTF-8)
+        "SCT",           // Identification
+        swift || "",     // BIC
+        recipientName.substring(0, 70),  // Recipient name (max 70)
+        iban,            // IBAN
+        `${currency}${amount.toFixed(2)}`,  // Amount
+        "",              // Purpose
+        "",              // Remittance (structured)
+        vs || "",        // Remittance (unstructured) - use VS as reference
+        ""               // Information
+      ];
+      const epcData = epcLines.join("\n");
       
       try {
-        const dataUrl = await QRCode.toDataURL(qrData, { 
+        // Generate Pay by Square QR
+        const payBySquareUrl = await QRCode.toDataURL(payBySquareData, { 
           width: 200, 
           margin: 2,
           color: { dark: '#000000', light: '#ffffff' }
         });
-        setQrCodeDataUrl(dataUrl);
+        setQrCodeDataUrl(payBySquareUrl);
+        
+        // Generate EPC QR
+        const epcUrl = await QRCode.toDataURL(epcData, { 
+          width: 200, 
+          margin: 2,
+          color: { dark: '#000000', light: '#ffffff' }
+        });
+        setEpcQrCodeDataUrl(epcUrl);
       } catch (err) {
         console.error("QR code generation error:", err);
         setQrCodeDataUrl("");
+        setEpcQrCodeDataUrl("");
       }
     };
     
-    generateQRCode();
+    generateQRCodes();
   }, [barcodeType, variableSymbol, constantSymbol, specificSymbol, totals.total, selectedBillingAccount, selectedBillingCompany, billingInfo, previewInvoiceNumber]);
 
   return (
@@ -2103,24 +2135,45 @@ export function CreateInvoiceWizard({
                             )}
                           />
 
-                          {/* Barcode Visual Preview */}
+                          {/* Barcode Visual Preview - Dual QR Codes */}
                           <div className="border rounded-lg p-4 bg-white dark:bg-gray-900">
                             <div className="flex items-center justify-center min-h-[160px]">
                               {form.watch("barcodeType") === "QR" ? (
-                                <div className="text-center">
-                                  {qrCodeDataUrl ? (
-                                    <img 
-                                      src={qrCodeDataUrl} 
-                                      alt="Payment QR Code" 
-                                      className="w-32 h-32 mx-auto rounded"
-                                      data-testid="qr-code-preview"
-                                    />
-                                  ) : (
-                                    <div className="w-32 h-32 mx-auto border-2 border-dashed border-muted-foreground/50 rounded flex items-center justify-center bg-muted/20">
-                                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                                    </div>
-                                  )}
-                                  <p className="text-xs text-muted-foreground mt-2">PAY by Square QR</p>
+                                <div className="flex gap-6">
+                                  {/* Pay by Square QR (SK/CZ) */}
+                                  <div className="text-center">
+                                    {qrCodeDataUrl ? (
+                                      <img 
+                                        src={qrCodeDataUrl} 
+                                        alt="Pay by Square QR Code" 
+                                        className="w-32 h-32 mx-auto rounded border"
+                                        data-testid="qr-code-pay-by-square"
+                                      />
+                                    ) : (
+                                      <div className="w-32 h-32 mx-auto border-2 border-dashed border-muted-foreground/50 rounded flex items-center justify-center bg-muted/20">
+                                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                                      </div>
+                                    )}
+                                    <p className="text-xs text-muted-foreground mt-2 font-semibold">PAY by Square</p>
+                                    <p className="text-[10px] text-muted-foreground">(SK/CZ)</p>
+                                  </div>
+                                  {/* EPC QR (EU) */}
+                                  <div className="text-center">
+                                    {epcQrCodeDataUrl ? (
+                                      <img 
+                                        src={epcQrCodeDataUrl} 
+                                        alt="EPC QR Code" 
+                                        className="w-32 h-32 mx-auto rounded border"
+                                        data-testid="qr-code-epc"
+                                      />
+                                    ) : (
+                                      <div className="w-32 h-32 mx-auto border-2 border-dashed border-muted-foreground/50 rounded flex items-center justify-center bg-muted/20">
+                                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                                      </div>
+                                    )}
+                                    <p className="text-xs text-muted-foreground mt-2 font-semibold">EPC QR</p>
+                                    <p className="text-[10px] text-muted-foreground">(EU Standard)</p>
+                                  </div>
                                 </div>
                               ) : form.watch("barcodeType") === "CODE128" ? (
                                 <div className="text-center">

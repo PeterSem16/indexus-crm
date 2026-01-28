@@ -5016,9 +5016,10 @@ export async function registerRoutes(
       if (rawData.billingBankSwift) invoiceData.billingBankSwift = rawData.billingBankSwift;
       if (rawData.billingBankAccountNumber) invoiceData.billingBankAccountNumber = rawData.billingBankAccountNumber;
       
-      // QR code configuration
+      // QR code configuration (dual QR codes)
       if (rawData.qrCodeType) invoiceData.qrCodeType = rawData.qrCodeType;
       if (rawData.qrCodeData) invoiceData.qrCodeData = rawData.qrCodeData;
+      if (rawData.epcQrCodeData) invoiceData.epcQrCodeData = rawData.epcQrCodeData;
       if (rawData.qrCodeEnabled !== undefined) invoiceData.qrCodeEnabled = rawData.qrCodeEnabled;
       
       // Items snapshot for template generation
@@ -5271,9 +5272,10 @@ export async function registerRoutes(
         billingBankIban: data.billingBankIban,
         billingBankSwift: data.billingBankSwift,
         billingBankAccountNumber: data.billingBankAccountNumber,
-        // QR code configuration
+        // QR code configuration (dual QR codes)
         qrCodeType: data.qrCodeType,
         qrCodeData: data.qrCodeData,
+        epcQrCodeData: data.epcQrCodeData,
         qrCodeEnabled: data.qrCodeEnabled || false,
         createdBy: (req.session as any)?.userId,
       }).returning();

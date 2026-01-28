@@ -123,6 +123,37 @@ interface ScheduledInvoice {
   createdInvoiceId?: string;
   createdAt: string;
   createdBy?: string;
+  // Customer metadata
+  customerName?: string;
+  customerAddress?: string;
+  customerCity?: string;
+  customerZip?: string;
+  customerCountry?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  customerCompanyName?: string;
+  customerTaxId?: string;
+  customerVatId?: string;
+  // Billing company metadata
+  billingCompanyName?: string;
+  billingAddress?: string;
+  billingCity?: string;
+  billingZip?: string;
+  billingCountry?: string;
+  billingTaxId?: string;
+  billingVatId?: string;
+  billingEmail?: string;
+  billingPhone?: string;
+  // Bank account metadata
+  billingBankName?: string;
+  billingBankIban?: string;
+  billingBankSwift?: string;
+  billingBankAccountNumber?: string;
+  // QR codes
+  qrCodeType?: string;
+  qrCodeData?: string;
+  epcQrCodeData?: string;
+  qrCodeEnabled?: boolean;
 }
 
 const localeMap: Record<string, string> = {
@@ -150,6 +181,7 @@ export default function CustomerInvoicesPage() {
   const [activeTab, setActiveTab] = useState("list");
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
   const [bulkSearch, setBulkSearch] = useState("");
+  const [selectedScheduledInvoice, setSelectedScheduledInvoice] = useState<ScheduledInvoice | null>(null);
   const perPage = 30;
 
   const { data: invoices = [], isLoading } = useQuery<Invoice[]>({
@@ -639,6 +671,15 @@ export default function CustomerInvoicesPage() {
                             <TableCell className="text-right">
                               <div className="flex items-center justify-end gap-2">
                                 <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => setSelectedScheduledInvoice(scheduled)}
+                                  data-testid={`button-view-metadata-${scheduled.id}`}
+                                  title={t.invoices?.viewMetadata || "View Metadata"}
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                                <Button
                                   size="sm"
                                   onClick={() => createFromScheduledMutation.mutate(scheduled.id)}
                                   disabled={createFromScheduledMutation.isPending}
@@ -654,7 +695,7 @@ export default function CustomerInvoicesPage() {
                                   )}
                                 </Button>
                                 <Button
-                                  size="sm"
+                                  size="icon"
                                   variant="ghost"
                                   onClick={() => deleteScheduledMutation.mutate(scheduled.id)}
                                   disabled={deleteScheduledMutation.isPending}
@@ -773,6 +814,191 @@ export default function CustomerInvoicesPage() {
         getStatusLabel={getStatusLabel}
         getStatusVariant={getStatusVariant}
       />
+
+      {/* Scheduled Invoice Metadata Sheet */}
+      <Sheet open={!!selectedScheduledInvoice} onOpenChange={(open) => !open && setSelectedScheduledInvoice(null)}>
+        <SheetContent className="w-[600px] sm:max-w-[600px] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Receipt className="h-5 w-5" />
+              {t.invoices?.scheduledInvoiceMetadata || "Scheduled Invoice Metadata"}
+            </SheetTitle>
+          </SheetHeader>
+          
+          {selectedScheduledInvoice && (
+            <div className="mt-6 space-y-6">
+              {/* Basic Info */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
+                  {t.invoices?.basicInfo || "Basic Info"}
+                </h3>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <Label className="text-muted-foreground text-xs">{t.invoices?.installment || "Installment"}</Label>
+                    <p className="font-medium">{selectedScheduledInvoice.installmentNumber}/{selectedScheduledInvoice.totalInstallments}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-xs">{t.invoices?.scheduledDate || "Scheduled Date"}</Label>
+                    <p className="font-medium">{formatDate(selectedScheduledInvoice.scheduledDate)}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-xs">{t.invoices?.amount || "Amount"}</Label>
+                    <p className="font-medium">{formatCurrency(selectedScheduledInvoice.totalAmount, selectedScheduledInvoice.currency)}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-xs">{t.invoices?.vatAmount || "VAT"}</Label>
+                    <p className="font-medium">{formatCurrency(selectedScheduledInvoice.vatAmount || "0", selectedScheduledInvoice.currency)}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Customer Metadata */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
+                  {t.customers?.title || "Customer"}
+                </h3>
+                {selectedScheduledInvoice.customerName ? (
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="col-span-2">
+                      <Label className="text-muted-foreground text-xs">{t.customers?.name || "Name"}</Label>
+                      <p className="font-medium">{selectedScheduledInvoice.customerName}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <Label className="text-muted-foreground text-xs">{t.customers?.address || "Address"}</Label>
+                      <p>{selectedScheduledInvoice.customerAddress}</p>
+                      <p>{selectedScheduledInvoice.customerZip} {selectedScheduledInvoice.customerCity}, {selectedScheduledInvoice.customerCountry}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground text-xs">{t.customers?.email || "Email"}</Label>
+                      <p>{selectedScheduledInvoice.customerEmail || "-"}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground text-xs">{t.customers?.phone || "Phone"}</Label>
+                      <p>{selectedScheduledInvoice.customerPhone || "-"}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">{t.invoices?.noMetadata || "No metadata stored"}</p>
+                )}
+              </div>
+
+              {/* Billing Company Metadata */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
+                  {t.invoices?.billingCompany || "Billing Company"}
+                </h3>
+                {selectedScheduledInvoice.billingCompanyName ? (
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="col-span-2">
+                      <Label className="text-muted-foreground text-xs">{t.invoices?.companyName || "Company"}</Label>
+                      <p className="font-medium">{selectedScheduledInvoice.billingCompanyName}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <Label className="text-muted-foreground text-xs">{t.customers?.address || "Address"}</Label>
+                      <p>{selectedScheduledInvoice.billingAddress}</p>
+                      <p>{selectedScheduledInvoice.billingZip} {selectedScheduledInvoice.billingCity}, {selectedScheduledInvoice.billingCountry}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground text-xs">{t.invoices?.taxId || "Tax ID"}</Label>
+                      <p>{selectedScheduledInvoice.billingTaxId || "-"}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground text-xs">{t.invoices?.vatId || "VAT ID"}</Label>
+                      <p>{selectedScheduledInvoice.billingVatId || "-"}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">{t.invoices?.noMetadata || "No metadata stored"}</p>
+                )}
+              </div>
+
+              {/* Bank Account Metadata */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
+                  {t.invoices?.bankAccount || "Bank Account"}
+                </h3>
+                {selectedScheduledInvoice.billingBankIban ? (
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="col-span-2">
+                      <Label className="text-muted-foreground text-xs">{t.invoices?.bankName || "Bank"}</Label>
+                      <p className="font-medium">{selectedScheduledInvoice.billingBankName || "-"}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <Label className="text-muted-foreground text-xs">IBAN</Label>
+                      <p className="font-mono text-xs">{selectedScheduledInvoice.billingBankIban}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground text-xs">SWIFT/BIC</Label>
+                      <p className="font-mono">{selectedScheduledInvoice.billingBankSwift || "-"}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground text-xs">{t.invoices?.accountNumber || "Account #"}</Label>
+                      <p className="font-mono">{selectedScheduledInvoice.billingBankAccountNumber || "-"}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">{t.invoices?.noMetadata || "No metadata stored"}</p>
+                )}
+              </div>
+
+              {/* QR Codes */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
+                  {t.invoices?.qrCodes || "QR Codes"}
+                </h3>
+                {selectedScheduledInvoice.qrCodeEnabled && (selectedScheduledInvoice.qrCodeData || selectedScheduledInvoice.epcQrCodeData) ? (
+                  <div className="flex gap-6">
+                    {selectedScheduledInvoice.qrCodeData && (
+                      <div className="text-center">
+                        <img 
+                          src={selectedScheduledInvoice.qrCodeData} 
+                          alt="Pay by Square" 
+                          className="w-24 h-24 rounded border"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">PAY by Square</p>
+                      </div>
+                    )}
+                    {selectedScheduledInvoice.epcQrCodeData && (
+                      <div className="text-center">
+                        <img 
+                          src={selectedScheduledInvoice.epcQrCodeData} 
+                          alt="EPC QR" 
+                          className="w-24 h-24 rounded border"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">EPC QR</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">{t.invoices?.noQrCodes || "No QR codes stored"}</p>
+                )}
+              </div>
+
+              {/* Items */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
+                  {t.invoices?.tabItems || "Items"}
+                </h3>
+                {selectedScheduledInvoice.items && selectedScheduledInvoice.items.length > 0 ? (
+                  <div className="border rounded-lg divide-y">
+                    {selectedScheduledInvoice.items.map((item: any, idx: number) => (
+                      <div key={idx} className="p-3 text-sm">
+                        <p className="font-medium">{item.name}</p>
+                        <div className="flex justify-between text-muted-foreground mt-1">
+                          <span>{item.quantity}x @ {formatCurrency(item.unitPrice, selectedScheduledInvoice.currency)}</span>
+                          <span className="font-medium text-foreground">{formatCurrency(item.totalPrice, selectedScheduledInvoice.currency)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">{t.invoices?.noItems || "No items"}</p>
+                )}
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

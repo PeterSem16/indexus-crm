@@ -773,7 +773,8 @@ export const invoices = pgTable("invoices", {
   billingBankAccountNumber: text("billing_bank_account_number"),
   // QR code configuration
   qrCodeType: text("qr_code_type"), // Type of QR code (PAY by square, etc.)
-  qrCodeData: text("qr_code_data"), // Generated QR code data/content
+  qrCodeData: text("qr_code_data"), // Pay by Square QR code data
+  epcQrCodeData: text("epc_qr_code_data"), // EPC QR code data (EU standard)
   qrCodeEnabled: boolean("qr_code_enabled").default(false),
   // Invoice items snapshot (JSON for template)
   itemsSnapshot: jsonb("items_snapshot"), // Complete items array with all details
@@ -866,7 +867,8 @@ export const scheduledInvoices = pgTable("scheduled_invoices", {
   billingBankAccountNumber: text("billing_bank_account_number"),
   // QR code configuration
   qrCodeType: text("qr_code_type"),
-  qrCodeData: text("qr_code_data"),
+  qrCodeData: text("qr_code_data"), // Pay by Square QR code data
+  epcQrCodeData: text("epc_qr_code_data"), // EPC QR code data (EU standard)
   qrCodeEnabled: boolean("qr_code_enabled").default(false),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   createdBy: varchar("created_by"),
