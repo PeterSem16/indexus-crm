@@ -47,7 +47,6 @@ import LandingPage from "@/pages/landing";
 import MobilePreview from "@/pages/mobile-preview";
 import CollectionsPage from "@/pages/collections";
 import CustomerInvoicesPage from "@/pages/customer-invoices";
-import InvoicingReportPage from "@/pages/invoicing-report";
 import NotFound from "@/pages/not-found";
 import { Loader2 } from "lucide-react";
 
@@ -165,7 +164,6 @@ function AuthenticatedApp() {
                     </Route>
                     <Route path="/contracts" component={ContractsPage} />
                     <Route path="/customer-invoices" component={CustomerInvoicesPage} />
-                    <Route path="/invoicing-report" component={InvoicingReportPage} />
                     <Route path="/settings" component={SettingsPage} />
                     <Route path="/configurator" component={ConfiguratorPage} />
                     <Route path="/ms365" component={MS365IntegrationPage} />

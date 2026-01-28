@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Search, Eye, Receipt, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckCircle2, Plus, Users, FileText, Calendar, Clock, Trash2 } from "lucide-react";
+import { Search, Eye, Receipt, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckCircle2, Plus, Users, FileText, Calendar, Clock, Trash2, BarChart3, TrendingUp } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -9,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
 import {
   Table,
@@ -442,6 +443,98 @@ export default function CustomerInvoicesPage() {
     return scheduledSortDirection === "asc" ? <ArrowUp className="h-4 w-4 ml-1" /> : <ArrowDown className="h-4 w-4 ml-1" />;
   };
 
+  const CHART_COLORS = ["#6B1C3B", "#8B3A5B", "#AB587B", "#CB769B", "#EB94BB", "#4A5568", "#718096"];
+
+  const reportData = useMemo(() => {
+    const now = new Date();
+    const months: { label: string; month: number; year: number }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({
+        label: d.toLocaleDateString("sk-SK", { month: "short", year: "2-digit" }),
+        month: d.getMonth(),
+        year: d.getFullYear(),
+      });
+    }
+    for (let i = 1; i <= 6; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+      months.push({
+        label: d.toLocaleDateString("sk-SK", { month: "short", year: "2-digit" }),
+        month: d.getMonth(),
+        year: d.getFullYear(),
+      });
+    }
+
+    const monthlyData = months.map(m => {
+      let issuedTotal = 0;
+      let issuedCount = 0;
+      let plannedTotal = 0;
+      let plannedCount = 0;
+
+      invoices.forEach(inv => {
+        if (inv.issueDate) {
+          const d = new Date(inv.issueDate);
+          if (d.getMonth() === m.month && d.getFullYear() === m.year) {
+            issuedTotal += parseFloat(inv.totalAmount || "0");
+            issuedCount++;
+          }
+        }
+      });
+
+      scheduledInvoices.forEach(inv => {
+        if (inv.status === "pending") {
+          const d = new Date(inv.scheduledDate);
+          if (d.getMonth() === m.month && d.getFullYear() === m.year) {
+            plannedTotal += parseFloat(inv.totalAmount || "0");
+            plannedCount++;
+          }
+        }
+      });
+
+      return {
+        name: m.label,
+        issued: issuedTotal,
+        planned: plannedTotal,
+        issuedCount,
+        plannedCount,
+      };
+    });
+
+    const byCustomer = new Map<string, { name: string; issued: number; planned: number }>();
+    invoices.forEach(inv => {
+      const customer = customerMap.get(inv.customerId);
+      const name = customer ? `${customer.firstName} ${customer.lastName}` : "N/A";
+      const existing = byCustomer.get(inv.customerId) || { name, issued: 0, planned: 0 };
+      existing.issued += parseFloat(inv.totalAmount || "0");
+      byCustomer.set(inv.customerId, existing);
+    });
+    scheduledInvoices.filter(s => s.status === "pending").forEach(inv => {
+      const customer = customerMap.get(inv.customerId);
+      const name = customer ? `${customer.firstName} ${customer.lastName}` : "N/A";
+      const existing = byCustomer.get(inv.customerId) || { name, issued: 0, planned: 0 };
+      existing.planned += parseFloat(inv.totalAmount || "0");
+      byCustomer.set(inv.customerId, existing);
+    });
+
+    const customerData = Array.from(byCustomer.values())
+      .sort((a, b) => (b.issued + b.planned) - (a.issued + a.planned))
+      .slice(0, 10);
+
+    const totals = {
+      issuedTotal: invoices.reduce((sum, inv) => sum + parseFloat(inv.totalAmount || "0"), 0),
+      issuedCount: invoices.length,
+      plannedTotal: scheduledInvoices.filter(s => s.status === "pending").reduce((sum, inv) => sum + parseFloat(inv.totalAmount || "0"), 0),
+      plannedCount: scheduledInvoices.filter(s => s.status === "pending").length,
+    };
+
+    const pieData = [
+      { name: "Vydané", value: totals.issuedTotal },
+      { name: "Plánované", value: totals.plannedTotal },
+    ];
+
+    return { monthlyData, customerData, totals, pieData };
+  }, [invoices, scheduledInvoices, customerMap]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -491,6 +584,10 @@ export default function CustomerInvoicesPage() {
           <TabsTrigger value="bulk" data-testid="tab-invoices-bulk">
             <Users className="h-4 w-4 mr-2" />
             {t.invoices?.bulkTab || "Bulk Generate"}
+          </TabsTrigger>
+          <TabsTrigger value="report" data-testid="tab-invoices-report">
+            <BarChart3 className="h-4 w-4 mr-2" />
+            Report
           </TabsTrigger>
         </TabsList>
 
@@ -949,6 +1046,140 @@ export default function CustomerInvoicesPage() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="report">
+          <div className="space-y-6">
+            <div className="grid gap-4 md:grid-cols-4">
+              <Card data-testid="card-issued-total">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 gap-2">
+                  <CardTitle className="text-sm font-medium">Vydané faktúry</CardTitle>
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{formatCurrency(reportData.totals.issuedTotal.toString(), "EUR")}</div>
+                  <p className="text-xs text-muted-foreground">{reportData.totals.issuedCount} faktúr</p>
+                </CardContent>
+              </Card>
+
+              <Card data-testid="card-planned-total">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 gap-2">
+                  <CardTitle className="text-sm font-medium">Plánované faktúry</CardTitle>
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{formatCurrency(reportData.totals.plannedTotal.toString(), "EUR")}</div>
+                  <p className="text-xs text-muted-foreground">{reportData.totals.plannedCount} faktúr</p>
+                </CardContent>
+              </Card>
+
+              <Card data-testid="card-customers-count">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 gap-2">
+                  <CardTitle className="text-sm font-medium">Zákazníci</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{reportData.customerData.length}</div>
+                  <p className="text-xs text-muted-foreground">s faktúrami</p>
+                </CardContent>
+              </Card>
+
+              <Card data-testid="card-forecast-total">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 gap-2">
+                  <CardTitle className="text-sm font-medium">Celkom</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {formatCurrency((reportData.totals.issuedTotal + reportData.totals.plannedTotal).toString(), "EUR")}
+                  </div>
+                  <p className="text-xs text-muted-foreground">vydané + plánované</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5" />
+                    Mesačný prehľad
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={reportData.monthlyData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" fontSize={12} />
+                        <YAxis fontSize={12} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                        <Tooltip formatter={(value: number) => formatCurrency(value.toString(), "EUR")} />
+                        <Legend />
+                        <Bar dataKey="issued" name="Vydané" fill="#6B1C3B" />
+                        <Bar dataKey="planned" name="Plánované" fill="#AB587B" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5" />
+                    Pomer vydané / plánované
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={reportData.pieData}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                          outerRadius={100}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {reportData.pieData.map((_, index) => (
+                            <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(value: number) => formatCurrency(value.toString(), "EUR")} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Top 10 zákazníkov podľa hodnoty faktúr
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[350px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={reportData.customerData} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis type="number" fontSize={12} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                      <YAxis dataKey="name" type="category" fontSize={11} width={120} />
+                      <Tooltip formatter={(value: number) => formatCurrency(value.toString(), "EUR")} />
+                      <Legend />
+                      <Bar dataKey="issued" name="Vydané" fill="#6B1C3B" />
+                      <Bar dataKey="planned" name="Plánované" fill="#AB587B" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
 
