@@ -962,7 +962,7 @@ export default function CustomerInvoicesPage() {
                 <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
                   {t.invoices?.qrCodes || "QR Codes"}
                 </h3>
-                {selectedScheduledInvoice.qrCodeEnabled && (selectedScheduledInvoice.qrCodeData || selectedScheduledInvoice.epcQrCodeData) ? (
+                {(selectedScheduledInvoice.qrCodeData || selectedScheduledInvoice.epcQrCodeData) ? (
                   <div className="flex gap-6">
                     {selectedScheduledInvoice.qrCodeData && (
                       <div className="text-center">
@@ -1229,7 +1229,7 @@ function InvoiceDetailDrawer({
             )}
 
             {/* QR Codes */}
-            {invoice.qrCodeEnabled && (invoice.qrCodeData || invoice.epcQrCodeData) && (
+            {(invoice.qrCodeData || invoice.epcQrCodeData) && (
               <div className="border-t pt-4 mt-4">
                 <h4 className="font-medium mb-3">{t.invoices?.qrCodes || "QR Codes"}</h4>
                 <div className="flex gap-6">
