@@ -874,6 +874,47 @@ export function CreateInvoiceWizard({
     return { subtotal, vatAmount, total };
   };
 
+  // Build complete metadata for invoice/scheduled invoice
+  const buildInvoiceMetadata = () => {
+    const cust = selectedCustomer;
+    const billing = selectedBillingCompany;
+    const account = selectedBillingAccount;
+    
+    return {
+      // Customer metadata snapshot
+      customerName: cust ? `${cust.firstName || ''} ${cust.lastName || ''}`.trim() : undefined,
+      customerAddress: cust?.correspondenceAddress || cust?.address,
+      customerCity: cust?.corrCity || cust?.city,
+      customerZip: cust?.corrPostalCode || cust?.postalCode,
+      customerCountry: cust?.country,
+      customerEmail: cust?.email,
+      customerPhone: cust?.phone,
+      customerCompanyName: cust?.companyName,
+      customerTaxId: cust?.ico,
+      customerVatId: cust?.dic,
+      // Billing company snapshot
+      billingCompanyName: billing?.companyName,
+      billingAddress: billing?.address,
+      billingCity: billing?.city,
+      billingZip: billing?.postalCode,
+      billingCountry: billing?.countryCode,
+      billingTaxId: billing?.taxId,
+      billingVatId: billing?.vatId,
+      billingEmail: billing?.email,
+      billingPhone: billing?.phone,
+      // Bank account snapshot
+      billingBankName: account?.bankName || billing?.bankName,
+      billingBankIban: account?.iban || billing?.bankIban,
+      billingBankSwift: account?.swift || billing?.bankSwift,
+      billingBankAccountNumber: account?.accountNumber,
+      bankAccountId: account?.id,
+      // QR code configuration
+      qrCodeType: barcodeType || "PAY",
+      qrCodeData: qrCodeDataUrl,
+      qrCodeEnabled: barcodeType ? true : false,
+    };
+  };
+
   const handleSubmit = async () => {
     console.log("[InvoiceWizard] handleSubmit called, isSubmitting:", isSubmitting);
     if (isSubmitting) {
@@ -988,6 +1029,7 @@ export function CreateInvoiceWizard({
 
         let firstInvoiceData;
         try {
+          const metadata = buildInvoiceMetadata();
           firstInvoiceData = {
             invoiceNumber,
             customerId: values.customerId || customerId,
@@ -1010,6 +1052,8 @@ export function CreateInvoiceWizard({
             items: firstInstallmentItems,
             installmentNumber: 1,
             totalInstallments: maxInstallments,
+            // Complete metadata for template generation
+            ...metadata,
           };
         } catch (dataError: unknown) {
           const errMsg = dataError instanceof Error ? dataError.message : String(dataError);
@@ -1061,6 +1105,7 @@ export function CreateInvoiceWizard({
 
         const { invoiceTotal, invoiceVatAmount, invoiceSubtotal } = calculateItemsTotals(futureItems);
 
+        const metadata = buildInvoiceMetadata();
         const scheduledData = {
           customerId: values.customerId || customerId,
           billingDetailsId: billingInfo?.id,
@@ -1080,6 +1125,8 @@ export function CreateInvoiceWizard({
           subtotal: invoiceSubtotal.toFixed(2),
           vatRate: billingInfo?.defaultVatRate || "20",
           parentInvoiceId: parentInvoiceId,
+          // Complete metadata for template generation
+          ...metadata,
         };
 
         try {
@@ -1133,6 +1180,7 @@ export function CreateInvoiceWizard({
         }
       }
 
+      const metadata = buildInvoiceMetadata();
       const invoiceData = {
         invoiceNumber,
         customerId: values.customerId || customerId,
@@ -1159,6 +1207,8 @@ export function CreateInvoiceWizard({
           vatRate: item.vatRate,
           totalPrice: item.total,
         })),
+        // Complete metadata for template generation
+        ...metadata,
       };
 
       createInvoiceMutation.mutate(invoiceData);
