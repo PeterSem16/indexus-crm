@@ -189,7 +189,7 @@ export default function CustomerInvoicesPage() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [sortField, setSortField] = useState<"invoiceNumber" | "issueDate" | "dueDate" | "totalAmount" | "status" | "customerName">("issueDate");
+  const [sortField, setSortField] = useState<"invoiceNumber" | "issueDate" | "dueDate" | "totalAmount" | "status" | "customerName" | "wizardCreatedAt">("issueDate");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [page, setPage] = useState(1);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
@@ -198,7 +198,7 @@ export default function CustomerInvoicesPage() {
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
   const [bulkSearch, setBulkSearch] = useState("");
   const [selectedScheduledInvoice, setSelectedScheduledInvoice] = useState<ScheduledInvoice | null>(null);
-  const perPage = 30;
+  const perPage = 15;
 
   const { data: invoices = [], isLoading } = useQuery<Invoice[]>({
     queryKey: ["/api/invoices", { countries: selectedCountries }],
@@ -390,6 +390,9 @@ export default function CustomerInvoicesPage() {
         case "customerName":
           comparison = (a.customerName || "").localeCompare(b.customerName || "");
           break;
+        case "wizardCreatedAt":
+          comparison = new Date(a.wizardCreatedAt || 0).getTime() - new Date(b.wizardCreatedAt || 0).getTime();
+          break;
       }
       return sortDirection === "asc" ? comparison : -comparison;
     });
@@ -549,7 +552,12 @@ export default function CustomerInvoicesPage() {
                         <SortIcon field="totalAmount" />
                       </div>
                     </TableHead>
-                    <TableHead>{t.invoices?.wizardCreated || "Wizard Created"}</TableHead>
+                    <TableHead className="cursor-pointer" onClick={() => handleSort("wizardCreatedAt")} data-testid="th-sort-wizardCreatedAt">
+                      <div className="flex items-center">
+                        {t.invoices?.wizardCreated || "Wizard Created"}
+                        <SortIcon field="wizardCreatedAt" />
+                      </div>
+                    </TableHead>
                     <TableHead className="w-[100px]"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -659,7 +667,7 @@ export default function CustomerInvoicesPage() {
                   <TableBody>
                     {scheduledInvoices
                       .filter(s => s.status === "pending")
-                      .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime())
+                      .sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime())
                       .map((scheduled) => {
                         const customer = customerMap.get(scheduled.customerId);
                         const isOverdue = new Date(scheduled.scheduledDate) < new Date();
