@@ -745,13 +745,38 @@ export const invoices = pgTable("invoices", {
   barcodeValue: text("barcode_value"), // Hodnota čiarového kódu
   generatedAt: timestamp("generated_at").notNull().default(sql`now()`),
   pdfPath: text("pdf_path"),
+  // Customer snapshot (metadata for template generation)
+  customerName: text("customer_name"), // Full name from customers table
+  customerAddress: text("customer_address"), // Street address
+  customerCity: text("customer_city"),
+  customerZip: text("customer_zip"),
+  customerCountry: text("customer_country"),
+  customerEmail: text("customer_email"),
+  customerPhone: text("customer_phone"),
+  customerCompanyName: text("customer_company_name"), // If business customer
+  customerTaxId: text("customer_tax_id"), // IČO
+  customerVatId: text("customer_vat_id"), // DIČ/IČ DPH
+  // Billing company snapshot
   billingCompanyName: text("billing_company_name"),
   billingAddress: text("billing_address"),
   billingCity: text("billing_city"),
+  billingZip: text("billing_zip"),
+  billingCountry: text("billing_country"),
   billingTaxId: text("billing_tax_id"),
+  billingVatId: text("billing_vat_id"),
+  billingEmail: text("billing_email"),
+  billingPhone: text("billing_phone"),
+  // Bank account snapshot
   billingBankName: text("billing_bank_name"),
   billingBankIban: text("billing_bank_iban"),
   billingBankSwift: text("billing_bank_swift"),
+  billingBankAccountNumber: text("billing_bank_account_number"),
+  // QR code configuration
+  qrCodeType: text("qr_code_type"), // Type of QR code (PAY by square, etc.)
+  qrCodeData: text("qr_code_data"), // Generated QR code data/content
+  qrCodeEnabled: boolean("qr_code_enabled").default(false),
+  // Invoice items snapshot (JSON for template)
+  itemsSnapshot: jsonb("items_snapshot"), // Complete items array with all details
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at"),
 });
@@ -794,6 +819,7 @@ export const scheduledInvoices = pgTable("scheduled_invoices", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   customerId: varchar("customer_id").notNull(),
   billingDetailsId: varchar("billing_details_id"),
+  bankAccountId: varchar("bank_account_id"),
   numberRangeId: varchar("number_range_id"),
   scheduledDate: timestamp("scheduled_date").notNull(), // When this invoice should be created
   installmentNumber: integer("installment_number").notNull(), // Which installment (2, 3, 4, etc.)
@@ -801,6 +827,7 @@ export const scheduledInvoices = pgTable("scheduled_invoices", {
   status: text("status").notNull().default("pending"), // pending, created, cancelled
   currency: text("currency").notNull().default("EUR"),
   paymentTermDays: integer("payment_term_days").notNull().default(14),
+  variableSymbol: text("variable_symbol"),
   constantSymbol: text("constant_symbol"),
   specificSymbol: text("specific_symbol"),
   barcodeType: text("barcode_type"),
@@ -811,8 +838,38 @@ export const scheduledInvoices = pgTable("scheduled_invoices", {
   vatRate: decimal("vat_rate", { precision: 5, scale: 2 }),
   parentInvoiceId: varchar("parent_invoice_id"), // Reference to the first invoice in the series
   createdInvoiceId: varchar("created_invoice_id"), // Reference to created invoice (when status = created)
+  // Customer snapshot (metadata for template generation)
+  customerName: text("customer_name"),
+  customerAddress: text("customer_address"),
+  customerCity: text("customer_city"),
+  customerZip: text("customer_zip"),
+  customerCountry: text("customer_country"),
+  customerEmail: text("customer_email"),
+  customerPhone: text("customer_phone"),
+  customerCompanyName: text("customer_company_name"),
+  customerTaxId: text("customer_tax_id"),
+  customerVatId: text("customer_vat_id"),
+  // Billing company snapshot
+  billingCompanyName: text("billing_company_name"),
+  billingAddress: text("billing_address"),
+  billingCity: text("billing_city"),
+  billingZip: text("billing_zip"),
+  billingCountry: text("billing_country"),
+  billingTaxId: text("billing_tax_id"),
+  billingVatId: text("billing_vat_id"),
+  billingEmail: text("billing_email"),
+  billingPhone: text("billing_phone"),
+  // Bank account snapshot
+  billingBankName: text("billing_bank_name"),
+  billingBankIban: text("billing_bank_iban"),
+  billingBankSwift: text("billing_bank_swift"),
+  billingBankAccountNumber: text("billing_bank_account_number"),
+  // QR code configuration
+  qrCodeType: text("qr_code_type"),
+  qrCodeData: text("qr_code_data"),
+  qrCodeEnabled: boolean("qr_code_enabled").default(false),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
-  createdBy: varchar("created_by"), // User who created the scheduled invoice
+  createdBy: varchar("created_by"),
 });
 
 // Customer notes - individual notes on customer records
