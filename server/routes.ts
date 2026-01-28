@@ -4984,13 +4984,45 @@ export async function registerRoutes(
       if (rawData.variableSymbol) invoiceData.variableSymbol = rawData.variableSymbol;
       if (rawData.constantSymbol) invoiceData.constantSymbol = rawData.constantSymbol;
       invoiceData.specificSymbol = rawData.specificSymbol || invoiceNumber;
+      if (rawData.barcodeType) invoiceData.barcodeType = rawData.barcodeType;
+      if (rawData.barcodeValue) invoiceData.barcodeValue = rawData.barcodeValue;
+      
+      // Customer metadata snapshot
+      if (rawData.customerName) invoiceData.customerName = rawData.customerName;
+      if (rawData.customerAddress) invoiceData.customerAddress = rawData.customerAddress;
+      if (rawData.customerCity) invoiceData.customerCity = rawData.customerCity;
+      if (rawData.customerZip) invoiceData.customerZip = rawData.customerZip;
+      if (rawData.customerCountry) invoiceData.customerCountry = rawData.customerCountry;
+      if (rawData.customerEmail) invoiceData.customerEmail = rawData.customerEmail;
+      if (rawData.customerPhone) invoiceData.customerPhone = rawData.customerPhone;
+      if (rawData.customerCompanyName) invoiceData.customerCompanyName = rawData.customerCompanyName;
+      if (rawData.customerTaxId) invoiceData.customerTaxId = rawData.customerTaxId;
+      if (rawData.customerVatId) invoiceData.customerVatId = rawData.customerVatId;
+      
+      // Billing company snapshot
       if (rawData.billingCompanyName) invoiceData.billingCompanyName = rawData.billingCompanyName;
       if (rawData.billingAddress) invoiceData.billingAddress = rawData.billingAddress;
       if (rawData.billingCity) invoiceData.billingCity = rawData.billingCity;
+      if (rawData.billingZip) invoiceData.billingZip = rawData.billingZip;
+      if (rawData.billingCountry) invoiceData.billingCountry = rawData.billingCountry;
       if (rawData.billingTaxId) invoiceData.billingTaxId = rawData.billingTaxId;
+      if (rawData.billingVatId) invoiceData.billingVatId = rawData.billingVatId;
+      if (rawData.billingEmail) invoiceData.billingEmail = rawData.billingEmail;
+      if (rawData.billingPhone) invoiceData.billingPhone = rawData.billingPhone;
+      
+      // Bank account snapshot
       if (rawData.billingBankName) invoiceData.billingBankName = rawData.billingBankName;
       if (rawData.billingBankIban) invoiceData.billingBankIban = rawData.billingBankIban;
       if (rawData.billingBankSwift) invoiceData.billingBankSwift = rawData.billingBankSwift;
+      if (rawData.billingBankAccountNumber) invoiceData.billingBankAccountNumber = rawData.billingBankAccountNumber;
+      
+      // QR code configuration
+      if (rawData.qrCodeType) invoiceData.qrCodeType = rawData.qrCodeType;
+      if (rawData.qrCodeData) invoiceData.qrCodeData = rawData.qrCodeData;
+      if (rawData.qrCodeEnabled !== undefined) invoiceData.qrCodeEnabled = rawData.qrCodeEnabled;
+      
+      // Items snapshot for template generation
+      if (rawData.items) invoiceData.itemsSnapshot = rawData.items;
       
       // Numeric fields
       if (rawData.subtotal) invoiceData.subtotal = rawData.subtotal;
@@ -5191,25 +5223,58 @@ export async function registerRoutes(
   app.post("/api/scheduled-invoices", requireAuth, async (req, res) => {
     try {
       console.log("[ScheduledInvoice] Creating scheduled invoice:", JSON.stringify(req.body, null, 2));
+      const data = req.body;
       const [scheduled] = await db.insert(scheduledInvoices).values({
-        customerId: req.body.customerId,
-        billingDetailsId: req.body.billingDetailsId,
-        numberRangeId: req.body.numberRangeId,
-        scheduledDate: new Date(req.body.scheduledDate),
-        installmentNumber: req.body.installmentNumber,
-        totalInstallments: req.body.totalInstallments,
-        status: req.body.status || "pending",
-        currency: req.body.currency || "EUR",
-        paymentTermDays: req.body.paymentTermDays || 14,
-        constantSymbol: req.body.constantSymbol,
-        specificSymbol: req.body.specificSymbol,
-        barcodeType: req.body.barcodeType,
-        items: req.body.items,
-        totalAmount: String(req.body.totalAmount),
-        vatAmount: req.body.vatAmount ? String(req.body.vatAmount) : null,
-        subtotal: req.body.subtotal ? String(req.body.subtotal) : null,
-        vatRate: req.body.vatRate ? String(req.body.vatRate) : null,
-        parentInvoiceId: req.body.parentInvoiceId,
+        customerId: data.customerId,
+        billingDetailsId: data.billingDetailsId,
+        bankAccountId: data.bankAccountId,
+        numberRangeId: data.numberRangeId,
+        scheduledDate: new Date(data.scheduledDate),
+        installmentNumber: data.installmentNumber,
+        totalInstallments: data.totalInstallments,
+        status: data.status || "pending",
+        currency: data.currency || "EUR",
+        paymentTermDays: data.paymentTermDays || 14,
+        variableSymbol: data.variableSymbol,
+        constantSymbol: data.constantSymbol,
+        specificSymbol: data.specificSymbol,
+        barcodeType: data.barcodeType,
+        items: data.items,
+        totalAmount: String(data.totalAmount),
+        vatAmount: data.vatAmount ? String(data.vatAmount) : null,
+        subtotal: data.subtotal ? String(data.subtotal) : null,
+        vatRate: data.vatRate ? String(data.vatRate) : null,
+        parentInvoiceId: data.parentInvoiceId,
+        // Customer metadata snapshot
+        customerName: data.customerName,
+        customerAddress: data.customerAddress,
+        customerCity: data.customerCity,
+        customerZip: data.customerZip,
+        customerCountry: data.customerCountry,
+        customerEmail: data.customerEmail,
+        customerPhone: data.customerPhone,
+        customerCompanyName: data.customerCompanyName,
+        customerTaxId: data.customerTaxId,
+        customerVatId: data.customerVatId,
+        // Billing company snapshot
+        billingCompanyName: data.billingCompanyName,
+        billingAddress: data.billingAddress,
+        billingCity: data.billingCity,
+        billingZip: data.billingZip,
+        billingCountry: data.billingCountry,
+        billingTaxId: data.billingTaxId,
+        billingVatId: data.billingVatId,
+        billingEmail: data.billingEmail,
+        billingPhone: data.billingPhone,
+        // Bank account snapshot
+        billingBankName: data.billingBankName,
+        billingBankIban: data.billingBankIban,
+        billingBankSwift: data.billingBankSwift,
+        billingBankAccountNumber: data.billingBankAccountNumber,
+        // QR code configuration
+        qrCodeType: data.qrCodeType,
+        qrCodeData: data.qrCodeData,
+        qrCodeEnabled: data.qrCodeEnabled || false,
         createdBy: (req.session as any)?.userId,
       }).returning();
       console.log("[ScheduledInvoice] Created:", scheduled.id);
