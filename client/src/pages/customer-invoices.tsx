@@ -224,6 +224,27 @@ export default function CustomerInvoicesPage() {
     queryKey: ["/api/scheduled-invoices"],
   });
 
+  const { data: exchangeRatesData } = useQuery<{ rates: { currencyCode: string; rate: string }[]; lastUpdate: string }>({
+    queryKey: ["/api/exchange-rates"],
+  });
+
+  const exchangeRateMap = useMemo(() => {
+    const map = new Map<string, number>();
+    map.set("EUR", 1);
+    exchangeRatesData?.rates?.forEach(r => {
+      map.set(r.currencyCode, parseFloat(r.rate));
+    });
+    return map;
+  }, [exchangeRatesData]);
+
+  const convertToEur = (amount: string, currency: string) => {
+    const num = parseFloat(amount || "0");
+    if (currency === "EUR" || !currency) return num;
+    const rate = exchangeRateMap.get(currency);
+    if (!rate || rate === 0) return num;
+    return num / rate;
+  };
+
   const createFromScheduledMutation = useMutation({
     mutationFn: (id: string) => apiRequest("POST", `/api/scheduled-invoices/${id}/create`),
     onSuccess: () => {
@@ -475,7 +496,7 @@ export default function CustomerInvoicesPage() {
         if (inv.issueDate) {
           const d = new Date(inv.issueDate);
           if (d.getMonth() === m.month && d.getFullYear() === m.year) {
-            issuedTotal += parseFloat(inv.totalAmount || "0");
+            issuedTotal += convertToEur(inv.totalAmount || "0", inv.currency);
             issuedCount++;
           }
         }
@@ -485,7 +506,7 @@ export default function CustomerInvoicesPage() {
         if (inv.status === "pending") {
           const d = new Date(inv.scheduledDate);
           if (d.getMonth() === m.month && d.getFullYear() === m.year) {
-            plannedTotal += parseFloat(inv.totalAmount || "0");
+            plannedTotal += convertToEur(inv.totalAmount || "0", inv.currency);
             plannedCount++;
           }
         }
@@ -505,14 +526,14 @@ export default function CustomerInvoicesPage() {
       const customer = customerMap.get(inv.customerId);
       const name = customer ? `${customer.firstName} ${customer.lastName}` : "N/A";
       const existing = byCustomer.get(inv.customerId) || { name, issued: 0, planned: 0 };
-      existing.issued += parseFloat(inv.totalAmount || "0");
+      existing.issued += convertToEur(inv.totalAmount || "0", inv.currency);
       byCustomer.set(inv.customerId, existing);
     });
     scheduledInvoices.filter(s => s.status === "pending").forEach(inv => {
       const customer = customerMap.get(inv.customerId);
       const name = customer ? `${customer.firstName} ${customer.lastName}` : "N/A";
       const existing = byCustomer.get(inv.customerId) || { name, issued: 0, planned: 0 };
-      existing.planned += parseFloat(inv.totalAmount || "0");
+      existing.planned += convertToEur(inv.totalAmount || "0", inv.currency);
       byCustomer.set(inv.customerId, existing);
     });
 
@@ -521,9 +542,9 @@ export default function CustomerInvoicesPage() {
       .slice(0, 10);
 
     const totals = {
-      issuedTotal: invoices.reduce((sum, inv) => sum + parseFloat(inv.totalAmount || "0"), 0),
+      issuedTotal: invoices.reduce((sum, inv) => sum + convertToEur(inv.totalAmount || "0", inv.currency), 0),
       issuedCount: invoices.length,
-      plannedTotal: scheduledInvoices.filter(s => s.status === "pending").reduce((sum, inv) => sum + parseFloat(inv.totalAmount || "0"), 0),
+      plannedTotal: scheduledInvoices.filter(s => s.status === "pending").reduce((sum, inv) => sum + convertToEur(inv.totalAmount || "0", inv.currency), 0),
       plannedCount: scheduledInvoices.filter(s => s.status === "pending").length,
     };
 
@@ -533,7 +554,7 @@ export default function CustomerInvoicesPage() {
     ];
 
     return { monthlyData, customerData, totals, pieData };
-  }, [invoices, scheduledInvoices, customerMap]);
+  }, [invoices, scheduledInvoices, customerMap, convertToEur]);
 
   if (isLoading) {
     return (
