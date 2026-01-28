@@ -203,6 +203,8 @@ export default function CustomerInvoicesPage() {
   const [bulkSearch, setBulkSearch] = useState("");
   const [selectedScheduledInvoice, setSelectedScheduledInvoice] = useState<ScheduledInvoice | null>(null);
   const [scheduledPage, setScheduledPage] = useState(1);
+  const [scheduledSortField, setScheduledSortField] = useState<"scheduledDate" | "customerName" | "totalAmount" | "wizardCreatedAt">("scheduledDate");
+  const [scheduledSortDirection, setScheduledSortDirection] = useState<"asc" | "desc">("desc");
   const perPage = 15;
 
   const { data: invoices = [], isLoading } = useQuery<Invoice[]>({
@@ -359,7 +361,7 @@ export default function CustomerInvoicesPage() {
   }, [invoices, customerMap, billingMap]);
 
   const filteredInvoices = useMemo(() => {
-    let result = enrichedInvoices;
+    let result = [...enrichedInvoices];
 
     if (statusFilter !== "all") {
       result = result.filter(inv => inv.status === statusFilter);
@@ -424,6 +426,20 @@ export default function CustomerInvoicesPage() {
   const SortIcon = ({ field }: { field: typeof sortField }) => {
     if (sortField !== field) return <ArrowUpDown className="h-4 w-4 ml-1" />;
     return sortDirection === "asc" ? <ArrowUp className="h-4 w-4 ml-1" /> : <ArrowDown className="h-4 w-4 ml-1" />;
+  };
+
+  const handleScheduledSort = (field: typeof scheduledSortField) => {
+    if (scheduledSortField === field) {
+      setScheduledSortDirection(prev => prev === "asc" ? "desc" : "asc");
+    } else {
+      setScheduledSortField(field);
+      setScheduledSortDirection("desc");
+    }
+  };
+
+  const ScheduledSortIcon = ({ field }: { field: typeof scheduledSortField }) => {
+    if (scheduledSortField !== field) return <ArrowUpDown className="h-4 w-4 ml-1" />;
+    return scheduledSortDirection === "asc" ? <ArrowUp className="h-4 w-4 ml-1" /> : <ArrowDown className="h-4 w-4 ml-1" />;
   };
 
   if (isLoading) {
@@ -661,20 +677,61 @@ export default function CustomerInvoicesPage() {
                 <Table data-testid="table-scheduled-invoices">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>{t.invoices?.scheduledDate || "Scheduled Date"}</TableHead>
-                      <TableHead>{t.customers?.title || "Customer"}</TableHead>
+                      <TableHead className="cursor-pointer" onClick={() => handleScheduledSort("scheduledDate")} data-testid="th-scheduled-sort-date">
+                        <div className="flex items-center">
+                          {t.invoices?.scheduledDate || "Scheduled Date"}
+                          <ScheduledSortIcon field="scheduledDate" />
+                        </div>
+                      </TableHead>
+                      <TableHead className="cursor-pointer" onClick={() => handleScheduledSort("customerName")} data-testid="th-scheduled-sort-customer">
+                        <div className="flex items-center">
+                          {t.customers?.title || "Customer"}
+                          <ScheduledSortIcon field="customerName" />
+                        </div>
+                      </TableHead>
                       <TableHead>{t.invoices?.installment || "Installment"}</TableHead>
-                      <TableHead className="text-right">{t.invoices?.amount || "Amount"}</TableHead>
+                      <TableHead className="cursor-pointer text-right" onClick={() => handleScheduledSort("totalAmount")} data-testid="th-scheduled-sort-amount">
+                        <div className="flex items-center justify-end">
+                          {t.invoices?.amount || "Amount"}
+                          <ScheduledSortIcon field="totalAmount" />
+                        </div>
+                      </TableHead>
                       <TableHead>{t.invoices?.status || "Status"}</TableHead>
-                      <TableHead>{t.invoices?.wizardCreated || "Wizard Created"}</TableHead>
+                      <TableHead className="cursor-pointer" onClick={() => handleScheduledSort("wizardCreatedAt")} data-testid="th-scheduled-sort-wizard">
+                        <div className="flex items-center">
+                          {t.invoices?.wizardCreated || "Wizard Created"}
+                          <ScheduledSortIcon field="wizardCreatedAt" />
+                        </div>
+                      </TableHead>
                       <TableHead className="text-right">{t.common?.actions || "Actions"}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {(() => {
-                      const filtered = scheduledInvoices
-                        .filter(s => s.status === "pending")
-                        .sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime());
+                      const pending = scheduledInvoices.filter(s => s.status === "pending");
+                      const sorted = [...pending].sort((a, b) => {
+                        const customerA = customerMap.get(a.customerId);
+                        const customerB = customerMap.get(b.customerId);
+                        let comparison = 0;
+                        switch (scheduledSortField) {
+                          case "scheduledDate":
+                            comparison = new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime();
+                            break;
+                          case "customerName":
+                            const nameA = customerA ? `${customerA.firstName} ${customerA.lastName}` : "";
+                            const nameB = customerB ? `${customerB.firstName} ${customerB.lastName}` : "";
+                            comparison = nameA.localeCompare(nameB);
+                            break;
+                          case "totalAmount":
+                            comparison = parseFloat(a.totalAmount || "0") - parseFloat(b.totalAmount || "0");
+                            break;
+                          case "wizardCreatedAt":
+                            comparison = new Date(a.wizardCreatedAt || 0).getTime() - new Date(b.wizardCreatedAt || 0).getTime();
+                            break;
+                        }
+                        return scheduledSortDirection === "asc" ? comparison : -comparison;
+                      });
+                      const filtered = sorted;
                       const startIdx = (scheduledPage - 1) * perPage;
                       const paginated = filtered.slice(startIdx, startIdx + perPage);
                       return paginated.map((scheduled) => {
