@@ -5025,6 +5025,11 @@ export async function registerRoutes(
       // Items snapshot for template generation
       if (rawData.items) invoiceData.itemsSnapshot = rawData.items;
       
+      // Wizard tracking
+      if (rawData.wizardCreatedAt) {
+        invoiceData.wizardCreatedAt = typeof rawData.wizardCreatedAt === 'string' ? new Date(rawData.wizardCreatedAt) : rawData.wizardCreatedAt;
+      }
+      
       // Numeric fields
       if (rawData.subtotal) invoiceData.subtotal = rawData.subtotal;
       if (rawData.vatRate) invoiceData.vatRate = rawData.vatRate;
@@ -5277,6 +5282,8 @@ export async function registerRoutes(
         qrCodeData: data.qrCodeData,
         epcQrCodeData: data.epcQrCodeData,
         qrCodeEnabled: data.qrCodeEnabled || false,
+        // Wizard tracking
+        wizardCreatedAt: data.wizardCreatedAt ? new Date(data.wizardCreatedAt) : null,
         createdBy: (req.session as any)?.userId,
       }).returning();
       console.log("[ScheduledInvoice] Created:", scheduled.id);

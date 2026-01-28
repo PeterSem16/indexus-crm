@@ -1263,7 +1263,7 @@ export function CreateInvoiceWizard({
   // Generate both QR codes for payment (Pay by Square + EPC QR)
   useEffect(() => {
     const generateQRCodes = async () => {
-      if (barcodeType !== "QR") {
+      if (barcodeType !== "QR" || barcodeType === "NONE") {
         setQrCodeDataUrl("");
         setEpcQrCodeDataUrl("");
         return;
@@ -2126,11 +2126,8 @@ export function CreateInvoiceWizard({
                                     </SelectTrigger>
                                   </FormControl>
                                   <SelectContent>
-                                    <SelectItem value="QR">QR Code (PAY by Square)</SelectItem>
-                                    <SelectItem value="CODE128">Code 128</SelectItem>
-                                    <SelectItem value="EAN13">EAN-13</SelectItem>
-                                    <SelectItem value="DATAMATRIX">Data Matrix</SelectItem>
-                                    <SelectItem value="PDF417">PDF417</SelectItem>
+                                    <SelectItem value="QR">QR Code (PAY by Square + EPC)</SelectItem>
+                                    <SelectItem value="NONE">{t.common?.none || "None"}</SelectItem>
                                   </SelectContent>
                                 </Select>
                               </FormItem>
@@ -2176,24 +2173,6 @@ export function CreateInvoiceWizard({
                                     <p className="text-xs text-muted-foreground mt-2 font-semibold">EPC QR</p>
                                     <p className="text-[10px] text-muted-foreground">(EU Standard)</p>
                                   </div>
-                                </div>
-                              ) : form.watch("barcodeType") === "CODE128" ? (
-                                <div className="text-center">
-                                  <div className="flex items-end justify-center gap-0.5 h-16 px-4 py-2 bg-white rounded">
-                                    {Array.from({ length: 40 }).map((_, i) => (
-                                      <div key={i} className="bg-black" style={{ width: i % 3 === 0 ? '2px' : '1px', height: `${50 + (i % 5) * 3}px` }} />
-                                    ))}
-                                  </div>
-                                  <p className="text-xs text-muted-foreground mt-2">Code 128 Barcode</p>
-                                </div>
-                              ) : form.watch("barcodeType") === "EAN13" ? (
-                                <div className="text-center">
-                                  <div className="flex items-end justify-center gap-0.5 h-16 px-4 py-2 bg-white rounded">
-                                    {Array.from({ length: 95 }).map((_, i) => (
-                                      <div key={i} className="bg-black" style={{ width: '1px', height: i === 0 || i === 2 || i === 46 || i === 48 || i === 92 || i === 94 ? '56px' : '48px' }} />
-                                    ))}
-                                  </div>
-                                  <p className="text-xs text-muted-foreground mt-2">EAN-13 Barcode</p>
                                 </div>
                               ) : (
                                 <div className="text-center text-muted-foreground">
