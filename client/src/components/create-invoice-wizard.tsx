@@ -899,10 +899,12 @@ export function CreateInvoiceWizard({
       billingCity: billing?.city,
       billingZip: billing?.postalCode,
       billingCountry: billing?.countryCode,
-      billingTaxId: billing?.taxId,
-      billingVatId: billing?.vatId,
+      billingTaxId: billing?.ico || billing?.taxId, // IČO
+      billingVatId: billing?.dic || billing?.vatNumber, // DIČ / IČ DPH
       billingEmail: billing?.email,
       billingPhone: billing?.phone,
+      // Wizard tracking
+      wizardCreatedAt: new Date().toISOString(),
       // Bank account snapshot
       billingBankName: account?.bankName || billing?.bankName,
       billingBankIban: account?.iban || billing?.bankIban,

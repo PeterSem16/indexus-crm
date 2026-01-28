@@ -778,6 +778,8 @@ export const invoices = pgTable("invoices", {
   qrCodeEnabled: boolean("qr_code_enabled").default(false),
   // Invoice items snapshot (JSON for template)
   itemsSnapshot: jsonb("items_snapshot"), // Complete items array with all details
+  // Wizard tracking
+  wizardCreatedAt: timestamp("wizard_created_at"), // When invoice was created via wizard
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at"),
 });
@@ -870,6 +872,8 @@ export const scheduledInvoices = pgTable("scheduled_invoices", {
   qrCodeData: text("qr_code_data"), // Pay by Square QR code data
   epcQrCodeData: text("epc_qr_code_data"), // EPC QR code data (EU standard)
   qrCodeEnabled: boolean("qr_code_enabled").default(false),
+  // Wizard tracking
+  wizardCreatedAt: timestamp("wizard_created_at"), // When scheduled invoice was created via wizard
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   createdBy: varchar("created_by"),
 });

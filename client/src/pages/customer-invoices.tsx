@@ -549,6 +549,7 @@ export default function CustomerInvoicesPage() {
                         <SortIcon field="totalAmount" />
                       </div>
                     </TableHead>
+                    <TableHead>{t.invoices?.wizardCreated || "Wizard Created"}</TableHead>
                     <TableHead className="w-[100px]"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -566,6 +567,15 @@ export default function CustomerInvoicesPage() {
                       <TableCell data-testid={`text-issueDate-${invoice.id}`}>{formatDate(invoice.issueDate)}</TableCell>
                       <TableCell data-testid={`text-dueDate-${invoice.id}`}>{formatDate(invoice.dueDate)}</TableCell>
                       <TableCell className="text-right" data-testid={`text-totalAmount-${invoice.id}`}>{formatCurrency(invoice.totalAmount, invoice.currency)}</TableCell>
+                      <TableCell data-testid={`text-wizardCreated-${invoice.id}`}>
+                        {invoice.wizardCreatedAt ? (
+                          <span className="text-sm text-muted-foreground">
+                            {formatDate(invoice.wizardCreatedAt)}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <Button
                           variant="ghost"
@@ -642,6 +652,7 @@ export default function CustomerInvoicesPage() {
                       <TableHead>{t.invoices?.installment || "Installment"}</TableHead>
                       <TableHead className="text-right">{t.invoices?.amount || "Amount"}</TableHead>
                       <TableHead>{t.invoices?.status || "Status"}</TableHead>
+                      <TableHead>{t.invoices?.wizardCreated || "Wizard Created"}</TableHead>
                       <TableHead className="text-right">{t.common?.actions || "Actions"}</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -683,6 +694,15 @@ export default function CustomerInvoicesPage() {
                                 <Clock className="h-3 w-3 mr-1" />
                                 {t.invoices?.pending || "Pending"}
                               </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {scheduled.wizardCreatedAt ? (
+                                <span className="text-sm text-muted-foreground">
+                                  {formatDate(scheduled.wizardCreatedAt)}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
                             </TableCell>
                             <TableCell className="text-right">
                               <div className="flex items-center justify-end gap-2">
