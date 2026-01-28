@@ -1307,20 +1307,22 @@ export function CreateInvoiceWizard({
       const epcData = epcLines.join("\n");
       
       try {
-        // Generate Pay by Square QR
-        const payBySquareUrl = await QRCode.toDataURL(payBySquareData, { 
-          width: 200, 
-          margin: 2,
-          color: { dark: '#000000', light: '#ffffff' }
-        });
-        setQrCodeDataUrl(payBySquareUrl);
+        // Generate both QR codes in parallel
+        const [payBySquareUrl, epcUrl] = await Promise.all([
+          QRCode.toDataURL(payBySquareData, { 
+            width: 200, 
+            margin: 2,
+            color: { dark: '#000000', light: '#ffffff' }
+          }),
+          QRCode.toDataURL(epcData, { 
+            width: 200, 
+            margin: 2,
+            color: { dark: '#000000', light: '#ffffff' }
+          })
+        ]);
         
-        // Generate EPC QR
-        const epcUrl = await QRCode.toDataURL(epcData, { 
-          width: 200, 
-          margin: 2,
-          color: { dark: '#000000', light: '#ffffff' }
-        });
+        // Update both states together
+        setQrCodeDataUrl(payBySquareUrl);
         setEpcQrCodeDataUrl(epcUrl);
       } catch (err) {
         console.error("QR code generation error:", err);
