@@ -956,6 +956,14 @@ All fields except `countryCode` (for creation) are optional. Fields can be updat
 | `statusAwaitingDisposalAt` | ISO8601 | When marked for disposal |
 | `statusDisposedAt` | ISO8601 | When disposed |
 
+### Status Code
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` | integer | Status code ID from `collection_statuses` table. Numeric value representing the current status of the collection (e.g., 10 = Created, 20 = Paired, 30 = Evaluated, etc.) |
+
+> **Note:** The `status` field accepts numeric codes that correspond to entries in the `collection_statuses` configuration table. Contact your administrator for the complete list of available status codes.
+
 ### Other Fields
 
 | Field | Type | Description |
@@ -1083,5 +1091,6 @@ For API support or to request an API key, contact the INDEXUS system administrat
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.2.0 | 2026-01 | Added `status` field to Collections API - accepts numeric status codes from `collection_statuses` table |
 | 1.1.0 | 2026-01 | Added Collections API with full CRUD support, all fields optional, PHP examples |
 | 1.0.0 | 2024-01 | Initial Lab Results API release |

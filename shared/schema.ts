@@ -4442,6 +4442,9 @@ export const collections = pgTable("collections", {
   responsibleCoordinatorId: varchar("responsible_coordinator_id"),
   contractId: varchar("contract_id"),
   
+  // Status code (numeric ID from collection_statuses table)
+  status: integer("status"),
+  
   // Notes
   doctorNote: text("doctor_note"),
   note: text("note"),

@@ -19416,6 +19416,9 @@ Guidelines:
     responsibleCoordinatorId: z.string().uuid().optional(),
     contractId: z.string().uuid().optional(),
     
+    // Status code (numeric ID from collection_statuses table)
+    status: z.union([z.number().int(), z.string().regex(/^\d+$/).transform(Number)]).optional(),
+    
     // Notes
     doctorNote: z.string().optional(),
     note: z.string().optional(),
