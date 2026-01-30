@@ -2443,6 +2443,7 @@ export const invoiceTemplates = pgTable("invoice_templates", {
   showPaymentQr: boolean("show_payment_qr").notNull().default(false),
   paymentInstructions: text("payment_instructions"),
   legalText: text("legal_text"),
+  docxTemplatePath: text("docx_template_path"), // Path to DOCX template file
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });

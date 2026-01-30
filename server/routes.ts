@@ -354,6 +354,32 @@ const uploadContractPdf = multer({
   },
 });
 
+// Configure multer for invoice DOCX template uploads
+const invoiceDocxStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = path.join(DATA_ROOT, "invoice-docx-templates");
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, `template-${uniqueSuffix}.docx`);
+  },
+});
+
+const uploadInvoiceDocx = multer({
+  storage: invoiceDocxStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || 
+        file.originalname.endsWith('.docx')) {
+      cb(null, true);
+    } else {
+      cb(new Error("Invalid file type. Only DOCX files are allowed."));
+    }
+  },
+});
+
 // Configure multer for SuperDoc DOCX uploads (memory storage for direct buffer access)
 const uploadDocxMemory = multer({
   storage: multer.memoryStorage(),
@@ -5741,6 +5767,148 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error generating PDF:", error);
       res.status(500).json({ error: "Failed to generate PDF" });
+    }
+  });
+
+  // Generate PDF from DOCX template
+  app.get("/api/invoices/:id/pdf-docx", requireAuth, async (req, res) => {
+    try {
+      const { templateId } = req.query;
+      const invoice = await storage.getInvoice(req.params.id);
+      if (!invoice) {
+        return res.status(404).json({ error: "Invoice not found" });
+      }
+
+      const customer = await storage.getCustomer(invoice.customerId);
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+
+      const invoiceItems = await storage.getInvoiceItems(invoice.id);
+      const countryCode = customer.country?.toUpperCase() || "SK";
+      const templateType = invoice.invoiceType === "proforma" ? "proforma" : "standard";
+
+      // Get template
+      let template = templateId 
+        ? await storage.getInvoiceTemplate(templateId as string)
+        : await storage.getDefaultInvoiceTemplate(countryCode, templateType);
+
+      if (!template?.docxTemplatePath) {
+        return res.status(400).json({ error: "Template does not have a DOCX file. Please upload a DOCX template first." });
+      }
+
+      const docxPath = path.join(process.cwd(), template.docxTemplatePath);
+      if (!fs.existsSync(docxPath)) {
+        return res.status(404).json({ error: "DOCX template file not found" });
+      }
+
+      // Load DOCX template
+      const PizZip = require("pizzip");
+      const Docxtemplater = require("docxtemplater");
+      
+      const content = fs.readFileSync(docxPath, "binary");
+      const zip = new PizZip(content);
+      const doc = new Docxtemplater(zip, {
+        paragraphLoop: true,
+        linebreaks: true,
+      });
+
+      // Prepare data for template
+      const templateData = {
+        invoice: {
+          number: invoice.invoiceNumber,
+          date: new Date(invoice.generatedAt).toLocaleDateString("sk-SK"),
+          dueDate: invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString("sk-SK") : "",
+          variableSymbol: invoice.variableSymbol || "",
+          subtotal: invoice.subtotal ? parseFloat(invoice.subtotal).toFixed(2) : "",
+          vatRate: invoice.vatRate ? parseFloat(invoice.vatRate).toFixed(0) : "",
+          vatAmount: invoice.vatAmount ? parseFloat(invoice.vatAmount).toFixed(2) : "",
+          total: parseFloat(invoice.totalAmount).toFixed(2),
+          currency: invoice.currency,
+          type: invoice.invoiceType === "proforma" ? "Zálohová faktúra" : "Faktúra",
+        },
+        customer: {
+          firstName: customer.firstName,
+          lastName: customer.lastName,
+          fullName: `${customer.firstName} ${customer.lastName}`,
+          email: customer.email || "",
+          phone: customer.phone || "",
+          address: customer.address || "",
+          city: customer.city || "",
+          postalCode: customer.postalCode || "",
+          country: customer.country || "",
+        },
+        billing: {
+          companyName: invoice.billingCompanyName || "",
+          address: invoice.billingAddress || "",
+          city: invoice.billingCity || "",
+          taxId: invoice.billingTaxId || "",
+          vatId: invoice.billingVatId || "",
+          bankName: invoice.billingBankName || "",
+          iban: invoice.billingBankIban || "",
+          swift: invoice.billingBankSwift || "",
+        },
+        items: invoiceItems.map((item, index) => ({
+          index: index + 1,
+          name: item.name || "",
+          description: item.description || item.name || "",
+          quantity: item.quantity,
+          unitPrice: parseFloat(item.unitPrice).toFixed(2),
+          totalPrice: parseFloat(item.totalPrice).toFixed(2),
+          currency: invoice.currency,
+        })),
+      };
+
+      // Render template
+      doc.render(templateData);
+
+      // Generate filled DOCX
+      const buf = doc.getZip().generate({ type: "nodebuffer" });
+      const filledDocxPath = path.join(process.cwd(), "uploads/temp", `invoice-${invoice.id}-${Date.now()}.docx`);
+      const pdfPath = filledDocxPath.replace(".docx", ".pdf");
+      
+      // Ensure temp directory exists
+      const tempDir = path.join(process.cwd(), "uploads/temp");
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+      }
+      
+      fs.writeFileSync(filledDocxPath, buf);
+
+      // Convert to PDF using LibreOffice
+      const { execSync } = require("child_process");
+      try {
+        execSync(`soffice --headless --convert-to pdf --outdir "${tempDir}" "${filledDocxPath}"`, {
+          timeout: 30000,
+        });
+      } catch (convErr) {
+        console.error("LibreOffice conversion failed:", convErr);
+        // Fallback: send DOCX if PDF conversion fails
+        res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+        res.setHeader("Content-Disposition", `attachment; filename="${invoice.invoiceNumber}.docx"`);
+        fs.createReadStream(filledDocxPath).pipe(res);
+        return;
+      }
+
+      // Send PDF
+      if (fs.existsSync(pdfPath)) {
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Disposition", `attachment; filename="${invoice.invoiceNumber}.pdf"`);
+        fs.createReadStream(pdfPath).pipe(res);
+        
+        // Cleanup temp files after sending
+        res.on("finish", () => {
+          try {
+            if (fs.existsSync(filledDocxPath)) fs.unlinkSync(filledDocxPath);
+            if (fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath);
+          } catch (e) {}
+        });
+      } else {
+        res.status(500).json({ error: "PDF conversion failed" });
+      }
+    } catch (error) {
+      console.error("Error generating PDF from DOCX:", error);
+      res.status(500).json({ error: "Failed to generate PDF from DOCX template" });
     }
   });
 
@@ -11616,6 +11784,30 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Failed to delete invoice template:", error);
       res.status(500).json({ error: "Failed to delete invoice template" });
+    }
+  });
+
+  // Upload DOCX template for invoice template
+  app.post("/api/configurator/invoice-templates/:id/docx", requireAuth, uploadInvoiceDocx.single("docx"), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const template = await storage.getInvoiceTemplate(id);
+      if (!template) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      // File is already saved by multer, just get relative path
+      const relativePath = `uploads/invoice-docx-templates/${req.file.filename}`;
+      await storage.updateInvoiceTemplate(id, { docxTemplatePath: relativePath });
+
+      res.json({ success: true, docxTemplatePath: relativePath });
+    } catch (error) {
+      console.error("Failed to upload DOCX template:", error);
+      res.status(500).json({ error: "Failed to upload DOCX template" });
     }
   });
 

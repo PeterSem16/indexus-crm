@@ -1493,9 +1493,28 @@ export default function CustomerInvoicesPage() {
               </Select>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-wrap gap-2">
             <Button variant="outline" onClick={() => setPdfDialogOpen(false)} data-testid="btn-cancel-pdf">
               {t.common?.cancel || "Zrušiť"}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                if (pdfInvoiceId && pdfInvoiceType !== "scheduled") {
+                  const params = new URLSearchParams();
+                  if (selectedTemplateId && selectedTemplateId !== "default") {
+                    params.set("templateId", selectedTemplateId);
+                  }
+                  const url = `/api/invoices/${pdfInvoiceId}/pdf-docx?${params}`;
+                  window.open(url, "_blank");
+                  setPdfDialogOpen(false);
+                }
+              }}
+              disabled={pdfInvoiceType === "scheduled"}
+              data-testid="btn-generate-pdf-docx"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              PDF z DOCX
             </Button>
             <Button
               onClick={() => {

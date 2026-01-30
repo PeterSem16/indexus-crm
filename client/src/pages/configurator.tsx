@@ -7638,6 +7638,48 @@ function InvoiceTemplatesTab() {
         </Badge>
       )
     },
+    { 
+      key: "docxTemplate", 
+      header: "DOCX",
+      cell: (template: InvoiceTemplate) => (
+        <div className="flex items-center gap-2">
+          {(template as any).docxTemplatePath ? (
+            <Badge variant="outline" className="text-green-600">Nahraný</Badge>
+          ) : (
+            <Badge variant="secondary">Chýba</Badge>
+          )}
+          <label className="cursor-pointer">
+            <input
+              type="file"
+              accept=".docx"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const formData = new FormData();
+                formData.append("docx", file);
+                try {
+                  const res = await fetch(`/api/configurator/invoice-templates/${template.id}/docx`, {
+                    method: "POST",
+                    body: formData,
+                    credentials: "include",
+                  });
+                  if (res.ok) {
+                    queryClient.invalidateQueries({ queryKey: ["/api/configurator/invoice-templates"] });
+                  }
+                } catch (err) {
+                  console.error("Upload failed:", err);
+                }
+              }}
+              data-testid={`input-docx-upload-${template.id}`}
+            />
+            <Button size="sm" variant="outline" asChild>
+              <span><Upload className="h-3 w-3 mr-1" />DOCX</span>
+            </Button>
+          </label>
+        </div>
+      )
+    },
     {
       key: "actions",
       header: t.common.actions,
