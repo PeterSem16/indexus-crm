@@ -5748,6 +5748,7 @@ export async function registerRoutes(
   app.get("/api/invoices/:id/pdf-template", requireAuth, async (req, res) => {
     try {
       const { templateId, layoutId } = req.query;
+      console.log("[PDF] Generating invoice PDF with templateId:", templateId, "layoutId:", layoutId);
       const invoice = await storage.getInvoice(req.params.id);
       if (!invoice) {
         return res.status(404).json({ error: "Invoice not found" });
@@ -5770,6 +5771,9 @@ export async function registerRoutes(
       let layout = layoutId
         ? await storage.getInvoiceLayout(layoutId as string)
         : await storage.getDefaultInvoiceLayout(countryCode);
+
+      console.log("[PDF] Loaded template:", template?.id, template?.name, "primaryColor:", template?.primaryColor);
+      console.log("[PDF] Loaded layout:", layout?.id, layout?.name, "paperSize:", layout?.paperSize, "fontSize:", layout?.fontSize);
 
       // Build PDF with template styling
       const doc = new PDFDocument({ 
