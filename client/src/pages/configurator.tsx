@@ -7875,12 +7875,12 @@ function DocxTemplatesTab() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Krajina</Label>
-                <Select value={newTemplateCountry} onValueChange={setNewTemplateCountry}>
+                <Select value={newTemplateCountry || "_all"} onValueChange={(v) => setNewTemplateCountry(v === "_all" ? "" : v)}>
                   <SelectTrigger data-testid="select-template-country">
                     <SelectValue placeholder="Všetky krajiny" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Všetky krajiny</SelectItem>
+                    <SelectItem value="_all">Všetky krajiny</SelectItem>
                     {countries.map((c) => (
                       <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
                     ))}
