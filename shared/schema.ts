@@ -2486,6 +2486,31 @@ export const insertInvoiceLayoutSchema = createInsertSchema(invoiceLayouts).omit
 export type InsertInvoiceLayout = z.infer<typeof insertInvoiceLayoutSchema>;
 export type InvoiceLayout = typeof invoiceLayouts.$inferSelect;
 
+// DOCX Templates for invoice generation
+export const docxTemplates = pgTable("docx_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  filePath: text("file_path").notNull(), // Path to uploaded DOCX file
+  originalFileName: text("original_file_name"), // Original uploaded filename
+  countryCode: text("country_code"), // Optional country-specific template
+  templateType: text("template_type").notNull().default("invoice"), // invoice, proforma, credit_note
+  isDefault: boolean("is_default").notNull().default(false),
+  isActive: boolean("is_active").notNull().default(true),
+  createdBy: varchar("created_by"), // User who uploaded the template
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertDocxTemplateSchema = createInsertSchema(docxTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertDocxTemplate = z.infer<typeof insertDocxTemplateSchema>;
+export type DocxTemplate = typeof docxTemplates.$inferSelect;
+
 // Departments table - organizational structure
 export const departments = pgTable("departments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

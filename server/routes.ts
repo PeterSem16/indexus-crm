@@ -11811,6 +11811,237 @@ export async function registerRoutes(
     }
   });
 
+  // DOCX Templates - standalone module for invoice DOCX templates
+  app.get("/api/configurator/docx-templates", requireAuth, async (req, res) => {
+    try {
+      const templates = await storage.getAllDocxTemplates();
+      res.json(templates);
+    } catch (error) {
+      console.error("Failed to get DOCX templates:", error);
+      res.status(500).json({ error: "Failed to get DOCX templates" });
+    }
+  });
+
+  // Get available variables for DOCX templates (MUST be before :id route)
+  app.get("/api/configurator/docx-templates/variables", requireAuth, async (req, res) => {
+    const variables = {
+      invoice: {
+        label: "Faktúra",
+        variables: [
+          { key: "{{invoice.number}}", description: "Číslo faktúry" },
+          { key: "{{invoice.variableSymbol}}", description: "Variabilný symbol" },
+          { key: "{{invoice.issueDate}}", description: "Dátum vystavenia" },
+          { key: "{{invoice.dueDate}}", description: "Dátum splatnosti" },
+          { key: "{{invoice.deliveryDate}}", description: "Dátum dodania" },
+          { key: "{{invoice.subtotal}}", description: "Medzisúčet bez DPH" },
+          { key: "{{invoice.vatAmount}}", description: "Suma DPH" },
+          { key: "{{invoice.total}}", description: "Celková suma" },
+          { key: "{{invoice.totalWords}}", description: "Suma slovom" },
+          { key: "{{invoice.currency}}", description: "Mena" },
+          { key: "{{invoice.currencySymbol}}", description: "Symbol meny" },
+          { key: "{{invoice.paymentMethod}}", description: "Spôsob platby" },
+          { key: "{{invoice.notes}}", description: "Poznámky" },
+          { key: "{{invoice.status}}", description: "Stav faktúry" },
+        ]
+      },
+      customer: {
+        label: "Zákazník",
+        variables: [
+          { key: "{{customer.fullName}}", description: "Celé meno" },
+          { key: "{{customer.firstName}}", description: "Meno" },
+          { key: "{{customer.lastName}}", description: "Priezvisko" },
+          { key: "{{customer.companyName}}", description: "Názov firmy" },
+          { key: "{{customer.email}}", description: "E-mail" },
+          { key: "{{customer.phone}}", description: "Telefón" },
+          { key: "{{customer.street}}", description: "Ulica" },
+          { key: "{{customer.city}}", description: "Mesto" },
+          { key: "{{customer.postalCode}}", description: "PSČ" },
+          { key: "{{customer.country}}", description: "Krajina" },
+          { key: "{{customer.ico}}", description: "IČO" },
+          { key: "{{customer.dic}}", description: "DIČ" },
+          { key: "{{customer.icDph}}", description: "IČ DPH" },
+        ]
+      },
+      billingCompany: {
+        label: "Fakturujúca spoločnosť",
+        variables: [
+          { key: "{{billingCompany.name}}", description: "Názov spoločnosti" },
+          { key: "{{billingCompany.street}}", description: "Ulica" },
+          { key: "{{billingCompany.city}}", description: "Mesto" },
+          { key: "{{billingCompany.postalCode}}", description: "PSČ" },
+          { key: "{{billingCompany.country}}", description: "Krajina" },
+          { key: "{{billingCompany.ico}}", description: "IČO" },
+          { key: "{{billingCompany.dic}}", description: "DIČ" },
+          { key: "{{billingCompany.icDph}}", description: "IČ DPH" },
+          { key: "{{billingCompany.bankName}}", description: "Názov banky" },
+          { key: "{{billingCompany.iban}}", description: "IBAN" },
+          { key: "{{billingCompany.swift}}", description: "SWIFT/BIC" },
+        ]
+      },
+      items: {
+        label: "Položky faktúry (v slučke)",
+        description: "Použite {#items}...{/items} pre opakovanie položiek",
+        variables: [
+          { key: "{{description}}", description: "Popis položky" },
+          { key: "{{quantity}}", description: "Množstvo" },
+          { key: "{{unit}}", description: "Jednotka" },
+          { key: "{{unitPrice}}", description: "Jednotková cena" },
+          { key: "{{vatRate}}", description: "Sadzba DPH %" },
+          { key: "{{totalPrice}}", description: "Celková cena položky" },
+        ]
+      },
+      qrCodes: {
+        label: "QR kódy",
+        variables: [
+          { key: "{{qrCodePayBySquare}}", description: "Pay by Square QR (SK/CZ) - base64 obrázok" },
+          { key: "{{qrCodeEpc}}", description: "EPC QR (EU) - base64 obrázok" },
+        ]
+      }
+    };
+    res.json(variables);
+  });
+
+  app.get("/api/configurator/docx-templates/:id", requireAuth, async (req, res) => {
+    try {
+      const template = await storage.getDocxTemplate(req.params.id);
+      if (!template) {
+        return res.status(404).json({ error: "DOCX template not found" });
+      }
+      res.json(template);
+    } catch (error) {
+      console.error("Failed to get DOCX template:", error);
+      res.status(500).json({ error: "Failed to get DOCX template" });
+    }
+  });
+
+  app.post("/api/configurator/docx-templates", requireAuth, uploadInvoiceDocx.single("docx"), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No DOCX file uploaded" });
+      }
+
+      const { name, description, countryCode, templateType } = req.body;
+      if (!name) {
+        return res.status(400).json({ error: "Name is required" });
+      }
+
+      const template = await storage.createDocxTemplate({
+        name,
+        description: description || null,
+        filePath: `uploads/invoice-docx-templates/${req.file.filename}`,
+        originalFileName: req.file.originalname,
+        countryCode: countryCode || null,
+        templateType: templateType || "invoice",
+        isDefault: false,
+        isActive: true,
+        createdBy: req.session.user?.id || null,
+      });
+
+      await logActivity(
+        req.session.user!.id,
+        "created_docx_template",
+        "docx_template",
+        template.id,
+        template.name,
+        undefined,
+        req.ip
+      );
+
+      res.json(template);
+    } catch (error) {
+      console.error("Failed to create DOCX template:", error);
+      res.status(500).json({ error: "Failed to create DOCX template" });
+    }
+  });
+
+  app.patch("/api/configurator/docx-templates/:id", requireAuth, async (req, res) => {
+    try {
+      const { name, description, countryCode, templateType, isDefault, isActive } = req.body;
+      const updated = await storage.updateDocxTemplate(req.params.id, {
+        ...(name !== undefined && { name }),
+        ...(description !== undefined && { description }),
+        ...(countryCode !== undefined && { countryCode }),
+        ...(templateType !== undefined && { templateType }),
+        ...(isDefault !== undefined && { isDefault }),
+        ...(isActive !== undefined && { isActive }),
+      });
+
+      if (!updated) {
+        return res.status(404).json({ error: "DOCX template not found" });
+      }
+
+      await logActivity(
+        req.session.user!.id,
+        "updated_docx_template",
+        "docx_template",
+        updated.id,
+        updated.name,
+        undefined,
+        req.ip
+      );
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Failed to update DOCX template:", error);
+      res.status(500).json({ error: "Failed to update DOCX template" });
+    }
+  });
+
+  app.delete("/api/configurator/docx-templates/:id", requireAuth, async (req, res) => {
+    try {
+      const template = await storage.getDocxTemplate(req.params.id);
+      if (!template) {
+        return res.status(404).json({ error: "DOCX template not found" });
+      }
+
+      // Delete the file
+      const filePath = path.join(process.cwd(), template.filePath);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+
+      const success = await storage.deleteDocxTemplate(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "DOCX template not found" });
+      }
+
+      await logActivity(
+        req.session.user!.id,
+        "deleted_docx_template",
+        "docx_template",
+        req.params.id,
+        template.name,
+        undefined,
+        req.ip
+      );
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete DOCX template:", error);
+      res.status(500).json({ error: "Failed to delete DOCX template" });
+    }
+  });
+
+  // Download DOCX template file
+  app.get("/api/configurator/docx-templates/:id/download", requireAuth, async (req, res) => {
+    try {
+      const template = await storage.getDocxTemplate(req.params.id);
+      if (!template) {
+        return res.status(404).json({ error: "DOCX template not found" });
+      }
+
+      const filePath = path.join(process.cwd(), template.filePath);
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: "DOCX file not found on disk" });
+      }
+
+      res.download(filePath, template.originalFileName || `template-${template.id}.docx`);
+    } catch (error) {
+      console.error("Failed to download DOCX template:", error);
+      res.status(500).json({ error: "Failed to download DOCX template" });
+    }
+  });
+
   // Invoice Layouts
   app.get("/api/configurator/invoice-layouts", requireAuth, async (req, res) => {
     try {

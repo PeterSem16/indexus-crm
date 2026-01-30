@@ -49,6 +49,7 @@ import {
   type NumberRange, type InsertNumberRange,
   type InvoiceTemplate, type InsertInvoiceTemplate,
   type InvoiceLayout, type InsertInvoiceLayout,
+  docxTemplates, type DocxTemplate, type InsertDocxTemplate,
   type Role, type InsertRole,
   type RoleModulePermission, type InsertRoleModulePermission,
   type RoleFieldPermission, type InsertRoleFieldPermission,
@@ -519,6 +520,13 @@ export interface IStorage {
   getDefaultInvoiceLayout(countryCode: string): Promise<InvoiceLayout | undefined>;
   getInvoiceTemplate(id: string): Promise<InvoiceTemplate | undefined>;
   getInvoiceLayout(id: string): Promise<InvoiceLayout | undefined>;
+
+  // DOCX Templates
+  getAllDocxTemplates(): Promise<DocxTemplate[]>;
+  getDocxTemplate(id: string): Promise<DocxTemplate | undefined>;
+  createDocxTemplate(data: InsertDocxTemplate): Promise<DocxTemplate>;
+  updateDocxTemplate(id: string, data: Partial<InsertDocxTemplate>): Promise<DocxTemplate | undefined>;
+  deleteDocxTemplate(id: string): Promise<boolean>;
 
   // Roles
   getAllRoles(): Promise<Role[]>;
@@ -3052,6 +3060,34 @@ export class DatabaseStorage implements IStorage {
   async getInvoiceLayout(id: string): Promise<InvoiceLayout | undefined> {
     const [layout] = await db.select().from(invoiceLayouts).where(eq(invoiceLayouts.id, id));
     return layout;
+  }
+
+  // DOCX Templates
+  async getAllDocxTemplates(): Promise<DocxTemplate[]> {
+    return db.select().from(docxTemplates).orderBy(docxTemplates.name);
+  }
+
+  async getDocxTemplate(id: string): Promise<DocxTemplate | undefined> {
+    const [template] = await db.select().from(docxTemplates).where(eq(docxTemplates.id, id));
+    return template;
+  }
+
+  async createDocxTemplate(data: InsertDocxTemplate): Promise<DocxTemplate> {
+    const [created] = await db.insert(docxTemplates).values(data).returning();
+    return created;
+  }
+
+  async updateDocxTemplate(id: string, data: Partial<InsertDocxTemplate>): Promise<DocxTemplate | undefined> {
+    const [updated] = await db.update(docxTemplates)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(docxTemplates.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteDocxTemplate(id: string): Promise<boolean> {
+    const result = await db.delete(docxTemplates).where(eq(docxTemplates.id, id)).returning();
+    return result.length > 0;
   }
 
   // Roles

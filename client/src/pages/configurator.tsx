@@ -23,7 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Unlock, Check, Hash, Info, X, DollarSign, Percent, Calculator, CreditCard, TrendingUp, Bell, CheckCircle2, XCircle, Key, AlertTriangle, Upload } from "lucide-react";
+import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Unlock, Check, Hash, Info, X, DollarSign, Percent, Calculator, CreditCard, TrendingUp, Bell, CheckCircle2, XCircle, Key, AlertTriangle, Upload, FileDown } from "lucide-react";
 import { COUNTRIES, CURRENCIES, getCurrencySymbol } from "@shared/schema";
 import { InvoiceDesigner, InvoiceDesignerConfig } from "@/components/invoice-designer";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -7504,6 +7504,330 @@ function ServiceConfigurationTab() {
               </DialogFooter>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// DOCX Templates Tab - standalone module for managing DOCX invoice templates
+interface DocxTemplateType {
+  id: string;
+  name: string;
+  description: string | null;
+  filePath: string;
+  originalFileName: string | null;
+  countryCode: string | null;
+  templateType: string;
+  isDefault: boolean;
+  isActive: boolean;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface VariableGroup {
+  label: string;
+  description?: string;
+  variables: { key: string; description: string }[];
+}
+
+function DocxTemplatesTab() {
+  const { t } = useI18n();
+  const { toast } = useToast();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [showVariables, setShowVariables] = useState(true);
+  const [uploadingFile, setUploadingFile] = useState<File | null>(null);
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const [newTemplateDescription, setNewTemplateDescription] = useState("");
+  const [newTemplateType, setNewTemplateType] = useState("invoice");
+
+  const { data: templates = [], isLoading } = useQuery<DocxTemplateType[]>({
+    queryKey: ["/api/configurator/docx-templates"],
+  });
+
+  const { data: variablesData } = useQuery<Record<string, VariableGroup>>({
+    queryKey: ["/api/configurator/docx-templates/variables"],
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (formData: FormData) => {
+      const res = await fetch("/api/configurator/docx-templates", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to upload template");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/configurator/docx-templates"] });
+      setIsDialogOpen(false);
+      setUploadingFile(null);
+      setNewTemplateName("");
+      setNewTemplateDescription("");
+      toast({ title: "DOCX šablóna vytvorená" });
+    },
+    onError: () => {
+      toast({ title: "Chyba pri vytváraní šablóny", variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/configurator/docx-templates/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/configurator/docx-templates"] });
+      toast({ title: "DOCX šablóna zmazaná" });
+    },
+  });
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
+      apiRequest("PATCH", `/api/configurator/docx-templates/${id}`, { isActive }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/configurator/docx-templates"] });
+    },
+  });
+
+  const handleUpload = () => {
+    if (!uploadingFile || !newTemplateName) return;
+    const formData = new FormData();
+    formData.append("docx", uploadingFile);
+    formData.append("name", newTemplateName);
+    formData.append("description", newTemplateDescription);
+    formData.append("templateType", newTemplateType);
+    createMutation.mutate(formData);
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({ title: "Skopírované do schránky" });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-medium">DOCX Šablóny faktúr</h3>
+          <p className="text-sm text-muted-foreground">
+            Nahrajte DOCX šablóny s premennými pre automatické generovanie PDF faktúr
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setShowVariables(!showVariables)}
+            data-testid="btn-toggle-variables"
+          >
+            <Info className="h-4 w-4 mr-2" />
+            {showVariables ? "Skryť premenné" : "Zobraziť premenné"}
+          </Button>
+          <Button onClick={() => setIsDialogOpen(true)} data-testid="btn-new-docx-template">
+            <Plus className="h-4 w-4 mr-2" />
+            Nová DOCX šablóna
+          </Button>
+        </div>
+      </div>
+
+      {showVariables && variablesData && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Dostupné premenné pre DOCX šablóny</CardTitle>
+            <CardDescription>
+              Kliknite na premennú pre skopírovanie. Použite tieto premenné vo vašom DOCX súbore.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Object.entries(variablesData).map(([groupKey, group]) => (
+                <div key={groupKey} className="border rounded-lg p-4">
+                  <h4 className="font-medium mb-2">{group.label}</h4>
+                  {group.description && (
+                    <p className="text-xs text-muted-foreground mb-2">{group.description}</p>
+                  )}
+                  <div className="space-y-1">
+                    {group.variables.map((v) => (
+                      <div
+                        key={v.key}
+                        className="flex items-center justify-between text-sm hover:bg-muted p-1 rounded cursor-pointer"
+                        onClick={() => copyToClipboard(v.key)}
+                        data-testid={`var-${v.key}`}
+                      >
+                        <code className="text-xs bg-muted px-1 rounded">{v.key}</code>
+                        <span className="text-xs text-muted-foreground ml-2">{v.description}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardContent className="pt-6">
+          {templates.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              Zatiaľ nemáte žiadne DOCX šablóny. Kliknite na "Nová DOCX šablóna" pre vytvorenie.
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Názov</TableHead>
+                  <TableHead>Typ</TableHead>
+                  <TableHead>Súbor</TableHead>
+                  <TableHead>Stav</TableHead>
+                  <TableHead>Vytvorené</TableHead>
+                  <TableHead className="text-right">Akcie</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {templates.map((template) => (
+                  <TableRow key={template.id}>
+                    <TableCell className="font-medium">{template.name}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">
+                        {template.templateType === "invoice" ? "Faktúra" : 
+                         template.templateType === "proforma" ? "Proforma" : "Dobropis"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {template.originalFileName || "template.docx"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={template.isActive ? "default" : "secondary"}>
+                        {template.isActive ? "Aktívna" : "Neaktívna"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {new Date(template.createdAt).toLocaleDateString("sk-SK")}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => window.open(`/api/configurator/docx-templates/${template.id}/download`, "_blank")}
+                          data-testid={`btn-download-${template.id}`}
+                        >
+                          <FileDown className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => toggleActiveMutation.mutate({ id: template.id, isActive: !template.isActive })}
+                          data-testid={`btn-toggle-${template.id}`}
+                        >
+                          {template.isActive ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => deleteMutation.mutate(template.id)}
+                          data-testid={`btn-delete-${template.id}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nová DOCX šablóna</DialogTitle>
+            <DialogDescription>
+              Nahrajte DOCX súbor so premennými. Premenné budú pri generovaní PDF nahradené dátami z faktúry.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Názov šablóny *</Label>
+              <Input
+                value={newTemplateName}
+                onChange={(e) => setNewTemplateName(e.target.value)}
+                placeholder="napr. Štandardná faktúra SK"
+                data-testid="input-template-name"
+              />
+            </div>
+            <div>
+              <Label>Popis</Label>
+              <Textarea
+                value={newTemplateDescription}
+                onChange={(e) => setNewTemplateDescription(e.target.value)}
+                placeholder="Voliteľný popis šablóny..."
+                data-testid="input-template-description"
+              />
+            </div>
+            <div>
+              <Label>Typ dokumentu</Label>
+              <Select value={newTemplateType} onValueChange={setNewTemplateType}>
+                <SelectTrigger data-testid="select-template-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="invoice">Faktúra</SelectItem>
+                  <SelectItem value="proforma">Proforma faktúra</SelectItem>
+                  <SelectItem value="credit_note">Dobropis</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>DOCX súbor *</Label>
+              <div className="mt-2">
+                <input
+                  type="file"
+                  accept=".docx"
+                  onChange={(e) => setUploadingFile(e.target.files?.[0] || null)}
+                  className="block w-full text-sm text-muted-foreground
+                    file:mr-4 file:py-2 file:px-4
+                    file:rounded-md file:border-0
+                    file:text-sm file:font-semibold
+                    file:bg-primary file:text-primary-foreground
+                    hover:file:bg-primary/90"
+                  data-testid="input-docx-file"
+                />
+              </div>
+              {uploadingFile && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  Vybraný súbor: {uploadingFile.name}
+                </p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              Zrušiť
+            </Button>
+            <Button
+              onClick={handleUpload}
+              disabled={!uploadingFile || !newTemplateName || createMutation.isPending}
+              data-testid="btn-upload-docx"
+            >
+              {createMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Upload className="h-4 w-4 mr-2" />
+              )}
+              Nahrať šablónu
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
@@ -16281,12 +16605,19 @@ export default function ConfiguratorPage() {
                     <Layout className="h-4 w-4 mr-2" />
                     {t.konfigurator.invoiceLayouts || "Rozloženia faktúr"}
                   </TabsTrigger>
+                  <TabsTrigger value="docx" data-testid="subtab-docx">
+                    <FileText className="h-4 w-4 mr-2" />
+                    DOCX Šablóny
+                  </TabsTrigger>
                 </TabsList>
                 <TabsContent value="templates">
                   <InvoiceTemplatesTab />
                 </TabsContent>
                 <TabsContent value="layouts">
                   <InvoiceEditorTab />
+                </TabsContent>
+                <TabsContent value="docx">
+                  <DocxTemplatesTab />
                 </TabsContent>
               </Tabs>
             </CardContent>
