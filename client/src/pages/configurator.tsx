@@ -16235,15 +16235,15 @@ export default function ConfiguratorPage() {
                     <FileText className="h-4 w-4 mr-2" />
                     {t.konfigurator.invoiceTemplates}
                   </TabsTrigger>
-                  <TabsTrigger value="editor" data-testid="subtab-editor">
+                  <TabsTrigger value="layouts" data-testid="subtab-layouts">
                     <Layout className="h-4 w-4 mr-2" />
-                    {t.konfigurator.designInvoice || "Dizajnér faktúr"}
+                    {t.konfigurator.invoiceLayouts || "Rozloženia faktúr"}
                   </TabsTrigger>
                 </TabsList>
                 <TabsContent value="templates">
                   <InvoiceTemplatesTab />
                 </TabsContent>
-                <TabsContent value="editor">
+                <TabsContent value="layouts">
                   <InvoiceEditorTab />
                 </TabsContent>
               </Tabs>
