@@ -5785,6 +5785,19 @@ export async function registerRoutes(
       const primaryColor = template?.primaryColor || "#6B2346";
       const fontSize = layout?.fontSize || 10;
 
+      // Register fonts with Central European character support
+      const fontPath = path.join(process.cwd(), "uploads/fonts");
+      const regularFontPath = path.join(fontPath, "DejaVuSans.ttf");
+      const boldFontPath = path.join(fontPath, "DejaVuSans-Bold.ttf");
+      
+      if (fs.existsSync(regularFontPath) && fs.existsSync(boldFontPath)) {
+        doc.registerFont("Regular", regularFontPath);
+        doc.registerFont("Bold", boldFontPath);
+      } else {
+        doc.registerFont("Regular", "Helvetica");
+        doc.registerFont("Bold", "Helvetica-Bold");
+      }
+
       // Header with logo and company info
       if (template?.logoPath) {
         try {
@@ -5796,9 +5809,9 @@ export async function registerRoutes(
       }
 
       // Billing company info
-      doc.fillColor(primaryColor).fontSize(16).font("Helvetica-Bold");
+      doc.fillColor(primaryColor).fontSize(16).font("Bold");
       doc.text(invoice.billingCompanyName || "INDEXUS", template?.logoPath ? 160 : 50, 50);
-      doc.fillColor("black").fontSize(fontSize).font("Helvetica");
+      doc.fillColor("black").fontSize(fontSize).font("Regular");
       
       let yPos = template?.logoPath ? 70 : doc.y;
       if (invoice.billingAddress) doc.text(invoice.billingAddress, { continued: false });
@@ -5813,8 +5826,8 @@ export async function registerRoutes(
 
       // Invoice title
       const invoiceTitle = invoice.invoiceType === "proforma" ? "ZÁLOHOVÁ FAKTÚRA" : "FAKTÚRA";
-      doc.fillColor(primaryColor).fontSize(18).font("Helvetica-Bold").text(invoiceTitle);
-      doc.fillColor("black").fontSize(fontSize).font("Helvetica");
+      doc.fillColor(primaryColor).fontSize(18).font("Bold").text(invoiceTitle);
+      doc.fillColor("black").fontSize(fontSize).font("Regular");
       doc.text(`Číslo: ${invoice.invoiceNumber}`);
       doc.text(`Dátum vystavenia: ${new Date(invoice.generatedAt).toLocaleDateString("sk-SK")}`);
       if (invoice.dueDate) {
@@ -5826,8 +5839,8 @@ export async function registerRoutes(
       doc.moveDown();
 
       // Customer section
-      doc.fontSize(12).font("Helvetica-Bold").text("Odberateľ:");
-      doc.fontSize(fontSize).font("Helvetica");
+      doc.fontSize(12).font("Bold").text("Odberateľ:");
+      doc.fontSize(fontSize).font("Regular");
       doc.text(`${customer.firstName} ${customer.lastName}`);
       if (customer.address) doc.text(customer.address);
       if (customer.city) doc.text(`${customer.postalCode || ""} ${customer.city}`);
@@ -5839,7 +5852,7 @@ export async function registerRoutes(
       // Items table
       const tableTop = doc.y;
       const tableLeft = 50;
-      doc.fontSize(fontSize).font("Helvetica-Bold");
+      doc.fontSize(fontSize).font("Bold");
       doc.fillColor(primaryColor);
       doc.text("Popis", tableLeft, tableTop, { width: 220 });
       doc.text("Množstvo", 270, tableTop, { width: 60, align: "center" });
@@ -5848,7 +5861,7 @@ export async function registerRoutes(
       
       doc.moveTo(tableLeft, doc.y + 5).lineTo(500, doc.y + 5).strokeColor(primaryColor).stroke();
       doc.moveDown();
-      doc.fillColor("black").font("Helvetica");
+      doc.fillColor("black").font("Regular");
 
       let subtotal = 0;
       for (const item of invoiceItems) {
@@ -5874,14 +5887,14 @@ export async function registerRoutes(
       }
       
       doc.moveDown(0.5);
-      doc.fillColor(primaryColor).fontSize(14).font("Helvetica-Bold");
+      doc.fillColor(primaryColor).fontSize(14).font("Bold");
       doc.text(`SPOLU: ${parseFloat(invoice.totalAmount).toFixed(2)} ${invoice.currency}`, { align: "right" });
       doc.fillColor("black");
 
       // QR codes if enabled
       if (template?.showPaymentQr && invoice.qrCodeData) {
         doc.moveDown(2);
-        doc.fontSize(10).font("Helvetica").text("QR kód pre platbu:", tableLeft);
+        doc.fontSize(10).font("Regular").text("QR kód pre platbu:", tableLeft);
         try {
           const qrData = JSON.parse(invoice.qrCodeData);
           if (qrData.payBySquare) {
@@ -5893,7 +5906,7 @@ export async function registerRoutes(
       // Payment instructions
       if (template?.paymentInstructions) {
         doc.moveDown(2);
-        doc.fontSize(fontSize).font("Helvetica");
+        doc.fontSize(fontSize).font("Regular");
         doc.text(template.paymentInstructions);
       }
 
@@ -5955,6 +5968,19 @@ export async function registerRoutes(
       const primaryColor = template?.primaryColor || "#6B2346";
       const fontSize = layout?.fontSize || 10;
 
+      // Register fonts with Central European character support
+      const fontPath = path.join(process.cwd(), "uploads/fonts");
+      const regularFontPath = path.join(fontPath, "DejaVuSans.ttf");
+      const boldFontPath = path.join(fontPath, "DejaVuSans-Bold.ttf");
+      
+      if (fs.existsSync(regularFontPath) && fs.existsSync(boldFontPath)) {
+        doc.registerFont("Regular", regularFontPath);
+        doc.registerFont("Bold", boldFontPath);
+      } else {
+        doc.registerFont("Regular", "Helvetica");
+        doc.registerFont("Bold", "Helvetica-Bold");
+      }
+
       // Header
       if (template?.logoPath) {
         try {
@@ -5965,9 +5991,9 @@ export async function registerRoutes(
         } catch (e) {}
       }
 
-      doc.fillColor(primaryColor).fontSize(16).font("Helvetica-Bold");
+      doc.fillColor(primaryColor).fontSize(16).font("Bold");
       doc.text(scheduled.billingCompanyName || "INDEXUS", template?.logoPath ? 160 : 50, 50);
-      doc.fillColor("black").fontSize(fontSize).font("Helvetica");
+      doc.fillColor("black").fontSize(fontSize).font("Regular");
       
       if (scheduled.billingAddress) doc.text(scheduled.billingAddress);
       if (scheduled.billingCity) doc.text(scheduled.billingCity);
@@ -5981,14 +6007,14 @@ export async function registerRoutes(
 
       // Title with PREVIEW watermark
       const invoiceTitle = scheduled.invoiceType === "proforma" ? "ZÁLOHOVÁ FAKTÚRA" : "FAKTÚRA";
-      doc.fillColor(primaryColor).fontSize(18).font("Helvetica-Bold").text(`${invoiceTitle} - NÁHĽAD`);
-      doc.fillColor("black").fontSize(fontSize).font("Helvetica");
+      doc.fillColor(primaryColor).fontSize(18).font("Bold").text(`${invoiceTitle} - NÁHĽAD`);
+      doc.fillColor("black").fontSize(fontSize).font("Regular");
       doc.text(`Plánovaný dátum: ${new Date(scheduled.scheduledDate).toLocaleDateString("sk-SK")}`);
       doc.moveDown();
 
       // Customer
-      doc.fontSize(12).font("Helvetica-Bold").text("Odberateľ:");
-      doc.fontSize(fontSize).font("Helvetica");
+      doc.fontSize(12).font("Bold").text("Odberateľ:");
+      doc.fontSize(fontSize).font("Regular");
       doc.text(`${customer.firstName} ${customer.lastName}`);
       if (customer.address) doc.text(customer.address);
       if (customer.city) doc.text(`${customer.postalCode || ""} ${customer.city}`);
@@ -5998,7 +6024,7 @@ export async function registerRoutes(
       // Items
       const tableTop = doc.y;
       const tableLeft = 50;
-      doc.fontSize(fontSize).font("Helvetica-Bold").fillColor(primaryColor);
+      doc.fontSize(fontSize).font("Bold").fillColor(primaryColor);
       doc.text("Popis", tableLeft, tableTop, { width: 220 });
       doc.text("Množstvo", 270, tableTop, { width: 60, align: "center" });
       doc.text("Cena/ks", 330, tableTop, { width: 80, align: "right" });
@@ -6006,7 +6032,7 @@ export async function registerRoutes(
       
       doc.moveTo(tableLeft, doc.y + 5).lineTo(500, doc.y + 5).strokeColor(primaryColor).stroke();
       doc.moveDown();
-      doc.fillColor("black").font("Helvetica");
+      doc.fillColor("black").font("Regular");
 
       try {
         const items = JSON.parse(scheduled.items || "[]");
@@ -6034,7 +6060,7 @@ export async function registerRoutes(
       }
       
       doc.moveDown(0.5);
-      doc.fillColor(primaryColor).fontSize(14).font("Helvetica-Bold");
+      doc.fillColor(primaryColor).fontSize(14).font("Bold");
       doc.text(`SPOLU: ${parseFloat(scheduled.totalAmount).toFixed(2)} ${scheduled.currency}`, { align: "right" });
       doc.fillColor("black");
 

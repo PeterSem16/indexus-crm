@@ -27,6 +27,13 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -206,6 +213,11 @@ export default function CustomerInvoicesPage() {
   const [scheduledPage, setScheduledPage] = useState(1);
   const [scheduledSortField, setScheduledSortField] = useState<"scheduledDate" | "customerName" | "totalAmount" | "wizardCreatedAt">("scheduledDate");
   const [scheduledSortDirection, setScheduledSortDirection] = useState<"asc" | "desc">("desc");
+  const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
+  const [pdfInvoiceId, setPdfInvoiceId] = useState<string | null>(null);
+  const [pdfInvoiceType, setPdfInvoiceType] = useState<"invoice" | "scheduled">("invoice");
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [selectedLayoutId, setSelectedLayoutId] = useState<string>("");
   const perPage = 15;
 
   const { data: invoices = [], isLoading } = useQuery<Invoice[]>({
@@ -226,6 +238,14 @@ export default function CustomerInvoicesPage() {
 
   const { data: exchangeRatesData } = useQuery<{ rates: { currencyCode: string; rate: string }[]; lastUpdate: string }>({
     queryKey: ["/api/exchange-rates"],
+  });
+
+  const { data: invoiceTemplates = [] } = useQuery<{ id: string; name: string; countryCode: string; isDefault?: boolean }[]>({
+    queryKey: ["/api/invoice-templates"],
+  });
+
+  const { data: invoiceLayouts = [] } = useQuery<{ id: string; name: string; countryCode: string; isDefault?: boolean }[]>({
+    queryKey: ["/api/invoice-layouts"],
   });
 
   const exchangeRateMap = useMemo(() => {
@@ -742,7 +762,11 @@ export default function CustomerInvoicesPage() {
                             size="icon"
                             onClick={(e) => {
                               e.stopPropagation();
-                              window.open(`/api/invoices/${invoice.id}/pdf-template`, "_blank");
+                              setPdfInvoiceId(invoice.id);
+                              setPdfInvoiceType("invoice");
+                              setSelectedTemplateId("");
+                              setSelectedLayoutId("");
+                              setPdfDialogOpen(true);
                             }}
                             data-testid={`btn-pdf-invoice-${invoice.id}`}
                             title={t.invoices?.generatePdf || "Generate PDF"}
@@ -925,7 +949,13 @@ export default function CustomerInvoicesPage() {
                                 <Button
                                   size="icon"
                                   variant="ghost"
-                                  onClick={() => window.open(`/api/scheduled-invoices/${scheduled.id}/pdf-template`, "_blank")}
+                                  onClick={() => {
+                                    setPdfInvoiceId(scheduled.id);
+                                    setPdfInvoiceType("scheduled");
+                                    setSelectedTemplateId("");
+                                    setSelectedLayoutId("");
+                                    setPdfDialogOpen(true);
+                                  }}
                                   data-testid={`button-pdf-scheduled-${scheduled.id}`}
                                   title={t.invoices?.generatePdf || "Generate PDF"}
                                 >
@@ -1421,6 +1451,78 @@ export default function CustomerInvoicesPage() {
           )}
         </SheetContent>
       </Sheet>
+
+      <Dialog open={pdfDialogOpen} onOpenChange={setPdfDialogOpen}>
+        <DialogContent className="sm:max-w-md" data-testid="dialog-pdf-template">
+          <DialogHeader>
+            <DialogTitle>{t.invoices?.selectTemplate || "Výber šablóny PDF"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{t.invoices?.template || "Šablóna"}</Label>
+              <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+                <SelectTrigger data-testid="select-template">
+                  <SelectValue placeholder={t.invoices?.defaultTemplate || "Predvolená šablóna"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">{t.invoices?.defaultTemplate || "Predvolená šablóna"}</SelectItem>
+                  {invoiceTemplates.map((tpl) => (
+                    <SelectItem key={tpl.id} value={tpl.id}>
+                      {tpl.name} ({tpl.countryCode})
+                      {tpl.isDefault && " *"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>{t.invoices?.layout || "Rozloženie"}</Label>
+              <Select value={selectedLayoutId} onValueChange={setSelectedLayoutId}>
+                <SelectTrigger data-testid="select-layout">
+                  <SelectValue placeholder={t.invoices?.defaultLayout || "Predvolené rozloženie"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">{t.invoices?.defaultLayout || "Predvolené rozloženie"}</SelectItem>
+                  {invoiceLayouts.map((layout) => (
+                    <SelectItem key={layout.id} value={layout.id}>
+                      {layout.name} ({layout.countryCode})
+                      {layout.isDefault && " *"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPdfDialogOpen(false)} data-testid="btn-cancel-pdf">
+              {t.common?.cancel || "Zrušiť"}
+            </Button>
+            <Button
+              onClick={() => {
+                if (pdfInvoiceId) {
+                  const params = new URLSearchParams();
+                  if (selectedTemplateId && selectedTemplateId !== "default") {
+                    params.set("templateId", selectedTemplateId);
+                  }
+                  if (selectedLayoutId && selectedLayoutId !== "default") {
+                    params.set("layoutId", selectedLayoutId);
+                  }
+                  const endpoint = pdfInvoiceType === "scheduled" 
+                    ? `/api/scheduled-invoices/${pdfInvoiceId}/pdf-template`
+                    : `/api/invoices/${pdfInvoiceId}/pdf-template`;
+                  const url = params.toString() ? `${endpoint}?${params}` : endpoint;
+                  window.open(url, "_blank");
+                  setPdfDialogOpen(false);
+                }
+              }}
+              data-testid="btn-generate-pdf"
+            >
+              <FileDown className="h-4 w-4 mr-2" />
+              {t.invoices?.generatePdf || "Generovať PDF"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
