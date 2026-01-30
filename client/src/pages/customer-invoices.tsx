@@ -241,11 +241,11 @@ export default function CustomerInvoicesPage() {
   });
 
   const { data: invoiceTemplates = [] } = useQuery<{ id: string; name: string; countryCode: string; isDefault?: boolean }[]>({
-    queryKey: ["/api/invoice-templates"],
+    queryKey: ["/api/configurator/invoice-templates"],
   });
 
   const { data: invoiceLayouts = [] } = useQuery<{ id: string; name: string; countryCode: string; isDefault?: boolean }[]>({
-    queryKey: ["/api/invoice-layouts"],
+    queryKey: ["/api/configurator/invoice-layouts"],
   });
 
   const exchangeRateMap = useMemo(() => {
