@@ -11920,7 +11920,7 @@ export async function registerRoutes(
         return res.status(400).json({ error: "No DOCX file uploaded" });
       }
 
-      const { name, description, countryCode, templateType } = req.body;
+      const { name, description, countryCode, templateType, year } = req.body;
       if (!name) {
         return res.status(400).json({ error: "Name is required" });
       }
@@ -11931,6 +11931,8 @@ export async function registerRoutes(
         filePath: `uploads/invoice-docx-templates/${req.file.filename}`,
         originalFileName: req.file.originalname,
         countryCode: countryCode || null,
+        year: year ? parseInt(year) : null,
+        version: 1,
         templateType: templateType || "invoice",
         isDefault: false,
         isActive: true,
@@ -12019,6 +12021,37 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Failed to delete DOCX template:", error);
       res.status(500).json({ error: "Failed to delete DOCX template" });
+    }
+  });
+
+  // Copy DOCX template to new version
+  app.post("/api/configurator/docx-templates/:id/copy", requireAuth, async (req, res) => {
+    try {
+      const { name, year } = req.body;
+      if (!name) {
+        return res.status(400).json({ error: "Template name is required" });
+      }
+      const copied = await storage.copyDocxTemplate(
+        req.params.id,
+        name,
+        year ? parseInt(year) : undefined,
+        (req as any).user?.id
+      );
+      res.json(copied);
+    } catch (error) {
+      console.error("Failed to copy DOCX template:", error);
+      res.status(500).json({ error: "Failed to copy DOCX template" });
+    }
+  });
+
+  // Get DOCX template versions
+  app.get("/api/configurator/docx-templates/:id/versions", requireAuth, async (req, res) => {
+    try {
+      const versions = await storage.getDocxTemplateVersions(req.params.id);
+      res.json(versions);
+    } catch (error) {
+      console.error("Failed to get DOCX template versions:", error);
+      res.status(500).json({ error: "Failed to get template versions" });
     }
   });
 

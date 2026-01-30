@@ -527,6 +527,8 @@ export interface IStorage {
   createDocxTemplate(data: InsertDocxTemplate): Promise<DocxTemplate>;
   updateDocxTemplate(id: string, data: Partial<InsertDocxTemplate>): Promise<DocxTemplate | undefined>;
   deleteDocxTemplate(id: string): Promise<boolean>;
+  copyDocxTemplate(sourceId: string, newName: string, newYear?: number, createdBy?: string): Promise<DocxTemplate>;
+  getDocxTemplateVersions(parentTemplateId: string): Promise<DocxTemplate[]>;
 
   // Roles
   getAllRoles(): Promise<Role[]>;
@@ -3088,6 +3090,58 @@ export class DatabaseStorage implements IStorage {
   async deleteDocxTemplate(id: string): Promise<boolean> {
     const result = await db.delete(docxTemplates).where(eq(docxTemplates.id, id)).returning();
     return result.length > 0;
+  }
+
+  async copyDocxTemplate(sourceId: string, newName: string, newYear?: number, createdBy?: string): Promise<DocxTemplate> {
+    const source = await this.getDocxTemplate(sourceId);
+    if (!source) {
+      throw new Error("Source DOCX template not found");
+    }
+
+    // Get the highest version for this parent template chain
+    const parentId = source.parentTemplateId || source.id;
+    const versions = await db.select()
+      .from(docxTemplates)
+      .where(sql`${docxTemplates.parentTemplateId} = ${parentId} OR ${docxTemplates.id} = ${parentId}`)
+      .orderBy(desc(docxTemplates.version));
+    
+    const maxVersion = versions.length > 0 ? Math.max(...versions.map(v => v.version)) : source.version;
+
+    // Copy the DOCX file to a new location
+    const fs = await import('fs');
+    const path = await import('path');
+    const sourcePath = path.join(process.cwd(), source.filePath);
+    const newFileName = `docx-template-${Date.now()}.docx`;
+    const newFilePath = `uploads/invoice-docx-templates/${newFileName}`;
+    const destPath = path.join(process.cwd(), newFilePath);
+
+    if (fs.existsSync(sourcePath)) {
+      fs.copyFileSync(sourcePath, destPath);
+    }
+
+    const [created] = await db.insert(docxTemplates).values({
+      name: newName,
+      description: source.description,
+      filePath: newFilePath,
+      originalFileName: source.originalFileName,
+      countryCode: source.countryCode,
+      year: newYear || source.year,
+      version: maxVersion + 1,
+      parentTemplateId: parentId,
+      templateType: source.templateType,
+      isDefault: false,
+      isActive: true,
+      createdBy: createdBy,
+    }).returning();
+
+    return created;
+  }
+
+  async getDocxTemplateVersions(parentTemplateId: string): Promise<DocxTemplate[]> {
+    return db.select()
+      .from(docxTemplates)
+      .where(sql`${docxTemplates.parentTemplateId} = ${parentTemplateId} OR ${docxTemplates.id} = ${parentTemplateId}`)
+      .orderBy(desc(docxTemplates.version));
   }
 
   // Roles

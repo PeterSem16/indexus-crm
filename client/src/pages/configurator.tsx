@@ -7518,6 +7518,9 @@ interface DocxTemplateType {
   filePath: string;
   originalFileName: string | null;
   countryCode: string | null;
+  year: number | null;
+  version: number;
+  parentTemplateId: string | null;
   templateType: string;
   isDefault: boolean;
   isActive: boolean;
@@ -7536,11 +7539,27 @@ function DocxTemplatesTab() {
   const { t } = useI18n();
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCopyDialogOpen, setIsCopyDialogOpen] = useState(false);
+  const [copyingTemplate, setCopyingTemplate] = useState<DocxTemplateType | null>(null);
   const [showVariables, setShowVariables] = useState(true);
   const [uploadingFile, setUploadingFile] = useState<File | null>(null);
   const [newTemplateName, setNewTemplateName] = useState("");
   const [newTemplateDescription, setNewTemplateDescription] = useState("");
   const [newTemplateType, setNewTemplateType] = useState("invoice");
+  const [newTemplateCountry, setNewTemplateCountry] = useState("");
+  const [newTemplateYear, setNewTemplateYear] = useState(new Date().getFullYear().toString());
+  const [copyName, setCopyName] = useState("");
+  const [copyYear, setCopyYear] = useState(new Date().getFullYear().toString());
+
+  const countries = [
+    { code: "SK", name: "Slovensko" },
+    { code: "CZ", name: "Česko" },
+    { code: "HU", name: "Maďarsko" },
+    { code: "RO", name: "Rumunsko" },
+    { code: "IT", name: "Taliansko" },
+    { code: "DE", name: "Nemecko" },
+    { code: "US", name: "USA" },
+  ];
 
   const { data: templates = [], isLoading } = useQuery<DocxTemplateType[]>({
     queryKey: ["/api/configurator/docx-templates"],
@@ -7589,6 +7608,21 @@ function DocxTemplatesTab() {
     },
   });
 
+  const copyMutation = useMutation({
+    mutationFn: ({ id, name, year }: { id: string; name: string; year?: number }) =>
+      apiRequest("POST", `/api/configurator/docx-templates/${id}/copy`, { name, year }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/configurator/docx-templates"] });
+      setIsCopyDialogOpen(false);
+      setCopyingTemplate(null);
+      setCopyName("");
+      toast({ title: "Šablóna skopírovaná do novej verzie" });
+    },
+    onError: () => {
+      toast({ title: "Chyba pri kopírovaní šablóny", variant: "destructive" });
+    },
+  });
+
   const handleUpload = () => {
     if (!uploadingFile || !newTemplateName) return;
     const formData = new FormData();
@@ -7596,7 +7630,25 @@ function DocxTemplatesTab() {
     formData.append("name", newTemplateName);
     formData.append("description", newTemplateDescription);
     formData.append("templateType", newTemplateType);
+    if (newTemplateCountry) formData.append("countryCode", newTemplateCountry);
+    if (newTemplateYear) formData.append("year", newTemplateYear);
     createMutation.mutate(formData);
+  };
+
+  const handleCopy = () => {
+    if (!copyingTemplate || !copyName) return;
+    copyMutation.mutate({
+      id: copyingTemplate.id,
+      name: copyName,
+      year: copyYear ? parseInt(copyYear) : undefined,
+    });
+  };
+
+  const openCopyDialog = (template: DocxTemplateType) => {
+    setCopyingTemplate(template);
+    setCopyName(`${template.name} - v${(template.version || 1) + 1}`);
+    setCopyYear((new Date().getFullYear()).toString());
+    setIsCopyDialogOpen(true);
   };
 
   const copyToClipboard = (text: string) => {
@@ -7684,40 +7736,60 @@ function DocxTemplatesTab() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Názov</TableHead>
+                  <TableHead>Krajina</TableHead>
+                  <TableHead>Rok</TableHead>
+                  <TableHead>Verzia</TableHead>
                   <TableHead>Typ</TableHead>
-                  <TableHead>Súbor</TableHead>
                   <TableHead>Stav</TableHead>
-                  <TableHead>Vytvorené</TableHead>
                   <TableHead className="text-right">Akcie</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {templates.map((template) => (
                   <TableRow key={template.id}>
-                    <TableCell className="font-medium">{template.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <div>
+                        <div>{template.name}</div>
+                        <div className="text-xs text-muted-foreground">{template.originalFileName || "template.docx"}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {template.countryCode ? (
+                        <Badge variant="outline">
+                          {countries.find(c => c.code === template.countryCode)?.name || template.countryCode}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {template.year ? (
+                        <Badge variant="secondary">{template.year}</Badge>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">v{template.version || 1}</Badge>
+                    </TableCell>
                     <TableCell>
                       <Badge variant="outline">
                         {template.templateType === "invoice" ? "Faktúra" : 
                          template.templateType === "proforma" ? "Proforma" : "Dobropis"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {template.originalFileName || "template.docx"}
-                    </TableCell>
                     <TableCell>
                       <Badge variant={template.isActive ? "default" : "secondary"}>
                         {template.isActive ? "Aktívna" : "Neaktívna"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {new Date(template.createdAt).toLocaleDateString("sk-SK")}
-                    </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-1">
                         <Button
                           size="icon"
                           variant="ghost"
                           onClick={() => window.open(`/api/configurator/docx-templates/${template.id}/download`, "_blank")}
+                          title="Stiahnuť"
                           data-testid={`btn-download-${template.id}`}
                         >
                           <FileDown className="h-4 w-4" />
@@ -7725,7 +7797,17 @@ function DocxTemplatesTab() {
                         <Button
                           size="icon"
                           variant="ghost"
+                          onClick={() => openCopyDialog(template)}
+                          title="Kopírovať do novej verzie"
+                          data-testid={`btn-copy-${template.id}`}
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
                           onClick={() => toggleActiveMutation.mutate({ id: template.id, isActive: !template.isActive })}
+                          title={template.isActive ? "Deaktivovať" : "Aktivovať"}
                           data-testid={`btn-toggle-${template.id}`}
                         >
                           {template.isActive ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -7734,6 +7816,7 @@ function DocxTemplatesTab() {
                           size="icon"
                           variant="ghost"
                           onClick={() => deleteMutation.mutate(template.id)}
+                          title="Zmazať"
                           data-testid={`btn-delete-${template.id}`}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -7788,6 +7871,32 @@ function DocxTemplatesTab() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Krajina</Label>
+                <Select value={newTemplateCountry} onValueChange={setNewTemplateCountry}>
+                  <SelectTrigger data-testid="select-template-country">
+                    <SelectValue placeholder="Všetky krajiny" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Všetky krajiny</SelectItem>
+                    {countries.map((c) => (
+                      <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Rok</Label>
+                <Input
+                  type="number"
+                  value={newTemplateYear}
+                  onChange={(e) => setNewTemplateYear(e.target.value)}
+                  placeholder="napr. 2025"
+                  data-testid="input-template-year"
+                />
+              </div>
+            </div>
             <div>
               <Label>DOCX súbor *</Label>
               <div className="mt-2">
@@ -7826,6 +7935,63 @@ function DocxTemplatesTab() {
                 <Upload className="h-4 w-4 mr-2" />
               )}
               Nahrať šablónu
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isCopyDialogOpen} onOpenChange={setIsCopyDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Kopírovať šablónu do novej verzie</DialogTitle>
+            <DialogDescription>
+              Vytvorí sa nová verzia šablóny "{copyingTemplate?.name}" s rovnakým DOCX súborom.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Názov novej verzie *</Label>
+              <Input
+                value={copyName}
+                onChange={(e) => setCopyName(e.target.value)}
+                placeholder="napr. Faktúra SK 2025 - v2"
+                data-testid="input-copy-name"
+              />
+            </div>
+            <div>
+              <Label>Rok</Label>
+              <Input
+                type="number"
+                value={copyYear}
+                onChange={(e) => setCopyYear(e.target.value)}
+                placeholder="napr. 2025"
+                data-testid="input-copy-year"
+              />
+            </div>
+            {copyingTemplate && (
+              <div className="bg-muted p-3 rounded-md text-sm">
+                <div className="font-medium mb-1">Pôvodná šablóna:</div>
+                <div>Verzia: v{copyingTemplate.version || 1}</div>
+                {copyingTemplate.countryCode && <div>Krajina: {countries.find(c => c.code === copyingTemplate.countryCode)?.name}</div>}
+                {copyingTemplate.year && <div>Rok: {copyingTemplate.year}</div>}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCopyDialogOpen(false)}>
+              Zrušiť
+            </Button>
+            <Button
+              onClick={handleCopy}
+              disabled={!copyName || copyMutation.isPending}
+              data-testid="btn-confirm-copy"
+            >
+              {copyMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Copy className="h-4 w-4 mr-2" />
+              )}
+              Vytvoriť novú verziu
             </Button>
           </DialogFooter>
         </DialogContent>

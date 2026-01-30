@@ -2493,7 +2493,10 @@ export const docxTemplates = pgTable("docx_templates", {
   description: text("description"),
   filePath: text("file_path").notNull(), // Path to uploaded DOCX file
   originalFileName: text("original_file_name"), // Original uploaded filename
-  countryCode: text("country_code"), // Optional country-specific template
+  countryCode: text("country_code"), // Country-specific template (SK, CZ, HU, RO, IT, DE, US)
+  year: integer("year"), // Year for which the template is valid
+  version: integer("version").notNull().default(1), // Version number for revisions
+  parentTemplateId: varchar("parent_template_id"), // Reference to parent template for version history
   templateType: text("template_type").notNull().default("invoice"), // invoice, proforma, credit_note
   isDefault: boolean("is_default").notNull().default(false),
   isActive: boolean("is_active").notNull().default(true),
