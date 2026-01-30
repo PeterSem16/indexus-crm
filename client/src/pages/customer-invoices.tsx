@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Search, Eye, Receipt, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckCircle2, Plus, Users, FileText, Calendar, Clock, Trash2, BarChart3, TrendingUp } from "lucide-react";
+import { Search, Eye, Receipt, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckCircle2, Plus, Users, FileText, Calendar, Clock, Trash2, BarChart3, TrendingUp, FileDown } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
@@ -724,17 +724,32 @@ export default function CustomerInvoicesPage() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedInvoice(invoice);
-                          }}
-                          data-testid={`btn-view-invoice-${invoice.id}`}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedInvoice(invoice);
+                            }}
+                            data-testid={`btn-view-invoice-${invoice.id}`}
+                            title={t.invoices?.viewDetails || "View Details"}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(`/api/invoices/${invoice.id}/pdf-template`, "_blank");
+                            }}
+                            data-testid={`btn-pdf-invoice-${invoice.id}`}
+                            title={t.invoices?.generatePdf || "Generate PDF"}
+                          >
+                            <FileDown className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -906,6 +921,15 @@ export default function CustomerInvoicesPage() {
                                   title={t.invoices?.viewMetadata || "View Metadata"}
                                 >
                                   <Eye className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => window.open(`/api/scheduled-invoices/${scheduled.id}/pdf-template`, "_blank")}
+                                  data-testid={`button-pdf-scheduled-${scheduled.id}`}
+                                  title={t.invoices?.generatePdf || "Generate PDF"}
+                                >
+                                  <FileDown className="h-4 w-4" />
                                 </Button>
                                 <Button
                                   size="sm"

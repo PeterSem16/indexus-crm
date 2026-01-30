@@ -515,6 +515,10 @@ export interface IStorage {
   createInvoiceLayout(data: InsertInvoiceLayout): Promise<InvoiceLayout>;
   updateInvoiceLayout(id: string, data: Partial<InsertInvoiceLayout>): Promise<InvoiceLayout | undefined>;
   deleteInvoiceLayout(id: string): Promise<boolean>;
+  getDefaultInvoiceTemplate(countryCode: string, templateType?: string): Promise<InvoiceTemplate | undefined>;
+  getDefaultInvoiceLayout(countryCode: string): Promise<InvoiceLayout | undefined>;
+  getInvoiceTemplate(id: string): Promise<InvoiceTemplate | undefined>;
+  getInvoiceLayout(id: string): Promise<InvoiceLayout | undefined>;
 
   // Roles
   getAllRoles(): Promise<Role[]>;
@@ -2998,6 +3002,56 @@ export class DatabaseStorage implements IStorage {
   async deleteInvoiceLayout(id: string): Promise<boolean> {
     const result = await db.delete(invoiceLayouts).where(eq(invoiceLayouts.id, id)).returning();
     return result.length > 0;
+  }
+
+  async getDefaultInvoiceTemplate(countryCode: string, templateType: string = "standard"): Promise<InvoiceTemplate | undefined> {
+    const [template] = await db.select().from(invoiceTemplates)
+      .where(and(
+        eq(invoiceTemplates.countryCode, countryCode),
+        eq(invoiceTemplates.templateType, templateType),
+        eq(invoiceTemplates.isDefault, true),
+        eq(invoiceTemplates.isActive, true)
+      ))
+      .limit(1);
+    if (template) return template;
+    const [anyTemplate] = await db.select().from(invoiceTemplates)
+      .where(and(
+        eq(invoiceTemplates.countryCode, countryCode),
+        eq(invoiceTemplates.templateType, templateType),
+        eq(invoiceTemplates.isActive, true)
+      ))
+      .orderBy(invoiceTemplates.createdAt)
+      .limit(1);
+    return anyTemplate;
+  }
+
+  async getDefaultInvoiceLayout(countryCode: string): Promise<InvoiceLayout | undefined> {
+    const [layout] = await db.select().from(invoiceLayouts)
+      .where(and(
+        eq(invoiceLayouts.countryCode, countryCode),
+        eq(invoiceLayouts.isDefault, true),
+        eq(invoiceLayouts.isActive, true)
+      ))
+      .limit(1);
+    if (layout) return layout;
+    const [anyLayout] = await db.select().from(invoiceLayouts)
+      .where(and(
+        eq(invoiceLayouts.countryCode, countryCode),
+        eq(invoiceLayouts.isActive, true)
+      ))
+      .orderBy(invoiceLayouts.createdAt)
+      .limit(1);
+    return anyLayout;
+  }
+
+  async getInvoiceTemplate(id: string): Promise<InvoiceTemplate | undefined> {
+    const [template] = await db.select().from(invoiceTemplates).where(eq(invoiceTemplates.id, id));
+    return template;
+  }
+
+  async getInvoiceLayout(id: string): Promise<InvoiceLayout | undefined> {
+    const [layout] = await db.select().from(invoiceLayouts).where(eq(invoiceLayouts.id, id));
+    return layout;
   }
 
   // Roles

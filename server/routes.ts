@@ -5744,6 +5744,314 @@ export async function registerRoutes(
     }
   });
 
+  // Generate PDF from template (using invoice layouts and templates from configurator)
+  app.get("/api/invoices/:id/pdf-template", requireAuth, async (req, res) => {
+    try {
+      const { templateId, layoutId } = req.query;
+      const invoice = await storage.getInvoice(req.params.id);
+      if (!invoice) {
+        return res.status(404).json({ error: "Invoice not found" });
+      }
+
+      const customer = await storage.getCustomer(invoice.customerId);
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+
+      const invoiceItems = await storage.getInvoiceItems(invoice.id);
+      const countryCode = customer.country?.toUpperCase() || "SK";
+      const templateType = invoice.invoiceType === "proforma" ? "proforma" : "standard";
+
+      // Get template and layout
+      let template = templateId 
+        ? await storage.getInvoiceTemplate(templateId as string)
+        : await storage.getDefaultInvoiceTemplate(countryCode, templateType);
+      
+      let layout = layoutId
+        ? await storage.getInvoiceLayout(layoutId as string)
+        : await storage.getDefaultInvoiceLayout(countryCode);
+
+      // Build PDF with template styling
+      const doc = new PDFDocument({ 
+        margin: layout?.marginLeft || 50,
+        size: layout?.paperSize === "Letter" ? "LETTER" : "A4"
+      });
+      
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${invoice.invoiceNumber}.pdf"`);
+      
+      doc.pipe(res);
+
+      const primaryColor = template?.primaryColor || "#6B2346";
+      const fontSize = layout?.fontSize || 10;
+
+      // Header with logo and company info
+      if (template?.logoPath) {
+        try {
+          const logoFullPath = path.join(process.cwd(), template.logoPath);
+          if (fs.existsSync(logoFullPath)) {
+            doc.image(logoFullPath, 50, 45, { width: 100 });
+          }
+        } catch (e) {}
+      }
+
+      // Billing company info
+      doc.fillColor(primaryColor).fontSize(16).font("Helvetica-Bold");
+      doc.text(invoice.billingCompanyName || "INDEXUS", template?.logoPath ? 160 : 50, 50);
+      doc.fillColor("black").fontSize(fontSize).font("Helvetica");
+      
+      let yPos = template?.logoPath ? 70 : doc.y;
+      if (invoice.billingAddress) doc.text(invoice.billingAddress, { continued: false });
+      if (invoice.billingCity) doc.text(invoice.billingCity);
+      if (invoice.billingTaxId) doc.text(`IČO: ${invoice.billingTaxId}`);
+      if (invoice.billingVatId) doc.text(`IČ DPH: ${invoice.billingVatId}`);
+      doc.moveDown();
+      if (invoice.billingBankName) doc.text(`Banka: ${invoice.billingBankName}`);
+      if (invoice.billingBankIban) doc.text(`IBAN: ${invoice.billingBankIban}`);
+      if (invoice.billingBankSwift) doc.text(`SWIFT: ${invoice.billingBankSwift}`);
+      doc.moveDown(2);
+
+      // Invoice title
+      const invoiceTitle = invoice.invoiceType === "proforma" ? "ZÁLOHOVÁ FAKTÚRA" : "FAKTÚRA";
+      doc.fillColor(primaryColor).fontSize(18).font("Helvetica-Bold").text(invoiceTitle);
+      doc.fillColor("black").fontSize(fontSize).font("Helvetica");
+      doc.text(`Číslo: ${invoice.invoiceNumber}`);
+      doc.text(`Dátum vystavenia: ${new Date(invoice.generatedAt).toLocaleDateString("sk-SK")}`);
+      if (invoice.dueDate) {
+        doc.text(`Dátum splatnosti: ${new Date(invoice.dueDate).toLocaleDateString("sk-SK")}`);
+      }
+      if (invoice.variableSymbol) {
+        doc.text(`Variabilný symbol: ${invoice.variableSymbol}`);
+      }
+      doc.moveDown();
+
+      // Customer section
+      doc.fontSize(12).font("Helvetica-Bold").text("Odberateľ:");
+      doc.fontSize(fontSize).font("Helvetica");
+      doc.text(`${customer.firstName} ${customer.lastName}`);
+      if (customer.address) doc.text(customer.address);
+      if (customer.city) doc.text(`${customer.postalCode || ""} ${customer.city}`);
+      doc.text(customer.country);
+      if (customer.taxId) doc.text(`IČO: ${customer.taxId}`);
+      if (customer.vatId) doc.text(`IČ DPH: ${customer.vatId}`);
+      doc.moveDown(2);
+
+      // Items table
+      const tableTop = doc.y;
+      const tableLeft = 50;
+      doc.fontSize(fontSize).font("Helvetica-Bold");
+      doc.fillColor(primaryColor);
+      doc.text("Popis", tableLeft, tableTop, { width: 220 });
+      doc.text("Množstvo", 270, tableTop, { width: 60, align: "center" });
+      doc.text("Cena/ks", 330, tableTop, { width: 80, align: "right" });
+      doc.text("Spolu", 410, tableTop, { width: 90, align: "right" });
+      
+      doc.moveTo(tableLeft, doc.y + 5).lineTo(500, doc.y + 5).strokeColor(primaryColor).stroke();
+      doc.moveDown();
+      doc.fillColor("black").font("Helvetica");
+
+      let subtotal = 0;
+      for (const item of invoiceItems) {
+        const price = parseFloat(item.unitPrice);
+        const lineTotal = parseFloat(item.totalPrice);
+        subtotal += lineTotal;
+
+        const y = doc.y;
+        doc.text(item.description || item.name || "", tableLeft, y, { width: 220 });
+        doc.text(item.quantity.toString(), 270, y, { width: 60, align: "center" });
+        doc.text(`${price.toFixed(2)} ${invoice.currency}`, 330, y, { width: 80, align: "right" });
+        doc.text(`${lineTotal.toFixed(2)} ${invoice.currency}`, 410, y, { width: 90, align: "right" });
+        doc.moveDown(0.5);
+      }
+
+      // Totals
+      doc.moveTo(tableLeft, doc.y + 10).lineTo(500, doc.y + 10).strokeColor("#ccc").stroke();
+      doc.moveDown();
+      
+      if (invoice.subtotal && invoice.vatRate && invoice.vatAmount) {
+        doc.text(`Základ: ${parseFloat(invoice.subtotal).toFixed(2)} ${invoice.currency}`, { align: "right" });
+        doc.text(`DPH ${parseFloat(invoice.vatRate).toFixed(0)}%: ${parseFloat(invoice.vatAmount).toFixed(2)} ${invoice.currency}`, { align: "right" });
+      }
+      
+      doc.moveDown(0.5);
+      doc.fillColor(primaryColor).fontSize(14).font("Helvetica-Bold");
+      doc.text(`SPOLU: ${parseFloat(invoice.totalAmount).toFixed(2)} ${invoice.currency}`, { align: "right" });
+      doc.fillColor("black");
+
+      // QR codes if enabled
+      if (template?.showPaymentQr && invoice.qrCodeData) {
+        doc.moveDown(2);
+        doc.fontSize(10).font("Helvetica").text("QR kód pre platbu:", tableLeft);
+        try {
+          const qrData = JSON.parse(invoice.qrCodeData);
+          if (qrData.payBySquare) {
+            doc.text("Pay by Square (SK/CZ):", tableLeft, doc.y + 5);
+          }
+        } catch (e) {}
+      }
+
+      // Payment instructions
+      if (template?.paymentInstructions) {
+        doc.moveDown(2);
+        doc.fontSize(fontSize).font("Helvetica");
+        doc.text(template.paymentInstructions);
+      }
+
+      // Legal text / footer
+      if (template?.legalText) {
+        doc.moveDown(2);
+        doc.fontSize(8).fillColor("gray");
+        doc.text(template.legalText, { align: "center" });
+      }
+
+      // Footer
+      doc.moveDown();
+      doc.fontSize(8).fillColor("gray");
+      doc.text("Ďakujeme za Vašu dôveru v služby INDEXUS.", { align: "center" });
+
+      doc.end();
+    } catch (error) {
+      console.error("Error generating PDF from template:", error);
+      res.status(500).json({ error: "Failed to generate PDF from template" });
+    }
+  });
+
+  // Generate PDF for scheduled invoice
+  app.get("/api/scheduled-invoices/:id/pdf-template", requireAuth, async (req, res) => {
+    try {
+      const { templateId, layoutId } = req.query;
+      const scheduled = await storage.getScheduledInvoice(req.params.id);
+      if (!scheduled) {
+        return res.status(404).json({ error: "Scheduled invoice not found" });
+      }
+
+      const customer = await storage.getCustomer(scheduled.customerId);
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+
+      const countryCode = customer.country?.toUpperCase() || "SK";
+      const templateType = scheduled.invoiceType === "proforma" ? "proforma" : "standard";
+
+      let template = templateId 
+        ? await storage.getInvoiceTemplate(templateId as string)
+        : await storage.getDefaultInvoiceTemplate(countryCode, templateType);
+      
+      let layout = layoutId
+        ? await storage.getInvoiceLayout(layoutId as string)
+        : await storage.getDefaultInvoiceLayout(countryCode);
+
+      const doc = new PDFDocument({ 
+        margin: layout?.marginLeft || 50,
+        size: layout?.paperSize === "Letter" ? "LETTER" : "A4"
+      });
+      
+      const fileName = `preview-${scheduled.id.slice(0, 8)}.pdf`;
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+      
+      doc.pipe(res);
+
+      const primaryColor = template?.primaryColor || "#6B2346";
+      const fontSize = layout?.fontSize || 10;
+
+      // Header
+      if (template?.logoPath) {
+        try {
+          const logoFullPath = path.join(process.cwd(), template.logoPath);
+          if (fs.existsSync(logoFullPath)) {
+            doc.image(logoFullPath, 50, 45, { width: 100 });
+          }
+        } catch (e) {}
+      }
+
+      doc.fillColor(primaryColor).fontSize(16).font("Helvetica-Bold");
+      doc.text(scheduled.billingCompanyName || "INDEXUS", template?.logoPath ? 160 : 50, 50);
+      doc.fillColor("black").fontSize(fontSize).font("Helvetica");
+      
+      if (scheduled.billingAddress) doc.text(scheduled.billingAddress);
+      if (scheduled.billingCity) doc.text(scheduled.billingCity);
+      if (scheduled.billingTaxId) doc.text(`IČO: ${scheduled.billingTaxId}`);
+      if (scheduled.billingVatId) doc.text(`IČ DPH: ${scheduled.billingVatId}`);
+      doc.moveDown();
+      if (scheduled.billingBankName) doc.text(`Banka: ${scheduled.billingBankName}`);
+      if (scheduled.billingBankIban) doc.text(`IBAN: ${scheduled.billingBankIban}`);
+      if (scheduled.billingBankSwift) doc.text(`SWIFT: ${scheduled.billingBankSwift}`);
+      doc.moveDown(2);
+
+      // Title with PREVIEW watermark
+      const invoiceTitle = scheduled.invoiceType === "proforma" ? "ZÁLOHOVÁ FAKTÚRA" : "FAKTÚRA";
+      doc.fillColor(primaryColor).fontSize(18).font("Helvetica-Bold").text(`${invoiceTitle} - NÁHĽAD`);
+      doc.fillColor("black").fontSize(fontSize).font("Helvetica");
+      doc.text(`Plánovaný dátum: ${new Date(scheduled.scheduledDate).toLocaleDateString("sk-SK")}`);
+      doc.moveDown();
+
+      // Customer
+      doc.fontSize(12).font("Helvetica-Bold").text("Odberateľ:");
+      doc.fontSize(fontSize).font("Helvetica");
+      doc.text(`${customer.firstName} ${customer.lastName}`);
+      if (customer.address) doc.text(customer.address);
+      if (customer.city) doc.text(`${customer.postalCode || ""} ${customer.city}`);
+      doc.text(customer.country);
+      doc.moveDown(2);
+
+      // Items
+      const tableTop = doc.y;
+      const tableLeft = 50;
+      doc.fontSize(fontSize).font("Helvetica-Bold").fillColor(primaryColor);
+      doc.text("Popis", tableLeft, tableTop, { width: 220 });
+      doc.text("Množstvo", 270, tableTop, { width: 60, align: "center" });
+      doc.text("Cena/ks", 330, tableTop, { width: 80, align: "right" });
+      doc.text("Spolu", 410, tableTop, { width: 90, align: "right" });
+      
+      doc.moveTo(tableLeft, doc.y + 5).lineTo(500, doc.y + 5).strokeColor(primaryColor).stroke();
+      doc.moveDown();
+      doc.fillColor("black").font("Helvetica");
+
+      try {
+        const items = JSON.parse(scheduled.items || "[]");
+        for (const item of items) {
+          const price = parseFloat(item.unitPrice || "0");
+          const qty = parseInt(item.quantity || "1");
+          const lineTotal = price * qty;
+
+          const y = doc.y;
+          doc.text(item.description || item.name || "", tableLeft, y, { width: 220 });
+          doc.text(qty.toString(), 270, y, { width: 60, align: "center" });
+          doc.text(`${price.toFixed(2)} ${scheduled.currency}`, 330, y, { width: 80, align: "right" });
+          doc.text(`${lineTotal.toFixed(2)} ${scheduled.currency}`, 410, y, { width: 90, align: "right" });
+          doc.moveDown(0.5);
+        }
+      } catch (e) {}
+
+      // Totals
+      doc.moveTo(tableLeft, doc.y + 10).lineTo(500, doc.y + 10).strokeColor("#ccc").stroke();
+      doc.moveDown();
+      
+      if (scheduled.subtotal && scheduled.vatRate && scheduled.vatAmount) {
+        doc.text(`Základ: ${parseFloat(scheduled.subtotal).toFixed(2)} ${scheduled.currency}`, { align: "right" });
+        doc.text(`DPH ${parseFloat(scheduled.vatRate).toFixed(0)}%: ${parseFloat(scheduled.vatAmount).toFixed(2)} ${scheduled.currency}`, { align: "right" });
+      }
+      
+      doc.moveDown(0.5);
+      doc.fillColor(primaryColor).fontSize(14).font("Helvetica-Bold");
+      doc.text(`SPOLU: ${parseFloat(scheduled.totalAmount).toFixed(2)} ${scheduled.currency}`, { align: "right" });
+      doc.fillColor("black");
+
+      // Footer
+      if (template?.legalText) {
+        doc.moveDown(2);
+        doc.fontSize(8).fillColor("gray");
+        doc.text(template.legalText, { align: "center" });
+      }
+
+      doc.end();
+    } catch (error) {
+      console.error("Error generating scheduled invoice PDF:", error);
+      res.status(500).json({ error: "Failed to generate PDF" });
+    }
+  });
+
   // Bulk invoice generation
   app.post("/api/invoices/bulk-generate", requireAuth, async (req, res) => {
     try {
