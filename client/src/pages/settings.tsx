@@ -7,7 +7,7 @@ import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/auth-context";
 import { COUNTRIES, type ComplaintType, type CooperationType, type VipStatus, type HealthInsurance, type LeadScoringCriteria } from "@shared/schema";
 import { Separator } from "@/components/ui/separator";
-import { Droplets, Globe, Shield, Save, Loader2, Plus, Trash2, Settings2, Heart, FlaskConical, Pencil, Star, Target, RefreshCw, Phone, Upload, FileText, CheckCircle, AlertCircle } from "lucide-react";
+import { Droplets, Globe, Shield, Save, Loader2, Plus, Trash2, Settings2, Heart, FlaskConical, Pencil, Star, Target, RefreshCw, Phone, Upload, FileText, CheckCircle, AlertCircle, Users, User, Check } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -762,6 +762,168 @@ const defaultSipSettings: SipSettingsFormData = {
   isEnabled: false,
 };
 
+// Agent Workspace Access Tab - Country-based access control
+function AgentWorkspaceAccessTab() {
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const { t } = useI18n();
+
+  // Get all users with callCenter or admin role
+  const { data: allUsers = [], isLoading: loadingUsers } = useQuery<any[]>({
+    queryKey: ["/api/users"],
+  });
+
+  // Get all workspace access entries
+  const { data: allAccess = [], isLoading: loadingAccess } = useQuery<any[]>({
+    queryKey: ["/api/agent-workspace-access"],
+  });
+
+  // Filter users with callCenter or admin role
+  const eligibleUsers = useMemo(() => {
+    return allUsers.filter(u => u.role === "callCenter" || u.role === "admin");
+  }, [allUsers]);
+
+  // Build a map of userId -> countryCodes
+  const accessMap = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    allAccess.forEach((access: any) => {
+      if (!map[access.userId]) {
+        map[access.userId] = [];
+      }
+      map[access.userId].push(access.countryCode);
+    });
+    return map;
+  }, [allAccess]);
+
+  const updateAccessMutation = useMutation({
+    mutationFn: async ({ userId, countryCodes }: { userId: string; countryCodes: string[] }) => {
+      return apiRequest("POST", `/api/agent-workspace-access/user/${userId}`, { countryCodes });
+    },
+    onSuccess: () => {
+      toast({ title: "Prístup bol aktualizovaný" });
+      queryClient.invalidateQueries({ queryKey: ["/api/agent-workspace-access"] });
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa aktualizovať prístup", variant: "destructive" });
+    },
+  });
+
+  const toggleCountryAccess = (userId: string, countryCode: string) => {
+    const currentAccess = accessMap[userId] || [];
+    const newAccess = currentAccess.includes(countryCode)
+      ? currentAccess.filter(c => c !== countryCode)
+      : [...currentAccess, countryCode];
+    updateAccessMutation.mutate({ userId, countryCodes: newAccess });
+  };
+
+  const grantAllCountries = (userId: string) => {
+    const allCountryCodes = Object.keys(COUNTRIES);
+    updateAccessMutation.mutate({ userId, countryCodes: allCountryCodes });
+  };
+
+  const revokeAllCountries = (userId: string) => {
+    updateAccessMutation.mutate({ userId, countryCodes: [] });
+  };
+
+  if (loadingUsers || loadingAccess) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="w-5 h-5" />
+            Prístup do Agent Workspace
+          </CardTitle>
+          <CardDescription>
+            Nastavte, ktorí používatelia majú prístup do Agent Workspace a pre ktoré krajiny môžu pracovať
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {eligibleUsers.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">
+              Žiadni používatelia s rolou "Call Center" alebo "Admin" nie sú k dispozícii.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {eligibleUsers.map((u) => {
+                const userAccess = accessMap[u.id] || [];
+                return (
+                  <Card key={u.id} className="bg-muted/30">
+                    <CardContent className="pt-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            <User className="w-5 h-5 text-primary" />
+                          </div>
+                          <div>
+                            <p className="font-medium">{u.firstName} {u.lastName}</p>
+                            <p className="text-sm text-muted-foreground">{u.email} • {u.role}</p>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => grantAllCountries(u.id)}
+                            disabled={updateAccessMutation.isPending}
+                            data-testid={`button-grant-all-${u.id}`}
+                          >
+                            Povoliť všetky
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => revokeAllCountries(u.id)}
+                            disabled={updateAccessMutation.isPending}
+                            data-testid={`button-revoke-all-${u.id}`}
+                          >
+                            Odobrať všetky
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2">
+                        {Object.entries(COUNTRIES).map(([code, name]) => {
+                          const hasAccess = userAccess.includes(code);
+                          return (
+                            <Button
+                              key={code}
+                              variant={hasAccess ? "default" : "outline"}
+                              size="sm"
+                              className="justify-start"
+                              onClick={() => toggleCountryAccess(u.id, code)}
+                              disabled={updateAccessMutation.isPending}
+                              data-testid={`button-toggle-country-${u.id}-${code}`}
+                            >
+                              {hasAccess && <Check className="w-3 h-3 mr-1" />}
+                              {code}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                      {userAccess.length > 0 && (
+                        <p className="text-xs text-muted-foreground mt-3">
+                          Prístup k {userAccess.length} {userAccess.length === 1 ? 'krajine' : userAccess.length < 5 ? 'krajinám' : 'krajinám'}
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 interface SipSettingsData {
   server?: string;
   port?: number;
@@ -1201,6 +1363,10 @@ export default function SettingsPage() {
             <Phone className="h-4 w-4 mr-2" />
             SIP telefónia
           </TabsTrigger>
+          <TabsTrigger value="agent-access" data-testid="tab-agent-access">
+            <Users className="h-4 w-4 mr-2" />
+            Agent Workspace
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="config" className="mt-6 space-y-6">
@@ -1406,6 +1572,10 @@ export default function SettingsPage() {
 
         <TabsContent value="sip" className="mt-6">
           <SipSettingsTab />
+        </TabsContent>
+
+        <TabsContent value="agent-access" className="mt-6">
+          <AgentWorkspaceAccessTab />
         </TabsContent>
 
       </Tabs>
