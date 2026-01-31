@@ -10,6 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -188,11 +190,15 @@ function QueuePanel({
   selectedCampaignId,
   onSelectCampaign,
   contactHistory,
+  showOnlyAssigned,
+  onToggleAssigned,
 }: {
   campaigns: { id: string; name: string; contactCount: number; status: string; channel: string }[];
   selectedCampaignId: string | null;
   onSelectCampaign: (id: string) => void;
   contactHistory: ContactHistory[];
+  showOnlyAssigned: boolean;
+  onToggleAssigned: (value: boolean) => void;
 }) {
   const [channelFilter, setChannelFilter] = useState<string>("all");
   
@@ -208,6 +214,17 @@ function QueuePanel({
           <Users className="h-4 w-4" />
           Fronty
         </h3>
+        <div className="mt-2 flex items-center gap-2">
+          <Checkbox
+            id="show-assigned"
+            checked={showOnlyAssigned}
+            onCheckedChange={(checked) => onToggleAssigned(!!checked)}
+            data-testid="checkbox-show-assigned"
+          />
+          <Label htmlFor="show-assigned" className="text-xs cursor-pointer">
+            Len priradené
+          </Label>
+        </div>
         <div className="mt-2">
           <Select value={channelFilter} onValueChange={setChannelFilter}>
             <SelectTrigger className="h-8 text-xs" data-testid="select-channel-filter">
@@ -644,6 +661,7 @@ export default function AgentWorkspacePage() {
   const [callNotes, setCallNotes] = useState("");
 
   const [stats, setStats] = useState({ calls: 0, emails: 0, sms: 0 });
+  const [showOnlyAssigned, setShowOnlyAssigned] = useState(true);
 
   const allowedRoles = ["callCenter", "admin"];
   const hasAccess = user && allowedRoles.includes(user.role);
@@ -668,10 +686,17 @@ export default function AgentWorkspacePage() {
     return () => clearInterval(interval);
   }, [startTime, hasAccess]);
 
-  const { data: campaigns = [] } = useQuery<Campaign[]>({
+  const { data: allCampaigns = [] } = useQuery<Campaign[]>({
     queryKey: ["/api/campaigns"],
     enabled: !!hasAccess,
   });
+
+  const { data: assignedCampaigns = [] } = useQuery<Campaign[]>({
+    queryKey: ["/api/user/assigned-campaigns"],
+    enabled: !!hasAccess,
+  });
+
+  const campaigns = showOnlyAssigned ? assignedCampaigns : allCampaigns;
 
   const activeCampaigns = useMemo(() => {
     return campaigns
@@ -852,6 +877,8 @@ export default function AgentWorkspacePage() {
           selectedCampaignId={selectedCampaignId}
           onSelectCampaign={setSelectedCampaignId}
           contactHistory={contactHistory}
+          showOnlyAssigned={showOnlyAssigned}
+          onToggleAssigned={setShowOnlyAssigned}
         />
 
         <div className="flex-1 overflow-auto p-4">

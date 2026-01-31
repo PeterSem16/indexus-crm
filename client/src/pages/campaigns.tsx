@@ -485,9 +485,20 @@ export default function CampaignsPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<CampaignTemplate | null>(null);
   const [isComparisonOpen, setIsComparisonOpen] = useState(false);
   const [selectedForComparison, setSelectedForComparison] = useState<string[]>([]);
+  const [agentsDialogCampaign, setAgentsDialogCampaign] = useState<Campaign | null>(null);
+  const [selectedAgentIds, setSelectedAgentIds] = useState<string[]>([]);
 
   const { data: campaigns = [], isLoading } = useQuery<Campaign[]>({
     queryKey: ["/api/campaigns"],
+  });
+
+  const { data: users = [] } = useQuery<{ id: string; firstName: string; lastName: string; role: string }[]>({
+    queryKey: ["/api/users"],
+  });
+
+  const { data: currentCampaignAgents = [] } = useQuery<{ id: string; userId: string; campaignId: string }[]>({
+    queryKey: ["/api/campaigns", agentsDialogCampaign?.id, "agents"],
+    enabled: !!agentsDialogCampaign,
   });
 
   const { data: templates = [] } = useQuery<CampaignTemplate[]>({
@@ -531,6 +542,31 @@ export default function CampaignsPage() {
       toast({ title: "Error", variant: "destructive" });
     },
   });
+
+  const updateAgentsMutation = useMutation({
+    mutationFn: (data: { campaignId: string; userIds: string[] }) => 
+      apiRequest("POST", `/api/campaigns/${data.campaignId}/agents`, { userIds: data.userIds }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", agentsDialogCampaign?.id, "agents"] });
+      setAgentsDialogCampaign(null);
+      setSelectedAgentIds([]);
+      toast({ title: "Agenti priradení" });
+    },
+    onError: () => {
+      toast({ title: "Chyba pri priraďovaní agentov", variant: "destructive" });
+    },
+  });
+
+  // Set initial selected agents when dialog opens
+  useMemo(() => {
+    if (agentsDialogCampaign && currentCampaignAgents.length >= 0) {
+      setSelectedAgentIds(currentCampaignAgents.map(a => a.userId));
+    }
+  }, [currentCampaignAgents, agentsDialogCampaign]);
+
+  const callCenterUsers = useMemo(() => {
+    return users.filter(u => u.role === "callCenter" || u.role === "admin");
+  }, [users]);
 
   const filteredCampaigns = useMemo(() => {
     return campaigns.filter((campaign) => {
@@ -632,6 +668,15 @@ export default function CampaignsPage() {
       header: "",
       cell: (campaign: Campaign) => (
         <div className="flex justify-end gap-1">
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => setAgentsDialogCampaign(campaign)}
+            title="Priradiť agentov"
+            data-testid={`button-assign-agents-${campaign.id}`}
+          >
+            <Users className="h-4 w-4" />
+          </Button>
           <Button
             size="icon"
             variant="ghost"
@@ -960,6 +1005,85 @@ export default function CampaignsPage() {
               data-testid="button-close-comparison"
             >
               Zavrieť
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!agentsDialogCampaign} onOpenChange={(open) => {
+        if (!open) {
+          setAgentsDialogCampaign(null);
+          setSelectedAgentIds([]);
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Priradiť agentov</DialogTitle>
+            <DialogDescription>
+              Vyberte agentov pre kampaň: {agentsDialogCampaign?.name}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Dostupní agenti</Label>
+              <div className="grid gap-2 max-h-64 overflow-y-auto border rounded-md p-2">
+                {callCenterUsers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Žiadni agenti nie sú k dispozícii
+                  </p>
+                ) : (
+                  callCenterUsers.map((user) => (
+                    <div key={user.id} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`agent-${user.id}`}
+                        checked={selectedAgentIds.includes(user.id)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedAgentIds([...selectedAgentIds, user.id]);
+                          } else {
+                            setSelectedAgentIds(selectedAgentIds.filter(id => id !== user.id));
+                          }
+                        }}
+                        data-testid={`checkbox-agent-${user.id}`}
+                      />
+                      <Label htmlFor={`agent-${user.id}`} className="flex-1 cursor-pointer">
+                        {user.firstName} {user.lastName}
+                      </Label>
+                      <Badge variant="outline" className="text-xs">
+                        {user.role}
+                      </Badge>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setAgentsDialogCampaign(null);
+                setSelectedAgentIds([]);
+              }}
+              data-testid="button-cancel-agents"
+            >
+              Zrušiť
+            </Button>
+            <Button 
+              onClick={() => {
+                if (agentsDialogCampaign) {
+                  updateAgentsMutation.mutate({
+                    campaignId: agentsDialogCampaign.id,
+                    userIds: selectedAgentIds,
+                  });
+                }
+              }}
+              disabled={updateAgentsMutation.isPending}
+              data-testid="button-save-agents"
+            >
+              {updateAgentsMutation.isPending ? "Ukladám..." : "Uložiť"}
             </Button>
           </div>
         </DialogContent>
