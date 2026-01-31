@@ -1,13 +1,14 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Plus, Pencil, Trash2, Search, Megaphone, PlayCircle, CheckCircle, Clock, XCircle, ExternalLink, FileText, Calendar, LayoutList, ChevronLeft, ChevronRight, BarChart3, TrendingUp, Phone, RefreshCw, Users, Mail, MessageSquare } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Megaphone, PlayCircle, CheckCircle, Clock, XCircle, ExternalLink, FileText, Calendar, LayoutList, ChevronLeft, ChevronRight, BarChart3, TrendingUp, Phone, RefreshCw, Users, Mail, MessageSquare, User, Check, Loader2, Shield } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/auth-context";
 import { useCountryFilter } from "@/contexts/country-filter-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -472,6 +473,167 @@ function CampaignCalendar({
   );
 }
 
+// Agent Workspace Access Tab - Country-based access control
+function AgentWorkspaceAccessTab() {
+  const { toast } = useToast();
+  const { t } = useI18n();
+
+  // Get all users with callCenter or admin role
+  const { data: allUsers = [], isLoading: loadingUsers } = useQuery<any[]>({
+    queryKey: ["/api/users"],
+  });
+
+  // Get all workspace access entries
+  const { data: allAccess = [], isLoading: loadingAccess } = useQuery<any[]>({
+    queryKey: ["/api/agent-workspace-access"],
+  });
+
+  // Filter users with callCenter or admin role
+  const eligibleUsers = useMemo(() => {
+    return allUsers.filter(u => u.role === "callCenter" || u.role === "admin");
+  }, [allUsers]);
+
+  // Build a map of userId -> countryCodes
+  const accessMap = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    allAccess.forEach((access: any) => {
+      if (!map[access.userId]) {
+        map[access.userId] = [];
+      }
+      map[access.userId].push(access.countryCode);
+    });
+    return map;
+  }, [allAccess]);
+
+  const updateAccessMutation = useMutation({
+    mutationFn: async ({ userId, countryCodes }: { userId: string; countryCodes: string[] }) => {
+      return apiRequest("POST", `/api/agent-workspace-access/user/${userId}`, { countryCodes });
+    },
+    onSuccess: () => {
+      toast({ title: "Prístup bol aktualizovaný" });
+      queryClient.invalidateQueries({ queryKey: ["/api/agent-workspace-access"] });
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa aktualizovať prístup", variant: "destructive" });
+    },
+  });
+
+  const toggleCountryAccess = (userId: string, countryCode: string) => {
+    const currentAccess = accessMap[userId] || [];
+    const newAccess = currentAccess.includes(countryCode)
+      ? currentAccess.filter(c => c !== countryCode)
+      : [...currentAccess, countryCode];
+    updateAccessMutation.mutate({ userId, countryCodes: newAccess });
+  };
+
+  const grantAllCountries = (userId: string) => {
+    const allCountryCodes = COUNTRIES.map(c => c.code);
+    updateAccessMutation.mutate({ userId, countryCodes: allCountryCodes });
+  };
+
+  const revokeAllCountries = (userId: string) => {
+    updateAccessMutation.mutate({ userId, countryCodes: [] });
+  };
+
+  if (loadingUsers || loadingAccess) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 p-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="w-5 h-5" />
+            Prístup do Agent Workspace
+          </CardTitle>
+          <CardDescription>
+            Nastavte, ktorí používatelia majú prístup do Agent Workspace a pre ktoré krajiny môžu pracovať
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {eligibleUsers.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">
+              Žiadni používatelia s rolou "Call Center" alebo "Admin" nie sú k dispozícii.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {eligibleUsers.map((u) => {
+                const userAccess = accessMap[u.id] || [];
+                return (
+                  <Card key={u.id} className="bg-muted/30">
+                    <CardContent className="pt-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            <User className="w-5 h-5 text-primary" />
+                          </div>
+                          <div>
+                            <p className="font-medium">{u.firstName} {u.lastName}</p>
+                            <p className="text-sm text-muted-foreground">{u.email} • {u.role}</p>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => grantAllCountries(u.id)}
+                            disabled={updateAccessMutation.isPending}
+                            data-testid={`button-grant-all-${u.id}`}
+                          >
+                            Povoliť všetky
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => revokeAllCountries(u.id)}
+                            disabled={updateAccessMutation.isPending}
+                            data-testid={`button-revoke-all-${u.id}`}
+                          >
+                            Odobrať všetky
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-2">
+                        {COUNTRIES.map((country) => {
+                          const hasAccess = userAccess.includes(country.code);
+                          return (
+                            <Button
+                              key={country.code}
+                              variant={hasAccess ? "default" : "outline"}
+                              size="sm"
+                              className="justify-start"
+                              onClick={() => toggleCountryAccess(u.id, country.code)}
+                              disabled={updateAccessMutation.isPending}
+                              data-testid={`button-toggle-country-${u.id}-${country.code}`}
+                            >
+                              {hasAccess && <Check className="w-3 h-3 mr-1" />}
+                              {country.flag} {country.code}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                      {userAccess.length > 0 && (
+                        <p className="text-xs text-muted-foreground mt-3">
+                          Prístup k {userAccess.length} {userAccess.length === 1 ? 'krajine' : userAccess.length < 5 ? 'krajinám' : 'krajinám'}
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function CampaignsPage() {
   const { t } = useI18n();
   const { toast } = useToast();
@@ -487,6 +649,7 @@ export default function CampaignsPage() {
   const [selectedForComparison, setSelectedForComparison] = useState<string[]>([]);
   const [agentsDialogCampaign, setAgentsDialogCampaign] = useState<Campaign | null>(null);
   const [selectedAgentIds, setSelectedAgentIds] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState("campaigns");
 
   const { data: campaigns = [], isLoading } = useQuery<Campaign[]>({
     queryKey: ["/api/campaigns"],
@@ -727,73 +890,94 @@ export default function CampaignsPage() {
         title={t.campaigns?.title || "Campaigns"}
         description={t.campaigns?.description || "Manage marketing and sales campaigns"}
       >
-        <div className="flex gap-2 flex-wrap">
-          <Button 
-            variant="outline" 
-            onClick={() => setIsComparisonOpen(true)} 
-            data-testid="button-compare-campaigns"
-          >
-            <BarChart3 className="h-4 w-4 mr-2" />
-            Porovnať kampane
-          </Button>
-          <Button onClick={() => setIsDialogOpen(true)} data-testid="button-add-campaign" data-tour="create-campaign">
-            <Plus className="h-4 w-4 mr-2" />
-            {t.campaigns?.addCampaign || "Add Campaign"}
-          </Button>
-        </div>
+        {activeTab === "campaigns" && (
+          <div className="flex gap-2 flex-wrap">
+            <Button 
+              variant="outline" 
+              onClick={() => setIsComparisonOpen(true)} 
+              data-testid="button-compare-campaigns"
+            >
+              <BarChart3 className="h-4 w-4 mr-2" />
+              Porovnať kampane
+            </Button>
+            <Button onClick={() => setIsDialogOpen(true)} data-testid="button-add-campaign" data-tour="create-campaign">
+              <Plus className="h-4 w-4 mr-2" />
+              {t.campaigns?.addCampaign || "Add Campaign"}
+            </Button>
+          </div>
+        )}
       </PageHeader>
 
-      <div className="flex-1 overflow-auto p-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between gap-4 pb-4 flex-wrap">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder={t.campaigns?.searchPlaceholder || "Search campaigns..."}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10"
-                data-testid="input-search-campaigns"
-              />
-            </div>
-            <div className="flex gap-1">
-              <Button
-                size="icon"
-                variant={viewMode === "list" ? "default" : "ghost"}
-                onClick={() => setViewMode("list")}
-                data-testid="button-view-list"
-              >
-                <LayoutList className="h-4 w-4" />
-              </Button>
-              <Button
-                size="icon"
-                variant={viewMode === "calendar" ? "default" : "ghost"}
-                onClick={() => setViewMode("calendar")}
-                data-testid="button-view-calendar"
-              >
-                <Calendar className="h-4 w-4" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent data-tour="campaign-list">
-            {viewMode === "list" ? (
-              <DataTable
-                columns={columns}
-                data={filteredCampaigns}
-                isLoading={isLoading}
-                emptyMessage={t.campaigns?.noCampaigns || "No campaigns found"}
-                getRowKey={(campaign) => campaign.id}
-                onRowClick={(campaign) => setLocation(`/campaigns/${campaign.id}`)}
-              />
-            ) : (
-              <CampaignCalendar 
-                campaigns={filteredCampaigns} 
-                onCampaignClick={(campaign) => setLocation(`/campaigns/${campaign.id}`)}
-              />
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
+        <div className="px-6 pt-4">
+          <TabsList>
+            <TabsTrigger value="campaigns" className="gap-2" data-testid="tab-campaigns">
+              <Megaphone className="h-4 w-4" />
+              Kampane
+            </TabsTrigger>
+            <TabsTrigger value="access" className="gap-2" data-testid="tab-access">
+              <Shield className="h-4 w-4" />
+              Prístup agentov
+            </TabsTrigger>
+          </TabsList>
+        </div>
+
+        <TabsContent value="campaigns" className="flex-1 overflow-auto p-6 mt-0">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-4 pb-4 flex-wrap">
+              <div className="relative flex-1 max-w-sm">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder={t.campaigns?.searchPlaceholder || "Search campaigns..."}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-10"
+                  data-testid="input-search-campaigns"
+                />
+              </div>
+              <div className="flex gap-1">
+                <Button
+                  size="icon"
+                  variant={viewMode === "list" ? "default" : "ghost"}
+                  onClick={() => setViewMode("list")}
+                  data-testid="button-view-list"
+                >
+                  <LayoutList className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant={viewMode === "calendar" ? "default" : "ghost"}
+                  onClick={() => setViewMode("calendar")}
+                  data-testid="button-view-calendar"
+                >
+                  <Calendar className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent data-tour="campaign-list">
+              {viewMode === "list" ? (
+                <DataTable
+                  columns={columns}
+                  data={filteredCampaigns}
+                  isLoading={isLoading}
+                  emptyMessage={t.campaigns?.noCampaigns || "No campaigns found"}
+                  getRowKey={(campaign) => campaign.id}
+                  onRowClick={(campaign) => setLocation(`/campaigns/${campaign.id}`)}
+                />
+              ) : (
+                <CampaignCalendar 
+                  campaigns={filteredCampaigns} 
+                  onCampaignClick={(campaign) => setLocation(`/campaigns/${campaign.id}`)}
+                />
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="access" className="flex-1 overflow-auto mt-0">
+          <AgentWorkspaceAccessTab />
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={isDialogOpen} onOpenChange={(open) => {
         setIsDialogOpen(open);

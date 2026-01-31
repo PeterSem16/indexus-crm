@@ -113,66 +113,73 @@ function AgentStatusBar({
   onStatusChange,
   stats,
   workTime,
+  sipPhone,
 }: { 
   status: AgentStatus; 
   onStatusChange: (status: AgentStatus) => void;
   stats: { calls: number; emails: number; sms: number };
   workTime: string;
+  sipPhone: React.ReactNode;
 }) {
   const config = STATUS_CONFIG[status];
 
   return (
-    <div className="h-14 border-b bg-card flex items-center justify-between px-4 gap-4">
-      <div className="flex items-center gap-4">
+    <div className="h-16 border-b bg-gradient-to-r from-card via-card to-muted/30 flex items-center justify-between px-6 gap-6 shadow-sm">
+      <div className="flex items-center gap-6">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="gap-2" data-testid="dropdown-agent-status">
-              <span className={`h-2 w-2 rounded-full ${config.color}`} />
+            <Button 
+              variant="outline" 
+              className="gap-2 border-2 shadow-sm hover:shadow-md transition-shadow" 
+              data-testid="dropdown-agent-status"
+            >
+              <span className={`h-3 w-3 rounded-full ${config.color} animate-pulse`} />
               {config.icon}
-              {config.label}
-              <ChevronDown className="h-4 w-4" />
+              <span className="font-medium">{config.label}</span>
+              <ChevronDown className="h-4 w-4 opacity-50" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent>
+          <DropdownMenuContent align="start" className="w-48">
             {Object.entries(STATUS_CONFIG).map(([key, value]) => (
               <DropdownMenuItem
                 key={key}
                 onClick={() => onStatusChange(key as AgentStatus)}
-                className="gap-2"
+                className="gap-3 py-2"
                 data-testid={`menu-item-status-${key}`}
               >
-                <span className={`h-2 w-2 rounded-full ${value.color}`} />
+                <span className={`h-3 w-3 rounded-full ${value.color}`} />
                 {value.icon}
-                {value.label}
+                <span className="font-medium">{value.label}</span>
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
 
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/50">
+          <Clock className="h-4 w-4 text-primary" />
+          <span className="font-mono text-sm font-semibold" data-testid="text-work-time">{workTime}</span>
+        </div>
+
         <Separator orientation="vertical" className="h-8" />
 
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <Clock className="h-4 w-4" />
-          <span className="font-mono text-sm" data-testid="text-work-time">{workTime}</span>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/30" data-testid="stat-calls">
+            <Phone className="h-4 w-4 text-blue-500" />
+            <span className="font-bold text-blue-600 dark:text-blue-400">{stats.calls}</span>
+          </div>
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-50 dark:bg-green-950/30" data-testid="stat-emails">
+            <Mail className="h-4 w-4 text-green-500" />
+            <span className="font-bold text-green-600 dark:text-green-400">{stats.emails}</span>
+          </div>
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-orange-50 dark:bg-orange-950/30" data-testid="stat-sms">
+            <MessageSquare className="h-4 w-4 text-orange-500" />
+            <span className="font-bold text-orange-600 dark:text-orange-400">{stats.sms}</span>
+          </div>
         </div>
       </div>
 
-      <div className="flex items-center gap-6">
-        <div className="flex items-center gap-2" data-testid="stat-calls">
-          <Phone className="h-4 w-4 text-muted-foreground" />
-          <span className="font-semibold">{stats.calls}</span>
-          <span className="text-muted-foreground text-sm">hovorov</span>
-        </div>
-        <div className="flex items-center gap-2" data-testid="stat-emails">
-          <Mail className="h-4 w-4 text-muted-foreground" />
-          <span className="font-semibold">{stats.emails}</span>
-          <span className="text-muted-foreground text-sm">emailov</span>
-        </div>
-        <div className="flex items-center gap-2" data-testid="stat-sms">
-          <MessageSquare className="h-4 w-4 text-muted-foreground" />
-          <span className="font-semibold">{stats.sms}</span>
-          <span className="text-muted-foreground text-sm">SMS</span>
-        </div>
+      <div className="flex items-center gap-4">
+        {sipPhone}
       </div>
     </div>
   );
@@ -208,26 +215,26 @@ function QueuePanel({
   }, [campaigns, channelFilter]);
 
   return (
-    <div className="w-60 border-r bg-card flex flex-col h-full">
-      <div className="p-3 border-b">
-        <h3 className="font-semibold text-sm flex items-center gap-2">
-          <Users className="h-4 w-4" />
-          Fronty
+    <div className="w-72 border-r bg-gradient-to-b from-card to-muted/20 flex flex-col h-full">
+      <div className="p-4 border-b bg-card/80 backdrop-blur-sm">
+        <h3 className="font-bold text-base flex items-center gap-2 text-primary">
+          <Users className="h-5 w-5" />
+          Kampane
         </h3>
-        <div className="mt-2 flex items-center gap-2">
+        <div className="mt-3 flex items-center gap-2">
           <Checkbox
             id="show-assigned"
             checked={showOnlyAssigned}
             onCheckedChange={(checked) => onToggleAssigned(!!checked)}
             data-testid="checkbox-show-assigned"
           />
-          <Label htmlFor="show-assigned" className="text-xs cursor-pointer">
+          <Label htmlFor="show-assigned" className="text-sm cursor-pointer font-medium">
             Len priradené
           </Label>
         </div>
-        <div className="mt-2">
+        <div className="mt-3">
           <Select value={channelFilter} onValueChange={setChannelFilter}>
-            <SelectTrigger className="h-8 text-xs" data-testid="select-channel-filter">
+            <SelectTrigger className="h-9 text-sm bg-background" data-testid="select-channel-filter">
               <SelectValue placeholder="Všetky kanály" />
             </SelectTrigger>
             <SelectContent>
@@ -242,72 +249,90 @@ function QueuePanel({
       </div>
       
       <ScrollArea className="flex-1">
-        <div className="p-2 space-y-1">
+        <div className="p-3 space-y-2">
           {filteredCampaigns.map((campaign) => {
             const channelInfo = CHANNEL_CONFIG[campaign.channel as keyof typeof CHANNEL_CONFIG] || CHANNEL_CONFIG.phone;
             const ChannelIcon = channelInfo.icon;
+            const isSelected = selectedCampaignId === campaign.id;
             return (
-              <Button
+              <div
                 key={campaign.id}
-                variant={selectedCampaignId === campaign.id ? "secondary" : "ghost"}
-                className="w-full justify-between h-auto py-2 px-3"
+                className={`
+                  p-3 rounded-xl cursor-pointer transition-all duration-200
+                  ${isSelected 
+                    ? "bg-primary text-primary-foreground shadow-lg scale-[1.02]" 
+                    : "bg-card hover:bg-muted/80 hover:shadow-md border border-transparent hover:border-border"
+                  }
+                `}
                 onClick={() => onSelectCampaign(campaign.id)}
                 data-testid={`btn-queue-${campaign.id}`}
               >
-                <div className="flex flex-col items-start">
-                  <div className="flex items-center gap-1">
-                    <ChannelIcon className={`h-3 w-3 ${channelInfo.color}`} />
-                    <span className="text-sm font-medium truncate max-w-[120px]">{campaign.name}</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className={`p-1.5 rounded-lg ${isSelected ? "bg-primary-foreground/20" : "bg-muted"}`}>
+                      <ChannelIcon className={`h-4 w-4 ${isSelected ? "text-primary-foreground" : channelInfo.color}`} />
+                    </div>
+                    <div>
+                      <p className={`font-semibold text-sm truncate max-w-[140px] ${isSelected ? "" : ""}`}>
+                        {campaign.name}
+                      </p>
+                      <p className={`text-xs ${isSelected ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                        {campaign.status === "active" ? "Aktívna" : "Pozastavená"}
+                      </p>
+                    </div>
                   </div>
-                  <span className="text-xs text-muted-foreground">
-                    {campaign.status === "active" ? "Aktívna" : "Pozastavená"}
-                  </span>
+                  <Badge 
+                    variant={isSelected ? "secondary" : "outline"} 
+                    className={`${isSelected ? "bg-primary-foreground/20 text-primary-foreground border-0" : ""}`}
+                  >
+                    {campaign.contactCount}
+                  </Badge>
                 </div>
-                <Badge variant="secondary" className="ml-2">
-                  {campaign.contactCount}
-                </Badge>
-              </Button>
+              </div>
             );
           })}
           {filteredCampaigns.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              Žiadne aktívne fronty
-            </p>
-          )}
-        </div>
-      </ScrollArea>
-
-      <Separator />
-
-      <div className="p-3 border-t">
-        <h3 className="font-semibold text-sm flex items-center gap-2 mb-2">
-          <History className="h-4 w-4" />
-          História kontaktu
-        </h3>
-      </div>
-      
-      <ScrollArea className="h-48">
-        <div className="p-2 space-y-2">
-          {contactHistory.map((item) => (
-            <div key={item.id} className="text-xs p-2 rounded bg-muted/50">
-              <div className="flex items-center gap-2 mb-1">
-                {item.type === "call" && <Phone className="h-3 w-3" />}
-                {item.type === "email" && <Mail className="h-3 w-3" />}
-                {item.type === "sms" && <MessageSquare className="h-3 w-3" />}
-                <span className="text-muted-foreground">
-                  {format(new Date(item.date), "d.M. HH:mm", { locale: sk })}
-                </span>
-              </div>
-              <p className="text-muted-foreground truncate">{item.notes || item.status}</p>
+            <div className="text-center py-8">
+              <Users className="h-10 w-10 mx-auto text-muted-foreground/50 mb-2" />
+              <p className="text-sm text-muted-foreground">Žiadne aktívne kampane</p>
             </div>
-          ))}
-          {contactHistory.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center py-2">
-              Žiadna história
-            </p>
           )}
         </div>
       </ScrollArea>
+
+      <div className="border-t bg-card/80 backdrop-blur-sm">
+        <div className="p-4">
+          <h3 className="font-semibold text-sm flex items-center gap-2 mb-3 text-muted-foreground">
+            <History className="h-4 w-4" />
+            História
+          </h3>
+        </div>
+        
+        <ScrollArea className="h-36">
+          <div className="px-4 pb-4 space-y-2">
+            {contactHistory.map((item) => (
+              <div key={item.id} className="text-xs p-2.5 rounded-lg bg-muted/50 border border-border/50">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className={`p-1 rounded ${item.type === "call" ? "bg-blue-100 dark:bg-blue-950" : item.type === "email" ? "bg-green-100 dark:bg-green-950" : "bg-orange-100 dark:bg-orange-950"}`}>
+                    {item.type === "call" && <Phone className="h-3 w-3 text-blue-500" />}
+                    {item.type === "email" && <Mail className="h-3 w-3 text-green-500" />}
+                    {item.type === "sms" && <MessageSquare className="h-3 w-3 text-orange-500" />}
+                  </div>
+                  <span className="text-muted-foreground font-medium">
+                    {format(new Date(item.date), "d.M. HH:mm", { locale: sk })}
+                  </span>
+                </div>
+                <p className="text-muted-foreground truncate">{item.notes || item.status}</p>
+              </div>
+            ))}
+            {contactHistory.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-2">
+                Žiadna história
+              </p>
+            )}
+          </div>
+        </ScrollArea>
+      </div>
     </div>
   );
 }
@@ -315,10 +340,13 @@ function QueuePanel({
 function ContactCard({ contact }: { contact: Customer | null }) {
   if (!contact) {
     return (
-      <Card className="mb-4">
-        <CardContent className="py-8 text-center text-muted-foreground">
-          <User className="h-12 w-12 mx-auto mb-2 opacity-50" />
-          <p>Vyberte kontakt z fronty</p>
+      <Card className="mb-4 border-dashed border-2">
+        <CardContent className="py-12 text-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted/50 flex items-center justify-center">
+            <User className="h-8 w-8 text-muted-foreground/50" />
+          </div>
+          <p className="text-muted-foreground font-medium">Vyberte kontakt z fronty</p>
+          <p className="text-sm text-muted-foreground/70 mt-1">alebo načítajte ďalší kontakt</p>
         </CardContent>
       </Card>
     );
@@ -328,46 +356,50 @@ function ContactCard({ contact }: { contact: Customer | null }) {
   const stars = Math.round(leadScore / 20);
 
   return (
-    <Card className="mb-4" data-testid="card-contact">
-      <CardContent className="py-4">
-        <div className="flex items-start gap-4">
-          <Avatar className="h-14 w-14">
-            <AvatarFallback className="bg-primary/10 text-primary text-lg">
+    <Card className="mb-4 overflow-hidden" data-testid="card-contact">
+      <div className="h-2 bg-gradient-to-r from-primary via-primary/80 to-primary/60" />
+      <CardContent className="py-5">
+        <div className="flex items-start gap-5">
+          <Avatar className="h-16 w-16 ring-4 ring-primary/20">
+            <AvatarFallback className="bg-gradient-to-br from-primary to-primary/70 text-primary-foreground text-xl font-bold">
               {contact.firstName?.[0]}{contact.lastName?.[0]}
             </AvatarFallback>
           </Avatar>
           
           <div className="flex-1">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold" data-testid="text-contact-name">
-                {contact.firstName} {contact.lastName}
-              </h2>
-              <div className="flex items-center gap-1">
+              <div>
+                <h2 className="text-2xl font-bold tracking-tight" data-testid="text-contact-name">
+                  {contact.firstName} {contact.lastName}
+                </h2>
+                <Badge variant="secondary" className="mt-1">{contact.status || "Nový"}</Badge>
+              </div>
+              <div className="flex items-center gap-0.5 bg-muted/50 px-2 py-1 rounded-lg">
                 {[...Array(5)].map((_, i) => (
                   <Star
                     key={i}
-                    className={`h-4 w-4 ${i < stars ? "text-yellow-500 fill-yellow-500" : "text-muted"}`}
+                    className={`h-5 w-5 ${i < stars ? "text-yellow-500 fill-yellow-500" : "text-muted-foreground/30"}`}
                   />
                 ))}
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 mt-3">
-              <div className="flex items-center gap-2 text-sm">
-                <Phone className="h-4 w-4 text-muted-foreground" />
-                <span data-testid="text-contact-phone">{contact.phone || "—"}</span>
+            <div className="grid grid-cols-2 gap-3 mt-4">
+              <div className="flex items-center gap-3 p-2.5 rounded-lg bg-blue-50 dark:bg-blue-950/30">
+                <Phone className="h-4 w-4 text-blue-500" />
+                <span className="font-medium text-sm" data-testid="text-contact-phone">{contact.phone || "—"}</span>
               </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Mail className="h-4 w-4 text-muted-foreground" />
-                <span className="truncate" data-testid="text-contact-email">{contact.email || "—"}</span>
+              <div className="flex items-center gap-3 p-2.5 rounded-lg bg-green-50 dark:bg-green-950/30">
+                <Mail className="h-4 w-4 text-green-500" />
+                <span className="font-medium text-sm truncate" data-testid="text-contact-email">{contact.email || "—"}</span>
               </div>
-              <div className="flex items-center gap-2 text-sm">
+              <div className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/50">
                 <MapPin className="h-4 w-4 text-muted-foreground" />
-                <span>{contact.city || "—"}</span>
+                <span className="text-sm">{contact.city || "—"}</span>
               </div>
-              <div className="flex items-center gap-2 text-sm">
+              <div className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/50">
                 <Building className="h-4 w-4 text-muted-foreground" />
-                <Badge variant="outline">{contact.status || "Nový"}</Badge>
+                <span className="text-sm">{contact.country || "SK"}</span>
               </div>
             </div>
           </div>
@@ -503,24 +535,27 @@ function DispositionPanel({
   disabled: boolean;
 }) {
   return (
-    <Card>
-      <CardHeader className="py-3">
-        <CardTitle className="text-sm font-medium">Výsledok hovoru</CardTitle>
+    <Card className="overflow-hidden border-2 border-dashed border-muted-foreground/20">
+      <CardHeader className="py-3 bg-gradient-to-r from-muted/50 to-transparent">
+        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+          <CheckCircle className="h-4 w-4 text-primary" />
+          Výsledok hovoru
+        </CardTitle>
       </CardHeader>
-      <CardContent className="pb-3">
-        <div className="flex flex-wrap gap-2">
+      <CardContent className="p-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           {DISPOSITION_OPTIONS.map((option) => (
             <Button
               key={option.value}
               variant="outline"
               size="sm"
-              className={`gap-1 ${option.color}`}
+              className={`gap-2 h-11 justify-start ${option.color} transition-all hover:scale-[1.02] hover:shadow-md`}
               onClick={() => onDisposition(option.value)}
               disabled={disabled}
               data-testid={`btn-disposition-${option.value}`}
             >
               {option.icon}
-              {option.label}
+              <span className="font-medium">{option.label}</span>
             </Button>
           ))}
         </div>
@@ -543,55 +578,58 @@ function QuickActionsPanel({
   onTask: () => void;
 }) {
   return (
-    <Card>
-      <CardHeader className="py-3">
-        <CardTitle className="text-sm font-medium">Rýchle akcie</CardTitle>
+    <Card className="overflow-hidden">
+      <CardHeader className="py-3 bg-muted/30">
+        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+          <Headphones className="h-4 w-4 text-primary" />
+          Rýchle akcie
+        </CardTitle>
       </CardHeader>
-      <CardContent className="pb-3">
+      <CardContent className="p-3">
         <div className="grid grid-cols-2 gap-2">
           <Button
             variant="outline"
             size="sm"
             onClick={onCall}
             disabled={!contact?.phone}
-            className="gap-1"
+            className="gap-2 h-12 flex-col bg-blue-50/50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-950/40"
             data-testid="btn-quick-call"
           >
-            <Phone className="h-4 w-4" />
-            Volať
+            <Phone className="h-5 w-5 text-blue-500" />
+            <span className="text-xs">Volať</span>
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={onEmail}
             disabled={!contact?.email}
-            className="gap-1"
+            className="gap-2 h-12 flex-col bg-green-50/50 dark:bg-green-950/20 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-950/40"
             data-testid="btn-quick-email"
           >
-            <Mail className="h-4 w-4" />
-            Email
+            <Mail className="h-5 w-5 text-green-500" />
+            <span className="text-xs">Email</span>
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={onSms}
             disabled={!contact?.phone}
-            className="gap-1"
+            className="gap-2 h-12 flex-col bg-orange-50/50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800 hover:bg-orange-100 dark:hover:bg-orange-950/40"
             data-testid="btn-quick-sms"
           >
-            <MessageSquare className="h-4 w-4" />
-            SMS
+            <MessageSquare className="h-5 w-5 text-orange-500" />
+            <span className="text-xs">SMS</span>
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={onTask}
             disabled={!contact}
-            className="gap-1"
+            className="gap-2 h-12 flex-col bg-purple-50/50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800 hover:bg-purple-100 dark:hover:bg-purple-950/40"
             data-testid="btn-quick-task"
           >
-            <CalendarPlus className="h-4 w-4" />
-            Úloha
+            <CalendarPlus className="h-5 w-5 text-purple-500" />
+            <span className="text-xs">Úloha</span>
           </Button>
         </div>
       </CardContent>
@@ -616,28 +654,35 @@ function NotesPanel({
   };
 
   return (
-    <Card>
-      <CardHeader className="py-3">
-        <CardTitle className="text-sm font-medium flex items-center gap-2">
-          <StickyNote className="h-4 w-4" />
+    <Card className="overflow-hidden">
+      <CardHeader className="py-3 bg-muted/30">
+        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+          <StickyNote className="h-4 w-4 text-amber-500" />
           Poznámky k hovoru
         </CardTitle>
       </CardHeader>
-      <CardContent className="pb-3 space-y-2">
+      <CardContent className="p-3 space-y-3">
+        {notes && (
+          <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-sm">
+            <pre className="whitespace-pre-wrap font-sans text-foreground">{notes}</pre>
+          </div>
+        )}
         <Textarea
-          placeholder="Pridať poznámku..."
+          placeholder="Napíšte poznámku..."
           value={newNote}
           onChange={(e) => setNewNote(e.target.value)}
           rows={3}
+          className="bg-background"
           data-testid="input-call-notes"
         />
         <Button
           size="sm"
           onClick={handleAdd}
           disabled={!newNote.trim()}
-          className="w-full"
+          className="w-full gap-2"
           data-testid="btn-add-note"
         >
+          <StickyNote className="h-4 w-4" />
           Pridať poznámku
         </Button>
       </CardContent>
@@ -887,13 +932,33 @@ export default function AgentWorkspacePage() {
     }
   };
 
+  const sipPhoneComponent = (
+    <SipPhone
+      compact={true}
+      initialNumber={currentContact?.phone || ""}
+      userId={user?.id}
+      customerId={currentContact?.id}
+      campaignId={selectedCampaignId || undefined}
+      customerName={currentContact ? `${currentContact.firstName} ${currentContact.lastName}` : undefined}
+      hideSettingsAndRegistration={true}
+      onCallStart={() => {
+        setAgentStatus("busy");
+        setStats((prev) => ({ ...prev, calls: prev.calls + 1 }));
+      }}
+      onCallEnd={() => {
+        setAgentStatus("wrap_up");
+      }}
+    />
+  );
+
   return (
-    <div className="flex flex-col h-[calc(100vh-8rem)] -m-6">
+    <div className="flex flex-col h-[calc(100vh-8rem)] -m-6 bg-gradient-to-br from-background via-background to-muted/20">
       <AgentStatusBar
         status={agentStatus}
         onStatusChange={handleStatusChange}
         stats={stats}
         workTime={workTime}
+        sipPhone={sipPhoneComponent}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -906,26 +971,26 @@ export default function AgentWorkspacePage() {
           onToggleAssigned={setShowOnlyAssigned}
         />
 
-        <div className="flex-1 overflow-auto p-4">
+        <div className="flex-1 overflow-auto p-6">
           <ContactCard contact={currentContact} />
 
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="mb-4">
-              <TabsTrigger value="script" className="gap-2" data-testid="tab-script">
+            <TabsList className="mb-4 p-1 bg-muted/50">
+              <TabsTrigger value="script" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm" data-testid="tab-script">
                 <FileText className="h-4 w-4" />
                 Script
               </TabsTrigger>
-              <TabsTrigger value="email" className="gap-2" data-testid="tab-email">
+              <TabsTrigger value="email" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm" data-testid="tab-email">
                 <Mail className="h-4 w-4" />
                 Email
               </TabsTrigger>
-              <TabsTrigger value="sms" className="gap-2" data-testid="tab-sms">
+              <TabsTrigger value="sms" className="gap-2 data-[state=active]:bg-background data-[state=active]:shadow-sm" data-testid="tab-sms">
                 <MessageSquare className="h-4 w-4" />
                 SMS
               </TabsTrigger>
             </TabsList>
 
-            <Card>
+            <Card className="overflow-hidden">
               <TabsContent value="script" className="m-0">
                 <ScriptViewer script={selectedCampaign?.script || null} />
               </TabsContent>
@@ -938,7 +1003,7 @@ export default function AgentWorkspacePage() {
             </Card>
           </Tabs>
 
-          <div className="mt-4">
+          <div className="mt-6">
             <DispositionPanel
               onDisposition={handleDisposition}
               disabled={!currentContact}
@@ -946,8 +1011,8 @@ export default function AgentWorkspacePage() {
           </div>
 
           {!currentContact && selectedCampaignId && (
-            <div className="mt-4 text-center">
-              <Button onClick={handleNextContact} size="lg" className="gap-2" data-testid="btn-next-contact">
+            <div className="mt-6 text-center">
+              <Button onClick={handleNextContact} size="lg" className="gap-2 shadow-lg hover:shadow-xl transition-shadow" data-testid="btn-next-contact">
                 <SkipForward className="h-5 w-5" />
                 Načítať ďalší kontakt
               </Button>
@@ -955,34 +1020,7 @@ export default function AgentWorkspacePage() {
           )}
         </div>
 
-        <div className="w-80 border-l bg-card p-4 space-y-4 overflow-auto">
-          <Card>
-            <CardHeader className="py-3">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Phone className="h-4 w-4" />
-                SIP Telefón
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pb-3">
-              <SipPhone
-                compact={true}
-                initialNumber={currentContact?.phone || ""}
-                userId={user?.id}
-                customerId={currentContact?.id}
-                campaignId={selectedCampaignId || undefined}
-                customerName={currentContact ? `${currentContact.firstName} ${currentContact.lastName}` : undefined}
-                hideSettingsAndRegistration={true}
-                onCallStart={() => {
-                  setAgentStatus("busy");
-                  setStats((prev) => ({ ...prev, calls: prev.calls + 1 }));
-                }}
-                onCallEnd={() => {
-                  setAgentStatus("wrap_up");
-                }}
-              />
-            </CardContent>
-          </Card>
-
+        <div className="w-80 border-l bg-gradient-to-b from-card to-muted/20 p-4 space-y-4 overflow-auto">
           <QuickActionsPanel
             contact={currentContact}
             onCall={() => {}}
