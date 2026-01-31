@@ -5786,31 +5786,21 @@ export async function registerRoutes(
 
       const invoiceItems = await storage.getInvoiceItems(invoice.id);
       const countryCode = customer.country?.toUpperCase() || "SK";
-      const templateType = "standard";
 
-      // Get template
-      let template = templateId 
-        ? await storage.getInvoiceTemplate(templateId as string)
-        : await storage.getDefaultInvoiceTemplate(countryCode, templateType);
+      // Get DOCX template - first try specific templateId, then find by country
+      let docxTemplate = templateId 
+        ? await storage.getDocxTemplate(templateId as string)
+        : await storage.getDefaultDocxTemplate(countryCode, "invoice");
 
-      if (!template) {
+      if (!docxTemplate) {
         return res.status(400).json({ 
-          error: `No invoice template found for country ${countryCode}. Please create a template for this country in the Configurator first.`,
+          error: `Nenašla sa DOCX šablóna pre krajinu ${countryCode}. Vytvorte prosím šablónu v Konfigurátore (DOCX Šablóny).`,
           errorCode: "TEMPLATE_NOT_FOUND",
           countryCode 
         });
       }
-      
-      if (!template.docxTemplatePath) {
-        return res.status(400).json({ 
-          error: `Template "${template.name}" for country ${countryCode} does not have a DOCX file. Please upload a DOCX template in the Configurator first.`,
-          errorCode: "DOCX_NOT_UPLOADED",
-          countryCode,
-          templateName: template.name
-        });
-      }
 
-      const docxPath = path.join(process.cwd(), template.docxTemplatePath);
+      const docxPath = path.join(process.cwd(), docxTemplate.filePath);
       if (!fs.existsSync(docxPath)) {
         return res.status(404).json({ error: "DOCX template file not found" });
       }

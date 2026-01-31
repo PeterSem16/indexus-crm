@@ -16762,31 +16762,7 @@ export default function ConfiguratorPage() {
               <CardDescription>{t.konfigurator.layoutsDescription}</CardDescription>
             </CardHeader>
             <CardContent>
-              <Tabs defaultValue="templates" className="space-y-4">
-                <TabsList>
-                  <TabsTrigger value="templates" data-testid="subtab-templates">
-                    <FileText className="h-4 w-4 mr-2" />
-                    {t.konfigurator.invoiceTemplates}
-                  </TabsTrigger>
-                  <TabsTrigger value="layouts" data-testid="subtab-layouts">
-                    <Layout className="h-4 w-4 mr-2" />
-                    {t.konfigurator.invoiceLayouts || "Rozloženia faktúr"}
-                  </TabsTrigger>
-                  <TabsTrigger value="docx" data-testid="subtab-docx">
-                    <FileText className="h-4 w-4 mr-2" />
-                    DOCX Šablóny
-                  </TabsTrigger>
-                </TabsList>
-                <TabsContent value="templates">
-                  <InvoiceTemplatesTab />
-                </TabsContent>
-                <TabsContent value="layouts">
-                  <InvoiceEditorTab />
-                </TabsContent>
-                <TabsContent value="docx">
-                  <DocxTemplatesTab />
-                </TabsContent>
-              </Tabs>
+              <DocxTemplatesTab />
             </CardContent>
           </Card>
         </TabsContent>

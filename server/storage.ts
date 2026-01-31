@@ -527,6 +527,7 @@ export interface IStorage {
   // DOCX Templates
   getAllDocxTemplates(): Promise<DocxTemplate[]>;
   getDocxTemplate(id: string): Promise<DocxTemplate | undefined>;
+  getDefaultDocxTemplate(countryCode: string, templateType?: string): Promise<DocxTemplate | undefined>;
   createDocxTemplate(data: InsertDocxTemplate): Promise<DocxTemplate>;
   updateDocxTemplate(id: string, data: Partial<InsertDocxTemplate>): Promise<DocxTemplate | undefined>;
   deleteDocxTemplate(id: string): Promise<boolean>;
@@ -3089,6 +3090,40 @@ export class DatabaseStorage implements IStorage {
   async getDocxTemplate(id: string): Promise<DocxTemplate | undefined> {
     const [template] = await db.select().from(docxTemplates).where(eq(docxTemplates.id, id));
     return template;
+  }
+
+  async getDefaultDocxTemplate(countryCode: string, templateType: string = "invoice"): Promise<DocxTemplate | undefined> {
+    // First try to find default template for specific country
+    const [defaultTemplate] = await db.select().from(docxTemplates)
+      .where(and(
+        eq(docxTemplates.countryCode, countryCode),
+        eq(docxTemplates.templateType, templateType),
+        eq(docxTemplates.isDefault, true),
+        eq(docxTemplates.isActive, true)
+      ))
+      .limit(1);
+    if (defaultTemplate) return defaultTemplate;
+
+    // Then try any active template for the country
+    const [countryTemplate] = await db.select().from(docxTemplates)
+      .where(and(
+        eq(docxTemplates.countryCode, countryCode),
+        eq(docxTemplates.templateType, templateType),
+        eq(docxTemplates.isActive, true)
+      ))
+      .orderBy(desc(docxTemplates.createdAt))
+      .limit(1);
+    if (countryTemplate) return countryTemplate;
+
+    // Finally try any active template of the type
+    const [anyTemplate] = await db.select().from(docxTemplates)
+      .where(and(
+        eq(docxTemplates.templateType, templateType),
+        eq(docxTemplates.isActive, true)
+      ))
+      .orderBy(desc(docxTemplates.createdAt))
+      .limit(1);
+    return anyTemplate;
   }
 
   async createDocxTemplate(data: InsertDocxTemplate): Promise<DocxTemplate> {
