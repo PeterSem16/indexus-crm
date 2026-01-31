@@ -287,6 +287,18 @@ export default function CampaignDetailPage() {
     queryKey: ["/api/pipeline-stages"],
   });
 
+  const { data: campaignAgents = [] } = useQuery<Array<{ id: string; userId: string; campaignId: string }>>({
+    queryKey: ["/api/campaigns", campaignId, "agents"],
+    enabled: !!campaignId,
+  });
+
+  const { data: allUsers = [] } = useQuery<Array<{ id: string; firstName: string; lastName: string; role: string }>>({
+    queryKey: ["/api/users"],
+  });
+
+  const callCenterUsers = allUsers.filter(u => u.role === "callCenter" || u.role === "admin");
+  const assignedAgentIds = campaignAgents.map(a => a.userId);
+
   const getStageName = (stageId: string) => {
     const stage = pipelineStages.find(s => s.id === stageId);
     return stage?.name || stageId;
@@ -325,6 +337,19 @@ export default function CampaignDetailPage() {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to update contact.", variant: "destructive" });
+    },
+  });
+
+  const updateAgentsMutation = useMutation({
+    mutationFn: async (userIds: string[]) => {
+      return apiRequest("POST", `/api/campaigns/${campaignId}/agents`, { userIds });
+    },
+    onSuccess: () => {
+      toast({ title: "Operátori boli aktualizovaní" });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "agents"] });
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa aktualizovať operátorov.", variant: "destructive" });
     },
   });
 
@@ -686,6 +711,10 @@ export default function CampaignDetailPage() {
           <TabsTrigger value="script" data-testid="tab-script">
             <ScrollText className="w-4 h-4 mr-2" />
             Skript pre operátorov
+          </TabsTrigger>
+          <TabsTrigger value="agents" data-testid="tab-agents">
+            <Shield className="w-4 h-4 mr-2" />
+            Operátori
           </TabsTrigger>
         </TabsList>
 
@@ -1276,6 +1305,90 @@ Príklad:
                   <li><strong>Poznámky:</strong> Pre dôležité upozornenia a tipy pre operátora</li>
                   <li><strong>Výsledok hovoru:</strong> Pre zaznamenanie finálneho stavu hovoru</li>
                 </ul>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="agents" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="w-5 h-5" />
+                Priradení operátori
+              </CardTitle>
+              <CardDescription>
+                Vyberte operátorov, ktorí budú pracovať na tejto kampani
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {callCenterUsers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    Žiadni operátori nie sú k dispozícii. Najprv vytvorte používateľov s rolou "Call Center".
+                  </p>
+                ) : (
+                  <div className="grid gap-3">
+                    {callCenterUsers.map((user) => {
+                      const isAssigned = assignedAgentIds.includes(user.id);
+                      return (
+                        <div 
+                          key={user.id} 
+                          className={`flex items-center justify-between p-3 rounded-lg border ${isAssigned ? 'bg-primary/5 border-primary/20' : 'bg-muted/30'}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isAssigned ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                              <User className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <p className="font-medium">{user.firstName} {user.lastName}</p>
+                              <p className="text-sm text-muted-foreground">{user.role}</p>
+                            </div>
+                          </div>
+                          <Button
+                            variant={isAssigned ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => {
+                              const newAgentIds = isAssigned
+                                ? assignedAgentIds.filter(id => id !== user.id)
+                                : [...assignedAgentIds, user.id];
+                              updateAgentsMutation.mutate(newAgentIds);
+                            }}
+                            disabled={updateAgentsMutation.isPending}
+                            data-testid={`button-toggle-agent-${user.id}`}
+                          >
+                            {isAssigned ? (
+                              <>
+                                <CheckCheck className="w-4 h-4 mr-2" />
+                                Priradený
+                              </>
+                            ) : (
+                              "Priradiť"
+                            )}
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+          
+          {assignedAgentIds.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Zhrnutie</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="text-sm">
+                    {assignedAgentIds.length} {assignedAgentIds.length === 1 ? 'operátor' : assignedAgentIds.length < 5 ? 'operátori' : 'operátorov'}
+                  </Badge>
+                  <span className="text-sm text-muted-foreground">
+                    priradených k tejto kampani
+                  </span>
+                </div>
               </CardContent>
             </Card>
           )}

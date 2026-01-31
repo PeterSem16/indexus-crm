@@ -661,7 +661,7 @@ export default function AgentWorkspacePage() {
   const [callNotes, setCallNotes] = useState("");
 
   const [stats, setStats] = useState({ calls: 0, emails: 0, sms: 0 });
-  const [showOnlyAssigned, setShowOnlyAssigned] = useState(true);
+  const [showOnlyAssigned, setShowOnlyAssigned] = useState(false);
 
   const allowedRoles = ["callCenter", "admin"];
   const hasAccess = user && allowedRoles.includes(user.role);
