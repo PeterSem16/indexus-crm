@@ -58,9 +58,10 @@ import {
   savedSearches, type SavedSearch, type InsertSavedSearch,
   campaigns, campaignContacts, campaignContactHistory, campaignTemplates,
   campaignSchedules, campaignOperatorSettings, campaignContactSessions, campaignMetricsSnapshots,
-  campaignAgents,
+  campaignAgents, agentWorkspaceAccess,
   type Campaign, type InsertCampaign,
   type CampaignAgent, type InsertCampaignAgent,
+  type AgentWorkspaceAccess, type InsertAgentWorkspaceAccess,
   type CampaignContact, type InsertCampaignContact,
   type CampaignTemplate, type InsertCampaignTemplate,
   type CampaignContactHistory, type InsertCampaignContactHistory,
@@ -614,6 +615,12 @@ export interface IStorage {
   addCampaignAgent(data: InsertCampaignAgent): Promise<CampaignAgent>;
   removeCampaignAgent(campaignId: string, userId: string): Promise<boolean>;
   updateCampaignAgents(campaignId: string, userIds: string[], assignedBy?: string): Promise<CampaignAgent[]>;
+
+  // Agent Workspace Access (country-based access control)
+  getAgentWorkspaceAccess(userId: string): Promise<AgentWorkspaceAccess[]>;
+  getAllAgentWorkspaceAccess(): Promise<AgentWorkspaceAccess[]>;
+  setAgentWorkspaceAccess(userId: string, countryCodes: string[], createdBy?: string): Promise<AgentWorkspaceAccess[]>;
+  getUsersWithWorkspaceAccess(countryCode: string): Promise<AgentWorkspaceAccess[]>;
 
   // Campaign Contact Sessions
   getContactSessions(campaignContactId: string): Promise<CampaignContactSession[]>;
@@ -3569,6 +3576,35 @@ export class DatabaseStorage implements IStorage {
     }));
     
     return db.insert(campaignAgents).values(newAgents).returning();
+  }
+
+  // Agent Workspace Access
+  async getAgentWorkspaceAccess(userId: string): Promise<AgentWorkspaceAccess[]> {
+    return db.select().from(agentWorkspaceAccess).where(eq(agentWorkspaceAccess.userId, userId));
+  }
+
+  async getAllAgentWorkspaceAccess(): Promise<AgentWorkspaceAccess[]> {
+    return db.select().from(agentWorkspaceAccess).orderBy(agentWorkspaceAccess.userId);
+  }
+
+  async setAgentWorkspaceAccess(userId: string, countryCodes: string[], createdBy?: string): Promise<AgentWorkspaceAccess[]> {
+    // Delete existing access for this user
+    await db.delete(agentWorkspaceAccess).where(eq(agentWorkspaceAccess.userId, userId));
+    
+    if (countryCodes.length === 0) return [];
+    
+    // Add new access entries
+    const newAccess = countryCodes.map(countryCode => ({
+      userId,
+      countryCode,
+      createdBy: createdBy || null,
+    }));
+    
+    return db.insert(agentWorkspaceAccess).values(newAccess).returning();
+  }
+
+  async getUsersWithWorkspaceAccess(countryCode: string): Promise<AgentWorkspaceAccess[]> {
+    return db.select().from(agentWorkspaceAccess).where(eq(agentWorkspaceAccess.countryCode, countryCode));
   }
 
   // Campaign Contact Sessions
