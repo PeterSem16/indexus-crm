@@ -366,7 +366,7 @@ function CampaignCalendar({
       if (start) {
         return isSameDay(dayStart, start);
       }
-      if (end) {
+      if (end && campaign.endDate) {
         return isSameDay(dayStart, endOfDay(new Date(campaign.endDate)));
       }
       return false;

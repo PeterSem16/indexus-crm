@@ -176,17 +176,31 @@ function AgentStatusBar({
   );
 }
 
+const CHANNEL_CONFIG = {
+  phone: { icon: Phone, label: "Telefón", color: "text-blue-500" },
+  email: { icon: Mail, label: "Email", color: "text-green-500" },
+  sms: { icon: MessageSquare, label: "SMS", color: "text-orange-500" },
+  mixed: { icon: Users, label: "Mix", color: "text-purple-500" },
+};
+
 function QueuePanel({
   campaigns,
   selectedCampaignId,
   onSelectCampaign,
   contactHistory,
 }: {
-  campaigns: { id: string; name: string; contactCount: number; status: string }[];
+  campaigns: { id: string; name: string; contactCount: number; status: string; channel: string }[];
   selectedCampaignId: string | null;
   onSelectCampaign: (id: string) => void;
   contactHistory: ContactHistory[];
 }) {
+  const [channelFilter, setChannelFilter] = useState<string>("all");
+  
+  const filteredCampaigns = useMemo(() => {
+    if (channelFilter === "all") return campaigns;
+    return campaigns.filter((c) => c.channel === channelFilter);
+  }, [campaigns, channelFilter]);
+
   return (
     <div className="w-60 border-r bg-card flex flex-col h-full">
       <div className="p-3 border-b">
@@ -194,30 +208,51 @@ function QueuePanel({
           <Users className="h-4 w-4" />
           Fronty
         </h3>
+        <div className="mt-2">
+          <Select value={channelFilter} onValueChange={setChannelFilter}>
+            <SelectTrigger className="h-8 text-xs" data-testid="select-channel-filter">
+              <SelectValue placeholder="Všetky kanály" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Všetky kanály</SelectItem>
+              <SelectItem value="phone">Telefón</SelectItem>
+              <SelectItem value="email">Email</SelectItem>
+              <SelectItem value="sms">SMS</SelectItem>
+              <SelectItem value="mixed">Zmiešané</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
       
       <ScrollArea className="flex-1">
         <div className="p-2 space-y-1">
-          {campaigns.map((campaign) => (
-            <Button
-              key={campaign.id}
-              variant={selectedCampaignId === campaign.id ? "secondary" : "ghost"}
-              className="w-full justify-between h-auto py-2 px-3"
-              onClick={() => onSelectCampaign(campaign.id)}
-              data-testid={`btn-queue-${campaign.id}`}
-            >
-              <div className="flex flex-col items-start">
-                <span className="text-sm font-medium truncate max-w-[140px]">{campaign.name}</span>
-                <span className="text-xs text-muted-foreground">
-                  {campaign.status === "active" ? "Aktívna" : "Pozastavená"}
-                </span>
-              </div>
-              <Badge variant="secondary" className="ml-2">
-                {campaign.contactCount}
-              </Badge>
-            </Button>
-          ))}
-          {campaigns.length === 0 && (
+          {filteredCampaigns.map((campaign) => {
+            const channelInfo = CHANNEL_CONFIG[campaign.channel as keyof typeof CHANNEL_CONFIG] || CHANNEL_CONFIG.phone;
+            const ChannelIcon = channelInfo.icon;
+            return (
+              <Button
+                key={campaign.id}
+                variant={selectedCampaignId === campaign.id ? "secondary" : "ghost"}
+                className="w-full justify-between h-auto py-2 px-3"
+                onClick={() => onSelectCampaign(campaign.id)}
+                data-testid={`btn-queue-${campaign.id}`}
+              >
+                <div className="flex flex-col items-start">
+                  <div className="flex items-center gap-1">
+                    <ChannelIcon className={`h-3 w-3 ${channelInfo.color}`} />
+                    <span className="text-sm font-medium truncate max-w-[120px]">{campaign.name}</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {campaign.status === "active" ? "Aktívna" : "Pozastavená"}
+                  </span>
+                </div>
+                <Badge variant="secondary" className="ml-2">
+                  {campaign.contactCount}
+                </Badge>
+              </Button>
+            );
+          })}
+          {filteredCampaigns.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-4">
               Žiadne aktívne fronty
             </p>
@@ -646,6 +681,7 @@ export default function AgentWorkspacePage() {
         name: c.name,
         contactCount: 0,
         status: c.status,
+        channel: c.channel || "phone",
       }));
   }, [campaigns]);
 
