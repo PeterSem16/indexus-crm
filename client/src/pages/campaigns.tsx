@@ -60,6 +60,7 @@ const campaignFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
   type: z.enum(["marketing", "sales", "follow_up", "retention", "upsell", "other"]),
+  channel: z.enum(["phone", "email", "sms", "mixed"]),
   status: z.enum(["draft", "active", "paused", "completed", "cancelled"]),
   countryCodes: z.array(z.string()).default([]),
   startDate: z.string().optional(),
@@ -71,6 +72,7 @@ const campaignFormSchema = z.object({
 type CampaignFormData = z.infer<typeof campaignFormSchema>;
 
 const CAMPAIGN_TYPES = ["marketing", "sales", "follow_up", "retention", "upsell", "other"] as const;
+const CAMPAIGN_CHANNELS = ["phone", "email", "sms", "mixed"] as const;
 const CAMPAIGN_STATUSES = ["draft", "active", "paused", "completed", "cancelled"] as const;
 
 function CampaignForm({
@@ -94,6 +96,7 @@ function CampaignForm({
         name: initialData.name,
         description: initialData.description || "",
         type: initialData.type as any,
+        channel: (initialData.channel || "phone") as any,
         status: initialData.status as any,
         countryCodes: initialData.countryCodes || [],
         startDate: initialData.startDate ? format(new Date(initialData.startDate), "yyyy-MM-dd") : "",
@@ -107,6 +110,7 @@ function CampaignForm({
         name: "",
         description: templateData.description || "",
         type: templateData.type as any,
+        channel: "phone" as const,
         status: "draft" as const,
         countryCodes: templateData.countryCodes || [],
         startDate: "",
@@ -119,6 +123,7 @@ function CampaignForm({
       name: "",
       description: "",
       type: "marketing" as const,
+      channel: "phone" as const,
       status: "draft" as const,
       countryCodes: [],
       startDate: "",
@@ -185,6 +190,31 @@ function CampaignForm({
                     {CAMPAIGN_TYPES.map((type) => (
                       <SelectItem key={type} value={type}>
                         {t.campaigns?.types?.[type] || type}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="channel"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t.campaigns?.channel || "Kanál"}</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger data-testid="select-campaign-channel">
+                      <SelectValue placeholder={t.campaigns?.selectChannel || "Vybrať kanál"} />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {CAMPAIGN_CHANNELS.map((channel) => (
+                      <SelectItem key={channel} value={channel}>
+                        {t.campaigns?.channels?.[channel] || channel}
                       </SelectItem>
                     ))}
                   </SelectContent>
