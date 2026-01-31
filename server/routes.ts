@@ -5793,8 +5793,21 @@ export async function registerRoutes(
         ? await storage.getInvoiceTemplate(templateId as string)
         : await storage.getDefaultInvoiceTemplate(countryCode, templateType);
 
-      if (!template?.docxTemplatePath) {
-        return res.status(400).json({ error: "Template does not have a DOCX file. Please upload a DOCX template first." });
+      if (!template) {
+        return res.status(400).json({ 
+          error: `No invoice template found for country ${countryCode}. Please create a template for this country in the Configurator first.`,
+          errorCode: "TEMPLATE_NOT_FOUND",
+          countryCode 
+        });
+      }
+      
+      if (!template.docxTemplatePath) {
+        return res.status(400).json({ 
+          error: `Template "${template.name}" for country ${countryCode} does not have a DOCX file. Please upload a DOCX template in the Configurator first.`,
+          errorCode: "DOCX_NOT_UPLOADED",
+          countryCode,
+          templateName: template.name
+        });
       }
 
       const docxPath = path.join(process.cwd(), template.docxTemplatePath);

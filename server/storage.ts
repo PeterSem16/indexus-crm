@@ -3049,16 +3049,7 @@ export class DatabaseStorage implements IStorage {
       ))
       .orderBy(invoiceTemplates.createdAt)
       .limit(1);
-    if (anyTemplate) return anyTemplate;
-    const [fallbackTemplate] = await db.select().from(invoiceTemplates)
-      .where(and(
-        eq(invoiceTemplates.templateType, templateType),
-        eq(invoiceTemplates.isActive, true),
-        isNotNull(invoiceTemplates.docxTemplatePath)
-      ))
-      .orderBy(invoiceTemplates.createdAt)
-      .limit(1);
-    return fallbackTemplate;
+    return anyTemplate;
   }
 
   async getDefaultInvoiceLayout(countryCode: string): Promise<InvoiceLayout | undefined> {
