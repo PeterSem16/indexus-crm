@@ -2674,6 +2674,22 @@ export const insertCampaignAgentSchema = createInsertSchema(campaignAgents).omit
 export type InsertCampaignAgent = z.infer<typeof insertCampaignAgentSchema>;
 export type CampaignAgent = typeof campaignAgents.$inferSelect;
 
+// Agent workspace access - controls which users can access Agent Workspace for which countries
+export const agentWorkspaceAccess = pgTable("agent_workspace_access", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  countryCode: text("country_code").notNull(), // SK, CZ, HU, RO, IT, DE, US
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  createdBy: varchar("created_by"),
+});
+
+export const insertAgentWorkspaceAccessSchema = createInsertSchema(agentWorkspaceAccess).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertAgentWorkspaceAccess = z.infer<typeof insertAgentWorkspaceAccessSchema>;
+export type AgentWorkspaceAccess = typeof agentWorkspaceAccess.$inferSelect;
+
 // Campaign contacts - customers targeted in a campaign
 export const campaignContacts = pgTable("campaign_contacts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
