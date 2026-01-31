@@ -5786,7 +5786,7 @@ export async function registerRoutes(
 
       const invoiceItems = await storage.getInvoiceItems(invoice.id);
       const countryCode = customer.country?.toUpperCase() || "SK";
-      const templateType = invoice.invoiceType === "proforma" ? "proforma" : "standard";
+      const templateType = "standard";
 
       // Get template
       let template = templateId 
