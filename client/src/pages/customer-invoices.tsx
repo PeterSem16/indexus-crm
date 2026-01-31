@@ -1477,7 +1477,7 @@ export default function CustomerInvoicesPage() {
               {t.common?.cancel || "Zrušiť"}
             </Button>
             <Button
-              onClick={() => {
+              onClick={async () => {
                 if (pdfInvoiceId) {
                   const params = new URLSearchParams();
                   if (selectedTemplateId && selectedTemplateId !== "default") {
@@ -1487,8 +1487,29 @@ export default function CustomerInvoicesPage() {
                     ? `/api/scheduled-invoices/${pdfInvoiceId}/pdf-docx`
                     : `/api/invoices/${pdfInvoiceId}/pdf-docx`;
                   const url = params.toString() ? `${endpoint}?${params}` : endpoint;
-                  window.open(url, "_blank");
-                  setPdfDialogOpen(false);
+                  
+                  try {
+                    const response = await fetch(url, { credentials: "include" });
+                    if (!response.ok) {
+                      const errorData = await response.json();
+                      toast({
+                        title: t.common?.error || "Chyba",
+                        description: errorData.error || "Nepodarilo sa vygenerovať PDF",
+                        variant: "destructive"
+                      });
+                      return;
+                    }
+                    const blob = await response.blob();
+                    const blobUrl = URL.createObjectURL(blob);
+                    window.open(blobUrl, "_blank");
+                    setPdfDialogOpen(false);
+                  } catch (error) {
+                    toast({
+                      title: t.common?.error || "Chyba",
+                      description: "Nepodarilo sa vygenerovať PDF",
+                      variant: "destructive"
+                    });
+                  }
                 }
               }}
               data-testid="btn-generate-pdf"
