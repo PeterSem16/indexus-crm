@@ -23,7 +23,8 @@ import {
   MapPin,
   BarChart3,
   Syringe,
-  ArrowDown
+  ArrowDown,
+  Headphones
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/contexts/permissions-context";
@@ -71,6 +72,7 @@ export function AppSidebar() {
 
   const mainNavItems = [
     { title: t.nav.dashboard, url: "/", icon: LayoutDashboard, testId: "dashboard", moduleKey: "dashboard" },
+    { title: "Agent Workspace", url: "/agent-workspace", icon: Headphones, testId: "agent-workspace", moduleKey: "campaigns", roles: ["callCenter", "admin"] },
     { title: t.nav.hospitalsAndClinics, url: "/hospitals", icon: Building2, testId: "hospitals", moduleKey: "hospitals" },
     { title: t.nav.campaigns, url: "/campaigns", icon: Megaphone, testId: "campaigns", moduleKey: "campaigns" },
     { title: "Pipeline", url: "/pipeline", icon: Kanban, testId: "pipeline", moduleKey: "pipeline" },
@@ -100,7 +102,11 @@ export function AppSidebar() {
     { title: t.nav.tasks, url: "/tasks", testId: "nexus-tasks", moduleKey: "tasks" },
   ];
 
-  const visibleMainItems = mainNavItems.filter(item => canAccessModule(item.moduleKey));
+  const visibleMainItems = mainNavItems.filter(item => {
+    const hasModuleAccess = canAccessModule(item.moduleKey);
+    const hasRoleAccess = !(item as any).roles || (item as any).roles.includes(user?.role);
+    return hasModuleAccess && hasRoleAccess;
+  });
   const visibleAdminItems = adminNavItems.filter(item => canAccessModule(item.moduleKey));
   const visibleNexusItems = nexusSubItems.filter(item => canAccessModule(item.moduleKey));
 

@@ -47,6 +47,7 @@ import LandingPage from "@/pages/landing";
 import MobilePreview from "@/pages/mobile-preview";
 import CollectionsPage from "@/pages/collections";
 import CustomerInvoicesPage from "@/pages/customer-invoices";
+import AgentWorkspacePage from "@/pages/agent-workspace";
 import NotFound from "@/pages/not-found";
 import { Loader2 } from "lucide-react";
 
@@ -170,6 +171,7 @@ function AuthenticatedApp() {
                     <Route path="/email" component={EmailClientPage} />
                     <Route path="/notifications" component={NotificationCenterPage} />
                     <Route path="/mobile-preview" component={MobilePreview} />
+                    <Route path="/agent-workspace" component={AgentWorkspacePage} />
                     <Route path="/login">
                       <Redirect to="/" />
                     </Route>
