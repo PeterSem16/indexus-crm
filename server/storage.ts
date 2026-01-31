@@ -131,7 +131,7 @@ import {
   type AlertInstance, type InsertAlertInstance
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, inArray, sql, desc, and, or, asc, gte, lte, lt, isNull } from "drizzle-orm";
+import { eq, inArray, sql, desc, and, or, asc, gte, lte, lt, isNull, isNotNull } from "drizzle-orm";
 import bcrypt from "bcrypt";
 
 const SALT_ROUNDS = 10;
@@ -3049,7 +3049,16 @@ export class DatabaseStorage implements IStorage {
       ))
       .orderBy(invoiceTemplates.createdAt)
       .limit(1);
-    return anyTemplate;
+    if (anyTemplate) return anyTemplate;
+    const [fallbackTemplate] = await db.select().from(invoiceTemplates)
+      .where(and(
+        eq(invoiceTemplates.templateType, templateType),
+        eq(invoiceTemplates.isActive, true),
+        isNotNull(invoiceTemplates.docxTemplatePath)
+      ))
+      .orderBy(invoiceTemplates.createdAt)
+      .limit(1);
+    return fallbackTemplate;
   }
 
   async getDefaultInvoiceLayout(countryCode: string): Promise<InvoiceLayout | undefined> {
