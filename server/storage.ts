@@ -610,6 +610,7 @@ export interface IStorage {
   deleteCampaignOperatorsByCampaign(campaignId: string): Promise<boolean>;
 
   // Campaign Agents (users assigned to campaigns)
+  getAllCampaignAgents(): Promise<CampaignAgent[]>;
   getCampaignAgents(campaignId: string): Promise<CampaignAgent[]>;
   getCampaignsByAgent(userId: string): Promise<Campaign[]>;
   addCampaignAgent(data: InsertCampaignAgent): Promise<CampaignAgent>;
@@ -3533,6 +3534,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Campaign Agents (users assigned to campaigns)
+  async getAllCampaignAgents(): Promise<CampaignAgent[]> {
+    return db.select().from(campaignAgents);
+  }
+
   async getCampaignAgents(campaignId: string): Promise<CampaignAgent[]> {
     return db.select().from(campaignAgents).where(eq(campaignAgents.campaignId, campaignId));
   }

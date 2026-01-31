@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Plus, Pencil, Trash2, Search, Megaphone, PlayCircle, CheckCircle, Clock, XCircle, ExternalLink, FileText, Calendar, LayoutList, ChevronLeft, ChevronRight, BarChart3, TrendingUp, Phone, RefreshCw, Users, Mail, MessageSquare, User, Check, Loader2, Shield } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Megaphone, PlayCircle, CheckCircle, Clock, XCircle, ExternalLink, FileText, Calendar, LayoutList, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, BarChart3, TrendingUp, Phone, RefreshCw, Users, Mail, MessageSquare, User, Check, Loader2, Shield, Headphones, X } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/auth-context";
 import { useCountryFilter } from "@/contexts/country-filter-context";
@@ -477,65 +477,118 @@ function CampaignCalendar({
 function AgentWorkspaceAccessTab() {
   const { toast } = useToast();
   const { t } = useI18n();
+  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
-  // Get all users with callCenter or admin role
+  // Get all users - filter only callCenter role
   const { data: allUsers = [], isLoading: loadingUsers } = useQuery<any[]>({
     queryKey: ["/api/users"],
   });
 
-  // Get all workspace access entries
-  const { data: allAccess = [], isLoading: loadingAccess } = useQuery<any[]>({
-    queryKey: ["/api/agent-workspace-access"],
+  // Get all campaigns
+  const { data: allCampaigns = [], isLoading: loadingCampaigns } = useQuery<Campaign[]>({
+    queryKey: ["/api/campaigns"],
   });
 
-  // Filter users with callCenter or admin role
-  const eligibleUsers = useMemo(() => {
-    return allUsers.filter(u => u.role === "callCenter" || u.role === "admin");
+  // Filter users with only callCenter role (not admin)
+  const callCenterAgents = useMemo(() => {
+    return allUsers.filter(u => u.role === "callCenter");
   }, [allUsers]);
 
-  // Build a map of userId -> countryCodes
-  const accessMap = useMemo(() => {
+  // Get campaign agents for all campaigns
+  const { data: allCampaignAgents = [], isLoading: loadingAgents } = useQuery<any[]>({
+    queryKey: ["/api/campaign-agents"],
+  });
+
+  // Build a map of userId -> campaignIds
+  const agentCampaignsMap = useMemo(() => {
     const map: Record<string, string[]> = {};
-    allAccess.forEach((access: any) => {
-      if (!map[access.userId]) {
-        map[access.userId] = [];
+    allCampaignAgents.forEach((ca: any) => {
+      if (!map[ca.userId]) {
+        map[ca.userId] = [];
       }
-      map[access.userId].push(access.countryCode);
+      map[ca.userId].push(ca.campaignId);
     });
     return map;
-  }, [allAccess]);
+  }, [allCampaignAgents]);
 
-  const updateAccessMutation = useMutation({
-    mutationFn: async ({ userId, countryCodes }: { userId: string; countryCodes: string[] }) => {
-      return apiRequest("POST", `/api/agent-workspace-access/user/${userId}`, { countryCodes });
+  const assignCampaignMutation = useMutation({
+    mutationFn: async ({ campaignId, userId }: { campaignId: string; userId: string }) => {
+      const currentAgents = allCampaignAgents.filter(ca => ca.campaignId === campaignId).map(ca => ca.userId);
+      const newAgents = Array.from(new Set([...currentAgents, userId]));
+      return apiRequest("POST", `/api/campaigns/${campaignId}/agents`, { userIds: newAgents });
     },
     onSuccess: () => {
-      toast({ title: "Prístup bol aktualizovaný" });
-      queryClient.invalidateQueries({ queryKey: ["/api/agent-workspace-access"] });
+      toast({ title: "Agent bol priradený ku kampani" });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaign-agents"] });
     },
     onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa aktualizovať prístup", variant: "destructive" });
+      toast({ title: "Chyba", description: "Nepodarilo sa priradiť agenta", variant: "destructive" });
     },
   });
 
-  const toggleCountryAccess = (userId: string, countryCode: string) => {
-    const currentAccess = accessMap[userId] || [];
-    const newAccess = currentAccess.includes(countryCode)
-      ? currentAccess.filter(c => c !== countryCode)
-      : [...currentAccess, countryCode];
-    updateAccessMutation.mutate({ userId, countryCodes: newAccess });
+  const removeCampaignMutation = useMutation({
+    mutationFn: async ({ campaignId, userId }: { campaignId: string; userId: string }) => {
+      return apiRequest("DELETE", `/api/campaigns/${campaignId}/agents/${userId}`);
+    },
+    onSuccess: () => {
+      toast({ title: "Agent bol odobraný z kampane" });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaign-agents"] });
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa odobrať agenta", variant: "destructive" });
+    },
+  });
+
+  const toggleCampaignAssignment = (userId: string, campaignId: string) => {
+    const currentCampaigns = agentCampaignsMap[userId] || [];
+    if (currentCampaigns.includes(campaignId)) {
+      removeCampaignMutation.mutate({ campaignId, userId });
+    } else {
+      assignCampaignMutation.mutate({ campaignId, userId });
+    }
   };
 
-  const grantAllCountries = (userId: string) => {
-    const allCountryCodes = COUNTRIES.map(c => c.code);
-    updateAccessMutation.mutate({ userId, countryCodes: allCountryCodes });
+  const assignAllCampaigns = async (userId: string) => {
+    const currentCampaigns = agentCampaignsMap[userId] || [];
+    for (const campaign of allCampaigns) {
+      if (!currentCampaigns.includes(campaign.id)) {
+        const currentAgents = allCampaignAgents.filter(ca => ca.campaignId === campaign.id).map(ca => ca.userId);
+        const newAgents = Array.from(new Set([...currentAgents, userId]));
+        await apiRequest("POST", `/api/campaigns/${campaign.id}/agents`, { userIds: newAgents });
+      }
+    }
+    queryClient.invalidateQueries({ queryKey: ["/api/campaign-agents"] });
+    toast({ title: "Agent bol priradený ku všetkým kampaniam" });
   };
 
-  const revokeAllCountries = (userId: string) => {
-    updateAccessMutation.mutate({ userId, countryCodes: [] });
+  const removeAllCampaigns = async (userId: string) => {
+    const currentCampaigns = agentCampaignsMap[userId] || [];
+    for (const campaignId of currentCampaigns) {
+      await apiRequest("DELETE", `/api/campaigns/${campaignId}/agents/${userId}`);
+    }
+    queryClient.invalidateQueries({ queryKey: ["/api/campaign-agents"] });
+    toast({ title: "Agent bol odobraný zo všetkých kampaní" });
   };
 
-  if (loadingUsers || loadingAccess) {
+  const getChannelIcon = (channel: string) => {
+    switch (channel) {
+      case "phone": return <Phone className="w-3 h-3" />;
+      case "email": return <Mail className="w-3 h-3" />;
+      case "sms": return <MessageSquare className="w-3 h-3" />;
+      default: return <Megaphone className="w-3 h-3" />;
+    }
+  };
+
+  const getChannelColor = (channel: string) => {
+    switch (channel) {
+      case "phone": return "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300";
+      case "email": return "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300";
+      case "sms": return "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300";
+      default: return "bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300";
+    }
+  };
+
+  if (loadingUsers || loadingCampaigns || loadingAgents) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="w-6 h-6 animate-spin" />
@@ -548,81 +601,119 @@ function AgentWorkspaceAccessTab() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Shield className="w-5 h-5" />
-            Prístup do Agent Workspace
+            <Headphones className="w-5 h-5" />
+            Prístup agentov ku kampaniam
           </CardTitle>
           <CardDescription>
-            Nastavte, ktorí používatelia majú prístup do Agent Workspace a pre ktoré krajiny môžu pracovať
+            Priraďte kampane jednotlivým call center agentom. Agenti uvidia len kampane, ktoré sú im priradené.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {eligibleUsers.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              Žiadni používatelia s rolou "Call Center" alebo "Admin" nie sú k dispozícii.
-            </p>
+          {callCenterAgents.length === 0 ? (
+            <div className="text-center py-8">
+              <Users className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
+              <p className="text-sm text-muted-foreground">
+                Žiadni používatelia s rolou "Call Center" nie sú k dispozícii.
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Najprv vytvorte používateľov s rolou Call Center v sekcii Používatelia.
+              </p>
+            </div>
           ) : (
             <div className="space-y-4">
-              {eligibleUsers.map((u) => {
-                const userAccess = accessMap[u.id] || [];
+              {callCenterAgents.map((agent) => {
+                const agentCampaigns = agentCampaignsMap[agent.id] || [];
+                const isExpanded = selectedAgent === agent.id;
+                
                 return (
-                  <Card key={u.id} className="bg-muted/30">
-                    <CardContent className="pt-4">
-                      <div className="flex items-center justify-between mb-4">
+                  <Card key={agent.id} className="overflow-hidden">
+                    <div 
+                      className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => setSelectedAgent(isExpanded ? null : agent.id)}
+                    >
+                      <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                            <User className="w-5 h-5 text-primary" />
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center ring-2 ring-primary/20">
+                            <Headphones className="w-5 h-5 text-primary" />
                           </div>
                           <div>
-                            <p className="font-medium">{u.firstName} {u.lastName}</p>
-                            <p className="text-sm text-muted-foreground">{u.email} • {u.role}</p>
+                            <p className="font-medium">{agent.firstName} {agent.lastName}</p>
+                            <p className="text-sm text-muted-foreground">{agent.email}</p>
                           </div>
                         </div>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => grantAllCountries(u.id)}
-                            disabled={updateAccessMutation.isPending}
-                            data-testid={`button-grant-all-${u.id}`}
-                          >
-                            Povoliť všetky
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => revokeAllCountries(u.id)}
-                            disabled={updateAccessMutation.isPending}
-                            data-testid={`button-revoke-all-${u.id}`}
-                          >
-                            Odobrať všetky
-                          </Button>
+                        <div className="flex items-center gap-3">
+                          <Badge variant={agentCampaigns.length > 0 ? "default" : "secondary"}>
+                            {agentCampaigns.length} {agentCampaigns.length === 1 ? 'kampaň' : agentCampaigns.length < 5 ? 'kampane' : 'kampaní'}
+                          </Badge>
+                          {isExpanded ? (
+                            <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                          )}
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-2">
-                        {COUNTRIES.map((country) => {
-                          const hasAccess = userAccess.includes(country.code);
-                          return (
+                    </div>
+                    
+                    {isExpanded && (
+                      <div className="border-t bg-muted/20 p-4">
+                        <div className="flex items-center justify-between mb-4">
+                          <span className="text-sm font-medium">Priradené kampane</span>
+                          <div className="flex gap-2">
                             <Button
-                              key={country.code}
-                              variant={hasAccess ? "default" : "outline"}
+                              variant="outline"
                               size="sm"
-                              className="justify-start"
-                              onClick={() => toggleCountryAccess(u.id, country.code)}
-                              disabled={updateAccessMutation.isPending}
-                              data-testid={`button-toggle-country-${u.id}-${country.code}`}
+                              onClick={(e) => { e.stopPropagation(); assignAllCampaigns(agent.id); }}
+                              disabled={assignCampaignMutation.isPending || removeCampaignMutation.isPending}
+                              data-testid={`button-assign-all-${agent.id}`}
                             >
-                              {hasAccess && <Check className="w-3 h-3 mr-1" />}
-                              {country.flag} {country.code}
+                              <Plus className="w-3 h-3 mr-1" />
+                              Priradiť všetky
                             </Button>
-                          );
-                        })}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => { e.stopPropagation(); removeAllCampaigns(agent.id); }}
+                              disabled={assignCampaignMutation.isPending || removeCampaignMutation.isPending}
+                              data-testid={`button-remove-all-${agent.id}`}
+                            >
+                              <X className="w-3 h-3 mr-1" />
+                              Odobrať všetky
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        {allCampaigns.length === 0 ? (
+                          <p className="text-sm text-muted-foreground text-center py-4">
+                            Žiadne kampane nie sú k dispozícii.
+                          </p>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                            {allCampaigns.map((campaign) => {
+                              const isAssigned = agentCampaigns.includes(campaign.id);
+                              return (
+                                <Button
+                                  key={campaign.id}
+                                  variant={isAssigned ? "default" : "outline"}
+                                  size="sm"
+                                  className="justify-start h-auto py-2 px-3"
+                                  onClick={(e) => { e.stopPropagation(); toggleCampaignAssignment(agent.id, campaign.id); }}
+                                  disabled={assignCampaignMutation.isPending || removeCampaignMutation.isPending}
+                                  data-testid={`button-toggle-campaign-${agent.id}-${campaign.id}`}
+                                >
+                                  <div className="flex items-center gap-2 w-full">
+                                    {isAssigned && <Check className="w-3 h-3 flex-shrink-0" />}
+                                    <div className={`p-1 rounded ${getChannelColor(campaign.channel || "mixed")}`}>
+                                      {getChannelIcon(campaign.channel || "mixed")}
+                                    </div>
+                                    <span className="truncate">{campaign.name}</span>
+                                  </div>
+                                </Button>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
-                      {userAccess.length > 0 && (
-                        <p className="text-xs text-muted-foreground mt-3">
-                          Prístup k {userAccess.length} {userAccess.length === 1 ? 'krajine' : userAccess.length < 5 ? 'krajinám' : 'krajinám'}
-                        </p>
-                      )}
-                    </CardContent>
+                    )}
                   </Card>
                 );
               })}

@@ -43,6 +43,8 @@ import {
   Play,
   Coffee,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Send,
   Star,
   Calendar,
@@ -409,7 +411,31 @@ function ContactCard({ contact }: { contact: Customer | null }) {
   );
 }
 
+interface ScriptElement {
+  id: string;
+  type: string;
+  label: string;
+  content?: string;
+  required?: boolean;
+  options?: { value: string; label: string }[];
+}
+
+interface ScriptStep {
+  id: string;
+  title: string;
+  elements: ScriptElement[];
+  isEndStep: boolean;
+}
+
+interface ParsedScript {
+  version: number;
+  steps: ScriptStep[];
+}
+
 function ScriptViewer({ script }: { script: string | null }) {
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [selectedValues, setSelectedValues] = useState<Record<string, string>>({});
+
   if (!script) {
     return (
       <div className="p-4 text-center text-muted-foreground">
@@ -419,16 +445,206 @@ function ScriptViewer({ script }: { script: string | null }) {
     );
   }
 
-  const lines = script.split("\n");
+  let parsedScript: ParsedScript | null = null;
+  try {
+    parsedScript = JSON.parse(script);
+  } catch (e) {
+    const lines = script.split("\n");
+    return (
+      <ScrollArea className="h-[300px]">
+        <div className="p-4 prose prose-sm dark:prose-invert max-w-none">
+          {lines.map((line, i) => (
+            <p key={i} className="mb-2">{line || "\u00A0"}</p>
+          ))}
+        </div>
+      </ScrollArea>
+    );
+  }
+
+  if (!parsedScript || !parsedScript.steps || parsedScript.steps.length === 0) {
+    return (
+      <div className="p-4 text-center text-muted-foreground">
+        <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
+        <p>Scenár neobsahuje žiadne kroky</p>
+      </div>
+    );
+  }
+
+  const currentStep = parsedScript.steps[currentStepIndex];
+  const totalSteps = parsedScript.steps.length;
+
+  const handleValueChange = (elementId: string, value: string) => {
+    setSelectedValues(prev => ({ ...prev, [elementId]: value }));
+  };
+
+  const goToNextStep = () => {
+    if (currentStepIndex < totalSteps - 1) {
+      setCurrentStepIndex(currentStepIndex + 1);
+    }
+  };
+
+  const goToPrevStep = () => {
+    if (currentStepIndex > 0) {
+      setCurrentStepIndex(currentStepIndex - 1);
+    }
+  };
 
   return (
-    <ScrollArea className="h-[300px]">
-      <div className="p-4 prose prose-sm dark:prose-invert max-w-none">
-        {lines.map((line, i) => (
-          <p key={i} className="mb-2">{line || "\u00A0"}</p>
+    <div className="flex flex-col h-[300px]">
+      <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30">
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary" className="font-normal">
+            Krok {currentStepIndex + 1} z {totalSteps}
+          </Badge>
+          <span className="font-medium text-sm">{currentStep.title}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={goToPrevStep}
+            disabled={currentStepIndex === 0}
+            data-testid="btn-script-prev"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={goToNextStep}
+            disabled={currentStepIndex === totalSteps - 1}
+            data-testid="btn-script-next"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+      
+      <ScrollArea className="flex-1">
+        <div className="p-4 space-y-4">
+          {currentStep.elements.map((element) => (
+            <div key={element.id} className="space-y-2">
+              {element.type === "heading" && (
+                <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+                  <h4 className="font-semibold text-primary text-sm">{element.label}</h4>
+                  {element.content && (
+                    <p className="mt-1 text-foreground">{element.content}</p>
+                  )}
+                </div>
+              )}
+              
+              {element.type === "text" && (
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">{element.label}</label>
+                  <div className="p-2 rounded bg-muted/50 text-sm">
+                    {element.content || "..."}
+                  </div>
+                </div>
+              )}
+              
+              {element.type === "select" && element.options && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium flex items-center gap-1">
+                    {element.label}
+                    {element.required && <span className="text-destructive">*</span>}
+                  </label>
+                  <Select
+                    value={selectedValues[element.id] || "_none"}
+                    onValueChange={(v) => handleValueChange(element.id, v)}
+                  >
+                    <SelectTrigger className="w-full" data-testid={`select-script-${element.id}`}>
+                      <SelectValue placeholder="Vyberte možnosť" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">Vyberte možnosť</SelectItem>
+                      {element.options.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              
+              {element.type === "outcome" && element.options && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium flex items-center gap-1">
+                    {element.label}
+                    {element.required && <span className="text-destructive">*</span>}
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {element.options.map((opt) => (
+                      <Button
+                        key={opt.value}
+                        variant={selectedValues[element.id] === opt.value ? "default" : "outline"}
+                        size="sm"
+                        className="justify-start"
+                        onClick={() => handleValueChange(element.id, opt.value)}
+                        data-testid={`btn-script-outcome-${opt.value}`}
+                      >
+                        {opt.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {element.type === "checkbox" && (
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id={element.id}
+                    checked={selectedValues[element.id] === "true"}
+                    onCheckedChange={(checked) => handleValueChange(element.id, checked ? "true" : "false")}
+                    data-testid={`checkbox-script-${element.id}`}
+                  />
+                  <Label htmlFor={element.id} className="text-sm">{element.label}</Label>
+                </div>
+              )}
+              
+              {element.type === "input" && (
+                <div className="space-y-1">
+                  <label className="text-sm font-medium flex items-center gap-1">
+                    {element.label}
+                    {element.required && <span className="text-destructive">*</span>}
+                  </label>
+                  <Input
+                    value={selectedValues[element.id] || ""}
+                    onChange={(e) => handleValueChange(element.id, e.target.value)}
+                    placeholder={element.content || ""}
+                    data-testid={`input-script-${element.id}`}
+                  />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </ScrollArea>
+      
+      {currentStep.isEndStep && (
+        <div className="px-4 py-2 border-t bg-green-50 dark:bg-green-950/20 text-center">
+          <span className="text-sm text-green-600 dark:text-green-400 font-medium">
+            Toto je konečný krok scenára
+          </span>
+        </div>
+      )}
+      
+      <div className="flex gap-1 px-4 py-2 border-t">
+        {parsedScript.steps.map((step, idx) => (
+          <button
+            key={step.id}
+            onClick={() => setCurrentStepIndex(idx)}
+            className={`flex-1 h-1.5 rounded-full transition-colors ${
+              idx === currentStepIndex
+                ? "bg-primary"
+                : idx < currentStepIndex
+                ? "bg-primary/50"
+                : "bg-muted"
+            }`}
+          />
         ))}
       </div>
-    </ScrollArea>
+    </div>
   );
 }
 

@@ -13204,6 +13204,17 @@ export async function registerRoutes(
   });
 
   // Campaign Agents endpoints
+  // Get all campaign agent assignments
+  app.get("/api/campaign-agents", requireAuth, async (req, res) => {
+    try {
+      const allAgents = await storage.getAllCampaignAgents();
+      res.json(allAgents);
+    } catch (error) {
+      console.error("Failed to fetch all campaign agents:", error);
+      res.status(500).json({ error: "Failed to fetch all campaign agents" });
+    }
+  });
+
   app.get("/api/campaigns/:id/agents", requireAuth, async (req, res) => {
     try {
       const agents = await storage.getCampaignAgents(req.params.id);
