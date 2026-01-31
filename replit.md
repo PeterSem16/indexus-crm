@@ -30,9 +30,10 @@ Preferred communication style: Simple, everyday language.
 
 ### Modules and Features
 - **Collections (Odbery)**: Manages cord blood collections, including client/child info, collection staff, status tracking, and lab results.
-- **External Communication**: Supports email via SendGrid and SMS via Twilio.
+- **External Communication**: Supports email via MS365 and SMS via BulkGate API.
 - **Built-in SIP Phone**: WebRTC-based SIP phone using SIP.js for direct calls from the CRM.
 - **Campaign Management**: Features campaign templates, cloning, operator scripts, contact filtering, bulk actions, CSV export, scheduling, KPI reporting, and calendar view.
+- **Call Center Agent Workspace**: Dedicated 3-column layout for call center operators with queue management, integrated SIP phone, contact cards, campaign scripts, email/SMS composer (connected to MS365/BulkGate APIs), and disposition tracking. Role-protected for callCenter and admin roles only.
 - **NEXUS AI Assistant**: OpenAI GPT-4o powered assistant with multi-language support, role-based data visibility, and integrated chat interface.
 - **Real-time Notification Center**: WebSocket-based push notifications with historical view, rules engine, and various notification types.
 - **File Storage**: Centralized file storage with environment-specific paths for agreements, avatars, contracts, invoices, and email attachments.

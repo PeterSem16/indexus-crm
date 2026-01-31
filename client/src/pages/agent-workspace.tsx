@@ -56,6 +56,7 @@ import {
   CalendarPlus,
   StickyNote,
   Headphones,
+  Loader2,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -347,7 +348,7 @@ function ScriptViewer({ script }: { script: string | null }) {
   );
 }
 
-function EmailComposer({ contact, onSend }: { contact: Customer | null; onSend: (data: { subject: string; body: string }) => void }) {
+function EmailComposer({ contact, onSend, isLoading }: { contact: Customer | null; onSend: (data: { subject: string; body: string }) => void; isLoading?: boolean }) {
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
 
@@ -366,7 +367,7 @@ function EmailComposer({ contact, onSend }: { contact: Customer | null; onSend: 
           placeholder="Predmet"
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
-          disabled={!contact}
+          disabled={!contact || isLoading}
           data-testid="input-email-subject"
         />
       </div>
@@ -375,25 +376,29 @@ function EmailComposer({ contact, onSend }: { contact: Customer | null; onSend: 
           placeholder="Text emailu..."
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          disabled={!contact}
+          disabled={!contact || isLoading}
           rows={8}
           data-testid="input-email-body"
         />
       </div>
       <Button
         onClick={handleSend}
-        disabled={!contact || !subject || !body}
+        disabled={!contact || !subject || !body || isLoading}
         className="w-full"
         data-testid="btn-send-email"
       >
-        <Send className="h-4 w-4 mr-2" />
-        Odoslať email
+        {isLoading ? (
+          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+        ) : (
+          <Send className="h-4 w-4 mr-2" />
+        )}
+        {isLoading ? "Odosielam..." : "Odoslať email"}
       </Button>
     </div>
   );
 }
 
-function SmsComposer({ contact, onSend }: { contact: Customer | null; onSend: (message: string) => void }) {
+function SmsComposer({ contact, onSend, isLoading }: { contact: Customer | null; onSend: (message: string) => void; isLoading?: boolean }) {
   const [message, setMessage] = useState("");
   const charCount = message.length;
   const smsCount = Math.ceil(charCount / 160) || 1;
@@ -412,7 +417,7 @@ function SmsComposer({ contact, onSend }: { contact: Customer | null; onSend: (m
           placeholder="Text SMS správy..."
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          disabled={!contact}
+          disabled={!contact || isLoading}
           rows={6}
           data-testid="input-sms-message"
         />
@@ -423,12 +428,16 @@ function SmsComposer({ contact, onSend }: { contact: Customer | null; onSend: (m
       </div>
       <Button
         onClick={handleSend}
-        disabled={!contact || !message}
+        disabled={!contact || !message || isLoading}
         className="w-full"
         data-testid="btn-send-sms"
       >
-        <Send className="h-4 w-4 mr-2" />
-        Odoslať SMS
+        {isLoading ? (
+          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+        ) : (
+          <Send className="h-4 w-4 mr-2" />
+        )}
+        {isLoading ? "Odosielam..." : "Odoslať SMS"}
       </Button>
     </div>
   );
@@ -690,20 +699,94 @@ export default function AgentWorkspacePage() {
     }, 3000);
   };
 
+  const sendEmailMutation = useMutation({
+    mutationFn: async (data: { to: string; subject: string; body: string }) => {
+      const res = await apiRequest("POST", "/api/ms365/send-email-from-mailbox", {
+        to: data.to,
+        subject: data.subject,
+        body: data.body,
+        isHtml: true,
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Chyba pri odosielaní emailu");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Email odoslaný",
+        description: `Email bol úspešne odoslaný na ${currentContact?.email}`,
+      });
+      setStats((prev) => ({ ...prev, emails: prev.emails + 1 }));
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Chyba",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const sendSmsMutation = useMutation({
+    mutationFn: async (data: { number: string; text: string }) => {
+      const res = await apiRequest("POST", "/api/bulkgate/send", {
+        number: data.number,
+        text: data.text,
+        country: currentContact?.country || "SK",
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Chyba pri odosielaní SMS");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "SMS odoslaná",
+        description: `SMS bola úspešne odoslaná na ${currentContact?.phone}`,
+      });
+      setStats((prev) => ({ ...prev, sms: prev.sms + 1 }));
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Chyba",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleSendEmail = (data: { subject: string; body: string }) => {
-    toast({
-      title: "Email odoslaný",
-      description: `Email bol odoslaný na ${currentContact?.email}`,
+    if (!currentContact?.email) {
+      toast({
+        title: "Chyba",
+        description: "Kontakt nemá zadaný email",
+        variant: "destructive",
+      });
+      return;
+    }
+    sendEmailMutation.mutate({
+      to: currentContact.email,
+      subject: data.subject,
+      body: data.body,
     });
-    setStats((prev) => ({ ...prev, emails: prev.emails + 1 }));
   };
 
   const handleSendSms = (message: string) => {
-    toast({
-      title: "SMS odoslaná",
-      description: `SMS bola odoslaná na ${currentContact?.phone}`,
+    if (!currentContact?.phone) {
+      toast({
+        title: "Chyba",
+        description: "Kontakt nemá zadané telefónne číslo",
+        variant: "destructive",
+      });
+      return;
+    }
+    sendSmsMutation.mutate({
+      number: currentContact.phone,
+      text: message,
     });
-    setStats((prev) => ({ ...prev, sms: prev.sms + 1 }));
   };
 
   const handleAddNote = (note: string) => {
@@ -759,10 +842,10 @@ export default function AgentWorkspacePage() {
                 <ScriptViewer script={selectedCampaign?.script || null} />
               </TabsContent>
               <TabsContent value="email" className="m-0">
-                <EmailComposer contact={currentContact} onSend={handleSendEmail} />
+                <EmailComposer contact={currentContact} onSend={handleSendEmail} isLoading={sendEmailMutation.isPending} />
               </TabsContent>
               <TabsContent value="sms" className="m-0">
-                <SmsComposer contact={currentContact} onSend={handleSendSms} />
+                <SmsComposer contact={currentContact} onSend={handleSendSms} isLoading={sendSmsMutation.isPending} />
               </TabsContent>
             </Card>
           </Tabs>
