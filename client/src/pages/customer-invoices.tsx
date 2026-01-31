@@ -760,7 +760,6 @@ export default function CustomerInvoicesPage() {
                               setPdfInvoiceId(invoice.id);
                               setPdfInvoiceType("invoice");
                               setSelectedTemplateId("");
-                              setSelectedLayoutId("");
                               setPdfDialogOpen(true);
                             }}
                             data-testid={`btn-pdf-invoice-${invoice.id}`}
@@ -948,7 +947,6 @@ export default function CustomerInvoicesPage() {
                                     setPdfInvoiceId(scheduled.id);
                                     setPdfInvoiceType("scheduled");
                                     setSelectedTemplateId("");
-                                    setSelectedLayoutId("");
                                     setPdfDialogOpen(true);
                                   }}
                                   data-testid={`button-pdf-scheduled-${scheduled.id}`}
