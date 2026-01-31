@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Plus, Pencil, Trash2, Search, Megaphone, PlayCircle, CheckCircle, Clock, XCircle, ExternalLink, FileText, Calendar, LayoutList, ChevronLeft, ChevronRight, BarChart3, TrendingUp, Phone, RefreshCw, Users } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Megaphone, PlayCircle, CheckCircle, Clock, XCircle, ExternalLink, FileText, Calendar, LayoutList, ChevronLeft, ChevronRight, BarChart3, TrendingUp, Phone, RefreshCw, Users, Mail, MessageSquare } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/auth-context";
 import { useCountryFilter } from "@/contexts/country-filter-context";
@@ -630,6 +630,26 @@ export default function CampaignsPage() {
       key: "type",
       header: t.campaigns?.type || "Type",
       cell: (campaign: Campaign) => getTypeBadge(campaign.type),
+    },
+    {
+      key: "channel",
+      header: (t.campaigns as any)?.channel || "Kanál",
+      cell: (campaign: Campaign) => {
+        const channelConfig: Record<string, { icon: typeof Phone; label: string; color: string }> = {
+          phone: { icon: Phone, label: "Telefón", color: "text-blue-500" },
+          email: { icon: Mail, label: "Email", color: "text-green-500" },
+          sms: { icon: MessageSquare, label: "SMS", color: "text-orange-500" },
+          mixed: { icon: Users, label: "Mix", color: "text-purple-500" },
+        };
+        const config = channelConfig[campaign.channel || "phone"] || channelConfig.phone;
+        const Icon = config.icon;
+        return (
+          <Badge variant="outline" className="gap-1">
+            <Icon className={`h-3 w-3 ${config.color}`} />
+            {(t.campaigns as any)?.channels?.[campaign.channel || "phone"] || config.label}
+          </Badge>
+        );
+      },
     },
     {
       key: "status",
