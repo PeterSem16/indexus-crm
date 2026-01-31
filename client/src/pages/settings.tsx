@@ -817,7 +817,7 @@ function AgentWorkspaceAccessTab() {
   };
 
   const grantAllCountries = (userId: string) => {
-    const allCountryCodes = Object.keys(COUNTRIES);
+    const allCountryCodes = COUNTRIES.map(c => c.code);
     updateAccessMutation.mutate({ userId, countryCodes: allCountryCodes });
   };
 
@@ -889,20 +889,20 @@ function AgentWorkspaceAccessTab() {
                         </div>
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2">
-                        {Object.entries(COUNTRIES).map(([code, name]) => {
-                          const hasAccess = userAccess.includes(code);
+                        {COUNTRIES.map((country) => {
+                          const hasAccess = userAccess.includes(country.code);
                           return (
                             <Button
-                              key={code}
+                              key={country.code}
                               variant={hasAccess ? "default" : "outline"}
                               size="sm"
                               className="justify-start"
-                              onClick={() => toggleCountryAccess(u.id, code)}
+                              onClick={() => toggleCountryAccess(u.id, country.code)}
                               disabled={updateAccessMutation.isPending}
-                              data-testid={`button-toggle-country-${u.id}-${code}`}
+                              data-testid={`button-toggle-country-${u.id}-${country.code}`}
                             >
                               {hasAccess && <Check className="w-3 h-3 mr-1" />}
-                              {code}
+                              {country.code}
                             </Button>
                           );
                         })}

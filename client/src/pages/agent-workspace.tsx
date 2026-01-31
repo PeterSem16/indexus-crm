@@ -664,13 +664,26 @@ export default function AgentWorkspacePage() {
   const [showOnlyAssigned, setShowOnlyAssigned] = useState(false);
 
   const allowedRoles = ["callCenter", "admin"];
-  const hasAccess = user && allowedRoles.includes(user.role);
+  const hasRoleAccess = user && allowedRoles.includes(user.role);
+
+  // Check country-based access
+  const { data: workspaceAccess = [] } = useQuery<any[]>({
+    queryKey: ["/api/agent-workspace-access/current"],
+    enabled: !!hasRoleAccess,
+  });
+
+  const allowedCountries = useMemo(() => {
+    return workspaceAccess.map((a: any) => a.countryCode);
+  }, [workspaceAccess]);
+
+  // Admin has full access; regular callCenter users need country assignment
+  const hasAccess = user && hasRoleAccess && (user.role === "admin" || allowedCountries.length > 0);
 
   useEffect(() => {
-    if (user && !hasAccess) {
+    if (user && hasRoleAccess && !hasAccess && workspaceAccess !== undefined) {
       setLocation("/");
     }
-  }, [user, hasAccess, setLocation]);
+  }, [user, hasRoleAccess, hasAccess, setLocation, workspaceAccess]);
 
   useEffect(() => {
     if (!hasAccess) return;
@@ -696,7 +709,19 @@ export default function AgentWorkspacePage() {
     enabled: !!hasAccess,
   });
 
-  const campaigns = showOnlyAssigned ? assignedCampaigns : allCampaigns;
+  const baseCampaigns = showOnlyAssigned ? assignedCampaigns : allCampaigns;
+
+  // Filter campaigns based on country access (admin sees all, others see only allowed countries)
+  const campaigns = useMemo(() => {
+    if (user?.role === "admin") return baseCampaigns;
+    if (allowedCountries.length === 0) return [];
+    return baseCampaigns.filter((c) => {
+      // If campaign has no country codes, show it (generic campaign)
+      if (!c.countryCodes || c.countryCodes.length === 0) return true;
+      // Show if user has access to at least one of the campaign's countries
+      return c.countryCodes.some((code: string) => allowedCountries.includes(code));
+    });
+  }, [baseCampaigns, allowedCountries, user?.role]);
 
   const activeCampaigns = useMemo(() => {
     return campaigns
