@@ -13252,6 +13252,56 @@ export async function registerRoutes(
     }
   });
 
+  // Agent Workspace Access endpoints
+  app.get("/api/agent-workspace-access", requireAuth, async (req, res) => {
+    try {
+      const allAccess = await storage.getAllAgentWorkspaceAccess();
+      res.json(allAccess);
+    } catch (error) {
+      console.error("Failed to fetch agent workspace access:", error);
+      res.status(500).json({ error: "Failed to fetch agent workspace access" });
+    }
+  });
+
+  app.get("/api/agent-workspace-access/user/:userId", requireAuth, async (req, res) => {
+    try {
+      const access = await storage.getAgentWorkspaceAccess(req.params.userId);
+      res.json(access);
+    } catch (error) {
+      console.error("Failed to fetch user workspace access:", error);
+      res.status(500).json({ error: "Failed to fetch user workspace access" });
+    }
+  });
+
+  app.get("/api/agent-workspace-access/current", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const access = await storage.getAgentWorkspaceAccess(userId);
+      res.json(access);
+    } catch (error) {
+      console.error("Failed to fetch current user workspace access:", error);
+      res.status(500).json({ error: "Failed to fetch workspace access" });
+    }
+  });
+
+  app.post("/api/agent-workspace-access/user/:userId", requireAuth, async (req, res) => {
+    try {
+      // Only admins can modify workspace access
+      if (req.user!.role !== "admin") {
+        return res.status(403).json({ error: "Only admins can modify workspace access" });
+      }
+      const { countryCodes } = req.body;
+      if (!Array.isArray(countryCodes)) {
+        return res.status(400).json({ error: "countryCodes must be an array" });
+      }
+      const access = await storage.setAgentWorkspaceAccess(req.params.userId, countryCodes, req.user!.id);
+      res.json(access);
+    } catch (error) {
+      console.error("Failed to update agent workspace access:", error);
+      res.status(500).json({ error: "Failed to update agent workspace access" });
+    }
+  });
+
   // Contact Sessions endpoints
   app.get("/api/campaigns/:campaignId/contacts/:contactId/sessions", requireAuth, async (req, res) => {
     try {
