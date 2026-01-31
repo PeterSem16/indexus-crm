@@ -13203,6 +13203,55 @@ export async function registerRoutes(
     }
   });
 
+  // Campaign Agents endpoints
+  app.get("/api/campaigns/:id/agents", requireAuth, async (req, res) => {
+    try {
+      const agents = await storage.getCampaignAgents(req.params.id);
+      res.json(agents);
+    } catch (error) {
+      console.error("Failed to fetch campaign agents:", error);
+      res.status(500).json({ error: "Failed to fetch campaign agents" });
+    }
+  });
+
+  app.get("/api/user/assigned-campaigns", requireAuth, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const campaigns = await storage.getCampaignsByAgent(userId);
+      res.json(campaigns);
+    } catch (error) {
+      console.error("Failed to fetch assigned campaigns:", error);
+      res.status(500).json({ error: "Failed to fetch assigned campaigns" });
+    }
+  });
+
+  app.post("/api/campaigns/:id/agents", requireAuth, async (req, res) => {
+    try {
+      const { userIds } = req.body;
+      if (!Array.isArray(userIds)) {
+        return res.status(400).json({ error: "userIds must be an array" });
+      }
+      const agents = await storage.updateCampaignAgents(req.params.id, userIds, req.user!.id);
+      res.json(agents);
+    } catch (error) {
+      console.error("Failed to update campaign agents:", error);
+      res.status(500).json({ error: "Failed to update campaign agents" });
+    }
+  });
+
+  app.delete("/api/campaigns/:campaignId/agents/:userId", requireAuth, async (req, res) => {
+    try {
+      const deleted = await storage.removeCampaignAgent(req.params.campaignId, req.params.userId);
+      if (!deleted) {
+        return res.status(404).json({ error: "Agent assignment not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to remove campaign agent:", error);
+      res.status(500).json({ error: "Failed to remove campaign agent" });
+    }
+  });
+
   // Contact Sessions endpoints
   app.get("/api/campaigns/:campaignId/contacts/:contactId/sessions", requireAuth, async (req, res) => {
     try {

@@ -58,7 +58,9 @@ import {
   savedSearches, type SavedSearch, type InsertSavedSearch,
   campaigns, campaignContacts, campaignContactHistory, campaignTemplates,
   campaignSchedules, campaignOperatorSettings, campaignContactSessions, campaignMetricsSnapshots,
+  campaignAgents,
   type Campaign, type InsertCampaign,
+  type CampaignAgent, type InsertCampaignAgent,
   type CampaignContact, type InsertCampaignContact,
   type CampaignTemplate, type InsertCampaignTemplate,
   type CampaignContactHistory, type InsertCampaignContactHistory,
@@ -605,6 +607,13 @@ export interface IStorage {
   updateCampaignOperatorSetting(id: string, data: Partial<InsertCampaignOperatorSetting>): Promise<CampaignOperatorSetting | undefined>;
   deleteCampaignOperatorSetting(id: string): Promise<boolean>;
   deleteCampaignOperatorsByCampaign(campaignId: string): Promise<boolean>;
+
+  // Campaign Agents (users assigned to campaigns)
+  getCampaignAgents(campaignId: string): Promise<CampaignAgent[]>;
+  getCampaignsByAgent(userId: string): Promise<Campaign[]>;
+  addCampaignAgent(data: InsertCampaignAgent): Promise<CampaignAgent>;
+  removeCampaignAgent(campaignId: string, userId: string): Promise<boolean>;
+  updateCampaignAgents(campaignId: string, userIds: string[], assignedBy?: string): Promise<CampaignAgent[]>;
 
   // Campaign Contact Sessions
   getContactSessions(campaignContactId: string): Promise<CampaignContactSession[]>;
@@ -3514,6 +3523,52 @@ export class DatabaseStorage implements IStorage {
   async deleteCampaignOperatorsByCampaign(campaignId: string): Promise<boolean> {
     await db.delete(campaignOperatorSettings).where(eq(campaignOperatorSettings.campaignId, campaignId));
     return true;
+  }
+
+  // Campaign Agents (users assigned to campaigns)
+  async getCampaignAgents(campaignId: string): Promise<CampaignAgent[]> {
+    return db.select().from(campaignAgents).where(eq(campaignAgents.campaignId, campaignId));
+  }
+
+  async getCampaignsByAgent(userId: string): Promise<Campaign[]> {
+    const agentCampaigns = await db
+      .select({ campaignId: campaignAgents.campaignId })
+      .from(campaignAgents)
+      .where(eq(campaignAgents.userId, userId));
+    
+    if (agentCampaigns.length === 0) return [];
+    
+    const campaignIds = agentCampaigns.map(ac => ac.campaignId);
+    return db.select().from(campaigns).where(inArray(campaigns.id, campaignIds));
+  }
+
+  async addCampaignAgent(data: InsertCampaignAgent): Promise<CampaignAgent> {
+    const [created] = await db.insert(campaignAgents).values(data).returning();
+    return created;
+  }
+
+  async removeCampaignAgent(campaignId: string, userId: string): Promise<boolean> {
+    const result = await db.delete(campaignAgents)
+      .where(and(eq(campaignAgents.campaignId, campaignId), eq(campaignAgents.userId, userId)))
+      .returning();
+    return result.length > 0;
+  }
+
+  async updateCampaignAgents(campaignId: string, userIds: string[], assignedBy?: string): Promise<CampaignAgent[]> {
+    // Delete existing agents for this campaign
+    await db.delete(campaignAgents).where(eq(campaignAgents.campaignId, campaignId));
+    
+    if (userIds.length === 0) return [];
+    
+    // Add new agents
+    const newAgents = userIds.map(userId => ({
+      campaignId,
+      userId,
+      role: "agent" as const,
+      assignedBy: assignedBy || null,
+    }));
+    
+    return db.insert(campaignAgents).values(newAgents).returning();
   }
 
   // Campaign Contact Sessions

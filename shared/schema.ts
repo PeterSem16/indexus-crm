@@ -2657,6 +2657,23 @@ export const insertCampaignSchema = createInsertSchema(campaigns).omit({
 export type InsertCampaign = z.infer<typeof insertCampaignSchema>;
 export type Campaign = typeof campaigns.$inferSelect;
 
+// Campaign agents - users assigned to work on a campaign
+export const campaignAgents = pgTable("campaign_agents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  role: text("role").notNull().default("agent"), // agent, supervisor
+  assignedAt: timestamp("assigned_at").notNull().default(sql`now()`),
+  assignedBy: varchar("assigned_by"),
+});
+
+export const insertCampaignAgentSchema = createInsertSchema(campaignAgents).omit({
+  id: true,
+  assignedAt: true,
+});
+export type InsertCampaignAgent = z.infer<typeof insertCampaignAgentSchema>;
+export type CampaignAgent = typeof campaignAgents.$inferSelect;
+
 // Campaign contacts - customers targeted in a campaign
 export const campaignContacts = pgTable("campaign_contacts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
