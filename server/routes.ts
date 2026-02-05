@@ -12201,6 +12201,121 @@ export async function registerRoutes(
     }
   });
 
+  // Get DOCX template content as text for visual editor
+  app.get("/api/configurator/docx-templates/:id/content", requireAuth, async (req, res) => {
+    try {
+      const template = await storage.getDocxTemplate(req.params.id);
+      if (!template) {
+        return res.status(404).json({ error: "DOCX template not found" });
+      }
+
+      const filePath = path.join(process.cwd(), template.filePath);
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: "DOCX file not found on disk" });
+      }
+
+      const content = fs.readFileSync(filePath, "binary");
+      const zip = new PizZip(content);
+      const docXml = zip.file("word/document.xml")?.asText() || "";
+      
+      // Extract text content from XML, preserving paragraphs
+      const paragraphs: string[] = [];
+      const paragraphMatches = docXml.match(/<w:p[^>]*>[\s\S]*?<\/w:p>/g) || [];
+      
+      for (const para of paragraphMatches) {
+        const textMatches = para.match(/<w:t[^>]*>([^<]*)<\/w:t>/g) || [];
+        const text = textMatches.map(t => t.replace(/<[^>]+>/g, "")).join("");
+        paragraphs.push(text);
+      }
+
+      res.json({ 
+        content: paragraphs.join("\n"),
+        paragraphs,
+        template: {
+          id: template.id,
+          name: template.name,
+          description: template.description,
+        }
+      });
+    } catch (error) {
+      console.error("Failed to get DOCX template content:", error);
+      res.status(500).json({ error: "Failed to get DOCX template content" });
+    }
+  });
+
+  // Save clean DOCX from text content (visual editor)
+  app.post("/api/configurator/docx-templates/:id/save-clean", requireAuth, async (req, res) => {
+    try {
+      const template = await storage.getDocxTemplate(req.params.id);
+      if (!template) {
+        return res.status(404).json({ error: "DOCX template not found" });
+      }
+
+      const { content } = req.body;
+      if (!content || typeof content !== "string") {
+        return res.status(400).json({ error: "Content is required" });
+      }
+
+      // Create clean DOCX from text content
+      const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`;
+
+      const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`;
+
+      // Convert lines to paragraphs with proper XML escaping
+      const escapeXml = (str: string) => str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&apos;");
+
+      const lines = content.split("\n");
+      const paragraphsXml = lines.map(line => 
+        `<w:p><w:r><w:t>${escapeXml(line)}</w:t></w:r></w:p>`
+      ).join("\n    ");
+
+      const document = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    ${paragraphsXml}
+  </w:body>
+</w:document>`;
+
+      const zip = new PizZip();
+      zip.file("[Content_Types].xml", contentTypes);
+      zip.folder("_rels")!.file(".rels", rels);
+      zip.folder("word")!.file("document.xml", document);
+
+      const buffer = zip.generate({ type: "nodebuffer", compression: "DEFLATE" });
+      
+      // Save to original path
+      const filePath = path.join(process.cwd(), template.filePath);
+      fs.writeFileSync(filePath, buffer);
+
+      // Update template modification date
+      await storage.updateDocxTemplate(template.id, {
+        updatedAt: new Date(),
+      });
+
+      res.json({ 
+        success: true, 
+        message: "Šablóna bola uložená ako čistý DOCX dokument",
+        path: template.filePath 
+      });
+    } catch (error) {
+      console.error("Failed to save clean DOCX template:", error);
+      res.status(500).json({ error: "Failed to save clean DOCX template" });
+    }
+  });
+
   // Invoice Layouts
   app.get("/api/configurator/invoice-layouts", requireAuth, async (req, res) => {
     try {

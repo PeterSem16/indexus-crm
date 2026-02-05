@@ -24,7 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Unlock, Check, Hash, Info, X, DollarSign, Percent, Calculator, CreditCard, TrendingUp, Bell, CheckCircle2, XCircle, Key, AlertTriangle, Upload, FileDown } from "lucide-react";
+import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Unlock, Check, Hash, Info, X, DollarSign, Percent, Calculator, CreditCard, TrendingUp, Bell, CheckCircle2, XCircle, Key, AlertTriangle, Upload, FileDown, Edit, Save } from "lucide-react";
 import { COUNTRIES, CURRENCIES, getCurrencySymbol } from "@shared/schema";
 import { InvoiceDesigner, InvoiceDesignerConfig } from "@/components/invoice-designer";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -7543,6 +7543,11 @@ function DocxTemplatesTab() {
   const [isCopyDialogOpen, setIsCopyDialogOpen] = useState(false);
   const [copyingTemplate, setCopyingTemplate] = useState<DocxTemplateType | null>(null);
   const [showVariables, setShowVariables] = useState(true);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<DocxTemplateType | null>(null);
+  const [editorContent, setEditorContent] = useState("");
+  const [isLoadingContent, setIsLoadingContent] = useState(false);
+  const [isSavingContent, setIsSavingContent] = useState(false);
   const [uploadingFile, setUploadingFile] = useState<File | null>(null);
   const [newTemplateName, setNewTemplateName] = useState("");
   const [newTemplateDescription, setNewTemplateDescription] = useState("");
@@ -7650,6 +7655,70 @@ function DocxTemplatesTab() {
     setCopyName(`${template.name} - v${(template.version || 1) + 1}`);
     setCopyYear((new Date().getFullYear()).toString());
     setIsCopyDialogOpen(true);
+  };
+
+  const openEditor = async (template: DocxTemplateType) => {
+    setEditingTemplate(template);
+    setIsEditorOpen(true);
+    setIsLoadingContent(true);
+    try {
+      const res = await fetch(`/api/configurator/docx-templates/${template.id}/content`, {
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setEditorContent(data.content || "");
+      } else {
+        toast({ title: "Chyba pri načítaní obsahu šablóny", variant: "destructive" });
+      }
+    } catch (error) {
+      toast({ title: "Chyba pri načítaní obsahu šablóny", variant: "destructive" });
+    } finally {
+      setIsLoadingContent(false);
+    }
+  };
+
+  const saveEditorContent = async () => {
+    if (!editingTemplate) return;
+    setIsSavingContent(true);
+    try {
+      const res = await fetch(`/api/configurator/docx-templates/${editingTemplate.id}/save-clean`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ content: editorContent }),
+      });
+      if (res.ok) {
+        toast({ title: "Šablóna uložená", description: "DOCX súbor bol uložený ako čistý dokument bez formátovacej XML." });
+        setIsEditorOpen(false);
+        setEditingTemplate(null);
+        queryClient.invalidateQueries({ queryKey: ["/api/configurator/docx-templates"] });
+      } else {
+        const error = await res.json();
+        toast({ title: "Chyba pri ukladaní", description: error.error, variant: "destructive" });
+      }
+    } catch (error) {
+      toast({ title: "Chyba pri ukladaní", variant: "destructive" });
+    } finally {
+      setIsSavingContent(false);
+    }
+  };
+
+  const insertVariable = (variable: string) => {
+    const textarea = document.getElementById("template-editor") as HTMLTextAreaElement;
+    if (textarea) {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const text = editorContent;
+      const newText = text.substring(0, start) + variable + text.substring(end);
+      setEditorContent(newText);
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + variable.length, start + variable.length);
+      }, 0);
+    } else {
+      setEditorContent(editorContent + variable);
+    }
   };
 
   const copyToClipboard = (text: string) => {
@@ -7786,6 +7855,15 @@ function DocxTemplatesTab() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => openEditor(template)}
+                          title="Vizuálny editor"
+                          data-testid={`btn-edit-${template.id}`}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
                         <Button
                           size="icon"
                           variant="ghost"
@@ -7993,6 +8071,89 @@ function DocxTemplatesTab() {
                 <Copy className="h-4 w-4 mr-2" />
               )}
               Vytvoriť novú verziu
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEditorOpen} onOpenChange={(open) => { if (!open) { setIsEditorOpen(false); setEditingTemplate(null); } }}>
+        <DialogContent className="max-w-5xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>Vizuálny editor šablóny: {editingTemplate?.name}</DialogTitle>
+            <DialogDescription>
+              Upravte obsah šablóny a vložte premenné. Pri uložení sa vytvorí čistý DOCX dokument bez formátovacích problémov.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid grid-cols-3 gap-4 h-[60vh]">
+            <div className="col-span-2 flex flex-col">
+              <Label className="mb-2">Obsah šablóny</Label>
+              {isLoadingContent ? (
+                <div className="flex-1 flex items-center justify-center border rounded-md">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+              ) : (
+                <Textarea
+                  id="template-editor"
+                  value={editorContent}
+                  onChange={(e) => setEditorContent(e.target.value)}
+                  className="flex-1 font-mono text-sm resize-none"
+                  placeholder="Obsah šablóny..."
+                  data-testid="textarea-template-editor"
+                />
+              )}
+            </div>
+            
+            <div className="flex flex-col">
+              <Label className="mb-2">Dostupné premenné</Label>
+              <ScrollArea className="flex-1 border rounded-md p-2">
+                {variablesData && Object.entries(variablesData).map(([groupKey, group]) => (
+                  <div key={groupKey} className="mb-4">
+                    <h4 className="font-medium text-sm mb-2">{group.label}</h4>
+                    <div className="space-y-1">
+                      {group.variables.map((v) => (
+                        <Button
+                          key={v.key}
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-start text-xs h-auto py-1"
+                          onClick={() => insertVariable(v.key)}
+                          data-testid={`btn-insert-${v.key}`}
+                        >
+                          <code className="bg-muted px-1 rounded mr-2">{v.key}</code>
+                          <span className="text-muted-foreground truncate">{v.description}</span>
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </ScrollArea>
+              
+              <div className="mt-4 p-3 bg-muted rounded-md text-xs">
+                <div className="font-medium mb-1">Syntax:</div>
+                <div className="space-y-1 text-muted-foreground">
+                  <div><code>{"{variableName}"}</code> - jednoduchá premenná</div>
+                  <div><code>{"{#items}...{/items}"}</code> - cyklus cez položky</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setIsEditorOpen(false); setEditingTemplate(null); }}>
+              Zrušiť
+            </Button>
+            <Button
+              onClick={saveEditorContent}
+              disabled={isSavingContent || !editorContent.trim()}
+              data-testid="btn-save-template"
+            >
+              {isSavingContent ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Save className="h-4 w-4 mr-2" />
+              )}
+              Uložiť ako čistý DOCX
             </Button>
           </DialogFooter>
         </DialogContent>
