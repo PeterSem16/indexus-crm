@@ -5822,21 +5822,38 @@ export async function registerRoutes(
           if (file) {
             let xmlContent = file.asText();
             
-            // Extract text content only between <w:t> tags and rebuild clean tags
-            // Pattern: find {{ anywhere, then capture everything until }}, extract only text
-            xmlContent = xmlContent.replace(
-              /\{\{(<[^>]*>)*([^<{}]*(?:<[^>]*>[^<{}]*)*)\}\}/g,
-              (match) => {
-                // Extract only text content from between {{ and }}
-                const textOnly = match
-                  .replace(/<[^>]+>/g, "") // Remove all XML tags
-                  .replace(/\{\{/g, "{{")
-                  .replace(/\}\}/g, "}}");
-                return textOnly;
+            // Find all {{ ... }} patterns even when split across XML elements
+            // Strategy: locate {{ then find matching }} and extract only text between them
+            let result = "";
+            let i = 0;
+            while (i < xmlContent.length) {
+              const openPos = xmlContent.indexOf("{{", i);
+              if (openPos === -1) {
+                result += xmlContent.substring(i);
+                break;
               }
-            );
+              
+              // Add content before {{
+              result += xmlContent.substring(i, openPos);
+              
+              // Find matching }}
+              const closePos = xmlContent.indexOf("}}", openPos);
+              if (closePos === -1) {
+                result += xmlContent.substring(openPos);
+                break;
+              }
+              
+              // Extract the section between {{ and }}
+              const section = xmlContent.substring(openPos, closePos + 2);
+              
+              // Extract only text content by removing all XML tags
+              const textOnly = section.replace(/<[^>]+>/g, "");
+              
+              result += textOnly;
+              i = closePos + 2;
+            }
             
-            zipFile.file(fileName, xmlContent);
+            zipFile.file(fileName, result);
           }
         }
       };
