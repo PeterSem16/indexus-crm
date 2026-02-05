@@ -5814,7 +5814,8 @@ export async function registerRoutes(
       const content = fs.readFileSync(docxPath, "binary");
       const zip = new PizZip(content);
       
-      // Clean XML to fix split tags (Word often splits {{tag}} across multiple XML runs)
+      // Clean XML to fix split tags (Word often splits tags across multiple XML runs)
+      // This handles: {{tag}}, {#loop}, {/loop}, and {tag} patterns
       const cleanXmlTags = (zipFile: PizZip) => {
         const files = ["word/document.xml", "word/header1.xml", "word/header2.xml", "word/footer1.xml", "word/footer2.xml"];
         for (const fileName of files) {
@@ -5822,8 +5823,7 @@ export async function registerRoutes(
           if (file) {
             let xmlContent = file.asText();
             
-            // Find all {{ ... }} patterns even when split across XML elements
-            // Strategy: locate {{ then find matching }} and extract only text between them
+            // Step 1: Clean double-brace tags {{...}}
             let result = "";
             let i = 0;
             while (i < xmlContent.length) {
@@ -5832,28 +5832,76 @@ export async function registerRoutes(
                 result += xmlContent.substring(i);
                 break;
               }
-              
-              // Add content before {{
               result += xmlContent.substring(i, openPos);
-              
-              // Find matching }}
               const closePos = xmlContent.indexOf("}}", openPos);
               if (closePos === -1) {
                 result += xmlContent.substring(openPos);
                 break;
               }
-              
-              // Extract the section between {{ and }}
               const section = xmlContent.substring(openPos, closePos + 2);
-              
-              // Extract only text content by removing all XML tags
               const textOnly = section.replace(/<[^>]+>/g, "");
-              
               result += textOnly;
               i = closePos + 2;
             }
+            xmlContent = result;
             
-            zipFile.file(fileName, result);
+            // Step 2: Clean single-brace loop/section tags {#...}, {/...}, {^...}
+            result = "";
+            i = 0;
+            while (i < xmlContent.length) {
+              // Look for {# or {/ or {^ patterns (loop/section syntax)
+              const hashPos = xmlContent.indexOf("{#", i);
+              const slashPos = xmlContent.indexOf("{/", i);
+              const caretPos = xmlContent.indexOf("{^", i);
+              
+              // Find earliest of these patterns
+              const positions = [hashPos, slashPos, caretPos].filter(p => p !== -1);
+              if (positions.length === 0) {
+                result += xmlContent.substring(i);
+                break;
+              }
+              
+              const openPos = Math.min(...positions);
+              result += xmlContent.substring(i, openPos);
+              
+              const closePos = xmlContent.indexOf("}", openPos + 2);
+              if (closePos === -1) {
+                result += xmlContent.substring(openPos);
+                break;
+              }
+              
+              const section = xmlContent.substring(openPos, closePos + 1);
+              const textOnly = section.replace(/<[^>]+>/g, "");
+              result += textOnly;
+              i = closePos + 1;
+            }
+            xmlContent = result;
+            
+            // Step 3: Clean remaining single-brace variable tags {variableName}
+            // Be careful not to affect XML tags - only clean within <w:t> elements
+            // Pattern: find { followed by word characters and } where XML tags may be interspersed
+            result = "";
+            i = 0;
+            const singleBracePattern = /\{(?![#/^])([^{}]*?)\}/g;
+            let lastIndex = 0;
+            let match;
+            
+            while ((match = singleBracePattern.exec(xmlContent)) !== null) {
+              const fullMatch = match[0];
+              const startPos = match.index;
+              
+              // Check if this contains XML tags (indicating it was split by Word)
+              if (/<[^>]+>/.test(fullMatch)) {
+                result += xmlContent.substring(lastIndex, startPos);
+                const cleaned = fullMatch.replace(/<[^>]+>/g, "");
+                result += cleaned;
+                lastIndex = startPos + fullMatch.length;
+              }
+            }
+            result += xmlContent.substring(lastIndex);
+            xmlContent = result;
+            
+            zipFile.file(fileName, xmlContent);
           }
         }
       };
