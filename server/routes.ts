@@ -5809,11 +5809,29 @@ export async function registerRoutes(
       const PizZip = require("pizzip");
       const Docxtemplater = require("docxtemplater");
       
+      console.log("[PDF-DOCX] Loading template:", docxPath);
       const content = fs.readFileSync(docxPath, "binary");
       const zip = new PizZip(content);
       const doc = new Docxtemplater(zip, {
         paragraphLoop: true,
         linebreaks: true,
+        parser: (tag: string) => {
+          return {
+            get: (scope: Record<string, unknown>) => {
+              // Handle nested properties like invoice.number
+              const parts = tag.split(".");
+              let value: unknown = scope;
+              for (const part of parts) {
+                if (value && typeof value === "object" && part in (value as Record<string, unknown>)) {
+                  value = (value as Record<string, unknown>)[part];
+                } else {
+                  return "";
+                }
+              }
+              return value ?? "";
+            }
+          };
+        }
       });
 
       // Prepare data for template
@@ -5863,7 +5881,19 @@ export async function registerRoutes(
       };
 
       // Render template
-      doc.render(templateData);
+      console.log("[PDF-DOCX] Rendering template with data for invoice:", invoice.invoiceNumber);
+      try {
+        doc.render(templateData);
+      } catch (renderError: any) {
+        console.error("[PDF-DOCX] Template render error:", renderError?.message || renderError);
+        if (renderError?.properties?.errors) {
+          console.error("[PDF-DOCX] Template errors:", JSON.stringify(renderError.properties.errors));
+        }
+        return res.status(400).json({ 
+          error: `Chyba pri spracovaní šablóny: ${renderError?.message || "Neznáma chyba"}`,
+          details: renderError?.properties?.errors || []
+        });
+      }
 
       // Generate filled DOCX
       const buf = doc.getZip().generate({ type: "nodebuffer" });
@@ -5880,12 +5910,17 @@ export async function registerRoutes(
 
       // Convert to PDF using LibreOffice
       const { execSync } = require("child_process");
+      console.log("[PDF-DOCX] Converting to PDF using LibreOffice...");
       try {
-        execSync(`soffice --headless --convert-to pdf --outdir "${tempDir}" "${filledDocxPath}"`, {
-          timeout: 30000,
+        const result = execSync(`soffice --headless --convert-to pdf --outdir "${tempDir}" "${filledDocxPath}"`, {
+          timeout: 60000,
+          encoding: "utf8"
         });
-      } catch (convErr) {
-        console.error("LibreOffice conversion failed:", convErr);
+        console.log("[PDF-DOCX] LibreOffice result:", result);
+      } catch (convErr: any) {
+        console.error("[PDF-DOCX] LibreOffice conversion failed:", convErr?.message || convErr);
+        console.error("[PDF-DOCX] LibreOffice stderr:", convErr?.stderr);
+        console.error("[PDF-DOCX] LibreOffice stdout:", convErr?.stdout);
         // Fallback: send DOCX if PDF conversion fails
         res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
         res.setHeader("Content-Disposition", `attachment; filename="${invoice.invoiceNumber}.docx"`);
