@@ -5815,23 +5815,7 @@ export async function registerRoutes(
       const doc = new Docxtemplater(zip, {
         paragraphLoop: true,
         linebreaks: true,
-        parser: (tag: string) => {
-          return {
-            get: (scope: Record<string, unknown>) => {
-              // Handle nested properties like invoice.number
-              const parts = tag.split(".");
-              let value: unknown = scope;
-              for (const part of parts) {
-                if (value && typeof value === "object" && part in (value as Record<string, unknown>)) {
-                  value = (value as Record<string, unknown>)[part];
-                } else {
-                  return "";
-                }
-              }
-              return value ?? "";
-            }
-          };
-        }
+        nullGetter: () => "",
       });
 
       // Prepare data for template
