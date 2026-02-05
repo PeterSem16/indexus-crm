@@ -48,6 +48,9 @@ import {
   getCustomerDataForContract,
   CRM_DATA_FIELDS,
 } from "./template-processor";
+import PizZip from "pizzip";
+import Docxtemplater from "docxtemplater";
+import { execSync } from "child_process";
 import { convertPdfToDocx, isConverterAvailable } from "./pdf-to-docx-converter";
 import mammoth from "mammoth";
 import { PDFDocument as PDFLibDocument, rgb, degrees, StandardFonts } from "pdf-lib";
@@ -5806,9 +5809,6 @@ export async function registerRoutes(
       }
 
       // Load DOCX template
-      const PizZip = require("pizzip");
-      const Docxtemplater = require("docxtemplater");
-      
       console.log("[PDF-DOCX] Loading template:", docxPath);
       const content = fs.readFileSync(docxPath, "binary");
       const zip = new PizZip(content);
@@ -5909,7 +5909,6 @@ export async function registerRoutes(
       fs.writeFileSync(filledDocxPath, buf);
 
       // Convert to PDF using LibreOffice
-      const { execSync } = require("child_process");
       console.log("[PDF-DOCX] Converting to PDF using LibreOffice...");
       try {
         const result = execSync(`soffice --headless --convert-to pdf --outdir "${tempDir}" "${filledDocxPath}"`, {
