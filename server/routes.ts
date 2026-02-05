@@ -51,6 +51,7 @@ import {
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
 import { execSync } from "child_process";
+import expressionParser from "docxtemplater/expressions.js";
 import { convertPdfToDocx, isConverterAvailable } from "./pdf-to-docx-converter";
 import mammoth from "mammoth";
 import { PDFDocument as PDFLibDocument, rgb, degrees, StandardFonts } from "pdf-lib";
@@ -5815,7 +5816,7 @@ export async function registerRoutes(
       const doc = new Docxtemplater(zip, {
         paragraphLoop: true,
         linebreaks: true,
-        nullGetter: () => "",
+        parser: expressionParser,
       });
 
       // Prepare data for template
