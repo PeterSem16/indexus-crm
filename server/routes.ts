@@ -5813,6 +5813,36 @@ export async function registerRoutes(
       console.log("[PDF-DOCX] Loading template:", docxPath);
       const content = fs.readFileSync(docxPath, "binary");
       const zip = new PizZip(content);
+      
+      // Clean XML to fix split tags (Word often splits {{tag}} across multiple XML runs)
+      const cleanXmlTags = (zipFile: PizZip) => {
+        const files = ["word/document.xml", "word/header1.xml", "word/header2.xml", "word/footer1.xml", "word/footer2.xml"];
+        for (const fileName of files) {
+          const file = zipFile.file(fileName);
+          if (file) {
+            let xmlContent = file.asText();
+            
+            // Extract text content only between <w:t> tags and rebuild clean tags
+            // Pattern: find {{ anywhere, then capture everything until }}, extract only text
+            xmlContent = xmlContent.replace(
+              /\{\{(<[^>]*>)*([^<{}]*(?:<[^>]*>[^<{}]*)*)\}\}/g,
+              (match) => {
+                // Extract only text content from between {{ and }}
+                const textOnly = match
+                  .replace(/<[^>]+>/g, "") // Remove all XML tags
+                  .replace(/\{\{/g, "{{")
+                  .replace(/\}\}/g, "}}");
+                return textOnly;
+              }
+            );
+            
+            zipFile.file(fileName, xmlContent);
+          }
+        }
+      };
+      
+      cleanXmlTags(zip);
+      
       const doc = new Docxtemplater(zip, {
         paragraphLoop: true,
         linebreaks: true,
