@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
 import { useCountryFilter } from "@/contexts/country-filter-context";
@@ -25,7 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Unlock, Check, Hash, Info, X, DollarSign, Percent, Calculator, CreditCard, TrendingUp, Bell, CheckCircle2, XCircle, Key, AlertTriangle, Upload, FileDown, Edit, Save, Download } from "lucide-react";
+import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Unlock, Check, Hash, Info, X, DollarSign, Percent, Calculator, CreditCard, TrendingUp, Bell, CheckCircle2, XCircle, Key, AlertTriangle, Upload, FileDown, Edit, Save, Download, ArrowUpDown } from "lucide-react";
 import { COUNTRIES, CURRENCIES, getCurrencySymbol } from "@shared/schema";
 import { InvoiceDesigner, InvoiceDesignerConfig } from "@/components/invoice-designer";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -7543,7 +7543,7 @@ function DocxTemplatesTab() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isCopyDialogOpen, setIsCopyDialogOpen] = useState(false);
   const [copyingTemplate, setCopyingTemplate] = useState<DocxTemplateType | null>(null);
-  const [showVariables, setShowVariables] = useState(true);
+  const [showVariables, setShowVariables] = useState(false);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<DocxTemplateType | null>(null);
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
@@ -7557,15 +7557,22 @@ function DocxTemplatesTab() {
   const [newTemplateYear, setNewTemplateYear] = useState(new Date().getFullYear().toString());
   const [copyName, setCopyName] = useState("");
   const [copyYear, setCopyYear] = useState(new Date().getFullYear().toString());
+  const [filterCountry, setFilterCountry] = useState<string>("all");
+  const [filterType, setFilterType] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [sortField, setSortField] = useState<string>("name");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 15;
 
   const countries = [
-    { code: "SK", name: "Slovensko" },
-    { code: "CZ", name: "Česko" },
-    { code: "HU", name: "Maďarsko" },
-    { code: "RO", name: "Rumunsko" },
-    { code: "IT", name: "Taliansko" },
-    { code: "DE", name: "Nemecko" },
-    { code: "US", name: "USA" },
+    { code: "SK", name: "Slovensko", flag: "🇸🇰" },
+    { code: "CZ", name: "Česko", flag: "🇨🇿" },
+    { code: "HU", name: "Maďarsko", flag: "🇭🇺" },
+    { code: "RO", name: "Rumunsko", flag: "🇷🇴" },
+    { code: "IT", name: "Taliansko", flag: "🇮🇹" },
+    { code: "DE", name: "Nemecko", flag: "🇩🇪" },
+    { code: "US", name: "USA", flag: "🇺🇸" },
   ];
 
   const { data: templates = [], isLoading } = useQuery<DocxTemplateType[]>({
@@ -7723,15 +7730,65 @@ function DocxTemplatesTab() {
     );
   }
 
+  const getCountryFlag = (code: string | null) => countries.find(c => c.code === code)?.flag || "";
+  const getCountryName = (code: string | null) => countries.find(c => c.code === code)?.name || code || "-";
+
+  const filteredTemplates = useMemo(() => {
+    let result = [...templates];
+    if (filterCountry !== "all") {
+      result = result.filter(t => t.countryCode === filterCountry);
+    }
+    if (filterType !== "all") {
+      result = result.filter(t => t.templateType === filterType);
+    }
+    if (filterStatus !== "all") {
+      result = result.filter(t => filterStatus === "active" ? t.isActive : !t.isActive);
+    }
+    result.sort((a, b) => {
+      let valA: string | number = "";
+      let valB: string | number = "";
+      switch (sortField) {
+        case "name": valA = a.name.toLowerCase(); valB = b.name.toLowerCase(); break;
+        case "country": valA = a.countryCode || ""; valB = b.countryCode || ""; break;
+        case "year": valA = a.year || 0; valB = b.year || 0; break;
+        case "type": valA = a.templateType; valB = b.templateType; break;
+        case "status": valA = a.isActive ? 1 : 0; valB = b.isActive ? 1 : 0; break;
+        default: valA = a.name.toLowerCase(); valB = b.name.toLowerCase();
+      }
+      if (valA < valB) return sortDir === "asc" ? -1 : 1;
+      if (valA > valB) return sortDir === "asc" ? 1 : -1;
+      return 0;
+    });
+    return result;
+  }, [templates, filterCountry, filterType, filterStatus, sortField, sortDir]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredTemplates.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedTemplates = filteredTemplates.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDir(d => d === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDir("asc");
+    }
+    setCurrentPage(1);
+  };
+
+  const SortIcon = ({ field }: { field: string }) => {
+    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1 opacity-30" />;
+    return sortDir === "asc" 
+      ? <ChevronUp className="h-3 w-3 ml-1" /> 
+      : <ChevronDown className="h-3 w-3 ml-1" />;
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-medium">DOCX Šablóny faktúr</h3>
-          <p className="text-sm text-muted-foreground">
-            Nahrajte DOCX šablóny s premennými pre automatické generovanie PDF faktúr
-          </p>
-        </div>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <p className="text-sm text-muted-foreground">
+          Nahrajte DOCX šablóny s premennými pre automatické generovanie PDF faktúr
+        </p>
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -7784,117 +7841,210 @@ function DocxTemplatesTab() {
         </Card>
       )}
 
+      <div className="flex items-center gap-3 flex-wrap">
+        <Select value={filterCountry} onValueChange={(v) => { setFilterCountry(v); setCurrentPage(1); }}>
+          <SelectTrigger className="w-[180px]" data-testid="select-filter-country">
+            <SelectValue placeholder="Krajina" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Všetky krajiny</SelectItem>
+            {countries.map(c => (
+              <SelectItem key={c.code} value={c.code}>
+                <span className="mr-2">{c.flag}</span>{c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={filterType} onValueChange={(v) => { setFilterType(v); setCurrentPage(1); }}>
+          <SelectTrigger className="w-[160px]" data-testid="select-filter-type">
+            <SelectValue placeholder="Typ" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Všetky typy</SelectItem>
+            <SelectItem value="invoice">Faktúra</SelectItem>
+            <SelectItem value="proforma">Proforma</SelectItem>
+            <SelectItem value="credit_note">Dobropis</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={filterStatus} onValueChange={(v) => { setFilterStatus(v); setCurrentPage(1); }}>
+          <SelectTrigger className="w-[140px]" data-testid="select-filter-status">
+            <SelectValue placeholder="Stav" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Všetky</SelectItem>
+            <SelectItem value="active">Aktívne</SelectItem>
+            <SelectItem value="inactive">Neaktívne</SelectItem>
+          </SelectContent>
+        </Select>
+        <span className="text-xs text-muted-foreground ml-auto">
+          {filteredTemplates.length} {filteredTemplates.length === 1 ? "šablóna" : "šablón"}
+        </span>
+      </div>
+
       <Card>
         <CardContent className="pt-6">
-          {templates.length === 0 ? (
+          {filteredTemplates.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              Zatiaľ nemáte žiadne DOCX šablóny. Kliknite na "Nová DOCX šablóna" pre vytvorenie.
+              {templates.length === 0
+                ? 'Zatiaľ nemáte žiadne DOCX šablóny. Kliknite na "Nová DOCX šablóna" pre vytvorenie.'
+                : "Žiadne šablóny nezodpovedajú zvoleným filtrom."}
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Názov</TableHead>
-                  <TableHead>Krajina</TableHead>
-                  <TableHead>Rok</TableHead>
-                  <TableHead>Verzia</TableHead>
-                  <TableHead>Typ</TableHead>
-                  <TableHead>Stav</TableHead>
-                  <TableHead className="text-right">Akcie</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {templates.map((template) => (
-                  <TableRow key={template.id}>
-                    <TableCell className="font-medium">
-                      <div>
-                        <div>{template.name}</div>
-                        <div className="text-xs text-muted-foreground">{template.originalFileName || "template.docx"}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {template.countryCode ? (
-                        <Badge variant="outline">
-                          {countries.find(c => c.code === template.countryCode)?.name || template.countryCode}
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {template.year ? (
-                        <Badge variant="secondary">{template.year}</Badge>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">v{template.version || 1}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">
-                        {template.templateType === "invoice" ? "Faktúra" : 
-                         template.templateType === "proforma" ? "Proforma" : "Dobropis"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={template.isActive ? "default" : "secondary"}>
-                        {template.isActive ? "Aktívna" : "Neaktívna"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => openEditor(template)}
-                          title="Náhľad a správa šablóny"
-                          data-testid={`btn-edit-${template.id}`}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => window.open(`/api/configurator/docx-templates/${template.id}/download`, "_blank")}
-                          title="Stiahnuť"
-                          data-testid={`btn-download-${template.id}`}
-                        >
-                          <FileDown className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => openCopyDialog(template)}
-                          title="Kopírovať do novej verzie"
-                          data-testid={`btn-copy-${template.id}`}
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => toggleActiveMutation.mutate({ id: template.id, isActive: !template.isActive })}
-                          title={template.isActive ? "Deaktivovať" : "Aktivovať"}
-                          data-testid={`btn-toggle-${template.id}`}
-                        >
-                          {template.isActive ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => deleteMutation.mutate(template.id)}
-                          title="Zmazať"
-                          data-testid={`btn-delete-${template.id}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="cursor-pointer select-none" onClick={() => handleSort("name")} data-testid="sort-name">
+                      <span className="flex items-center">Názov<SortIcon field="name" /></span>
+                    </TableHead>
+                    <TableHead className="cursor-pointer select-none" onClick={() => handleSort("country")} data-testid="sort-country">
+                      <span className="flex items-center">Krajina<SortIcon field="country" /></span>
+                    </TableHead>
+                    <TableHead className="cursor-pointer select-none" onClick={() => handleSort("year")} data-testid="sort-year">
+                      <span className="flex items-center">Rok<SortIcon field="year" /></span>
+                    </TableHead>
+                    <TableHead>Verzia</TableHead>
+                    <TableHead className="cursor-pointer select-none" onClick={() => handleSort("type")} data-testid="sort-type">
+                      <span className="flex items-center">Typ<SortIcon field="type" /></span>
+                    </TableHead>
+                    <TableHead className="cursor-pointer select-none" onClick={() => handleSort("status")} data-testid="sort-status">
+                      <span className="flex items-center">Stav<SortIcon field="status" /></span>
+                    </TableHead>
+                    <TableHead className="text-right">Akcie</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {paginatedTemplates.map((template) => (
+                    <TableRow key={template.id}>
+                      <TableCell className="font-medium">
+                        <div>
+                          <div>{template.name}</div>
+                          <div className="text-xs text-muted-foreground">{template.originalFileName || "template.docx"}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {template.countryCode ? (
+                          <Badge variant="outline">
+                            <span className="mr-1">{getCountryFlag(template.countryCode)}</span>
+                            {getCountryName(template.countryCode)}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {template.year ? (
+                          <Badge variant="secondary">{template.year}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">v{template.version || 1}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">
+                          {template.templateType === "invoice" ? "Faktúra" : 
+                           template.templateType === "proforma" ? "Proforma" : "Dobropis"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={template.isActive ? "default" : "secondary"}>
+                          {template.isActive ? "Aktívna" : "Neaktívna"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => openEditor(template)}
+                            title="Náhľad a správa šablóny"
+                            data-testid={`btn-edit-${template.id}`}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => window.open(`/api/configurator/docx-templates/${template.id}/download`, "_blank")}
+                            title="Stiahnuť"
+                            data-testid={`btn-download-${template.id}`}
+                          >
+                            <FileDown className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => openCopyDialog(template)}
+                            title="Kopírovať do novej verzie"
+                            data-testid={`btn-copy-${template.id}`}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => toggleActiveMutation.mutate({ id: template.id, isActive: !template.isActive })}
+                            title={template.isActive ? "Deaktivovať" : "Aktivovať"}
+                            data-testid={`btn-toggle-${template.id}`}
+                          >
+                            {template.isActive ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => deleteMutation.mutate(template.id)}
+                            title="Zmazať"
+                            data-testid={`btn-delete-${template.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4">
+                  <span className="text-sm text-muted-foreground">
+                    Strana {safePage} z {totalPages}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={safePage <= 1}
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      data-testid="btn-prev-page"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                      <Button
+                        key={page}
+                        variant={page === safePage ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCurrentPage(page)}
+                        data-testid={`btn-page-${page}`}
+                      >
+                        {page}
+                      </Button>
+                    ))}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={safePage >= totalPages}
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      data-testid="btn-next-page"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
@@ -7949,7 +8099,7 @@ function DocxTemplatesTab() {
                   <SelectContent>
                     <SelectItem value="_all">Všetky krajiny</SelectItem>
                     {countries.map((c) => (
-                      <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
+                      <SelectItem key={c.code} value={c.code}><span className="mr-2">{c.flag}</span>{c.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -8040,7 +8190,7 @@ function DocxTemplatesTab() {
               <div className="bg-muted p-3 rounded-md text-sm">
                 <div className="font-medium mb-1">Pôvodná šablóna:</div>
                 <div>Verzia: v{copyingTemplate.version || 1}</div>
-                {copyingTemplate.countryCode && <div>Krajina: {countries.find(c => c.code === copyingTemplate.countryCode)?.name}</div>}
+                {copyingTemplate.countryCode && <div>Krajina: {getCountryFlag(copyingTemplate.countryCode)} {getCountryName(copyingTemplate.countryCode)}</div>}
                 {copyingTemplate.year && <div>Rok: {copyingTemplate.year}</div>}
               </div>
             )}
@@ -16856,10 +17006,6 @@ export default function ConfiguratorPage() {
             <Building2 className="h-4 w-4 shrink-0" />
             <span className="hidden md:inline">{t.konfigurator.billingCompanies || "Billing"}</span>
           </TabsTrigger>
-          <TabsTrigger value="invoicing" className="flex items-center gap-2 text-xs sm:text-sm" data-testid="tab-invoicing">
-            <FileText className="h-4 w-4 shrink-0" />
-            <span className="hidden md:inline">{t.konfigurator.invoiceEditor}</span>
-          </TabsTrigger>
           <TabsTrigger value="rates-inflation" className="flex items-center gap-2 text-xs sm:text-sm" data-testid="tab-rates-inflation">
             <DollarSign className="h-4 w-4 shrink-0" />
             <span className="hidden md:inline">{t.konfigurator.exchangeRatesAndInflation || "Kurzy"}</span>
@@ -16911,6 +17057,10 @@ export default function ConfiguratorPage() {
                     <Hash className="h-4 w-4 mr-2" />
                     {t.konfigurator.numberRanges}
                   </TabsTrigger>
+                  <TabsTrigger value="invoice-templates" data-testid="subtab-invoice-templates">
+                    <FileText className="h-4 w-4 mr-2" />
+                    {t.konfigurator.invoiceTemplates || "Šablóny faktúr"}
+                  </TabsTrigger>
                   <TabsTrigger value="system-settings" data-testid="subtab-system-settings">
                     <Settings className="h-4 w-4 mr-2" />
                     Systémové nastavenia
@@ -16922,6 +17072,9 @@ export default function ConfiguratorPage() {
                 <TabsContent value="number-ranges">
                   <NumberRangesTab />
                 </TabsContent>
+                <TabsContent value="invoice-templates">
+                  <DocxTemplatesTab />
+                </TabsContent>
                 <TabsContent value="system-settings">
                   <CountrySystemSettingsTab />
                 </TabsContent>
@@ -16930,18 +17083,6 @@ export default function ConfiguratorPage() {
           </Card>
         </TabsContent>
 
-
-        <TabsContent value="invoicing">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t.konfigurator.invoiceEditor}</CardTitle>
-              <CardDescription>{t.konfigurator.layoutsDescription}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <DocxTemplatesTab />
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         <TabsContent value="rates-inflation">
           <Card>
