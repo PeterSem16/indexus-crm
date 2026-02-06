@@ -7722,14 +7722,6 @@ function DocxTemplatesTab() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
-  }
-
   const getCountryFlag = (code: string | null) => countries.find(c => c.code === code)?.flag || "";
   const getCountryName = (code: string | null) => countries.find(c => c.code === code)?.name || code || "-";
 
@@ -7782,6 +7774,14 @@ function DocxTemplatesTab() {
       ? <ChevronUp className="h-3 w-3 ml-1" /> 
       : <ChevronDown className="h-3 w-3 ml-1" />;
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
