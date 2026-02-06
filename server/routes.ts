@@ -6065,7 +6065,7 @@ export async function registerRoutes(
             const relEntry = `<Relationship Id="${rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${imgName}"/>`;
             relsXml = relsXml.replace("</Relationships>", `${relEntry}</Relationships>`);
             
-            const imgXml = `<w:r><w:rPr></w:rPr><w:drawing><wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" distT="0" distB="0" distL="0" distR="0"><wp:extent cx="1800000" cy="1800000"/><wp:docPr id="${rIdCounter}" name="${imgName}"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${rIdCounter}" name="${imgName}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rId}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1800000" cy="1800000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
+            const imgXml = `<w:r><w:rPr></w:rPr><w:drawing><wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" distT="0" distB="0" distL="0" distR="0"><wp:extent cx="900000" cy="900000"/><wp:docPr id="${rIdCounter}" name="${imgName}"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${rIdCounter}" name="${imgName}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rId}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="900000" cy="900000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
             
             const placeholderEscaped = placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const regex = new RegExp(`<w:r[^>]*>(?:<w:rPr>[\\s\\S]*?</w:rPr>)?<w:t[^>]*>${placeholderEscaped}</w:t></w:r>`, 'g');
@@ -6326,21 +6326,21 @@ export async function registerRoutes(
 
       const qrCodes = await generateInvoiceQRCodes(invoice);
       if (qrCodes.payBySquare || qrCodes.epc) {
-        doc.moveDown(2);
+        doc.moveDown(1);
         doc.moveTo(tableLeft, doc.y).lineTo(500, doc.y).strokeColor("#EEEEEE").stroke();
-        doc.moveDown(0.5);
-        doc.fontSize(10).font("Bold").fillColor(primaryColor).text("QR kódy pre platbu:", tableLeft);
-        doc.moveDown(0.5);
+        doc.moveDown(0.3);
+        doc.fontSize(9).font("Bold").fillColor(primaryColor).text("QR kódy pre platbu:", tableLeft);
+        doc.moveDown(0.3);
         doc.fillColor("black");
         
         const qrY = doc.y;
-        const qrSize = 120;
+        const qrSize = 60;
         
         if (qrCodes.payBySquare) {
           try {
             doc.image(qrCodes.payBySquare, tableLeft, qrY, { width: qrSize, height: qrSize });
-            doc.fontSize(8).font("Regular").fillColor("#666666");
-            doc.text("Pay by Square", tableLeft, qrY + qrSize + 4, { width: qrSize, align: "center" });
+            doc.fontSize(7).font("Regular").fillColor("#666666");
+            doc.text("Pay by Square", tableLeft, qrY + qrSize + 2, { width: qrSize, align: "center" });
           } catch (e) {
             console.error("[PDF] Failed to embed Pay by Square QR:", e);
           }
@@ -6348,16 +6348,16 @@ export async function registerRoutes(
         
         if (qrCodes.epc) {
           try {
-            const epcX = qrCodes.payBySquare ? tableLeft + qrSize + 40 : tableLeft;
+            const epcX = qrCodes.payBySquare ? tableLeft + qrSize + 20 : tableLeft;
             doc.image(qrCodes.epc, epcX, qrY, { width: qrSize, height: qrSize });
-            doc.fontSize(8).font("Regular").fillColor("#666666");
-            doc.text("EPC QR (EU)", epcX, qrY + qrSize + 4, { width: qrSize, align: "center" });
+            doc.fontSize(7).font("Regular").fillColor("#666666");
+            doc.text("EPC QR (EU)", epcX, qrY + qrSize + 2, { width: qrSize, align: "center" });
           } catch (e) {
             console.error("[PDF] Failed to embed EPC QR:", e);
           }
         }
         
-        doc.y = qrY + qrSize + 20;
+        doc.y = qrY + qrSize + 14;
         doc.fillColor("black");
       }
 
@@ -6524,34 +6524,34 @@ export async function registerRoutes(
 
       const qrCodes = await generateInvoiceQRCodes(scheduled);
       if (qrCodes.payBySquare || qrCodes.epc) {
-        doc.moveDown(2);
+        doc.moveDown(1);
         doc.moveTo(tableLeft, doc.y).lineTo(500, doc.y).strokeColor("#EEEEEE").stroke();
-        doc.moveDown(0.5);
-        doc.fontSize(10).font("Bold").fillColor(primaryColor).text("QR kódy pre platbu:", tableLeft);
-        doc.moveDown(0.5);
+        doc.moveDown(0.3);
+        doc.fontSize(9).font("Bold").fillColor(primaryColor).text("QR kódy pre platbu:", tableLeft);
+        doc.moveDown(0.3);
         doc.fillColor("black");
         
         const qrY = doc.y;
-        const qrSize = 120;
+        const qrSize = 60;
         
         if (qrCodes.payBySquare) {
           try {
             doc.image(qrCodes.payBySquare, tableLeft, qrY, { width: qrSize, height: qrSize });
-            doc.fontSize(8).font("Regular").fillColor("#666666");
-            doc.text("Pay by Square", tableLeft, qrY + qrSize + 4, { width: qrSize, align: "center" });
+            doc.fontSize(7).font("Regular").fillColor("#666666");
+            doc.text("Pay by Square", tableLeft, qrY + qrSize + 2, { width: qrSize, align: "center" });
           } catch (e) {}
         }
         
         if (qrCodes.epc) {
           try {
-            const epcX = qrCodes.payBySquare ? tableLeft + qrSize + 40 : tableLeft;
+            const epcX = qrCodes.payBySquare ? tableLeft + qrSize + 20 : tableLeft;
             doc.image(qrCodes.epc, epcX, qrY, { width: qrSize, height: qrSize });
-            doc.fontSize(8).font("Regular").fillColor("#666666");
-            doc.text("EPC QR (EU)", epcX, qrY + qrSize + 4, { width: qrSize, align: "center" });
+            doc.fontSize(7).font("Regular").fillColor("#666666");
+            doc.text("EPC QR (EU)", epcX, qrY + qrSize + 2, { width: qrSize, align: "center" });
           } catch (e) {}
         }
         
-        doc.y = qrY + qrSize + 20;
+        doc.y = qrY + qrSize + 14;
         doc.fillColor("black");
       }
 
