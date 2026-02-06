@@ -37,6 +37,7 @@ Preferred communication style: Simple, everyday language.
 - **NEXUS AI Assistant**: OpenAI GPT-4o powered assistant with multi-language support, role-based data visibility, and integrated chat interface.
 - **Real-time Notification Center**: WebSocket-based push notifications with historical view, rules engine, and various notification types.
 - **File Storage**: Centralized file storage with environment-specific paths for agreements, avatars, contracts, invoices, and email attachments.
+- **Invoice PDF Generation (DOCX Templates)**: Upload Word DOCX templates with `{variable}` placeholders → docxtemplater fills variables → LibreOffice headless converts filled DOCX to PDF. Uses unique user profiles per conversion to prevent lock conflicts. Templates support `{#items}...{/items}` loops and `{{double braces}}` auto-converted to single braces. Preview shows actual PDF in browser via iframe. QR codes (Pay by Square + EPC) injected into DOCX XML before PDF conversion.
 
 ### Mobile Application (INDEXUS Connect)
 - **Framework**: React Native (Expo)

@@ -5882,7 +5882,7 @@ export async function registerRoutes(
           if (file) {
             let xmlContent = file.asText();
             
-            // Step 1: Clean double-brace tags {{...}}
+            // Step 1: Clean double-brace tags {{...}} and convert to single braces {..}
             let result = "";
             let i = 0;
             while (i < xmlContent.length) {
@@ -5898,7 +5898,11 @@ export async function registerRoutes(
                 break;
               }
               const section = xmlContent.substring(openPos, closePos + 2);
-              const textOnly = section.replace(/<[^>]+>/g, "");
+              let textOnly = section.replace(/<[^>]+>/g, "");
+              // Convert {{variable}} to {variable} for expressionParser
+              if (textOnly.startsWith("{{") && textOnly.endsWith("}}")) {
+                textOnly = "{" + textOnly.slice(2, -2) + "}";
+              }
               result += textOnly;
               i = closePos + 2;
             }
@@ -6117,23 +6121,34 @@ export async function registerRoutes(
       
       fs.writeFileSync(filledDocxPath, buf);
 
-      // Convert to PDF using LibreOffice
+      // Convert to PDF using LibreOffice with unique user profile to avoid lock conflicts
       console.log("[PDF-DOCX] Converting to PDF using LibreOffice...");
+      const userProfile = `/tmp/libreoffice-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       try {
-        const result = execSync(`soffice --headless --convert-to pdf --outdir "${tempDir}" "${filledDocxPath}"`, {
-          timeout: 60000,
-          encoding: "utf8"
-        });
+        const result = execSync(
+          `soffice --headless -env:UserInstallation=file://${userProfile} --convert-to pdf --outdir "${tempDir}" "${filledDocxPath}"`,
+          { timeout: 60000, encoding: "utf8" }
+        );
         console.log("[PDF-DOCX] LibreOffice result:", result);
       } catch (convErr: any) {
         console.error("[PDF-DOCX] LibreOffice conversion failed:", convErr?.message || convErr);
-        console.error("[PDF-DOCX] LibreOffice stderr:", convErr?.stderr);
-        console.error("[PDF-DOCX] LibreOffice stdout:", convErr?.stdout);
-        // Fallback: send DOCX if PDF conversion fails
-        res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-        res.setHeader("Content-Disposition", `attachment; filename="${invoice.invoiceNumber}.docx"`);
-        fs.createReadStream(filledDocxPath).pipe(res);
-        return;
+        // Retry once with a fresh profile
+        try {
+          const retryProfile = `/tmp/libreoffice-retry-${Date.now()}`;
+          execSync(
+            `soffice --headless -env:UserInstallation=file://${retryProfile} --convert-to pdf --outdir "${tempDir}" "${filledDocxPath}"`,
+            { timeout: 60000, encoding: "utf8" }
+          );
+          try { execSync(`rm -rf "${retryProfile}"`, { timeout: 5000 }); } catch {}
+        } catch (retryErr: any) {
+          console.error("[PDF-DOCX] LibreOffice retry also failed:", retryErr?.message);
+          res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+          res.setHeader("Content-Disposition", `attachment; filename="${invoice.invoiceNumber}.docx"`);
+          fs.createReadStream(filledDocxPath).pipe(res);
+          return;
+        }
+      } finally {
+        try { execSync(`rm -rf "${userProfile}"`, { timeout: 5000 }); } catch {}
       }
 
       // Send PDF
@@ -12375,6 +12390,41 @@ export async function registerRoutes(
     }
   });
 
+  // Re-upload updated DOCX template file
+  app.post("/api/configurator/docx-templates/:id/reupload", requireAuth, uploadInvoiceDocx.single("docx"), async (req, res) => {
+    try {
+      const template = await storage.getDocxTemplate(req.params.id);
+      if (!template) {
+        return res.status(404).json({ error: "DOCX template not found" });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ error: "No DOCX file provided" });
+      }
+
+      const oldPath = path.join(process.cwd(), template.filePath);
+      if (fs.existsSync(oldPath)) {
+        try { fs.unlinkSync(oldPath); } catch {}
+      }
+
+      const newFilePath = `uploads/invoice-docx-templates/template-${Date.now()}-${Math.floor(Math.random() * 1000000)}.docx`;
+      const destPath = path.join(process.cwd(), newFilePath);
+      fs.copyFileSync(req.file.path, destPath);
+      try { fs.unlinkSync(req.file.path); } catch {}
+
+      await storage.updateDocxTemplate(template.id, {
+        filePath: newFilePath,
+        originalFileName: req.file.originalname,
+        updatedAt: new Date(),
+      });
+
+      res.json({ success: true, message: "Šablóna bola aktualizovaná" });
+    } catch (error) {
+      console.error("Failed to reupload DOCX template:", error);
+      res.status(500).json({ error: "Failed to reupload DOCX template" });
+    }
+  });
+
   // Get DOCX template content as text for visual editor
   app.get("/api/configurator/docx-templates/:id/content", requireAuth, async (req, res) => {
     try {
@@ -12593,6 +12643,185 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Failed to save DOCX template:", error);
       res.status(500).json({ error: "Failed to save DOCX template" });
+    }
+  });
+
+  // Preview DOCX template as PDF with sample data
+  app.get("/api/configurator/docx-templates/:id/preview-pdf", requireAuth, async (req, res) => {
+    try {
+      const template = await storage.getDocxTemplate(req.params.id);
+      if (!template) {
+        return res.status(404).json({ error: "DOCX template not found" });
+      }
+
+      const docxPath = path.join(process.cwd(), template.filePath);
+      if (!fs.existsSync(docxPath)) {
+        return res.status(404).json({ error: "DOCX template file not found" });
+      }
+
+      const content = fs.readFileSync(docxPath, "binary");
+      const zip = new PizZip(content);
+
+      const cleanXmlTags = (zipFile: PizZip) => {
+        const files = ["word/document.xml", "word/header1.xml", "word/header2.xml", "word/footer1.xml", "word/footer2.xml"];
+        for (const fileName of files) {
+          const file = zipFile.file(fileName);
+          if (file) {
+            let xmlContent = file.asText();
+            let result = "";
+            let i = 0;
+            while (i < xmlContent.length) {
+              const openPos = xmlContent.indexOf("{{", i);
+              if (openPos === -1) { result += xmlContent.substring(i); break; }
+              result += xmlContent.substring(i, openPos);
+              const closePos = xmlContent.indexOf("}}", openPos);
+              if (closePos === -1) { result += xmlContent.substring(openPos); break; }
+              const section = xmlContent.substring(openPos, closePos + 2);
+              let textOnly = section.replace(/<[^>]+>/g, "");
+              if (textOnly.startsWith("{{") && textOnly.endsWith("}}")) {
+                textOnly = "{" + textOnly.slice(2, -2) + "}";
+              }
+              result += textOnly;
+              i = closePos + 2;
+            }
+            xmlContent = result;
+            result = "";
+            i = 0;
+            while (i < xmlContent.length) {
+              const hashPos = xmlContent.indexOf("{#", i);
+              const slashPos = xmlContent.indexOf("{/", i);
+              const caretPos = xmlContent.indexOf("{^", i);
+              const positions = [hashPos, slashPos, caretPos].filter(p => p !== -1);
+              if (positions.length === 0) { result += xmlContent.substring(i); break; }
+              const openPos = Math.min(...positions);
+              result += xmlContent.substring(i, openPos);
+              const closePos = xmlContent.indexOf("}", openPos + 2);
+              if (closePos === -1) { result += xmlContent.substring(openPos); break; }
+              const section2 = xmlContent.substring(openPos, closePos + 1);
+              result += section2.replace(/<[^>]+>/g, "");
+              i = closePos + 1;
+            }
+            xmlContent = result;
+            result = "";
+            const singleBracePattern = /\{(?![#/^])([^{}]*?)\}/g;
+            let lastIndex = 0;
+            let match;
+            while ((match = singleBracePattern.exec(xmlContent)) !== null) {
+              if (/<[^>]+>/.test(match[0])) {
+                result += xmlContent.substring(lastIndex, match.index);
+                result += match[0].replace(/<[^>]+>/g, "");
+                lastIndex = match.index + match[0].length;
+              }
+            }
+            result += xmlContent.substring(lastIndex);
+            xmlContent = result;
+            zipFile.file(fileName, xmlContent);
+          }
+        }
+      };
+
+      cleanXmlTags(zip);
+
+      const doc = new Docxtemplater(zip, {
+        paragraphLoop: true,
+        linebreaks: true,
+        parser: expressionParser,
+        nullGetter() { return ""; },
+      });
+
+      const sampleData = {
+        qrCodePayBySquare: "",
+        qrCodeEpc: "",
+        invoice: {
+          number: "FV-2025-00042",
+          date: "06.02.2025",
+          dueDate: "20.02.2025",
+          variableSymbol: "2025000042",
+          subtotal: "890.00",
+          vatRate: "20",
+          vatAmount: "178.00",
+          total: "1 068.00",
+          currency: "EUR",
+          type: "Faktúra",
+        },
+        customer: {
+          firstName: "Ján",
+          lastName: "Novák",
+          fullName: "Ján Novák",
+          companyName: "",
+          email: "jan.novak@email.sk",
+          phone: "+421 900 123 456",
+          address: "Dubová 7",
+          street: "Dubová 7",
+          city: "Košice",
+          postalCode: "040 01",
+          country: "Slovensko",
+          ico: "",
+          dic: "",
+          icDph: "",
+        },
+        billing: {
+          companyName: "INDEXUS Medical s.r.o.",
+          address: "Hlavná 15",
+          city: "821 01 Bratislava",
+          taxId: "12345678",
+          vatId: "SK2023456789",
+          bankName: "Tatra banka, a.s.",
+          iban: "SK12 1100 0000 0012 3456 7890",
+          swift: "TATRSKBX",
+        },
+        items: [
+          { index: 1, name: "Odber pupočníkovej krvi", description: "Odber pupočníkovej krvi", quantity: 1, unit: "ks", unitPrice: "890.00", vatRate: "20", totalPrice: "890.00", currency: "EUR" },
+        ],
+      };
+
+      try {
+        doc.render(sampleData);
+      } catch (renderErr: any) {
+        console.error("[Preview] Template render error:", renderErr?.message);
+        return res.status(400).json({ error: `Chyba v šablóne: ${renderErr?.message || "Neznáma chyba"}` });
+      }
+
+      const renderedZip = doc.getZip();
+      const buf = renderedZip.generate({ type: "nodebuffer" });
+
+      const tempDir = path.join(process.cwd(), "uploads/temp");
+      if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+
+      const tempDocxPath = path.join(tempDir, `preview-${template.id}-${Date.now()}.docx`);
+      const tempPdfPath = tempDocxPath.replace(".docx", ".pdf");
+      fs.writeFileSync(tempDocxPath, buf);
+
+      const userProfile = `/tmp/libreoffice-preview-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      try {
+        execSync(
+          `soffice --headless -env:UserInstallation=file://${userProfile} --convert-to pdf --outdir "${tempDir}" "${tempDocxPath}"`,
+          { timeout: 60000, encoding: "utf8" }
+        );
+      } catch (convErr: any) {
+        console.error("[Preview] LibreOffice conversion failed:", convErr?.message);
+        try { fs.unlinkSync(tempDocxPath); } catch {}
+        try { execSync(`rm -rf "${userProfile}"`, { timeout: 5000 }); } catch {}
+        return res.status(500).json({ error: "Konverzia do PDF zlyhala. Skontrolujte šablónu." });
+      } finally {
+        try { execSync(`rm -rf "${userProfile}"`, { timeout: 5000 }); } catch {}
+      }
+
+      if (fs.existsSync(tempPdfPath)) {
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Disposition", "inline");
+        fs.createReadStream(tempPdfPath).pipe(res);
+        res.on("finish", () => {
+          try { fs.unlinkSync(tempDocxPath); } catch {}
+          try { fs.unlinkSync(tempPdfPath); } catch {}
+        });
+      } else {
+        try { fs.unlinkSync(tempDocxPath); } catch {}
+        res.status(500).json({ error: "PDF conversion failed" });
+      }
+    } catch (error) {
+      console.error("Error previewing DOCX template:", error);
+      res.status(500).json({ error: "Failed to preview DOCX template" });
     }
   });
 

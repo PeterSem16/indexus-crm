@@ -25,7 +25,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Unlock, Check, Hash, Info, X, DollarSign, Percent, Calculator, CreditCard, TrendingUp, Bell, CheckCircle2, XCircle, Key, AlertTriangle, Upload, FileDown, Edit, Save } from "lucide-react";
+import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Unlock, Check, Hash, Info, X, DollarSign, Percent, Calculator, CreditCard, TrendingUp, Bell, CheckCircle2, XCircle, Key, AlertTriangle, Upload, FileDown, Edit, Save, Download } from "lucide-react";
 import { COUNTRIES, CURRENCIES, getCurrencySymbol } from "@shared/schema";
 import { InvoiceDesigner, InvoiceDesignerConfig } from "@/components/invoice-designer";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -7546,10 +7546,9 @@ function DocxTemplatesTab() {
   const [showVariables, setShowVariables] = useState(true);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<DocxTemplateType | null>(null);
-  const [editorContent, setEditorContent] = useState("");
-  const [isLoadingContent, setIsLoadingContent] = useState(false);
-  const [isSavingContent, setIsSavingContent] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
+  const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+  const reuploadInputRef = useRef<HTMLInputElement>(null);
   const [uploadingFile, setUploadingFile] = useState<File | null>(null);
   const [newTemplateName, setNewTemplateName] = useState("");
   const [newTemplateDescription, setNewTemplateDescription] = useState("");
@@ -7662,129 +7661,58 @@ function DocxTemplatesTab() {
   const openEditor = async (template: DocxTemplateType) => {
     setEditingTemplate(template);
     setIsEditorOpen(true);
-    setShowPreview(false);
-    setIsLoadingContent(true);
+    if (previewPdfUrl) URL.revokeObjectURL(previewPdfUrl);
+    setPreviewPdfUrl(null);
+    setIsLoadingPreview(true);
     try {
-      const res = await fetch(`/api/configurator/docx-templates/${template.id}/content`, {
+      const res = await fetch(`/api/configurator/docx-templates/${template.id}/preview-pdf`, {
         credentials: "include",
       });
       if (res.ok) {
-        const data = await res.json();
-        setEditorContent(data.content || "");
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        setPreviewPdfUrl(url);
       } else {
-        toast({ title: "Chyba pri načítaní obsahu šablóny", variant: "destructive" });
+        const err = await res.json().catch(() => ({ error: "Neznáma chyba" }));
+        toast({ title: "Chyba pri náhľade", description: err.error, variant: "destructive" });
       }
     } catch (error) {
-      toast({ title: "Chyba pri načítaní obsahu šablóny", variant: "destructive" });
+      toast({ title: "Chyba pri načítaní náhľadu", variant: "destructive" });
     } finally {
-      setIsLoadingContent(false);
+      setIsLoadingPreview(false);
     }
   };
 
-  const saveEditorContent = async () => {
-    if (!editingTemplate) return;
-    setIsSavingContent(true);
-    try {
-      const res = await fetch(`/api/configurator/docx-templates/${editingTemplate.id}/save-clean`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ content: editorContent }),
-      });
-      if (res.ok) {
-        toast({ title: "Šablóna uložená", description: "DOCX súbor bol uložený ako čistý dokument bez formátovacej XML." });
-        setIsEditorOpen(false);
-        setEditingTemplate(null);
-        queryClient.invalidateQueries({ queryKey: ["/api/configurator/docx-templates"] });
-      } else {
-        const error = await res.json();
-        toast({ title: "Chyba pri ukladaní", description: error.error, variant: "destructive" });
-      }
-    } catch (error) {
-      toast({ title: "Chyba pri ukladaní", variant: "destructive" });
-    } finally {
-      setIsSavingContent(false);
-    }
-  };
-
-  const quillEditorRef = useRef<any>(null);
-
-  const insertVariable = (variable: string) => {
-    const editor = quillEditorRef.current?.getEditor?.();
-    if (editor) {
-      const range = editor.getSelection(true);
-      if (range) {
-        editor.insertText(range.index, variable, 'user');
-        editor.setSelection(range.index + variable.length);
-      } else {
-        const len = editor.getLength();
-        editor.insertText(len - 1, variable, 'user');
-      }
-    } else {
-      setEditorContent(editorContent + variable);
-    }
-  };
-
-  const getPreviewHtml = (html: string): string => {
-    const sampleData: Record<string, string> = {
-      "billing.companyName": "INDEXUS Medical s.r.o.",
-      "billing.address": "Hlavná 15",
-      "billing.city": "821 01 Bratislava",
-      "billing.taxId": "12345678",
-      "billing.vatId": "SK2023456789",
-      "billing.bankName": "Tatra banka, a.s.",
-      "billing.iban": "SK12 1100 0000 0012 3456 7890",
-      "billing.swift": "TATRSKBX",
-      "invoice.number": "FV-2025-00042",
-      "invoice.date": "06.02.2025",
-      "invoice.dueDate": "20.02.2025",
-      "invoice.variableSymbol": "2025000042",
-      "invoice.subtotal": "890.00",
-      "invoice.vatRate": "20",
-      "invoice.vatAmount": "178.00",
-      "invoice.total": "1 068.00",
-      "invoice.currency": "EUR",
-      "invoice.type": "Faktúra",
-      "customer.fullName": "Ján Novák",
-      "customer.firstName": "Ján",
-      "customer.lastName": "Novák",
-      "customer.companyName": "",
-      "customer.email": "jan.novak@email.sk",
-      "customer.phone": "+421 900 123 456",
-      "customer.street": "Dubová 7",
-      "customer.city": "Košice",
-      "customer.postalCode": "040 01",
-      "customer.country": "Slovensko",
-      "customer.ico": "",
-      "customer.dic": "",
-      "customer.icDph": "",
-    };
-    let preview = html;
-    for (const [key, value] of Object.entries(sampleData)) {
-      preview = preview.replace(new RegExp(`\\{${key.replace(/\./g, "\\.")}\\}`, "g"), `<strong style="color:#6B1C3B;">${value}</strong>`);
-    }
-    preview = preview.replace(/\{#items\}[\s\S]*?\{\/items\}/g, `
-      <table style="width:100%;border-collapse:collapse;margin:8px 0;">
-        <tr style="background-color:#FAFAFA;">
-          <td style="padding:6px 12px;"><strong style="color:#6B1C3B;">1</strong></td>
-          <td style="padding:6px 12px;"><strong style="color:#6B1C3B;">Odber pupočníkovej krvi</strong></td>
-          <td style="padding:6px 12px;"><strong style="color:#6B1C3B;">1</strong></td>
-          <td style="padding:6px 12px;"><strong style="color:#6B1C3B;">ks</strong></td>
-          <td style="padding:6px 12px;text-align:right;"><strong style="color:#6B1C3B;">890.00</strong></td>
-          <td style="padding:6px 12px;text-align:right;"><strong style="color:#6B1C3B;">20</strong></td>
-          <td style="padding:6px 12px;text-align:right;"><strong style="color:#6B1C3B;">890.00</strong></td>
-        </tr>
-      </table>
-    `);
-    preview = preview.replace(/\{qrCodePayBySquare\}/g, '<div style="display:inline-block;width:120px;height:120px;border:2px dashed #6B1C3B;text-align:center;line-height:120px;font-size:10px;color:#6B1C3B;margin:4px;">QR Pay by Square</div>');
-    preview = preview.replace(/\{qrCodeEpc\}/g, '<div style="display:inline-block;width:120px;height:120px;border:2px dashed #6B1C3B;text-align:center;line-height:120px;font-size:10px;color:#6B1C3B;margin:4px;">QR EPC (EU)</div>');
-    preview = preview.replace(/\{[a-zA-Z_.]+\}/g, (match) => `<span style="color:#999;font-style:italic;">${match}</span>`);
-    return preview;
-  };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast({ title: "Skopírované do schránky" });
+  };
+
+  const downloadOriginalDocx = (template: DocxTemplateType) => {
+    window.open(`/api/configurator/docx-templates/${template.id}/download`, "_blank");
+  };
+
+  const handleReupload = async (template: DocxTemplateType, file: File) => {
+    const formData = new FormData();
+    formData.append("docx", file);
+    try {
+      const res = await fetch(`/api/configurator/docx-templates/${template.id}/reupload`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+      if (res.ok) {
+        toast({ title: "Šablóna aktualizovaná" });
+        queryClient.invalidateQueries({ queryKey: ["/api/configurator/docx-templates"] });
+        openEditor(template);
+      } else {
+        const err = await res.json().catch(() => ({ error: "Neznáma chyba" }));
+        toast({ title: "Chyba", description: err.error, variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Chyba pri nahrávaní", variant: "destructive" });
+    }
   };
 
   if (isLoading) {
@@ -7920,7 +7848,7 @@ function DocxTemplatesTab() {
                           size="icon"
                           variant="ghost"
                           onClick={() => openEditor(template)}
-                          title="Vizuálny editor"
+                          title="Náhľad a správa šablóny"
                           data-testid={`btn-edit-${template.id}`}
                         >
                           <Edit className="h-4 w-4" />
@@ -8137,89 +8065,47 @@ function DocxTemplatesTab() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isEditorOpen} onOpenChange={(open) => { if (!open) { setIsEditorOpen(false); setEditingTemplate(null); } }}>
+      <Dialog open={isEditorOpen} onOpenChange={(open) => { if (!open) { setIsEditorOpen(false); setEditingTemplate(null); if (previewPdfUrl) URL.revokeObjectURL(previewPdfUrl); setPreviewPdfUrl(null); } }}>
         <DialogContent className="max-w-6xl max-h-[95vh]">
           <DialogHeader>
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <div>
-                <DialogTitle>Vizuálny editor šablóny: {editingTemplate?.name}</DialogTitle>
+                <DialogTitle>Náhľad šablóny: {editingTemplate?.name}</DialogTitle>
                 <DialogDescription>
-                  {showPreview ? "Náhľad faktúry s ukážkovými údajmi" : "WYSIWYG editor - formátujte text, vkladajte obrázky a premenné"}
+                  Náhľad faktúry s ukážkovými údajmi. Šablónu upravte v programe Word a potom ju sem nahrajte.
                 </DialogDescription>
               </div>
-              <Button
-                variant={showPreview ? "default" : "outline"}
-                size="sm"
-                onClick={() => setShowPreview(!showPreview)}
-                data-testid="btn-toggle-preview"
-              >
-                {showPreview ? (
-                  <><Pencil className="h-4 w-4 mr-2" />Editor</>
-                ) : (
-                  <><Eye className="h-4 w-4 mr-2" />Náhľad faktúry</>
-                )}
-              </Button>
             </div>
           </DialogHeader>
           
           <div className="grid grid-cols-4 gap-4" style={{ height: "calc(85vh - 180px)" }}>
             <div className="col-span-3 flex flex-col min-h-0">
-              {isLoadingContent ? (
-                <div className="flex-1 flex items-center justify-center border rounded-md">
-                  <Loader2 className="h-8 w-8 animate-spin" />
+              {isLoadingPreview ? (
+                <div className="flex-1 flex flex-col items-center justify-center border rounded-md gap-3">
+                  <Loader2 className="h-8 w-8 animate-spin" data-testid="preview-loading" />
+                  <p className="text-sm text-muted-foreground">Generujem PDF náhľad...</p>
                 </div>
-              ) : showPreview ? (
-                <div className="flex-1 border rounded-md overflow-auto bg-white" style={{ padding: "40px 50px" }}>
-                  <div
-                    style={{
-                      maxWidth: "210mm",
-                      margin: "0 auto",
-                      fontFamily: "Calibri, Arial, sans-serif",
-                      fontSize: "11px",
-                      lineHeight: "1.4",
-                      color: "#333",
-                    }}
-                    dangerouslySetInnerHTML={{ __html: getPreviewHtml(editorContent) }}
-                    data-testid="invoice-preview"
-                  />
-                </div>
+              ) : previewPdfUrl ? (
+                <iframe
+                  src={previewPdfUrl}
+                  className="flex-1 border rounded-md w-full"
+                  style={{ minHeight: "400px" }}
+                  title="PDF náhľad šablóny"
+                  data-testid="pdf-preview-iframe"
+                />
               ) : (
-                <div className="flex-1 flex flex-col min-h-0 docx-editor-wrapper">
-                  <ReactQuill
-                    ref={quillEditorRef}
-                    value={editorContent}
-                    onChange={setEditorContent}
-                    theme="snow"
-                    style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}
-                    modules={{
-                      toolbar: [
-                        [{ 'header': [1, 2, 3, false] }],
-                        ['bold', 'italic', 'underline', 'strike'],
-                        [{ 'color': [] }, { 'background': [] }],
-                        [{ 'align': [] }],
-                        [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-                        [{ 'indent': '-1' }, { 'indent': '+1' }],
-                        ['blockquote'],
-                        ['link', 'image'],
-                        [{ 'size': ['small', false, 'large', 'huge'] }],
-                        ['clean'],
-                      ],
-                    }}
-                    formats={[
-                      'header', 'bold', 'italic', 'underline', 'strike',
-                      'color', 'background', 'align',
-                      'list', 'indent', 'blockquote',
-                      'link', 'image', 'size',
-                    ]}
-                    placeholder="Upravte obsah šablóny..."
-                    data-testid="quill-template-editor"
-                  />
+                <div className="flex-1 flex flex-col items-center justify-center border rounded-md gap-3">
+                  <FileText className="h-12 w-12 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Náhľad nie je dostupný</p>
+                  <Button variant="outline" size="sm" onClick={() => editingTemplate && openEditor(editingTemplate)} data-testid="btn-retry-preview">
+                    Skúsiť znova
+                  </Button>
                 </div>
               )}
             </div>
             
             <div className="flex flex-col min-h-0">
-              <Label className="mb-2 font-semibold">Premenné</Label>
+              <Label className="mb-2 font-semibold">Premenné pre šablónu</Label>
               <ScrollArea className="flex-1 border rounded-md p-2 min-h-0">
                 {variablesData && Object.entries(variablesData).map(([groupKey, group]) => (
                   <div key={groupKey} className="mb-4">
@@ -8228,14 +8114,15 @@ function DocxTemplatesTab() {
                       <p className="text-xs text-muted-foreground mb-1">{group.description}</p>
                     )}
                     <div className="space-y-0.5">
-                      {group.variables.map((v) => (
+                      {group.variables.map((v: any) => (
                         <Button
                           key={v.key}
                           variant="ghost"
                           size="sm"
                           className="w-full justify-start text-xs h-auto py-1 px-2"
-                          onClick={() => insertVariable(v.key)}
-                          data-testid={`btn-insert-${v.key}`}
+                          onClick={() => copyToClipboard(v.key)}
+                          title="Kliknite pre skopírovanie"
+                          data-testid={`btn-copy-${v.key}`}
                         >
                           <code className="bg-muted px-1 rounded mr-1 text-[10px] shrink-0">{v.key}</code>
                           <span className="text-muted-foreground truncate text-[10px]">{v.description}</span>
@@ -8247,30 +8134,41 @@ function DocxTemplatesTab() {
               </ScrollArea>
               
               <div className="mt-2 p-2 bg-muted rounded-md text-xs">
-                <div className="font-medium mb-1">Syntax pre šablóny:</div>
+                <div className="font-medium mb-1">Ako upraviť šablónu:</div>
                 <div className="space-y-1 text-muted-foreground">
-                  <div><code className="text-[10px]">{`{variableName}`}</code> - premenná</div>
-                  <div><code className="text-[10px]">{`{#items}...{/items}`}</code> - cyklus</div>
+                  <div>1. Stiahnite DOCX šablónu</div>
+                  <div>2. Upravte ju v programe Word</div>
+                  <div>3. Vložte premenné v tvare <code className="text-[10px]">{`{variableName}`}</code></div>
+                  <div>4. Pre cyklus: <code className="text-[10px]">{`{#items}...{/items}`}</code></div>
+                  <div>5. Uložte a nahrajte upravenú šablónu</div>
                 </div>
               </div>
             </div>
           </div>
 
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => { setIsEditorOpen(false); setEditingTemplate(null); }}>
-              Zrušiť
+            <Button variant="outline" onClick={() => { setIsEditorOpen(false); setEditingTemplate(null); if (previewPdfUrl) URL.revokeObjectURL(previewPdfUrl); setPreviewPdfUrl(null); }} data-testid="btn-close-preview">
+              Zavrieť
             </Button>
-            <Button
-              onClick={saveEditorContent}
-              disabled={isSavingContent || !editorContent.trim()}
-              data-testid="btn-save-template"
-            >
-              {isSavingContent ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <Save className="h-4 w-4 mr-2" />
-              )}
-              Uložiť DOCX
+            <Button variant="outline" onClick={() => editingTemplate && downloadOriginalDocx(editingTemplate)} data-testid="btn-download-docx">
+              <Download className="h-4 w-4 mr-2" />
+              Stiahnuť DOCX
+            </Button>
+            <input
+              ref={reuploadInputRef}
+              type="file"
+              accept=".docx"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file && editingTemplate) handleReupload(editingTemplate, file);
+                e.target.value = "";
+              }}
+              data-testid="input-reupload-docx"
+            />
+            <Button onClick={() => reuploadInputRef.current?.click()} data-testid="btn-reupload-docx">
+              <Upload className="h-4 w-4 mr-2" />
+              Nahrať upravenú šablónu
             </Button>
           </DialogFooter>
         </DialogContent>
