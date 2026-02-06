@@ -7549,6 +7549,7 @@ function DocxTemplatesTab() {
   const [editorContent, setEditorContent] = useState("");
   const [isLoadingContent, setIsLoadingContent] = useState(false);
   const [isSavingContent, setIsSavingContent] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const [uploadingFile, setUploadingFile] = useState<File | null>(null);
   const [newTemplateName, setNewTemplateName] = useState("");
   const [newTemplateDescription, setNewTemplateDescription] = useState("");
@@ -7661,6 +7662,7 @@ function DocxTemplatesTab() {
   const openEditor = async (template: DocxTemplateType) => {
     setEditingTemplate(template);
     setIsEditorOpen(true);
+    setShowPreview(false);
     setIsLoadingContent(true);
     try {
       const res = await fetch(`/api/configurator/docx-templates/${template.id}/content`, {
@@ -7721,6 +7723,63 @@ function DocxTemplatesTab() {
     } else {
       setEditorContent(editorContent + variable);
     }
+  };
+
+  const getPreviewHtml = (html: string): string => {
+    const sampleData: Record<string, string> = {
+      "billing.companyName": "INDEXUS Medical s.r.o.",
+      "billing.address": "Hlavná 15",
+      "billing.city": "821 01 Bratislava",
+      "billing.taxId": "12345678",
+      "billing.vatId": "SK2023456789",
+      "billing.bankName": "Tatra banka, a.s.",
+      "billing.iban": "SK12 1100 0000 0012 3456 7890",
+      "billing.swift": "TATRSKBX",
+      "invoice.number": "FV-2025-00042",
+      "invoice.date": "06.02.2025",
+      "invoice.dueDate": "20.02.2025",
+      "invoice.variableSymbol": "2025000042",
+      "invoice.subtotal": "890.00",
+      "invoice.vatRate": "20",
+      "invoice.vatAmount": "178.00",
+      "invoice.total": "1 068.00",
+      "invoice.currency": "EUR",
+      "invoice.type": "Faktúra",
+      "customer.fullName": "Ján Novák",
+      "customer.firstName": "Ján",
+      "customer.lastName": "Novák",
+      "customer.companyName": "",
+      "customer.email": "jan.novak@email.sk",
+      "customer.phone": "+421 900 123 456",
+      "customer.street": "Dubová 7",
+      "customer.city": "Košice",
+      "customer.postalCode": "040 01",
+      "customer.country": "Slovensko",
+      "customer.ico": "",
+      "customer.dic": "",
+      "customer.icDph": "",
+    };
+    let preview = html;
+    for (const [key, value] of Object.entries(sampleData)) {
+      preview = preview.replace(new RegExp(`\\{${key.replace(/\./g, "\\.")}\\}`, "g"), `<strong style="color:#6B1C3B;">${value}</strong>`);
+    }
+    preview = preview.replace(/\{#items\}[\s\S]*?\{\/items\}/g, `
+      <table style="width:100%;border-collapse:collapse;margin:8px 0;">
+        <tr style="background-color:#FAFAFA;">
+          <td style="padding:6px 12px;"><strong style="color:#6B1C3B;">1</strong></td>
+          <td style="padding:6px 12px;"><strong style="color:#6B1C3B;">Odber pupočníkovej krvi</strong></td>
+          <td style="padding:6px 12px;"><strong style="color:#6B1C3B;">1</strong></td>
+          <td style="padding:6px 12px;"><strong style="color:#6B1C3B;">ks</strong></td>
+          <td style="padding:6px 12px;text-align:right;"><strong style="color:#6B1C3B;">890.00</strong></td>
+          <td style="padding:6px 12px;text-align:right;"><strong style="color:#6B1C3B;">20</strong></td>
+          <td style="padding:6px 12px;text-align:right;"><strong style="color:#6B1C3B;">890.00</strong></td>
+        </tr>
+      </table>
+    `);
+    preview = preview.replace(/\{qrCodePayBySquare\}/g, '<div style="display:inline-block;width:120px;height:120px;border:2px dashed #6B1C3B;text-align:center;line-height:120px;font-size:10px;color:#6B1C3B;margin:4px;">QR Pay by Square</div>');
+    preview = preview.replace(/\{qrCodeEpc\}/g, '<div style="display:inline-block;width:120px;height:120px;border:2px dashed #6B1C3B;text-align:center;line-height:120px;font-size:10px;color:#6B1C3B;margin:4px;">QR EPC (EU)</div>');
+    preview = preview.replace(/\{[a-zA-Z_.]+\}/g, (match) => `<span style="color:#999;font-style:italic;">${match}</span>`);
+    return preview;
   };
 
   const copyToClipboard = (text: string) => {
@@ -8081,10 +8140,26 @@ function DocxTemplatesTab() {
       <Dialog open={isEditorOpen} onOpenChange={(open) => { if (!open) { setIsEditorOpen(false); setEditingTemplate(null); } }}>
         <DialogContent className="max-w-6xl max-h-[95vh]">
           <DialogHeader>
-            <DialogTitle>Vizuálny editor šablóny: {editingTemplate?.name}</DialogTitle>
-            <DialogDescription>
-              WYSIWYG editor - formátujte text, vkladajte obrázky a premenné. Šablóna sa uloží ako DOCX dokument.
-            </DialogDescription>
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div>
+                <DialogTitle>Vizuálny editor šablóny: {editingTemplate?.name}</DialogTitle>
+                <DialogDescription>
+                  {showPreview ? "Náhľad faktúry s ukážkovými údajmi" : "WYSIWYG editor - formátujte text, vkladajte obrázky a premenné"}
+                </DialogDescription>
+              </div>
+              <Button
+                variant={showPreview ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowPreview(!showPreview)}
+                data-testid="btn-toggle-preview"
+              >
+                {showPreview ? (
+                  <><Pencil className="h-4 w-4 mr-2" />Editor</>
+                ) : (
+                  <><Eye className="h-4 w-4 mr-2" />Náhľad faktúry</>
+                )}
+              </Button>
+            </div>
           </DialogHeader>
           
           <div className="grid grid-cols-4 gap-4" style={{ height: "calc(85vh - 180px)" }}>
@@ -8092,6 +8167,21 @@ function DocxTemplatesTab() {
               {isLoadingContent ? (
                 <div className="flex-1 flex items-center justify-center border rounded-md">
                   <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+              ) : showPreview ? (
+                <div className="flex-1 border rounded-md overflow-auto bg-white" style={{ padding: "40px 50px" }}>
+                  <div
+                    style={{
+                      maxWidth: "210mm",
+                      margin: "0 auto",
+                      fontFamily: "Calibri, Arial, sans-serif",
+                      fontSize: "11px",
+                      lineHeight: "1.4",
+                      color: "#333",
+                    }}
+                    dangerouslySetInnerHTML={{ __html: getPreviewHtml(editorContent) }}
+                    data-testid="invoice-preview"
+                  />
                 </div>
               ) : (
                 <div className="flex-1 flex flex-col min-h-0 docx-editor-wrapper">
@@ -8159,7 +8249,7 @@ function DocxTemplatesTab() {
               <div className="mt-2 p-2 bg-muted rounded-md text-xs">
                 <div className="font-medium mb-1">Syntax pre šablóny:</div>
                 <div className="space-y-1 text-muted-foreground">
-                  <div><code className="text-[10px]">{`{{variableName}}`}</code> - premenná</div>
+                  <div><code className="text-[10px]">{`{variableName}`}</code> - premenná</div>
                   <div><code className="text-[10px]">{`{#items}...{/items}`}</code> - cyklus</div>
                 </div>
               </div>

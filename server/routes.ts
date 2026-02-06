@@ -54,6 +54,7 @@ import { execSync } from "child_process";
 import expressionParser from "docxtemplater/expressions.js";
 import { convertPdfToDocx, isConverterAvailable } from "./pdf-to-docx-converter";
 import mammoth from "mammoth";
+import QRCode from "qrcode";
 import { PDFDocument as PDFLibDocument, rgb, degrees, StandardFonts } from "pdf-lib";
 import { notificationService } from "./lib/notification-service";
 import * as XLSX from "xlsx";
@@ -5774,6 +5775,64 @@ export async function registerRoutes(
     }
   });
 
+  async function generateInvoiceQRCodes(invoice: any): Promise<{ payBySquare: Buffer | null; epc: Buffer | null }> {
+    const result: { payBySquare: Buffer | null; epc: Buffer | null } = { payBySquare: null, epc: null };
+    try {
+      const iban = invoice.billingBankIban?.replace(/\s/g, "") || "";
+      const amount = parseFloat(invoice.totalAmount || "0").toFixed(2);
+      const currency = invoice.currency || "EUR";
+      const vs = invoice.variableSymbol || invoice.invoiceNumber || "";
+      const beneficiary = invoice.billingCompanyName || "";
+      const swift = invoice.billingBankSwift || "";
+
+      if (iban) {
+        const payBySquareData = [
+          `SPD*1.0`,
+          `ACC:${iban}`,
+          `AM:${amount}`,
+          `CC:${currency}`,
+          `X-VS:${vs}`,
+          `MSG:Faktura ${invoice.invoiceNumber || ""}`,
+          `RN:${beneficiary}`,
+        ].join("*");
+
+        result.payBySquare = await QRCode.toBuffer(payBySquareData, {
+          errorCorrectionLevel: "M",
+          type: "png",
+          width: 200,
+          margin: 1,
+          color: { dark: "#000000", light: "#FFFFFF" },
+        });
+
+        const epcLines = [
+          "BCD",
+          "002",
+          "1",
+          "SCT",
+          swift,
+          beneficiary.substring(0, 70),
+          iban,
+          `${currency}${amount}`,
+          "",
+          vs,
+          `Faktura ${invoice.invoiceNumber || ""}`,
+          "",
+        ].join("\n");
+
+        result.epc = await QRCode.toBuffer(epcLines, {
+          errorCorrectionLevel: "M",
+          type: "png",
+          width: 200,
+          margin: 1,
+          color: { dark: "#000000", light: "#FFFFFF" },
+        });
+      }
+    } catch (err) {
+      console.error("[QR] Error generating QR codes:", err);
+    }
+    return result;
+  }
+
   // Generate PDF from DOCX template
   app.get("/api/invoices/:id/pdf-docx", requireAuth, async (req, res) => {
     try {
@@ -5912,10 +5971,13 @@ export async function registerRoutes(
         paragraphLoop: true,
         linebreaks: true,
         parser: expressionParser,
+        nullGetter() { return ""; },
       });
 
       // Prepare data for template
       const templateData = {
+        qrCodePayBySquare: "",
+        qrCodeEpc: "",
         invoice: {
           number: invoice.invoiceNumber,
           date: new Date(invoice.generatedAt).toLocaleDateString("sk-SK"),
@@ -5944,8 +6006,6 @@ export async function registerRoutes(
           dic: (customer as any).dic || "",
           icDph: (customer as any).icDph || "",
         },
-        qrCodePayBySquare: "",
-        qrCodeEpc: "",
         billing: {
           companyName: invoice.billingCompanyName || "",
           address: invoice.billingAddress || "",
@@ -5984,8 +6044,68 @@ export async function registerRoutes(
         });
       }
 
-      // Generate filled DOCX
-      const buf = doc.getZip().generate({ type: "nodebuffer" });
+      const qrCodes = await generateInvoiceQRCodes(invoice);
+      const renderedZip = doc.getZip();
+      
+      if (qrCodes.payBySquare || qrCodes.epc) {
+        try {
+          let docXml = renderedZip.file("word/document.xml")?.asText() || "";
+          const relsFile = renderedZip.file("word/_rels/document.xml.rels");
+          let relsXml = relsFile?.asText() || "";
+          
+          let rIdCounter = 100;
+          const addQrImage = (imgName: string, imgBuffer: Buffer, placeholder: string) => {
+            const rId = `rIdQr${rIdCounter++}`;
+            renderedZip.file(`word/media/${imgName}`, imgBuffer);
+            
+            const relEntry = `<Relationship Id="${rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${imgName}"/>`;
+            relsXml = relsXml.replace("</Relationships>", `${relEntry}</Relationships>`);
+            
+            const imgXml = `<w:r><w:rPr></w:rPr><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="1800000" cy="1800000"/><wp:docPr id="${rIdCounter}" name="${imgName}"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${rIdCounter}" name="${imgName}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rId}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1800000" cy="1800000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
+            
+            const placeholderEscaped = placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`<w:r[^>]*>(?:<w:rPr>[\\s\\S]*?</w:rPr>)?<w:t[^>]*>${placeholderEscaped}</w:t></w:r>`, 'g');
+            if (regex.test(docXml)) {
+              docXml = docXml.replace(regex, imgXml);
+            } else {
+              docXml = docXml.replace(new RegExp(placeholderEscaped, 'g'), '');
+              const lastTableEnd = docXml.lastIndexOf('</w:tbl>');
+              if (lastTableEnd > -1) {
+                const qrParagraph = `<w:p><w:pPr><w:spacing w:before="200"/></w:pPr>${imgXml}</w:p>`;
+                docXml = docXml.substring(0, lastTableEnd + 8) + qrParagraph + docXml.substring(lastTableEnd + 8);
+              }
+            }
+          };
+          
+          if (qrCodes.payBySquare) {
+            addQrImage("qr-payBySquare.png", qrCodes.payBySquare, "{qrCodePayBySquare}");
+          } else {
+            docXml = docXml.replace(/\{qrCodePayBySquare\}/g, "");
+          }
+          
+          if (qrCodes.epc) {
+            addQrImage("qr-epc.png", qrCodes.epc, "{qrCodeEpc}");
+          } else {
+            docXml = docXml.replace(/\{qrCodeEpc\}/g, "");
+          }
+          
+          renderedZip.file("word/document.xml", docXml);
+          renderedZip.file("word/_rels/document.xml.rels", relsXml);
+          
+          const contentTypesFile = renderedZip.file("[Content_Types].xml");
+          let contentTypesXml = contentTypesFile?.asText() || "";
+          if (!contentTypesXml.includes('Extension="png"')) {
+            contentTypesXml = contentTypesXml.replace("</Types>", '<Default Extension="png" ContentType="image/png"/></Types>');
+            renderedZip.file("[Content_Types].xml", contentTypesXml);
+          }
+          
+          console.log("[PDF-DOCX] QR codes injected into DOCX");
+        } catch (qrErr) {
+          console.error("[PDF-DOCX] Failed to inject QR codes:", qrErr);
+        }
+      }
+
+      const buf = renderedZip.generate({ type: "nodebuffer" });
       const filledDocxPath = path.join(process.cwd(), "uploads/temp", `invoice-${invoice.id}-${Date.now()}.docx`);
       const pdfPath = filledDocxPath.replace(".docx", ".pdf");
       
@@ -6189,16 +6309,41 @@ export async function registerRoutes(
       doc.text(`SPOLU: ${parseFloat(invoice.totalAmount).toFixed(2)} ${invoice.currency}`, { align: "right" });
       doc.fillColor("black");
 
-      // QR codes if enabled
-      if (template?.showPaymentQr && invoice.qrCodeData) {
+      const qrCodes = await generateInvoiceQRCodes(invoice);
+      if (qrCodes.payBySquare || qrCodes.epc) {
         doc.moveDown(2);
-        doc.fontSize(10).font("Regular").text("QR kód pre platbu:", tableLeft);
-        try {
-          const qrData = JSON.parse(invoice.qrCodeData);
-          if (qrData.payBySquare) {
-            doc.text("Pay by Square (SK/CZ):", tableLeft, doc.y + 5);
+        doc.moveTo(tableLeft, doc.y).lineTo(500, doc.y).strokeColor("#EEEEEE").stroke();
+        doc.moveDown(0.5);
+        doc.fontSize(10).font("Bold").fillColor(primaryColor).text("QR kódy pre platbu:", tableLeft);
+        doc.moveDown(0.5);
+        doc.fillColor("black");
+        
+        const qrY = doc.y;
+        const qrSize = 120;
+        
+        if (qrCodes.payBySquare) {
+          try {
+            doc.image(qrCodes.payBySquare, tableLeft, qrY, { width: qrSize, height: qrSize });
+            doc.fontSize(8).font("Regular").fillColor("#666666");
+            doc.text("Pay by Square", tableLeft, qrY + qrSize + 4, { width: qrSize, align: "center" });
+          } catch (e) {
+            console.error("[PDF] Failed to embed Pay by Square QR:", e);
           }
-        } catch (e) {}
+        }
+        
+        if (qrCodes.epc) {
+          try {
+            const epcX = qrCodes.payBySquare ? tableLeft + qrSize + 40 : tableLeft;
+            doc.image(qrCodes.epc, epcX, qrY, { width: qrSize, height: qrSize });
+            doc.fontSize(8).font("Regular").fillColor("#666666");
+            doc.text("EPC QR (EU)", epcX, qrY + qrSize + 4, { width: qrSize, align: "center" });
+          } catch (e) {
+            console.error("[PDF] Failed to embed EPC QR:", e);
+          }
+        }
+        
+        doc.y = qrY + qrSize + 20;
+        doc.fillColor("black");
       }
 
       // Payment instructions
@@ -6362,7 +6507,39 @@ export async function registerRoutes(
       doc.text(`SPOLU: ${parseFloat(scheduled.totalAmount).toFixed(2)} ${scheduled.currency}`, { align: "right" });
       doc.fillColor("black");
 
-      // Footer
+      const qrCodes = await generateInvoiceQRCodes(scheduled);
+      if (qrCodes.payBySquare || qrCodes.epc) {
+        doc.moveDown(2);
+        doc.moveTo(tableLeft, doc.y).lineTo(500, doc.y).strokeColor("#EEEEEE").stroke();
+        doc.moveDown(0.5);
+        doc.fontSize(10).font("Bold").fillColor(primaryColor).text("QR kódy pre platbu:", tableLeft);
+        doc.moveDown(0.5);
+        doc.fillColor("black");
+        
+        const qrY = doc.y;
+        const qrSize = 120;
+        
+        if (qrCodes.payBySquare) {
+          try {
+            doc.image(qrCodes.payBySquare, tableLeft, qrY, { width: qrSize, height: qrSize });
+            doc.fontSize(8).font("Regular").fillColor("#666666");
+            doc.text("Pay by Square", tableLeft, qrY + qrSize + 4, { width: qrSize, align: "center" });
+          } catch (e) {}
+        }
+        
+        if (qrCodes.epc) {
+          try {
+            const epcX = qrCodes.payBySquare ? tableLeft + qrSize + 40 : tableLeft;
+            doc.image(qrCodes.epc, epcX, qrY, { width: qrSize, height: qrSize });
+            doc.fontSize(8).font("Regular").fillColor("#666666");
+            doc.text("EPC QR (EU)", epcX, qrY + qrSize + 4, { width: qrSize, align: "center" });
+          } catch (e) {}
+        }
+        
+        doc.y = qrY + qrSize + 20;
+        doc.fillColor("black");
+      }
+
       if (template?.legalText) {
         doc.moveDown(2);
         doc.fontSize(8).fillColor("gray");
@@ -11954,73 +12131,70 @@ export async function registerRoutes(
       invoice: {
         label: "Faktúra",
         variables: [
-          { key: "{{invoice.number}}", description: "Číslo faktúry" },
-          { key: "{{invoice.variableSymbol}}", description: "Variabilný symbol" },
-          { key: "{{invoice.issueDate}}", description: "Dátum vystavenia" },
-          { key: "{{invoice.dueDate}}", description: "Dátum splatnosti" },
-          { key: "{{invoice.deliveryDate}}", description: "Dátum dodania" },
-          { key: "{{invoice.subtotal}}", description: "Medzisúčet bez DPH" },
-          { key: "{{invoice.vatAmount}}", description: "Suma DPH" },
-          { key: "{{invoice.total}}", description: "Celková suma" },
-          { key: "{{invoice.totalWords}}", description: "Suma slovom" },
-          { key: "{{invoice.currency}}", description: "Mena" },
-          { key: "{{invoice.currencySymbol}}", description: "Symbol meny" },
-          { key: "{{invoice.paymentMethod}}", description: "Spôsob platby" },
-          { key: "{{invoice.notes}}", description: "Poznámky" },
-          { key: "{{invoice.status}}", description: "Stav faktúry" },
+          { key: "{invoice.number}", description: "Číslo faktúry" },
+          { key: "{invoice.variableSymbol}", description: "Variabilný symbol" },
+          { key: "{invoice.date}", description: "Dátum vystavenia" },
+          { key: "{invoice.dueDate}", description: "Dátum splatnosti" },
+          { key: "{invoice.subtotal}", description: "Medzisúčet bez DPH" },
+          { key: "{invoice.vatRate}", description: "Sadzba DPH %" },
+          { key: "{invoice.vatAmount}", description: "Suma DPH" },
+          { key: "{invoice.total}", description: "Celková suma" },
+          { key: "{invoice.currency}", description: "Mena" },
+          { key: "{invoice.type}", description: "Typ faktúry" },
         ]
       },
       customer: {
         label: "Zákazník",
         variables: [
-          { key: "{{customer.fullName}}", description: "Celé meno" },
-          { key: "{{customer.firstName}}", description: "Meno" },
-          { key: "{{customer.lastName}}", description: "Priezvisko" },
-          { key: "{{customer.companyName}}", description: "Názov firmy" },
-          { key: "{{customer.email}}", description: "E-mail" },
-          { key: "{{customer.phone}}", description: "Telefón" },
-          { key: "{{customer.street}}", description: "Ulica" },
-          { key: "{{customer.city}}", description: "Mesto" },
-          { key: "{{customer.postalCode}}", description: "PSČ" },
-          { key: "{{customer.country}}", description: "Krajina" },
-          { key: "{{customer.ico}}", description: "IČO" },
-          { key: "{{customer.dic}}", description: "DIČ" },
-          { key: "{{customer.icDph}}", description: "IČ DPH" },
+          { key: "{customer.fullName}", description: "Celé meno" },
+          { key: "{customer.firstName}", description: "Meno" },
+          { key: "{customer.lastName}", description: "Priezvisko" },
+          { key: "{customer.companyName}", description: "Názov firmy" },
+          { key: "{customer.email}", description: "E-mail" },
+          { key: "{customer.phone}", description: "Telefón" },
+          { key: "{customer.street}", description: "Ulica" },
+          { key: "{customer.city}", description: "Mesto" },
+          { key: "{customer.postalCode}", description: "PSČ" },
+          { key: "{customer.country}", description: "Krajina" },
+          { key: "{customer.ico}", description: "IČO" },
+          { key: "{customer.dic}", description: "DIČ" },
+          { key: "{customer.icDph}", description: "IČ DPH" },
         ]
       },
-      billingCompany: {
+      billing: {
         label: "Fakturujúca spoločnosť",
         variables: [
-          { key: "{{billingCompany.name}}", description: "Názov spoločnosti" },
-          { key: "{{billingCompany.street}}", description: "Ulica" },
-          { key: "{{billingCompany.city}}", description: "Mesto" },
-          { key: "{{billingCompany.postalCode}}", description: "PSČ" },
-          { key: "{{billingCompany.country}}", description: "Krajina" },
-          { key: "{{billingCompany.ico}}", description: "IČO" },
-          { key: "{{billingCompany.dic}}", description: "DIČ" },
-          { key: "{{billingCompany.icDph}}", description: "IČ DPH" },
-          { key: "{{billingCompany.bankName}}", description: "Názov banky" },
-          { key: "{{billingCompany.iban}}", description: "IBAN" },
-          { key: "{{billingCompany.swift}}", description: "SWIFT/BIC" },
+          { key: "{billing.companyName}", description: "Názov spoločnosti" },
+          { key: "{billing.address}", description: "Adresa" },
+          { key: "{billing.city}", description: "Mesto" },
+          { key: "{billing.taxId}", description: "IČO" },
+          { key: "{billing.vatId}", description: "IČ DPH" },
+          { key: "{billing.bankName}", description: "Názov banky" },
+          { key: "{billing.iban}", description: "IBAN" },
+          { key: "{billing.swift}", description: "SWIFT/BIC" },
         ]
       },
       items: {
         label: "Položky faktúry (v slučke)",
         description: "Použite {#items}...{/items} pre opakovanie položiek",
         variables: [
-          { key: "{{description}}", description: "Popis položky" },
-          { key: "{{quantity}}", description: "Množstvo" },
-          { key: "{{unit}}", description: "Jednotka" },
-          { key: "{{unitPrice}}", description: "Jednotková cena" },
-          { key: "{{vatRate}}", description: "Sadzba DPH %" },
-          { key: "{{totalPrice}}", description: "Celková cena položky" },
+          { key: "{index}", description: "Poradové číslo" },
+          { key: "{name}", description: "Názov položky" },
+          { key: "{description}", description: "Popis položky" },
+          { key: "{quantity}", description: "Množstvo" },
+          { key: "{unit}", description: "Jednotka" },
+          { key: "{unitPrice}", description: "Jednotková cena" },
+          { key: "{vatRate}", description: "Sadzba DPH %" },
+          { key: "{totalPrice}", description: "Celková cena položky" },
+          { key: "{currency}", description: "Mena" },
         ]
       },
       qrCodes: {
         label: "QR kódy",
+        description: "QR kódy sa automaticky vygenerujú pri vytvorení PDF",
         variables: [
-          { key: "{{qrCodePayBySquare}}", description: "Pay by Square QR (SK/CZ) - base64 obrázok" },
-          { key: "{{qrCodeEpc}}", description: "EPC QR (EU) - base64 obrázok" },
+          { key: "{qrCodePayBySquare}", description: "Pay by Square QR (SK/CZ)" },
+          { key: "{qrCodeEpc}", description: "EPC QR (EU)" },
         ]
       }
     };
