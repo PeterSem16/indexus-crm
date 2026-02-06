@@ -8009,7 +8009,7 @@ function DocxTemplatesTab() {
               {totalPages > 1 && (
                 <div className="flex items-center justify-between mt-4">
                   <span className="text-sm text-muted-foreground">
-                    Strana {safePage} z {totalPages}
+                    {t.common.page || "Page"} {safePage} / {totalPages} ({filteredTemplates.length} {t.common.results || "results"})
                   </span>
                   <div className="flex items-center gap-2">
                     <Button
@@ -8769,7 +8769,7 @@ function NumberRangesTab() {
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 10;
+  const pageSize = 15;
   
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
   const [copyingRange, setCopyingRange] = useState<NumberRange | null>(null);
@@ -9024,94 +9024,22 @@ function NumberRangesTab() {
     setCurrentPage(1);
   };
 
-  const columns = [
-    { 
-      key: "name",
-      header: t.konfigurator.numberRangeName,
-      cell: (range: NumberRange) => range.name,
-    },
-    { 
-      key: "countryCode",
-      header: t.common.country,
-      cell: (range: NumberRange) => {
-        const country = COUNTRIES.find(c => c.code === range.countryCode);
-        return (
-          <div className="flex items-center gap-2">
-            <span className="text-lg">{country?.flag || ""}</span>
-            <Badge variant="outline" className="font-mono text-xs">
-              {range.countryCode}
-            </Badge>
-          </div>
-        );
-      },
-    },
-    { 
-      key: "year",
-      header: t.konfigurator.numberRangeYear,
-      cell: (range: NumberRange) => range.year,
-    },
-    { 
-      key: "type",
-      header: t.konfigurator.numberRangeType,
-      cell: (range: NumberRange) => (
-        <Badge variant={range.type === "invoice" ? "default" : "secondary"}>
-          {range.type === "invoice" ? t.konfigurator.invoice : t.konfigurator.proformaInvoice}
-        </Badge>
-      ),
-    },
-    { 
-      key: "format",
-      header: t.konfigurator.prefix + " / " + t.konfigurator.suffix,
-      cell: (range: NumberRange) => `${range.prefix || "-"} / ${range.suffix || "-"}`,
-    },
-    { 
-      key: "lastNumberUsed",
-      header: t.konfigurator.lastNumberUsed,
-      cell: (range: NumberRange) => range.lastNumberUsed || 0,
-    },
-    { 
-      key: "isActive",
-      header: t.common.status,
-      cell: (range: NumberRange) => (
-        <Badge variant={range.isActive ? "default" : "secondary"}>
-          {range.isActive ? t.common.active : t.common.inactive}
-        </Badge>
-      ),
-    },
-    {
-      key: "actions",
-      header: t.common.actions,
-      cell: (range: NumberRange) => (
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleEdit(range)}
-            data-testid={`button-edit-range-${range.id}`}
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleCopy(range)}
-            data-testid={`button-copy-range-${range.id}`}
-            title={t.konfigurator.copyToCountry || "Copy to another country"}
-          >
-            <Copy className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => deleteMutation.mutate(range.id)}
-            data-testid={`button-delete-range-${range.id}`}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-      ),
-    },
-  ];
+  const handleSortClick = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(d => d === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+    setCurrentPage(1);
+  };
+
+  const RangeSortIcon = ({ field }: { field: string }) => {
+    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1 opacity-30" />;
+    return sortDirection === "asc" 
+      ? <ChevronUp className="h-3 w-3 ml-1" /> 
+      : <ChevronDown className="h-3 w-3 ml-1" />;
+  };
 
   if (isLoading) {
     return (
@@ -9124,15 +9052,68 @@ function NumberRangesTab() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap justify-between items-center gap-4">
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder={t.common.search}
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
-            className="pl-9"
-            data-testid="input-search-number-ranges"
-          />
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-[200px] max-w-sm">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder={t.common.search}
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+              className="pl-9"
+              data-testid="input-search-number-ranges"
+            />
+          </div>
+          <Select value={countryFilter} onValueChange={(v) => { setCountryFilter(v); setCurrentPage(1); }}>
+            <SelectTrigger className="w-[160px]" data-testid="select-range-country-filter">
+              <SelectValue placeholder={t.common.country} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t.common.all || "All"}</SelectItem>
+              {COUNTRIES.map((country) => (
+                <SelectItem key={country.code} value={country.code}>
+                  <span className="mr-2">{country.flag}</span>{country.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v); setCurrentPage(1); }}>
+            <SelectTrigger className="w-[140px]" data-testid="select-range-type-filter">
+              <SelectValue placeholder={t.konfigurator.numberRangeType} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t.common.all || "All"}</SelectItem>
+              <SelectItem value="invoice">{t.konfigurator.invoice}</SelectItem>
+              <SelectItem value="proforma">{t.konfigurator.proformaInvoice}</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={yearFilter} onValueChange={(v) => { setYearFilter(v); setCurrentPage(1); }}>
+            <SelectTrigger className="w-[100px]" data-testid="select-range-year-filter">
+              <SelectValue placeholder={t.konfigurator.numberRangeYear} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t.common.all || "All"}</SelectItem>
+              {availableYears.map((year) => (
+                <SelectItem key={year} value={String(year)}>{year}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {(countryFilter !== "all" || typeFilter !== "all" || yearFilter !== "all" || search) && (
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => {
+                setCountryFilter("all");
+                setTypeFilter("all");
+                setYearFilter("all");
+                setSearch("");
+                setCurrentPage(1);
+              }}
+              data-testid="clear-range-filters"
+            >
+              <X className="h-4 w-4 mr-1" />
+              {t.common.clear || "Clear"}
+            </Button>
+          )}
         </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           if (!open) handleDialogClose();
@@ -9541,134 +9522,6 @@ function NumberRangesTab() {
         </Dialog>
       </div>
       
-      {/* Filters Card */}
-      <Card className="bg-muted/30">
-        <CardContent className="pt-4 pb-3">
-          <div className="flex flex-wrap gap-3 items-end">
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">{t.common.country || "Country"}</Label>
-              <div className="flex flex-wrap gap-1">
-                <Button 
-                  variant={countryFilter === "all" ? "default" : "outline"} 
-                  size="sm"
-                  onClick={() => { setCountryFilter("all"); handleFilterChange(); }}
-                  data-testid="filter-country-all"
-                >
-                  {t.common.all || "All"}
-                </Button>
-                {COUNTRIES.map((country) => (
-                  <Button
-                    key={country.code}
-                    variant={countryFilter === country.code ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => { setCountryFilter(country.code); handleFilterChange(); }}
-                    data-testid={`filter-country-${country.code}`}
-                  >
-                    <span className="mr-1">{country.flag}</span>
-                    {country.code}
-                  </Button>
-                ))}
-              </div>
-            </div>
-            
-            <div className="h-8 w-px bg-border hidden lg:block" />
-            
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">{t.konfigurator.numberRangeType || "Type"}</Label>
-              <div className="flex gap-1">
-                <Button 
-                  variant={typeFilter === "all" ? "default" : "outline"} 
-                  size="sm"
-                  onClick={() => { setTypeFilter("all"); handleFilterChange(); }}
-                  data-testid="filter-type-all"
-                >
-                  {t.common.all || "All"}
-                </Button>
-                <Button 
-                  variant={typeFilter === "invoice" ? "default" : "outline"} 
-                  size="sm"
-                  onClick={() => { setTypeFilter("invoice"); handleFilterChange(); }}
-                  data-testid="filter-type-invoice"
-                >
-                  {t.konfigurator.invoice}
-                </Button>
-                <Button 
-                  variant={typeFilter === "proforma" ? "default" : "outline"} 
-                  size="sm"
-                  onClick={() => { setTypeFilter("proforma"); handleFilterChange(); }}
-                  data-testid="filter-type-proforma"
-                >
-                  {t.konfigurator.proformaInvoice}
-                </Button>
-              </div>
-            </div>
-            
-            <div className="h-8 w-px bg-border hidden lg:block" />
-            
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">{t.konfigurator.numberRangeYear || "Year"}</Label>
-              <Select value={yearFilter} onValueChange={(v) => { setYearFilter(v); handleFilterChange(); }}>
-                <SelectTrigger className="w-[100px]" data-testid="filter-year">
-                  <SelectValue placeholder={t.common.all || "All"} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t.common.all || "All"}</SelectItem>
-                  {availableYears.map((year) => (
-                    <SelectItem key={year} value={String(year)}>{year}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="h-8 w-px bg-border hidden lg:block" />
-            
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">{t.common.sort || "Sort"}</Label>
-              <Select value={`${sortField}-${sortDirection}`} onValueChange={(v) => {
-                const [field, dir] = v.split("-");
-                setSortField(field);
-                setSortDirection(dir as "asc" | "desc");
-              }}>
-                <SelectTrigger className="w-[160px]" data-testid="sort-select">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="name-asc">{t.konfigurator.numberRangeName} (A-Z)</SelectItem>
-                  <SelectItem value="name-desc">{t.konfigurator.numberRangeName} (Z-A)</SelectItem>
-                  <SelectItem value="year-desc">{t.konfigurator.numberRangeYear} ↓</SelectItem>
-                  <SelectItem value="year-asc">{t.konfigurator.numberRangeYear} ↑</SelectItem>
-                  <SelectItem value="countryCode-asc">{t.common.country} (A-Z)</SelectItem>
-                  <SelectItem value="countryCode-desc">{t.common.country} (Z-A)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="ml-auto flex items-center gap-2">
-              {(countryFilter !== "all" || typeFilter !== "all" || yearFilter !== "all" || search) && (
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => {
-                    setCountryFilter("all");
-                    setTypeFilter("all");
-                    setYearFilter("all");
-                    setSearch("");
-                    handleFilterChange();
-                  }}
-                  data-testid="clear-filters"
-                >
-                  <X className="h-4 w-4 mr-1" />
-                  {t.common.clear || "Clear"}
-                </Button>
-              )}
-              <Badge variant="secondary">
-                {filteredRanges.length} {t.common.results || "results"}
-              </Badge>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-      
       {paginatedRanges.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
           {search || countryFilter !== "all" || typeFilter !== "all" || yearFilter !== "all" 
@@ -9676,18 +9529,79 @@ function NumberRangesTab() {
             : t.konfigurator.noNumberRanges}
         </div>
       ) : (
-        <DataTable 
-          columns={columns} 
-          data={paginatedRanges} 
-          getRowKey={(range) => range.id}
-        />
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSortClick("name")} data-testid="sort-range-name">
+                <span className="flex items-center">{t.konfigurator.numberRangeName}<RangeSortIcon field="name" /></span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSortClick("countryCode")} data-testid="sort-range-country">
+                <span className="flex items-center">{t.common.country}<RangeSortIcon field="countryCode" /></span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSortClick("year")} data-testid="sort-range-year">
+                <span className="flex items-center">{t.konfigurator.numberRangeYear}<RangeSortIcon field="year" /></span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSortClick("type")} data-testid="sort-range-type">
+                <span className="flex items-center">{t.konfigurator.numberRangeType}<RangeSortIcon field="type" /></span>
+              </TableHead>
+              <TableHead>{t.konfigurator.prefix} / {t.konfigurator.suffix}</TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleSortClick("lastNumberUsed")} data-testid="sort-range-last-used">
+                <span className="flex items-center">{t.konfigurator.lastNumberUsed}<RangeSortIcon field="lastNumberUsed" /></span>
+              </TableHead>
+              <TableHead>{t.common.status}</TableHead>
+              <TableHead className="text-right">{t.common.actions}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {paginatedRanges.map((range) => {
+              const country = COUNTRIES.find(c => c.code === range.countryCode);
+              return (
+                <TableRow key={range.id}>
+                  <TableCell className="font-medium">{range.name}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{country?.flag || ""}</span>
+                      <Badge variant="outline" className="font-mono text-xs">{range.countryCode}</Badge>
+                    </div>
+                  </TableCell>
+                  <TableCell>{range.year}</TableCell>
+                  <TableCell>
+                    <Badge variant={range.type === "invoice" ? "default" : "secondary"}>
+                      {range.type === "invoice" ? t.konfigurator.invoice : t.konfigurator.proformaInvoice}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{range.prefix || "-"} / {range.suffix || "-"}</TableCell>
+                  <TableCell>{range.lastNumberUsed || 0}</TableCell>
+                  <TableCell>
+                    <Badge variant={range.isActive ? "default" : "secondary"}>
+                      {range.isActive ? t.common.active : t.common.inactive}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => handleEdit(range)} data-testid={`button-edit-range-${range.id}`}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleCopy(range)} data-testid={`button-copy-range-${range.id}`} title={t.konfigurator.copyToCountry || "Copy to another country"}>
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(range.id)} data-testid={`button-delete-range-${range.id}`}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
       )}
       
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">
-            {t.common.page || "Page"} {currentPage} / {totalPages}
+            {t.common.page || "Page"} {currentPage} / {totalPages} ({filteredRanges.length} {t.common.results || "results"})
           </span>
           <div className="flex items-center gap-2">
             <Button
@@ -15005,6 +14919,11 @@ function BillingCompaniesTab() {
   const [search, setSearch] = useState("");
   const [countryFilter, setCountryFilter] = useState<string>("all");
   const [numberRangeFilter, setNumberRangeFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sortField, setSortField] = useState<string>("companyName");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 15;
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<BillingDetails | null>(null);
   const [deletingCompany, setDeletingCompany] = useState<BillingDetails | null>(null);
@@ -15032,16 +14951,19 @@ function BillingCompaniesTab() {
   });
 
   const filteredCompanies = billingCompanies.filter(company => {
-    // Check countryCodes array, fallback to countryCode
     const companyCountries = company.countryCodes?.length ? company.countryCodes : [company.countryCode];
     
     if (userCountryCodes && !companyCountries.some(c => userCountryCodes.includes(c))) return false;
     if (countryFilter !== "all" && !companyCountries.includes(countryFilter)) return false;
     
-    // Filter by number range - check if billing company has the selected number range assigned
     if (numberRangeFilter !== "all") {
       const hasNumberRange = allNumberRanges.some(nr => nr.billingDetailsId === company.id && nr.id === numberRangeFilter);
       if (!hasNumberRange) return false;
+    }
+
+    if (statusFilter !== "all") {
+      if (statusFilter === "active" && !company.isActive) return false;
+      if (statusFilter === "inactive" && company.isActive) return false;
     }
     
     if (search) {
@@ -15053,7 +14975,41 @@ function BillingCompaniesTab() {
       );
     }
     return true;
+  }).sort((a, b) => {
+    let aVal: string | number = "";
+    let bVal: string | number = "";
+    switch (sortField) {
+      case "companyName": aVal = a.companyName.toLowerCase(); bVal = b.companyName.toLowerCase(); break;
+      case "code": aVal = (a.code || "").toLowerCase(); bVal = (b.code || "").toLowerCase(); break;
+      case "countryCode": aVal = a.countryCode; bVal = b.countryCode; break;
+      case "isActive": aVal = a.isActive ? 1 : 0; bVal = b.isActive ? 1 : 0; break;
+      default: aVal = a.companyName.toLowerCase(); bVal = b.companyName.toLowerCase();
+    }
+    if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
+    if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
+    return 0;
   });
+
+  const billingTotalPages = Math.max(1, Math.ceil(filteredCompanies.length / PAGE_SIZE));
+  const billingSafePage = Math.min(currentPage, billingTotalPages);
+  const paginatedCompanies = filteredCompanies.slice((billingSafePage - 1) * PAGE_SIZE, billingSafePage * PAGE_SIZE);
+
+  const handleBillingSortClick = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(d => d === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+    setCurrentPage(1);
+  };
+
+  const BillingSortIcon = ({ field }: { field: string }) => {
+    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1 opacity-30" />;
+    return sortDirection === "asc" 
+      ? <ChevronUp className="h-3 w-3 ml-1" /> 
+      : <ChevronDown className="h-3 w-3 ml-1" />;
+  };
 
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/billing-details", data),
@@ -15104,101 +15060,71 @@ function BillingCompaniesTab() {
     setIsFormOpen(true);
   };
 
-  const columns = [
-    {
-      key: "code",
-      header: t.common.code || "Code",
-      cell: (company: BillingDetails) => company.code || "-",
-    },
-    {
-      key: "companyName",
-      header: t.settings.companyName,
-      cell: (company: BillingDetails) => company.companyName,
-    },
-    {
-      key: "countryCode",
-      header: t.customers.country,
-      cell: (company: BillingDetails) => {
-        // Show all countries from countryCodes array, fallback to single countryCode
-        const countryCodes = company.countryCodes?.length ? company.countryCodes : [company.countryCode];
-        return (
-          <div className="flex flex-wrap gap-1">
-            {countryCodes.map(code => {
-              const country = COUNTRIES.find(c => c.code === code);
-              return <Badge key={code} variant="outline">{country?.name || code}</Badge>;
-            })}
-          </div>
-        );
-      },
-    },
-    {
-      key: "isDefault",
-      header: t.common.default || "Default",
-      cell: (company: BillingDetails) => (
-        company.isDefault ? <Badge variant="secondary">{t.common.default || "Default"}</Badge> : null
-      ),
-    },
-    {
-      key: "isActive",
-      header: t.common.status,
-      cell: (company: BillingDetails) => (
-        <Badge variant={company.isActive ? "default" : "secondary"}>
-          {company.isActive ? t.common.active : t.common.inactive}
-        </Badge>
-      ),
-    },
-    {
-      key: "actions",
-      header: "",
-      cell: (company: BillingDetails) => (
-        <div className="flex gap-1">
-          <Button variant="ghost" size="icon" onClick={() => handleEdit(company)} data-testid={`button-edit-billing-${company.id}`}>
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon" onClick={() => setDeletingCompany(company)} data-testid={`button-delete-billing-${company.id}`}>
-            <Trash2 className="h-4 w-4 text-destructive" />
-          </Button>
-        </div>
-      ),
-    },
-  ];
-
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap justify-between items-center gap-4">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <div className="relative min-w-[200px] max-w-sm">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder={t.common.search}
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
               className="pl-9"
               data-testid="input-search-billing-companies"
             />
           </div>
-          <Select value={countryFilter} onValueChange={setCountryFilter}>
-            <SelectTrigger className="w-[180px]" data-testid="select-billing-country-filter">
+          <Select value={countryFilter} onValueChange={(v) => { setCountryFilter(v); setCurrentPage(1); }}>
+            <SelectTrigger className="w-[160px]" data-testid="select-billing-country-filter">
               <SelectValue placeholder={t.customers.country} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">{t.common.all || "All"} {t.customers.country}</SelectItem>
+              <SelectItem value="all">{t.common.all || "All"}</SelectItem>
               {availableCountries.map((country) => (
-                <SelectItem key={country.code} value={country.code}>{country.name}</SelectItem>
+                <SelectItem key={country.code} value={country.code}>
+                  <span className="mr-2">{country.flag}</span>{country.name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Select value={numberRangeFilter} onValueChange={setNumberRangeFilter}>
+          <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setCurrentPage(1); }}>
+            <SelectTrigger className="w-[130px]" data-testid="select-billing-status-filter">
+              <SelectValue placeholder={t.common.status} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t.common.all || "All"}</SelectItem>
+              <SelectItem value="active">{t.common.active}</SelectItem>
+              <SelectItem value="inactive">{t.common.inactive}</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={numberRangeFilter} onValueChange={(v) => { setNumberRangeFilter(v); setCurrentPage(1); }}>
             <SelectTrigger className="w-[200px]" data-testid="select-billing-number-range-filter">
               <SelectValue placeholder={t.konfigurator.numberRanges || "Number Ranges"} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">{t.common.all || "All"} {t.konfigurator.numberRanges || "Number Ranges"}</SelectItem>
+              <SelectItem value="all">{t.common.all || "All"}</SelectItem>
               {allNumberRanges.map((range) => (
                 <SelectItem key={range.id} value={range.id}>{range.name} ({range.year})</SelectItem>
               ))}
             </SelectContent>
           </Select>
+          {(countryFilter !== "all" || statusFilter !== "all" || numberRangeFilter !== "all" || search) && (
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => {
+                setCountryFilter("all");
+                setStatusFilter("all");
+                setNumberRangeFilter("all");
+                setSearch("");
+                setCurrentPage(1);
+              }}
+              data-testid="clear-billing-filters"
+            >
+              <X className="h-4 w-4 mr-1" />
+              {t.common.clear || "Clear"}
+            </Button>
+          )}
         </div>
         <Button onClick={handleAddNew} data-testid="button-add-billing-company">
           <Plus className="mr-2 h-4 w-4" />
@@ -15210,8 +15136,97 @@ function BillingCompaniesTab() {
         <div className="flex items-center justify-center py-8">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
+      ) : paginatedCompanies.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          {search || countryFilter !== "all" || statusFilter !== "all" || numberRangeFilter !== "all"
+            ? (t.common.noData || "No results found")
+            : (t.konfigurator.noBillingCompanies || "No billing companies yet")}
+        </div>
       ) : (
-        <DataTable columns={columns} data={filteredCompanies} getRowKey={(company) => company.id} />
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleBillingSortClick("code")} data-testid="sort-billing-code">
+                <span className="flex items-center">{t.common.code || "Code"}<BillingSortIcon field="code" /></span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleBillingSortClick("companyName")} data-testid="sort-billing-name">
+                <span className="flex items-center">{t.settings.companyName}<BillingSortIcon field="companyName" /></span>
+              </TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleBillingSortClick("countryCode")} data-testid="sort-billing-country">
+                <span className="flex items-center">{t.customers.country}<BillingSortIcon field="countryCode" /></span>
+              </TableHead>
+              <TableHead>{t.common.default || "Default"}</TableHead>
+              <TableHead className="cursor-pointer select-none" onClick={() => handleBillingSortClick("isActive")} data-testid="sort-billing-status">
+                <span className="flex items-center">{t.common.status}<BillingSortIcon field="isActive" /></span>
+              </TableHead>
+              <TableHead className="text-right">{t.common.actions}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {paginatedCompanies.map((company) => {
+              const countryCodes = company.countryCodes?.length ? company.countryCodes : [company.countryCode];
+              return (
+                <TableRow key={company.id}>
+                  <TableCell>{company.code || "-"}</TableCell>
+                  <TableCell className="font-medium">{company.companyName}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {countryCodes.map(code => {
+                        const country = COUNTRIES.find(c => c.code === code);
+                        return (
+                          <Badge key={code} variant="outline">
+                            <span className="mr-1">{country?.flag}</span>{country?.name || code}
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {company.isDefault ? <Badge variant="secondary">{t.common.default || "Default"}</Badge> : null}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={company.isActive ? "default" : "secondary"}>
+                      {company.isActive ? t.common.active : t.common.inactive}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => handleEdit(company)} data-testid={`button-edit-billing-${company.id}`}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => setDeletingCompany(company)} data-testid={`button-delete-billing-${company.id}`}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      )}
+
+      {billingTotalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">
+            {t.common.page || "Page"} {billingSafePage} / {billingTotalPages} ({filteredCompanies.length} {t.common.results || "results"})
+          </span>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setCurrentPage(1)} disabled={billingSafePage === 1} data-testid="billing-pagination-first">
+              <ChevronLeft className="h-4 w-4" /><ChevronLeft className="h-4 w-4 -ml-2" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={billingSafePage === 1} data-testid="billing-pagination-prev">
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="px-2 text-sm font-medium">{billingSafePage}</span>
+            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(billingTotalPages, p + 1))} disabled={billingSafePage === billingTotalPages} data-testid="billing-pagination-next">
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setCurrentPage(billingTotalPages)} disabled={billingSafePage === billingTotalPages} data-testid="billing-pagination-last">
+              <ChevronRight className="h-4 w-4" /><ChevronRight className="h-4 w-4 -ml-2" />
+            </Button>
+          </div>
+        </div>
       )}
 
       <BillingCompanyDialog
