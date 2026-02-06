@@ -12214,30 +12214,135 @@ export async function registerRoutes(
         return res.status(404).json({ error: "DOCX file not found on disk" });
       }
 
-      const buffer = fs.readFileSync(filePath);
-      
-      const result = await mammoth.convertToHtml({ buffer }, {
-        styleMap: [
-          "p[style-name='Title'] => h1:fresh",
-          "p[style-name='Heading 1'] => h1:fresh",
-          "p[style-name='Heading 2'] => h2:fresh",
-          "p[style-name='Heading 3'] => h3:fresh",
-        ],
-        convertImage: mammoth.images.imgElement(function(image: any) {
-          return image.read("base64").then(function(imageBuffer: string) {
-            return {
-              src: `data:${image.contentType};base64,${imageBuffer}`
-            };
-          });
-        })
-      });
+      const fileBuffer = fs.readFileSync(filePath);
+      const fileContent = fs.readFileSync(filePath, "binary");
+      const zip = new PizZip(fileContent);
+      const docXml = zip.file("word/document.xml")?.asText() || "";
 
-      let html = result.value || "";
-      
+      const hasShading = docXml.includes('w:shd') || docXml.includes('w:color');
+
+      let html = "";
+
+      if (hasShading) {
+        const getAttr = (xml: string, tag: string, attr: string): string => {
+          const re = new RegExp(`<${tag}[^>]*\\s${attr}="([^"]*)"`, 'i');
+          const m = xml.match(re);
+          return m ? m[1] : "";
+        };
+
+        const extractText = (xml: string): string => {
+          const texts: string[] = [];
+          const tRe = /<w:t[^>]*>([^<]*)<\/w:t>/g;
+          let tm;
+          while ((tm = tRe.exec(xml)) !== null) texts.push(tm[1]);
+          return texts.join("");
+        };
+
+        const parseRun = (runXml: string): string => {
+          const text = extractText(runXml);
+          if (!text) return "";
+          let style = "";
+          if (runXml.includes("<w:b/>") || runXml.includes('<w:b ')) style += "font-weight:bold;";
+          if (runXml.includes("<w:i/>") || runXml.includes('<w:i ')) style += "font-style:italic;";
+          if (runXml.includes("<w:u ")) style += "text-decoration:underline;";
+          const colorM = runXml.match(/<w:color\s+w:val="([^"]*)"/);
+          if (colorM && colorM[1] !== "auto") style += `color:#${colorM[1]};`;
+          const szM = runXml.match(/<w:sz\s+w:val="(\d+)"/);
+          if (szM) style += `font-size:${Math.round(parseInt(szM[1]) / 2)}px;`;
+          const escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          return style ? `<span style="${style}">${escaped}</span>` : escaped;
+        };
+
+        const parsePara = (paraXml: string): string => {
+          let pStyle = "";
+          const alignM = paraXml.match(/<w:jc\s+w:val="([^"]*)"/);
+          if (alignM) pStyle += `text-align:${alignM[1]};`;
+          const spAfterM = paraXml.match(/<w:spacing[^>]*w:after="(\d+)"/);
+          if (spAfterM) pStyle += `margin-bottom:${Math.round(parseInt(spAfterM[1]) / 20)}px;`;
+          const runRe = /<w:r\b[^>]*>[\s\S]*?<\/w:r>/g;
+          let runs = "";
+          let rm;
+          while ((rm = runRe.exec(paraXml)) !== null) runs += parseRun(rm[0]);
+          const pBorderM = paraXml.match(/<w:pBdr>[\s\S]*?<\/w:pBdr>/);
+          if (pBorderM) {
+            const bottomM = pBorderM[0].match(/<w:bottom[^>]*w:color="([^"]*)"/);
+            if (bottomM) pStyle += `border-bottom:2px solid #${bottomM[1]};padding-bottom:8px;`;
+          }
+          const styleAttr = pStyle ? ` style="${pStyle}"` : "";
+          return `<p${styleAttr}>${runs || "&nbsp;"}</p>`;
+        };
+
+        const parseCell = (cellXml: string): string => {
+          let style = "";
+          const shdM = cellXml.match(/<w:shd[^>]*w:fill="([^"]*)"/);
+          if (shdM && shdM[1] !== "auto") style += `background-color:#${shdM[1]};`;
+          const vAlignM = cellXml.match(/<w:vAlign\s+w:val="([^"]*)"/);
+          if (vAlignM) style += `vertical-align:${vAlignM[1]};`;
+          const borderM = cellXml.match(/<w:tcBorders>[\s\S]*?<\/w:tcBorders>/);
+          if (borderM) {
+            const bottomB = borderM[0].match(/<w:bottom[^>]*w:sz="(\d+)"[^>]*w:color="([^"]*)"/);
+            if (bottomB) style += `border-bottom:${Math.max(1, Math.round(parseInt(bottomB[1]) / 4))}px solid #${bottomB[2]};`;
+          }
+          style += "padding:8px 12px;";
+          const paraRe = /<w:p\b[^>]*>[\s\S]*?<\/w:p>/g;
+          let content = "";
+          let pm;
+          while ((pm = paraRe.exec(cellXml)) !== null) content += parsePara(pm[0]);
+          return `<td style="${style}">${content || "&nbsp;"}</td>`;
+        };
+
+        const parseRow = (rowXml: string): string => {
+          const cellRe = /<w:tc\b[^>]*>[\s\S]*?<\/w:tc>/g;
+          let cells = "";
+          let cm;
+          while ((cm = cellRe.exec(rowXml)) !== null) cells += parseCell(cm[0]);
+          return `<tr>${cells}</tr>`;
+        };
+
+        const parseTable = (tableXml: string): string => {
+          const rowRe = /<w:tr\b[^>]*>[\s\S]*?<\/w:tr>/g;
+          let rows = "";
+          let rm;
+          while ((rm = rowRe.exec(tableXml)) !== null) rows += parseRow(rm[0]);
+          return `<table style="width:100%;border-collapse:collapse;margin-bottom:16px;">${rows}</table>`;
+        };
+
+        const bodyM = docXml.match(/<w:body>([\s\S]*)<\/w:body>/);
+        if (bodyM) {
+          const bodyContent = bodyM[1];
+          const elementRe = /(<w:tbl\b[\s\S]*?<\/w:tbl>|<w:p\b[^>]*>[\s\S]*?<\/w:p>)/g;
+          let em;
+          while ((em = elementRe.exec(bodyContent)) !== null) {
+            const el = em[0];
+            if (el.startsWith("<w:tbl")) {
+              html += parseTable(el);
+            } else if (el.startsWith("<w:p")) {
+              if (!el.includes("<w:sectPr")) {
+                html += parsePara(el);
+              }
+            }
+          }
+        }
+      }
+
+      if (!html || html.trim() === "" || html.trim() === "<p>&nbsp;</p>") {
+        const mammothResult = await mammoth.convertToHtml({ buffer: fileBuffer }, {
+          styleMap: [
+            "p[style-name='Title'] => h1:fresh",
+            "p[style-name='Heading 1'] => h1:fresh",
+            "p[style-name='Heading 2'] => h2:fresh",
+            "p[style-name='Heading 3'] => h3:fresh",
+          ],
+          convertImage: mammoth.images.imgElement(function(image: any) {
+            return image.read("base64").then(function(imageBuffer: string) {
+              return { src: `data:${image.contentType};base64,${imageBuffer}` };
+            });
+          })
+        });
+        html = mammothResult.value || "";
+      }
+
       if (!html || html.trim() === "") {
-        const content = fs.readFileSync(filePath, "binary");
-        const zip = new PizZip(content);
-        const docXml = zip.file("word/document.xml")?.asText() || "";
         const paragraphMatches = docXml.match(/<w:p[^>]*>[\s\S]*?<\/w:p>/g) || [];
         const paragraphs: string[] = [];
         for (const para of paragraphMatches) {
