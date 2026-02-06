@@ -6109,7 +6109,7 @@ export async function registerRoutes(
         }
       }
 
-      const buf = renderedZip.generate({ type: "nodebuffer" });
+      const buf = renderedZip.generate({ type: "nodebuffer", compression: "DEFLATE" });
       const filledDocxPath = path.join(process.cwd(), "uploads/temp", `invoice-${invoice.id}-${Date.now()}.docx`);
       const pdfPath = filledDocxPath.replace(".docx", ".pdf");
       
@@ -12783,7 +12783,7 @@ export async function registerRoutes(
       }
 
       const renderedZip = doc.getZip();
-      const buf = renderedZip.generate({ type: "nodebuffer" });
+      const buf = renderedZip.generate({ type: "nodebuffer", compression: "DEFLATE" });
 
       const tempDir = path.join(process.cwd(), "uploads/temp");
       if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
@@ -17093,7 +17093,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         zip.file("word/document.xml", newDocXml);
         
         // Write to file
-        const outputBuffer = zip.generate({ type: "nodebuffer" });
+        const outputBuffer = zip.generate({ type: "nodebuffer", compression: "DEFLATE" });
         fs.writeFileSync(fullPath, outputBuffer);
         
         // Find placeholders in new text
@@ -17627,7 +17627,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       await fs.promises.mkdir(modifiedDir, { recursive: true });
       const modifiedPath = path.join(modifiedDir, `modified-${Date.now()}.docx`);
       
-      const out = zip.generate({ type: "nodebuffer" });
+      const out = zip.generate({ type: "nodebuffer", compression: "DEFLATE" });
       fs.writeFileSync(modifiedPath, out);
       
       const relativePath = modifiedPath.replace(process.cwd() + "/", "");
