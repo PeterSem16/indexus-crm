@@ -12214,23 +12214,42 @@ export async function registerRoutes(
         return res.status(404).json({ error: "DOCX file not found on disk" });
       }
 
-      const content = fs.readFileSync(filePath, "binary");
-      const zip = new PizZip(content);
-      const docXml = zip.file("word/document.xml")?.asText() || "";
+      const buffer = fs.readFileSync(filePath);
       
-      // Extract text content from XML, preserving paragraphs
-      const paragraphs: string[] = [];
-      const paragraphMatches = docXml.match(/<w:p[^>]*>[\s\S]*?<\/w:p>/g) || [];
+      const result = await mammoth.convertToHtml({ buffer }, {
+        styleMap: [
+          "p[style-name='Title'] => h1:fresh",
+          "p[style-name='Heading 1'] => h1:fresh",
+          "p[style-name='Heading 2'] => h2:fresh",
+          "p[style-name='Heading 3'] => h3:fresh",
+        ],
+        convertImage: mammoth.images.imgElement(function(image: any) {
+          return image.read("base64").then(function(imageBuffer: string) {
+            return {
+              src: `data:${image.contentType};base64,${imageBuffer}`
+            };
+          });
+        })
+      });
+
+      let html = result.value || "";
       
-      for (const para of paragraphMatches) {
-        const textMatches = para.match(/<w:t[^>]*>([^<]*)<\/w:t>/g) || [];
-        const text = textMatches.map(t => t.replace(/<[^>]+>/g, "")).join("");
-        paragraphs.push(text);
+      if (!html || html.trim() === "") {
+        const content = fs.readFileSync(filePath, "binary");
+        const zip = new PizZip(content);
+        const docXml = zip.file("word/document.xml")?.asText() || "";
+        const paragraphMatches = docXml.match(/<w:p[^>]*>[\s\S]*?<\/w:p>/g) || [];
+        const paragraphs: string[] = [];
+        for (const para of paragraphMatches) {
+          const textMatches = para.match(/<w:t[^>]*>([^<]*)<\/w:t>/g) || [];
+          const text = textMatches.map(t => t.replace(/<[^>]+>/g, "")).join("");
+          paragraphs.push(text);
+        }
+        html = paragraphs.map(p => `<p>${p}</p>`).join("");
       }
 
       res.json({ 
-        content: paragraphs.join("\n"),
-        paragraphs,
+        content: html,
         template: {
           id: template.id,
           name: template.name,
@@ -12243,7 +12262,6 @@ export async function registerRoutes(
     }
   });
 
-  // Save clean DOCX from text content (visual editor)
   app.post("/api/configurator/docx-templates/:id/save-clean", requireAuth, async (req, res) => {
     try {
       const template = await storage.getDocxTemplate(req.params.id);
@@ -12256,63 +12274,46 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Content is required" });
       }
 
-      // Create clean DOCX from text content
-      const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
-  <Default Extension="xml" ContentType="application/xml"/>
-  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
-</Types>`;
+      const HTMLtoDOCX = (await import("html-to-docx")).default;
 
-      const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
-</Relationships>`;
+      let normalizedHtml = content
+        .replace(/class="ql-align-center"/g, 'style="text-align: center;"')
+        .replace(/class="ql-align-right"/g, 'style="text-align: right;"')
+        .replace(/class="ql-align-justify"/g, 'style="text-align: justify;"')
+        .replace(/class="ql-indent-(\d+)"/g, (_, level) => `style="margin-left: ${parseInt(level) * 40}px;"`)
+        .replace(/class="ql-size-small"/g, 'style="font-size: 10px;"')
+        .replace(/class="ql-size-large"/g, 'style="font-size: 18px;"')
+        .replace(/class="ql-size-huge"/g, 'style="font-size: 24px;"')
+        .replace(/<br>/g, '<br/>');
 
-      // Convert lines to paragraphs with proper XML escaping
-      const escapeXml = (str: string) => str
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&apos;");
+      const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>${normalizedHtml}</body></html>`;
 
-      const lines = content.split("\n");
-      const paragraphsXml = lines.map(line => 
-        `<w:p><w:r><w:t>${escapeXml(line)}</w:t></w:r></w:p>`
-      ).join("\n    ");
+      const docxBuffer = await HTMLtoDOCX(fullHtml, null, {
+        table: { row: { cantSplit: true } },
+        footer: false,
+        header: false,
+        pageNumber: false,
+        font: "Calibri",
+        fontSize: 22,
+        decodeUnicode: true,
+      });
 
-      const document = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-  <w:body>
-    ${paragraphsXml}
-  </w:body>
-</w:document>`;
-
-      const zip = new PizZip();
-      zip.file("[Content_Types].xml", contentTypes);
-      zip.folder("_rels")!.file(".rels", rels);
-      zip.folder("word")!.file("document.xml", document);
-
-      const buffer = zip.generate({ type: "nodebuffer", compression: "DEFLATE" });
-      
-      // Save to original path
       const filePath = path.join(process.cwd(), template.filePath);
-      fs.writeFileSync(filePath, buffer);
+      const bufferData = Buffer.isBuffer(docxBuffer) ? docxBuffer : Buffer.from(docxBuffer as ArrayBuffer);
+      fs.writeFileSync(filePath, bufferData);
 
-      // Update template modification date
       await storage.updateDocxTemplate(template.id, {
         updatedAt: new Date(),
       });
 
       res.json({ 
         success: true, 
-        message: "Šablóna bola uložená ako čistý DOCX dokument",
+        message: "Šablóna bola uložená s formátovaním",
         path: template.filePath 
       });
     } catch (error) {
-      console.error("Failed to save clean DOCX template:", error);
-      res.status(500).json({ error: "Failed to save clean DOCX template" });
+      console.error("Failed to save DOCX template:", error);
+      res.status(500).json({ error: "Failed to save DOCX template" });
     }
   });
 

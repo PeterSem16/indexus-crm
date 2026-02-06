@@ -597,3 +597,32 @@
 .dark .ql-snow .ql-picker-options {
   background: hsl(var(--popover));
 }
+
+.docx-editor-wrapper .quill {
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.docx-editor-wrapper .ql-toolbar.ql-snow {
+  border: none !important;
+  border-bottom: 1px solid hsl(var(--border)) !important;
+  flex-shrink: 0;
+}
+
+.docx-editor-wrapper .ql-container.ql-snow {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.docx-editor-wrapper .ql-editor {
+  min-height: 300px;
+}
+
+.docx-editor-wrapper .ql-editor img {
+  max-width: 100%;
+  height: auto;
+}

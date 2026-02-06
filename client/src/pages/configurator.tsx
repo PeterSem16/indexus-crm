@@ -7705,18 +7705,19 @@ function DocxTemplatesTab() {
     }
   };
 
+  const quillEditorRef = useRef<any>(null);
+
   const insertVariable = (variable: string) => {
-    const textarea = document.getElementById("template-editor") as HTMLTextAreaElement;
-    if (textarea) {
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      const text = editorContent;
-      const newText = text.substring(0, start) + variable + text.substring(end);
-      setEditorContent(newText);
-      setTimeout(() => {
-        textarea.focus();
-        textarea.setSelectionRange(start + variable.length, start + variable.length);
-      }, 0);
+    const editor = quillEditorRef.current?.getEditor?.();
+    if (editor) {
+      const range = editor.getSelection(true);
+      if (range) {
+        editor.insertText(range.index, variable, 'user');
+        editor.setSelection(range.index + variable.length);
+      } else {
+        const len = editor.getLength();
+        editor.insertText(len - 1, variable, 'user');
+      }
     } else {
       setEditorContent(editorContent + variable);
     }
@@ -8078,51 +8079,76 @@ function DocxTemplatesTab() {
       </Dialog>
 
       <Dialog open={isEditorOpen} onOpenChange={(open) => { if (!open) { setIsEditorOpen(false); setEditingTemplate(null); } }}>
-        <DialogContent className="max-w-5xl max-h-[90vh]">
+        <DialogContent className="max-w-6xl max-h-[95vh]">
           <DialogHeader>
             <DialogTitle>Vizuálny editor šablóny: {editingTemplate?.name}</DialogTitle>
             <DialogDescription>
-              Upravte obsah šablóny a vložte premenné. Pri uložení sa vytvorí čistý DOCX dokument bez formátovacích problémov.
+              WYSIWYG editor - formátujte text, vkladajte obrázky a premenné. Šablóna sa uloží ako DOCX dokument.
             </DialogDescription>
           </DialogHeader>
           
-          <div className="grid grid-cols-3 gap-4 h-[60vh]">
-            <div className="col-span-2 flex flex-col">
-              <Label className="mb-2">Obsah šablóny</Label>
+          <div className="grid grid-cols-4 gap-4" style={{ height: "calc(85vh - 180px)" }}>
+            <div className="col-span-3 flex flex-col min-h-0">
               {isLoadingContent ? (
                 <div className="flex-1 flex items-center justify-center border rounded-md">
                   <Loader2 className="h-8 w-8 animate-spin" />
                 </div>
               ) : (
-                <Textarea
-                  id="template-editor"
-                  value={editorContent}
-                  onChange={(e) => setEditorContent(e.target.value)}
-                  className="flex-1 font-mono text-sm resize-none"
-                  placeholder="Obsah šablóny..."
-                  data-testid="textarea-template-editor"
-                />
+                <div className="flex-1 flex flex-col min-h-0 docx-editor-wrapper">
+                  <ReactQuill
+                    ref={quillEditorRef}
+                    value={editorContent}
+                    onChange={setEditorContent}
+                    theme="snow"
+                    style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}
+                    modules={{
+                      toolbar: [
+                        [{ 'header': [1, 2, 3, false] }],
+                        ['bold', 'italic', 'underline', 'strike'],
+                        [{ 'color': [] }, { 'background': [] }],
+                        [{ 'align': [] }],
+                        [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                        [{ 'indent': '-1' }, { 'indent': '+1' }],
+                        ['blockquote'],
+                        ['link', 'image'],
+                        [{ 'size': ['small', false, 'large', 'huge'] }],
+                        ['clean'],
+                      ],
+                    }}
+                    formats={[
+                      'header', 'bold', 'italic', 'underline', 'strike',
+                      'color', 'background', 'align',
+                      'list', 'indent', 'blockquote',
+                      'link', 'image', 'size',
+                    ]}
+                    placeholder="Upravte obsah šablóny..."
+                    data-testid="quill-template-editor"
+                  />
+                </div>
               )}
             </div>
             
-            <div className="flex flex-col">
-              <Label className="mb-2">Dostupné premenné</Label>
-              <ScrollArea className="flex-1 border rounded-md p-2">
+            <div className="flex flex-col min-h-0">
+              <Label className="mb-2 font-semibold">Premenné</Label>
+              <ScrollArea className="flex-1 border rounded-md p-2 min-h-0">
                 {variablesData && Object.entries(variablesData).map(([groupKey, group]) => (
                   <div key={groupKey} className="mb-4">
-                    <h4 className="font-medium text-sm mb-2">{group.label}</h4>
-                    <div className="space-y-1">
+                    <h4 className="font-medium text-xs mb-1 text-muted-foreground uppercase tracking-wider">{group.label}</h4>
+                    {group.description && (
+                      <p className="text-xs text-muted-foreground mb-1">{group.description}</p>
+                    )}
+                    <div className="space-y-0.5">
                       {group.variables.map((v) => (
                         <Button
                           key={v.key}
                           variant="ghost"
                           size="sm"
-                          className="w-full justify-start text-xs h-auto py-1"
+                          className="w-full justify-start text-xs h-auto py-1 px-2"
                           onClick={() => insertVariable(v.key)}
                           data-testid={`btn-insert-${v.key}`}
                         >
-                          <code className="bg-muted px-1 rounded mr-2">{v.key}</code>
-                          <span className="text-muted-foreground truncate">{v.description}</span>
+                          <code className="bg-muted px-1 rounded mr-1 text-[10px] shrink-0">{v.key}</code>
+                          <span className="text-muted-foreground truncate text-[10px]">{v.description}</span>
                         </Button>
                       ))}
                     </div>
@@ -8130,17 +8156,17 @@ function DocxTemplatesTab() {
                 ))}
               </ScrollArea>
               
-              <div className="mt-4 p-3 bg-muted rounded-md text-xs">
-                <div className="font-medium mb-1">Syntax:</div>
+              <div className="mt-2 p-2 bg-muted rounded-md text-xs">
+                <div className="font-medium mb-1">Syntax pre šablóny:</div>
                 <div className="space-y-1 text-muted-foreground">
-                  <div><code>{"{variableName}"}</code> - jednoduchá premenná</div>
-                  <div><code>{"{#items}...{/items}"}</code> - cyklus cez položky</div>
+                  <div><code className="text-[10px]">{`{{variableName}}`}</code> - premenná</div>
+                  <div><code className="text-[10px]">{`{#items}...{/items}`}</code> - cyklus</div>
                 </div>
               </div>
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => { setIsEditorOpen(false); setEditingTemplate(null); }}>
               Zrušiť
             </Button>
@@ -8154,7 +8180,7 @@ function DocxTemplatesTab() {
               ) : (
                 <Save className="h-4 w-4 mr-2" />
               )}
-              Uložiť ako čistý DOCX
+              Uložiť DOCX
             </Button>
           </DialogFooter>
         </DialogContent>
