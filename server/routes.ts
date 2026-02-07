@@ -7198,12 +7198,28 @@ export async function registerRoutes(
               await db.update(numberRanges).set({ currentNumber: nextNum }).where(eq(numberRanges.id, range.id));
             }
           }
+          if (!invoiceNumber) {
+            const date = new Date();
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+            invoiceNumber = `INV-${year}${month}-${random}`;
+          }
+
+          // Check for duplicate invoice number
+          const existingBulk = await db.select({ id: invoices.id }).from(invoices).where(eq(invoices.invoiceNumber, invoiceNumber)).limit(1);
+          if (existingBulk.length > 0) {
+            const suffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+            invoiceNumber = `${invoiceNumber}-${suffix}`;
+          }
+
+          const now = new Date();
+          const bulkDueDate = new Date(now.getTime() + (scheduled.paymentTermDays || 14) * 24 * 60 * 60 * 1000);
 
           const invoice = await storage.createInvoice({
             invoiceNumber,
             customerId: scheduled.customerId,
             billingDetailsId: scheduled.billingDetailsId,
-            numberRangeId: scheduled.numberRangeId,
             currency: scheduled.currency,
             totalAmount: scheduled.totalAmount,
             vatAmount: scheduled.vatAmount || "0",
@@ -7213,13 +7229,12 @@ export async function registerRoutes(
             paymentTermDays: scheduled.paymentTermDays,
             variableSymbol: invoiceNumber,
             constantSymbol: scheduled.constantSymbol,
-            specificSymbol: scheduled.specificSymbol,
+            specificSymbol: scheduled.specificSymbol || invoiceNumber,
             barcodeType: scheduled.barcodeType,
-            documentType: "invoice",
-            issueDate: new Date(),
-            dueDate: new Date(Date.now() + (scheduled.paymentTermDays || 14) * 24 * 60 * 60 * 1000),
-            installmentNumber: scheduled.installmentNumber,
-            totalInstallments: scheduled.totalInstallments,
+            barcodeValue: invoiceNumber,
+            issueDate: now,
+            dueDate: bulkDueDate,
+            deliveryDate: now,
             customerName: scheduled.customerName,
             customerAddress: scheduled.customerAddress,
             customerCity: scheduled.customerCity,
@@ -7243,21 +7258,33 @@ export async function registerRoutes(
             billingBankIban: scheduled.billingBankIban,
             billingBankSwift: scheduled.billingBankSwift,
             billingBankAccountNumber: scheduled.billingBankAccountNumber,
+            qrCodeType: scheduled.qrCodeType,
+            qrCodeData: scheduled.qrCodeData,
+            epcQrCodeData: scheduled.epcQrCodeData,
+            qrCodeEnabled: scheduled.qrCodeEnabled,
+            itemsSnapshot: scheduled.items,
+            wizardCreatedAt: scheduled.wizardCreatedAt,
           } as any);
 
           const items = scheduled.items as any[];
           if (items && items.length > 0) {
             await storage.createInvoiceItems(
-              items.map((item: any) => ({
-                invoiceId: invoice.id,
-                name: item.name || item.description || "Item",
-                productId: item.productId,
-                description: item.description,
-                quantity: item.quantity,
-                unitPrice: item.unitPrice,
-                totalPrice: item.totalPrice,
-                vatRate: item.vatRate,
-              }))
+              items.map((item: any) => {
+                const qty = parseFloat(item.quantity || "1");
+                const price = parseFloat(item.unitPrice || "0");
+                const lineTotal = item.totalPrice || String(qty * price);
+                return {
+                  invoiceId: invoice.id,
+                  name: item.name || item.description || "Item",
+                  productId: item.productId,
+                  description: item.description,
+                  quantity: String(item.quantity || "1"),
+                  unitPrice: String(item.unitPrice || "0"),
+                  totalPrice: lineTotal,
+                  lineTotal: lineTotal,
+                  vatRate: String(item.vatRate || "0"),
+                };
+              })
             );
           }
 
@@ -7354,11 +7381,39 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Scheduled invoice is not pending" });
       }
 
-      // Create the actual invoice from the scheduled data
+      // Generate invoice number from number range or fallback
+      let invoiceNumber = "";
+      if (scheduled.numberRangeId) {
+        const [range] = await db.select().from(numberRanges).where(eq(numberRanges.id, scheduled.numberRangeId));
+        if (range) {
+          const nextNum = (range.currentNumber || 0) + 1;
+          invoiceNumber = `${range.prefix || ""}${String(nextNum).padStart(range.padding || 6, "0")}${range.suffix || ""}`;
+          await db.update(numberRanges).set({ currentNumber: nextNum }).where(eq(numberRanges.id, range.id));
+        }
+      }
+      if (!invoiceNumber) {
+        const date = new Date();
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+        invoiceNumber = `INV-${year}${month}-${random}`;
+      }
+
+      // Check for duplicate invoice number
+      const existing = await db.select({ id: invoices.id }).from(invoices).where(eq(invoices.invoiceNumber, invoiceNumber)).limit(1);
+      if (existing.length > 0) {
+        const suffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+        invoiceNumber = `${invoiceNumber}-${suffix}`;
+      }
+
+      const now = new Date();
+      const dueDate = new Date(now.getTime() + (scheduled.paymentTermDays || 14) * 24 * 60 * 60 * 1000);
+
+      // Create the actual invoice from the scheduled data with all metadata
       const invoice = await storage.createInvoice({
+        invoiceNumber,
         customerId: scheduled.customerId,
         billingDetailsId: scheduled.billingDetailsId,
-        numberRangeId: scheduled.numberRangeId,
         currency: scheduled.currency,
         totalAmount: scheduled.totalAmount,
         vatAmount: scheduled.vatAmount || "0",
@@ -7366,26 +7421,65 @@ export async function registerRoutes(
         vatRate: scheduled.vatRate || "0",
         status: "generated",
         paymentTermDays: scheduled.paymentTermDays,
+        variableSymbol: invoiceNumber,
         constantSymbol: scheduled.constantSymbol,
-        specificSymbol: scheduled.specificSymbol,
+        specificSymbol: scheduled.specificSymbol || invoiceNumber,
         barcodeType: scheduled.barcodeType,
-        documentType: "invoice",
-      });
+        barcodeValue: invoiceNumber,
+        issueDate: now,
+        dueDate: dueDate,
+        deliveryDate: now,
+        customerName: scheduled.customerName,
+        customerAddress: scheduled.customerAddress,
+        customerCity: scheduled.customerCity,
+        customerZip: scheduled.customerZip,
+        customerCountry: scheduled.customerCountry,
+        customerEmail: scheduled.customerEmail,
+        customerPhone: scheduled.customerPhone,
+        customerCompanyName: scheduled.customerCompanyName,
+        customerTaxId: scheduled.customerTaxId,
+        customerVatId: scheduled.customerVatId,
+        billingCompanyName: scheduled.billingCompanyName,
+        billingAddress: scheduled.billingAddress,
+        billingCity: scheduled.billingCity,
+        billingZip: scheduled.billingZip,
+        billingCountry: scheduled.billingCountry,
+        billingTaxId: scheduled.billingTaxId,
+        billingVatId: scheduled.billingVatId,
+        billingEmail: scheduled.billingEmail,
+        billingPhone: scheduled.billingPhone,
+        billingBankName: scheduled.billingBankName,
+        billingBankIban: scheduled.billingBankIban,
+        billingBankSwift: scheduled.billingBankSwift,
+        billingBankAccountNumber: scheduled.billingBankAccountNumber,
+        qrCodeType: scheduled.qrCodeType,
+        qrCodeData: scheduled.qrCodeData,
+        epcQrCodeData: scheduled.epcQrCodeData,
+        qrCodeEnabled: scheduled.qrCodeEnabled,
+        itemsSnapshot: scheduled.items,
+        wizardCreatedAt: scheduled.wizardCreatedAt,
+      } as any);
 
       // Create invoice items from the scheduled items
       const items = scheduled.items as any[];
       if (items && items.length > 0) {
         await storage.createInvoiceItems(
-          items.map((item: any) => ({
-            invoiceId: invoice.id,
-            name: item.name || item.description || "Item",
-            productId: item.productId,
-            description: item.description,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            totalPrice: item.totalPrice,
-            vatRate: item.vatRate,
-          }))
+          items.map((item: any) => {
+            const qty = parseFloat(item.quantity || "1");
+            const price = parseFloat(item.unitPrice || "0");
+            const lineTotal = item.totalPrice || String(qty * price);
+            return {
+              invoiceId: invoice.id,
+              name: item.name || item.description || "Item",
+              productId: item.productId,
+              description: item.description,
+              quantity: String(item.quantity || "1"),
+              unitPrice: String(item.unitPrice || "0"),
+              totalPrice: lineTotal,
+              lineTotal: lineTotal,
+              vatRate: String(item.vatRate || "0"),
+            };
+          })
         );
       }
 
@@ -7395,10 +7489,11 @@ export async function registerRoutes(
         createdInvoiceId: invoice.id,
       } as any);
 
+      console.log(`[ScheduledInvoice] Created invoice ${invoice.id} (${invoiceNumber}) from scheduled ${scheduled.id}`);
       res.status(201).json(invoice);
-    } catch (error) {
-      console.error("Error creating invoice from scheduled:", error);
-      res.status(500).json({ error: "Failed to create invoice" });
+    } catch (error: any) {
+      console.error("Error creating invoice from scheduled:", error?.message, error?.stack);
+      res.status(500).json({ error: "Failed to create invoice", details: error?.message });
     }
   });
 
