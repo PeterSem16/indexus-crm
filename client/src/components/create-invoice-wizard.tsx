@@ -1174,29 +1174,49 @@ export function CreateInvoiceWizard({
       }
     } else {
       // Single invoice (no installments)
+      console.log("[InvoiceWizard] Single invoice path - calculating totals");
       const totals = calculateTotals();
+      console.log("[InvoiceWizard] Totals:", totals);
 
       // Generate invoice number on final submission
       let invoiceNumber = "";
       if (values.numberRangeId) {
+        console.log("[InvoiceWizard] Generating number from range:", values.numberRangeId);
         try {
           const response = await apiRequest("POST", `/api/configurator/number-ranges/${values.numberRangeId}/generate`);
           const data = await response.json();
           invoiceNumber = data.invoiceNumber;
-        } catch (error) {
+          console.log("[InvoiceWizard] Generated number:", invoiceNumber);
+        } catch (error: any) {
+          console.error("[InvoiceWizard] Number generation failed:", error);
           toast({
             title: t.common?.error || "Error",
-            description: "Failed to generate invoice number",
+            description: `Failed to generate invoice number: ${error?.message || "Unknown error"}`,
             variant: "destructive",
           });
           return;
         }
+      } else {
+        console.log("[InvoiceWizard] No numberRangeId, will auto-generate on server");
       }
 
       const metadata = buildInvoiceMetadata();
+      const resolvedCustomerId = values.customerId || customerId;
+      console.log("[InvoiceWizard] customerId:", resolvedCustomerId, "items count:", items.length);
+
+      if (!resolvedCustomerId) {
+        console.error("[InvoiceWizard] No customerId available!");
+        toast({
+          title: t.common?.error || "Error",
+          description: "Customer is required to create an invoice",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const invoiceData = {
         invoiceNumber,
-        customerId: values.customerId || customerId,
+        customerId: resolvedCustomerId,
         billingDetailsId: billingInfo?.id,
         issueDate: baseIssueDate.toISOString(),
         dueDate: baseDueDate.toISOString(),
@@ -1220,11 +1240,15 @@ export function CreateInvoiceWizard({
           vatRate: item.vatRate,
           totalPrice: item.total,
         })),
-        // Complete metadata for template generation
         ...metadata,
       };
 
-      createInvoiceMutation.mutate(invoiceData);
+      console.log("[InvoiceWizard] Submitting single invoice data:", JSON.stringify(invoiceData).substring(0, 500));
+      try {
+        await createInvoiceMutation.mutateAsync(invoiceData);
+      } catch (error: any) {
+        console.error("[InvoiceWizard] Single invoice creation failed:", error);
+      }
     }
     } finally {
       setIsSubmitting(false);
