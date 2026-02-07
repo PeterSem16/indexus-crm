@@ -265,6 +265,8 @@ export function CreateInvoiceWizard({
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>("");  // Pay by Square
   const [epcQrCodeDataUrl, setEpcQrCodeDataUrl] = useState<string>("");  // EPC QR
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitProgress, setSubmitProgress] = useState(0);
+  const [submitMessage, setSubmitMessage] = useState("");
   const [showCustomItemForm, setShowCustomItemForm] = useState(false);
   const [customItemName, setCustomItemName] = useState("");
   const [customItemQuantity, setCustomItemQuantity] = useState("1");
@@ -986,6 +988,8 @@ export function CreateInvoiceWizard({
       return;
     }
     setIsSubmitting(true);
+    setSubmitProgress(5);
+    setSubmitMessage(t.invoices?.preparingInvoice || "Preparing invoice data...");
     console.log("[InvoiceWizard] === SUBMIT START ===");
     
     const submitTimeout = setTimeout(() => {
@@ -1093,7 +1097,9 @@ export function CreateInvoiceWizard({
         return { invoiceTotal, invoiceVatAmount, invoiceSubtotal };
       };
 
-      // STEP 1: Create the first invoice immediately
+      setSubmitProgress(15);
+      setSubmitMessage(t.invoices?.generatingNumber || "Generating invoice number...");
+      
       const firstInstallmentItems = buildInstallmentItems(1, true);
       console.log("[InvoiceWizard] firstInstallmentItems count:", firstInstallmentItems.length, "items:", JSON.stringify(firstInstallmentItems));
       if (firstInstallmentItems.length === 0) {
@@ -1165,6 +1171,8 @@ export function CreateInvoiceWizard({
           return;
         }
 
+        setSubmitProgress(30);
+        setSubmitMessage(t.invoices?.creatingInvoice || "Creating invoice...");
         console.log("[InvoiceWizard] Creating first invoice with data:", JSON.stringify(firstInvoiceData));
         try {
           console.log("[InvoiceWizard] About to call apiRequest for POST /api/invoices");
@@ -1187,7 +1195,9 @@ export function CreateInvoiceWizard({
         }
       }
 
-      // STEP 2: Queue future installments (2, 3, 4, ...) to scheduled_invoices
+      setSubmitProgress(50);
+      setSubmitMessage(t.invoices?.schedulingInstallments || "Scheduling future installments...");
+      
       for (let installmentNum = 2; installmentNum <= maxInstallments; installmentNum++) {
         // Calculate scheduled date for this installment
         const scheduledDate = new Date(baseIssueDate);
@@ -1227,6 +1237,10 @@ export function CreateInvoiceWizard({
           ...metadata,
         };
 
+        const schedulingProgress = 50 + Math.round((installmentNum - 1) / (maxInstallments - 1) * 35);
+        setSubmitProgress(schedulingProgress);
+        setSubmitMessage(`${t.invoices?.schedulingInstallment || "Scheduling installment"} ${installmentNum}/${maxInstallments}...`);
+        
         try {
           await apiRequest("POST", "/api/scheduled-invoices", scheduledData);
           scheduledCount++;
@@ -1236,6 +1250,8 @@ export function CreateInvoiceWizard({
       }
 
       if (firstInvoiceCreated) {
+        setSubmitProgress(95);
+        setSubmitMessage(t.invoices?.finalizingInvoice || "Finalizing...");
         const scheduledMsg = scheduledCount > 0 ? ` (${scheduledCount} ${t.invoices?.scheduledForLater || "scheduled for later"})` : "";
         toast({
           title: t.common?.success || "Success",
@@ -1261,12 +1277,12 @@ export function CreateInvoiceWizard({
         });
       }
     } else {
-      // Single invoice (no installments)
+      setSubmitProgress(15);
+      setSubmitMessage(t.invoices?.generatingNumber || "Generating invoice number...");
       console.log("[InvoiceWizard] Single invoice path - calculating totals");
       const totals = calculateTotals();
       console.log("[InvoiceWizard] Totals:", totals);
 
-      // Generate invoice number on final submission
       let invoiceNumber = "";
       if (values.numberRangeId) {
         console.log("[InvoiceWizard] Generating number from range:", values.numberRangeId);
@@ -1331,11 +1347,16 @@ export function CreateInvoiceWizard({
         ...metadata,
       };
 
+      setSubmitProgress(40);
+      setSubmitMessage(t.invoices?.creatingInvoice || "Creating invoice...");
       console.log("[InvoiceWizard] Submitting single invoice data:", JSON.stringify(invoiceData).substring(0, 500));
       try {
         const response = await apiRequest("POST", "/api/invoices", invoiceData);
+        setSubmitProgress(85);
+        setSubmitMessage(t.invoices?.finalizingInvoice || "Finalizing...");
         const createdInvoice = await response.json();
         console.log("[InvoiceWizard] Single invoice created:", createdInvoice);
+        setSubmitProgress(100);
         toast({
           title: t.common?.success || "Success",
           description: t.invoices?.createSuccess || "Invoice created successfully",
@@ -1368,6 +1389,8 @@ export function CreateInvoiceWizard({
     } finally {
       clearTimeout(submitTimeout);
       setIsSubmitting(false);
+      setSubmitProgress(0);
+      setSubmitMessage("");
     }
   };
 
@@ -1494,7 +1517,20 @@ export function CreateInvoiceWizard({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-6 relative">
+          {isSubmitting && (
+            <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-lg">
+              <div className="flex flex-col items-center gap-4 p-8 max-w-sm w-full">
+                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                <div className="w-full space-y-2">
+                  <Progress value={submitProgress} className="h-3" />
+                  <p className="text-sm text-center text-muted-foreground">{submitMessage}</p>
+                  <p className="text-xs text-center text-muted-foreground/60">{submitProgress}%</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm text-muted-foreground">
               <span>{t.common?.step || "Step"} {currentStep + 1} / {steps.length}</span>
