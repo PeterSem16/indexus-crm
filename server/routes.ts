@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { startOfDay, endOfDay, subDays } from "date-fns";
 import { eq, desc, and, gte, lte } from "drizzle-orm";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { storage } from "./storage";
 import { 
   numberRanges,
@@ -1081,19 +1081,24 @@ export async function registerRoutes(
     app.set("trust proxy", 1);
   }
 
-  // Session middleware
+  // Session middleware - use shared pool for session store
+  const sessionStore = new PgStore({
+    pool: pool as any,
+    tableName: "session",
+    pruneSessionInterval: 60 * 15,
+    errorLog: (err: Error) => {
+      console.error("[PgStore] Session store error:", err.message);
+    },
+  });
+  
   app.use(
     session({
       secret: process.env.SESSION_SECRET || "nexus-biolink-secret-key",
       resave: false,
       saveUninitialized: false,
-      store: new PgStore({
-        conString: process.env.DATABASE_URL,
-        tableName: "session",
-        pruneSessionInterval: 60 * 15, // prune expired sessions every 15 min
-      }),
+      store: sessionStore,
       cookie: {
-        secure: process.env.NODE_ENV === "production",
+        secure: false,
         httpOnly: true,
         sameSite: "lax",
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
@@ -1343,7 +1348,7 @@ export async function registerRoutes(
 
   app.get("/api/auth/me", (req, res) => {
     if (!req.session.user) {
-      return res.json({ user: null });
+      return res.status(401).json({ user: null });
     }
     res.json({ user: req.session.user });
   });

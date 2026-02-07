@@ -949,11 +949,16 @@ export function CreateInvoiceWizard({
       try {
         const authCheck = await fetch("/api/auth/me", { credentials: "include" });
         console.log("[InvoiceWizard] Auth check status:", authCheck.status);
-        authOk = authCheck.ok;
+        if (authCheck.ok) {
+          const authData = await authCheck.json();
+          authOk = !!authData?.user;
+          console.log("[InvoiceWizard] Auth check user:", authOk ? authData.user.id : "null");
+        }
       } catch (authError) {
-        console.error("[InvoiceWizard] Auth check network error:", authError);
+        console.error("[InvoiceWizard] Auth check error:", authError);
       }
       if (!authOk) {
+        console.error("[InvoiceWizard] Auth check FAILED - redirecting to login");
         toast({
           title: t.common?.error || "Error",
           description: t.common?.sessionExpired || "Session expired. Please refresh the page and log in again.",

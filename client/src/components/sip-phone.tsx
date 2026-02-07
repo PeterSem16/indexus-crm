@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { UserAgent, Registerer, RegistererState, Inviter, Session, SessionState } from "sip.js";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient, getQueryFn } from "@/lib/queryClient";
 import { holdToggle as sipHoldToggle, isHeld as sipIsHeld } from "@/lib/sip-hold";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -134,6 +134,7 @@ export function SipPhone({
 
   const { data: authData, isLoading: userLoading } = useQuery<{ user: User | null }>({
     queryKey: ["/api/auth/me"],
+    queryFn: getQueryFn({ on401: "returnNull" }),
   });
   
   const currentUser = authData?.user;
@@ -1133,6 +1134,7 @@ export function CallCustomerButton({
   const { makeCall, isRegistered, isRegistering, register } = useSip();
   const { data: authData } = useQuery<{ user: User | null }>({
     queryKey: ["/api/auth/me"],
+    queryFn: getQueryFn({ on401: "returnNull" }),
   });
   
   const currentUser = authData?.user;
