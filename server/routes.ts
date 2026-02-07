@@ -2,10 +2,11 @@ import express, { type Express, type Request, type Response, type NextFunction }
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { startOfDay, endOfDay, subDays } from "date-fns";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, gte, lte } from "drizzle-orm";
 import { db } from "./db";
 import { storage } from "./storage";
 import { 
+  numberRanges,
   insertUserSchema, insertCustomerSchema, updateUserSchema, loginSchema, userSessions, communicationMessages,
   invoices, invoiceItems, invoicePayments, scheduledInvoices,
   insertProductSchema, insertCustomerProductSchema, insertBillingDetailsSchema,
@@ -5241,99 +5242,7 @@ export async function registerRoutes(
     }
   });
 
-  // Scheduled Invoices CRUD (for installment payments)
-  app.get("/api/scheduled-invoices", requireAuth, async (req, res) => {
-    try {
-      const customerId = req.query.customerId as string | undefined;
-      let query = db.select().from(scheduledInvoices);
-      if (customerId) {
-        query = query.where(eq(scheduledInvoices.customerId, customerId)) as typeof query;
-      }
-      const results = await query.orderBy(desc(scheduledInvoices.scheduledDate));
-      res.json(results);
-    } catch (error) {
-      console.error("Error fetching scheduled invoices:", error);
-      res.status(500).json({ error: "Failed to fetch scheduled invoices" });
-    }
-  });
-
-  app.post("/api/scheduled-invoices", requireAuth, async (req, res) => {
-    try {
-      console.log("[ScheduledInvoice] Creating scheduled invoice:", JSON.stringify(req.body, null, 2));
-      const data = req.body;
-      const [scheduled] = await db.insert(scheduledInvoices).values({
-        customerId: data.customerId,
-        billingDetailsId: data.billingDetailsId,
-        bankAccountId: data.bankAccountId,
-        numberRangeId: data.numberRangeId,
-        scheduledDate: new Date(data.scheduledDate),
-        installmentNumber: data.installmentNumber,
-        totalInstallments: data.totalInstallments,
-        status: data.status || "pending",
-        currency: data.currency || "EUR",
-        paymentTermDays: data.paymentTermDays || 14,
-        variableSymbol: data.variableSymbol,
-        constantSymbol: data.constantSymbol,
-        specificSymbol: data.specificSymbol,
-        barcodeType: data.barcodeType,
-        items: data.items,
-        totalAmount: String(data.totalAmount),
-        vatAmount: data.vatAmount ? String(data.vatAmount) : null,
-        subtotal: data.subtotal ? String(data.subtotal) : null,
-        vatRate: data.vatRate ? String(data.vatRate) : null,
-        parentInvoiceId: data.parentInvoiceId,
-        // Customer metadata snapshot
-        customerName: data.customerName,
-        customerAddress: data.customerAddress,
-        customerCity: data.customerCity,
-        customerZip: data.customerZip,
-        customerCountry: data.customerCountry,
-        customerEmail: data.customerEmail,
-        customerPhone: data.customerPhone,
-        customerCompanyName: data.customerCompanyName,
-        customerTaxId: data.customerTaxId,
-        customerVatId: data.customerVatId,
-        // Billing company snapshot
-        billingCompanyName: data.billingCompanyName,
-        billingAddress: data.billingAddress,
-        billingCity: data.billingCity,
-        billingZip: data.billingZip,
-        billingCountry: data.billingCountry,
-        billingTaxId: data.billingTaxId,
-        billingVatId: data.billingVatId,
-        billingEmail: data.billingEmail,
-        billingPhone: data.billingPhone,
-        // Bank account snapshot
-        billingBankName: data.billingBankName,
-        billingBankIban: data.billingBankIban,
-        billingBankSwift: data.billingBankSwift,
-        billingBankAccountNumber: data.billingBankAccountNumber,
-        // QR code configuration (dual QR codes)
-        qrCodeType: data.qrCodeType,
-        qrCodeData: data.qrCodeData,
-        epcQrCodeData: data.epcQrCodeData,
-        qrCodeEnabled: data.qrCodeEnabled || false,
-        // Wizard tracking
-        wizardCreatedAt: data.wizardCreatedAt ? new Date(data.wizardCreatedAt) : null,
-        createdBy: (req.session as any)?.userId,
-      }).returning();
-      console.log("[ScheduledInvoice] Created:", scheduled.id);
-      res.status(201).json(scheduled);
-    } catch (error: any) {
-      console.error("Error creating scheduled invoice:", error);
-      res.status(500).json({ error: "Failed to create scheduled invoice", details: error?.message });
-    }
-  });
-
-  app.delete("/api/scheduled-invoices/:id", requireAuth, async (req, res) => {
-    try {
-      await db.delete(scheduledInvoices).where(eq(scheduledInvoices.id, req.params.id));
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error deleting scheduled invoice:", error);
-      res.status(500).json({ error: "Failed to delete scheduled invoice" });
-    }
-  });
+  // Scheduled Invoices CRUD routes are defined later in the file (storage-based)
 
   // Invoice Payments CRUD
   app.get("/api/invoices/:invoiceId/payments", requireAuth, async (req, res) => {
@@ -7140,11 +7049,192 @@ export async function registerRoutes(
   app.get("/api/scheduled-invoices", requireAuth, async (req, res) => {
     try {
       const customerId = req.query.customerId as string | undefined;
-      const scheduled = await storage.getScheduledInvoices(customerId);
-      res.json(scheduled);
+      const status = req.query.status as string | undefined;
+      const dateFrom = req.query.dateFrom as string | undefined;
+      const dateTo = req.query.dateTo as string | undefined;
+
+      let query = db.select().from(scheduledInvoices);
+      const conditions: any[] = [];
+
+      if (customerId) conditions.push(eq(scheduledInvoices.customerId, customerId));
+      if (status) conditions.push(eq(scheduledInvoices.status, status));
+      if (dateFrom) conditions.push(gte(scheduledInvoices.scheduledDate, new Date(dateFrom)));
+      if (dateTo) conditions.push(lte(scheduledInvoices.scheduledDate, new Date(dateTo)));
+
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions)) as typeof query;
+      }
+
+      const results = await query.orderBy(scheduledInvoices.scheduledDate);
+      res.json(results);
     } catch (error) {
       console.error("Error fetching scheduled invoices:", error);
       res.status(500).json({ error: "Failed to fetch scheduled invoices" });
+    }
+  });
+
+  // Scheduled invoices dashboard stats
+  app.get("/api/scheduled-invoices/stats", requireAuth, async (req, res) => {
+    try {
+      const all = await db.select().from(scheduledInvoices);
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const endOfToday = new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1);
+      const endOfWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+      const pending = all.filter(s => s.status === "pending");
+      const created = all.filter(s => s.status === "created");
+      const overdue = pending.filter(s => new Date(s.scheduledDate) < today);
+      const dueToday = pending.filter(s => {
+        const d = new Date(s.scheduledDate);
+        return d >= today && d <= endOfToday;
+      });
+      const dueThisWeek = pending.filter(s => {
+        const d = new Date(s.scheduledDate);
+        return d >= today && d <= endOfWeek;
+      });
+      const dueThisMonth = pending.filter(s => {
+        const d = new Date(s.scheduledDate);
+        return d >= today && d <= endOfMonth;
+      });
+
+      const sumAmount = (items: typeof all) => items.reduce((sum, i) => sum + parseFloat(i.totalAmount || "0"), 0);
+
+      res.json({
+        total: all.length,
+        pending: pending.length,
+        created: created.length,
+        overdue: overdue.length,
+        dueToday: dueToday.length,
+        dueThisWeek: dueThisWeek.length,
+        dueThisMonth: dueThisMonth.length,
+        pendingAmount: sumAmount(pending).toFixed(2),
+        overdueAmount: sumAmount(overdue).toFixed(2),
+        dueTodayAmount: sumAmount(dueToday).toFixed(2),
+        dueThisWeekAmount: sumAmount(dueThisWeek).toFixed(2),
+        dueThisMonthAmount: sumAmount(dueThisMonth).toFixed(2),
+        createdAmount: sumAmount(created).toFixed(2),
+      });
+    } catch (error) {
+      console.error("Error fetching scheduled invoices stats:", error);
+      res.status(500).json({ error: "Failed to fetch stats" });
+    }
+  });
+
+  // Bulk create invoices from scheduled
+  app.post("/api/scheduled-invoices/bulk-create", requireAuth, async (req, res) => {
+    try {
+      const { ids } = req.body as { ids: string[] };
+      if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: "No scheduled invoice IDs provided" });
+      }
+
+      const results: { id: string; invoiceId?: string; error?: string }[] = [];
+
+      for (const id of ids) {
+        try {
+          const scheduled = await storage.getScheduledInvoiceById(id);
+          if (!scheduled) {
+            results.push({ id, error: "Not found" });
+            continue;
+          }
+          if (scheduled.status !== "pending") {
+            results.push({ id, error: "Not pending" });
+            continue;
+          }
+
+          // Generate invoice number if numberRangeId exists
+          let invoiceNumber = "";
+          if (scheduled.numberRangeId) {
+            const [range] = await db.select().from(numberRanges).where(eq(numberRanges.id, scheduled.numberRangeId));
+            if (range) {
+              const nextNum = (range.currentNumber || 0) + 1;
+              invoiceNumber = `${range.prefix || ""}${String(nextNum).padStart(range.padding || 6, "0")}${range.suffix || ""}`;
+              await db.update(numberRanges).set({ currentNumber: nextNum }).where(eq(numberRanges.id, range.id));
+            }
+          }
+
+          const invoice = await storage.createInvoice({
+            invoiceNumber,
+            customerId: scheduled.customerId,
+            billingDetailsId: scheduled.billingDetailsId,
+            numberRangeId: scheduled.numberRangeId,
+            currency: scheduled.currency,
+            totalAmount: scheduled.totalAmount,
+            vatAmount: scheduled.vatAmount || "0",
+            subtotal: scheduled.subtotal || scheduled.totalAmount,
+            vatRate: scheduled.vatRate || "0",
+            status: "generated",
+            paymentTermDays: scheduled.paymentTermDays,
+            variableSymbol: invoiceNumber,
+            constantSymbol: scheduled.constantSymbol,
+            specificSymbol: scheduled.specificSymbol,
+            barcodeType: scheduled.barcodeType,
+            documentType: "invoice",
+            issueDate: new Date(),
+            dueDate: new Date(Date.now() + (scheduled.paymentTermDays || 14) * 24 * 60 * 60 * 1000),
+            installmentNumber: scheduled.installmentNumber,
+            totalInstallments: scheduled.totalInstallments,
+            customerName: scheduled.customerName,
+            customerAddress: scheduled.customerAddress,
+            customerCity: scheduled.customerCity,
+            customerZip: scheduled.customerZip,
+            customerCountry: scheduled.customerCountry,
+            customerEmail: scheduled.customerEmail,
+            customerPhone: scheduled.customerPhone,
+            customerCompanyName: scheduled.customerCompanyName,
+            customerTaxId: scheduled.customerTaxId,
+            customerVatId: scheduled.customerVatId,
+            billingCompanyName: scheduled.billingCompanyName,
+            billingAddress: scheduled.billingAddress,
+            billingCity: scheduled.billingCity,
+            billingZip: scheduled.billingZip,
+            billingCountry: scheduled.billingCountry,
+            billingTaxId: scheduled.billingTaxId,
+            billingVatId: scheduled.billingVatId,
+            billingEmail: scheduled.billingEmail,
+            billingPhone: scheduled.billingPhone,
+            billingBankName: scheduled.billingBankName,
+            billingBankIban: scheduled.billingBankIban,
+            billingBankSwift: scheduled.billingBankSwift,
+            billingBankAccountNumber: scheduled.billingBankAccountNumber,
+          } as any);
+
+          const items = scheduled.items as any[];
+          if (items && items.length > 0) {
+            await storage.createInvoiceItems(
+              items.map((item: any) => ({
+                invoiceId: invoice.id,
+                name: item.name || item.description || "Item",
+                productId: item.productId,
+                description: item.description,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                totalPrice: item.totalPrice,
+                vatRate: item.vatRate,
+              }))
+            );
+          }
+
+          await storage.updateScheduledInvoice(id, {
+            status: "created",
+            createdInvoiceId: invoice.id,
+          } as any);
+
+          results.push({ id, invoiceId: invoice.id });
+        } catch (err: any) {
+          console.error(`Error creating invoice from scheduled ${id}:`, err);
+          results.push({ id, error: err?.message || "Unknown error" });
+        }
+      }
+
+      const successCount = results.filter(r => r.invoiceId).length;
+      const failCount = results.filter(r => r.error).length;
+      res.json({ results, successCount, failCount });
+    } catch (error) {
+      console.error("Error in bulk create:", error);
+      res.status(500).json({ error: "Failed to bulk create invoices" });
     }
   });
 
@@ -7163,14 +7253,23 @@ export async function registerRoutes(
 
   app.post("/api/scheduled-invoices", requireAuth, async (req, res) => {
     try {
+      console.log("[ScheduledInvoice] Creating scheduled invoice:", JSON.stringify(req.body, null, 2));
+      const data = req.body;
       const scheduled = await storage.createScheduledInvoice({
-        ...req.body,
+        ...data,
+        scheduledDate: new Date(data.scheduledDate),
+        wizardCreatedAt: data.wizardCreatedAt ? new Date(data.wizardCreatedAt) : new Date(),
+        totalAmount: String(data.totalAmount),
+        vatAmount: data.vatAmount ? String(data.vatAmount) : null,
+        subtotal: data.subtotal ? String(data.subtotal) : null,
+        vatRate: data.vatRate ? String(data.vatRate) : null,
         createdBy: req.session.user?.id,
       });
+      console.log("[ScheduledInvoice] Created:", scheduled.id);
       res.status(201).json(scheduled);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating scheduled invoice:", error);
-      res.status(500).json({ error: "Failed to create scheduled invoice" });
+      res.status(500).json({ error: "Failed to create scheduled invoice", details: error?.message });
     }
   });
 

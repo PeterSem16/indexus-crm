@@ -1,6 +1,6 @@
 import { storage } from "./storage";
 import { db } from "./db";
-import { collections, collectionLabResults, customers, invoices, tasks, apiKeys, users } from "@shared/schema";
+import { collections, collectionLabResults, customers, invoices, tasks, apiKeys, users, scheduledInvoices, notifications } from "@shared/schema";
 import { eq, sql, and, isNull, lt, gte, lte, inArray } from "drizzle-orm";
 
 type MetricType = 
@@ -13,7 +13,9 @@ type MetricType =
   | 'upcoming_collection_dates'
   | 'low_collection_rate'
   | 'pending_invoices'
-  | 'overdue_tasks';
+  | 'overdue_tasks'
+  | 'overdue_scheduled_invoices'
+  | 'upcoming_scheduled_invoices';
 
 type ComparisonOperator = 'gt' | 'gte' | 'lt' | 'lte' | 'eq' | 'neq';
 type CheckFrequency = 'hourly' | 'every_6_hours' | 'daily' | 'weekly';
@@ -158,13 +160,39 @@ async function evaluateMetric(metricType: MetricType, countryCodes?: string[]): 
     }
     
     case 'overdue_tasks': {
-      // Tasks are user-assigned, not country-specific
       const now = new Date();
       const result = await db.select({ count: sql<number>`count(*)` })
         .from(tasks)
         .where(and(
           eq(tasks.status, 'pending'),
           lt(tasks.dueDate, now)
+        ));
+      return Number(result[0]?.count || 0);
+    }
+
+    case 'overdue_scheduled_invoices': {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const result = await db.select({ count: sql<number>`count(*)` })
+        .from(scheduledInvoices)
+        .where(and(
+          eq(scheduledInvoices.status, 'pending'),
+          lt(scheduledInvoices.scheduledDate, today)
+        ));
+      return Number(result[0]?.count || 0);
+    }
+
+    case 'upcoming_scheduled_invoices': {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const sevenDaysFromNow = new Date(today);
+      sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+      const result = await db.select({ count: sql<number>`count(*)` })
+        .from(scheduledInvoices)
+        .where(and(
+          eq(scheduledInvoices.status, 'pending'),
+          gte(scheduledInvoices.scheduledDate, today),
+          lte(scheduledInvoices.scheduledDate, sevenDaysFromNow)
         ));
       return Number(result[0]?.count || 0);
     }
@@ -258,6 +286,8 @@ function getMetricLabel(metricType: string): string {
     'low_collection_rate': 'Low Collection Rate',
     'pending_invoices': 'Pending Invoices',
     'overdue_tasks': 'Overdue Tasks',
+    'overdue_scheduled_invoices': 'Overdue Scheduled Invoices',
+    'upcoming_scheduled_invoices': 'Upcoming Scheduled Invoices (7 days)',
   };
   return labels[metricType] || metricType.replace(/_/g, ' ');
 }
@@ -356,6 +386,98 @@ export async function evaluateAlerts(): Promise<void> {
   }
 }
 
+let lastScheduledCheckDate = "";
+
+async function checkScheduledInvoiceNotifications(): Promise<void> {
+  const now = new Date();
+  if (now.getHours() < 7) return;
+
+  const todayStr = now.toISOString().slice(0, 10);
+  if (lastScheduledCheckDate === todayStr) return;
+
+  try {
+    const existingToday = await db.select({ count: sql<number>`count(*)` })
+      .from(notifications)
+      .where(and(
+        eq(notifications.entityType, 'scheduled_invoice'),
+        gte(notifications.createdAt, new Date(todayStr))
+      ));
+    if (Number(existingToday[0]?.count || 0) > 0) {
+      lastScheduledCheckDate = todayStr;
+      return;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const endOfToday = new Date(today);
+    endOfToday.setHours(23, 59, 59, 999);
+    const endOfWeek = new Date(today);
+    endOfWeek.setDate(endOfWeek.getDate() + 7);
+
+    const overdueResult = await db.select({ count: sql<number>`count(*)` })
+      .from(scheduledInvoices)
+      .where(and(eq(scheduledInvoices.status, 'pending'), lt(scheduledInvoices.scheduledDate, today)));
+    const overdueCount = Number(overdueResult[0]?.count || 0);
+
+    const todayResult = await db.select({ count: sql<number>`count(*)` })
+      .from(scheduledInvoices)
+      .where(and(eq(scheduledInvoices.status, 'pending'), gte(scheduledInvoices.scheduledDate, today), lte(scheduledInvoices.scheduledDate, endOfToday)));
+    const todayCount = Number(todayResult[0]?.count || 0);
+
+    const weekResult = await db.select({ count: sql<number>`count(*)` })
+      .from(scheduledInvoices)
+      .where(and(eq(scheduledInvoices.status, 'pending'), gte(scheduledInvoices.scheduledDate, today), lte(scheduledInvoices.scheduledDate, endOfWeek)));
+    const weekCount = Number(weekResult[0]?.count || 0);
+
+    if (overdueCount === 0 && todayCount === 0 && weekCount === 0) {
+      lastScheduledCheckDate = todayStr;
+      return;
+    }
+
+    const adminUsers = await db.select().from(users).where(eq(users.role, 'admin'));
+    
+    for (const user of adminUsers) {
+      if (overdueCount > 0) {
+        await storage.createNotification({
+          userId: user.id,
+          type: 'system_alert',
+          title: 'Overdue Scheduled Invoices',
+          message: `${overdueCount} scheduled invoice(s) are overdue and need attention.`,
+          priority: 'high',
+          entityType: 'scheduled_invoice',
+          metadata: { overdueCount, todayCount, weekCount }
+        });
+      }
+      if (todayCount > 0) {
+        await storage.createNotification({
+          userId: user.id,
+          type: 'system_alert',
+          title: 'Scheduled Invoices Due Today',
+          message: `${todayCount} scheduled invoice(s) are due today.`,
+          priority: 'normal',
+          entityType: 'scheduled_invoice',
+          metadata: { todayCount }
+        });
+      }
+      if (weekCount > 0 && weekCount > todayCount) {
+        await storage.createNotification({
+          userId: user.id,
+          type: 'system_alert',
+          title: 'Upcoming Scheduled Invoices',
+          message: `${weekCount} scheduled invoice(s) are due within the next 7 days.`,
+          priority: 'normal',
+          entityType: 'scheduled_invoice',
+          metadata: { weekCount }
+        });
+      }
+    }
+    lastScheduledCheckDate = todayStr;
+    console.log(`[AlertEvaluator] Scheduled invoice notifications sent: overdue=${overdueCount}, today=${todayCount}, week=${weekCount}`);
+  } catch (error) {
+    console.error("[AlertEvaluator] Error checking scheduled invoices:", error);
+  }
+}
+
 let evaluationInterval: ReturnType<typeof setInterval> | null = null;
 
 export function startAlertEvaluator(intervalMs: number = 60 * 1000): void {
@@ -367,9 +489,11 @@ export function startAlertEvaluator(intervalMs: number = 60 * 1000): void {
   console.log(`[AlertEvaluator] Starting alert evaluator with ${intervalMs}ms interval`);
   
   evaluateAlerts();
+  checkScheduledInvoiceNotifications();
 
   evaluationInterval = setInterval(() => {
     evaluateAlerts();
+    checkScheduledInvoiceNotifications();
   }, intervalMs);
 }
 
