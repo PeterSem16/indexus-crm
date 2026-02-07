@@ -1522,7 +1522,7 @@ export function CreateInvoiceWizard({
 
         <div className="space-y-6 relative">
           {isSubmitting && (
-            <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-lg">
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm">
               <div className="flex flex-col items-center gap-4 p-8 max-w-sm w-full">
                 <Loader2 className="h-10 w-10 animate-spin text-primary" />
                 <div className="w-full space-y-2">
