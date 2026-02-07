@@ -265,7 +265,52 @@ export function CreateInvoiceWizard({
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>("");  // Pay by Square
   const [epcQrCodeDataUrl, setEpcQrCodeDataUrl] = useState<string>("");  // EPC QR
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+  const [showCustomItemForm, setShowCustomItemForm] = useState(false);
+  const [customItemName, setCustomItemName] = useState("");
+  const [customItemQuantity, setCustomItemQuantity] = useState("1");
+  const [customItemUnitPrice, setCustomItemUnitPrice] = useState("");
+  const [customItemVatRate, setCustomItemVatRate] = useState("0");
+
+  const PREDEFINED_ITEMS = [
+    { name: "Dobropis", defaultPrice: "-0", vatRate: "0", description: "Credit note" },
+    { name: "Dobropis - čiastočný", defaultPrice: "-0", vatRate: "0", description: "Partial credit note" },
+    { name: "Zľava", defaultPrice: "-0", vatRate: "0", description: "Discount" },
+    { name: "Manipulačný poplatok", defaultPrice: "0", vatRate: "20", description: "Handling fee" },
+    { name: "Poštovné a balné", defaultPrice: "0", vatRate: "20", description: "Postage & packaging" },
+    { name: "Administratívny poplatok", defaultPrice: "0", vatRate: "20", description: "Administrative fee" },
+    { name: "Poplatok za oneskorenú platbu", defaultPrice: "0", vatRate: "0", description: "Late payment fee" },
+    { name: "Storno poplatok", defaultPrice: "0", vatRate: "0", description: "Cancellation fee" },
+  ];
+
+  const addCustomItem = () => {
+    if (!customItemName.trim() || !customItemUnitPrice) return;
+    const qty = parseFloat(customItemQuantity) || 1;
+    const price = parseFloat(customItemUnitPrice) || 0;
+    const total = (qty * price).toFixed(2);
+    const newItem: InvoiceItem = {
+      id: `custom-${Date.now()}`,
+      name: customItemName.trim(),
+      quantity: qty,
+      unitPrice: price.toFixed(2),
+      vatRate: customItemVatRate,
+      total,
+    };
+    setItems(prev => [...prev, newItem]);
+    setCustomItemName("");
+    setCustomItemQuantity("1");
+    setCustomItemUnitPrice("");
+    setCustomItemVatRate("0");
+    setShowCustomItemForm(false);
+  };
+
+  const addPredefinedItem = (predefined: typeof PREDEFINED_ITEMS[0]) => {
+    setCustomItemName(predefined.name);
+    setCustomItemUnitPrice(predefined.defaultPrice);
+    setCustomItemVatRate(predefined.vatRate);
+    setCustomItemQuantity("1");
+    setShowCustomItemForm(true);
+  };
+
   // Reset state when wizard opens
   useEffect(() => {
     if (open) {
@@ -274,6 +319,11 @@ export function CreateInvoiceWizard({
       setBillsetLoaded(false);
       setCurrentStep(0);
       setSelectedProductId("");
+      setShowCustomItemForm(false);
+      setCustomItemName("");
+      setCustomItemQuantity("1");
+      setCustomItemUnitPrice("");
+      setCustomItemVatRate("0");
     }
   }, [open]);
 
@@ -2312,6 +2362,7 @@ export function CreateInvoiceWizard({
                   </h3>
 
                   <div className="grid grid-cols-1 lg:grid-cols-[30%_70%] gap-6">
+                  <div className="space-y-4">
                     <Card>
                       <CardHeader>
                         <CardTitle className="text-sm">{t.products?.title || "Product"}</CardTitle>
@@ -2384,6 +2435,131 @@ export function CreateInvoiceWizard({
                         )}
                       </CardContent>
                     </Card>
+
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-sm flex items-center gap-2">
+                          <Plus className="h-4 w-4" />
+                          {t.invoices?.customItem || "Custom Item"}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {!showCustomItemForm ? (
+                          <div className="space-y-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="w-full"
+                              onClick={() => setShowCustomItemForm(true)}
+                              data-testid="button-add-custom-item"
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              {t.invoices?.addCustomItem || "Add custom item"}
+                            </Button>
+                            <div>
+                              <Label className="text-xs text-muted-foreground">{t.invoices?.predefinedItems || "Predefined Items"}</Label>
+                              <div className="grid grid-cols-1 gap-1 mt-1 max-h-[200px] overflow-y-auto">
+                                {PREDEFINED_ITEMS.map((item) => (
+                                  <Button
+                                    key={item.name}
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="justify-start text-xs h-7"
+                                    onClick={() => addPredefinedItem(item)}
+                                    data-testid={`button-predefined-${item.name.replace(/\s+/g, '-').toLowerCase()}`}
+                                  >
+                                    <Plus className="h-3 w-3 mr-1 shrink-0" />
+                                    <span className="truncate">{item.name}</span>
+                                  </Button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <div>
+                              <Label className="text-xs">{t.invoices?.itemName || "Name"}</Label>
+                              <Input
+                                value={customItemName}
+                                onChange={(e) => setCustomItemName(e.target.value)}
+                                placeholder={t.invoices?.itemNamePlaceholder || "Item name"}
+                                className="mt-1"
+                                data-testid="input-custom-item-name"
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <Label className="text-xs">{t.invoices?.quantity || "Qty"}</Label>
+                                <Input
+                                  type="number"
+                                  value={customItemQuantity}
+                                  onChange={(e) => setCustomItemQuantity(e.target.value)}
+                                  min="1"
+                                  className="mt-1"
+                                  data-testid="input-custom-item-qty"
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-xs">{t.konfigurator?.vat || "VAT"} %</Label>
+                                <Select value={customItemVatRate} onValueChange={setCustomItemVatRate}>
+                                  <SelectTrigger className="mt-1" data-testid="select-custom-item-vat">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="0">0%</SelectItem>
+                                    <SelectItem value="10">10%</SelectItem>
+                                    <SelectItem value="20">20%</SelectItem>
+                                    <SelectItem value="21">21%</SelectItem>
+                                    <SelectItem value="25">25%</SelectItem>
+                                    <SelectItem value="27">27%</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                            <div>
+                              <Label className="text-xs">{t.konfigurator?.unitPrice || "Unit Price"}</Label>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={customItemUnitPrice}
+                                onChange={(e) => setCustomItemUnitPrice(e.target.value)}
+                                placeholder="0.00"
+                                className="mt-1"
+                                data-testid="input-custom-item-price"
+                              />
+                              <p className="text-[10px] text-muted-foreground mt-0.5">
+                                {t.invoices?.negativePriceHint || "Use negative value for credit notes"}
+                              </p>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={addCustomItem}
+                                disabled={!customItemName.trim() || !customItemUnitPrice}
+                                className="flex-1"
+                                data-testid="button-confirm-custom-item"
+                              >
+                                <Plus className="h-4 w-4 mr-1" />
+                                {t.common?.add || "Add"}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => { setShowCustomItemForm(false); setCustomItemName(""); setCustomItemUnitPrice(""); setCustomItemVatRate("0"); setCustomItemQuantity("1"); }}
+                                data-testid="button-cancel-custom-item"
+                              >
+                                {t.common?.cancel || "Cancel"}
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
 
                     <Card>
                       <CardHeader>
