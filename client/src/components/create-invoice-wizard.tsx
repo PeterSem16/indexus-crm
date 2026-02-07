@@ -41,6 +41,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useI18n } from "@/i18n";
+import { COUNTRY_TO_LOCALE, translations } from "@/i18n/translations";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
@@ -406,6 +407,8 @@ export function CreateInvoiceWizard({
 
   const countryCode = customerCountry || selectedCustomer?.country || customer?.country || "SK";
   const constantSymbols = CONSTANT_SYMBOLS[countryCode] || CONSTANT_SYMBOLS["SK"];
+  const countryLocale = COUNTRY_TO_LOCALE[countryCode] || 'en';
+  const ct = translations[countryLocale];
 
   type ProductSetCollection = {
     id: string;
@@ -828,14 +831,14 @@ export function CreateInvoiceWizard({
           const discountInfo = parseFloat(col.lineDiscountAmount || "0") > 0 
             ? ` (-${col.discountPercent}% ${col.discountName || ""})` 
             : "";
-          const paymentInfo = col.paymentType === "installment" ? ` [${t.invoices?.installment || "Installment"}]` : "";
+          const paymentInfo = col.paymentType === "installment" ? ` [${ct.invoices?.installment || "Installment"}]` : "";
           const qty = col.quantity || 1;
           
           console.log(`[Invoice v2.8] Collection ${col.instanceName}: vatRate=${vatRateValue}, total=${itemTotal}, hasVat=${hasVat}, paymentType=${col.paymentType}`);
           
           newItems.push({
             id: crypto.randomUUID(),
-            name: `${col.instanceName || t.collections?.collection || "Collection"}${paymentInfo}${discountInfo}`,
+            name: `${col.instanceName || ct.collections?.collection || "Collection"}${paymentInfo}${discountInfo}`,
             quantity: qty,
             unitPrice: (parseFloat(itemTotal) / qty).toFixed(2),
             vatRate: vatRateValue,
@@ -862,14 +865,14 @@ export function CreateInvoiceWizard({
           const discountInfo = parseFloat(stor.lineDiscountAmount || "0") > 0 
             ? ` (-${stor.discountPercent}% ${stor.discountName || ""})` 
             : "";
-          const paymentInfo = stor.paymentType === "installment" ? ` [${t.invoices?.installment || "Installment"}]` : "";
+          const paymentInfo = stor.paymentType === "installment" ? ` [${ct.invoices?.installment || "Installment"}]` : "";
           const qty = stor.quantity || 1;
           
           console.log(`[Invoice v2.8] Storage ${stor.serviceName}: vatRate=${vatRateValue}, total=${itemTotal}, hasVat=${hasVat}, paymentType=${stor.paymentType}`);
           
           newItems.push({
             id: crypto.randomUUID(),
-            name: `${stor.serviceName || stor.storageName || t.collections?.storage || "Storage"}${paymentInfo}${discountInfo}`,
+            name: `${stor.serviceName || stor.storageName || ct.collections?.storage || "Storage"}${paymentInfo}${discountInfo}`,
             quantity: qty,
             unitPrice: (parseFloat(itemTotal) / qty).toFixed(2),
             vatRate: vatRateValue,
@@ -1072,7 +1075,7 @@ export function CreateInvoiceWizard({
             const thisAmount = installmentNum === 1 ? baseAmount + remainder : baseAmount;
             
             invoiceItems.push({
-              name: `${item.name} (${t.invoices?.installment || "Installment"} ${installmentNum}/${count})`,
+              name: `${item.name} (${ct.invoices?.installment || "Installment"} ${installmentNum}/${count})`,
               quantity: "1",
               unitPrice: thisAmount.toFixed(2),
               vatRate: item.vatRate,
@@ -2960,7 +2963,7 @@ export function CreateInvoiceWizard({
                             const installmentItemsForThisInvoice = installmentItems
                               .filter(item => installmentNum <= (item.installmentCount || 6))
                               .map(item => ({
-                                name: `${item.name} (${t.invoices?.installment || "Installment"} ${installmentNum}/${item.installmentCount || 6})`,
+                                name: `${item.name} (${ct.invoices?.installment || "Installment"} ${installmentNum}/${item.installmentCount || 6})`,
                                 amount: getInstallmentAmount(item, installmentNum),
                                 type: 'installment' as const
                               }));
