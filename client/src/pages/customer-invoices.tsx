@@ -663,10 +663,6 @@ export default function CustomerInvoicesPage() {
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="bulk" data-testid="tab-invoices-bulk">
-            <Users className="h-4 w-4 mr-2" />
-            {t.invoices?.bulkTab || "Bulk Generate"}
-          </TabsTrigger>
           <TabsTrigger value="report" data-testid="tab-invoices-report">
             <BarChart3 className="h-4 w-4 mr-2" />
             Report
@@ -1329,95 +1325,6 @@ export default function CustomerInvoicesPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="bulk">
-          <Card>
-            <CardContent className="p-6">
-              <div className="space-y-4">
-                <div className="flex flex-wrap items-center gap-4">
-                  <div className="flex-1 min-w-[200px]">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder={t.common?.search || "Search customers..."}
-                        value={bulkSearch}
-                        onChange={(e) => setBulkSearch(e.target.value)}
-                        className="pl-9"
-                        data-testid="input-search-bulk-customers"
-                      />
-                    </div>
-                  </div>
-                  <Badge variant="secondary" data-testid="badge-selected-count">
-                    <CheckCircle2 className="h-3 w-3 mr-1" />
-                    {selectedCustomers.length} {t.common?.selected || "selected"}
-                  </Badge>
-                  <Button
-                    onClick={() => bulkGenerateMutation.mutate(selectedCustomers)}
-                    disabled={selectedCustomers.length === 0 || bulkGenerateMutation.isPending}
-                    data-testid="button-generate-bulk"
-                  >
-                    {bulkGenerateMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <FileText className="h-4 w-4 mr-2" />
-                    )}
-                    {t.invoices?.generateSelected || "Generate Invoices"}
-                  </Button>
-                </div>
-
-                <p className="text-sm text-muted-foreground">
-                  {t.invoices?.bulkGenerateDescription || "Select customers to generate invoices for. Only customers with assigned products will be invoiced."}
-                </p>
-
-                <div className="border rounded-lg divide-y max-h-[60vh] overflow-y-auto">
-                  <div className="flex items-center gap-3 p-3 bg-muted/50 sticky top-0">
-                    <Checkbox 
-                      id="select-all-bulk"
-                      checked={filteredCustomersForBulk.length > 0 && filteredCustomersForBulk.every(c => selectedCustomers.includes(c.id))}
-                      onCheckedChange={selectAllCustomers}
-                      data-testid="checkbox-select-all-bulk"
-                    />
-                    <Label htmlFor="select-all-bulk" className="text-sm font-medium cursor-pointer">
-                      {t.invoices?.selectAll || "Select all"} ({filteredCustomersForBulk.length})
-                    </Label>
-                  </div>
-
-                  {filteredCustomersForBulk.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p>{t.customers?.noData || "No customers found"}</p>
-                    </div>
-                  ) : (
-                    filteredCustomersForBulk.map((customer) => (
-                      <div 
-                        key={customer.id} 
-                        className="flex items-center gap-3 p-3 hover-elevate cursor-pointer"
-                        onClick={() => toggleCustomer(customer.id)}
-                        data-testid={`row-bulk-customer-${customer.id}`}
-                      >
-                        <Checkbox 
-                          id={`bulk-customer-${customer.id}`}
-                          checked={selectedCustomers.includes(customer.id)}
-                          onCheckedChange={() => toggleCustomer(customer.id)}
-                          onClick={(e) => e.stopPropagation()}
-                          data-testid={`checkbox-bulk-customer-${customer.id}`}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{customer.firstName} {customer.lastName}</p>
-                          <p className="text-sm text-muted-foreground truncate">{customer.email}</p>
-                        </div>
-                        {customer.country && (
-                          <Badge variant="outline" className="shrink-0">
-                            {customer.country}
-                          </Badge>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         <TabsContent value="report">
           <div className="space-y-6">
