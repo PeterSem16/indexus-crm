@@ -1288,6 +1288,7 @@ export function CreateInvoiceWizard({
       if (ss) payBySquareData += `*X-SS:${ss}`;
       
       // 2. EPC QR format (EU standard) - amount is added at PDF generation time
+      const epcReference = [vs, ks, ss].filter(Boolean).join("/");
       const epcLines = [
         "BCD",           // Service Tag
         "002",           // Version
@@ -1299,32 +1300,32 @@ export function CreateInvoiceWizard({
         "",              // Amount - empty in preview, added at PDF generation
         "",              // Purpose
         "",              // Remittance (structured)
-        vs || "",        // Remittance (unstructured) - use VS as reference
+        epcReference || "",  // Remittance (unstructured) - VS/KS/SS as reference
         ""               // Information
       ];
       const epcData = epcLines.join("\n");
       
       try {
-        // Generate both QR codes in parallel
-        const [payBySquareUrl, epcUrl] = await Promise.all([
-          QRCode.toDataURL(payBySquareData, { 
-            width: 200, 
-            margin: 2,
-            color: { dark: '#000000', light: '#ffffff' }
-          }),
-          QRCode.toDataURL(epcData, { 
-            width: 200, 
-            margin: 2,
-            color: { dark: '#000000', light: '#ffffff' }
-          })
-        ]);
-        
-        // Update both states together
+        const payBySquareUrl = await QRCode.toDataURL(payBySquareData, { 
+          width: 200, 
+          margin: 2,
+          color: { dark: '#000000', light: '#ffffff' }
+        });
         setQrCodeDataUrl(payBySquareUrl);
+      } catch (err) {
+        console.error("Pay by Square QR error:", err);
+        setQrCodeDataUrl("");
+      }
+
+      try {
+        const epcUrl = await QRCode.toDataURL(epcData, { 
+          width: 200, 
+          margin: 2,
+          color: { dark: '#000000', light: '#ffffff' }
+        });
         setEpcQrCodeDataUrl(epcUrl);
       } catch (err) {
-        console.error("QR code generation error:", err);
-        setQrCodeDataUrl("");
+        console.error("EPC QR error:", err);
         setEpcQrCodeDataUrl("");
       }
     };
