@@ -954,14 +954,14 @@ export function CreateInvoiceWizard({
       customerCompanyName: cust?.companyName,
       customerTaxId: cust?.ico,
       customerVatId: cust?.dic,
-      // Billing company snapshot
-      billingCompanyName: billing?.companyName,
-      billingAddress: billing?.address,
-      billingCity: billing?.city,
-      billingZip: billing?.postalCode,
-      billingCountry: billing?.countryCode,
-      billingTaxId: billing?.ico || billing?.taxId, // IČO
-      billingVatId: billing?.dic || billing?.vatNumber, // DIČ / IČ DPH
+      // Billing company snapshot - fall back to postal/residency address if main address is empty
+      billingCompanyName: billing?.companyName || billing?.postalName || billing?.residencyName,
+      billingAddress: billing?.address || billing?.postalStreet || billing?.residencyStreet,
+      billingCity: billing?.city || billing?.postalCity || billing?.residencyCity,
+      billingZip: billing?.postalCode || billing?.postalPostalCode || billing?.residencyPostalCode,
+      billingCountry: billing?.countryCode || billing?.postalCountry || billing?.residencyCountry,
+      billingTaxId: billing?.ico || billing?.taxId,
+      billingVatId: billing?.dic || billing?.vatNumber,
       billingEmail: billing?.email,
       billingPhone: billing?.phone,
       // Wizard tracking
@@ -1436,8 +1436,10 @@ export function CreateInvoiceWizard({
       if (ks) payBySquareData += `*X-KS:${ks}`;
       if (ss) payBySquareData += `*X-SS:${ss}`;
       
-      // 2. EPC QR format (EU standard) - amount is added at PDF generation time
-      const epcReference = [vs, ks, ss].filter(Boolean).join("/");
+      // 2. EPC QR format (EU standard) - include amount from items total
+      const totalAmount = items.reduce((sum, item) => sum + parseFloat(item.total || "0"), 0);
+      const epcAmount = totalAmount > 0 ? `EUR${totalAmount.toFixed(2)}` : "";
+      const epcRemittance = vs ? `Faktura VS:${vs}${ks ? ` KS:${ks}` : ""}${ss ? ` SS:${ss}` : ""}` : "";
       const epcLines = [
         "BCD",           // Service Tag
         "002",           // Version
@@ -1446,10 +1448,10 @@ export function CreateInvoiceWizard({
         swift || "",     // BIC
         recipientName.substring(0, 70),  // Recipient name (max 70)
         iban,            // IBAN
-        "",              // Amount - empty in preview, added at PDF generation
+        epcAmount,       // Amount in EUR format
         "",              // Purpose
         "",              // Remittance (structured)
-        epcReference || "",  // Remittance (unstructured) - VS/KS/SS as reference
+        epcRemittance.substring(0, 140),  // Remittance (unstructured) - VS/KS/SS as reference
         ""               // Information
       ];
       const epcData = epcLines.join("\n");
@@ -1480,7 +1482,7 @@ export function CreateInvoiceWizard({
     };
     
     generateQRCodes();
-  }, [barcodeType, variableSymbol, constantSymbol, specificSymbol, selectedBillingAccount, selectedBillingCompany, billingInfo, previewInvoiceNumber]);
+  }, [barcodeType, variableSymbol, constantSymbol, specificSymbol, selectedBillingAccount, selectedBillingCompany, billingInfo, previewInvoiceNumber, items]);
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>

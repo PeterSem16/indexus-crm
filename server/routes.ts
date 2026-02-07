@@ -5581,10 +5581,13 @@ export async function registerRoutes(
         pdfPath: null,
         paymentTermDays,
         dueDate,
-        billingCompanyName: billingInfo?.companyName || null,
-        billingAddress: billingInfo?.address || null,
-        billingCity: billingInfo?.city || null,
-        billingTaxId: billingInfo?.taxId || null,
+        billingCompanyName: billingInfo?.companyName || billingInfo?.postalName || billingInfo?.residencyName || null,
+        billingAddress: billingInfo?.address || billingInfo?.postalStreet || billingInfo?.residencyStreet || null,
+        billingCity: billingInfo?.city || billingInfo?.postalCity || billingInfo?.residencyCity || null,
+        billingZip: billingInfo?.postalCode || billingInfo?.postalPostalCode || billingInfo?.residencyPostalCode || null,
+        billingCountry: billingInfo?.countryCode || billingInfo?.postalCountry || billingInfo?.residencyCountry || null,
+        billingTaxId: billingInfo?.ico || billingInfo?.taxId || null,
+        billingVatId: billingInfo?.dic || billingInfo?.vatNumber || null,
         billingBankName: billingInfo?.bankName || null,
         billingBankIban: billingInfo?.bankIban || null,
         billingBankSwift: billingInfo?.bankSwift || null,
@@ -5625,8 +5628,11 @@ export async function registerRoutes(
         doc.fontSize(18).font("Helvetica-Bold").text(invoice.billingCompanyName, { align: "left" });
         doc.fontSize(9).font("Helvetica");
         if (invoice.billingAddress) doc.text(invoice.billingAddress);
-        if (invoice.billingCity) doc.text(invoice.billingCity);
-        if (invoice.billingTaxId) doc.text(`Tax ID: ${invoice.billingTaxId}`);
+        const cityLine = [invoice.billingZip, invoice.billingCity].filter(Boolean).join(" ");
+        if (cityLine) doc.text(cityLine);
+        if (invoice.billingCountry) doc.text(invoice.billingCountry);
+        if (invoice.billingTaxId) doc.text(`IČO: ${invoice.billingTaxId}`);
+        if (invoice.billingVatId) doc.text(`DIČ: ${invoice.billingVatId}`);
         doc.moveDown();
         if (invoice.billingBankName) doc.text(`Bank: ${invoice.billingBankName}`);
         if (invoice.billingBankIban) doc.text(`IBAN: ${invoice.billingBankIban}`);
@@ -5735,19 +5741,19 @@ export async function registerRoutes(
       const amount = parseFloat(invoice.totalAmount || "0").toFixed(2);
       const currency = invoice.currency || "EUR";
       const vs = invoice.variableSymbol || invoice.invoiceNumber || "";
+      const ks = invoice.constantSymbol || "";
+      const ss = invoice.specificSymbol || "";
       const beneficiary = invoice.billingCompanyName || "";
       const swift = invoice.billingBankSwift || "";
+      const accountNumber = invoice.billingBankAccountNumber || "";
 
       if (iban) {
-        const payBySquareData = [
-          `SPD*1.0`,
-          `ACC:${iban}`,
-          `AM:${amount}`,
-          `CC:${currency}`,
-          `X-VS:${vs}`,
-          `MSG:Faktura ${invoice.invoiceNumber || ""}`,
-          `RN:${beneficiary}`,
-        ].join("*");
+        let payBySquareData = `SPD*1.0*ACC:${iban}`;
+        if (swift) payBySquareData += `+${swift}`;
+        payBySquareData += `*AM:${amount}*CC:${currency}*X-VS:${vs}`;
+        if (ks) payBySquareData += `*X-KS:${ks}`;
+        if (ss) payBySquareData += `*X-SS:${ss}`;
+        payBySquareData += `*MSG:Faktura ${invoice.invoiceNumber || ""}*RN:${beneficiary}`;
 
         result.payBySquare = await QRCode.toBuffer(payBySquareData, {
           errorCorrectionLevel: "M",
@@ -5757,6 +5763,7 @@ export async function registerRoutes(
           color: { dark: "#000000", light: "#FFFFFF" },
         });
 
+        const epcReference = [vs, ks, ss].filter(Boolean).join("/");
         const epcLines = [
           "BCD",
           "002",
@@ -5765,10 +5772,10 @@ export async function registerRoutes(
           swift,
           beneficiary.substring(0, 70),
           iban,
-          `${currency}${amount}`,
+          `EUR${amount}`,
           "",
-          vs,
-          `Faktura ${invoice.invoiceNumber || ""}`,
+          "",
+          epcReference ? `Faktura ${invoice.invoiceNumber || ""} VS:${vs}${ks ? ` KS:${ks}` : ""}${ss ? ` SS:${ss}` : ""}` : `Faktura ${invoice.invoiceNumber || ""}`,
           "",
         ].join("\n");
 
@@ -5967,11 +5974,17 @@ export async function registerRoutes(
           companyName: invoice.billingCompanyName || "",
           address: invoice.billingAddress || "",
           city: invoice.billingCity || "",
+          postalCode: invoice.billingZip || "",
+          zip: invoice.billingZip || "",
+          country: invoice.billingCountry || "",
           taxId: invoice.billingTaxId || "",
           vatId: invoice.billingVatId || "",
           bankName: invoice.billingBankName || "",
           iban: invoice.billingBankIban || "",
           swift: invoice.billingBankSwift || "",
+          accountNumber: invoice.billingBankAccountNumber || "",
+          email: invoice.billingEmail || "",
+          phone: invoice.billingPhone || "",
         },
         items: invoiceItems.map((item, index) => ({
           index: index + 1,
@@ -6201,13 +6214,16 @@ export async function registerRoutes(
       
       let yPos = template?.logoPath ? 70 : doc.y;
       if (invoice.billingAddress) doc.text(invoice.billingAddress, { continued: false });
-      if (invoice.billingCity) doc.text(invoice.billingCity);
+      const cityLineDOCX = [invoice.billingZip, invoice.billingCity].filter(Boolean).join(" ");
+      if (cityLineDOCX) doc.text(cityLineDOCX);
+      if (invoice.billingCountry) doc.text(invoice.billingCountry);
       if (invoice.billingTaxId) doc.text(`IČO: ${invoice.billingTaxId}`);
       if (invoice.billingVatId) doc.text(`IČ DPH: ${invoice.billingVatId}`);
       doc.moveDown();
       if (invoice.billingBankName) doc.text(`Banka: ${invoice.billingBankName}`);
       if (invoice.billingBankIban) doc.text(`IBAN: ${invoice.billingBankIban}`);
       if (invoice.billingBankSwift) doc.text(`SWIFT: ${invoice.billingBankSwift}`);
+      if (invoice.billingBankAccountNumber) doc.text(`Účet: ${invoice.billingBankAccountNumber}`);
       doc.moveDown(2);
 
       // Invoice title
@@ -6568,10 +6584,13 @@ export async function registerRoutes(
             pdfPath: null,
             paymentTermDays,
             dueDate,
-            billingCompanyName: billingInfo?.companyName || null,
-            billingAddress: billingInfo?.address || null,
-            billingCity: billingInfo?.city || null,
-            billingTaxId: billingInfo?.taxId || null,
+            billingCompanyName: billingInfo?.companyName || billingInfo?.postalName || billingInfo?.residencyName || null,
+            billingAddress: billingInfo?.address || billingInfo?.postalStreet || billingInfo?.residencyStreet || null,
+            billingCity: billingInfo?.city || billingInfo?.postalCity || billingInfo?.residencyCity || null,
+            billingZip: billingInfo?.postalCode || billingInfo?.postalPostalCode || billingInfo?.residencyPostalCode || null,
+            billingCountry: billingInfo?.countryCode || billingInfo?.postalCountry || billingInfo?.residencyCountry || null,
+            billingTaxId: billingInfo?.ico || billingInfo?.taxId || null,
+            billingVatId: billingInfo?.dic || billingInfo?.vatNumber || null,
             billingBankName: billingInfo?.bankName || null,
             billingBankIban: billingInfo?.bankIban || null,
             billingBankSwift: billingInfo?.bankSwift || null,
@@ -7036,10 +7055,13 @@ export async function registerRoutes(
         pdfPath: null,
         paymentTermDays,
         dueDate,
-        billingCompanyName: billingInfo?.companyName || null,
-        billingAddress: billingInfo?.address || null,
-        billingCity: billingInfo?.city || null,
-        billingTaxId: billingInfo?.taxId || null,
+        billingCompanyName: billingInfo?.companyName || billingInfo?.postalName || billingInfo?.residencyName || null,
+        billingAddress: billingInfo?.address || billingInfo?.postalStreet || billingInfo?.residencyStreet || null,
+        billingCity: billingInfo?.city || billingInfo?.postalCity || billingInfo?.residencyCity || null,
+        billingZip: billingInfo?.postalCode || billingInfo?.postalPostalCode || billingInfo?.residencyPostalCode || null,
+        billingCountry: billingInfo?.countryCode || billingInfo?.postalCountry || billingInfo?.residencyCountry || null,
+        billingTaxId: billingInfo?.ico || billingInfo?.taxId || null,
+        billingVatId: billingInfo?.dic || billingInfo?.vatNumber || null,
         billingBankName: billingInfo?.bankName || null,
         billingBankIban: billingInfo?.bankIban || null,
         billingBankSwift: billingInfo?.bankSwift || null,
