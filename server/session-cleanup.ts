@@ -1,6 +1,6 @@
 import { storage } from "./storage";
 
-const SESSION_TIMEOUT_MINUTES = 3;
+const SESSION_TIMEOUT_MINUTES = 60;
 const CLEANUP_INTERVAL_MS = 60 * 1000;
 
 export function startSessionCleanup() {
