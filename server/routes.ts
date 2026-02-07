@@ -32,7 +32,7 @@ import {
 import Handlebars from "handlebars";
 import { z } from "zod";
 import session from "express-session";
-import MemoryStore from "memorystore";
+import pgSession from "connect-pg-simple";
 import PDFDocument from "pdfkit";
 import path from "path";
 import fs from "fs";
@@ -894,7 +894,7 @@ declare module "express-session" {
   }
 }
 
-const MemoryStoreSession = MemoryStore(session);
+const PgStore = pgSession(session);
 
 // Helper function to log user activities
 async function logActivity(
@@ -1087,8 +1087,10 @@ export async function registerRoutes(
       secret: process.env.SESSION_SECRET || "nexus-biolink-secret-key",
       resave: false,
       saveUninitialized: false,
-      store: new MemoryStoreSession({
-        checkPeriod: 86400000, // prune expired entries every 24h
+      store: new PgStore({
+        conString: process.env.DATABASE_URL,
+        tableName: "session",
+        pruneSessionInterval: 60 * 15, // prune expired sessions every 15 min
       }),
       cookie: {
         secure: process.env.NODE_ENV === "production",

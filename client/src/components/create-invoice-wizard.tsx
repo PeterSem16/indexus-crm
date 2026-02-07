@@ -932,17 +932,40 @@ export function CreateInvoiceWizard({
 
   const handleSubmit = async () => {
     if (isSubmitting) {
+      console.log("[InvoiceWizard] Blocked: already submitting");
       return;
     }
     setIsSubmitting(true);
+    console.log("[InvoiceWizard] === SUBMIT START ===");
     
     const submitTimeout = setTimeout(() => {
+      console.log("[InvoiceWizard] Safety timeout reached - resetting isSubmitting");
       setIsSubmitting(false);
     }, 30000);
     
     try {
+    {
+      let authOk = false;
+      try {
+        const authCheck = await fetch("/api/auth/me", { credentials: "include" });
+        console.log("[InvoiceWizard] Auth check status:", authCheck.status);
+        authOk = authCheck.ok;
+      } catch (authError) {
+        console.error("[InvoiceWizard] Auth check network error:", authError);
+      }
+      if (!authOk) {
+        toast({
+          title: t.common?.error || "Error",
+          description: t.common?.sessionExpired || "Session expired. Please refresh the page and log in again.",
+          variant: "destructive",
+        });
+        window.location.href = "/login";
+        return;
+      }
+    }
+
     const values = form.getValues();
-    console.log("[InvoiceWizard] Form values:", values);
+    console.log("[InvoiceWizard] Form values - customerId:", values.customerId, "numberRangeId:", values.numberRangeId, "items:", items.length);
     const installmentItems = items.filter(item => item.paymentType === 'installment');
     const oneTimeItems = items.filter(item => item.paymentType !== 'installment');
     const hasInstallments = installmentItems.length > 0;
@@ -1017,7 +1040,10 @@ export function CreateInvoiceWizard({
 
       // STEP 1: Create the first invoice immediately
       const firstInstallmentItems = buildInstallmentItems(1, true);
-      console.log("[InvoiceWizard] firstInstallmentItems:", firstInstallmentItems);
+      console.log("[InvoiceWizard] firstInstallmentItems count:", firstInstallmentItems.length, "items:", JSON.stringify(firstInstallmentItems));
+      if (firstInstallmentItems.length === 0) {
+        console.error("[InvoiceWizard] BUG: firstInstallmentItems is empty! installmentItems:", installmentItems.length, "oneTimeItems:", oneTimeItems.length);
+      }
       if (firstInstallmentItems.length > 0) {
         const { invoiceTotal, invoiceVatAmount, invoiceSubtotal } = calculateItemsTotals(firstInstallmentItems);
         console.log("[InvoiceWizard] Totals:", { invoiceTotal, invoiceVatAmount, invoiceSubtotal });
@@ -1170,9 +1196,12 @@ export function CreateInvoiceWizard({
         await queryClient.invalidateQueries({ queryKey: ["/api/scheduled-invoices"] });
         handleClose();
       } else {
+        console.error("[InvoiceWizard] firstInvoiceCreated is false - no invoice was created. Items:", items.length, "firstInstallmentItems:", firstInstallmentItems.length);
         toast({
           title: t.common?.error || "Error",
-          description: t.invoices?.createFailed || "Failed to create invoices",
+          description: firstInstallmentItems.length === 0 
+            ? (t.invoices?.noItems || "No items to invoice. Please add items first.")
+            : (t.invoices?.createFailed || "Failed to create invoices"),
           variant: "destructive",
         });
       }
