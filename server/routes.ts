@@ -1099,6 +1099,13 @@ export async function registerRoutes(
     })
   );
 
+  app.use((req, res, next) => {
+    if (req.method === "POST" || req.method === "PUT" || req.method === "PATCH" || req.method === "DELETE") {
+      console.log(`[REQUEST] ${req.method} ${req.url} | session: ${req.session?.user ? req.session.user.id : 'none'} | body-keys: ${req.body ? Object.keys(req.body).join(',') : 'empty'}`);
+    }
+    next();
+  });
+
   // Serve uploaded files statically from DATA_ROOT
   // On Ubuntu: /data -> /var/www/indexus-crm/data
   // On Replit: /uploads -> ./uploads

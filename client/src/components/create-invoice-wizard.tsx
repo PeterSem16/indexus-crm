@@ -1249,9 +1249,29 @@ export function CreateInvoiceWizard({
 
       console.log("[InvoiceWizard] Submitting single invoice data:", JSON.stringify(invoiceData).substring(0, 500));
       try {
-        await createInvoiceMutation.mutateAsync(invoiceData);
+        const response = await apiRequest("POST", "/api/invoices", invoiceData);
+        const createdInvoice = await response.json();
+        console.log("[InvoiceWizard] Single invoice created:", createdInvoice);
+        toast({
+          title: t.common?.success || "Success",
+          description: t.invoices?.createSuccess || "Invoice created successfully",
+        });
+        await queryClient.invalidateQueries({ 
+          predicate: (query) => {
+            const key = query.queryKey;
+            return Array.isArray(key) && typeof key[0] === 'string' && key[0].startsWith('/api/invoices');
+          },
+          refetchType: 'all'
+        });
+        onSuccess?.(createdInvoice.id);
+        handleClose();
       } catch (error: any) {
         console.error("[InvoiceWizard] Single invoice creation failed:", error);
+        toast({
+          title: t.common?.error || "Error",
+          description: error?.message || "Failed to create invoice",
+          variant: "destructive",
+        });
       }
     }
     } catch (outerError: any) {
@@ -2890,10 +2910,10 @@ export function CreateInvoiceWizard({
                 <Button
                   type="button"
                   onClick={handleSubmit}
-                  disabled={createInvoiceMutation.isPending || isSubmitting || !canProceed()}
+                  disabled={isSubmitting || !canProceed()}
                   data-testid="btn-create-invoice"
                 >
-                  {(createInvoiceMutation.isPending || isSubmitting) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   {t.invoices?.createInvoice || "Create Invoice"}
                 </Button>
               )}
