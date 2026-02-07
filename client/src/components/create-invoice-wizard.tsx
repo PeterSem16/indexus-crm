@@ -828,14 +828,14 @@ export function CreateInvoiceWizard({
           const discountInfo = parseFloat(col.lineDiscountAmount || "0") > 0 
             ? ` (-${col.discountPercent}% ${col.discountName || ""})` 
             : "";
-          const paymentInfo = col.paymentType === "installment" ? " [Splátka]" : "";
+          const paymentInfo = col.paymentType === "installment" ? ` [${t.invoices?.installment || "Installment"}]` : "";
           const qty = col.quantity || 1;
           
           console.log(`[Invoice v2.8] Collection ${col.instanceName}: vatRate=${vatRateValue}, total=${itemTotal}, hasVat=${hasVat}, paymentType=${col.paymentType}`);
           
           newItems.push({
             id: crypto.randomUUID(),
-            name: `${col.instanceName || "Odber"}${paymentInfo}${discountInfo}`,
+            name: `${col.instanceName || t.collections?.collection || "Collection"}${paymentInfo}${discountInfo}`,
             quantity: qty,
             unitPrice: (parseFloat(itemTotal) / qty).toFixed(2),
             vatRate: vatRateValue,
@@ -862,14 +862,14 @@ export function CreateInvoiceWizard({
           const discountInfo = parseFloat(stor.lineDiscountAmount || "0") > 0 
             ? ` (-${stor.discountPercent}% ${stor.discountName || ""})` 
             : "";
-          const paymentInfo = stor.paymentType === "installment" ? " [Splátka]" : "";
+          const paymentInfo = stor.paymentType === "installment" ? ` [${t.invoices?.installment || "Installment"}]` : "";
           const qty = stor.quantity || 1;
           
           console.log(`[Invoice v2.8] Storage ${stor.serviceName}: vatRate=${vatRateValue}, total=${itemTotal}, hasVat=${hasVat}, paymentType=${stor.paymentType}`);
           
           newItems.push({
             id: crypto.randomUUID(),
-            name: `${stor.serviceName || stor.storageName || "Uskladnenie"}${paymentInfo}${discountInfo}`,
+            name: `${stor.serviceName || stor.storageName || t.collections?.storage || "Storage"}${paymentInfo}${discountInfo}`,
             quantity: qty,
             unitPrice: (parseFloat(itemTotal) / qty).toFixed(2),
             vatRate: vatRateValue,

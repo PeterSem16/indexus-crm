@@ -5817,7 +5817,7 @@ export async function registerRoutes(
 
       if (!docxTemplate) {
         return res.status(400).json({ 
-          error: `Nenašla sa DOCX šablóna pre krajinu ${countryCode}. Vytvorte prosím šablónu v Konfigurátore (DOCX Šablóny).`,
+          error: `DOCX template not found for country ${countryCode}. Please create a template in the Configurator (DOCX Templates).`,
           errorCode: "TEMPLATE_NOT_FOUND",
           countryCode 
         });

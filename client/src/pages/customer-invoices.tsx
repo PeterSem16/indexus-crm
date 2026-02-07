@@ -41,6 +41,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
 import { useI18n } from "@/i18n";
 import { useCountryFilter } from "@/contexts/country-filter-context";
 
@@ -217,6 +218,9 @@ export default function CustomerInvoicesPage() {
   const [pdfInvoiceId, setPdfInvoiceId] = useState<string | null>(null);
   const [pdfInvoiceType, setPdfInvoiceType] = useState<"invoice" | "scheduled">("invoice");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [pdfProgress, setPdfProgress] = useState(0);
+  const [pdfProgressMessage, setPdfProgressMessage] = useState("");
   const perPage = 15;
   const [scheduledStatusFilter, setScheduledStatusFilter] = useState<string>("pending");
   const [scheduledDateFilter, setScheduledDateFilter] = useState<string>("all");
@@ -1684,20 +1688,32 @@ export default function CustomerInvoicesPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={pdfDialogOpen} onOpenChange={setPdfDialogOpen}>
+      <Dialog open={pdfDialogOpen} onOpenChange={(open) => { if (!isGeneratingPdf) setPdfDialogOpen(open); }}>
         <DialogContent className="sm:max-w-md" data-testid="dialog-pdf-template">
           <DialogHeader>
-            <DialogTitle>{t.invoices?.selectTemplate || "Výber DOCX šablóny"}</DialogTitle>
+            <DialogTitle>{t.invoices?.selectDocxTemplate || "Select DOCX Template"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4 relative">
+            {isGeneratingPdf && (
+              <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-lg">
+                <div className="flex flex-col items-center gap-4 p-6 max-w-xs w-full">
+                  <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                  <div className="w-full space-y-2">
+                    <Progress value={pdfProgress} className="h-3" />
+                    <p className="text-sm text-center text-muted-foreground">{pdfProgressMessage}</p>
+                    <p className="text-xs text-center text-muted-foreground/60">{pdfProgress}%</p>
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="space-y-2">
-              <Label>{t.invoices?.template || "DOCX šablóna"}</Label>
-              <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+              <Label>{t.invoices?.docxTemplate || "DOCX Template"}</Label>
+              <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId} disabled={isGeneratingPdf}>
                 <SelectTrigger data-testid="select-template">
-                  <SelectValue placeholder="Vyberte DOCX šablónu" />
+                  <SelectValue placeholder={t.invoices?.selectDocxTemplatePlaceholder || "Select a DOCX template"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="default">{t.invoices?.defaultTemplate || "Predvolená šablóna"}</SelectItem>
+                  <SelectItem value="default">{t.invoices?.defaultTemplate || "Default template"}</SelectItem>
                   {docxTemplates.map((tpl) => (
                     <SelectItem key={tpl.id} value={tpl.id}>
                       {tpl.name}
@@ -1712,12 +1728,39 @@ export default function CustomerInvoicesPage() {
             </div>
           </div>
           <DialogFooter className="flex-wrap gap-2">
-            <Button variant="outline" onClick={() => setPdfDialogOpen(false)} data-testid="btn-cancel-pdf">
-              {t.common?.cancel || "Zrušiť"}
+            <Button variant="outline" onClick={() => setPdfDialogOpen(false)} disabled={isGeneratingPdf} data-testid="btn-cancel-pdf">
+              {t.common?.cancel || "Cancel"}
             </Button>
             <Button
+              disabled={isGeneratingPdf}
               onClick={async () => {
                 if (pdfInvoiceId) {
+                  setIsGeneratingPdf(true);
+                  setPdfProgress(10);
+                  setPdfProgressMessage(t.invoices?.preparingInvoice || "Preparing invoice data...");
+                  
+                  const timers: ReturnType<typeof setTimeout>[] = [];
+                  const clearAllTimers = () => timers.forEach(clearTimeout);
+                  const resetPdfState = () => {
+                    clearAllTimers();
+                    setIsGeneratingPdf(false);
+                    setPdfProgress(0);
+                    setPdfProgressMessage("");
+                  };
+                  
+                  const progressSteps = [
+                    { at: 1000, value: 25, msg: t.invoices?.pdfGenerating || "Generating PDF document..." },
+                    { at: 3000, value: 50, msg: t.invoices?.pdfGenerating || "Generating PDF document..." },
+                    { at: 5000, value: 65, msg: t.invoices?.pdfGenerating || "Generating PDF document..." },
+                    { at: 8000, value: 80, msg: t.invoices?.pdfGenerating || "Generating PDF document..." },
+                  ];
+                  progressSteps.forEach(step => {
+                    timers.push(setTimeout(() => {
+                      setPdfProgress(step.value);
+                      setPdfProgressMessage(step.msg);
+                    }, step.at));
+                  });
+                  
                   const params = new URLSearchParams();
                   if (selectedTemplateId && selectedTemplateId !== "default") {
                     params.set("templateId", selectedTemplateId);
@@ -1729,32 +1772,51 @@ export default function CustomerInvoicesPage() {
                   
                   try {
                     const response = await fetch(url, { credentials: "include" });
+                    clearAllTimers();
                     if (!response.ok) {
-                      const errorData = await response.json();
+                      let errorMsg = t.invoices?.pdfFailed || "Failed to generate PDF";
+                      try {
+                        const errorData = await response.json();
+                        if (errorData.errorCode === "TEMPLATE_NOT_FOUND") {
+                          errorMsg = t.invoices?.templateNotFound || errorData.error || errorMsg;
+                        } else if (errorData.error) {
+                          errorMsg = errorData.error;
+                        }
+                      } catch { /* use default */ }
                       toast({
-                        title: t.common?.error || "Chyba",
-                        description: errorData.error || "Nepodarilo sa vygenerovať PDF",
+                        title: t.common?.error || "Error",
+                        description: errorMsg,
                         variant: "destructive"
                       });
+                      resetPdfState();
                       return;
                     }
+                    setPdfProgress(90);
+                    setPdfProgressMessage(t.invoices?.finalizingInvoice || "Finalizing...");
                     const blob = await response.blob();
                     const blobUrl = URL.createObjectURL(blob);
-                    window.open(blobUrl, "_blank");
-                    setPdfDialogOpen(false);
+                    setPdfProgress(100);
+                    setPdfProgressMessage(t.invoices?.pdfReady || "PDF is ready");
+                    setTimeout(() => {
+                      window.open(blobUrl, "_blank");
+                      setPdfDialogOpen(false);
+                      resetPdfState();
+                    }, 500);
                   } catch (error) {
+                    clearAllTimers();
                     toast({
-                      title: t.common?.error || "Chyba",
-                      description: "Nepodarilo sa vygenerovať PDF",
+                      title: t.common?.error || "Error",
+                      description: t.invoices?.pdfFailed || "Failed to generate PDF",
                       variant: "destructive"
                     });
+                    resetPdfState();
                   }
                 }
               }}
               data-testid="btn-generate-pdf"
             >
-              <FileDown className="h-4 w-4 mr-2" />
-              {t.invoices?.generatePdf || "Generovať PDF"}
+              {isGeneratingPdf ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileDown className="h-4 w-4 mr-2" />}
+              {t.invoices?.generatePdf || "Generate PDF"}
             </Button>
           </DialogFooter>
         </DialogContent>
