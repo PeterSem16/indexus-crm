@@ -1272,24 +1272,22 @@ export function CreateInvoiceWizard({
       const vs = variableSymbol || previewInvoiceNumber || "";
       const ks = constantSymbol || "";
       const ss = specificSymbol || "";
-      const amount = totals.total;
       // Use selected billing account IBAN, fallback to billing company bankIban
       const iban = selectedBillingAccount?.iban || selectedBillingCompany?.bankIban || billingInfo?.bankIban || "";
       const swift = selectedBillingAccount?.swift || selectedBillingCompany?.bankSwift || "";
       const currency = selectedBillingAccount?.currency || selectedBillingCompany?.currency || "EUR";
       const recipientName = selectedBillingCompany?.companyName || billingInfo?.companyName || "";
       
-      // 1. PAY by Square format (SK/CZ): SPD*1.0*ACC:IBAN+SWIFT*AM:AMOUNT*CC:CURRENCY*X-VS:VS*X-KS:KS*X-SS:SS
+      // 1. PAY by Square format (SK/CZ) - amount is added at PDF generation time
       let payBySquareData = `SPD*1.0*ACC:${iban}`;
       if (swift) {
         payBySquareData += `+${swift}`;
       }
-      payBySquareData += `*AM:${amount.toFixed(2)}*CC:${currency}*X-VS:${vs}`;
+      payBySquareData += `*CC:${currency}*X-VS:${vs}`;
       if (ks) payBySquareData += `*X-KS:${ks}`;
       if (ss) payBySquareData += `*X-SS:${ss}`;
       
-      // 2. EPC QR format (EU standard):
-      // BCD\n002\n1\nSCT\nBIC\nName\nIBAN\nEUR123.45\n\n\nReference\n
+      // 2. EPC QR format (EU standard) - amount is added at PDF generation time
       const epcLines = [
         "BCD",           // Service Tag
         "002",           // Version
@@ -1298,7 +1296,7 @@ export function CreateInvoiceWizard({
         swift || "",     // BIC
         recipientName.substring(0, 70),  // Recipient name (max 70)
         iban,            // IBAN
-        `${currency}${amount.toFixed(2)}`,  // Amount
+        "",              // Amount - empty in preview, added at PDF generation
         "",              // Purpose
         "",              // Remittance (structured)
         vs || "",        // Remittance (unstructured) - use VS as reference
@@ -1332,7 +1330,7 @@ export function CreateInvoiceWizard({
     };
     
     generateQRCodes();
-  }, [barcodeType, variableSymbol, constantSymbol, specificSymbol, totals.total, selectedBillingAccount, selectedBillingCompany, billingInfo, previewInvoiceNumber]);
+  }, [barcodeType, variableSymbol, constantSymbol, specificSymbol, selectedBillingAccount, selectedBillingCompany, billingInfo, previewInvoiceNumber]);
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
@@ -2054,14 +2052,7 @@ export function CreateInvoiceWizard({
                               <FormItem>
                                 <FormLabel>{t.invoices?.variableSymbol || "Variable Symbol"}</FormLabel>
                                 <FormControl>
-                                  <div className="relative">
-                                    <Input {...field} readOnly className="bg-muted font-mono text-lg pr-40" data-testid="input-variable-symbol" />
-                                    {previewInvoiceNumber && (
-                                      <Badge variant="secondary" className="absolute right-2 top-1/2 -translate-y-1/2 text-xs">
-                                        {t.invoices?.invoice || "Invoice"} #{previewInvoiceNumber}
-                                      </Badge>
-                                    )}
-                                  </div>
+                                  <Input {...field} readOnly className="bg-muted font-mono text-lg" data-testid="input-variable-symbol" />
                                 </FormControl>
                                 <p className="text-xs text-muted-foreground">{t.invoices?.variableSymbolNote || "Auto-filled from invoice number"}</p>
                               </FormItem>
@@ -2202,7 +2193,7 @@ export function CreateInvoiceWizard({
                               </div>
                               <div className="flex justify-between p-2 rounded bg-muted/50">
                                 <span className="text-muted-foreground">{t.invoices?.amount || "Amount"}:</span>
-                                <span className="font-mono font-semibold">{formatCurrency(totals.total)}</span>
+                                <span className="font-mono text-muted-foreground italic text-[10px]">{t.invoices?.addedAtGeneration || "Added at PDF generation"}</span>
                               </div>
                             </div>
                           </div>
