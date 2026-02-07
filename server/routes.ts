@@ -4988,6 +4988,11 @@ export async function registerRoutes(
     try {
       const { items, ...rawData } = req.body;
       console.log("[InvoiceCreate] Raw data keys:", Object.keys(rawData));
+      console.log("[InvoiceCreate] customerId:", rawData.customerId, "totalAmount:", rawData.totalAmount, "invoiceNumber:", rawData.invoiceNumber);
+      
+      if (!rawData.customerId) {
+        return res.status(400).json({ error: "Customer ID is required" });
+      }
       
       // Generate invoice number if not provided
       let invoiceNumber = rawData.invoiceNumber;
@@ -4997,6 +5002,23 @@ export async function registerRoutes(
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
         invoiceNumber = `INV-${year}${month}-${random}`;
+      }
+      
+      // Check for duplicate invoice number before insert
+      const existing = await db.select({ id: invoices.id }).from(invoices).where(eq(invoices.invoiceNumber, invoiceNumber)).limit(1);
+      if (existing.length > 0) {
+        console.log("[InvoiceCreate] Duplicate invoice number detected:", invoiceNumber, "- generating new one");
+        const date = new Date();
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+        const suffix = Math.floor(Math.random() * 100).toString().padStart(2, '0');
+        invoiceNumber = `${invoiceNumber}-${suffix}`;
+        
+        const existing2 = await db.select({ id: invoices.id }).from(invoices).where(eq(invoices.invoiceNumber, invoiceNumber)).limit(1);
+        if (existing2.length > 0) {
+          invoiceNumber = `INV-${year}${month}-${random}`;
+        }
       }
       
       // Build clean invoice data with explicit field mapping
@@ -5118,8 +5140,16 @@ export async function registerRoutes(
       res.status(201).json(invoice);
     } catch (error: any) {
       console.error("[InvoiceCreate] Error:", error.message);
+      console.error("[InvoiceCreate] Full error:", JSON.stringify(error, null, 2));
       console.error("[InvoiceCreate] Stack:", error.stack);
-      res.status(500).json({ error: "Failed to create invoice", details: error.message });
+      
+      if (error.message?.includes('unique') || error.message?.includes('duplicate') || error.code === '23505') {
+        res.status(409).json({ error: "Invoice number already exists. Please try again.", details: error.message });
+      } else if (error.message?.includes('not-null') || error.message?.includes('null value') || error.code === '23502') {
+        res.status(400).json({ error: "Missing required field", details: error.message });
+      } else {
+        res.status(500).json({ error: "Failed to create invoice", details: error.message });
+      }
     }
   });
 

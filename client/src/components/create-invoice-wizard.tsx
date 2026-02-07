@@ -655,10 +655,19 @@ export function CreateInvoiceWizard({
       onSuccess?.(data.id);
       handleClose();
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error("[CreateInvoice] Mutation error:", error);
+      const errorMsg = error?.message || "";
+      const serverDetails = errorMsg.includes(":") ? errorMsg.split(": ").slice(1).join(": ") : errorMsg;
+      let parsedError = t.invoices?.createFailed || "Failed to create invoice";
+      try {
+        const parsed = JSON.parse(serverDetails);
+        if (parsed?.error) parsedError = parsed.error;
+        if (parsed?.details) parsedError += ` (${parsed.details})`;
+      } catch { /* use default */ }
       toast({
         title: t.common?.error || "Error",
-        description: t.invoices?.createFailed || "Failed to create invoice",
+        description: parsedError,
         variant: "destructive",
       });
     },
