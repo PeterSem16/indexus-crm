@@ -7193,9 +7193,9 @@ export async function registerRoutes(
           if (scheduled.numberRangeId) {
             const [range] = await db.select().from(numberRanges).where(eq(numberRanges.id, scheduled.numberRangeId));
             if (range) {
-              const nextNum = (range.currentNumber || 0) + 1;
-              invoiceNumber = `${range.prefix || ""}${String(nextNum).padStart(range.padding || 6, "0")}${range.suffix || ""}`;
-              await db.update(numberRanges).set({ currentNumber: nextNum }).where(eq(numberRanges.id, range.id));
+              const nextNum = (range.lastNumberUsed || 0) + 1;
+              invoiceNumber = `${range.prefix || ""}${String(nextNum).padStart(range.digitsToGenerate || 6, "0")}${range.suffix || ""}`;
+              await db.update(numberRanges).set({ lastNumberUsed: nextNum }).where(eq(numberRanges.id, range.id));
             }
           }
           if (!invoiceNumber) {
@@ -7386,9 +7386,9 @@ export async function registerRoutes(
       if (scheduled.numberRangeId) {
         const [range] = await db.select().from(numberRanges).where(eq(numberRanges.id, scheduled.numberRangeId));
         if (range) {
-          const nextNum = (range.currentNumber || 0) + 1;
-          invoiceNumber = `${range.prefix || ""}${String(nextNum).padStart(range.padding || 6, "0")}${range.suffix || ""}`;
-          await db.update(numberRanges).set({ currentNumber: nextNum }).where(eq(numberRanges.id, range.id));
+          const nextNum = (range.lastNumberUsed || 0) + 1;
+          invoiceNumber = `${range.prefix || ""}${String(nextNum).padStart(range.digitsToGenerate || 6, "0")}${range.suffix || ""}`;
+          await db.update(numberRanges).set({ lastNumberUsed: nextNum }).where(eq(numberRanges.id, range.id));
         }
       }
       if (!invoiceNumber) {
