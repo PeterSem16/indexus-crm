@@ -657,14 +657,16 @@ export function CreateInvoiceWizard({
     },
     onError: (error: any) => {
       console.error("[CreateInvoice] Mutation error:", error);
-      const errorMsg = error?.message || "";
-      const serverDetails = errorMsg.includes(":") ? errorMsg.split(": ").slice(1).join(": ") : errorMsg;
-      let parsedError = t.invoices?.createFailed || "Failed to create invoice";
+      let parsedError = error?.message || "Failed to create invoice";
       try {
-        const parsed = JSON.parse(serverDetails);
-        if (parsed?.error) parsedError = parsed.error;
-        if (parsed?.details) parsedError += ` (${parsed.details})`;
-      } catch { /* use default */ }
+        const parts = parsedError.split(": ");
+        if (parts.length > 1) {
+          const jsonPart = parts.slice(1).join(": ");
+          const parsed = JSON.parse(jsonPart);
+          if (parsed?.error) parsedError = parsed.error;
+          if (parsed?.details) parsedError += ` - ${parsed.details}`;
+        }
+      } catch { /* use raw message */ }
       toast({
         title: t.common?.error || "Error",
         description: parsedError,
@@ -929,12 +931,14 @@ export function CreateInvoiceWizard({
   };
 
   const handleSubmit = async () => {
-    console.log("[InvoiceWizard] handleSubmit called, isSubmitting:", isSubmitting);
     if (isSubmitting) {
-      console.log("[InvoiceWizard] Already submitting, ignoring duplicate call");
       return;
     }
     setIsSubmitting(true);
+    
+    const submitTimeout = setTimeout(() => {
+      setIsSubmitting(false);
+    }, 30000);
     
     try {
     const values = form.getValues();
@@ -1250,7 +1254,15 @@ export function CreateInvoiceWizard({
         console.error("[InvoiceWizard] Single invoice creation failed:", error);
       }
     }
+    } catch (outerError: any) {
+      console.error("[InvoiceWizard] Unexpected error in handleSubmit:", outerError);
+      toast({
+        title: "Error",
+        description: outerError?.message || "An unexpected error occurred",
+        variant: "destructive",
+      });
     } finally {
+      clearTimeout(submitTimeout);
       setIsSubmitting(false);
     }
   };

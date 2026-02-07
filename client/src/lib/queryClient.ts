@@ -3,6 +3,9 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
+    if (res.status === 401) {
+      throw new Error(`Session expired. Please refresh the page and log in again.`);
+    }
     throw new Error(`${res.status}: ${text}`);
   }
 }
