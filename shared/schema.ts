@@ -190,6 +190,13 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
+// Express session store table (connect-pg-simple) - must be in schema to prevent drizzle-kit from dropping it
+export const session = pgTable("session", {
+  sid: varchar("sid").primaryKey(),
+  sess: jsonb("sess").notNull(),
+  expire: timestamp("expire", { precision: 6 }).notNull(),
+});
+
 // User login sessions for tracking access and preventing duplicate logins
 export const userSessions = pgTable("user_sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
