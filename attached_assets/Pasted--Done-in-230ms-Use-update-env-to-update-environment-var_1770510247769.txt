@@ -1,0 +1,148 @@
+ Done in 230ms
+Use --update-env to update environment variables
+[PM2] Applying action restartProcessId on app [indexus-crm](ids: [ 0 ])
+[PM2] [indexus-crm](0) ✓
+┌────┬────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name           │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ indexus-crm    │ default     │ 1.0.0   │ fork    │ 395159   │ 0s     │ 148  │ online    │ 0%       │ 17.8mb   │ seman    │ disabled │
+└────┴────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+┌────┬────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name           │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ indexus-crm    │ default     │ 1.0.0   │ fork    │ 395159   │ 0s     │ 148  │ online    │ 0%       │ 65.9mb   │ seman    │ disabled │
+└────┴────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+[TAILING] Tailing last 50 lines for [indexus-crm] process (change the value with --lines option)
+/home/seman/.pm2/logs/indexus-crm-error-0.log last 50 lines:
+0|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus- |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus- | error: relation "session" does not exist
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus- |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus- | error: relation "session" does not exist
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus- |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus- | error: relation "session" does not exist
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus- |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus- | error: relation "session" does not exist
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus- |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus- | error: relation "session" does not exist
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus- |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus- | error: relation "session" does not exist
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus- |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus- | error: relation "session" does not exist
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus- |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus- | error: relation "session" does not exist
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus- |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus- | error: relation "session" does not exist
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus- |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus- | error: relation "session" does not exist
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus- |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus- | error: relation "session" does not exist
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus- |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus- | error: relation "session" does not exist
+0|indexus- |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus- |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus- |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+
+/home/seman/.pm2/logs/indexus-crm-out-0.log last 50 lines:
+0|indexus- | 12:17:32 AM [express] GET /api/sip-settings 401 in 1ms :: {"error":"Unauthorized"}
+0|indexus- | 12:17:32 AM [express] GET /api/auth/me 401 in 0ms :: {"user":null}
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user 95c58392-d61e-41e2-b5d3-ed1f9d93147d
+0|indexus- | [REQUEST] POST / | session: none | body-keys:
+0|indexus- | [REQUEST] POST /api/auth/check-auth-method | session: none | body-keys: username
+0|indexus- | [Auth] Checking auth method for user: admin -> ms365
+0|indexus- | 12:18:00 AM [express] POST /api/auth/check-auth-method 200 in 11ms :: {"authMethod":"ms365","userId":"67467ce3-7a44-4f67-a3d3-6a251e2991e5","fullName":"System Administrator"}
+0|indexus- | [REQUEST] POST /api/auth/login-ms365 | session: none | body-keys: username
+0|indexus- | [MS365 Login] Generated state with userId: login:67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus- | 12:18:02 AM [express] POST /api/auth/login-ms365 200 in 2ms :: {"authUrl":"https://login.microsoftonline.com/c1cdb9f9-f730-4b88-b2b2-2e152f040066/oauth2/v2.0/authorize?client_id=c053e40b-ba68-4ddb-9558-07efc730be9e&response_type=code&redirect_uri=https%3A%2F%2Findexus.cordbloodcenter.com%2Fapi%2Fauth%2Fmicrosoft%2Fcallback&scope=openid%20profile%20email%20User.Read&response_mode=query&state=login%3A67467ce3-7a44-4f67-a3d3-6a251e2991e5"}
+0|indexus- | [MS365 Callback] Request received with query: {"code":"1.AR8A-bnNwTD3iEuysi4VLwQAZgvkU8BouttNlVgH78cwvp66AQAfAA.BQABBAIAAAADAOz_BQD0_0V2b1N0c0FydGlmYWN0cwIAAAAAANOZF3pKHc58NbVoQUVUFvtG3G8jSrUXoTUv01FwkoHYjW_gkZe7nGw0_h-83o2P60PLjzbtoomfJ6kxtR4x3ZV84YvyJpJ1eXR8vBQTPcusYnOY7RZWE0bKmIl8-EcDwhplfCKe4bjUnC43gNJsVGLwvupk0_ET042M2H3N4DKhN5b9rOZ78SX3JKIxZ6R6w_IC2LKnIVoScYkAsQ9YYsa3_nn2fl6qCaOKmZwEXbeIOXx2X1raXbIa2tcH0zKPEZAb5aL-qZBiaHTMt1iMe7t_ktipLboLush60sxQWoj7v8bqoztwxESSqzXd5rr-Ux-kf1IMvfLEC_FiyIHE00AQyerof2CFOrTa8eNp26UrJU7RcTidegk6v87XShodCWvIqcYUmFaejzxwtmnqrQBf70YlnqdxpjYmSouyvxYeKUjiVSlac2yF8y2-AdXckjhLTua6AijoU7Z6dT5fAbu4pAp0Yfo5YVJRBmBeUmgANQRvv8YHtv-KOniFS3F0MvJNl7fOMM_3UcS6pSme2wuB5-FCT8o4tK30NF3TXDdEbkFzbDXJjgFv1y1kh7_G7rVaq9NFypyNbAkk4u6nhQBxRj6I79OFYnEgsDDqZ0_3WAJvF1IAmb5TXL-gvnVcwYUn22P1z-Pq2MH5eQluETlngQ9Jb6eHIsRRbcP2tCaqbk0qMxOVVPHBRlND0ZCvX5HCeN2PLpdPE0kcgFVx0Ws6AfUaB8UDuU-g_aJJJcrpQKvp1T9YkDMdFdmTzWNtTCyswQ9fcfJaiO3y-NhYNS-0oh_DIAipS3nwVbcD_IBfL_eUKvcd6e8AcyZ4ce3NFdGmcoXBJU79J6JLkmw8X1AXW_HlbyqpvGt29Mt_-8zEI46ByH5AFviNo5Kc4751dDsKGCHp08Cm9VmCj36XmOn7fDsQ77CIXu8897BE8GdvTb5WAl-jc1TYUeqT2e9gO1fgiNYh_zTMeK579mzDh7_xk1W1kumn8x5_D6aSYyjG0IIXJDtRWntMbezOaVSuGwQccm_E7xLKHJ4BkCszS41m5LY0Br4JvnKZuRfm6Ta3cuR2ImO507PBe4NlnXRgGaqWQWCrJMYMQJufCHtUTSYv-8FYe01hmffbW7ugYE1galpzZF0mps2W7bYPkt-HfUWnHNIxYXIhzucEs4L-jMlllRqlKGZDIaHXjb85SiW71wbe19wF1YISvr__POqluGCO3pDuYhC2UipWrh27H-7f6xrk53GnrWUJlcC9EsqJyfCwFJYgce3_sErwkCuViMnfZJnm7ROVp1tYf-rEZMhZ69QV","state":"login:67467ce3-7a44-4f67-a3d3-6a251e2991e5","session_state":"001341ca-b528-d1ce-1d97-060d536c8ef3"}
+0|indexus- | [MS365 Callback] Processing state: login:67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus- | [MS365 Callback] Login flow detected
+0|indexus- | [MS365 Callback] Extracted userId from state: 67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus- | [MS365 Login] Duplicate login blocked for user admin
+0|indexus- | 12:18:03 AM [express] GET /api/auth/microsoft/callback 302 in 376ms
+0|indexus- | 12:18:04 AM [express] GET /api/sip-settings 401 in 1ms :: {"error":"Unauthorized"}
+0|indexus- | 12:18:04 AM [express] GET /api/auth/me 401 in 0ms :: {"user":null}
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user 95c58392-d61e-41e2-b5d3-ed1f9d93147d
+0|indexus- | [REQUEST] POST /api/auth/check-auth-method | session: none | body-keys: username
+0|indexus- | [Auth] Checking auth method for user: admin -> ms365
+0|indexus- | 12:19:16 AM [express] POST /api/auth/check-auth-method 200 in 8ms :: {"authMethod":"ms365","userId":"67467ce3-7a44-4f67-a3d3-6a251e2991e5","fullName":"System Administrator"}
+0|indexus- | [REQUEST] POST /api/auth/login-ms365 | session: none | body-keys: username
+0|indexus- | [MS365 Login] Generated state with userId: login:67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus- | 12:19:18 AM [express] POST /api/auth/login-ms365 200 in 2ms :: {"authUrl":"https://login.microsoftonline.com/c1cdb9f9-f730-4b88-b2b2-2e152f040066/oauth2/v2.0/authorize?client_id=c053e40b-ba68-4ddb-9558-07efc730be9e&response_type=code&redirect_uri=https%3A%2F%2Findexus.cordbloodcenter.com%2Fapi%2Fauth%2Fmicrosoft%2Fcallback&scope=openid%20profile%20email%20User.Read&response_mode=query&state=login%3A67467ce3-7a44-4f67-a3d3-6a251e2991e5"}
+0|indexus- | [MS365 Callback] Request received with query: {"code":"1.AR8A-bnNwTD3iEuysi4VLwQAZgvkU8BouttNlVgH78cwvp66AQAfAA.BQABBAIAAAADAOz_BQD0_0V2b1N0c0FydGlmYWN0cwIAAAAAAGv5iXBOyI2hxOeAHQrS9D7GJR4I63OH4Zd98_vSMN7ic19mlxx46nqRhqG6S_8d9fXW20yZPOn9ogBbeSASDSpmOUWz9K_omdk05qDnGGx4ud4Co6vBVtAqAoNDvUyOoLFpb5-BBz2FQdlPFtYXOD3mcBneTjYfu4b2nNSVm5sddZKBWimXkMkhO1HMCBtxCjEdulFNLCOTY0rDIYLzHUKoiK7t5j-nWQBjL4jtrFbhNlAMvF3pkPIheV4llYkFFj5i4jmIiqIjN4yd0_5vLOW8U2orSW4wSIe93xOigGkqDqaNRqXSdBAPdLWdH-kGMSY0SgroDPHf3lQ2CIZMjo8napuWgr9y_yM6oMVjqo0kR1AR3vuqZnz5FeziHU4lxntKhydi-ULNAweNDw1qGvX1MW_o350Tc1ldXNhs5pr7mD1212nqBjTGWaJpFbKXQkbLXyoCnLJ82-6S9Y7V8G3BoUY1olfjtbI0IJIEL61bqUAfF-hyaA-jsCL2dbKMHZ7unAAix0KEQXGalN3vWP1t_EbJDrw-9yuP5sjOc5M0wAJl2yS7ljHPF0DQ_0y4MiSUH70d3XsQa0iJjIPczSOzcJsYO36-AuU0X--aGHElmRhME4fOoW_JZ-MTxFWgAMnf7eDK_9G1CpGWI1KmAl89iKjlr52sJIYwGGT9pDXcf7sXcY2nhaJhvtOnLEyXbbjK36giRRhC6_CaGjmqqsxv_EA9fANXy7FRHO42Q1haNd9YLfdoNApjLoaeseVrTKIKbOuBC_tVemgfEdIEbf_F-Hj09r6Twq6Wi64vdxLX3daloegNK9hwoksRk48DGMoafccBuIcQ-5LjQBG3EZkO2UYqze9_30HJyqUDswyGMdNPCH6z4lxCMUazfZD6jjkzuyBOvQksqTRW_me0t4J_ANzf84NZPZ3uDBSKi-Oy2vbaMITPDjZqujVIQ0RaPrjzV2XVRAXYzuqF9v3wHcs5GYrjeyIZf03fjgPpfnJ3ARTD_eKOD8R3J3KIuam9pzBPpJFp2k6qJGHbITWTNI2tWtMblRkPHA7V1P3cQYO_kxwkN_3ZNeTfqixBXjXES09keSMrb5I6v94-G-TG1dZWaanR0kinKAPgdSXNGB267eg31bBlbPBReuS4yp-f7Ytu7liaeYfAFP5bWhA-vpwxn-qm3aoWlDHOqB1UGI28p2t_gUajiGIm2EhDBf0fi5wCQwu98c2Jlgw31YVpMZrxaN23Oh1yNNGQeOuMdzOUgFXLEoZ78BIuMCUN9YS_aoLGPizg6TTY2mn7jIUf6_KggA","state":"login:67467ce3-7a44-4f67-a3d3-6a251e2991e5","session_state":"001341ca-b528-d1ce-1d97-060d536c8ef3"}
+0|indexus- | [MS365 Callback] Processing state: login:67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus- | [MS365 Callback] Login flow detected
+0|indexus- | [MS365 Callback] Extracted userId from state: 67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus- | [MS365 Login] Duplicate login blocked for user admin
+0|indexus- | 12:19:20 AM [express] GET /api/auth/microsoft/callback 302 in 402ms
+0|indexus- | 12:19:21 AM [express] GET /api/sip-settings 401 in 1ms :: {"error":"Unauthorized"}
+0|indexus- | 12:19:21 AM [express] GET /api/auth/me 401 in 0ms :: {"user":null}
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user 95c58392-d61e-41e2-b5d3-ed1f9d93147d
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user 95c58392-d61e-41e2-b5d3-ed1f9d93147d
+0|indexus- | [REQUEST] POST /api/auth/check-auth-method | session: none | body-keys: username
+0|indexus- | [Auth] Checking auth method for user: admin -> ms365
+0|indexus- | 12:20:51 AM [express] POST /api/auth/check-auth-method 200 in 8ms :: {"authMethod":"ms365","userId":"67467ce3-7a44-4f67-a3d3-6a251e2991e5","fullName":"System Administrator"}
+0|indexus- | [REQUEST] POST /api/auth/login-ms365 | session: none | body-keys: username
+0|indexus- | [MS365 Login] Generated state with userId: login:67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus- | 12:20:53 AM [express] POST /api/auth/login-ms365 200 in 2ms :: {"authUrl":"https://login.microsoftonline.com/c1cdb9f9-f730-4b88-b2b2-2e152f040066/oauth2/v2.0/authorize?client_id=c053e40b-ba68-4ddb-9558-07efc730be9e&response_type=code&redirect_uri=https%3A%2F%2Findexus.cordbloodcenter.com%2Fapi%2Fauth%2Fmicrosoft%2Fcallback&scope=openid%20profile%20email%20User.Read&response_mode=query&state=login%3A67467ce3-7a44-4f67-a3d3-6a251e2991e5"}
+0|indexus- | [MS365 Callback] Request received with query: {"code":"1.AR8A-bnNwTD3iEuysi4VLwQAZgvkU8BouttNlVgH78cwvp66AQAfAA.BQABBAIAAAADAOz_BQD0_0V2b1N0c0FydGlmYWN0cwIAAAAAAOdfNUoZvzaa7mP86J6o56D3y0QTXhSUcAatGxD-qoI11ZJ6buhd2gH0TY30kkrJBXQXAei28IsdUtEHmKmJnXyHdUJHGzihbMNybgVblJffD44AqPAZpShRciinS7Rjj7G6P8zH0t5nU05eANbDrtj8s7Y0MmTxBygliEw18mVR__o3vWR_ftHpZPhrnhmYS-mMbkbwtedhDZngd8NhwR2MnQWAuMUMa1pAV2oRdtM89RxgPgeWCdZ8UNPNW7o15EBt6N4pix3L4E-y2Q7kNH03N7SBfdIO4UExPyB85nT9EG5I5Pctjseh1t0VklaSuiIO0Ef3jW3hlOVBFXzA759T6Wm4_NmLNziz3en0Ao0nTEUPtPTO89-HWrn_Gs8wyxg1o5TOnGZI5aJGjcKyL5bTaNlSuoZ5fNdBrvt-r5lTSQHClyNCXcUo5542AXuucOgYkqhrdUKitkymKW9tx5u5l4TnTpGmACUaiamAVJ6ZmuxQLXpBAX4UxRWootui1ad56juwjeKgUmffOmyFE0evgkjqHZNwfPRmgeGPLYI8_lQ2lEv2R6lM47oX2Flh5hxNSmHKTVan-2DzrRYkVrwFhq5V8ovGcC-uPyGiwoLBPnUPMzsYDdm-AvSKXvImYzoAQU8xb6NfCGFrwVxff3MSCcEEAvNBdctHmimTwlbQSw06PxMFJGx_xPawcHmfMYmxFCbzLWFPyYmVVDPpsYIom-jIvH6YUt6Uok7RJFv67yifaGNvFYAkkZDWfQKOgghzP8z-efacP56ldseIZMC0DvD-GlZmJIl8ONWQTdT2Pcw7ZMlG1WIOv1ZgbGjFppyV9KBKzirmpBi8vxRPfr_rzcARhOkPMyuJ-jF_tJA74r0H_fHWfBbRbt0lNihmS761Yu0hz1vCaeor4w8DdqzbDtOuona2BJCErxbyKfvj_TzK2boTov0Ia7TlGTvURdvGbHXulFAnEJWDA0Vvxt6yBG-sqij9UH5CztIpeDYLijFx92xZlJyVL6q9wT5W6QcZkVPoWPuNwdWOaGbO33ddJtpCON9aO2xgQhjNP9RKJsrapqZ9StqBBUOVFc7GsvjAcbWzMQaqUlHmOSpPp7YCb-zvgP4woauje0xkIW_HKbk28wgTHt24FMTkTVnkvcKZMmzaQPrH-ol5nLzXfXstCuZObuKKkdftCJfXBbDM4PJUqaIcyH5nFneYEwppCpGqFTrEvyYQoaY_noxRgSVmlW9k5m7cOaCENk3R-QRcQfdW04kn6q_LYXzX1IiCXiaC5Zx7yGfzX097e85bTz9A_f8","state":"login:67467ce3-7a44-4f67-a3d3-6a251e2991e5","session_state":"001341ca-b528-d1ce-1d97-060d536c8ef3"}
+0|indexus- | [MS365 Callback] Processing state: login:67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus- | [MS365 Callback] Login flow detected
+0|indexus- | [MS365 Callback] Extracted userId from state: 67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus- | [MS365 Login] Duplicate login blocked for user admin
+0|indexus- | 12:20:55 AM [express] GET /api/auth/microsoft/callback 302 in 379ms
+0|indexus- | 12:20:56 AM [express] GET /api/sip-settings 401 in 1ms :: {"error":"Unauthorized"}
+0|indexus- | 12:20:56 AM [express] GET /api/auth/me 401 in 1ms :: {"user":null}
+0|indexus- | [EmailMonitor] Failed to decrypt tokens for user 95c58392-d61e-41e2-b5d3-ed1f9d93147d
+
+0|indexus-crm  | [Storage] Data root: /var/www/indexus-crm/data
+0|indexus-crm  | [Storage] All directories initialized
+0|indexus-crm  | Notification WebSocket server initialized on /ws/notifications
+0|indexus-crm  | [EmailMonitor] Starting email monitoring service...
+0|indexus-crm  | [Chat] WebSocket server initialized on path /ws/chat
+0|indexus-crm  | [ExchangeRates] Scheduled update in 1418 minutes (at midnight)
+0|indexus-crm  | 12:22:29 AM [express] serving on port 5000
+0|indexus-crm  | [AlertEvaluator] Starting alert evaluator with 60000ms interval
+0|indexus-crm  | [SessionCleanup] Starting session cleanup with 60min timeout
+0|indexus-crm  | [EmailMonitor] Failed to decrypt tokens for user 95c58392-d61e-41e2-b5d3-ed1f9d93147d
+0|indexus-crm  | [EmailMonitor] Analyzing new email AAMkAGRlNGE4MDIzLTc0OGEtNDVmNy1hZWE3LTFlOWZkODk5MmFhYgBGAAAAAABrm529bH6hQKg2k43eaNsIBwB-xD9z8TewT54wdPhTff6NAAAAAAEMAAA8ubew2sQQRYnp_DO6dZS0AAEX0uuwAAA= for user 67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus-crm  | [EmailMonitor] Email AAMkAGRlNGE4MDIzLTc0OGEtNDVmNy1hZWE3LTFlOWZkODk5MmFhYgBGAAAAAABrm529bH6hQKg2k43eaNsIBwB-xD9z8TewT54wdPhTff6NAAAAAAEMAAA8ubew2sQQRYnp_DO6dZS0AAEX0uuwAAA=: sentiment=neutral, alert=none
+0|indexus-crm  | 12:22:53 AM [express] GET /api/sip-settings 401 in 2ms :: {"error":"Unauthorized"}
+0|indexus-crm  | 12:22:53 AM [express] GET /api/auth/me 401 in 1ms :: {"user":null}
+0|indexus-crm  | [REQUEST] POST /api/auth/check-auth-method | session: none | body-keys: username
+0|indexus-crm  | [Auth] Checking auth method for user: admin -> ms365
+0|indexus-crm  | 12:22:55 AM [express] POST /api/auth/check-auth-method 200 in 9ms :: {"authMethod":"ms365","userId":"67467ce3-7a44-4f67-a3d3-6a251e2991e5","fullName":"System Administrator"}
+0|indexus-crm  | [REQUEST] POST /api/auth/login-ms365 | session: none | body-keys: username
+0|indexus-crm  | [MS365 Login] Generated state with userId: login:67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus-crm  | 12:22:57 AM [express] POST /api/auth/login-ms365 200 in 3ms :: {"authUrl":"https://login.microsoftonline.com/c1cdb9f9-f730-4b88-b2b2-2e152f040066/oauth2/v2.0/authorize?client_id=c053e40b-ba68-4ddb-9558-07efc730be9e&response_type=code&redirect_uri=https%3A%2F%2Findexus.cordbloodcenter.com%2Fapi%2Fauth%2Fmicrosoft%2Fcallback&scope=openid%20profile%20email%20User.Read&response_mode=query&state=login%3A67467ce3-7a44-4f67-a3d3-6a251e2991e5"}
+0|indexus-crm  | [MS365 Callback] Request received with query: {"code":"1.AR8A-bnNwTD3iEuysi4VLwQAZgvkU8BouttNlVgH78cwvp66AQAfAA.BQABBAIAAAADAOz_BQD0_0V2b1N0c0FydGlmYWN0cwIAAAAAABMVHLYIBe5rSkGnBaOa38U_McmIChy8ScqU72UzpwVp6RT32ObUgwVIla-D42WdvkkBg-QmL8bB0Q_XFnx41qxr2B5_jWjZngisYnUjsQ22yOG3NJ0yNGLE2_IxZe0QaKPhUMZZNEZlStbEzyUwMz55PxjUXfNfLenxbxQ8OKSuTE7xLuwU04cdgRnG_c843uSJonm4B9NOEl0wbNXKaodrYd5T8Ul4MkY8ySvYJ4nGKPW2FJ6vMkFlgt5VtI0niTn97vEQfazvK6djJkt3k0fc7NQRs09sbAQ-aun0oKa8dDbyCpUdH31Jd2behQonKpgphLsVQCBHO6EBPrCUiudO0sp2ziZfSlSJzsdjuQOTcsz5G3buP_QPvUzIGgVXWLr2m0D-93pOn8RfsvoRwmzbenPKHwp85J1WL1SoGxXWskQXm_Ae9HshsS0xlQzg0M51bwTcdbH5LEMvD5hVDSVfZX1qodYoTLD0qe2y2ZHaZ0iEkBH7Aqyg1wxRrx_0pKDh8GkFMf_9XJXuTcnbMXyE5Ajg4Ax5q2O8G6C0uOa_0tpnu-Hv_AXlh0_G4aRUBw_4dxwfQMZyAV2f92DxtX-eax3GQ3Gfng8QGN3N0efMDdN82ZV0FeoBZd7uq4dSEPW-XRI_U1WxTNsgRsjsNIs99PM9cnte88X7L2MPOh_15on5Ff-1hf5qOizi3UIWHUeZmUZFiNSwxcFjbmtLpGTTqURad0cS6z8gVNSnwTW7PRngtVqObV_lkeHf8pR-rwQjeNKRu0nHEGBB0g4Kuv-zNT-4RsfPsn8O4s9hhHmOZQH_K64M7G3OdOC-N7cGmfndDHK0qUlo40hxs0isTYhRL4E6AiwtWTMz3RfKdtw4NYDrKR7CPusPLC8_Ktzd_Js9QGHfHRIkHrD1YnSd7RCn9sMcDQiVhXh7jNs1tI5KnQ9AqRwhLjsPK66AqdjADsT4vfeGBy6joiUncPLzXXtBTJ_QUuAUunSIFGOr2Mh_hTJq6-xMDkGiZzyJv-1PsiJnKn8pdQP_ejGqmYuxmGIwkCCkJbRTt9vbbPe5oUHSEAl1FXNjElneD_1_FAhKogdOavWm4wk-33XYRHODuFYYoVSVykHU231SYwBSmU-Yf31xtMyK8_ksVjLp45EWNq7eTGqn_I08VJRL35sVCUzhphCtWROtS2zEFzSXjfVi6v8bL7OsNVUCdP3zJSHq4s46kpW2jTVQmh6Qz3TN1bSgm0zryH9efUK-GYA3U_PUse6-5VbghkoPCZVsFjpQHHTImHqutLRqMrRFeGxMk21xn0RbHpM","state":"login:67467ce3-7a44-4f67-a3d3-6a251e2991e5","session_state":"001341ca-b528-d1ce-1d97-060d536c8ef3"}
+0|indexus-crm  | [MS365 Callback] Processing state: login:67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus-crm  | [MS365 Callback] Login flow detected
+0|indexus-crm  | [MS365 Callback] Extracted userId from state: 67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus-crm  | [MS365 Login] Duplicate login blocked for user admin
+0|indexus-crm  | 12:22:59 AM [express] GET /api/auth/microsoft/callback 302 in 306ms
+0|indexus-crm  | 12:23:01 AM [express] GET /api/sip-settings 401 in 1ms :: {"error":"Unauthorized"}
+0|indexus-crm  | 12:23:01 AM [express] GET /api/auth/me 401 in 1ms :: {"user":null}
+0|indexus-crm  | [EmailMonitor] Failed to decrypt tokens for user 95c58392-d61e-41e2-b5d3-ed1f9d93147d

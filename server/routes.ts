@@ -1081,9 +1081,10 @@ export async function registerRoutes(
     app.set("trust proxy", 1);
   }
 
-  // Clean up stale user sessions on startup (sessions older than 24h without activity)
+  // Clean up ALL active user sessions on startup
+  // After server restart, express sessions are lost anyway so all user_sessions records are stale
   try {
-    const staleCount = await storage.endStaleSessions(60 * 24);
+    const staleCount = await storage.endStaleSessions(0);
     if (staleCount > 0) {
       console.log(`[Startup] Cleaned up ${staleCount} stale user sessions`);
     }
