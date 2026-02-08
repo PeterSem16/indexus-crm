@@ -3,8 +3,6 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/auth-context";
-import { useSip } from "@/contexts/sip-context";
-import { SipPhone } from "@/components/sip-phone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -67,6 +65,14 @@ import {
   CircleDot,
   Info,
   Zap,
+  Bold,
+  Italic,
+  Underline,
+  List,
+  ListOrdered,
+  Paperclip,
+  X,
+  File as FileIcon,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -162,13 +168,11 @@ function TopBar({
   onStatusChange,
   stats,
   workTime,
-  sipPhone,
 }: {
   status: AgentStatus;
   onStatusChange: (status: AgentStatus) => void;
   stats: { calls: number; emails: number; sms: number };
   workTime: string;
-  sipPhone: React.ReactNode;
 }) {
   const config = STATUS_CONFIG[status];
 
@@ -227,9 +231,6 @@ function TopBar({
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
-        {sipPhone}
-      </div>
     </div>
   );
 }
@@ -708,34 +709,79 @@ function CommunicationCanvas({
   onSendSms,
   isSendingEmail,
   isSendingSms,
-  sipPhone,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
   activeChannel: string;
   onChannelChange: (ch: string) => void;
   timeline: TimelineEntry[];
-  onSendEmail: (data: { subject: string; body: string }) => void;
+  onSendEmail: (data: { subject: string; body: string; attachments?: { name: string; contentBase64: string; contentType: string }[] }) => void;
   onSendSms: (message: string) => void;
   isSendingEmail: boolean;
   isSendingSms: boolean;
-  sipPhone: React.ReactNode;
 }) {
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
   const [smsMessage, setSmsMessage] = useState("");
+  const [emailAttachments, setEmailAttachments] = useState<File[]>([]);
+  const editorRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const timelineEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     timelineEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [timeline.length]);
 
-  const handleSendEmail = () => {
-    if (emailSubject && emailBody) {
-      onSendEmail({ subject: emailSubject, body: emailBody });
+  const handleSendEmail = async () => {
+    const body = editorRef.current?.innerHTML || emailBody;
+    if (emailSubject && body) {
+      let attachmentData: { name: string; contentBase64: string; contentType: string }[] = [];
+      if (emailAttachments.length > 0) {
+        attachmentData = await Promise.all(
+          emailAttachments.map(async (file) => {
+            const buffer = await file.arrayBuffer();
+            const bytes = new Uint8Array(buffer);
+            let binary = "";
+            for (let i = 0; i < bytes.length; i++) {
+              binary += String.fromCharCode(bytes[i]);
+            }
+            return {
+              name: file.name,
+              contentBase64: btoa(binary),
+              contentType: file.type || "application/octet-stream",
+            };
+          })
+        );
+      }
+      onSendEmail({ subject: emailSubject, body, attachments: attachmentData.length > 0 ? attachmentData : undefined });
       setEmailSubject("");
       setEmailBody("");
+      setEmailAttachments([]);
+      if (editorRef.current) editorRef.current.innerHTML = "";
     }
+  };
+
+  const execFormat = (command: string, value?: string) => {
+    document.execCommand(command, false, value);
+    editorRef.current?.focus();
+  };
+
+  const handleAddAttachments = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      setEmailAttachments(prev => [...prev, ...Array.from(files)]);
+    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const removeAttachment = (index: number) => {
+    setEmailAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   const handleSendSms = () => {
@@ -885,7 +931,10 @@ function CommunicationCanvas({
             </div>
           </ScrollArea>
           <div className="border-t p-4 bg-card">
-            {sipPhone}
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Phone className="h-4 w-4" />
+              <span>Použite váš SIP telefón na uskutočnenie hovoru</span>
+            </div>
           </div>
         </div>
       )}
@@ -922,36 +971,132 @@ function CommunicationCanvas({
               )}
             </div>
           </ScrollArea>
-          <div className="border-t p-4 bg-card space-y-3">
-            <Input
-              placeholder="Predmet emailu"
-              value={emailSubject}
-              onChange={(e) => setEmailSubject(e.target.value)}
-              disabled={isSendingEmail}
-              data-testid="input-email-subject"
-            />
-            <Textarea
-              placeholder="Text emailu..."
-              value={emailBody}
-              onChange={(e) => setEmailBody(e.target.value)}
-              disabled={isSendingEmail}
-              rows={4}
-              data-testid="input-email-body"
-            />
-            <div className="flex justify-end">
-              <Button
-                onClick={handleSendEmail}
-                disabled={!emailSubject || !emailBody || isSendingEmail}
-                className="gap-2"
-                data-testid="btn-send-email"
-              >
-                {isSendingEmail ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-                Odoslať
-              </Button>
+          <div className="border-t bg-card">
+            <div className="p-3 space-y-2">
+              <Input
+                placeholder="Predmet emailu"
+                value={emailSubject}
+                onChange={(e) => setEmailSubject(e.target.value)}
+                disabled={isSendingEmail}
+                data-testid="input-email-subject"
+              />
+              <div className="border rounded-md overflow-visible">
+                <div className="flex items-center gap-0.5 p-1.5 border-b bg-muted/30 flex-wrap">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => execFormat("bold")}
+                    data-testid="btn-format-bold"
+                    title="Tučné"
+                  >
+                    <Bold className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => execFormat("italic")}
+                    data-testid="btn-format-italic"
+                    title="Kurzíva"
+                  >
+                    <Italic className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => execFormat("underline")}
+                    data-testid="btn-format-underline"
+                    title="Podčiarknuté"
+                  >
+                    <Underline className="h-3.5 w-3.5" />
+                  </Button>
+                  <Separator orientation="vertical" className="h-5 mx-1" />
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => execFormat("insertUnorderedList")}
+                    data-testid="btn-format-ul"
+                    title="Odrážkový zoznam"
+                  >
+                    <List className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => execFormat("insertOrderedList")}
+                    data-testid="btn-format-ol"
+                    title="Číslovaný zoznam"
+                  >
+                    <ListOrdered className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <div
+                  ref={editorRef}
+                  contentEditable={!isSendingEmail}
+                  className="min-h-[120px] max-h-[200px] overflow-y-auto p-3 text-sm focus:outline-none"
+                  data-testid="input-email-body"
+                  onInput={() => {
+                    setEmailBody(editorRef.current?.innerHTML || "");
+                  }}
+                  style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+                  suppressContentEditableWarning
+                />
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={handleAddAttachments}
+                data-testid="input-email-attachments"
+              />
+              {emailAttachments.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {emailAttachments.map((file, idx) => (
+                    <div
+                      key={`${file.name}-${idx}`}
+                      className="flex items-center gap-1.5 bg-muted rounded-md px-2 py-1 text-xs"
+                      data-testid={`attachment-item-${idx}`}
+                    >
+                      <FileIcon className="h-3 w-3 text-muted-foreground shrink-0" />
+                      <span className="truncate max-w-[140px]">{file.name}</span>
+                      <span className="text-muted-foreground shrink-0">({formatFileSize(file.size)})</span>
+                      <button
+                        onClick={() => removeAttachment(idx)}
+                        className="ml-0.5 text-muted-foreground hover:text-destructive"
+                        data-testid={`btn-remove-attachment-${idx}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex items-center justify-between gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isSendingEmail}
+                  className="gap-1.5"
+                  data-testid="btn-add-attachment"
+                >
+                  <Paperclip className="h-3.5 w-3.5" />
+                  Príloha
+                </Button>
+                <Button
+                  onClick={handleSendEmail}
+                  disabled={!emailSubject || !(editorRef.current?.innerHTML || emailBody) || isSendingEmail}
+                  className="gap-2"
+                  data-testid="btn-send-email"
+                >
+                  {isSendingEmail ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                  Odoslať
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -1327,7 +1472,6 @@ export default function AgentWorkspacePage() {
   const { t } = useI18n();
   const { user } = useAuth();
   const { toast } = useToast();
-  const sipContext = useSip();
   const [, setLocation] = useLocation();
 
   const [agentStatus, setAgentStatus] = useState<AgentStatus>("available");
@@ -1495,12 +1639,13 @@ export default function AgentWorkspacePage() {
   };
 
   const sendEmailMutation = useMutation({
-    mutationFn: async (data: { to: string; subject: string; body: string }) => {
+    mutationFn: async (data: { to: string; subject: string; body: string; attachments?: { name: string; contentBase64: string; contentType: string }[] }) => {
       const res = await apiRequest("POST", "/api/ms365/send-email-from-mailbox", {
         to: data.to,
         subject: data.subject,
         body: data.body,
         isHtml: true,
+        attachments: data.attachments,
       });
       if (!res.ok) {
         const err = await res.json();
@@ -1574,12 +1719,12 @@ export default function AgentWorkspacePage() {
     },
   });
 
-  const handleSendEmail = (data: { subject: string; body: string }) => {
+  const handleSendEmail = (data: { subject: string; body: string; attachments?: { name: string; contentBase64: string; contentType: string }[] }) => {
     if (!currentContact?.email) {
       toast({ title: "Chyba", description: "Kontakt nemá zadaný email", variant: "destructive" });
       return;
     }
-    sendEmailMutation.mutate({ to: currentContact.email, subject: data.subject, body: data.body });
+    sendEmailMutation.mutate({ to: currentContact.email, subject: data.subject, body: data.body, attachments: data.attachments });
   };
 
   const handleSendSms = (message: string) => {
@@ -1675,49 +1820,6 @@ export default function AgentWorkspacePage() {
     }
   };
 
-  const sipPhoneComponent = (
-    <SipPhone
-      compact={true}
-      initialNumber={currentContact?.phone || ""}
-      userId={user?.id}
-      customerId={currentContact?.id}
-      campaignId={selectedCampaignId || undefined}
-      customerName={currentContact ? `${currentContact.firstName} ${currentContact.lastName}` : undefined}
-      hideSettingsAndRegistration={true}
-      onCallStart={() => {
-        setAgentStatus("busy");
-        setStats((prev) => ({ ...prev, calls: prev.calls + 1 }));
-        setTimeline((prev) => [
-          ...prev,
-          {
-            id: `call-start-${Date.now()}`,
-            type: "call",
-            direction: "outbound",
-            timestamp: new Date(),
-            content: `Hovor zahájený na ${currentContact?.phone || ""}`,
-            status: "active",
-          },
-        ]);
-      }}
-      onCallEnd={(duration) => {
-        setAgentStatus("wrap_up");
-        setTimeline((prev) => [
-          ...prev,
-          {
-            id: `call-end-${Date.now()}`,
-            type: "call",
-            direction: "outbound",
-            timestamp: new Date(),
-            content: `Hovor ukončený`,
-            details: `Trvanie: ${Math.floor(duration / 60)}:${(duration % 60).toString().padStart(2, "0")}`,
-            status: "ended",
-          },
-        ]);
-        setRightTab("actions");
-      }}
-    />
-  );
-
   return (
     <div className="flex flex-col h-[calc(100vh-8rem)] -m-6">
       <TopBar
@@ -1725,7 +1827,6 @@ export default function AgentWorkspacePage() {
         onStatusChange={handleStatusChange}
         stats={stats}
         workTime={workTime}
-        sipPhone={null}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -1756,7 +1857,6 @@ export default function AgentWorkspacePage() {
           onSendSms={handleSendSms}
           isSendingEmail={sendEmailMutation.isPending}
           isSendingSms={sendSmsMutation.isPending}
-          sipPhone={sipPhoneComponent}
         />
 
         <CustomerInfoPanel
