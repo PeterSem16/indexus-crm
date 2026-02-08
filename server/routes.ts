@@ -13668,6 +13668,24 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/campaigns/contact-counts", requireAuth, async (req, res) => {
+    try {
+      const allCampaigns = await storage.getAllCampaigns();
+      const counts: Record<string, { total: number; pending: number }> = {};
+      for (const campaign of allCampaigns) {
+        const stats = await storage.getCampaignStats(campaign.id);
+        counts[campaign.id] = {
+          total: stats.totalContacts,
+          pending: stats.pendingContacts + stats.callbackContacts,
+        };
+      }
+      res.json(counts);
+    } catch (error) {
+      console.error("Failed to fetch campaign contact counts:", error);
+      res.status(500).json({ error: "Failed to fetch campaign contact counts" });
+    }
+  });
+
   app.get("/api/campaigns/:id", requireAuth, async (req, res) => {
     try {
       const campaign = await storage.getCampaign(req.params.id);

@@ -72,11 +72,15 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { sk } from "date-fns/locale";
-import type { Campaign, Customer } from "@shared/schema";
+import type { Campaign, Customer, CampaignContact } from "@shared/schema";
 
 type AgentStatus = "available" | "busy" | "break" | "wrap_up" | "offline";
 
 type ChannelType = "phone" | "email" | "sms" | "mixed";
+
+interface EnrichedCampaignContact extends CampaignContact {
+  customer: Customer | null;
+}
 
 interface TaskItem {
   id: string;
@@ -243,6 +247,8 @@ function TaskListPanel({
   onChannelFilterChange,
   onLoadNextContact,
   isLoadingContact,
+  campaignContacts,
+  onSelectCampaignContact,
 }: {
   tasks: TaskItem[];
   activeTaskId: string | null;
@@ -256,6 +262,8 @@ function TaskListPanel({
   onChannelFilterChange: (v: string) => void;
   onLoadNextContact: () => void;
   isLoadingContact: boolean;
+  campaignContacts: EnrichedCampaignContact[];
+  onSelectCampaignContact: (contact: EnrichedCampaignContact) => void;
 }) {
   const filteredCampaigns = useMemo(() => {
     if (channelFilter === "all") return campaigns;
@@ -413,20 +421,76 @@ function TaskListPanel({
       </ScrollArea>
 
       {selectedCampaignId && (
-        <div className="p-3 border-t">
-          <Button
-            onClick={onLoadNextContact}
-            disabled={isLoadingContact}
-            className="w-full gap-2"
-            data-testid="btn-next-contact"
-          >
-            {isLoadingContact ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <SkipForward className="h-4 w-4" />
-            )}
-            Načítať kontakt
-          </Button>
+        <div className="border-t flex flex-col flex-1 min-h-0">
+          <div className="px-3 py-2 flex items-center justify-between">
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+              Kontakty ({campaignContacts.length})
+            </span>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={onLoadNextContact}
+              disabled={isLoadingContact || campaignContacts.length === 0}
+              className="h-7 text-xs gap-1"
+              data-testid="btn-next-contact"
+            >
+              {isLoadingContact ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <SkipForward className="h-3 w-3" />
+              )}
+              Ďalší
+            </Button>
+          </div>
+          <ScrollArea className="flex-1">
+            <div className="px-2 pb-2 space-y-1">
+              {campaignContacts.length === 0 ? (
+                <div className="text-center py-6">
+                  <Users className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
+                  <p className="text-xs text-muted-foreground">Žiadne čakajúce kontakty</p>
+                </div>
+              ) : (
+                campaignContacts.map((cc) => {
+                  const cust = cc.customer;
+                  if (!cust) return null;
+                  return (
+                    <div
+                      key={cc.id}
+                      className="flex items-center gap-2.5 p-2.5 rounded-lg cursor-pointer hover-elevate"
+                      onClick={() => onSelectCampaignContact(cc)}
+                      data-testid={`contact-item-${cc.id}`}
+                    >
+                      <Avatar className="h-8 w-8 shrink-0">
+                        <AvatarFallback className="text-xs bg-muted">
+                          {cust.firstName?.[0]}{cust.lastName?.[0]}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {cust.firstName} {cust.lastName}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground truncate">
+                          {cust.phone || cust.email || "—"}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-end gap-0.5 shrink-0">
+                        {cc.status === "callback_scheduled" && (
+                          <Badge variant="outline" className="text-[9px] px-1 py-0">
+                            Callback
+                          </Badge>
+                        )}
+                        {cc.attemptCount > 0 && (
+                          <span className="text-[9px] text-muted-foreground">
+                            {cc.attemptCount}x
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </ScrollArea>
         </div>
       )}
     </div>
@@ -1336,26 +1400,37 @@ export default function AgentWorkspacePage() {
     });
   }, [baseCampaigns, allowedCountries, user?.role]);
 
+  const { data: rawCampaignContacts = [] } = useQuery<EnrichedCampaignContact[]>({
+    queryKey: ["/api/campaigns", selectedCampaignId, "contacts"],
+    enabled: !!selectedCampaignId && !!hasAccess,
+  });
+
+  const pendingCampaignContacts = useMemo(() => {
+    return rawCampaignContacts.filter(
+      (cc) => cc.customer && (cc.status === "pending" || cc.status === "callback_scheduled")
+    );
+  }, [rawCampaignContacts]);
+
+  const { data: campaignContactCounts = {} } = useQuery<Record<string, { total: number; pending: number }>>({
+    queryKey: ["/api/campaigns/contact-counts"],
+    enabled: !!hasAccess,
+  });
+
   const activeCampaigns = useMemo(() => {
     return campaigns
       .filter((c) => c.status === "active" || c.status === "paused")
       .map((c) => ({
         id: c.id,
         name: c.name,
-        contactCount: 0,
+        contactCount: campaignContactCounts[c.id]?.pending ?? 0,
         status: c.status,
         channel: c.channel || "phone",
       }));
-  }, [campaigns]);
+  }, [campaigns, campaignContactCounts]);
 
   const selectedCampaign = useMemo(() => {
     return campaigns.find((c) => c.id === selectedCampaignId) || null;
   }, [campaigns, selectedCampaignId]);
-
-  const { data: campaignContacts = [] } = useQuery<Customer[]>({
-    queryKey: [`/api/campaigns/${selectedCampaignId}/contacts`],
-    enabled: !!selectedCampaignId && !!hasAccess,
-  });
 
   const contactHistory: ContactHistory[] = useMemo(() => {
     return [];
@@ -1528,37 +1603,49 @@ export default function AgentWorkspacePage() {
     ]);
   };
 
+  const loadContact = (customer: Customer) => {
+    setCurrentContact(customer);
+    setAgentStatus("busy");
+    setCallNotes("");
+    setActiveChannel("script");
+    setRightTab("profile");
+
+    const campaignChannel = (selectedCampaign?.channel || "phone") as ChannelType;
+    const newTask: TaskItem = {
+      id: `task-${Date.now()}`,
+      contact: customer,
+      campaignId: selectedCampaignId!,
+      campaignName: selectedCampaign?.name || "",
+      channel: campaignChannel,
+      startedAt: new Date(),
+      status: "active",
+    };
+    setTasks((prev) => [...prev, newTask]);
+    setActiveTaskId(newTask.id);
+
+    setTimeline([
+      {
+        id: `sys-start-${Date.now()}`,
+        type: "system",
+        timestamp: new Date(),
+        content: `Konverzácia začatá s ${customer.firstName} ${customer.lastName}`,
+        details: `Kampaň: ${selectedCampaign?.name || ""}`,
+      },
+    ]);
+  };
+
   const handleNextContact = () => {
-    if (campaignContacts.length > 0) {
-      const nextContact = campaignContacts[0];
-      setCurrentContact(nextContact);
-      setAgentStatus("busy");
-      setCallNotes("");
-      setActiveChannel("script");
-      setRightTab("profile");
+    if (pendingCampaignContacts.length > 0) {
+      const nextEnriched = pendingCampaignContacts[0];
+      if (nextEnriched.customer) {
+        loadContact(nextEnriched.customer);
+      }
+    }
+  };
 
-      const campaignChannel = (selectedCampaign?.channel || "phone") as ChannelType;
-      const newTask: TaskItem = {
-        id: `task-${Date.now()}`,
-        contact: nextContact,
-        campaignId: selectedCampaignId!,
-        campaignName: selectedCampaign?.name || "",
-        channel: campaignChannel,
-        startedAt: new Date(),
-        status: "active",
-      };
-      setTasks((prev) => [...prev, newTask]);
-      setActiveTaskId(newTask.id);
-
-      setTimeline([
-        {
-          id: `sys-start-${Date.now()}`,
-          type: "system",
-          timestamp: new Date(),
-          content: `Konverzácia začatá s ${nextContact.firstName} ${nextContact.lastName}`,
-          details: `Kampaň: ${selectedCampaign?.name || ""}`,
-        },
-      ]);
+  const handleSelectCampaignContact = (enrichedContact: EnrichedCampaignContact) => {
+    if (enrichedContact.customer) {
+      loadContact(enrichedContact.customer);
     }
   };
 
@@ -1655,6 +1742,8 @@ export default function AgentWorkspacePage() {
           onChannelFilterChange={setChannelFilter}
           onLoadNextContact={handleNextContact}
           isLoadingContact={false}
+          campaignContacts={pendingCampaignContacts}
+          onSelectCampaignContact={handleSelectCampaignContact}
         />
 
         <CommunicationCanvas
