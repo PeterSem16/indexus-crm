@@ -8454,7 +8454,7 @@ export async function registerRoutes(
   // Send SMS via BulkGate (direct, without customer)
   app.post("/api/bulkgate/send", requireAuth, async (req, res) => {
     try {
-      const { number, text, country, senderId, senderIdValue, tag } = req.body;
+      const { number, text, country, senderId, senderIdValue, tag, customerId } = req.body;
       
       if (!number || !text) {
         return res.status(400).json({ error: "Missing required fields: number, text" });
@@ -8471,6 +8471,7 @@ export async function registerRoutes(
       // Create message record
       const message = await storage.createCommunicationMessage({
         userId: user.id,
+        customerId: customerId || undefined,
         type: "sms",
         direction: "outbound",
         content: text,

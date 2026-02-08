@@ -76,6 +76,7 @@ import {
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useSip } from "@/contexts/sip-context";
 import { format } from "date-fns";
 import { sk } from "date-fns/locale";
 import type { Campaign, Customer, CampaignContact } from "@shared/schema";
@@ -93,6 +94,7 @@ interface TaskItem {
   contact: Customer;
   campaignId: string;
   campaignName: string;
+  campaignContactId: string | null;
   channel: ChannelType;
   startedAt: Date;
   status: "active" | "waiting" | "wrap_up";
@@ -709,6 +711,8 @@ function CommunicationCanvas({
   onSendSms,
   isSendingEmail,
   isSendingSms,
+  onMakeCall,
+  isSipRegistered,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
@@ -719,6 +723,8 @@ function CommunicationCanvas({
   onSendSms: (message: string) => void;
   isSendingEmail: boolean;
   isSendingSms: boolean;
+  onMakeCall?: (phoneNumber: string) => void;
+  isSipRegistered?: boolean;
 }) {
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
@@ -727,6 +733,48 @@ function CommunicationCanvas({
   const editorRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const timelineEndRef = useRef<HTMLDivElement>(null);
+
+  const language = contact?.country === "CZ" ? "cs" : contact?.country === "HU" ? "hu" : contact?.country === "RO" ? "ro" : contact?.country === "IT" ? "it" : contact?.country === "DE" ? "de" : contact?.country === "US" ? "en" : "sk";
+  const { data: emailTemplates = [] } = useQuery<{ id: string; name: string; subject: string | null; content: string; contentHtml: string | null }[]>({
+    queryKey: ["/api/message-templates", "email", language],
+    queryFn: async () => {
+      const res = await fetch(`/api/message-templates?type=email&isActive=true&language=${language}`, { credentials: "include" });
+      return res.ok ? res.json() : [];
+    },
+    enabled: !!contact,
+  });
+
+  const replaceTemplateVars = (content: string): string => {
+    if (!content || !contact) return content;
+    const replacements: Record<string, string> = {
+      "{{customer.firstName}}": contact.firstName || "",
+      "{{customer.lastName}}": contact.lastName || "",
+      "{{customer.fullName}}": `${contact.firstName || ""} ${contact.lastName || ""}`.trim(),
+      "{{customer.email}}": contact.email || "",
+      "{{customer.phone}}": contact.phone || "",
+      "{{customer.address}}": contact.address || "",
+      "{{customer.city}}": contact.city || "",
+      "{{customer.postalCode}}": contact.postalCode || "",
+      "{{customer.country}}": contact.country || "",
+    };
+    let result = content;
+    for (const [key, value] of Object.entries(replacements)) {
+      result = result.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), value);
+    }
+    return result;
+  };
+
+  const handleSelectTemplate = (templateId: string) => {
+    const template = emailTemplates.find(t => t.id === templateId);
+    if (template) {
+      const subject = replaceTemplateVars(template.subject || "");
+      const content = replaceTemplateVars(template.contentHtml || template.content || "");
+      setEmailSubject(subject);
+      setEmailBody(content);
+      if (editorRef.current) editorRef.current.innerHTML = content;
+      fetch(`/api/message-templates/${templateId}/use`, { method: "POST", credentials: "include" });
+    }
+  };
 
   useEffect(() => {
     timelineEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -832,7 +880,20 @@ function CommunicationCanvas({
         </div>
         <div className="flex items-center gap-1">
           {contact.phone && (
-            <span className="text-xs text-muted-foreground px-2">{contact.phone}</span>
+            <>
+              <span className="text-xs text-muted-foreground px-2">{contact.phone}</span>
+              {isSipRegistered && onMakeCall && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => onMakeCall(contact.phone!)}
+                  data-testid="btn-call-from-canvas"
+                  title="Zavolať"
+                >
+                  <Phone className="h-4 w-4 text-green-600" />
+                </Button>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -931,10 +992,28 @@ function CommunicationCanvas({
             </div>
           </ScrollArea>
           <div className="border-t p-4 bg-card">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Phone className="h-4 w-4" />
-              <span>Použite váš SIP telefón na uskutočnenie hovoru</span>
-            </div>
+            {contact.phone && isSipRegistered && onMakeCall ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">{contact.phone}</span>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => onMakeCall(contact.phone!)}
+                    className="gap-2 flex-1"
+                    data-testid="btn-call-primary"
+                  >
+                    <Phone className="h-4 w-4" />
+                    Zavolať
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Phone className="h-4 w-4" />
+                <span>{isSipRegistered ? "Kontakt nemá telefónne číslo" : "SIP telefón nie je pripojený"}</span>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -973,6 +1052,20 @@ function CommunicationCanvas({
           </ScrollArea>
           <div className="border-t bg-card">
             <div className="p-3 space-y-2">
+              {emailTemplates.length > 0 && (
+                <Select onValueChange={handleSelectTemplate}>
+                  <SelectTrigger data-testid="select-email-template" className="text-sm">
+                    <SelectValue placeholder="Vybrať šablónu" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {emailTemplates.map((template) => (
+                      <SelectItem key={template.id} value={template.id}>
+                        {template.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <Input
                 placeholder="Predmet emailu"
                 value={emailSubject}
@@ -1472,11 +1565,13 @@ export default function AgentWorkspacePage() {
   const { t } = useI18n();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { makeCall, isRegistered: isSipRegistered } = useSip();
   const [, setLocation] = useLocation();
 
   const [agentStatus, setAgentStatus] = useState<AgentStatus>("available");
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
   const [currentContact, setCurrentContact] = useState<Customer | null>(null);
+  const [currentCampaignContactId, setCurrentCampaignContactId] = useState<string | null>(null);
   const [workTime, setWorkTime] = useState("00:00:00");
   const [startTime] = useState(new Date());
   const [activeChannel, setActiveChannel] = useState("script");
@@ -1576,9 +1671,25 @@ export default function AgentWorkspacePage() {
     return campaigns.find((c) => c.id === selectedCampaignId) || null;
   }, [campaigns, selectedCampaignId]);
 
+  const { data: customerMessages = [] } = useQuery<any[]>({
+    queryKey: ["/api/customers", currentContact?.id, "messages"],
+    queryFn: async () => {
+      const res = await fetch(`/api/customers/${currentContact!.id}/messages`, { credentials: "include" });
+      return res.ok ? res.json() : [];
+    },
+    enabled: !!currentContact?.id,
+  });
+
   const contactHistory: ContactHistory[] = useMemo(() => {
-    return [];
-  }, [currentContact]);
+    return customerMessages.map((msg: any) => ({
+      id: msg.id,
+      type: msg.type === "sms" ? "sms" as const : "email" as const,
+      direction: msg.direction as "inbound" | "outbound",
+      date: msg.createdAt || msg.sentAt || new Date().toISOString(),
+      status: msg.status || "sent",
+      notes: msg.subject || msg.content?.substring(0, 80),
+    }));
+  }, [customerMessages]);
 
   if (!hasAccess) {
     return (
@@ -1602,6 +1713,38 @@ export default function AgentWorkspacePage() {
     });
   };
 
+  const dispositionMutation = useMutation({
+    mutationFn: async (data: { contactId: string; campaignId: string; disposition: string; notes: string }) => {
+      const statusMap: Record<string, string> = {
+        interested: "contacted",
+        callback: "callback_scheduled",
+        not_interested: "rejected",
+        no_answer: "no_answer",
+        wrong_number: "invalid",
+        dnd: "do_not_contact",
+      };
+      const newStatus = statusMap[data.disposition] || "contacted";
+      const res = await apiRequest("PATCH", `/api/campaigns/${data.campaignId}/contacts/${data.contactId}`, {
+        status: newStatus,
+        lastContactedAt: new Date().toISOString(),
+        notes: data.notes || undefined,
+        result: data.disposition,
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Chyba pri aktualizácii kontaktu");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns/contact-counts"] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Chyba", description: error.message, variant: "destructive" });
+    },
+  });
+
   const handleDisposition = (value: string) => {
     const option = DISPOSITION_OPTIONS.find((o) => o.value === value);
 
@@ -1616,6 +1759,15 @@ export default function AgentWorkspacePage() {
       },
     ]);
 
+    if (currentCampaignContactId && selectedCampaignId) {
+      dispositionMutation.mutate({
+        contactId: currentCampaignContactId,
+        campaignId: selectedCampaignId,
+        disposition: value,
+        notes: callNotes,
+      });
+    }
+
     toast({
       title: "Kontakt ukončený",
       description: `Výsledok: ${option?.label}`,
@@ -1629,6 +1781,7 @@ export default function AgentWorkspacePage() {
     }
 
     setCurrentContact(null);
+    setCurrentCampaignContactId(null);
     setCallNotes("");
     setTimeline([]);
     setActiveChannel("script");
@@ -1639,13 +1792,14 @@ export default function AgentWorkspacePage() {
   };
 
   const sendEmailMutation = useMutation({
-    mutationFn: async (data: { to: string; subject: string; body: string; attachments?: { name: string; contentBase64: string; contentType: string }[] }) => {
+    mutationFn: async (data: { to: string; subject: string; body: string; attachments?: { name: string; contentBase64: string; contentType: string }[]; customerId?: string }) => {
       const res = await apiRequest("POST", "/api/ms365/send-email-from-mailbox", {
         to: data.to,
         subject: data.subject,
         body: data.body,
         isHtml: true,
         attachments: data.attachments,
+        customerId: data.customerId,
       });
       if (!res.ok) {
         const err = await res.json();
@@ -1670,6 +1824,10 @@ export default function AgentWorkspacePage() {
           details: variables.body.substring(0, 100),
         },
       ]);
+      if (variables.customerId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "messages"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "activity-logs"] });
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -1681,11 +1839,12 @@ export default function AgentWorkspacePage() {
   });
 
   const sendSmsMutation = useMutation({
-    mutationFn: async (data: { number: string; text: string }) => {
+    mutationFn: async (data: { number: string; text: string; customerId?: string }) => {
       const res = await apiRequest("POST", "/api/bulkgate/send", {
         number: data.number,
         text: data.text,
         country: currentContact?.country || "SK",
+        customerId: data.customerId,
       });
       if (!res.ok) {
         const err = await res.json();
@@ -1709,6 +1868,10 @@ export default function AgentWorkspacePage() {
           content: variables.text,
         },
       ]);
+      if (variables.customerId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "messages"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "activity-logs"] });
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -1724,7 +1887,13 @@ export default function AgentWorkspacePage() {
       toast({ title: "Chyba", description: "Kontakt nemá zadaný email", variant: "destructive" });
       return;
     }
-    sendEmailMutation.mutate({ to: currentContact.email, subject: data.subject, body: data.body, attachments: data.attachments });
+    sendEmailMutation.mutate({
+      to: currentContact.email,
+      subject: data.subject,
+      body: data.body,
+      attachments: data.attachments,
+      customerId: currentContact.id,
+    });
   };
 
   const handleSendSms = (message: string) => {
@@ -1732,7 +1901,7 @@ export default function AgentWorkspacePage() {
       toast({ title: "Chyba", description: "Kontakt nemá zadané telefónne číslo", variant: "destructive" });
       return;
     }
-    sendSmsMutation.mutate({ number: currentContact.phone, text: message });
+    sendSmsMutation.mutate({ number: currentContact.phone, text: message, customerId: currentContact.id });
   };
 
   const handleAddNote = (note: string) => {
@@ -1761,6 +1930,7 @@ export default function AgentWorkspacePage() {
       contact: customer,
       campaignId: selectedCampaignId!,
       campaignName: selectedCampaign?.name || "",
+      campaignContactId: currentCampaignContactId,
       channel: campaignChannel,
       startedAt: new Date(),
       status: "active",
@@ -1783,6 +1953,7 @@ export default function AgentWorkspacePage() {
     if (pendingCampaignContacts.length > 0) {
       const nextEnriched = pendingCampaignContacts[0];
       if (nextEnriched.customer) {
+        setCurrentCampaignContactId(nextEnriched.id);
         loadContact(nextEnriched.customer);
       }
     }
@@ -1790,6 +1961,7 @@ export default function AgentWorkspacePage() {
 
   const handleSelectCampaignContact = (enrichedContact: EnrichedCampaignContact) => {
     if (enrichedContact.customer) {
+      setCurrentCampaignContactId(enrichedContact.id);
       loadContact(enrichedContact.customer);
     }
   };
@@ -1798,12 +1970,38 @@ export default function AgentWorkspacePage() {
     setActiveTaskId(task.id);
     setCurrentContact(task.contact);
     setSelectedCampaignId(task.campaignId);
+    setCurrentCampaignContactId(task.campaignContactId);
+  };
+
+  const handleMakeCall = (phoneNumber: string) => {
+    if (makeCall && currentContact) {
+      const customerName = `${currentContact.firstName || ""} ${currentContact.lastName || ""}`.trim();
+      makeCall({
+        phoneNumber,
+        customerId: currentContact.id,
+        customerName: customerName || undefined,
+      });
+      setStats((prev) => ({ ...prev, calls: prev.calls + 1 }));
+      setTimeline((prev) => [
+        ...prev,
+        {
+          id: `call-${Date.now()}`,
+          type: "call",
+          direction: "outbound",
+          timestamp: new Date(),
+          content: `Hovor na ${phoneNumber}`,
+        },
+      ]);
+    }
   };
 
   const handleQuickAction = (action: string) => {
     switch (action) {
       case "call":
         setActiveChannel("phone");
+        if (currentContact?.phone && isSipRegistered) {
+          handleMakeCall(currentContact.phone);
+        }
         break;
       case "email":
         setActiveChannel("email");
@@ -1857,6 +2055,8 @@ export default function AgentWorkspacePage() {
           onSendSms={handleSendSms}
           isSendingEmail={sendEmailMutation.isPending}
           isSendingSms={sendSmsMutation.isPending}
+          onMakeCall={handleMakeCall}
+          isSipRegistered={isSipRegistered}
         />
 
         <CustomerInfoPanel
