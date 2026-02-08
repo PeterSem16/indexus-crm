@@ -66,6 +66,11 @@ export function AppSidebar() {
     enabled: !!user,
   });
 
+  const { data: sidebarRoles = [] } = useQuery<Array<{ id: string; name: string }>>({
+    queryKey: ["/api/roles"],
+    enabled: !!user,
+  });
+
   const pendingTasksCount = tasks.filter(
     task => task.assignedUserId === user?.id && task.status === "pending"
   ).length;
@@ -102,9 +107,11 @@ export function AppSidebar() {
     { title: t.nav.tasks, url: "/tasks", testId: "nexus-tasks", moduleKey: "tasks" },
   ];
 
+  const userRoleName = sidebarRoles.find(r => r.id === user?.roleId)?.name;
   const visibleMainItems = mainNavItems.filter(item => {
     const hasModuleAccess = canAccessModule(item.moduleKey);
-    const hasRoleAccess = !(item as any).roles || (item as any).roles.includes(user?.role);
+    const itemRoles = (item as any).roles as string[] | undefined;
+    const hasRoleAccess = !itemRoles || itemRoles.includes(user?.role || "") || (userRoleName && itemRoles.some(r => r.toLowerCase().replace(/\s+/g, '') === userRoleName.toLowerCase().replace(/\s+/g, '')));
     return hasModuleAccess && hasRoleAccess;
   });
   const visibleAdminItems = adminNavItems.filter(item => canAccessModule(item.moduleKey));

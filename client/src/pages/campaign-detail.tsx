@@ -292,11 +292,16 @@ export default function CampaignDetailPage() {
     enabled: !!campaignId,
   });
 
-  const { data: allUsers = [] } = useQuery<Array<{ id: string; firstName: string; lastName: string; role: string }>>({
+  const { data: allUsers = [] } = useQuery<Array<{ id: string; fullName: string; role: string; roleId: string | null }>>({
     queryKey: ["/api/users"],
   });
 
-  const callCenterUsers = allUsers.filter(u => u.role === "callCenter" || u.role === "admin");
+  const { data: roles = [] } = useQuery<Array<{ id: string; name: string; legacyRole: string | null }>>({
+    queryKey: ["/api/roles"],
+  });
+
+  const callCenterRoleId = roles.find(r => r.name === "Call Center")?.id;
+  const callCenterUsers = allUsers.filter(u => u.role === "admin" || (callCenterRoleId && u.roleId === callCenterRoleId));
   const assignedAgentIds = campaignAgents.map(a => a.userId);
 
   const getStageName = (stageId: string) => {
@@ -1341,8 +1346,8 @@ Príklad:
                               <User className="w-5 h-5" />
                             </div>
                             <div>
-                              <p className="font-medium">{user.firstName} {user.lastName}</p>
-                              <p className="text-sm text-muted-foreground">{user.role}</p>
+                              <p className="font-medium">{user.fullName}</p>
+                              <p className="text-sm text-muted-foreground">{roles.find(r => r.id === user.roleId)?.name || user.role}</p>
                             </div>
                           </div>
                           <Button

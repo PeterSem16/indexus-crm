@@ -479,20 +479,23 @@ function AgentWorkspaceAccessTab() {
   const { t } = useI18n();
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
-  // Get all users - filter only callCenter role
   const { data: allUsers = [], isLoading: loadingUsers } = useQuery<any[]>({
     queryKey: ["/api/users"],
   });
 
-  // Get all campaigns
+  const { data: allRoles = [] } = useQuery<Array<{ id: string; name: string; legacyRole: string | null }>>({
+    queryKey: ["/api/roles"],
+  });
+
   const { data: allCampaigns = [], isLoading: loadingCampaigns } = useQuery<Campaign[]>({
     queryKey: ["/api/campaigns"],
   });
 
-  // Filter users with only callCenter role (not admin)
+  const callCenterRoleId = useMemo(() => allRoles.find(r => r.name === "Call Center")?.id, [allRoles]);
+
   const callCenterAgents = useMemo(() => {
-    return allUsers.filter(u => u.role === "callCenter");
-  }, [allUsers]);
+    return allUsers.filter(u => callCenterRoleId && u.roleId === callCenterRoleId);
+  }, [allUsers, callCenterRoleId]);
 
   // Get campaign agents for all campaigns
   const { data: allCampaignAgents = [], isLoading: loadingAgents } = useQuery<any[]>({
@@ -637,7 +640,7 @@ function AgentWorkspaceAccessTab() {
                             <Headphones className="w-5 h-5 text-primary" />
                           </div>
                           <div>
-                            <p className="font-medium">{agent.firstName} {agent.lastName}</p>
+                            <p className="font-medium">{agent.fullName}</p>
                             <p className="text-sm text-muted-foreground">{agent.email}</p>
                           </div>
                         </div>
@@ -746,8 +749,12 @@ export default function CampaignsPage() {
     queryKey: ["/api/campaigns"],
   });
 
-  const { data: users = [] } = useQuery<{ id: string; firstName: string; lastName: string; role: string }[]>({
+  const { data: users = [] } = useQuery<{ id: string; fullName: string; role: string; roleId: string | null }[]>({
     queryKey: ["/api/users"],
+  });
+
+  const { data: dialogRoles = [] } = useQuery<Array<{ id: string; name: string; legacyRole: string | null }>>({
+    queryKey: ["/api/roles"],
   });
 
   const { data: currentCampaignAgents = [] } = useQuery<{ id: string; userId: string; campaignId: string }[]>({
@@ -818,9 +825,10 @@ export default function CampaignsPage() {
     }
   }, [currentCampaignAgents, agentsDialogCampaign]);
 
+  const dialogCallCenterRoleId = dialogRoles.find(r => r.name === "Call Center")?.id;
   const callCenterUsers = useMemo(() => {
-    return users.filter(u => u.role === "callCenter" || u.role === "admin");
-  }, [users]);
+    return users.filter(u => u.role === "admin" || (dialogCallCenterRoleId && u.roleId === dialogCallCenterRoleId));
+  }, [users, dialogCallCenterRoleId]);
 
   const filteredCampaigns = useMemo(() => {
     return campaigns.filter((campaign) => {
@@ -1343,10 +1351,10 @@ export default function CampaignsPage() {
                         data-testid={`checkbox-agent-${user.id}`}
                       />
                       <Label htmlFor={`agent-${user.id}`} className="flex-1 cursor-pointer">
-                        {user.firstName} {user.lastName}
+                        {user.fullName}
                       </Label>
                       <Badge variant="outline" className="text-xs">
-                        {user.role}
+                        {dialogRoles.find(r => r.id === user.roleId)?.name || user.role}
                       </Badge>
                     </div>
                   ))
