@@ -1085,6 +1085,7 @@ export async function registerRoutes(
   const sessionStore = new PgStore({
     pool: pool as any,
     tableName: "session",
+    createTableIfMissing: true,
     pruneSessionInterval: 60 * 15,
     errorLog: (err: Error) => {
       console.error("[PgStore] Session store error:", err.message);

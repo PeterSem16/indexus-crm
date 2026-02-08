@@ -1,0 +1,235 @@
+0|indexus-crm  | [MS365 Callback] Processing state: login:67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus-crm  | [MS365 Callback] Login flow detected
+0|indexus-crm  | [MS365 Callback] Extracted userId from state: 67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus-crm  | [Auth] User logged in via MS365: admin (System Administrator)
+0|indexus-crm  | [MS365 Callback] Session save error: error: relation "session" does not exist
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus-crm  |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323) {
+0|indexus-crm  |   length: 106,
+0|indexus-crm  |   severity: 'ERROR',
+0|indexus-crm  |   code: '42P01',
+0|indexus-crm  |   detail: undefined,
+0|indexus-crm  |   hint: undefined,
+0|indexus-crm  |   position: '13',
+0|indexus-crm  |   internalPosition: undefined,
+0|indexus-crm  |   internalQuery: undefined,
+0|indexus-crm  |   where: undefined,
+0|indexus-crm  |   schema: undefined,
+0|indexus-crm  |   table: undefined,
+0|indexus-crm  |   column: undefined,
+0|indexus-crm  |   dataType: undefined,
+0|indexus-crm  |   constraint: undefined,
+0|indexus-crm  |   file: 'parse_relation.c',
+0|indexus-crm  |   line: '1449',
+0|indexus-crm  |   routine: 'parserOpenTable'
+0|indexus-crm  | }
+0|indexus-crm  | Error in MS365 callback: error: relation "session" does not exist
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus-crm  |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323) {
+0|indexus-crm  |   length: 106,
+0|indexus-crm  |   severity: 'ERROR',
+0|indexus-crm  |   code: '42P01',
+0|indexus-crm  |   detail: undefined,
+0|indexus-crm  |   hint: undefined,
+0|indexus-crm  |   position: '13',
+0|indexus-crm  |   internalPosition: undefined,
+0|indexus-crm  |   internalQuery: undefined,
+0|indexus-crm  |   where: undefined,
+0|indexus-crm  |   schema: undefined,
+0|indexus-crm  |   table: undefined,
+0|indexus-crm  |   column: undefined,
+0|indexus-crm  |   dataType: undefined,
+0|indexus-crm  |   constraint: undefined,
+0|indexus-crm  |   file: 'parse_relation.c',
+0|indexus-crm  |   line: '1449',
+0|indexus-crm  |   routine: 'parserOpenTable'
+0|indexus-crm  | }
+0|indexus-crm  | 12:07:28 AM [express] GET /api/auth/microsoft/callback 302 in 376ms
+0|indexus-crm  | error: relation "session" does not exist
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus-crm  |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus-crm  | error: relation "session" does not exist
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus-crm  |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus-crm  | [EmailMonitor] Failed to decrypt tokens for user 95c58392-d61e-41e2-b5d3-ed1f9d93147d
+0|indexus-crm  | error: relation "session" does not exist
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus-crm  |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus-crm  | error: relation "session" does not exist
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus-crm  |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus-crm  | error: relation "session" does not exist
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus-crm  |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus-crm  | error: relation "session" does not exist
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus-crm  |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus-crm  | error: relation "session" does not exist
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus-crm  |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus-crm  | error: relation "session" does not exist
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus-crm  |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus-crm  | error: relation "session" does not exist
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus-crm  |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus-crm  | error: relation "session" does not exist
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus-crm  |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus-crm  | error: relation "session" does not exist
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus-crm  |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus-crm  | error: relation "session" does not exist
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus-crm  |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus-crm  | 12:08:08 AM [express] GET /api/sip-settings 500 in 6ms :: {"message":"relation \"session\" does not exist"}
+0|indexus-crm  | 12:08:08 AM [express] GET /api/auth/me 500 in 6ms :: {"message":"relation \"session\" does not exist"}
+0|indexus-crm  | error: relation "session" does not exist
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus-crm  |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus-crm  | error: relation "session" does not exist
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus-crm  |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus-crm  | error: relation "session" does not exist
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus-crm  |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus-crm  | [EmailMonitor] Failed to decrypt tokens for user 95c58392-d61e-41e2-b5d3-ed1f9d93147d
+0|indexus-crm  | 12:09:17 AM [express] GET /api/auth/me 401 in 1ms :: {"user":null}
+0|indexus-crm  | 12:09:17 AM [express] GET /api/sip-settings 401 in 0ms :: {"error":"Unauthorized"}
+0|indexus-crm  | [REQUEST] POST /api/auth/check-auth-method | session: none | body-keys: username
+0|indexus-crm  | [Auth] Checking auth method for user: admin -> ms365
+0|indexus-crm  | 12:09:28 AM [express] POST /api/auth/check-auth-method 200 in 9ms :: {"authMethod":"ms365","userId":"67467ce3-7a44-4f67-a3d3-6a251e2991e5","fullName":"System Administrator"}
+0|indexus-crm  | [REQUEST] POST /api/auth/login-ms365 | session: none | body-keys: username
+0|indexus-crm  | [MS365 Login] Generated state with userId: login:67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus-crm  | 12:09:29 AM [express] POST /api/auth/login-ms365 200 in 2ms :: {"authUrl":"https://login.microsoftonline.com/c1cdb9f9-f730-4b88-b2b2-2e152f040066/oauth2/v2.0/authorize?client_id=c053e40b-ba68-4ddb-9558-07efc730be9e&response_type=code&redirect_uri=https%3A%2F%2Findexus.cordbloodcenter.com%2Fapi%2Fauth%2Fmicrosoft%2Fcallback&scope=openid%20profile%20email%20User.Read&response_mode=query&state=login%3A67467ce3-7a44-4f67-a3d3-6a251e2991e5"}
+0|indexus-crm  | [EmailMonitor] Failed to decrypt tokens for user 95c58392-d61e-41e2-b5d3-ed1f9d93147d
+0|indexus-crm  | [MS365 Callback] Request received with query: {"code":"1.AR8A-bnNwTD3iEuysi4VLwQAZgvkU8BouttNlVgH78cwvp66AQAfAA.BQABBAIAAAADAOz_BQD0_0V2b1N0c0FydGlmYWN0cwIAAAAAAFlS_g9TDRgZXmOz_0-_DapBWIOXtUu_AV0Fq2ZDdekP45s7DceXJnPz-rdzAK-hbfPaf0efFJhc4u-oKSjlOFwF5Q81wo9ZfzvkIeQAPtVqctVjC5goLxa0J1YrOwoqq11P8o-44JCucoz6vIre7hyrUFVDWL7TdyXOMOzHdQNAIt3MDwU1-f7IWHFBifxf99r-1nM0DecOTEoD6MYCeO1EH62hWWUC4isMuDGCYuzRaVNGPQxrF3XWwRiresPYd2xtxuREW2IeWI86vn8UwRTQQQ6uVaHYEX5e7nENEruW6q39Qwh_xLZCnkbyYKd-yCDCY7bPbnl0fKxkQc0s-5ZiANx1MWXrxb_kGBh25HpMhiKVL5m_73IE-nqdI71Za1rNoBBpk3z61T-vHLa5Dg-gcFOjmYGGGwD2HwrqZN27nw1w64M2_I9Xim0OSvRRKcg3EZlxrcjWE3fcqLI5kS8MW91Q5sGwYMLukzW6TbybgqJq4dLRgsu8PX_0qqEn-hUd51tRVVlFAcBtUHosJsDPtB-kKCVqB0vjMzILKGg8lAmQbTRiSNZziRfI5Osku2dxdqtJJgrpmERL9KViKXRzP6vniQ9lU_jAs7XinsWRUnna7FeCf-R2vd7z5qKdwelclAnJUfbd8xdbRdkKJOkDnjNgznbTGw-S8hBTpphuRC2ekl1cBboZC6eQMjppaQsLdLVgkrBVRjFVl13xB4v04sUAHj8YWAQ_3o8ziphrLJkk_zmaw8iIsd9AFM_WBbAtKh5ZFo7Ft8AupWD8xP15WPVft9oXCl01Gp76kJOI4L7p52cZf4VlJ07YZ-ufGC8oL4VoB-e9ZRTJUjXk-2USlS3wKU1Mfk3m8-KivCos7Xmopo2AxjZ_jwzSU-J0NFv3-5PrdEiblkzpk7LynyN3-aLhKtCHIaGtSrFVK8Fdu6E6z6YVy-e7j4nYJZ17Lb_CyAbnms2yjqJjf9GZbmGW_N4TJ5nRP6QgzPFWHcruJYqRmOLyT68ZbqegzcWaXdmU-g68caJsjUEh0XQg7oaVOrGj-6jWyr41tkISZmQZZ3YX4zqaF9buAjTYBQsAy9RMjqdK3Azytxie6YnU-UZPovU4NS1-GZITBnzynyeHI69pcsUE2GeBxBx-6BDS0J3Rzpv0o5hP5-30YUCkKkRwX2TBr1tLROrCakzF2Dqvmxp9BSsZdVzHSg68glRqkShbvLcKC6ITOtseXoSF0duxZBsP_pKuQhAhwmdsAb-H4lggo758nlxZw4UKVCLda1uWSj87-cuT5mXUZy7rWvaZERrtSA","state":"login:67467ce3-7a44-4f67-a3d3-6a251e2991e5","session_state":"0012305a-c033-aeee-9f13-245192d026c8"}
+0|indexus-crm  | [MS365 Callback] Processing state: login:67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus-crm  | [MS365 Callback] Login flow detected
+0|indexus-crm  | [MS365 Callback] Extracted userId from state: 67467ce3-7a44-4f67-a3d3-6a251e2991e5
+0|indexus-crm  | [MS365 Login] Duplicate login blocked for user admin
+0|indexus-crm  | 12:09:31 AM [express] GET /api/auth/microsoft/callback 302 in 289ms
+0|indexus-crm  | 12:09:32 AM [express] GET /api/sip-settings 401 in 0ms :: {"error":"Unauthorized"}
+0|indexus-crm  | 12:09:32 AM [express] GET /api/auth/me 401 in 0ms :: {"user":null}
+0|indexus-crm  | [REQUEST] POST /api/auth/check-auth-method | session: none | body-keys: username
+0|indexus-crm  | [Auth] Checking auth method for user: seman -> local
+0|indexus-crm  | 12:10:01 AM [express] POST /api/auth/check-auth-method 200 in 7ms :: {"authMethod":"local","userId":"62b874a9-d7b5-4432-bf74-8a62c0815218","fullName":"Peter Seman"}
+0|indexus-crm  | [REQUEST] POST /api/auth/login | session: none | body-keys: username,password
+0|indexus-crm  | [Auth] User logged in via classic auth: seman (Peter Seman)
+0|indexus-crm  | 12:10:03 AM [express] POST /api/auth/login 200 in 88ms :: {"user":{"id":"62b874a9-d7b5-4432-bf74-8a62c0815218","username":"seman","email":"seman@dialcom.sk","fullName":"Peter Seman","role":"admin","roleId":"79aa3568-c3be-4ae0-8488-e686ba66e061","isActive":true,"assignedCountries":["IT","SK"],"avatarUrl":"/uploads/avatars/avatar-1767364072812-200663631.jpg","sipEnabled":true,"sipExtension":"2002","sipPassword":"diallogsem","sipDisplayName":"2002","jiraAccountId":null,"jiraDisplayName":null,"authMethod":"local","nexusEnabled":false,"showNotificationBell":true,"showEmailQueue":false,"showSipPhone":true,"phonePrefix":"+421","phone":"948519438","createdAt":"2025-12-21T08:04:37.640Z"}}
+0|indexus-crm  | Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client
+0|indexus-crm  |     at ServerResponse.setHeader (node:_http_outgoing:655:11)
+0|indexus-crm  |     at Mn.set.Mn.header (/var/www/indexus-crm/dist/index.cjs:53:25181)
+0|indexus-crm  |     at Mn.send (/var/www/indexus-crm/dist/index.cjs:53:20712)
+0|indexus-crm  |     at Mn.json (/var/www/indexus-crm/dist/index.cjs:53:21843)
+0|indexus-crm  |     at e.json (/var/www/indexus-crm/dist/index.cjs:520:42515)
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:520:42835
+0|indexus-crm  |     at km.handle_error (/var/www/indexus-crm/dist/index.cjs:38:3101)
+0|indexus-crm  |     at we (/var/www/indexus-crm/dist/index.cjs:38:8500)
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:38:8088
+0|indexus-crm  |     at yf.process_params (/var/www/indexus-crm/dist/index.cjs:38:8644)
+0|indexus-crm  |     at Immediate.de (/var/www/indexus-crm/dist/index.cjs:38:8008)
+0|indexus-crm  |     at process.processImmediate (node:internal/timers:485:21)
+0|indexus-crm  | 12:10:03 AM [express] GET /api/auth/me 500 in 7ms :: {"message":"relation \"session\" does not exist"}
+0|indexus-crm  | error: relation "session" does not exist
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus-crm  |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus-crm  | 12:10:03 AM [express] GET /api/sip-settings 500 in 10ms :: {"message":"relation \"session\" does not exist"}
+0|indexus-crm  | error: relation "session" does not exist
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus-crm  |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus-crm  | 12:10:03 AM [express] POST /api/auth/heartbeat 500 in 12ms :: {"message":"relation \"session\" does not exist"}
+0|indexus-crm  | error: relation "session" does not exist
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus-crm  |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus-crm  | 12:10:03 AM [express] GET /api/tasks 500 in 16ms :: {"message":"relation \"session\" does not exist"}
+0|indexus-crm  | 12:10:03 AM [express] GET /api/users 500 in 17ms :: {"message":"relation \"session\" does not exist"}
+0|indexus-crm  | 12:10:03 AM [express] GET /api/customers 500 in 17ms :: {"message":"relation \"session\" does not exist"}
+0|indexus-crm  | error: relation "session" does not exist
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus-crm  |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus-crm  | 12:10:03 AM [express] GET /api/notifications/unread-count 500 in 18ms :: {"message":"relation \"session\" does not exist"}
+0|indexus-crm  | 12:10:03 AM [express] GET /api/roles/79aa3568-c3be-4ae0-8488-e686ba66e061 500 in 16ms :: {"message":"relation \"session\" does not exist"}
+0|indexus-crm  | 12:10:03 AM [express] GET /api/notifications 500 in 21ms :: {"message":"relation \"session\" does not exist"}
+0|indexus-crm  | error: relation "session" does not exist
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus-crm  |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus-crm  | error: relation "session" does not exist
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus-crm  |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus-crm  | error: relation "session" does not exist
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus-crm  |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus-crm  | error: relation "session" does not exist
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus-crm  |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus-crm  | error: relation "session" does not exist
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus-crm  |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus-crm  | 12:10:03 AM [express] GET /api/invoices 500 in 20ms :: {"message":"relation \"session\" does not exist"}
+0|indexus-crm  | error: relation "session" does not exist
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus-crm  |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus-crm  | error: relation "session" does not exist
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus-crm  |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus-crm  | [Notifications] User 62b874a9-d7b5-4432-bf74-8a62c0815218 connected. Total clients: 1
+0|indexus-crm  | 12:10:04 AM [express] GET /api/notifications 500 in 2ms :: {"message":"relation \"session\" does not exist"}
+0|indexus-crm  | error: relation "session" does not exist
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus-crm  |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus-crm  | 12:10:04 AM [express] GET /api/notifications/unread-count 500 in 8ms :: {"message":"relation \"session\" does not exist"}
+0|indexus-crm  | error: relation "session" does not exist
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus-crm  |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus-crm  | [Notifications] User 62b874a9-d7b5-4432-bf74-8a62c0815218 connected. Total clients: 1
+0|indexus-crm  | 12:10:06 AM [express] GET /api/notifications 500 in 2ms :: {"message":"relation \"session\" does not exist"}
+0|indexus-crm  | error: relation "session" does not exist
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus-crm  |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus-crm  | 12:10:06 AM [express] GET /api/notifications/unread-count 500 in 8ms :: {"message":"relation \"session\" does not exist"}
+0|indexus-crm  | error: relation "session" does not exist
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus-crm  |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus-crm  | [Notifications] User 62b874a9-d7b5-4432-bf74-8a62c0815218 connected. Total clients: 1
+0|indexus-crm  | 12:10:08 AM [express] GET /api/notifications 500 in 2ms :: {"message":"relation \"session\" does not exist"}
+0|indexus-crm  | error: relation "session" does not exist
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus-crm  |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|indexus-crm  |     at async r._asyncQuery (/var/www/indexus-crm/dist/index.cjs:84:8323)
+0|indexus-crm  | 12:10:08 AM [express] GET /api/notifications/unread-count 500 in 8ms :: {"message":"relation \"session\" does not exist"}
+0|indexus-crm  | error: relation "session" does not exist
+0|indexus-crm  |     at /var/www/indexus-crm/dist/index.cjs:72:13359
+0|indexus-crm  |     at process.processTicksAndRejections (node:internal
