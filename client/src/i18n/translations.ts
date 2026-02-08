@@ -63,6 +63,7 @@ export interface Translations {
     hospitalCoverageDesc: string;
     downloadCsv: string;
     downloading: string;
+    pleaseWait: string;
     downloadSuccess: string;
     downloadError: string;
     refreshData: string;
@@ -2202,6 +2203,7 @@ export const translations: Record<Locale, Translations> = {
       hospitalCoverageDesc: 'Overview of visits to individual hospitals',
       downloadCsv: 'Download CSV',
       downloading: 'Downloading...',
+      pleaseWait: 'Please wait, do not close this window.',
       downloadSuccess: 'Report downloaded successfully',
       downloadError: 'Failed to download report',
       refreshData: 'Refresh',
@@ -4652,6 +4654,7 @@ export const translations: Record<Locale, Translations> = {
       hospitalCoverageDesc: 'Prehlad navstev jednotlivych nemocnic',
       downloadCsv: 'Stiahnut CSV',
       downloading: 'Stahuje sa...',
+      pleaseWait: 'Prosím čakajte, nezatvárajte toto okno.',
       downloadSuccess: 'Report bol uspesne stiahnuty',
       downloadError: 'Nepodarilo sa stiahnut report',
       refreshData: 'Obnovit',
@@ -7095,6 +7098,7 @@ export const translations: Record<Locale, Translations> = {
       hospitalCoverageDesc: 'Prehled navstev jednotlivych nemocnic',
       downloadCsv: 'Stáhnout CSV',
       downloading: 'Stahuje se...',
+      pleaseWait: 'Prosím čekejte, nezavírejte toto okno.',
       downloadSuccess: 'Report byl uspesne stazen',
       downloadError: 'Nepodarilo se stahnout report',
       refreshData: 'Obnovit',
@@ -9470,6 +9474,7 @@ export const translations: Record<Locale, Translations> = {
       hospitalCoverageDesc: 'Kórházi látogatások áttekintése',
       downloadCsv: 'CSV letöltése',
       downloading: 'Letöltés...',
+      pleaseWait: 'Kérjük, várjon, ne zárja be ezt az ablakot.',
       downloadSuccess: 'Jelentés sikeresen letöltve',
       downloadError: 'Nem sikerült letölteni a jelentést',
       refreshData: 'Frissites',
@@ -11845,6 +11850,7 @@ export const translations: Record<Locale, Translations> = {
       hospitalCoverageDesc: 'Prezentarea vizitelor la spitale individuale',
       downloadCsv: 'Descarcare CSV',
       downloading: 'Se descarca...',
+      pleaseWait: 'Vă rugăm așteptați, nu închideți această fereastră.',
       downloadSuccess: 'Raportul a fost descarcat cu succes',
       downloadError: 'Nu s-a putut descarca raportul',
       refreshData: 'Reimprospatare',
@@ -14219,6 +14225,7 @@ export const translations: Record<Locale, Translations> = {
       hospitalCoverageDesc: 'Panoramica delle visite ai singoli ospedali',
       downloadCsv: 'Scarica CSV',
       downloading: 'Download in corso...',
+      pleaseWait: 'Attendere prego, non chiudere questa finestra.',
       downloadSuccess: 'Report scaricato con successo',
       downloadError: 'Impossibile scaricare il report',
       refreshData: 'Aggiorna',
@@ -16594,6 +16601,7 @@ export const translations: Record<Locale, Translations> = {
       hospitalCoverageDesc: 'Übersicht der Besuche einzelner Krankenhäuser',
       downloadCsv: 'CSV herunterladen',
       downloading: 'Wird heruntergeladen...',
+      pleaseWait: 'Bitte warten, schließen Sie dieses Fenster nicht.',
       downloadSuccess: 'Bericht erfolgreich heruntergeladen',
       downloadError: 'Bericht konnte nicht heruntergeladen werden',
       refreshData: 'Aktualisieren',

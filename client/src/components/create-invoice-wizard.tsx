@@ -1520,19 +1520,30 @@ export function CreateInvoiceWizard({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6 relative">
-          {isSubmitting && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm">
-              <div className="flex flex-col items-center gap-4 p-8 max-w-sm w-full">
-                <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                <div className="w-full space-y-2">
-                  <Progress value={submitProgress} className="h-3" />
-                  <p className="text-sm text-center text-muted-foreground">{submitMessage}</p>
-                  <p className="text-xs text-center text-muted-foreground/60">{submitProgress}%</p>
+        <Dialog open={isSubmitting} modal>
+          <DialogContent className="sm:max-w-md [&>button]:hidden" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+            <div className="flex flex-col items-center gap-6 py-6">
+              <div className="relative">
+                <div className="h-16 w-16 rounded-full border-4 border-muted flex items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
               </div>
+              <div className="w-full space-y-3">
+                <h3 className="text-lg font-semibold text-center">{t.invoices?.creatingInvoice || "Creating invoice..."}</h3>
+                <Progress value={submitProgress} className="h-3" />
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <span>{submitMessage}</span>
+                  <span className="font-medium">{submitProgress}%</span>
+                </div>
+              </div>
+              <p className="text-xs text-center text-muted-foreground/60">
+                {t.common?.pleaseWait || "Please wait, do not close this window."}
+              </p>
             </div>
-          )}
+          </DialogContent>
+        </Dialog>
+
+        <div className="space-y-6 relative">
 
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm text-muted-foreground">
