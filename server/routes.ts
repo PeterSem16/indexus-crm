@@ -14282,7 +14282,7 @@ export async function registerRoutes(
       if (!Array.isArray(userIds)) {
         return res.status(400).json({ error: "userIds must be an array" });
       }
-      const agents = await storage.updateCampaignAgents(req.params.id, userIds, req.user!.id);
+      const agents = await storage.updateCampaignAgents(req.params.id, userIds, req.session.user?.id);
       res.json(agents);
     } catch (error) {
       console.error("Failed to update campaign agents:", error);
