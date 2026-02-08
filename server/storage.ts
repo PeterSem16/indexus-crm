@@ -1104,6 +1104,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getActiveSession(userId: string): Promise<UserSession | undefined> {
+    const maxAge = 24 * 60 * 60 * 1000;
+    const cutoff = new Date(Date.now() - maxAge);
+
+    await db.update(userSessions)
+      .set({ isActive: false, logoutAt: new Date() })
+      .where(and(
+        eq(userSessions.userId, userId),
+        eq(userSessions.isActive, true),
+        lt(userSessions.lastActivityAt, cutoff)
+      ));
+
     const [session] = await db.select()
       .from(userSessions)
       .where(and(

@@ -1081,6 +1081,16 @@ export async function registerRoutes(
     app.set("trust proxy", 1);
   }
 
+  // Clean up stale user sessions on startup (sessions older than 24h without activity)
+  try {
+    const staleCount = await storage.endStaleSessions(60 * 24);
+    if (staleCount > 0) {
+      console.log(`[Startup] Cleaned up ${staleCount} stale user sessions`);
+    }
+  } catch (err) {
+    console.error("[Startup] Failed to clean stale sessions:", err);
+  }
+
   // Session middleware - use shared pool for session store
   const sessionStore = new PgStore({
     pool: pool as any,
