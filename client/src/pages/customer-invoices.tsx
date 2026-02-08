@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Search, Eye, Receipt, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckCircle2, Plus, Users, FileText, Calendar, Clock, Trash2, BarChart3, TrendingUp, FileDown } from "lucide-react";
+import { Search, Eye, Receipt, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckCircle2, Plus, Users, FileText, Calendar, Clock, Trash2, BarChart3, TrendingUp, FileDown, Download } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
@@ -221,6 +221,7 @@ export default function CustomerInvoicesPage() {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [pdfProgress, setPdfProgress] = useState(0);
   const [pdfProgressMessage, setPdfProgressMessage] = useState("");
+  const [downloadingPdfId, setDownloadingPdfId] = useState<string | null>(null);
   const perPage = 15;
   const [scheduledStatusFilter, setScheduledStatusFilter] = useState<string>("pending");
   const [scheduledDateFilter, setScheduledDateFilter] = useState<string>("all");
@@ -500,6 +501,42 @@ export default function CustomerInvoicesPage() {
   }, [filteredInvoices, page, perPage]);
 
   const totalPages = Math.ceil(filteredInvoices.length / perPage);
+
+  const handleQuickDownloadPdf = async (invoiceId: string, invoiceNumber: string, type: "invoice" | "scheduled" = "invoice") => {
+    setDownloadingPdfId(invoiceId);
+    try {
+      const endpoint = type === "scheduled"
+        ? `/api/scheduled-invoices/${invoiceId}/pdf-docx`
+        : `/api/invoices/${invoiceId}/pdf-docx`;
+      const response = await fetch(endpoint, { credentials: "include" });
+      if (!response.ok) {
+        let errorMsg = t.invoices?.pdfFailed || "Failed to generate PDF";
+        try {
+          const errorData = await response.json();
+          if (errorData.errorCode === "TEMPLATE_NOT_FOUND") {
+            errorMsg = t.invoices?.templateNotFound || errorData.error || errorMsg;
+          } else if (errorData.error) {
+            errorMsg = errorData.error;
+          }
+        } catch {}
+        toast({ title: t.common?.error || "Error", description: errorMsg, variant: "destructive" });
+        return;
+      }
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = `${invoiceNumber}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch {
+      toast({ title: t.common?.error || "Error", description: t.invoices?.pdfFailed || "Failed to generate PDF", variant: "destructive" });
+    } finally {
+      setDownloadingPdfId(null);
+    }
+  };
 
   const handleSort = (field: typeof sortField) => {
     if (sortField === field) {
@@ -797,6 +834,19 @@ export default function CustomerInvoicesPage() {
                             title={t.invoices?.viewDetails || "View Details"}
                           >
                             <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled={downloadingPdfId === invoice.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleQuickDownloadPdf(invoice.id, invoice.invoiceNumber);
+                            }}
+                            data-testid={`btn-download-pdf-${invoice.id}`}
+                            title={t.invoices?.downloadPdf || "Download PDF"}
+                          >
+                            {downloadingPdfId === invoice.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                           </Button>
                           <Button
                             variant="ghost"
