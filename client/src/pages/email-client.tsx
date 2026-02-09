@@ -320,7 +320,8 @@ export default function EmailClientPage() {
   const [signatureDialogOpen, setSignatureDialogOpen] = useState(false);
   const [folderSettingsOpen, setFolderSettingsOpen] = useState(false);
   const [page, setPage] = useState(0);
-  const pageSize = 25;
+  const pageSize = 100;
+  const [expandedMessage, setExpandedMessage] = useState<UnifiedMessage | null>(null);
   
   const [columns, setColumns] = useState<ColumnConfig[]>(() => {
     const saved = localStorage.getItem("nexus-email-columns");
@@ -1320,6 +1321,7 @@ export default function EmailClientPage() {
                     <button
                       key={msg.id}
                       onClick={() => selectUnifiedMessage(msg)}
+                      onDoubleClick={() => { selectUnifiedMessage(msg); setExpandedMessage(msg); }}
                       className={`w-full text-left p-3 transition-all hover-elevate ${
                         (selectedEmail?.id && msg.id === `email-${selectedEmail.id}`) ||
                         (selectedTask?.id && msg.id === `task-${selectedTask.id}`) ||
@@ -1329,6 +1331,7 @@ export default function EmailClientPage() {
                         ? `${typeColors[msg.type].bg} border-l-4 ${typeColors[msg.type].border} font-medium` 
                         : "border-l-4 border-l-transparent"
                       }`}
+                      title="Dvojklik pre zväčšený náhľad"
                       data-testid={`message-item-${msg.id}`}
                     >
                       <div className="flex items-start gap-2">
@@ -2158,6 +2161,127 @@ export default function EmailClientPage() {
             </Button>
             <Button onClick={() => setFolderSettingsOpen(false)}>Hotovo</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Expanded message modal on double-click */}
+      <Dialog open={!!expandedMessage} onOpenChange={(open) => { if (!open) setExpandedMessage(null); }}>
+        <DialogContent className="sm:max-w-[900px] h-[85vh] flex flex-col p-0 gap-0" data-testid="dialog-expanded-message">
+          <DialogHeader className="p-4 pb-3 border-b">
+            <DialogTitle className="flex items-center gap-3">
+              {expandedMessage && (
+                <>
+                  <div className={`p-2 rounded ${typeColors[expandedMessage.type]?.bg || ""}`}>
+                    {getTypeIcon(expandedMessage.type)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-base font-semibold truncate">{expandedMessage.title}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {expandedMessage.from && (
+                        <span className="text-xs text-muted-foreground">{expandedMessage.from}</span>
+                      )}
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(expandedMessage.timestamp), "d. MMMM yyyy, HH:mm")}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
+            </DialogTitle>
+            <DialogDescription className="sr-only">Detail správy</DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto p-4">
+            {expandedMessage?.type === "email" && emailDetail ? (
+              <div className="space-y-4">
+                <div className="text-sm space-y-1">
+                  <p><span className="text-muted-foreground">Od:</span> {emailDetail.from?.emailAddress?.name} &lt;{emailDetail.from?.emailAddress?.address}&gt;</p>
+                  <p><span className="text-muted-foreground">Komu:</span> {emailDetail.toRecipients?.map((r: any) => r.emailAddress?.address).join(", ")}</p>
+                  {(emailDetail as any).ccRecipients?.length > 0 && (
+                    <p><span className="text-muted-foreground">Kópia:</span> {(emailDetail as any).ccRecipients?.map((r: any) => r.emailAddress?.address).join(", ")}</p>
+                  )}
+                </div>
+                {emailDetail.hasAttachments && (emailDetail as any).attachments?.length > 0 && (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Paperclip className="h-4 w-4 text-muted-foreground" />
+                    {(emailDetail as any).attachments?.map((att: any, i: number) => (
+                      <Badge key={i} variant="outline" className="gap-1">
+                        <FileText className="h-3 w-3" />
+                        {att.name}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                <div
+                  className="prose prose-sm dark:prose-invert max-w-none"
+                  dangerouslySetInnerHTML={{ __html: emailDetail.body?.content || "" }}
+                />
+              </div>
+            ) : expandedMessage?.type === "task" && selectedTask ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {selectedTask.priority && (
+                    <Badge variant="outline" className="gap-1">
+                      {priorityIcons[selectedTask.priority]}
+                      {selectedTask.priority}
+                    </Badge>
+                  )}
+                  <Badge variant="outline" className="gap-1">
+                    {statusIcons[selectedTask.status]}
+                    {selectedTask.status}
+                  </Badge>
+                </div>
+                {selectedTask.dueDate && (
+                  <p className="text-sm text-muted-foreground">
+                    Termín: {format(new Date(selectedTask.dueDate), "d. MMMM yyyy")}
+                  </p>
+                )}
+                <p className="text-sm whitespace-pre-wrap">{selectedTask.description || "Bez popisu"}</p>
+              </div>
+            ) : expandedMessage?.type === "chat" && selectedChat ? (
+              <div className="space-y-4">
+                <p className="text-sm font-medium">{selectedChat.participantName}</p>
+                <p className="text-sm">{selectedChat.lastMessage}</p>
+              </div>
+            ) : expandedMessage?.type === "sms" ? (
+              <div className="space-y-4">
+                <p className="text-sm whitespace-pre-wrap">{expandedMessage.preview}</p>
+                {expandedMessage.aiAlertLevel && expandedMessage.aiAlertLevel !== "none" && (
+                  <Badge variant="outline" className={`gap-1 ${
+                    expandedMessage.aiAlertLevel === "critical"
+                      ? "border-red-500 text-red-600"
+                      : "border-amber-500 text-amber-600"
+                  }`}>
+                    {expandedMessage.aiAlertLevel === "critical" ? <ShieldAlert className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
+                    {expandedMessage.aiHasAngryTone && "Nahnevaný tón"}
+                    {expandedMessage.aiWantsToCancel && "Chce zrušiť"}
+                  </Badge>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                Načítavam...
+              </div>
+            )}
+          </div>
+          <div className="p-3 border-t flex items-center justify-between gap-2">
+            {expandedMessage?.type === "email" && (
+              <div className="flex items-center gap-1">
+                <Button variant="outline" size="sm" onClick={() => { setReplyMode("reply"); setComposeOpen(true); setExpandedMessage(null); }} data-testid="button-expanded-reply">
+                  <Reply className="h-4 w-4 mr-1" />Odpovedať
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => { setReplyMode("replyAll"); setComposeOpen(true); setExpandedMessage(null); }} data-testid="button-expanded-reply-all">
+                  <ReplyAll className="h-4 w-4 mr-1" />Odpovedať všetkým
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => { setReplyMode("forward"); setComposeData({ to: "", cc: "", bcc: "", subject: `Fwd: ${expandedMessage?.title}`, body: "" }); setComposeOpen(true); setExpandedMessage(null); }} data-testid="button-expanded-forward">
+                  <Forward className="h-4 w-4 mr-1" />Preposlať
+                </Button>
+              </div>
+            )}
+            <Button variant="outline" size="sm" onClick={() => setExpandedMessage(null)} data-testid="button-expanded-close">
+              Zavrieť
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
