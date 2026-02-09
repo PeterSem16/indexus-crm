@@ -785,6 +785,10 @@ export const invoices = pgTable("invoices", {
   qrCodeEnabled: boolean("qr_code_enabled").default(false),
   // Invoice items snapshot (JSON for template)
   itemsSnapshot: jsonb("items_snapshot"), // Complete items array with all details
+  // Payment tracking (populated via economic system API)
+  paymentDate: timestamp("payment_date"), // Date when payment was received
+  paymentMethod: text("payment_method"), // bank_transfer, cash, card, etc.
+  paymentReference: text("payment_reference"), // External reference from economic system
   // Wizard tracking
   wizardCreatedAt: timestamp("wizard_created_at"), // When invoice was created via wizard
   createdAt: timestamp("created_at").notNull().default(sql`now()`),

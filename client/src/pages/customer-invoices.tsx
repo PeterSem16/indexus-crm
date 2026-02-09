@@ -70,7 +70,12 @@ interface Invoice {
   vatAmount?: string;
   createdAt?: string;
   customerName?: string;
+  customerCountry?: string;
   billingCompanyName?: string;
+  // Payment tracking (populated via economic system API)
+  paymentDate?: string;
+  paymentMethod?: string;
+  paymentReference?: string;
   // Billing company metadata
   billingAddress?: string;
   billingCity?: string;
@@ -202,6 +207,8 @@ export default function CustomerInvoicesPage() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [countryFilter, setCountryFilter] = useState<string>("all");
+  const [billingCompanyFilter, setBillingCompanyFilter] = useState<string>("all");
   const [sortField, setSortField] = useState<"invoiceNumber" | "issueDate" | "dueDate" | "totalAmount" | "status" | "customerName" | "wizardCreatedAt">("issueDate");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [page, setPage] = useState(1);
@@ -443,16 +450,43 @@ export default function CustomerInvoicesPage() {
       return {
         ...inv,
         customerName: customer ? `${customer.firstName} ${customer.lastName}` : "-",
-        billingCompanyName: billing?.companyName || "-",
+        customerCountry: customer?.country || inv.customerCountry || "",
+        billingCompanyName: billing?.companyName || inv.billingCompanyName || "-",
       };
     });
   }, [invoices, customerMap, billingMap]);
+
+  const availableCountries = useMemo(() => {
+    const countries = new Set<string>();
+    enrichedInvoices.forEach(inv => {
+      if (inv.customerCountry) countries.add(inv.customerCountry);
+    });
+    return Array.from(countries).sort();
+  }, [enrichedInvoices]);
+
+  const availableBillingCompanies = useMemo(() => {
+    const companies = new Map<string, string>();
+    enrichedInvoices.forEach(inv => {
+      if (inv.billingDetailsId && inv.billingCompanyName && inv.billingCompanyName !== "-") {
+        companies.set(inv.billingDetailsId, inv.billingCompanyName);
+      }
+    });
+    return Array.from(companies.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+  }, [enrichedInvoices]);
 
   const filteredInvoices = useMemo(() => {
     let result = [...enrichedInvoices];
 
     if (statusFilter !== "all") {
       result = result.filter(inv => inv.status === statusFilter);
+    }
+
+    if (countryFilter !== "all") {
+      result = result.filter(inv => inv.customerCountry === countryFilter);
+    }
+
+    if (billingCompanyFilter !== "all") {
+      result = result.filter(inv => inv.billingDetailsId === billingCompanyFilter);
     }
 
     if (searchTerm) {
@@ -727,7 +761,7 @@ export default function CustomerInvoicesPage() {
                   </div>
                 </div>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[200px]" data-testid="select-status-filter">
+              <SelectTrigger className="w-[180px]" data-testid="select-status-filter">
                 <SelectValue placeholder={t.invoices?.filterByStatus || "Filter by status"} />
               </SelectTrigger>
               <SelectContent>
@@ -740,6 +774,32 @@ export default function CustomerInvoicesPage() {
                 <SelectItem value="cancelled">{t.invoices?.statusCancelled || "Cancelled"}</SelectItem>
               </SelectContent>
             </Select>
+            {availableCountries.length > 0 && (
+              <Select value={countryFilter} onValueChange={(v) => { setCountryFilter(v); setPage(1); }}>
+                <SelectTrigger className="w-[160px]" data-testid="select-country-filter">
+                  <SelectValue placeholder={t.invoices?.filterByCountry || "Country"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t.common?.all || "All"}</SelectItem>
+                  {availableCountries.map(code => (
+                    <SelectItem key={code} value={code}>{code}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {availableBillingCompanies.length > 0 && (
+              <Select value={billingCompanyFilter} onValueChange={(v) => { setBillingCompanyFilter(v); setPage(1); }}>
+                <SelectTrigger className="w-[220px]" data-testid="select-billing-company-filter">
+                  <SelectValue placeholder={t.invoices?.billingCompany || "Billing Company"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t.common?.all || "All"}</SelectItem>
+                  {availableBillingCompanies.map(([id, name]) => (
+                    <SelectItem key={id} value={id}>{name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           {filteredInvoices.length === 0 ? (
@@ -789,6 +849,8 @@ export default function CustomerInvoicesPage() {
                         <SortIcon field="totalAmount" />
                       </div>
                     </TableHead>
+                    <TableHead data-testid="th-payment">{t.invoices?.paymentStatus || "Payment"}</TableHead>
+                    <TableHead data-testid="th-paymentDate">{t.invoices?.paymentDate || "Payment Date"}</TableHead>
                     <TableHead className="cursor-pointer" onClick={() => handleSort("wizardCreatedAt")} data-testid="th-sort-wizardCreatedAt">
                       <div className="flex items-center">
                         {t.invoices?.wizardCreated || "Wizard Created"}
@@ -812,6 +874,30 @@ export default function CustomerInvoicesPage() {
                       <TableCell data-testid={`text-issueDate-${invoice.id}`}>{formatDate(invoice.issueDate)}</TableCell>
                       <TableCell data-testid={`text-dueDate-${invoice.id}`}>{formatDate(invoice.dueDate)}</TableCell>
                       <TableCell className="text-right" data-testid={`text-totalAmount-${invoice.id}`}>{formatCurrency(invoice.totalAmount, invoice.currency)}</TableCell>
+                      <TableCell data-testid={`text-payment-${invoice.id}`}>
+                        {invoice.status === "paid" ? (
+                          <Badge variant="default" data-testid={`badge-paid-${invoice.id}`}>
+                            <CheckCircle2 className="h-3 w-3 mr-1" />
+                            {t.invoices?.statusPaid || "Paid"}
+                          </Badge>
+                        ) : invoice.status === "partially_paid" ? (
+                          <Badge variant="secondary" data-testid={`badge-partial-${invoice.id}`}>
+                            {t.invoices?.statusPartiallyPaid || "Partially Paid"}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" data-testid={`badge-unpaid-${invoice.id}`}>
+                            <Clock className="h-3 w-3 mr-1" />
+                            {t.invoices?.unpaid || "Unpaid"}
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell data-testid={`text-paymentDate-${invoice.id}`}>
+                        {invoice.paymentDate ? (
+                          <span className="text-sm">{formatDate(invoice.paymentDate)}</span>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
                       <TableCell data-testid={`text-wizardCreated-${invoice.id}`}>
                         {invoice.wizardCreatedAt ? (
                           <span className="text-sm text-muted-foreground">
@@ -1491,6 +1577,87 @@ export default function CustomerInvoicesPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  {t.invoices?.monthlyForecast || "Monthly Forecast from Scheduled Invoices"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {(() => {
+                  const now = new Date();
+                  const forecastMonths: { label: string; month: number; year: number }[] = [];
+                  for (let i = 0; i < 12; i++) {
+                    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+                    forecastMonths.push({
+                      label: d.toLocaleDateString(localeMap[locale] || "sk-SK", { month: "long", year: "numeric" }),
+                      month: d.getMonth(),
+                      year: d.getFullYear(),
+                    });
+                  }
+
+                  const pendingScheduled = scheduledInvoices.filter(s => s.status === "pending");
+
+                  const forecastData = forecastMonths.map(m => {
+                    const monthInvoices = pendingScheduled.filter(s => {
+                      const d = new Date(s.scheduledDate);
+                      return d.getMonth() === m.month && d.getFullYear() === m.year;
+                    });
+                    const totalEur = monthInvoices.reduce((sum, inv) => sum + convertToEur(inv.totalAmount || "0", inv.currency), 0);
+                    return {
+                      label: m.label,
+                      count: monthInvoices.length,
+                      totalEur,
+                      invoices: monthInvoices,
+                    };
+                  }).filter(m => m.count > 0);
+
+                  if (forecastData.length === 0) {
+                    return (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p>{t.invoices?.noScheduledInvoices || "No scheduled invoices"}</p>
+                      </div>
+                    );
+                  }
+
+                  const grandTotal = forecastData.reduce((sum, m) => sum + m.totalEur, 0);
+                  const grandCount = forecastData.reduce((sum, m) => sum + m.count, 0);
+
+                  return (
+                    <Table data-testid="table-monthly-forecast">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{t.invoices?.month || "Month"}</TableHead>
+                          <TableHead className="text-right">{t.invoices?.invoiceCount || "Invoices"}</TableHead>
+                          <TableHead className="text-right">{t.invoices?.expectedAmount || "Expected Amount"} (EUR)</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {forecastData.map((m, idx) => (
+                          <TableRow key={idx}>
+                            <TableCell className="font-medium capitalize">{m.label}</TableCell>
+                            <TableCell className="text-right">
+                              <Badge variant="outline">{m.count}</Badge>
+                            </TableCell>
+                            <TableCell className="text-right font-medium">{formatCurrency(m.totalEur.toString(), "EUR")}</TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow className="border-t-2 font-bold">
+                          <TableCell>{t.invoices?.total || "Total"}</TableCell>
+                          <TableCell className="text-right">
+                            <Badge variant="secondary">{grandCount}</Badge>
+                          </TableCell>
+                          <TableCell className="text-right">{formatCurrency(grandTotal.toString(), "EUR")}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
                   <Users className="h-5 w-5" />
                   Top 10 zákazníkov podľa hodnoty faktúr
                 </CardTitle>
@@ -2022,11 +2189,32 @@ function InvoiceDetailDrawer({
               </div>
             </div>
 
-            {invoice.status === "paid" && (
-              <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-md">
-                <CheckCircle2 className="h-5 w-5 text-green-600" />
-                <span className="text-green-700 dark:text-green-400 font-medium">
-                  {t.invoices?.fullyPaid || "Fully Paid"}: {formatCurrency(invoice.paidAmount, invoice.currency)}
+            {(invoice.status === "paid" || invoice.status === "partially_paid") && (
+              <div className={`flex items-center gap-2 p-3 rounded-md ${invoice.status === "paid" ? "bg-green-50 dark:bg-green-900/20" : "bg-amber-50 dark:bg-amber-900/20"}`}>
+                <CheckCircle2 className={`h-5 w-5 ${invoice.status === "paid" ? "text-green-600" : "text-amber-600"}`} />
+                <div>
+                  <span className={`font-medium ${invoice.status === "paid" ? "text-green-700 dark:text-green-400" : "text-amber-700 dark:text-amber-400"}`}>
+                    {invoice.status === "paid" ? (t.invoices?.fullyPaid || "Fully Paid") : (t.invoices?.statusPartiallyPaid || "Partially Paid")}: {formatCurrency(invoice.paidAmount, invoice.currency)}
+                  </span>
+                  {invoice.paymentDate && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {t.invoices?.paymentDate || "Payment Date"}: {formatDate(invoice.paymentDate)}
+                      {invoice.paymentMethod && ` | ${invoice.paymentMethod}`}
+                    </p>
+                  )}
+                  {invoice.paymentReference && (
+                    <p className="text-xs text-muted-foreground">
+                      Ref: {invoice.paymentReference}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+            {invoice.status !== "paid" && invoice.status !== "partially_paid" && (
+              <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-md">
+                <Clock className="h-5 w-5 text-muted-foreground" />
+                <span className="text-muted-foreground font-medium">
+                  {t.invoices?.unpaid || "Unpaid"}
                 </span>
               </div>
             )}
