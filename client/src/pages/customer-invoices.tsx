@@ -4,6 +4,7 @@ import { Search, Eye, Receipt, Loader2, ArrowUpDown, ArrowUp, ArrowDown, Chevron
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { getCountryFlag } from "@/lib/countries";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { CreateInvoiceWizard } from "@/components/create-invoice-wizard";
 import { Button } from "@/components/ui/button";
@@ -527,7 +528,7 @@ export default function CustomerInvoicesPage() {
     });
 
     return result;
-  }, [enrichedInvoices, statusFilter, searchTerm, sortField, sortDirection]);
+  }, [enrichedInvoices, statusFilter, countryFilter, billingCompanyFilter, searchTerm, sortField, sortDirection]);
 
   const paginatedInvoices = useMemo(() => {
     const start = (page - 1) * perPage;
@@ -760,7 +761,7 @@ export default function CustomerInvoicesPage() {
                     />
                   </div>
                 </div>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
               <SelectTrigger className="w-[180px]" data-testid="select-status-filter">
                 <SelectValue placeholder={t.invoices?.filterByStatus || "Filter by status"} />
               </SelectTrigger>
@@ -782,7 +783,12 @@ export default function CustomerInvoicesPage() {
                 <SelectContent>
                   <SelectItem value="all">{t.common?.all || "All"}</SelectItem>
                   {availableCountries.map(code => (
-                    <SelectItem key={code} value={code}>{code}</SelectItem>
+                    <SelectItem key={code} value={code}>
+                      <span className="flex items-center gap-2">
+                        <span>{getCountryFlag(code)}</span>
+                        <span>{code}</span>
+                      </span>
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
