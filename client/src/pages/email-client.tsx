@@ -1156,17 +1156,23 @@ export default function EmailClientPage() {
                 )}
                 
                 {/* Virtual folders (SMS, Tasks, Chats) */}
+                {visibleFolders.filter(f => f.type === "sms" || f.type === "task" || f.type === "chat").length > 0 && (
+                  <div className="px-2 pt-3 pb-1">
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Kanály</span>
+                  </div>
+                )}
                 {visibleFolders.filter(f => f.type === "sms" || f.type === "task" || f.type === "chat").map((folder) => (
                   <button
                     key={folder.id}
                     onClick={() => selectFolder(folder, folder.type as "sms" | "task" | "chat")}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors hover-elevate ${
                       selectedFolderId === folder.id ? "bg-primary text-primary-foreground" : ""
-                    } ${folder.type === "sms" ? "border-l-2 border-l-cyan-500" : folder.type === "task" ? "border-l-2 border-l-emerald-500" : folder.type === "chat" ? "border-l-2 border-l-violet-500" : ""}`}
+                    }`}
                     data-testid={`folder-${folder.id}`}
                   >
                     <div className="flex items-center gap-2">
-                      {folder.type === "sms" ? <MessageSquare className="h-4 w-4 text-cyan-600" /> : folder.type === "task" ? <ListTodo className="h-4 w-4 text-emerald-600" /> : <MessagesSquare className="h-4 w-4 text-violet-600" />}
+                      <span className={`h-2 w-2 rounded-full shrink-0 ${folder.type === "sms" ? "bg-cyan-500" : folder.type === "task" ? "bg-emerald-500" : "bg-violet-500"}`} />
+                      {folder.type === "sms" ? <MessageSquare className={`h-4 w-4 ${selectedFolderId === folder.id ? "text-primary-foreground" : "text-cyan-600"}`} /> : folder.type === "task" ? <ListTodo className={`h-4 w-4 ${selectedFolderId === folder.id ? "text-primary-foreground" : "text-emerald-600"}`} /> : <MessagesSquare className={`h-4 w-4 ${selectedFolderId === folder.id ? "text-primary-foreground" : "text-violet-600"}`} />}
                       <span className="truncate">{folder.displayName}</span>
                     </div>
                     {folder.type === "sms" && (smsData?.filter(s => s.direction === "inbound" && s.deliveryStatus !== "read")?.length || 0) > 0 ? (
