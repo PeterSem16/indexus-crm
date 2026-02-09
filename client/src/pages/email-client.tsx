@@ -320,8 +320,10 @@ export default function EmailClientPage() {
   const [signatureDialogOpen, setSignatureDialogOpen] = useState(false);
   const [folderSettingsOpen, setFolderSettingsOpen] = useState(false);
   const [page, setPage] = useState(0);
-  const pageSize = 100;
+  const pageSize = 200;
   const [expandedMessage, setExpandedMessage] = useState<UnifiedMessage | null>(null);
+  const [accumulatedEmails, setAccumulatedEmails] = useState<EmailMessage[]>([]);
+  const [serverTotalCount, setServerTotalCount] = useState(0);
   
   const [columns, setColumns] = useState<ColumnConfig[]>(() => {
     const saved = localStorage.getItem("nexus-email-columns");
@@ -385,7 +387,7 @@ export default function EmailClientPage() {
   const isSystemFolder = selectedFolderType === "system" || selectedFolderType === "all";
   const emailFolderId = isSystemFolder ? (foldersData?.inboxId || null) : selectedFolderId;
   
-  const { data: messagesData, isLoading: messagesLoading, refetch: refetchMessages } = useQuery<{ connected: boolean; emails: EmailMessage[]; totalCount: number }>({
+  const { data: messagesData, isLoading: messagesLoading, isFetching: messagesFetching, refetch: refetchMessages } = useQuery<{ connected: boolean; emails: EmailMessage[]; totalCount: number }>({
     queryKey: ["/api/users", user?.id, "ms365-folder-messages", emailFolderId, selectedMailbox, page, selectedFolderType],
     queryFn: () => {
       if (selectedFolderType === "task" || selectedFolderType === "chat") {
@@ -395,6 +397,27 @@ export default function EmailClientPage() {
     },
     enabled: !!user?.id && !!emailFolderId && (selectedFolderType === "email" || isSystemFolder),
   });
+
+  useEffect(() => {
+    if (messagesData?.emails) {
+      if (page === 0) {
+        setAccumulatedEmails(messagesData.emails);
+      } else {
+        setAccumulatedEmails(prev => {
+          const existingIds = new Set(prev.map(e => e.id));
+          const newEmails = messagesData.emails.filter(e => !existingIds.has(e.id));
+          return [...prev, ...newEmails];
+        });
+      }
+      setServerTotalCount(messagesData.totalCount || 0);
+    }
+  }, [messagesData, page]);
+
+  useEffect(() => {
+    setPage(0);
+    setAccumulatedEmails([]);
+    setServerTotalCount(0);
+  }, [emailFolderId, selectedMailbox, selectedFolderType]);
 
   // Tasks and chats queries always enabled for unified views
   const { data: tasksData, isLoading: tasksLoading, refetch: refetchTasks } = useQuery<Task[]>({
@@ -570,8 +593,8 @@ export default function EmailClientPage() {
   });
 
   const folders = foldersData?.folders || [];
-  const emails = messagesData?.emails || [];
-  const totalCount = messagesData?.totalCount || 0;
+  const emails = accumulatedEmails;
+  const totalCount = serverTotalCount;
   const totalPages = Math.ceil(totalCount / pageSize);
   
   // Sync email folders to folderSettings when loaded from Outlook
@@ -994,7 +1017,7 @@ export default function EmailClientPage() {
             </DropdownMenuContent>
           </DropdownMenu>
           
-          <Button variant="outline" size="icon" onClick={() => { refetchFolders(); refetchMessages(); refetchTasks(); refetchChats(); refetchSms(); }} data-testid="button-refresh">
+          <Button variant="outline" size="icon" onClick={() => { setPage(0); setAccumulatedEmails([]); refetchFolders(); refetchMessages(); refetchTasks(); refetchChats(); refetchSms(); }} data-testid="button-refresh">
             <RefreshCw className="h-4 w-4" />
           </Button>
           <Button variant="outline" size="icon" onClick={openSignatureEditor} data-testid="button-signature">
@@ -1350,7 +1373,7 @@ export default function EmailClientPage() {
                             )}
                             {visibleColumns.find(c => c.id === "date") && (
                               <span className="text-xs text-muted-foreground shrink-0">
-                                {format(new Date(msg.timestamp), "d.M. HH:mm")}
+                                {format(new Date(msg.timestamp), "d.M.yyyy HH:mm")}
                               </span>
                             )}
                           </div>
@@ -1405,6 +1428,21 @@ export default function EmailClientPage() {
                       </div>
                     </button>
                   ))}
+                  {totalCount > emails.length && (selectedFolderType === "email" || isSystemFolder) && (
+                    <div className="p-3 text-center">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="text-xs gap-1"
+                        onClick={() => setPage(p => p + 1)}
+                        disabled={messagesFetching}
+                        data-testid="button-load-more"
+                      >
+                        {messagesFetching && <Loader2 className="h-3 w-3 animate-spin" />}
+                        Načítať ďalšie správy ({emails.length} z {totalCount})
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </ScrollArea>
             )}
