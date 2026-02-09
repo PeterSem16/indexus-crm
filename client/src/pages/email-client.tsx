@@ -1058,10 +1058,10 @@ export default function EmailClientPage() {
       </Card>
 
       {/* Main content */}
-      <div className="grid grid-cols-12 gap-4 h-[calc(100vh-280px)] transition-all duration-300">
+      <div className="flex gap-2 h-[calc(100vh-280px)] transition-all duration-300">
         {/* Toggle button when left panel is hidden */}
         {isLeftPanelHidden && (
-          <div className="col-span-1 flex flex-col items-center pt-2">
+          <div className="flex flex-col items-center pt-2 shrink-0">
             <Button 
               variant="outline" 
               size="icon" 
@@ -1076,7 +1076,7 @@ export default function EmailClientPage() {
         )}
         
         {/* Folders panel */}
-        <Card className={`transition-all duration-300 ${isLeftPanelHidden ? "hidden" : "col-span-2"}`}>
+        <Card className={`transition-all duration-300 shrink-0 overflow-hidden ${isLeftPanelHidden ? "hidden" : "w-[14%] min-w-[180px] max-w-[220px]"}`}>
           <CardHeader className="py-3 flex flex-row items-center justify-between gap-1">
             <CardTitle className="text-sm font-medium">Zložky</CardTitle>
             <div className="flex items-center gap-1">
@@ -1216,29 +1216,28 @@ export default function EmailClientPage() {
         </Card>
 
         {/* Unified message list */}
-        <Card className={`transition-all duration-300 ${isLeftPanelHidden ? "col-span-5" : "col-span-4"}`}>
-          <CardHeader className="py-2 px-3 space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <CardTitle className="text-sm font-medium">
-                Správy ({totalFilteredMessages})
-              </CardTitle>
-              <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon" className="h-7 w-7" disabled={localPage === 0} onClick={() => setLocalPage(p => p - 1)} data-testid="button-page-prev">
-                  <ChevronLeft className="h-4 w-4" />
+        <Card className="transition-all duration-300 w-[30%] min-w-[320px] max-w-[420px] shrink-0">
+          <CardHeader className="py-2 px-2 space-y-1">
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-xs font-medium text-muted-foreground">
+                {totalFilteredMessages} správ
+              </span>
+              <div className="flex items-center gap-0.5">
+                <Button variant="ghost" size="icon" disabled={localPage === 0} onClick={() => setLocalPage(p => p - 1)} data-testid="button-page-prev">
+                  <ChevronLeft className="h-3.5 w-3.5" />
                 </Button>
-                <span className="text-xs min-w-[50px] text-center">{totalLocalPages > 0 ? `${localPage + 1}/${totalLocalPages}` : "0/0"}</span>
-                <Button variant="ghost" size="icon" className="h-7 w-7" disabled={localPage >= totalLocalPages - 1} onClick={() => setLocalPage(p => p + 1)} data-testid="button-page-next">
-                  <ChevronRight className="h-4 w-4" />
+                <span className="text-[11px] min-w-[40px] text-center text-muted-foreground">{totalLocalPages > 0 ? `${localPage + 1}/${totalLocalPages}` : "0/0"}</span>
+                <Button variant="ghost" size="icon" disabled={localPage >= totalLocalPages - 1} onClick={() => setLocalPage(p => p + 1)} data-testid="button-page-next">
+                  <ChevronRight className="h-3.5 w-3.5" />
                 </Button>
               </div>
             </div>
             
-            {/* Filters row */}
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1 flex-wrap">
               <Button 
                 variant={filterUnreadOnly ? "default" : "outline"} 
                 size="sm" 
-                className="h-7 text-xs gap-1"
+                className="text-[11px] gap-0.5"
                 onClick={() => setFilterUnreadOnly(!filterUnreadOnly)}
                 data-testid="filter-unread"
               >
@@ -1249,17 +1248,17 @@ export default function EmailClientPage() {
               <Button 
                 variant={filterHasAttachment ? "default" : "outline"} 
                 size="sm" 
-                className="h-7 text-xs gap-1"
+                className="text-[11px] gap-0.5"
                 onClick={() => setFilterHasAttachment(!filterHasAttachment)}
                 data-testid="filter-attachment"
               >
                 <Paperclip className="h-3 w-3" />
-                S prílohou
+                Prílohy
               </Button>
               
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className={`h-7 text-xs gap-1 ${filterDateFrom || filterDateTo ? "border-primary" : ""}`} data-testid="filter-date">
+                  <Button variant="outline" size="sm" className={`text-[11px] gap-0.5 ${filterDateFrom || filterDateTo ? "border-primary" : ""}`} data-testid="filter-date">
                     <CalendarIcon className="h-3 w-3" />
                     {filterDateFrom || filterDateTo ? (
                       <>
@@ -1300,7 +1299,7 @@ export default function EmailClientPage() {
               <Button 
                 variant="outline" 
                 size="sm" 
-                className="h-7 text-xs gap-1"
+                className="text-[11px] gap-0.5"
                 onClick={() => setSortOrder(sortOrder === "newest" ? "oldest" : "newest")}
                 data-testid="sort-toggle"
               >
@@ -1312,7 +1311,7 @@ export default function EmailClientPage() {
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  className="h-7 text-xs text-muted-foreground"
+                  className="text-[11px] text-muted-foreground"
                   onClick={() => {
                     setFilterUnreadOnly(false);
                     setFilterHasAttachment(false);
@@ -1338,92 +1337,105 @@ export default function EmailClientPage() {
                 <span>{filterUnreadOnly || filterHasAttachment || filterDateFrom || filterDateTo ? "Žiadne správy zodpovedajú filtrom" : "Žiadne správy"}</span>
               </div>
             ) : (
-              <ScrollArea className="h-[calc(100vh-400px)]">
+              <ScrollArea className="h-[calc(100vh-370px)]">
                 <div className="divide-y">
                   {paginatedMessages.map((msg) => (
                     <button
                       key={msg.id}
                       onClick={() => selectUnifiedMessage(msg)}
                       onDoubleClick={() => { selectUnifiedMessage(msg); setExpandedMessage(msg); }}
-                      className={`w-full text-left p-3 transition-all hover-elevate ${
+                      className={`w-full text-left px-3 py-2 transition-all hover-elevate ${
                         (selectedEmail?.id && msg.id === `email-${selectedEmail.id}`) ||
                         (selectedTask?.id && msg.id === `task-${selectedTask.id}`) ||
                         (selectedChat?.id && msg.id === `chat-${selectedChat.id}`)
                           ? "bg-accent" : ""
                       } ${msg.isUnread 
-                        ? `${typeColors[msg.type].bg} border-l-4 ${typeColors[msg.type].border} font-medium` 
-                        : "border-l-4 border-l-transparent"
+                        ? `${typeColors[msg.type].bg} font-medium` 
+                        : ""
                       }`}
                       title="Dvojklik pre zväčšený náhľad"
                       data-testid={`message-item-${msg.id}`}
                     >
                       <div className="flex items-start gap-2">
-                        {/* Type indicator */}
+                        <div className="flex flex-col items-center gap-1 mt-1.5 shrink-0">
+                          {msg.isUnread && (
+                            <span className={`h-2 w-2 rounded-full shrink-0 ${
+                              msg.type === "email" ? "bg-blue-500" :
+                              msg.type === "task" ? "bg-emerald-500" :
+                              msg.type === "chat" ? "bg-violet-500" :
+                              "bg-cyan-500"
+                            }`} />
+                          )}
+                          {!msg.isUnread && <span className="h-2 w-2" />}
+                        </div>
                         {visibleColumns.find(c => c.id === "type") && (
-                          <div className={`p-1.5 rounded ${typeColors[msg.type].bg}`}>
+                          <div className={`p-1 rounded ${typeColors[msg.type].bg} mt-0.5`}>
                             {getTypeIcon(msg.type)}
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center justify-between gap-1">
                             {visibleColumns.find(c => c.id === "from") && (
                               <span className={`text-sm truncate ${msg.isUnread ? "font-bold" : ""}`}>
                                 {msg.from || msg.title}
                               </span>
                             )}
-                            {visibleColumns.find(c => c.id === "date") && (
-                              <span className="text-xs text-muted-foreground shrink-0">
-                                {format(new Date(msg.timestamp), "d.M.yyyy HH:mm")}
-                              </span>
-                            )}
+                            <div className="flex items-center gap-1 shrink-0">
+                              {visibleColumns.find(c => c.id === "attachments") && msg.hasAttachments && (
+                                <Paperclip className="h-3 w-3 text-muted-foreground" />
+                              )}
+                              {visibleColumns.find(c => c.id === "date") && (
+                                <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                                  {format(new Date(msg.timestamp), "d.M.yyyy HH:mm")}
+                                </span>
+                              )}
+                            </div>
                           </div>
                           {visibleColumns.find(c => c.id === "subject") && (
-                            <p className={`text-sm truncate ${msg.isUnread ? "font-semibold" : "text-muted-foreground"}`}>
+                            <p className={`text-xs truncate ${msg.isUnread ? "font-semibold" : "text-muted-foreground"}`}>
                               {msg.title}
                             </p>
                           )}
                           {visibleColumns.find(c => c.id === "preview") && (
-                            <p className="text-xs text-muted-foreground truncate mt-1">
+                            <p className="text-[11px] text-muted-foreground truncate">
                               {msg.preview}
                             </p>
                           )}
-                          <div className="flex items-center gap-2 mt-1 flex-wrap">
-                            {visibleColumns.find(c => c.id === "attachments") && msg.hasAttachments && (
-                              <Paperclip className="h-3 w-3 text-muted-foreground" />
-                            )}
-                            {visibleColumns.find(c => c.id === "priority") && msg.priority && msg.type === "task" && (
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 gap-1">
-                                {priorityIcons[msg.priority]}
-                                {msg.priority}
-                              </Badge>
-                            )}
-                            {msg.type === "task" && msg.status && (
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 gap-1">
-                                {statusIcons[msg.status]}
-                                {msg.status}
-                              </Badge>
-                            )}
-                            {/* AI Alert badges for SMS */}
-                            {msg.type === "sms" && msg.aiAlertLevel && msg.aiAlertLevel !== "none" && (
-                              <Badge 
-                                variant="outline" 
-                                className={`text-[10px] px-1.5 py-0 h-4 gap-1 ${
-                                  msg.aiAlertLevel === "critical" 
-                                    ? "border-red-500 text-red-600 bg-red-50 dark:bg-red-950" 
-                                    : "border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950"
-                                }`}
-                              >
-                                {msg.aiAlertLevel === "critical" ? (
-                                  <ShieldAlert className="h-3 w-3" />
-                                ) : (
-                                  <AlertTriangle className="h-3 w-3" />
-                                )}
-                                {msg.aiHasAngryTone && "Nahnevaný"}
-                                {msg.aiWantsToCancel && "Zrušenie"}
-                                {!msg.aiHasAngryTone && !msg.aiWantsToCancel && (msg.aiAlertLevel === "critical" ? "Kritické" : "Upozornenie")}
-                              </Badge>
-                            )}
-                          </div>
+                          {(msg.type === "task" || (msg.type === "sms" && msg.aiAlertLevel && msg.aiAlertLevel !== "none")) && (
+                            <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                              {visibleColumns.find(c => c.id === "priority") && msg.priority && msg.type === "task" && (
+                                <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 gap-0.5">
+                                  {priorityIcons[msg.priority]}
+                                  {msg.priority}
+                                </Badge>
+                              )}
+                              {msg.type === "task" && msg.status && (
+                                <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 gap-0.5">
+                                  {statusIcons[msg.status]}
+                                  {msg.status}
+                                </Badge>
+                              )}
+                              {msg.type === "sms" && msg.aiAlertLevel && msg.aiAlertLevel !== "none" && (
+                                <Badge 
+                                  variant="outline" 
+                                  className={`text-[10px] px-1 py-0 h-4 gap-0.5 ${
+                                    msg.aiAlertLevel === "critical" 
+                                      ? "border-red-500 text-red-600 bg-red-50 dark:bg-red-950" 
+                                      : "border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950"
+                                  }`}
+                                >
+                                  {msg.aiAlertLevel === "critical" ? (
+                                    <ShieldAlert className="h-3 w-3" />
+                                  ) : (
+                                    <AlertTriangle className="h-3 w-3" />
+                                  )}
+                                  {msg.aiHasAngryTone && "Nahnevaný"}
+                                  {msg.aiWantsToCancel && "Zrušenie"}
+                                  {!msg.aiHasAngryTone && !msg.aiWantsToCancel && (msg.aiAlertLevel === "critical" ? "Kritické" : "Upozornenie")}
+                                </Badge>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </button>
@@ -1450,7 +1462,7 @@ export default function EmailClientPage() {
         </Card>
 
         {/* Detail panel */}
-        <Card className={`transition-all duration-300 ${isLeftPanelHidden ? "col-span-6" : "col-span-6"}`}>
+        <Card className="transition-all duration-300 flex-1 min-w-0">
           <CardContent className="p-0 h-full">
             {detailLoading ? (
               <div className="flex items-center justify-center h-full">
