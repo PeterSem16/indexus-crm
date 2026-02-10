@@ -825,6 +825,9 @@ export const invoicePayments = pgTable("invoice_payments", {
   paymentDate: timestamp("payment_date"),
   externalReference: text("external_reference"), // Bank transaction reference
   notes: text("notes"),
+  source: text("source").notNull().default("manual"), // manual, automated, bank_import
+  createdBy: varchar("created_by"), // user ID who recorded the payment
+  createdByName: text("created_by_name"), // display name of user who recorded
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
