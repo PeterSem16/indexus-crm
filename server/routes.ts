@@ -5326,6 +5326,9 @@ export async function registerRoutes(
         paymentDate: req.body.paymentDate ? new Date(req.body.paymentDate) : null,
         externalReference: req.body.externalReference,
         notes: req.body.notes,
+        source: req.body.source || "manual",
+        createdBy: req.body.createdBy || (req as any).user?.id,
+        createdByName: req.body.createdByName || (req as any).user?.fullName || (req as any).user?.username,
       }).returning();
       
       // Update invoice paid amount
@@ -5351,6 +5354,7 @@ export async function registerRoutes(
           paymentDate: req.body.paymentDate ? new Date(req.body.paymentDate) : null,
           externalReference: req.body.externalReference,
           notes: req.body.notes,
+          source: req.body.source,
         })
         .where(eq(invoicePayments.id, req.params.paymentId))
         .returning();
