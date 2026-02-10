@@ -5327,8 +5327,8 @@ export async function registerRoutes(
         externalReference: req.body.externalReference,
         notes: req.body.notes,
         source: req.body.source || "manual",
-        createdBy: req.body.createdBy || (req as any).user?.id,
-        createdByName: req.body.createdByName || (req as any).user?.fullName || (req as any).user?.username,
+        createdBy: (req as any).user?.id || req.body.createdBy,
+        createdByName: (req as any).user?.fullName || (req as any).user?.username || req.body.createdByName,
       }).returning();
       
       // Update invoice paid amount

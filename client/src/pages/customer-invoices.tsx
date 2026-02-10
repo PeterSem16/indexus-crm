@@ -1,6 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Search, Eye, Receipt, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckCircle2, Plus, Users, FileText, Calendar, Clock, Trash2, BarChart3, TrendingUp, FileDown, Download } from "lucide-react";
+import { Search, Eye, Receipt, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckCircle2, Plus, Users, FileText, Calendar, Clock, Trash2, BarChart3, TrendingUp, FileDown, Download, CreditCard, User, Banknote } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
@@ -42,8 +42,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { useI18n } from "@/i18n";
+import { useAuth } from "@/contexts/auth-context";
 import { useCountryFilter } from "@/contexts/country-filter-context";
 
 interface Invoice {
@@ -111,13 +113,20 @@ interface InvoiceItem {
 interface InvoicePayment {
   id: string;
   invoiceId: string;
+  transactionName: string;
   paymentDate: string;
   amount: string;
+  paidAmount: string;
   amountInCurrency?: string;
   currency: string;
   paymentMethod?: string;
-  reference?: string;
+  externalReference?: string;
+  notes?: string;
+  source: string;
+  createdBy?: string;
+  createdByName?: string;
   status: string;
+  createdAt: string;
 }
 
 interface Customer {
@@ -2344,43 +2353,312 @@ function InvoiceDetailDrawer({
           </TabsContent>
 
           <TabsContent value="payments" className="space-y-4 mt-4">
-            {paymentsLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin" />
-              </div>
-            ) : payments.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <p>{t.invoices?.noPayments || "No payments"}</p>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t.invoices?.paymentDate || "Date"}</TableHead>
-                    <TableHead className="text-right">{t.invoices?.paymentAmount || "Amount"}</TableHead>
-                    <TableHead>{t.invoices?.paymentMethod || "Method"}</TableHead>
-                    <TableHead>{t.invoices?.paymentStatus || "Status"}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {payments.map((payment) => (
-                    <TableRow key={payment.id}>
-                      <TableCell>{formatDate(payment.paymentDate)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(payment.amount, payment.currency)}</TableCell>
-                      <TableCell>{payment.paymentMethod || "-"}</TableCell>
-                      <TableCell>
-                        <Badge variant={payment.status === "completed" ? "default" : "secondary"}>
-                          {payment.status}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
+            <PaymentsTabContent 
+              invoice={invoice}
+              payments={payments}
+              paymentsLoading={paymentsLoading}
+              formatDate={formatDate}
+              formatCurrency={formatCurrency}
+            />
           </TabsContent>
         </Tabs>
       </SheetContent>
     </Sheet>
+  );
+}
+
+function PaymentsTabContent({
+  invoice,
+  payments,
+  paymentsLoading,
+  formatDate,
+  formatCurrency,
+}: {
+  invoice: Invoice;
+  payments: InvoicePayment[];
+  paymentsLoading: boolean;
+  formatDate: (date?: string) => string;
+  formatCurrency: (amount?: string, currency?: string) => string;
+}) {
+  const { t } = useI18n();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split("T")[0]);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentNotes, setPaymentNotes] = useState("");
+  const [paymentReference, setPaymentReference] = useState("");
+
+  const totalPaid = useMemo(() => {
+    return payments
+      .filter((p) => p.status === "completed")
+      .reduce((sum, p) => sum + parseFloat(p.paidAmount || p.amount || "0"), 0);
+  }, [payments]);
+
+  const totalAmount = parseFloat(invoice.totalAmount || "0");
+  const remaining = Math.max(0, totalAmount - totalPaid);
+  const paidPercent = totalAmount > 0 ? Math.min(100, (totalPaid / totalAmount) * 100) : 0;
+
+  const createPaymentMutation = useMutation({
+    mutationFn: async (data: Record<string, unknown>) => {
+      const res = await apiRequest("POST", `/api/invoices/${invoice.id}/payments`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices", invoice.id, "payments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      setShowPaymentForm(false);
+      setPaymentAmount("");
+      setPaymentNotes("");
+      setPaymentReference("");
+      setPaymentDate(new Date().toISOString().split("T")[0]);
+      toast({ title: t.invoices?.paymentRecorded || "Payment recorded successfully" });
+    },
+    onError: () => {
+      toast({ title: t.invoices?.paymentError || "Failed to record payment", variant: "destructive" });
+    },
+  });
+
+  const deletePaymentMutation = useMutation({
+    mutationFn: async (paymentId: string) => {
+      await apiRequest("DELETE", `/api/invoices/${invoice.id}/payments/${paymentId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices", invoice.id, "payments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      toast({ title: t.invoices?.paymentDeleted || "Payment deleted" });
+    },
+  });
+
+  const handleSubmitPayment = useCallback(() => {
+    const amount = parseFloat(paymentAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast({ title: t.invoices?.invalidAmount || "Enter a valid amount", variant: "destructive" });
+      return;
+    }
+
+    createPaymentMutation.mutate({
+      transactionName: `Manual payment - ${invoice.invoiceNumber}`,
+      amount: invoice.totalAmount,
+      paidAmount: paymentAmount,
+      status: "completed",
+      paymentDate,
+      notes: paymentNotes || undefined,
+      externalReference: paymentReference || undefined,
+      source: "manual",
+      createdBy: user?.id,
+      createdByName: user?.fullName || user?.username,
+    });
+  }, [paymentAmount, paymentDate, paymentNotes, paymentReference, invoice, user, createPaymentMutation, toast, t]);
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardContent className="pt-4 pb-3">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <span className="text-sm font-medium">{t.invoices?.paymentProgress || "Payment Progress"}</span>
+            <span className="text-sm text-muted-foreground">
+              {paidPercent.toFixed(0)}%
+            </span>
+          </div>
+          <Progress value={paidPercent} className="h-2 mb-2" />
+          <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+            <span>{t.invoices?.paid || "Paid"}: {formatCurrency(totalPaid.toFixed(2), invoice.currency)}</span>
+            <span>{t.invoices?.remaining || "Remaining"}: {formatCurrency(remaining.toFixed(2), invoice.currency)}</span>
+          </div>
+          <div className="text-xs text-muted-foreground mt-1">
+            {t.invoices?.totalInvoice || "Total"}: {formatCurrency(invoice.totalAmount, invoice.currency)}
+          </div>
+        </CardContent>
+      </Card>
+
+      {!showPaymentForm ? (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setPaymentAmount(remaining > 0 ? remaining.toFixed(2) : "");
+            setShowPaymentForm(true);
+          }}
+          data-testid="button-add-manual-payment"
+        >
+          <Plus className="h-4 w-4 mr-1" />
+          {t.invoices?.recordPayment || "Record Payment"}
+        </Button>
+      ) : (
+        <Card>
+          <CardContent className="pt-4 space-y-3">
+            <div className="flex items-center gap-2 mb-1">
+              <Banknote className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">{t.invoices?.recordManualPayment || "Record Manual Payment"}</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">{t.invoices?.paymentDate || "Payment Date"}</Label>
+                <Input
+                  type="date"
+                  value={paymentDate}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                  data-testid="input-payment-date"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">{t.invoices?.paymentAmount || "Amount"} ({invoice.currency})</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  placeholder={remaining.toFixed(2)}
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(e.target.value)}
+                  data-testid="input-payment-amount"
+                />
+                {remaining > 0 && parseFloat(paymentAmount || "0") < remaining && parseFloat(paymentAmount || "0") > 0 && (
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    {t.invoices?.partialPayment || "Partial payment"} - {t.invoices?.remaining || "Remaining"}: {formatCurrency((remaining - parseFloat(paymentAmount)).toFixed(2), invoice.currency)}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs">{t.invoices?.reference || "Reference"}</Label>
+              <Input
+                placeholder={t.invoices?.referencePlaceholder || "Bank transaction ref, receipt no."}
+                value={paymentReference}
+                onChange={(e) => setPaymentReference(e.target.value)}
+                data-testid="input-payment-reference"
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs">{t.invoices?.notes || "Notes"}</Label>
+              <Textarea
+                rows={2}
+                placeholder={t.invoices?.paymentNotesPlaceholder || "Optional notes about this payment"}
+                value={paymentNotes}
+                onChange={(e) => setPaymentNotes(e.target.value)}
+                className="resize-none text-sm"
+                data-testid="input-payment-notes"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <User className="h-3 w-3" />
+              <span>{t.invoices?.recordedBy || "Recorded by"}: {user?.fullName || user?.username || "-"}</span>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <Button
+                size="sm"
+                onClick={handleSubmitPayment}
+                disabled={createPaymentMutation.isPending || !paymentAmount}
+                data-testid="button-submit-payment"
+              >
+                {createPaymentMutation.isPending && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+                {t.invoices?.savePayment || "Save Payment"}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowPaymentForm(false)}
+                data-testid="button-cancel-payment"
+              >
+                {t.common?.cancel || "Cancel"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {paymentsLoading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin" />
+        </div>
+      ) : payments.length === 0 ? (
+        <div className="text-center py-6 text-muted-foreground">
+          <CreditCard className="h-8 w-8 mx-auto mb-2 opacity-40" />
+          <p className="text-sm">{t.invoices?.noPayments || "No payments recorded yet"}</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <span className="text-xs font-medium text-muted-foreground">
+            {t.invoices?.paymentHistory || "Payment History"} ({payments.length})
+          </span>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-xs">{t.invoices?.paymentDate || "Date"}</TableHead>
+                <TableHead className="text-xs text-right">{t.invoices?.paymentAmount || "Amount"}</TableHead>
+                <TableHead className="text-xs">{t.invoices?.source || "Source"}</TableHead>
+                <TableHead className="text-xs">{t.invoices?.recordedBy || "Recorded By"}</TableHead>
+                <TableHead className="text-xs">{t.invoices?.paymentStatus || "Status"}</TableHead>
+                <TableHead className="text-xs w-8"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {payments.map((payment) => (
+                <TableRow key={payment.id} data-testid={`payment-row-${payment.id}`}>
+                  <TableCell className="text-xs">
+                    {payment.paymentDate ? formatDate(payment.paymentDate) : "-"}
+                  </TableCell>
+                  <TableCell className="text-xs text-right font-medium">
+                    {formatCurrency(payment.paidAmount || payment.amount, invoice.currency)}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary" className="text-[10px]">
+                      {payment.source === "manual" ? (t.invoices?.manual || "Manual") :
+                       payment.source === "automated" ? (t.invoices?.automated || "Auto") :
+                       payment.source === "bank_import" ? (t.invoices?.bankImport || "Bank") :
+                       payment.source || "Manual"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {payment.createdByName || "-"}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={payment.status === "completed" ? "default" : payment.status === "failed" ? "destructive" : "secondary"} className="text-[10px]">
+                      {payment.status === "completed" ? (t.invoices?.completed || "Completed") :
+                       payment.status === "pending" ? (t.invoices?.pending || "Pending") :
+                       payment.status === "failed" ? (t.invoices?.failed || "Failed") :
+                       payment.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {payment.source === "manual" && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          if (confirm(t.invoices?.confirmDeletePayment || "Delete this payment record?")) {
+                            deletePaymentMutation.mutate(payment.id);
+                          }
+                        }}
+                        data-testid={`button-delete-payment-${payment.id}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+
+          {payments.some((p) => p.notes) && (
+            <div className="space-y-1 pt-2">
+              <span className="text-xs font-medium text-muted-foreground">{t.invoices?.notes || "Notes"}</span>
+              {payments.filter((p) => p.notes).map((p) => (
+                <div key={p.id} className="text-xs text-muted-foreground bg-muted/50 rounded p-2">
+                  <span className="font-medium">{p.paymentDate ? formatDate(p.paymentDate) : ""}</span>: {p.notes}
+                  {p.externalReference && <span className="ml-2 opacity-70">Ref: {p.externalReference}</span>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
