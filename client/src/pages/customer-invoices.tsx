@@ -1,6 +1,6 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, Fragment } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Search, Eye, Receipt, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckCircle2, Plus, Users, FileText, Calendar, Clock, Trash2, BarChart3, TrendingUp, FileDown, Download, CreditCard, User, Banknote } from "lucide-react";
+import { Search, Eye, Receipt, Loader2, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, CheckCircle2, Plus, Users, FileText, Calendar, Clock, Trash2, BarChart3, TrendingUp, FileDown, Download, CreditCard, User, Banknote, MessageSquare } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
@@ -2388,6 +2388,7 @@ function PaymentsTabContent({
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentNotes, setPaymentNotes] = useState("");
   const [paymentReference, setPaymentReference] = useState("");
+  const [expandedPaymentId, setExpandedPaymentId] = useState<string | null>(null);
 
   const totalPaid = useMemo(() => {
     return payments
@@ -2598,65 +2599,93 @@ function PaymentsTabContent({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {payments.map((payment) => (
-                <TableRow key={payment.id} data-testid={`payment-row-${payment.id}`}>
-                  <TableCell className="text-xs">
-                    {payment.paymentDate ? formatDate(payment.paymentDate) : "-"}
-                  </TableCell>
-                  <TableCell className="text-xs text-right font-medium">
-                    {formatCurrency(payment.paidAmount || payment.amount, invoice.currency)}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className="text-[10px]">
-                      {payment.source === "manual" ? (t.invoices?.manual || "Manual") :
-                       payment.source === "automated" ? (t.invoices?.automated || "Auto") :
-                       payment.source === "bank_import" ? (t.invoices?.bankImport || "Bank") :
-                       payment.source || "Manual"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {payment.createdByName || "-"}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={payment.status === "completed" ? "default" : payment.status === "failed" ? "destructive" : "secondary"} className="text-[10px]">
-                      {payment.status === "completed" ? (t.invoices?.completed || "Completed") :
-                       payment.status === "pending" ? (t.invoices?.pending || "Pending") :
-                       payment.status === "failed" ? (t.invoices?.failed || "Failed") :
-                       payment.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {payment.source === "manual" && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          if (confirm(t.invoices?.confirmDeletePayment || "Delete this payment record?")) {
-                            deletePaymentMutation.mutate(payment.id);
-                          }
-                        }}
-                        data-testid={`button-delete-payment-${payment.id}`}
-                      >
-                        <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-                      </Button>
+              {payments.map((payment) => {
+                const isExpanded = expandedPaymentId === payment.id;
+                const hasDetails = payment.notes || payment.externalReference;
+                return (
+                  <Fragment key={payment.id}>
+                    <TableRow
+                      className={hasDetails ? "cursor-pointer hover-elevate" : ""}
+                      onClick={() => {
+                        if (hasDetails) {
+                          setExpandedPaymentId(isExpanded ? null : payment.id);
+                        }
+                      }}
+                      data-testid={`payment-row-${payment.id}`}
+                    >
+                      <TableCell className="text-xs">
+                        <div className="flex items-center gap-1">
+                          {hasDetails && (
+                            <ChevronRight className={`h-3 w-3 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`} />
+                          )}
+                          {payment.paymentDate ? formatDate(payment.paymentDate) : "-"}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-xs text-right font-medium">
+                        {formatCurrency(payment.paidAmount || payment.amount, invoice.currency)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="text-[10px]">
+                          {payment.source === "manual" ? (t.invoices?.manual || "Manual") :
+                           payment.source === "automated" ? (t.invoices?.automated || "Auto") :
+                           payment.source === "bank_import" ? (t.invoices?.bankImport || "Bank") :
+                           payment.source || "Manual"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {payment.createdByName || "-"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={payment.status === "completed" ? "default" : payment.status === "failed" ? "destructive" : "secondary"} className="text-[10px]">
+                          {payment.status === "completed" ? (t.invoices?.completed || "Completed") :
+                           payment.status === "pending" ? (t.invoices?.pending || "Pending") :
+                           payment.status === "failed" ? (t.invoices?.failed || "Failed") :
+                           payment.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {payment.source === "manual" && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (confirm(t.invoices?.confirmDeletePayment || "Delete this payment record?")) {
+                                deletePaymentMutation.mutate(payment.id);
+                              }
+                            }}
+                            data-testid={`button-delete-payment-${payment.id}`}
+                          >
+                            <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                    {isExpanded && hasDetails && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="bg-muted/30 py-2 px-4">
+                          <div className="space-y-1">
+                            {payment.notes && (
+                              <div className="flex items-start gap-2 text-xs">
+                                <MessageSquare className="h-3 w-3 mt-0.5 text-muted-foreground shrink-0" />
+                                <span>{payment.notes}</span>
+                              </div>
+                            )}
+                            {payment.externalReference && (
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <FileText className="h-3 w-3 shrink-0" />
+                                <span>{t.invoices?.reference || "Reference"}: {payment.externalReference}</span>
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
                     )}
-                  </TableCell>
-                </TableRow>
-              ))}
+                  </Fragment>
+                );
+              })}
             </TableBody>
           </Table>
-
-          {payments.some((p) => p.notes) && (
-            <div className="space-y-1 pt-2">
-              <span className="text-xs font-medium text-muted-foreground">{t.invoices?.notes || "Notes"}</span>
-              {payments.filter((p) => p.notes).map((p) => (
-                <div key={p.id} className="text-xs text-muted-foreground bg-muted/50 rounded p-2">
-                  <span className="font-medium">{p.paymentDate ? formatDate(p.paymentDate) : ""}</span>: {p.notes}
-                  {p.externalReference && <span className="ml-2 opacity-70">Ref: {p.externalReference}</span>}
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       )}
     </div>
