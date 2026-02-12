@@ -9,7 +9,11 @@ import {
   Play, Pause, CheckCircle, Clock, Phone, User, Calendar,
   RefreshCw, Download, Filter, MoreHorizontal, Trash2, CheckCheck,
   Copy, Save, ScrollText, History, ArrowRight, Mail, MessageSquare, FileEdit, Package, Shield,
-  Plus, ChevronDown, ChevronRight, ListChecks
+  Plus, ChevronDown, ChevronRight, ListChecks,
+  ThumbsUp, ThumbsDown, CalendarPlus, PhoneOff, AlertCircle, XCircle, Zap, Star,
+  CircleDot, Info, Heart, Ban, Bell, Send, Target, Flag, Eye, EyeOff,
+  Volume2, VolumeX, UserCheck, UserX, Briefcase, Gift, Home, MapPin, Globe,
+  type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -55,6 +59,50 @@ import { CampaignContactsFilter, type CampaignContactFilters, applyContactFilter
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
+const ICON_PICKER_SET: { name: string; icon: LucideIcon }[] = [
+  { name: "Phone", icon: Phone },
+  { name: "PhoneOff", icon: PhoneOff },
+  { name: "Mail", icon: Mail },
+  { name: "MessageSquare", icon: MessageSquare },
+  { name: "Send", icon: Send },
+  { name: "ThumbsUp", icon: ThumbsUp },
+  { name: "ThumbsDown", icon: ThumbsDown },
+  { name: "CheckCircle", icon: CheckCircle },
+  { name: "XCircle", icon: XCircle },
+  { name: "AlertCircle", icon: AlertCircle },
+  { name: "Ban", icon: Ban },
+  { name: "Clock", icon: Clock },
+  { name: "Calendar", icon: Calendar },
+  { name: "CalendarPlus", icon: CalendarPlus },
+  { name: "Star", icon: Star },
+  { name: "Heart", icon: Heart },
+  { name: "Zap", icon: Zap },
+  { name: "Bell", icon: Bell },
+  { name: "Info", icon: Info },
+  { name: "Flag", icon: Flag },
+  { name: "Target", icon: Target },
+  { name: "Eye", icon: Eye },
+  { name: "EyeOff", icon: EyeOff },
+  { name: "User", icon: User },
+  { name: "UserCheck", icon: UserCheck },
+  { name: "UserX", icon: UserX },
+  { name: "Users", icon: Users },
+  { name: "Home", icon: Home },
+  { name: "MapPin", icon: MapPin },
+  { name: "Globe", icon: Globe },
+  { name: "Briefcase", icon: Briefcase },
+  { name: "Gift", icon: Gift },
+  { name: "FileText", icon: FileText },
+  { name: "Volume2", icon: Volume2 },
+  { name: "VolumeX", icon: VolumeX },
+  { name: "CircleDot", icon: CircleDot },
+];
+
+const ICON_MAP: Record<string, LucideIcon> = Object.fromEntries(
+  ICON_PICKER_SET.map(i => [i.name, i.icon])
+);
 
 type EnrichedContact = CampaignContact & { customer?: Customer };
 
@@ -346,13 +394,44 @@ function DispositionsTab({ campaignId }: { campaignId: string }) {
       </div>
       <div className="space-y-1">
         <Label className="text-xs">Ikona</Label>
-        <Input
-          value={newDisp.icon}
-          onChange={e => setNewDisp(p => ({ ...p, icon: e.target.value }))}
-          placeholder="Phone"
-          className="w-28"
-          data-testid="input-disposition-icon"
-        />
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="w-28 gap-2 justify-start" data-testid="input-disposition-icon">
+              {newDisp.icon && ICON_MAP[newDisp.icon] ? (() => {
+                const Ic = ICON_MAP[newDisp.icon];
+                return <Ic className="h-4 w-4 shrink-0" />;
+              })() : <CircleDot className="h-4 w-4 shrink-0 opacity-40" />}
+              <span className="text-xs truncate">{newDisp.icon || "Vybrať"}</span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-72 p-2" align="start">
+            <div className="grid grid-cols-6 gap-1" data-testid="icon-picker-grid">
+              {ICON_PICKER_SET.map(({ name, icon: Ic }) => (
+                <Button
+                  key={name}
+                  size="icon"
+                  variant={newDisp.icon === name ? "default" : "ghost"}
+                  onClick={() => setNewDisp(p => ({ ...p, icon: name }))}
+                  title={name}
+                  data-testid={`icon-pick-${name}`}
+                >
+                  <Ic className="h-4 w-4" />
+                </Button>
+              ))}
+            </div>
+            {newDisp.icon && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full mt-1"
+                onClick={() => setNewDisp(p => ({ ...p, icon: "" }))}
+                data-testid="button-clear-icon"
+              >
+                Odstrániť ikonu
+              </Button>
+            )}
+          </PopoverContent>
+        </Popover>
       </div>
       <div className="space-y-1">
         <Label className="text-xs">Farba</Label>
@@ -449,9 +528,10 @@ function DispositionsTab({ campaignId }: { campaignId: string }) {
                         {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                       </Button>
                     )}
-                    {parent.color && (
-                      <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: parent.color }} />
-                    )}
+                    {(() => {
+                      const ParentIcon = ICON_MAP[parent.icon || ""] || CircleDot;
+                      return <ParentIcon className="w-4 h-4 shrink-0" style={parent.color ? { color: parent.color } : undefined} />;
+                    })()}
                     <div className="flex-1 min-w-0">
                       <span className={`font-medium ${!parent.isActive ? "line-through text-muted-foreground" : ""}`} data-testid={`text-disposition-name-${parent.id}`}>
                         {parent.name}
@@ -495,9 +575,10 @@ function DispositionsTab({ campaignId }: { campaignId: string }) {
                     <div className="mt-3 ml-8 space-y-2">
                       {children.map(child => (
                         <div key={child.id} className="flex flex-wrap items-center gap-3 p-2 rounded-md border" data-testid={`row-disposition-${child.id}`}>
-                          {child.color && (
-                            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: child.color }} />
-                          )}
+                          {(() => {
+                            const ChildIcon = ICON_MAP[child.icon || ""] || CircleDot;
+                            return <ChildIcon className="w-3.5 h-3.5 shrink-0" style={child.color ? { color: child.color } : undefined} />;
+                          })()}
                           <div className="flex-1 min-w-0">
                             <span className={`text-sm ${!child.isActive ? "line-through text-muted-foreground" : ""}`} data-testid={`text-disposition-name-${child.id}`}>
                               {child.name}
