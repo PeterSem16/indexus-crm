@@ -65,6 +65,21 @@ import {
   CircleDot,
   Info,
   Zap,
+  Ban,
+  Heart,
+  Bell,
+  Flag,
+  Target,
+  Eye,
+  EyeOff,
+  UserCheck,
+  UserX,
+  Home,
+  Globe,
+  Briefcase,
+  Gift,
+  Volume2,
+  VolumeX,
   Bold,
   Italic,
   Underline,
@@ -139,6 +154,8 @@ const CHANNEL_CONFIG: Record<ChannelType, { icon: typeof Phone; label: string; c
 const DISPOSITION_ICON_MAP: Record<string, typeof Phone> = {
   ThumbsUp, ThumbsDown, CalendarPlus, PhoneOff, AlertCircle, XCircle, Phone, Clock,
   Calendar, MessageSquare, FileText, Info, User, Mail, Star, Zap, CheckCircle,
+  Send, Ban, Heart, Bell, Flag, Target, Eye, EyeOff, UserCheck, UserX, Users,
+  Home, MapPin, Globe, Briefcase, Gift, Volume2, VolumeX, CircleDot,
 };
 
 const DISPOSITION_COLOR_MAP: Record<string, string> = {
@@ -1356,6 +1373,7 @@ function CustomerInfoPanel({
   onRightTabChange,
   contactHistory,
   dispositions,
+  currentUserId,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
