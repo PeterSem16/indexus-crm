@@ -25,6 +25,9 @@ import {
   insertContractInstanceProductSchema, insertContractParticipantSchema, insertContractSignatureRequestSchema,
   insertGsmSenderConfigSchema,
   insertVisitEventSchema,
+  campaignDispositions, insertCampaignDispositionSchema,
+  DEFAULT_PHONE_DISPOSITIONS, DEFAULT_EMAIL_DISPOSITIONS, DEFAULT_SMS_DISPOSITIONS,
+  campaignContacts,
   type SafeUser, type Customer, type Product, type BillingDetails, type ActivityLog, type LeadScoringCriteria,
   type ServiceConfiguration, type InvoiceTemplate, type InvoiceLayout, type Role,
   type Campaign, type CampaignContact, type ContractInstance
@@ -13711,6 +13714,60 @@ export async function registerRoutes(
         createdBy: req.session.user!.id,
       });
       const campaign = await storage.createCampaign(validatedData);
+
+      // Auto-seed default dispositions based on channel
+      try {
+        const channel = campaign.channel || "phone";
+        let defaults: typeof DEFAULT_PHONE_DISPOSITIONS;
+        if (channel === "email") {
+          defaults = DEFAULT_EMAIL_DISPOSITIONS;
+        } else if (channel === "sms") {
+          defaults = DEFAULT_SMS_DISPOSITIONS;
+        } else if (channel === "mixed") {
+          defaults = [
+            ...DEFAULT_PHONE_DISPOSITIONS,
+            ...DEFAULT_EMAIL_DISPOSITIONS.filter(d => !DEFAULT_PHONE_DISPOSITIONS.some(p => p.code === d.code)),
+          ];
+        } else {
+          defaults = DEFAULT_PHONE_DISPOSITIONS;
+        }
+        for (let i = 0; i < defaults.length; i++) {
+          const def = defaults[i];
+          const [parent] = await db.insert(campaignDispositions).values({
+            campaignId: campaign.id,
+            name: def.name,
+            code: def.code,
+            channel,
+            icon: def.icon,
+            color: def.color,
+            actionType: def.actionType || "none",
+            isDefault: true,
+            isActive: true,
+            sortOrder: i * 10,
+          }).returning();
+          if (def.children && def.children.length > 0) {
+            for (let j = 0; j < def.children.length; j++) {
+              const child = def.children[j];
+              await db.insert(campaignDispositions).values({
+                campaignId: campaign.id,
+                parentId: parent.id,
+                name: child.name,
+                code: child.code,
+                channel,
+                icon: child.icon,
+                color: child.color,
+                actionType: def.actionType || "none",
+                isDefault: true,
+                isActive: true,
+                sortOrder: j * 10,
+              });
+            }
+          }
+        }
+      } catch (seedError) {
+        console.error("Failed to seed dispositions for new campaign:", seedError);
+      }
+
       await logActivity(
         req.session.user!.id,
         "created_campaign",
@@ -14415,6 +14472,202 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Failed to fetch campaign metrics:", error);
       res.status(500).json({ error: "Failed to fetch campaign metrics" });
+    }
+  });
+
+  // ===== Campaign Dispositions Routes =====
+
+  // Get dispositions for a campaign
+  app.get("/api/campaigns/:id/dispositions", requireAuth, async (req, res) => {
+    try {
+      const dispositions = await db.select().from(campaignDispositions)
+        .where(eq(campaignDispositions.campaignId, req.params.id))
+        .orderBy(campaignDispositions.sortOrder);
+      res.json(dispositions);
+    } catch (error) {
+      console.error("Failed to fetch campaign dispositions:", error);
+      res.status(500).json({ error: "Failed to fetch dispositions" });
+    }
+  });
+
+  // Create a new disposition for a campaign
+  app.post("/api/campaigns/:id/dispositions", requireAuth, async (req, res) => {
+    try {
+      const validated = insertCampaignDispositionSchema.parse({
+        ...req.body,
+        campaignId: req.params.id,
+      });
+      const [disposition] = await db.insert(campaignDispositions).values(validated).returning();
+      res.status(201).json(disposition);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid data", details: error.errors });
+      }
+      console.error("Failed to create disposition:", error);
+      res.status(500).json({ error: "Failed to create disposition" });
+    }
+  });
+
+  // Update a disposition
+  app.patch("/api/campaigns/:campaignId/dispositions/:dispositionId", requireAuth, async (req, res) => {
+    try {
+      const [updated] = await db.update(campaignDispositions)
+        .set({ ...req.body, updatedAt: new Date() })
+        .where(and(
+          eq(campaignDispositions.id, req.params.dispositionId),
+          eq(campaignDispositions.campaignId, req.params.campaignId)
+        ))
+        .returning();
+      if (!updated) {
+        return res.status(404).json({ error: "Disposition not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error("Failed to update disposition:", error);
+      res.status(500).json({ error: "Failed to update disposition" });
+    }
+  });
+
+  // Delete a disposition (and its children)
+  app.delete("/api/campaigns/:campaignId/dispositions/:dispositionId", requireAuth, async (req, res) => {
+    try {
+      // Delete children first
+      await db.delete(campaignDispositions).where(
+        eq(campaignDispositions.parentId, req.params.dispositionId)
+      );
+      // Delete the disposition
+      await db.delete(campaignDispositions).where(
+        and(
+          eq(campaignDispositions.id, req.params.dispositionId),
+          eq(campaignDispositions.campaignId, req.params.campaignId)
+        )
+      );
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete disposition:", error);
+      res.status(500).json({ error: "Failed to delete disposition" });
+    }
+  });
+
+  // Seed default dispositions for a campaign based on its channel
+  app.post("/api/campaigns/:id/dispositions/seed", requireAuth, async (req, res) => {
+    try {
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) {
+        return res.status(404).json({ error: "Campaign not found" });
+      }
+
+      // Check if already seeded
+      const existing = await db.select().from(campaignDispositions)
+        .where(eq(campaignDispositions.campaignId, req.params.id));
+      if (existing.length > 0) {
+        return res.json({ message: "Already seeded", dispositions: existing });
+      }
+
+      const channel = campaign.channel || "phone";
+      let defaults: typeof DEFAULT_PHONE_DISPOSITIONS;
+      if (channel === "email") {
+        defaults = DEFAULT_EMAIL_DISPOSITIONS;
+      } else if (channel === "sms") {
+        defaults = DEFAULT_SMS_DISPOSITIONS;
+      } else {
+        defaults = DEFAULT_PHONE_DISPOSITIONS;
+      }
+
+      // For mixed campaigns, combine all
+      if (channel === "mixed") {
+        defaults = [
+          ...DEFAULT_PHONE_DISPOSITIONS,
+          ...DEFAULT_EMAIL_DISPOSITIONS.filter(d => !DEFAULT_PHONE_DISPOSITIONS.some(p => p.code === d.code)),
+          ...DEFAULT_SMS_DISPOSITIONS.filter(d => !DEFAULT_PHONE_DISPOSITIONS.some(p => p.code === d.code) && !DEFAULT_EMAIL_DISPOSITIONS.some(e => e.code === d.code)),
+        ];
+      }
+
+      const allDispositions: any[] = [];
+      for (let i = 0; i < defaults.length; i++) {
+        const def = defaults[i];
+        const [parent] = await db.insert(campaignDispositions).values({
+          campaignId: req.params.id,
+          name: def.name,
+          code: def.code,
+          channel,
+          icon: def.icon,
+          color: def.color,
+          actionType: def.actionType || "none",
+          isDefault: true,
+          isActive: true,
+          sortOrder: i * 10,
+        }).returning();
+        allDispositions.push(parent);
+
+        if (def.children && def.children.length > 0) {
+          for (let j = 0; j < def.children.length; j++) {
+            const child = def.children[j];
+            const [sub] = await db.insert(campaignDispositions).values({
+              campaignId: req.params.id,
+              parentId: parent.id,
+              name: child.name,
+              code: child.code,
+              channel,
+              icon: child.icon,
+              color: child.color,
+              actionType: def.actionType || "none",
+              isDefault: true,
+              isActive: true,
+              sortOrder: j * 10,
+            }).returning();
+            allDispositions.push(sub);
+          }
+        }
+      }
+
+      res.status(201).json(allDispositions);
+    } catch (error) {
+      console.error("Failed to seed dispositions:", error);
+      res.status(500).json({ error: "Failed to seed dispositions" });
+    }
+  });
+
+  // Reorder dispositions
+  app.post("/api/campaigns/:id/dispositions/reorder", requireAuth, async (req, res) => {
+    try {
+      const { items } = req.body; // Array of { id, sortOrder }
+      if (!Array.isArray(items)) {
+        return res.status(400).json({ error: "items array required" });
+      }
+      for (const item of items) {
+        await db.update(campaignDispositions)
+          .set({ sortOrder: item.sortOrder, updatedAt: new Date() })
+          .where(and(
+            eq(campaignDispositions.id, item.id),
+            eq(campaignDispositions.campaignId, req.params.id)
+          ));
+      }
+      const all = await db.select().from(campaignDispositions)
+        .where(eq(campaignDispositions.campaignId, req.params.id))
+        .orderBy(campaignDispositions.sortOrder);
+      res.json(all);
+    } catch (error) {
+      console.error("Failed to reorder dispositions:", error);
+      res.status(500).json({ error: "Failed to reorder dispositions" });
+    }
+  });
+
+  // Get scheduled callbacks for current agent
+  app.get("/api/agent/callbacks", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.user!.id;
+      const now = new Date();
+      const callbacks = await db.select().from(campaignContacts)
+        .where(and(
+          eq(campaignContacts.assignedTo, userId),
+          eq(campaignContacts.status, "callback_scheduled"),
+          lte(campaignContacts.callbackDate, now)
+        ));
+      res.json(callbacks);
+    } catch (error) {
+      console.error("Failed to fetch callbacks:", error);
+      res.status(500).json({ error: "Failed to fetch callbacks" });
     }
   });
 

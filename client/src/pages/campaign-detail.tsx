@@ -8,7 +8,8 @@ import {
   ArrowLeft, Users, Settings, BarChart3, FileText, 
   Play, Pause, CheckCircle, Clock, Phone, User, Calendar,
   RefreshCw, Download, Filter, MoreHorizontal, Trash2, CheckCheck,
-  Copy, Save, ScrollText, History, ArrowRight, Mail, MessageSquare, FileEdit, Package, Shield
+  Copy, Save, ScrollText, History, ArrowRight, Mail, MessageSquare, FileEdit, Package, Shield,
+  Plus, ChevronDown, ChevronRight, ListChecks
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -26,7 +27,9 @@ import {
 import { PageHeader } from "@/components/page-header";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { type Campaign, type CampaignContact, type Customer, COUNTRIES, type OperatorScript, operatorScriptSchema } from "@shared/schema";
+import { type Campaign, type CampaignContact, type Customer, COUNTRIES, type OperatorScript, operatorScriptSchema, type CampaignDisposition, DISPOSITION_ACTION_TYPES } from "@shared/schema";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { ScriptBuilder } from "@/components/script-builder";
 import { ScriptRunner } from "@/components/script-runner";
 import { format } from "date-fns";
@@ -227,6 +230,310 @@ function SchedulingCard({ campaign }: { campaign: Campaign }) {
         />
       </CardContent>
     </Card>
+  );
+}
+
+const ACTION_TYPE_COLORS: Record<string, string> = {
+  callback: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+  dnd: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+  complete: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+  convert: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+  none: "bg-muted text-muted-foreground",
+};
+
+function DispositionsTab({ campaignId }: { campaignId: string }) {
+  const { toast } = useToast();
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [addingSubFor, setAddingSubFor] = useState<string | null>(null);
+  const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
+  const [newDisp, setNewDisp] = useState({ name: "", code: "", icon: "", color: "#6b7280", actionType: "none" });
+
+  const { data: dispositions = [], isLoading } = useQuery<CampaignDisposition[]>({
+    queryKey: ["/api/campaigns", campaignId, "dispositions"],
+    enabled: !!campaignId,
+  });
+
+  const parents = dispositions.filter(d => !d.parentId).sort((a, b) => a.sortOrder - b.sortOrder);
+  const childrenMap = dispositions.reduce((acc, d) => {
+    if (d.parentId) {
+      if (!acc[d.parentId]) acc[d.parentId] = [];
+      acc[d.parentId].push(d);
+    }
+    return acc;
+  }, {} as Record<string, CampaignDisposition[]>);
+
+  const toggleExpand = (id: string) => {
+    setExpandedParents(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const seedMutation = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/campaigns/${campaignId}/dispositions/seed`),
+    onSuccess: () => {
+      toast({ title: "Predvolené výsledky boli vytvorené" });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "dispositions"] });
+    },
+    onError: () => toast({ title: "Chyba", variant: "destructive" }),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", `/api/campaigns/${campaignId}/dispositions`, data),
+    onSuccess: () => {
+      toast({ title: "Výsledok pridaný" });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "dispositions"] });
+      setShowAddForm(false);
+      setAddingSubFor(null);
+      setNewDisp({ name: "", code: "", icon: "", color: "#6b7280", actionType: "none" });
+    },
+    onError: () => toast({ title: "Chyba pri vytváraní", variant: "destructive" }),
+  });
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
+      apiRequest("PATCH", `/api/campaigns/${campaignId}/dispositions/${id}`, { isActive }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "dispositions"] });
+    },
+    onError: () => toast({ title: "Chyba", variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/campaigns/${campaignId}/dispositions/${id}`),
+    onSuccess: () => {
+      toast({ title: "Výsledok zmazaný" });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "dispositions"] });
+    },
+    onError: () => toast({ title: "Chyba pri mazaní", variant: "destructive" }),
+  });
+
+  const handleCreate = (parentId?: string) => {
+    if (!newDisp.name || !newDisp.code) return;
+    createMutation.mutate({
+      campaignId,
+      parentId: parentId || null,
+      name: newDisp.name,
+      code: newDisp.code,
+      icon: newDisp.icon || null,
+      color: newDisp.color || null,
+      actionType: newDisp.actionType,
+    });
+  };
+
+  const renderAddForm = (parentId?: string) => (
+    <div className="flex flex-wrap items-end gap-2 p-3 rounded-md border bg-muted/30" data-testid="disposition-add-form">
+      <div className="space-y-1">
+        <Label className="text-xs">Názov</Label>
+        <Input
+          value={newDisp.name}
+          onChange={e => setNewDisp(p => ({ ...p, name: e.target.value }))}
+          placeholder="Názov"
+          className="w-40"
+          data-testid="input-disposition-name"
+        />
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs">Kód</Label>
+        <Input
+          value={newDisp.code}
+          onChange={e => setNewDisp(p => ({ ...p, code: e.target.value }))}
+          placeholder="kod"
+          className="w-32"
+          data-testid="input-disposition-code"
+        />
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs">Ikona</Label>
+        <Input
+          value={newDisp.icon}
+          onChange={e => setNewDisp(p => ({ ...p, icon: e.target.value }))}
+          placeholder="Phone"
+          className="w-28"
+          data-testid="input-disposition-icon"
+        />
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs">Farba</Label>
+        <Input
+          type="color"
+          value={newDisp.color}
+          onChange={e => setNewDisp(p => ({ ...p, color: e.target.value }))}
+          className="w-14"
+          data-testid="input-disposition-color"
+        />
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs">Akcia</Label>
+        <Select value={newDisp.actionType} onValueChange={v => setNewDisp(p => ({ ...p, actionType: v }))}>
+          <SelectTrigger className="w-32" data-testid="select-disposition-action">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {DISPOSITION_ACTION_TYPES.map(at => (
+              <SelectItem key={at} value={at}>{at}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <Button
+        size="sm"
+        onClick={() => handleCreate(parentId)}
+        disabled={createMutation.isPending || !newDisp.name || !newDisp.code}
+        data-testid="button-save-disposition"
+      >
+        {createMutation.isPending ? "..." : "Uložiť"}
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() => { setShowAddForm(false); setAddingSubFor(null); }}
+        data-testid="button-cancel-disposition"
+      >
+        Zrušiť
+      </Button>
+    </div>
+  );
+
+  return (
+    <TabsContent value="dispositions" className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h3 className="text-lg font-semibold" data-testid="text-dispositions-title">Výsledky kontaktu</h3>
+          <p className="text-sm text-muted-foreground">Definujte možné výsledky kontaktovania pre túto kampaň</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {dispositions.length === 0 && (
+            <Button
+              variant="outline"
+              onClick={() => seedMutation.mutate()}
+              disabled={seedMutation.isPending}
+              data-testid="button-seed-dispositions"
+            >
+              <ListChecks className="w-4 h-4 mr-2" />
+              {seedMutation.isPending ? "Vytváranie..." : "Načítať predvolené"}
+            </Button>
+          )}
+          <Button
+            onClick={() => { setShowAddForm(true); setAddingSubFor(null); setNewDisp({ name: "", code: "", icon: "", color: "#6b7280", actionType: "none" }); }}
+            data-testid="button-add-disposition"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Pridať výsledok
+          </Button>
+        </div>
+      </div>
+
+      {showAddForm && !addingSubFor && renderAddForm()}
+
+      {isLoading ? (
+        <div className="flex items-center justify-center h-32">
+          <RefreshCw className="w-5 h-5 animate-spin" />
+        </div>
+      ) : parents.length === 0 && !showAddForm ? (
+        <div className="text-center py-12 text-muted-foreground" data-testid="text-no-dispositions">
+          Žiadne výsledky kontaktu. Kliknite na "Načítať predvolené" alebo pridajte vlastné.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {parents.map(parent => {
+            const children = (childrenMap[parent.id] || []).sort((a, b) => a.sortOrder - b.sortOrder);
+            const isExpanded = expandedParents.has(parent.id);
+            return (
+              <Card key={parent.id} data-testid={`card-disposition-${parent.id}`}>
+                <CardContent className="p-4">
+                  <div className="flex flex-wrap items-center gap-3">
+                    {children.length > 0 && (
+                      <Button size="icon" variant="ghost" onClick={() => toggleExpand(parent.id)} data-testid={`button-expand-${parent.id}`}>
+                        {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                      </Button>
+                    )}
+                    {parent.color && (
+                      <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: parent.color }} />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <span className={`font-medium ${!parent.isActive ? "line-through text-muted-foreground" : ""}`} data-testid={`text-disposition-name-${parent.id}`}>
+                        {parent.name}
+                      </span>
+                      <span className="ml-2 text-xs text-muted-foreground">{parent.code}</span>
+                    </div>
+                    <Badge className={ACTION_TYPE_COLORS[parent.actionType] || ACTION_TYPE_COLORS.none} data-testid={`badge-action-${parent.id}`}>
+                      {parent.actionType}
+                    </Badge>
+                    <Switch
+                      checked={parent.isActive}
+                      onCheckedChange={checked => toggleActiveMutation.mutate({ id: parent.id, isActive: checked })}
+                      data-testid={`switch-active-${parent.id}`}
+                    />
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => { setAddingSubFor(parent.id); setShowAddForm(false); setNewDisp({ name: "", code: "", icon: "", color: parent.color || "#6b7280", actionType: "none" }); }}
+                      data-testid={`button-add-sub-${parent.id}`}
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => deleteMutation.mutate(parent.id)}
+                      disabled={deleteMutation.isPending}
+                      data-testid={`button-delete-disposition-${parent.id}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+
+                  {addingSubFor === parent.id && (
+                    <div className="mt-3">
+                      {renderAddForm(parent.id)}
+                    </div>
+                  )}
+
+                  {isExpanded && children.length > 0 && (
+                    <div className="mt-3 ml-8 space-y-2">
+                      {children.map(child => (
+                        <div key={child.id} className="flex flex-wrap items-center gap-3 p-2 rounded-md border" data-testid={`row-disposition-${child.id}`}>
+                          {child.color && (
+                            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: child.color }} />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <span className={`text-sm ${!child.isActive ? "line-through text-muted-foreground" : ""}`} data-testid={`text-disposition-name-${child.id}`}>
+                              {child.name}
+                            </span>
+                            <span className="ml-2 text-xs text-muted-foreground">{child.code}</span>
+                          </div>
+                          {child.actionType !== "none" && (
+                            <Badge className={ACTION_TYPE_COLORS[child.actionType] || ACTION_TYPE_COLORS.none}>
+                              {child.actionType}
+                            </Badge>
+                          )}
+                          <Switch
+                            checked={child.isActive}
+                            onCheckedChange={checked => toggleActiveMutation.mutate({ id: child.id, isActive: checked })}
+                            data-testid={`switch-active-${child.id}`}
+                          />
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => deleteMutation.mutate(child.id)}
+                            disabled={deleteMutation.isPending}
+                            data-testid={`button-delete-disposition-${child.id}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </TabsContent>
   );
 }
 
@@ -720,6 +1027,10 @@ export default function CampaignDetailPage() {
           <TabsTrigger value="agents" data-testid="tab-agents">
             <Shield className="w-4 h-4 mr-2" />
             Operátori
+          </TabsTrigger>
+          <TabsTrigger value="dispositions" data-testid="tab-dispositions">
+            <CheckCheck className="w-4 h-4 mr-2" />
+            Výsledky kontaktu
           </TabsTrigger>
         </TabsList>
 
@@ -1398,6 +1709,8 @@ Príklad:
             </Card>
           )}
         </TabsContent>
+
+        <DispositionsTab campaignId={campaignId} />
       </Tabs>
 
       <Dialog open={!!selectedContact} onOpenChange={() => setSelectedContact(null)}>

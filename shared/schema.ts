@@ -2909,6 +2909,84 @@ export const insertCampaignMetricsSnapshotSchema = createInsertSchema(campaignMe
 export type InsertCampaignMetricsSnapshot = z.infer<typeof insertCampaignMetricsSnapshotSchema>;
 export type CampaignMetricsSnapshot = typeof campaignMetricsSnapshots.$inferSelect;
 
+// Campaign dispositions - configurable contact outcomes per campaign
+export const campaignDispositions = pgTable("campaign_dispositions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id").notNull(),
+  parentId: varchar("parent_id"),
+  name: text("name").notNull(),
+  code: text("code").notNull(),
+  channel: text("channel").notNull().default("phone"),
+  icon: text("icon"),
+  color: text("color"),
+  actionType: text("action_type").notNull().default("none"),
+  isDefault: boolean("is_default").notNull().default(false),
+  isActive: boolean("is_active").notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const DISPOSITION_ACTION_TYPES = ["none", "callback", "dnd", "complete", "convert"] as const;
+export type DispositionActionType = typeof DISPOSITION_ACTION_TYPES[number];
+
+export const insertCampaignDispositionSchema = createInsertSchema(campaignDispositions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  parentId: z.string().optional().nullable(),
+  icon: z.string().optional().nullable(),
+  color: z.string().optional().nullable(),
+  actionType: z.enum(["none", "callback", "dnd", "complete", "convert"]).optional().default("none"),
+  isDefault: z.boolean().optional().default(false),
+  isActive: z.boolean().optional().default(true),
+  sortOrder: z.number().optional().default(0),
+});
+
+export type InsertCampaignDisposition = z.infer<typeof insertCampaignDispositionSchema>;
+export type CampaignDisposition = typeof campaignDispositions.$inferSelect;
+
+export const DEFAULT_PHONE_DISPOSITIONS = [
+  { name: "Záujem", code: "interested", icon: "ThumbsUp", color: "green", actionType: "convert" as const, children: [
+    { name: "Chce informácie", code: "wants_info", icon: "Info", color: "green" },
+    { name: "Chce stretnutie", code: "wants_meeting", icon: "Calendar", color: "green" },
+    { name: "Chce cenovú ponuku", code: "wants_quote", icon: "FileText", color: "green" },
+  ]},
+  { name: "Zavolať neskôr", code: "callback", icon: "CalendarPlus", color: "blue", actionType: "callback" as const, children: [
+    { name: "Požiadal o termín", code: "requested_date", icon: "Calendar", color: "blue" },
+    { name: "Nemal čas", code: "no_time", icon: "Clock", color: "blue" },
+    { name: "Chce rozmyslieť", code: "thinking", icon: "Clock", color: "blue" },
+  ]},
+  { name: "Nezáujem", code: "not_interested", icon: "ThumbsDown", color: "orange", actionType: "complete" as const, children: [
+    { name: "Momentálne nie", code: "not_now", icon: "Clock", color: "orange" },
+    { name: "Nikdy", code: "never", icon: "XCircle", color: "orange" },
+    { name: "Má konkurenciu", code: "has_competitor", icon: "Users", color: "orange" },
+  ]},
+  { name: "Nedvíha", code: "no_answer", icon: "PhoneOff", color: "gray", actionType: "none" as const, children: [] },
+  { name: "Obsadené", code: "busy", icon: "Phone", color: "yellow", actionType: "callback" as const, children: [] },
+  { name: "Hlasová schránka", code: "voicemail", icon: "MessageSquare", color: "gray", actionType: "callback" as const, children: [] },
+  { name: "Zlé číslo", code: "wrong_number", icon: "AlertCircle", color: "red", actionType: "complete" as const, children: [] },
+  { name: "Nevolať (DND)", code: "dnd", icon: "XCircle", color: "red", actionType: "dnd" as const, children: [] },
+];
+
+export const DEFAULT_EMAIL_DISPOSITIONS = [
+  { name: "Odpovedal - záujem", code: "replied_interested", icon: "ThumbsUp", color: "green", actionType: "convert" as const, children: [] },
+  { name: "Odpovedal - nezáujem", code: "replied_not_interested", icon: "ThumbsDown", color: "orange", actionType: "complete" as const, children: [] },
+  { name: "Neodpovedal", code: "no_reply", icon: "Clock", color: "gray", actionType: "none" as const, children: [] },
+  { name: "Email neplatný", code: "invalid_email", icon: "AlertCircle", color: "red", actionType: "complete" as const, children: [] },
+  { name: "Odhlásený", code: "unsubscribed", icon: "XCircle", color: "red", actionType: "dnd" as const, children: [] },
+  { name: "Preposlať neskôr", code: "resend_later", icon: "CalendarPlus", color: "blue", actionType: "callback" as const, children: [] },
+];
+
+export const DEFAULT_SMS_DISPOSITIONS = [
+  { name: "Odpovedal - záujem", code: "replied_interested", icon: "ThumbsUp", color: "green", actionType: "convert" as const, children: [] },
+  { name: "Odpovedal - nezáujem", code: "replied_not_interested", icon: "ThumbsDown", color: "orange", actionType: "complete" as const, children: [] },
+  { name: "Neodpovedal", code: "no_reply", icon: "Clock", color: "gray", actionType: "none" as const, children: [] },
+  { name: "Číslo neplatné", code: "invalid_number", icon: "AlertCircle", color: "red", actionType: "complete" as const, children: [] },
+  { name: "Odhlásený", code: "unsubscribed", icon: "XCircle", color: "red", actionType: "dnd" as const, children: [] },
+];
+
 // Operator Script Types - structured interactive scripts for call center agents
 export const scriptElementTypes = [
   "heading",

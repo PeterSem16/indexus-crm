@@ -79,7 +79,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useSip } from "@/contexts/sip-context";
 import { format } from "date-fns";
 import { sk } from "date-fns/locale";
-import type { Campaign, Customer, CampaignContact } from "@shared/schema";
+import type { Campaign, Customer, CampaignContact, CampaignDisposition } from "@shared/schema";
 
 type AgentStatus = "available" | "busy" | "break" | "wrap_up" | "offline";
 
@@ -128,20 +128,27 @@ const STATUS_CONFIG: Record<AgentStatus, { label: string; color: string; icon: R
   offline: { label: "Offline", color: "bg-gray-500", icon: <PhoneOff className="h-4 w-4" /> },
 };
 
-const DISPOSITION_OPTIONS = [
-  { value: "interested", label: "Záujem", icon: <ThumbsUp className="h-4 w-4" />, color: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300" },
-  { value: "callback", label: "Zavolať neskôr", icon: <CalendarPlus className="h-4 w-4" />, color: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300" },
-  { value: "not_interested", label: "Nezáujem", icon: <ThumbsDown className="h-4 w-4" />, color: "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300" },
-  { value: "no_answer", label: "Nedvíha", icon: <PhoneOff className="h-4 w-4" />, color: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300" },
-  { value: "wrong_number", label: "Zlé číslo", icon: <AlertCircle className="h-4 w-4" />, color: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300" },
-  { value: "dnd", label: "Nevolať", icon: <XCircle className="h-4 w-4" />, color: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300" },
-];
 
 const CHANNEL_CONFIG: Record<ChannelType, { icon: typeof Phone; label: string; color: string; bg: string }> = {
   phone: { icon: Phone, label: "Telefón", color: "text-blue-500", bg: "bg-blue-500" },
   email: { icon: Mail, label: "Email", color: "text-green-500", bg: "bg-green-500" },
   sms: { icon: MessageSquare, label: "SMS", color: "text-orange-500", bg: "bg-orange-500" },
   mixed: { icon: Users, label: "Mix", color: "text-purple-500", bg: "bg-purple-500" },
+};
+
+const DISPOSITION_ICON_MAP: Record<string, typeof Phone> = {
+  ThumbsUp, ThumbsDown, CalendarPlus, PhoneOff, AlertCircle, XCircle, Phone, Clock,
+  Calendar, MessageSquare, FileText, Info, User, Mail, Star, Zap, CheckCircle,
+};
+
+const DISPOSITION_COLOR_MAP: Record<string, string> = {
+  green: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
+  blue: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
+  orange: "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300",
+  red: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
+  gray: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300",
+  yellow: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300",
+  purple: "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300",
 };
 
 interface ScriptElement {
@@ -453,18 +460,28 @@ function TaskListPanel({
                   <p className="text-xs text-muted-foreground">Žiadne čakajúce kontakty</p>
                 </div>
               ) : (
-                campaignContacts.map((cc) => {
+                [...campaignContacts].sort((a, b) => {
+                  const now = new Date();
+                  const aIsCallback = a.status === "callback_scheduled" && a.callbackDate && new Date(a.callbackDate) <= now;
+                  const bIsCallback = b.status === "callback_scheduled" && b.callbackDate && new Date(b.callbackDate) <= now;
+                  if (aIsCallback && !bIsCallback) return -1;
+                  if (!aIsCallback && bIsCallback) return 1;
+                  return 0;
+                }).map((cc) => {
                   const cust = cc.customer;
                   if (!cust) return null;
+                  const now = new Date();
+                  const isDueCallback = cc.status === "callback_scheduled" && cc.callbackDate && new Date(cc.callbackDate) <= now;
+                  const callbackDateStr = cc.callbackDate ? format(new Date(cc.callbackDate), "dd.MM. HH:mm") : null;
                   return (
                     <div
                       key={cc.id}
-                      className="flex items-center gap-2.5 p-2.5 rounded-lg cursor-pointer hover-elevate"
+                      className={`flex items-center gap-2.5 p-2.5 rounded-lg cursor-pointer hover-elevate ${isDueCallback ? "ring-1 ring-blue-400 dark:ring-blue-600 bg-blue-50/50 dark:bg-blue-950/20" : ""}`}
                       onClick={() => onSelectCampaignContact(cc)}
                       data-testid={`contact-item-${cc.id}`}
                     >
                       <Avatar className="h-8 w-8 shrink-0">
-                        <AvatarFallback className="text-xs bg-muted">
+                        <AvatarFallback className={`text-xs ${isDueCallback ? "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300" : "bg-muted"}`}>
                           {cust.firstName?.[0]}{cust.lastName?.[0]}
                         </AvatarFallback>
                       </Avatar>
@@ -478,9 +495,14 @@ function TaskListPanel({
                       </div>
                       <div className="flex flex-col items-end gap-0.5 shrink-0">
                         {cc.status === "callback_scheduled" && (
-                          <Badge variant="outline" className="text-[9px] px-1 py-0">
-                            Callback
+                          <Badge variant={isDueCallback ? "default" : "outline"} className={`text-[9px] px-1 py-0 ${isDueCallback ? "bg-blue-500 text-white" : ""}`}>
+                            {isDueCallback ? "Zavolať!" : "Callback"}
                           </Badge>
+                        )}
+                        {callbackDateStr && (
+                          <span className={`text-[9px] ${isDueCallback ? "text-blue-600 dark:text-blue-400 font-medium" : "text-muted-foreground"}`}>
+                            {callbackDateStr}
+                          </span>
                         )}
                         {cc.attemptCount > 0 && (
                           <span className="text-[9px] text-muted-foreground">
@@ -1268,18 +1290,23 @@ function CustomerInfoPanel({
   rightTab,
   onRightTabChange,
   contactHistory,
+  dispositions,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
   callNotes: string;
   onAddNote: (note: string) => void;
-  onDisposition: (value: string) => void;
+  onDisposition: (value: string, parentCode?: string, callbackDateTime?: string) => void;
   onQuickAction: (action: string) => void;
   rightTab: string;
   onRightTabChange: (tab: string) => void;
   contactHistory: ContactHistory[];
+  dispositions: CampaignDisposition[];
 }) {
   const [newNote, setNewNote] = useState("");
+  const [selectedParentDisposition, setSelectedParentDisposition] = useState<string | null>(null);
+  const [callbackDate, setCallbackDate] = useState<string>("");
+  const [callbackTime, setCallbackTime] = useState<string>("09:00");
 
   const handleAddNote = () => {
     if (newNote.trim()) {
@@ -1534,25 +1561,158 @@ function CustomerInfoPanel({
             <Separator />
 
             <div>
-              <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <CheckCircle className="h-3 w-3" />
-                Výsledok kontaktu
+              <h4 className="text-xs font-semibold uppercase text-muted-foreground">
+                {selectedParentDisposition ? "Podkategória" : "Výsledok kontaktu"}
               </h4>
-              <div className="grid grid-cols-1 gap-1.5">
-                {DISPOSITION_OPTIONS.map((option) => (
+
+              {dispositions.length === 0 ? (
+                <div className="text-center py-4">
+                  <Info className="h-6 w-6 mx-auto text-muted-foreground/30 mb-1" />
+                  <p className="text-xs text-muted-foreground">Žiadne výsledky kontaktu definované pre túto kampaň</p>
+                </div>
+              ) : selectedParentDisposition ? (
+                <div className="space-y-2">
                   <Button
-                    key={option.value}
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
-                    className={`gap-2 justify-start ${option.color}`}
-                    onClick={() => onDisposition(option.value)}
-                    data-testid={`btn-disposition-${option.value}`}
+                    className="gap-1 text-xs"
+                    onClick={() => {
+                      setSelectedParentDisposition(null);
+                      setCallbackDate("");
+                      setCallbackTime("09:00");
+                    }}
+                    data-testid="btn-disposition-back"
                   >
-                    {option.icon}
-                    <span className="text-xs font-medium">{option.label}</span>
+                    <ChevronLeft className="h-3 w-3" />
+                    Späť
                   </Button>
-                ))}
-              </div>
+                  {(() => {
+                    const parent = dispositions.find(d => d.id === selectedParentDisposition);
+                    const children = dispositions.filter(d => d.parentId === selectedParentDisposition && d.isActive);
+                    
+                    if (parent?.actionType === "callback") {
+                      return (
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-[11px] text-muted-foreground">Dátum</label>
+                              <Input
+                                type="date"
+                                value={callbackDate}
+                                onChange={(e) => setCallbackDate(e.target.value)}
+                                min={new Date().toISOString().split("T")[0]}
+                                data-testid="input-callback-date"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[11px] text-muted-foreground">Čas</label>
+                              <Input
+                                type="time"
+                                value={callbackTime}
+                                onChange={(e) => setCallbackTime(e.target.value)}
+                                data-testid="input-callback-time"
+                              />
+                            </div>
+                          </div>
+                          {children.length > 0 && (
+                            <div className="grid grid-cols-1 gap-1">
+                              {children.map((child) => {
+                                const IconComp = DISPOSITION_ICON_MAP[child.icon || ""] || CircleDot;
+                                const colorClass = DISPOSITION_COLOR_MAP[child.color || "gray"] || DISPOSITION_COLOR_MAP.gray;
+                                return (
+                                  <Button
+                                    key={child.id}
+                                    variant="outline"
+                                    size="sm"
+                                    className={`gap-2 justify-start ${colorClass}`}
+                                    onClick={() => onDisposition(child.code, parent?.code, callbackDate && callbackTime ? `${callbackDate}T${callbackTime}` : undefined)}
+                                    data-testid={`btn-disposition-${child.code}`}
+                                  >
+                                    <IconComp className="h-4 w-4" />
+                                    <span className="text-xs font-medium">{child.name}</span>
+                                  </Button>
+                                );
+                              })}
+                            </div>
+                          )}
+                          <Button
+                            size="sm"
+                            className="w-full"
+                            disabled={!callbackDate}
+                            onClick={() => onDisposition(parent!.code, undefined, callbackDate && callbackTime ? `${callbackDate}T${callbackTime}` : undefined)}
+                            data-testid="btn-disposition-confirm-callback"
+                          >
+                            <CalendarPlus className="h-4 w-4 mr-1" />
+                            Potvrdiť preplánovanie
+                          </Button>
+                        </div>
+                      );
+                    }
+                    
+                    if (children.length > 0) {
+                      return (
+                        <div className="grid grid-cols-1 gap-1.5">
+                          {children.map((child) => {
+                            const IconComp = DISPOSITION_ICON_MAP[child.icon || ""] || CircleDot;
+                            const colorClass = DISPOSITION_COLOR_MAP[child.color || "gray"] || DISPOSITION_COLOR_MAP.gray;
+                            return (
+                              <Button
+                                key={child.id}
+                                variant="outline"
+                                size="sm"
+                                className={`gap-2 justify-start ${colorClass}`}
+                                onClick={() => onDisposition(child.code, parent?.code)}
+                                data-testid={`btn-disposition-${child.code}`}
+                              >
+                                <IconComp className="h-4 w-4" />
+                                <span className="text-xs font-medium">{child.name}</span>
+                              </Button>
+                            );
+                          })}
+                        </div>
+                      );
+                    }
+                    
+                    return null;
+                  })()}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-1.5">
+                  {dispositions.filter(d => !d.parentId && d.isActive).map((disp) => {
+                    const IconComp = DISPOSITION_ICON_MAP[disp.icon || ""] || CircleDot;
+                    const colorClass = DISPOSITION_COLOR_MAP[disp.color || "gray"] || DISPOSITION_COLOR_MAP.gray;
+                    const children = dispositions.filter(d => d.parentId === disp.id && d.isActive);
+                    const hasChildren = children.length > 0;
+                    const isCallback = disp.actionType === "callback";
+                    
+                    return (
+                      <Button
+                        key={disp.id}
+                        variant="outline"
+                        size="sm"
+                        className={`gap-2 justify-start ${colorClass}`}
+                        onClick={() => {
+                          if (hasChildren || isCallback) {
+                            setSelectedParentDisposition(disp.id);
+                            if (isCallback) {
+                              const tomorrow = new Date();
+                              tomorrow.setDate(tomorrow.getDate() + 1);
+                              setCallbackDate(tomorrow.toISOString().split("T")[0]);
+                            }
+                          } else {
+                            onDisposition(disp.code);
+                          }
+                        }}
+                        data-testid={`btn-disposition-${disp.code}`}
+                      >
+                        <IconComp className="h-4 w-4" />
+                        <span className="text-xs font-medium flex-1 text-left">{disp.name}</span>
+                        {(hasChildren || isCallback) && <ChevronRight className="h-3 w-3 opacity-50" />}
+                      </Button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1639,6 +1799,11 @@ export default function AgentWorkspacePage() {
     });
   }, [baseCampaigns, allowedCountries, user?.role]);
 
+  const { data: campaignDispositions = [] } = useQuery<CampaignDisposition[]>({
+    queryKey: ["/api/campaigns", selectedCampaignId, "dispositions"],
+    enabled: !!selectedCampaignId,
+  });
+
   const { data: rawCampaignContacts = [] } = useQuery<EnrichedCampaignContact[]>({
     queryKey: ["/api/campaigns", selectedCampaignId, "contacts"],
     enabled: !!selectedCampaignId && !!hasAccess,
@@ -1714,22 +1879,32 @@ export default function AgentWorkspacePage() {
   };
 
   const dispositionMutation = useMutation({
-    mutationFn: async (data: { contactId: string; campaignId: string; disposition: string; notes: string }) => {
-      const statusMap: Record<string, string> = {
-        interested: "contacted",
+    mutationFn: async (data: { contactId: string; campaignId: string; disposition: string; notes: string; callbackDateTime?: string; parentCode?: string }) => {
+      const disp = campaignDispositions.find(d => d.code === data.disposition) 
+        || campaignDispositions.find(d => d.code === data.parentCode);
+      
+      const actionStatusMap: Record<string, string> = {
         callback: "callback_scheduled",
-        not_interested: "rejected",
-        no_answer: "no_answer",
-        wrong_number: "invalid",
-        dnd: "do_not_contact",
+        dnd: "not_interested",
+        complete: "completed",
+        convert: "contacted",
+        none: "contacted",
       };
-      const newStatus = statusMap[data.disposition] || "contacted";
-      const res = await apiRequest("PATCH", `/api/campaigns/${data.campaignId}/contacts/${data.contactId}`, {
+      const newStatus = actionStatusMap[disp?.actionType || "none"] || "contacted";
+      
+      const updateData: Record<string, any> = {
         status: newStatus,
         lastContactedAt: new Date().toISOString(),
         notes: data.notes || undefined,
         result: data.disposition,
-      });
+      };
+      
+      if (data.callbackDateTime && disp?.actionType === "callback") {
+        updateData.callbackDate = data.callbackDateTime;
+        updateData.status = "callback_scheduled";
+      }
+      
+      const res = await apiRequest("PATCH", `/api/campaigns/${data.campaignId}/contacts/${data.contactId}`, updateData);
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || "Chyba pri aktualizácii kontaktu");
@@ -1739,14 +1914,16 @@ export default function AgentWorkspacePage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns/contact-counts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/agent/callbacks"] });
     },
     onError: (error: Error) => {
       toast({ title: "Chyba", description: error.message, variant: "destructive" });
     },
   });
 
-  const handleDisposition = (value: string) => {
-    const option = DISPOSITION_OPTIONS.find((o) => o.value === value);
+  const handleDisposition = (value: string, parentCode?: string, callbackDateTime?: string) => {
+    const disp = campaignDispositions.find(d => d.code === value)
+      || campaignDispositions.find(d => d.code === parentCode);
 
     setTimeline((prev) => [
       ...prev,
@@ -1754,8 +1931,8 @@ export default function AgentWorkspacePage() {
         id: `sys-${Date.now()}`,
         type: "system",
         timestamp: new Date(),
-        content: `Výsledok: ${option?.label}`,
-        details: `Kontakt ukončený - ${option?.label}`,
+        content: `Výsledok: ${disp?.name || value}`,
+        details: `Kontakt ukončený - ${disp?.name || value}${callbackDateTime ? ` (callback: ${callbackDateTime})` : ""}`,
       },
     ]);
 
@@ -1765,12 +1942,14 @@ export default function AgentWorkspacePage() {
         campaignId: selectedCampaignId,
         disposition: value,
         notes: callNotes,
+        callbackDateTime,
+        parentCode,
       });
     }
 
     toast({
       title: "Kontakt ukončený",
-      description: `Výsledok: ${option?.label}`,
+      description: `Výsledok: ${disp?.name || value}`,
     });
 
     setAgentStatus("wrap_up");
@@ -2069,6 +2248,7 @@ export default function AgentWorkspacePage() {
           rightTab={rightTab}
           onRightTabChange={setRightTab}
           contactHistory={contactHistory}
+          dispositions={campaignDispositions}
         />
       </div>
     </div>
