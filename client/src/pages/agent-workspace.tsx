@@ -259,6 +259,7 @@ function TaskListPanel({
   isLoadingContact,
   campaignContacts,
   onSelectCampaignContact,
+  currentUserId,
 }: {
   tasks: TaskItem[];
   activeTaskId: string | null;
@@ -274,6 +275,7 @@ function TaskListPanel({
   isLoadingContact: boolean;
   campaignContacts: EnrichedCampaignContact[];
   onSelectCampaignContact: (contact: EnrichedCampaignContact) => void;
+  currentUserId?: string;
 }) {
   const filteredCampaigns = useMemo(() => {
     if (channelFilter === "all") return campaigns;
@@ -454,66 +456,129 @@ function TaskListPanel({
           </div>
           <ScrollArea className="flex-1">
             <div className="px-2 pb-2 space-y-1">
-              {campaignContacts.length === 0 ? (
-                <div className="text-center py-6">
-                  <Users className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
-                  <p className="text-xs text-muted-foreground">Žiadne čakajúce kontakty</p>
-                </div>
-              ) : (
-                [...campaignContacts].sort((a, b) => {
-                  const now = new Date();
-                  const aIsCallback = a.status === "callback_scheduled" && a.callbackDate && new Date(a.callbackDate) <= now;
-                  const bIsCallback = b.status === "callback_scheduled" && b.callbackDate && new Date(b.callbackDate) <= now;
-                  if (aIsCallback && !bIsCallback) return -1;
-                  if (!aIsCallback && bIsCallback) return 1;
-                  return 0;
-                }).map((cc) => {
-                  const cust = cc.customer;
-                  if (!cust) return null;
-                  const now = new Date();
-                  const isDueCallback = cc.status === "callback_scheduled" && cc.callbackDate && new Date(cc.callbackDate) <= now;
-                  const callbackDateStr = cc.callbackDate ? format(new Date(cc.callbackDate), "dd.MM. HH:mm") : null;
+              {(() => {
+                const now = new Date();
+                const isDue = (cc: EnrichedCampaignContact) => cc.callbackDate && new Date(cc.callbackDate) <= now;
+                const isMine = (cc: EnrichedCampaignContact) => cc.assignedTo === currentUserId;
+                const isTeam = (cc: EnrichedCampaignContact) => !cc.assignedTo;
+                const isCallback = (cc: EnrichedCampaignContact) => cc.status === "callback_scheduled";
+
+                const sortByDate = (a: EnrichedCampaignContact, b: EnrichedCampaignContact) => {
+                  const aDate = a.callbackDate ? new Date(a.callbackDate).getTime() : Infinity;
+                  const bDate = b.callbackDate ? new Date(b.callbackDate).getTime() : Infinity;
+                  return aDate - bDate;
+                };
+
+                const myDueCallbacks = campaignContacts.filter(cc => isCallback(cc) && isMine(cc) && isDue(cc)).sort(sortByDate);
+                const teamDueCallbacks = campaignContacts.filter(cc => isCallback(cc) && isTeam(cc) && isDue(cc)).sort(sortByDate);
+                const myUpcomingCallbacks = campaignContacts.filter(cc => isCallback(cc) && isMine(cc) && !isDue(cc)).sort(sortByDate);
+                const teamUpcomingCallbacks = campaignContacts.filter(cc => isCallback(cc) && isTeam(cc) && !isDue(cc)).sort(sortByDate);
+                const pendingContacts = campaignContacts.filter(cc => cc.status === "pending");
+                const otherCallbacks = campaignContacts.filter(cc => isCallback(cc) && cc.assignedTo && cc.assignedTo !== currentUserId).sort(sortByDate);
+
+                const sortedContacts = [
+                  ...myDueCallbacks,
+                  ...teamDueCallbacks,
+                  ...myUpcomingCallbacks,
+                  ...teamUpcomingCallbacks,
+                  ...pendingContacts,
+                  ...otherCallbacks,
+                ];
+
+                const myCallbackCount = myDueCallbacks.length;
+                const teamCallbackCount = teamDueCallbacks.length;
+
+                if (sortedContacts.length === 0) {
                   return (
-                    <div
-                      key={cc.id}
-                      className={`flex items-center gap-2.5 p-2.5 rounded-lg cursor-pointer hover-elevate ${isDueCallback ? "ring-1 ring-blue-400 dark:ring-blue-600 bg-blue-50/50 dark:bg-blue-950/20" : ""}`}
-                      onClick={() => onSelectCampaignContact(cc)}
-                      data-testid={`contact-item-${cc.id}`}
-                    >
-                      <Avatar className="h-8 w-8 shrink-0">
-                        <AvatarFallback className={`text-xs ${isDueCallback ? "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300" : "bg-muted"}`}>
-                          {cust.firstName?.[0]}{cust.lastName?.[0]}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">
-                          {cust.firstName} {cust.lastName}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground truncate">
-                          {cust.phone || cust.email || "—"}
-                        </p>
-                      </div>
-                      <div className="flex flex-col items-end gap-0.5 shrink-0">
-                        {cc.status === "callback_scheduled" && (
-                          <Badge variant={isDueCallback ? "default" : "outline"} className={`text-[9px] px-1 py-0 ${isDueCallback ? "bg-blue-500 text-white" : ""}`}>
-                            {isDueCallback ? "Zavolať!" : "Callback"}
-                          </Badge>
-                        )}
-                        {callbackDateStr && (
-                          <span className={`text-[9px] ${isDueCallback ? "text-blue-600 dark:text-blue-400 font-medium" : "text-muted-foreground"}`}>
-                            {callbackDateStr}
-                          </span>
-                        )}
-                        {cc.attemptCount > 0 && (
-                          <span className="text-[9px] text-muted-foreground">
-                            {cc.attemptCount}x
-                          </span>
-                        )}
-                      </div>
+                    <div className="text-center py-6">
+                      <Users className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
+                      <p className="text-xs text-muted-foreground">Žiadne čakajúce kontakty</p>
                     </div>
                   );
-                })
-              )}
+                }
+
+                return (
+                  <>
+                    {(myCallbackCount > 0 || teamCallbackCount > 0) && (
+                      <div className="flex flex-wrap items-center gap-1.5 px-1 pb-1.5">
+                        {myCallbackCount > 0 && (
+                          <Badge variant="default" className="text-[9px] gap-1 bg-purple-500 text-white">
+                            <User className="h-2.5 w-2.5" />
+                            {myCallbackCount} moje
+                          </Badge>
+                        )}
+                        {teamCallbackCount > 0 && (
+                          <Badge variant="default" className="text-[9px] gap-1 bg-blue-500 text-white">
+                            <Users className="h-2.5 w-2.5" />
+                            {teamCallbackCount} tímové
+                          </Badge>
+                        )}
+                      </div>
+                    )}
+                    {sortedContacts.map((cc) => {
+                      const cust = cc.customer;
+                      if (!cust) return null;
+                      const isCallback = cc.status === "callback_scheduled";
+                      const isDueCallback = isCallback && cc.callbackDate && new Date(cc.callbackDate) <= now;
+                      const isMyCallback = isCallback && cc.assignedTo === currentUserId;
+                      const isTeamCallback = isCallback && !cc.assignedTo;
+                      const callbackDateStr = cc.callbackDate ? format(new Date(cc.callbackDate), "dd.MM. HH:mm") : null;
+
+                      let ringClass = "";
+                      if (isDueCallback && isMyCallback) ringClass = "ring-1 ring-purple-400 dark:ring-purple-600 bg-purple-50/50 dark:bg-purple-950/20";
+                      else if (isDueCallback && isTeamCallback) ringClass = "ring-1 ring-blue-400 dark:ring-blue-600 bg-blue-50/50 dark:bg-blue-950/20";
+                      else if (isCallback) ringClass = "bg-muted/30";
+
+                      return (
+                        <div
+                          key={cc.id}
+                          className={`flex items-center gap-2.5 p-2.5 rounded-lg cursor-pointer hover-elevate ${ringClass}`}
+                          onClick={() => onSelectCampaignContact(cc)}
+                          data-testid={`contact-item-${cc.id}`}
+                        >
+                          <div className="relative shrink-0">
+                            <Avatar className="h-8 w-8">
+                              <AvatarFallback className={`text-xs ${isDueCallback && isMyCallback ? "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300" : isDueCallback ? "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300" : "bg-muted"}`}>
+                                {cust.firstName?.[0]}{cust.lastName?.[0]}
+                              </AvatarFallback>
+                            </Avatar>
+                            {isCallback && (
+                              <div className={`absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full flex items-center justify-center ${isMyCallback ? "bg-purple-500" : "bg-blue-500"}`}>
+                                {isMyCallback ? <User className="h-2.5 w-2.5 text-white" /> : <Users className="h-2.5 w-2.5 text-white" />}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">
+                              {cust.firstName} {cust.lastName}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground truncate">
+                              {cust.phone || cust.email || "—"}
+                            </p>
+                          </div>
+                          <div className="flex flex-col items-end gap-0.5 shrink-0">
+                            {isCallback && (
+                              <Badge variant={isDueCallback ? "default" : "outline"} className={`text-[9px] px-1 py-0 ${isDueCallback && isMyCallback ? "bg-purple-500 text-white" : isDueCallback ? "bg-blue-500 text-white" : ""}`}>
+                                {isDueCallback ? "Zavolať!" : isMyCallback ? "Môj CB" : "Tím CB"}
+                              </Badge>
+                            )}
+                            {callbackDateStr && (
+                              <span className={`text-[9px] ${isDueCallback ? (isMyCallback ? "text-purple-600 dark:text-purple-400" : "text-blue-600 dark:text-blue-400") + " font-medium" : "text-muted-foreground"}`}>
+                                {callbackDateStr}
+                              </span>
+                            )}
+                            {cc.attemptCount > 0 && (
+                              <span className="text-[9px] text-muted-foreground">
+                                {cc.attemptCount}x
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
+                );
+              })()}
             </div>
           </ScrollArea>
         </div>
@@ -1296,17 +1361,19 @@ function CustomerInfoPanel({
   campaign: Campaign | null;
   callNotes: string;
   onAddNote: (note: string) => void;
-  onDisposition: (value: string, parentCode?: string, callbackDateTime?: string) => void;
+  onDisposition: (value: string, parentCode?: string, callbackDateTime?: string, callbackAssignedTo?: string | null) => void;
   onQuickAction: (action: string) => void;
   rightTab: string;
   onRightTabChange: (tab: string) => void;
   contactHistory: ContactHistory[];
   dispositions: CampaignDisposition[];
+  currentUserId?: string;
 }) {
   const [newNote, setNewNote] = useState("");
   const [selectedParentDisposition, setSelectedParentDisposition] = useState<string | null>(null);
   const [callbackDate, setCallbackDate] = useState<string>("");
   const [callbackTime, setCallbackTime] = useState<string>("09:00");
+  const [callbackAssignMode, setCallbackAssignMode] = useState<"me" | "all">("me");
 
   const handleAddNote = () => {
     if (newNote.trim()) {
@@ -1591,6 +1658,7 @@ function CustomerInfoPanel({
                     const children = dispositions.filter(d => d.parentId === selectedParentDisposition && d.isActive);
                     
                     if (parent?.actionType === "callback") {
+                      const cbAssignTo = callbackAssignMode === "me" && currentUserId ? currentUserId : null;
                       return (
                         <div className="space-y-2">
                           <div className="grid grid-cols-2 gap-2">
@@ -1614,6 +1682,32 @@ function CustomerInfoPanel({
                               />
                             </div>
                           </div>
+                          <div>
+                            <label className="text-[11px] text-muted-foreground">Priradiť komu</label>
+                            <div className="flex gap-1 mt-1">
+                              <Button
+                                size="sm"
+                                variant={callbackAssignMode === "me" ? "default" : "outline"}
+                                className="flex-1 gap-1 text-xs"
+                                onClick={() => setCallbackAssignMode("me")}
+                                disabled={!currentUserId}
+                                data-testid="btn-callback-assign-me"
+                              >
+                                <User className="h-3 w-3" />
+                                Mne
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant={callbackAssignMode === "all" ? "default" : "outline"}
+                                className="flex-1 gap-1 text-xs"
+                                onClick={() => setCallbackAssignMode("all")}
+                                data-testid="btn-callback-assign-all"
+                              >
+                                <Users className="h-3 w-3" />
+                                Všetkým
+                              </Button>
+                            </div>
+                          </div>
                           {children.length > 0 && (
                             <div className="grid grid-cols-1 gap-1">
                               {children.map((child) => {
@@ -1625,7 +1719,7 @@ function CustomerInfoPanel({
                                     variant="outline"
                                     size="sm"
                                     className={`gap-2 justify-start ${colorClass}`}
-                                    onClick={() => onDisposition(child.code, parent?.code, callbackDate && callbackTime ? `${callbackDate}T${callbackTime}` : undefined)}
+                                    onClick={() => onDisposition(child.code, parent?.code, callbackDate && callbackTime ? `${callbackDate}T${callbackTime}` : undefined, cbAssignTo)}
                                     data-testid={`btn-disposition-${child.code}`}
                                   >
                                     <IconComp className="h-4 w-4" />
@@ -1639,7 +1733,7 @@ function CustomerInfoPanel({
                             size="sm"
                             className="w-full"
                             disabled={!callbackDate}
-                            onClick={() => onDisposition(parent!.code, undefined, callbackDate && callbackTime ? `${callbackDate}T${callbackTime}` : undefined)}
+                            onClick={() => onDisposition(parent!.code, undefined, callbackDate && callbackTime ? `${callbackDate}T${callbackTime}` : undefined, cbAssignTo)}
                             data-testid="btn-disposition-confirm-callback"
                           >
                             <CalendarPlus className="h-4 w-4 mr-1" />
@@ -1879,7 +1973,7 @@ export default function AgentWorkspacePage() {
   };
 
   const dispositionMutation = useMutation({
-    mutationFn: async (data: { contactId: string; campaignId: string; disposition: string; notes: string; callbackDateTime?: string; parentCode?: string }) => {
+    mutationFn: async (data: { contactId: string; campaignId: string; disposition: string; notes: string; callbackDateTime?: string; parentCode?: string; callbackAssignedTo?: string | null }) => {
       const disp = campaignDispositions.find(d => d.code === data.disposition) 
         || campaignDispositions.find(d => d.code === data.parentCode);
       
@@ -1902,6 +1996,7 @@ export default function AgentWorkspacePage() {
       if (data.callbackDateTime && disp?.actionType === "callback") {
         updateData.callbackDate = data.callbackDateTime;
         updateData.status = "callback_scheduled";
+        updateData.assignedTo = data.callbackAssignedTo || null;
       }
       
       const res = await apiRequest("PATCH", `/api/campaigns/${data.campaignId}/contacts/${data.contactId}`, updateData);
@@ -1921,10 +2016,11 @@ export default function AgentWorkspacePage() {
     },
   });
 
-  const handleDisposition = (value: string, parentCode?: string, callbackDateTime?: string) => {
+  const handleDisposition = (value: string, parentCode?: string, callbackDateTime?: string, callbackAssignedTo?: string | null) => {
     const disp = campaignDispositions.find(d => d.code === value)
       || campaignDispositions.find(d => d.code === parentCode);
 
+    const assignLabel = callbackAssignedTo ? "osobný" : "pre všetkých";
     setTimeline((prev) => [
       ...prev,
       {
@@ -1932,7 +2028,7 @@ export default function AgentWorkspacePage() {
         type: "system",
         timestamp: new Date(),
         content: `Výsledok: ${disp?.name || value}`,
-        details: `Kontakt ukončený - ${disp?.name || value}${callbackDateTime ? ` (callback: ${callbackDateTime})` : ""}`,
+        details: `Kontakt ukončený - ${disp?.name || value}${callbackDateTime ? ` (callback ${assignLabel}: ${callbackDateTime})` : ""}`,
       },
     ]);
 
@@ -1944,6 +2040,7 @@ export default function AgentWorkspacePage() {
         notes: callNotes,
         callbackDateTime,
         parentCode,
+        callbackAssignedTo,
       });
     }
 
@@ -2222,6 +2319,7 @@ export default function AgentWorkspacePage() {
           isLoadingContact={false}
           campaignContacts={pendingCampaignContacts}
           onSelectCampaignContact={handleSelectCampaignContact}
+          currentUserId={user?.id}
         />
 
         <CommunicationCanvas
@@ -2249,6 +2347,7 @@ export default function AgentWorkspacePage() {
           onRightTabChange={setRightTab}
           contactHistory={contactHistory}
           dispositions={campaignDispositions}
+          currentUserId={user?.id}
         />
       </div>
     </div>
