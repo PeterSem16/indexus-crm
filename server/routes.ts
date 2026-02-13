@@ -14641,7 +14641,7 @@ export async function registerRoutes(
 
   app.get("/api/user/assigned-campaigns", requireAuth, async (req, res) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.session.user!.id;
       const campaigns = await storage.getCampaignsByAgent(userId);
       res.json(campaigns);
     } catch (error) {
@@ -14700,7 +14700,7 @@ export async function registerRoutes(
 
   app.get("/api/agent-workspace-access/current", requireAuth, async (req, res) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.session.user!.id;
       const access = await storage.getAgentWorkspaceAccess(userId);
       res.json(access);
     } catch (error) {
@@ -14712,14 +14712,14 @@ export async function registerRoutes(
   app.post("/api/agent-workspace-access/user/:userId", requireAuth, async (req, res) => {
     try {
       // Only admins can modify workspace access
-      if (req.user!.role !== "admin") {
+      if (req.session.user!.role !== "admin") {
         return res.status(403).json({ error: "Only admins can modify workspace access" });
       }
       const { countryCodes } = req.body;
       if (!Array.isArray(countryCodes)) {
         return res.status(400).json({ error: "countryCodes must be an array" });
       }
-      const access = await storage.setAgentWorkspaceAccess(req.params.userId, countryCodes, req.user!.id);
+      const access = await storage.setAgentWorkspaceAccess(req.params.userId, countryCodes, req.session.user!.id);
       res.json(access);
     } catch (error) {
       console.error("Failed to update agent workspace access:", error);
@@ -22639,7 +22639,7 @@ Guidelines:
   // Agent Session Management
   app.get("/api/agent-sessions/active", requireAuth, async (req, res) => {
     try {
-      const session = await storage.getActiveAgentSession(req.user!.id);
+      const session = await storage.getActiveAgentSession(req.session.user!.id);
       res.json(session || null);
     } catch (error) {
       console.error("Error fetching active agent session:", error);
@@ -22650,7 +22650,7 @@ Guidelines:
   app.get("/api/agent-sessions", requireAuth, async (req, res) => {
     try {
       const { userId, startDate, endDate } = req.query;
-      const targetUserId = (userId as string) || req.user!.id;
+      const targetUserId = (userId as string) || req.session.user!.id;
       const sessions = await storage.getAgentSessions(
         targetUserId,
         startDate ? new Date(startDate as string) : undefined,
@@ -22665,12 +22665,12 @@ Guidelines:
 
   app.post("/api/agent-sessions/start", requireAuth, async (req, res) => {
     try {
-      const existing = await storage.getActiveAgentSession(req.user!.id);
+      const existing = await storage.getActiveAgentSession(req.session.user!.id);
       if (existing) {
         return res.status(409).json({ error: "Active session already exists", session: existing });
       }
       const session = await storage.createAgentSession({
-        userId: req.user!.id,
+        userId: req.session.user!.id,
         campaignId: req.body.campaignId || null,
         status: "available",
       });
@@ -22834,7 +22834,7 @@ Guidelines:
         : null;
       const brk = await storage.createAgentBreak({
         sessionId: req.params.sessionId,
-        userId: req.user!.id,
+        userId: req.session.user!.id,
         breakTypeId: req.body.breakTypeId || null,
         breakTypeName: breakType?.name || "Prestávka",
       });

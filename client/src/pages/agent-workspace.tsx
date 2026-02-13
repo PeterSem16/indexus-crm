@@ -146,13 +146,15 @@ interface TimelineEntry {
   status?: string;
 }
 
-const STATUS_CONFIG: Record<AgentStatus, { label: string; color: string; icon: React.ReactNode }> = {
-  available: { label: "Dostupný", color: "bg-green-500", icon: <Headphones className="h-4 w-4" /> },
-  busy: { label: "Obsadený", color: "bg-red-500", icon: <PhoneCall className="h-4 w-4" /> },
-  break: { label: "Prestávka", color: "bg-yellow-500", icon: <Coffee className="h-4 w-4" /> },
-  wrap_up: { label: "Spracovanie", color: "bg-blue-500", icon: <FileText className="h-4 w-4" /> },
-  offline: { label: "Offline", color: "bg-gray-500", icon: <PhoneOff className="h-4 w-4" /> },
-};
+function getStatusConfig(t: any): Record<AgentStatus, { label: string; color: string; icon: React.ReactNode }> {
+  return {
+    available: { label: t.agentSession.statusAvailable, color: "bg-green-500", icon: <Headphones className="h-4 w-4" /> },
+    busy: { label: t.agentSession.statusBusy, color: "bg-red-500", icon: <PhoneCall className="h-4 w-4" /> },
+    break: { label: t.agentSession.statusBreak, color: "bg-yellow-500", icon: <Coffee className="h-4 w-4" /> },
+    wrap_up: { label: t.agentSession.statusWrapUp, color: "bg-blue-500", icon: <FileText className="h-4 w-4" /> },
+    offline: { label: t.agentSession.statusOffline, color: "bg-gray-500", icon: <PhoneOff className="h-4 w-4" /> },
+  };
+}
 
 
 const CHANNEL_CONFIG: Record<ChannelType, { icon: typeof Phone; label: string; color: string; bg: string }> = {
@@ -213,6 +215,7 @@ function TopBar({
   isOnBreak,
   onEndSession,
   isSessionActive,
+  t,
 }: {
   status: AgentStatus;
   onStatusChange: (status: AgentStatus) => void;
@@ -226,7 +229,9 @@ function TopBar({
   isOnBreak: boolean;
   onEndSession: () => void;
   isSessionActive: boolean;
+  t: any;
 }) {
+  const STATUS_CONFIG = getStatusConfig(t);
   const config = STATUS_CONFIG[status];
 
   return (
@@ -264,7 +269,7 @@ function TopBar({
             <Separator className="my-1" />
             {breakTypes.length > 0 && (
               <>
-                <div className="px-2 py-1 text-xs text-muted-foreground font-medium">Prestávky</div>
+                <div className="px-2 py-1 text-xs text-muted-foreground font-medium">{t.agentSession.breaks}</div>
                 {breakTypes.map((bt) => (
                   <DropdownMenuItem
                     key={bt.id}
@@ -295,7 +300,7 @@ function TopBar({
             </Badge>
             <Button variant="outline" size="sm" onClick={onEndBreak} data-testid="button-end-break">
               <Play className="h-3.5 w-3.5 mr-1" />
-              Pokračovať
+              {t.agentSession.continueWork}
             </Button>
           </div>
         )}
@@ -326,7 +331,7 @@ function TopBar({
       {isSessionActive && (
         <Button variant="outline" size="sm" onClick={onEndSession} data-testid="button-end-session" className="text-destructive border-destructive/30">
           <PhoneOff className="h-3.5 w-3.5 mr-1.5" />
-          Ukončiť smenu
+          {t.agentSession.endShift}
         </Button>
       )}
     </div>
@@ -2399,30 +2404,31 @@ export default function AgentWorkspacePage() {
         await agentSession.endBreak();
       }
       await agentSession.updateStatus(newStatus);
+      const STATUS_CONFIG = getStatusConfig(t);
       toast({
-        title: "Status zmenený",
-        description: `Váš status je teraz: ${STATUS_CONFIG[newStatus].label}`,
+        title: STATUS_CONFIG[newStatus].label,
+        description: `${STATUS_CONFIG[newStatus].label}`,
       });
     } catch (error) {
-      toast({ title: "Chyba", description: "Nepodarilo sa zmeniť status", variant: "destructive" });
+      toast({ title: t.agentSession.shiftError, description: t.agentSession.shiftStartError, variant: "destructive" });
     }
   };
 
   const handleStartBreak = async (breakTypeId: string) => {
     try {
       await agentSession.startBreak(breakTypeId);
-      toast({ title: "Prestávka", description: "Prestávka bola začatá" });
+      toast({ title: t.agentSession.statusBreak, description: t.agentSession.statusBreak });
     } catch (error) {
-      toast({ title: "Chyba", description: "Nepodarilo sa začať prestávku", variant: "destructive" });
+      toast({ title: t.agentSession.shiftError, description: t.agentSession.breakError, variant: "destructive" });
     }
   };
 
   const handleEndBreak = async () => {
     try {
       await agentSession.endBreak();
-      toast({ title: "Prestávka ukončená", description: "Pokračujete v práci" });
+      toast({ title: t.agentSession.continueWork, description: t.agentSession.continueWork });
     } catch (error) {
-      toast({ title: "Chyba", description: "Nepodarilo sa ukončiť prestávku", variant: "destructive" });
+      toast({ title: t.agentSession.shiftError, description: t.agentSession.breakEndError, variant: "destructive" });
     }
   };
 
@@ -2430,9 +2436,9 @@ export default function AgentWorkspacePage() {
     try {
       await agentSession.startSession(selectedCampaignId);
       setSessionLoginOpen(false);
-      toast({ title: "Smena začatá", description: "Vaša pracovná smena bola úspešne zahájená" });
+      toast({ title: t.agentSession.shiftStarted, description: t.agentSession.shiftStartedDesc });
     } catch (error) {
-      toast({ title: "Chyba", description: "Nepodarilo sa začať smenu", variant: "destructive" });
+      toast({ title: t.agentSession.shiftError, description: t.agentSession.shiftStartError, variant: "destructive" });
     }
   };
 
@@ -2445,9 +2451,9 @@ export default function AgentWorkspacePage() {
       setTasks([]);
       setActiveTaskId(null);
       setTimeline([]);
-      toast({ title: "Smena ukončená", description: "Vaša pracovná smena bola ukončená" });
+      toast({ title: t.agentSession.shiftEnded, description: t.agentSession.shiftEndedDesc });
     } catch (error) {
-      toast({ title: "Chyba", description: "Nepodarilo sa ukončiť smenu", variant: "destructive" });
+      toast({ title: t.agentSession.shiftError, description: t.agentSession.shiftEndError, variant: "destructive" });
     }
   };
 
@@ -2588,7 +2594,7 @@ export default function AgentWorkspacePage() {
   };
 
   const activeBreakName = agentSession.activeBreak
-    ? agentSession.breakTypes.find(bt => bt.id === agentSession.activeBreak?.breakTypeId)?.name || "Prestávka"
+    ? agentSession.breakTypes.find(bt => bt.id === agentSession.activeBreak?.breakTypeId)?.name || t.agentSession.statusBreak
     : null;
 
   return (
@@ -2598,13 +2604,12 @@ export default function AgentWorkspacePage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Headphones className="h-5 w-5" />
-              Prihlásenie do smeny
+              {t.agentSession.shiftLogin}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <p className="text-sm text-muted-foreground">
-              Pre prácu v kontaktnom centre sa musíte prihlásiť do pracovnej smeny.
-              Všetky vaše aktivity budú zaznamenávané.
+              {t.agentSession.shiftLoginDesc}
             </p>
             <div className="flex items-center gap-3 p-3 rounded-md bg-muted/50">
               <Avatar className="h-10 w-10">
@@ -2614,7 +2619,7 @@ export default function AgentWorkspacePage() {
               </Avatar>
               <div>
                 <p className="font-medium text-sm">{user?.firstName} {user?.lastName}</p>
-                <p className="text-xs text-muted-foreground">{user?.role === "admin" ? "Administrátor" : "Operátor"}</p>
+                <p className="text-xs text-muted-foreground">{user?.role === "admin" ? t.agentSession.administrator : t.agentSession.operator}</p>
               </div>
             </div>
             <Button
@@ -2623,7 +2628,7 @@ export default function AgentWorkspacePage() {
               data-testid="button-start-session"
             >
               <Play className="h-4 w-4" />
-              Začať smenu
+              {t.agentSession.startShift}
             </Button>
           </div>
         </DialogContent>
@@ -2642,6 +2647,7 @@ export default function AgentWorkspacePage() {
         isOnBreak={!!agentSession.activeBreak}
         onEndSession={handleEndSession}
         isSessionActive={agentSession.isSessionActive}
+        t={t}
       />
 
       <div className="flex flex-1 overflow-hidden">

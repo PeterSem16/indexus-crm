@@ -2147,6 +2147,30 @@ export interface Translations {
     customer: string;
     duration: string;
   };
+  agentSession: {
+    shiftLogin: string;
+    shiftLoginDesc: string;
+    startShift: string;
+    endShift: string;
+    shiftStarted: string;
+    shiftStartedDesc: string;
+    shiftEnded: string;
+    shiftEndedDesc: string;
+    shiftError: string;
+    shiftStartError: string;
+    shiftEndError: string;
+    statusAvailable: string;
+    statusBusy: string;
+    statusBreak: string;
+    statusWrapUp: string;
+    statusOffline: string;
+    breaks: string;
+    continueWork: string;
+    administrator: string;
+    operator: string;
+    breakError: string;
+    breakEndError: string;
+  };
 }
 
 export const translations: Record<Locale, Translations> = {
@@ -4600,6 +4624,30 @@ export const translations: Record<Locale, Translations> = {
       customer: 'Customer',
       duration: 'Duration',
     },
+    agentSession: {
+      shiftLogin: 'Shift Login',
+      shiftLoginDesc: 'To work in the contact center, you must log in to your work shift. All your activities will be recorded.',
+      startShift: 'Start Shift',
+      endShift: 'End Shift',
+      shiftStarted: 'Shift Started',
+      shiftStartedDesc: 'Your work shift has been successfully started',
+      shiftEnded: 'Shift Ended',
+      shiftEndedDesc: 'Your work shift has been ended',
+      shiftError: 'Error',
+      shiftStartError: 'Failed to start shift',
+      shiftEndError: 'Failed to end shift',
+      statusAvailable: 'Available',
+      statusBusy: 'Busy',
+      statusBreak: 'Break',
+      statusWrapUp: 'Wrap Up',
+      statusOffline: 'Offline',
+      breaks: 'Breaks',
+      continueWork: 'Continue',
+      administrator: 'Administrator',
+      operator: 'Operator',
+      breakError: 'Failed to start break',
+      breakEndError: 'Failed to end break',
+    },
   },
   sk: {
     nav: {
@@ -7028,6 +7076,30 @@ export const translations: Record<Locale, Translations> = {
       customer: 'Zákazník',
       duration: 'Trvanie',
     },
+    agentSession: {
+      shiftLogin: 'Prihlásenie do smeny',
+      shiftLoginDesc: 'Pre prácu v kontaktnom centre sa musíte prihlásiť do pracovnej smeny. Všetky vaše aktivity budú zaznamenávané.',
+      startShift: 'Začať smenu',
+      endShift: 'Ukončiť smenu',
+      shiftStarted: 'Smena začatá',
+      shiftStartedDesc: 'Vaša pracovná smena bola úspešne zahájená',
+      shiftEnded: 'Smena ukončená',
+      shiftEndedDesc: 'Vaša pracovná smena bola ukončená',
+      shiftError: 'Chyba',
+      shiftStartError: 'Nepodarilo sa začať smenu',
+      shiftEndError: 'Nepodarilo sa ukončiť smenu',
+      statusAvailable: 'Dostupný',
+      statusBusy: 'Obsadený',
+      statusBreak: 'Prestávka',
+      statusWrapUp: 'Spracovanie',
+      statusOffline: 'Offline',
+      breaks: 'Prestávky',
+      continueWork: 'Pokračovať',
+      administrator: 'Administrátor',
+      operator: 'Operátor',
+      breakError: 'Nepodarilo sa začať prestávku',
+      breakEndError: 'Nepodarilo sa ukončiť prestávku',
+    },
     callBar: {
       connecting: 'Pripájam...',
       ringing: 'Vyzváňa...',
@@ -9403,6 +9475,30 @@ export const translations: Record<Locale, Translations> = {
       recipient: 'Příjemce',
       customer: 'Zákazník',
       duration: 'Trvání',
+    },
+    agentSession: {
+      shiftLogin: 'Přihlášení do směny',
+      shiftLoginDesc: 'Pro práci v kontaktním centru se musíte přihlásit do pracovní směny. Všechny vaše aktivity budou zaznamenávány.',
+      startShift: 'Zahájit směnu',
+      endShift: 'Ukončit směnu',
+      shiftStarted: 'Směna zahájena',
+      shiftStartedDesc: 'Vaše pracovní směna byla úspěšně zahájena',
+      shiftEnded: 'Směna ukončena',
+      shiftEndedDesc: 'Vaše pracovní směna byla ukončena',
+      shiftError: 'Chyba',
+      shiftStartError: 'Nepodařilo se zahájit směnu',
+      shiftEndError: 'Nepodařilo se ukončit směnu',
+      statusAvailable: 'Dostupný',
+      statusBusy: 'Obsazený',
+      statusBreak: 'Přestávka',
+      statusWrapUp: 'Zpracování',
+      statusOffline: 'Offline',
+      breaks: 'Přestávky',
+      continueWork: 'Pokračovat',
+      administrator: 'Administrátor',
+      operator: 'Operátor',
+      breakError: 'Nepodařilo se zahájit přestávku',
+      breakEndError: 'Nepodařilo se ukončit přestávku',
     },
     callBar: {
       connecting: 'Připojuji...',
@@ -11780,6 +11876,30 @@ export const translations: Record<Locale, Translations> = {
       customer: 'Ügyfél',
       duration: 'Időtartam',
     },
+    agentSession: {
+      shiftLogin: 'Műszak bejelentkezés',
+      shiftLoginDesc: 'A kontakt központban való munkavégzéshez be kell jelentkeznie a műszakba. Minden tevékenysége rögzítésre kerül.',
+      startShift: 'Műszak indítása',
+      endShift: 'Műszak befejezése',
+      shiftStarted: 'Műszak elindítva',
+      shiftStartedDesc: 'A műszak sikeresen elindult',
+      shiftEnded: 'Műszak befejezve',
+      shiftEndedDesc: 'A műszak befejeződött',
+      shiftError: 'Hiba',
+      shiftStartError: 'Nem sikerült elindítani a műszakot',
+      shiftEndError: 'Nem sikerült befejezni a műszakot',
+      statusAvailable: 'Elérhető',
+      statusBusy: 'Foglalt',
+      statusBreak: 'Szünet',
+      statusWrapUp: 'Feldolgozás',
+      statusOffline: 'Offline',
+      breaks: 'Szünetek',
+      continueWork: 'Folytatás',
+      administrator: 'Adminisztrátor',
+      operator: 'Operátor',
+      breakError: 'Nem sikerült elindítani a szünetet',
+      breakEndError: 'Nem sikerült befejezni a szünetet',
+    },
     callBar: {
       connecting: 'Csatlakozás...',
       ringing: 'Csörög...',
@@ -14154,6 +14274,30 @@ export const translations: Record<Locale, Translations> = {
       recipient: 'Destinatar',
       customer: 'Client',
       duration: 'Durată',
+    },
+    agentSession: {
+      shiftLogin: 'Autentificare tur',
+      shiftLoginDesc: 'Pentru a lucra în centrul de contact, trebuie să vă autentificați în turul de lucru. Toate activitățile dvs. vor fi înregistrate.',
+      startShift: 'Începe turul',
+      endShift: 'Termină turul',
+      shiftStarted: 'Tur început',
+      shiftStartedDesc: 'Turul dvs. de lucru a fost pornit cu succes',
+      shiftEnded: 'Tur terminat',
+      shiftEndedDesc: 'Turul dvs. de lucru a fost terminat',
+      shiftError: 'Eroare',
+      shiftStartError: 'Nu s-a putut porni turul',
+      shiftEndError: 'Nu s-a putut termina turul',
+      statusAvailable: 'Disponibil',
+      statusBusy: 'Ocupat',
+      statusBreak: 'Pauză',
+      statusWrapUp: 'Procesare',
+      statusOffline: 'Offline',
+      breaks: 'Pauze',
+      continueWork: 'Continuă',
+      administrator: 'Administrator',
+      operator: 'Operator',
+      breakError: 'Nu s-a putut porni pauza',
+      breakEndError: 'Nu s-a putut termina pauza',
     },
     callBar: {
       connecting: 'Se conectează...',
@@ -16531,6 +16675,30 @@ export const translations: Record<Locale, Translations> = {
       customer: 'Cliente',
       duration: 'Durata',
     },
+    agentSession: {
+      shiftLogin: 'Accesso al turno',
+      shiftLoginDesc: 'Per lavorare nel contact center, devi accedere al tuo turno di lavoro. Tutte le tue attività saranno registrate.',
+      startShift: 'Inizia turno',
+      endShift: 'Termina turno',
+      shiftStarted: 'Turno iniziato',
+      shiftStartedDesc: 'Il tuo turno di lavoro è stato avviato con successo',
+      shiftEnded: 'Turno terminato',
+      shiftEndedDesc: 'Il tuo turno di lavoro è stato terminato',
+      shiftError: 'Errore',
+      shiftStartError: 'Impossibile avviare il turno',
+      shiftEndError: 'Impossibile terminare il turno',
+      statusAvailable: 'Disponibile',
+      statusBusy: 'Occupato',
+      statusBreak: 'Pausa',
+      statusWrapUp: 'Elaborazione',
+      statusOffline: 'Offline',
+      breaks: 'Pause',
+      continueWork: 'Continua',
+      administrator: 'Amministratore',
+      operator: 'Operatore',
+      breakError: 'Impossibile avviare la pausa',
+      breakEndError: 'Impossibile terminare la pausa',
+    },
     callBar: {
       connecting: 'Connessione...',
       ringing: 'Squilla...',
@@ -18906,6 +19074,30 @@ export const translations: Record<Locale, Translations> = {
       recipient: 'Empfänger',
       customer: 'Kunde',
       duration: 'Dauer',
+    },
+    agentSession: {
+      shiftLogin: 'Schichtanmeldung',
+      shiftLoginDesc: 'Um im Contact Center zu arbeiten, müssen Sie sich in Ihre Arbeitsschicht einloggen. Alle Ihre Aktivitäten werden aufgezeichnet.',
+      startShift: 'Schicht starten',
+      endShift: 'Schicht beenden',
+      shiftStarted: 'Schicht gestartet',
+      shiftStartedDesc: 'Ihre Arbeitsschicht wurde erfolgreich gestartet',
+      shiftEnded: 'Schicht beendet',
+      shiftEndedDesc: 'Ihre Arbeitsschicht wurde beendet',
+      shiftError: 'Fehler',
+      shiftStartError: 'Schicht konnte nicht gestartet werden',
+      shiftEndError: 'Schicht konnte nicht beendet werden',
+      statusAvailable: 'Verfügbar',
+      statusBusy: 'Beschäftigt',
+      statusBreak: 'Pause',
+      statusWrapUp: 'Nachbearbeitung',
+      statusOffline: 'Offline',
+      breaks: 'Pausen',
+      continueWork: 'Fortfahren',
+      administrator: 'Administrator',
+      operator: 'Operator',
+      breakError: 'Pause konnte nicht gestartet werden',
+      breakEndError: 'Pause konnte nicht beendet werden',
     },
     callBar: {
       connecting: 'Verbindung wird hergestellt...',
