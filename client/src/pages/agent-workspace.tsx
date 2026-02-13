@@ -277,6 +277,9 @@ function TaskListPanel({
   campaignContacts,
   onSelectCampaignContact,
   currentUserId,
+  isAutoMode,
+  onToggleAutoMode,
+  autoCountdown,
 }: {
   tasks: TaskItem[];
   activeTaskId: string | null;
