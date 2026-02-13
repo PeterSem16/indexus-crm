@@ -104,7 +104,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useSip } from "@/contexts/sip-context";
 import { format } from "date-fns";
 import { sk } from "date-fns/locale";
-import type { Campaign, Customer, CampaignContact, CampaignDisposition } from "@shared/schema";
+import { useAgentSession } from "@/contexts/agent-session-context";
+import type { Campaign, Customer, CampaignContact, CampaignDisposition, AgentBreakType } from "@shared/schema";
 
 type AgentStatus = "available" | "busy" | "break" | "wrap_up" | "offline";
 
@@ -204,11 +205,27 @@ function TopBar({
   onStatusChange,
   stats,
   workTime,
+  breakTypes,
+  activeBreakName,
+  breakTime,
+  onStartBreak,
+  onEndBreak,
+  isOnBreak,
+  onEndSession,
+  isSessionActive,
 }: {
   status: AgentStatus;
   onStatusChange: (status: AgentStatus) => void;
   stats: { calls: number; emails: number; sms: number };
   workTime: string;
+  breakTypes: AgentBreakType[];
+  activeBreakName: string | null;
+  breakTime: string;
+  onStartBreak: (breakTypeId: string) => void;
+  onEndBreak: () => void;
+  isOnBreak: boolean;
+  onEndSession: () => void;
+  isSessionActive: boolean;
 }) {
   const config = STATUS_CONFIG[status];
 
@@ -228,21 +245,60 @@ function TopBar({
               <ChevronDown className="h-3 w-3 opacity-50" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-48">
-            {Object.entries(STATUS_CONFIG).map(([key, value]) => (
-              <DropdownMenuItem
-                key={key}
-                onClick={() => onStatusChange(key as AgentStatus)}
-                className="gap-3 py-2"
-                data-testid={`menu-item-status-${key}`}
-              >
-                <span className={`h-2.5 w-2.5 rounded-full ${value.color}`} />
-                {value.icon}
-                <span className="font-medium">{value.label}</span>
-              </DropdownMenuItem>
-            ))}
+          <DropdownMenuContent align="start" className="w-56">
+            {(["available", "busy", "wrap_up"] as AgentStatus[]).map((key) => {
+              const value = STATUS_CONFIG[key];
+              return (
+                <DropdownMenuItem
+                  key={key}
+                  onClick={() => onStatusChange(key)}
+                  className="gap-3 py-2"
+                  data-testid={`menu-item-status-${key}`}
+                >
+                  <span className={`h-2.5 w-2.5 rounded-full ${value.color}`} />
+                  {value.icon}
+                  <span className="font-medium">{value.label}</span>
+                </DropdownMenuItem>
+              );
+            })}
+            <Separator className="my-1" />
+            {breakTypes.length > 0 && (
+              <>
+                <div className="px-2 py-1 text-xs text-muted-foreground font-medium">Prestávky</div>
+                {breakTypes.map((bt) => (
+                  <DropdownMenuItem
+                    key={bt.id}
+                    onClick={() => onStartBreak(bt.id)}
+                    className="gap-3 py-2"
+                    data-testid={`menu-item-break-${bt.id}`}
+                  >
+                    <span className="h-2.5 w-2.5 rounded-full bg-yellow-500" />
+                    <Coffee className="h-4 w-4" />
+                    <span className="font-medium">{bt.name}</span>
+                    {bt.maxDurationMinutes && (
+                      <span className="ml-auto text-xs text-muted-foreground">{bt.maxDurationMinutes}m</span>
+                    )}
+                  </DropdownMenuItem>
+                ))}
+                <Separator className="my-1" />
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
+
+        {isOnBreak && activeBreakName && (
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="gap-1.5 text-yellow-700 dark:text-yellow-300" data-testid="badge-break-active">
+              <Coffee className="h-3 w-3" />
+              {activeBreakName}
+              <span className="font-mono text-xs">{breakTime}</span>
+            </Badge>
+            <Button variant="outline" size="sm" onClick={onEndBreak} data-testid="button-end-break">
+              <Play className="h-3.5 w-3.5 mr-1" />
+              Pokračovať
+            </Button>
+          </div>
+        )}
 
         <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted/50">
           <Clock className="h-3.5 w-3.5 text-muted-foreground" />
@@ -267,6 +323,12 @@ function TopBar({
         </div>
       </div>
 
+      {isSessionActive && (
+        <Button variant="outline" size="sm" onClick={onEndSession} data-testid="button-end-session" className="text-destructive border-destructive/30">
+          <PhoneOff className="h-3.5 w-3.5 mr-1.5" />
+          Ukončiť smenu
+        </Button>
+      )}
     </div>
   );
 }
@@ -1922,12 +1984,11 @@ export default function AgentWorkspacePage() {
   const { makeCall, isRegistered: isSipRegistered } = useSip();
   const [, setLocation] = useLocation();
 
-  const [agentStatus, setAgentStatus] = useState<AgentStatus>("available");
+  const agentSession = useAgentSession();
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
   const [currentContact, setCurrentContact] = useState<Customer | null>(null);
   const [currentCampaignContactId, setCurrentCampaignContactId] = useState<string | null>(null);
-  const [workTime, setWorkTime] = useState("00:00:00");
-  const [startTime] = useState(new Date());
+  const [sessionLoginOpen, setSessionLoginOpen] = useState(false);
   const [activeChannel, setActiveChannel] = useState("script");
   const [rightTab, setRightTab] = useState("actions");
   const [callNotes, setCallNotes] = useState("");
@@ -1973,18 +2034,10 @@ export default function AgentWorkspacePage() {
   }, [user, hasRoleAccess, hasAccess, setLocation, workspaceAccess]);
 
   useEffect(() => {
-    if (!hasAccess) return;
-    const interval = setInterval(() => {
-      const diff = Math.floor((new Date().getTime() - startTime.getTime()) / 1000);
-      const hours = Math.floor(diff / 3600);
-      const minutes = Math.floor((diff % 3600) / 60);
-      const seconds = diff % 60;
-      setWorkTime(
-        `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
-      );
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [startTime, hasAccess]);
+    if (hasAccess && !agentSession.isSessionActive && !agentSession.isLoading) {
+      setSessionLoginOpen(true);
+    }
+  }, [hasAccess, agentSession.isSessionActive, agentSession.isLoading]);
 
   const { data: allCampaigns = [] } = useQuery<Campaign[]>({
     queryKey: ["/api/campaigns"],
@@ -2340,12 +2393,62 @@ export default function AgentWorkspacePage() {
     setIsAutoMode(prev => !prev);
   };
 
-  const handleStatusChange = (status: AgentStatus) => {
-    setAgentStatus(status);
-    toast({
-      title: "Status zmenený",
-      description: `Váš status je teraz: ${STATUS_CONFIG[status].label}`,
-    });
+  const handleStatusChange = async (newStatus: AgentStatus) => {
+    try {
+      if (agentSession.activeBreak) {
+        await agentSession.endBreak();
+      }
+      await agentSession.updateStatus(newStatus);
+      toast({
+        title: "Status zmenený",
+        description: `Váš status je teraz: ${STATUS_CONFIG[newStatus].label}`,
+      });
+    } catch (error) {
+      toast({ title: "Chyba", description: "Nepodarilo sa zmeniť status", variant: "destructive" });
+    }
+  };
+
+  const handleStartBreak = async (breakTypeId: string) => {
+    try {
+      await agentSession.startBreak(breakTypeId);
+      toast({ title: "Prestávka", description: "Prestávka bola začatá" });
+    } catch (error) {
+      toast({ title: "Chyba", description: "Nepodarilo sa začať prestávku", variant: "destructive" });
+    }
+  };
+
+  const handleEndBreak = async () => {
+    try {
+      await agentSession.endBreak();
+      toast({ title: "Prestávka ukončená", description: "Pokračujete v práci" });
+    } catch (error) {
+      toast({ title: "Chyba", description: "Nepodarilo sa ukončiť prestávku", variant: "destructive" });
+    }
+  };
+
+  const handleStartSession = async () => {
+    try {
+      await agentSession.startSession(selectedCampaignId);
+      setSessionLoginOpen(false);
+      toast({ title: "Smena začatá", description: "Vaša pracovná smena bola úspešne zahájená" });
+    } catch (error) {
+      toast({ title: "Chyba", description: "Nepodarilo sa začať smenu", variant: "destructive" });
+    }
+  };
+
+  const handleEndSession = async () => {
+    try {
+      await agentSession.endSession();
+      setSessionLoginOpen(true);
+      setCurrentContact(null);
+      setCurrentCampaignContactId(null);
+      setTasks([]);
+      setActiveTaskId(null);
+      setTimeline([]);
+      toast({ title: "Smena ukončená", description: "Vaša pracovná smena bola ukončená" });
+    } catch (error) {
+      toast({ title: "Chyba", description: "Nepodarilo sa ukončiť smenu", variant: "destructive" });
+    }
   };
 
   const handleSendEmail = (data: { subject: string; body: string; attachments?: { name: string; contentBase64: string; contentType: string }[] }) => {
@@ -2385,7 +2488,7 @@ export default function AgentWorkspacePage() {
 
   const loadContact = (customer: Customer) => {
     setCurrentContact(customer);
-    setAgentStatus("busy");
+    agentSession.updateStatus("busy").catch(() => {});
     setCallNotes("");
     setActiveChannel("script");
     setRightTab("actions");
@@ -2484,13 +2587,61 @@ export default function AgentWorkspacePage() {
     }
   };
 
+  const activeBreakName = agentSession.activeBreak
+    ? agentSession.breakTypes.find(bt => bt.id === agentSession.activeBreak?.breakTypeId)?.name || "Prestávka"
+    : null;
+
   return (
     <div className="flex flex-col h-[calc(100vh-8rem)] -m-6">
+      <Dialog open={sessionLoginOpen && !agentSession.isSessionActive} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Headphones className="h-5 w-5" />
+              Prihlásenie do smeny
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Pre prácu v kontaktnom centre sa musíte prihlásiť do pracovnej smeny.
+              Všetky vaše aktivity budú zaznamenávané.
+            </p>
+            <div className="flex items-center gap-3 p-3 rounded-md bg-muted/50">
+              <Avatar className="h-10 w-10">
+                <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
+                  {user?.firstName?.[0]}{user?.lastName?.[0]}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <p className="font-medium text-sm">{user?.firstName} {user?.lastName}</p>
+                <p className="text-xs text-muted-foreground">{user?.role === "admin" ? "Administrátor" : "Operátor"}</p>
+              </div>
+            </div>
+            <Button
+              className="w-full gap-2"
+              onClick={handleStartSession}
+              data-testid="button-start-session"
+            >
+              <Play className="h-4 w-4" />
+              Začať smenu
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <TopBar
-        status={agentStatus}
+        status={agentSession.status}
         onStatusChange={handleStatusChange}
         stats={stats}
-        workTime={workTime}
+        workTime={agentSession.workTime}
+        breakTypes={agentSession.breakTypes}
+        activeBreakName={activeBreakName}
+        breakTime={agentSession.breakTime}
+        onStartBreak={handleStartBreak}
+        onEndBreak={handleEndBreak}
+        isOnBreak={!!agentSession.activeBreak}
+        onEndSession={handleEndSession}
+        isSessionActive={agentSession.isSessionActive}
       />
 
       <div className="flex flex-1 overflow-hidden">

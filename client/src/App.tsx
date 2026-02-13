@@ -48,6 +48,7 @@ import MobilePreview from "@/pages/mobile-preview";
 import CollectionsPage from "@/pages/collections";
 import CustomerInvoicesPage from "@/pages/customer-invoices";
 import AgentWorkspacePage from "@/pages/agent-workspace";
+import { AgentSessionProvider } from "@/contexts/agent-session-context";
 import NotFound from "@/pages/not-found";
 import { Loader2 } from "lucide-react";
 import { Component as ReactComponent, type ErrorInfo, type ReactNode } from "react";
@@ -200,7 +201,9 @@ function AuthenticatedApp() {
                     <Route path="/mobile-preview" component={MobilePreview} />
                     <Route path="/agent-workspace">
                       <ErrorBoundary>
-                        <AgentWorkspacePage />
+                        <AgentSessionProvider>
+                          <AgentWorkspacePage />
+                        </AgentSessionProvider>
                       </ErrorBoundary>
                     </Route>
                     <Route path="/login">

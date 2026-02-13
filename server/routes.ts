@@ -22829,9 +22829,14 @@ Guidelines:
       if (existing) {
         return res.status(409).json({ error: "Active break already exists", break: existing });
       }
+      const breakType = req.body.breakTypeId 
+        ? (await storage.getAgentBreakTypes()).find(bt => bt.id === req.body.breakTypeId) 
+        : null;
       const brk = await storage.createAgentBreak({
         sessionId: req.params.sessionId,
-        breakTypeId: req.body.breakTypeId,
+        userId: req.user!.id,
+        breakTypeId: req.body.breakTypeId || null,
+        breakTypeName: breakType?.name || "Prestávka",
       });
       await storage.updateAgentSession(req.params.sessionId, { status: "break", lastActiveAt: new Date() });
       res.status(201).json(brk);
