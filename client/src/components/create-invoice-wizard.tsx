@@ -4,7 +4,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import QRCode from "qrcode";
-import { Receipt, Calendar, CalendarDays, CreditCard, Package, FileText, Loader2, Plus, Trash2, Check, Users } from "lucide-react";
+import { Receipt, Calendar, CalendarDays, CreditCard, Package, FileText, Loader2, Plus, Trash2, Check, Users, TrendingUp } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -273,6 +274,7 @@ export function CreateInvoiceWizard({
   const [customItemQuantity, setCustomItemQuantity] = useState("1");
   const [customItemUnitPrice, setCustomItemUnitPrice] = useState("");
   const [customItemVatRate, setCustomItemVatRate] = useState("0");
+  const [inflationEnabled, setInflationEnabled] = useState(false);
 
   const PREDEFINED_ITEMS = [
     { name: "Dobropis", defaultPrice: "-0", vatRate: "0", description: "Credit note" },
@@ -325,6 +327,7 @@ export function CreateInvoiceWizard({
       setShowCustomItemForm(false);
       setCustomItemName("");
       setCustomItemQuantity("1");
+      setInflationEnabled(false);
       setCustomItemUnitPrice("");
       setCustomItemVatRate("0");
     }
@@ -591,6 +594,24 @@ export function CreateInvoiceWizard({
       (b.countryCodes && b.countryCodes.includes(countryCode))
     );
   }, [billingDetails, countryCode]);
+
+  const issueDateYear = form.watch("issueDateYear");
+
+  const { data: inflationData } = useQuery<{ rates: Array<{ id: string; year: number; country: string; rate: string }> }>({
+    queryKey: ["/api/inflation-rates", countryCode],
+    queryFn: async () => {
+      const response = await fetch(`/api/inflation-rates?country=${encodeURIComponent(countryCode)}`, { credentials: "include" });
+      if (!response.ok) return { rates: [] };
+      return response.json();
+    },
+    enabled: open,
+  });
+
+  const inflationRate = useMemo(() => {
+    if (!inflationData?.rates || !issueDateYear) return null;
+    const rateEntry = inflationData.rates.find(r => r.year === issueDateYear);
+    return rateEntry ? parseFloat(rateEntry.rate) : null;
+  }, [inflationData, issueDateYear]);
 
   // Query billing accounts for selected billing company
   const { data: billingAccounts = [] } = useQuery<BillingAccount[]>({
@@ -930,9 +951,29 @@ export function CreateInvoiceWizard({
     }));
   };
 
+  const inflationAmount = useMemo(() => {
+    if (!inflationEnabled || inflationRate === null || items.length === 0) return 0;
+    const baseTotal = items.reduce((sum, item) => sum + parseFloat(item.total), 0);
+    return Math.round(baseTotal * (inflationRate / 100) * 100) / 100;
+  }, [inflationEnabled, inflationRate, items]);
+
+  const effectiveItems = useMemo(() => {
+    if (!inflationEnabled || inflationRate === null || inflationAmount === 0) return items;
+    const inflationItem: InvoiceItem = {
+      id: "inflation-adjustment",
+      name: `${t.invoices?.inflationAdjustment || "Inflácia"} ${issueDateYear} (${inflationRate.toFixed(2)}%)`,
+      quantity: 1,
+      unitPrice: inflationAmount.toFixed(2),
+      vatRate: "0",
+      total: inflationAmount.toFixed(2),
+    };
+    return [...items, inflationItem];
+  }, [items, inflationEnabled, inflationRate, inflationAmount, issueDateYear, t]);
+
   const calculateTotals = () => {
-    const total = items.reduce((sum, item) => sum + parseFloat(item.total), 0);
-    const vatAmount = items.reduce((sum, item) => {
+    const allItems = effectiveItems;
+    const total = allItems.reduce((sum, item) => sum + parseFloat(item.total), 0);
+    const vatAmount = allItems.reduce((sum, item) => {
       const itemTotal = parseFloat(item.total);
       const itemVatRate = parseFloat(item.vatRate || "0") / 100;
       return sum + (itemTotal * itemVatRate / (1 + itemVatRate));
@@ -1027,9 +1068,10 @@ export function CreateInvoiceWizard({
     }
 
     const values = form.getValues();
-    console.log("[InvoiceWizard] Form values - customerId:", values.customerId, "numberRangeId:", values.numberRangeId, "items:", items.length);
-    const installmentItems = items.filter(item => item.paymentType === 'installment');
-    const oneTimeItems = items.filter(item => item.paymentType !== 'installment');
+    const submitItems = effectiveItems;
+    console.log("[InvoiceWizard] Form values - customerId:", values.customerId, "numberRangeId:", values.numberRangeId, "items:", submitItems.length);
+    const installmentItems = submitItems.filter(item => item.paymentType === 'installment');
+    const oneTimeItems = submitItems.filter(item => item.paymentType !== 'installment');
     const hasInstallments = installmentItems.length > 0;
     console.log("[InvoiceWizard] hasInstallments:", hasInstallments, "installmentItems:", installmentItems.length, "oneTimeItems:", oneTimeItems.length);
 
@@ -1340,7 +1382,7 @@ export function CreateInvoiceWizard({
         currency: billingInfo?.currency || "EUR",
         status: "generated",
         paymentTermDays: billingInfo?.defaultPaymentTerm || 14,
-        items: items.map(item => ({
+        items: submitItems.map(item => ({
           name: item.name,
           quantity: item.quantity.toString(),
           unitPrice: item.unitPrice,
@@ -1463,7 +1505,7 @@ export function CreateInvoiceWizard({
       if (ss) payBySquareData += `*X-SS:${ss}`;
       
       // 2. EPC QR format (EU standard) - include amount from items total
-      const totalAmount = items.reduce((sum, item) => sum + parseFloat(item.total || "0"), 0);
+      const totalAmount = submitItems.reduce((sum, item) => sum + parseFloat(item.total || "0"), 0);
       const epcAmount = totalAmount > 0 ? `EUR${totalAmount.toFixed(2)}` : "";
       const epcRemittance = vs ? `Faktura VS:${vs}${ks ? ` KS:${ks}` : ""}${ss ? ` SS:${ss}` : ""}` : "";
       const epcLines = [
@@ -2229,6 +2271,43 @@ export function CreateInvoiceWizard({
                       </div>
                     </div>
                   </div>
+
+                  <div className="p-4 border rounded-lg bg-amber-50/50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800">
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        id="inflation-enabled"
+                        checked={inflationEnabled}
+                        onCheckedChange={(checked) => setInflationEnabled(checked === true)}
+                        disabled={inflationRate === null}
+                        data-testid="checkbox-inflation"
+                      />
+                      <div className="flex-1 space-y-1">
+                        <Label htmlFor="inflation-enabled" className="font-medium flex items-center gap-2 cursor-pointer">
+                          <TrendingUp className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                          {t.invoices?.applyInflation || "Zohľadniť infláciu"}
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          {t.invoices?.inflationDescription || "Pripočítať infláciu k celkovej fakturovanej sume podľa ročnej miery inflácie pre danú krajinu"}
+                        </p>
+                        {inflationRate !== null ? (
+                          <div className="flex items-center gap-2 mt-2">
+                            <Badge variant="secondary" className="text-xs" data-testid="badge-inflation-rate">
+                              {countryCode} {issueDateYear}: {inflationRate.toFixed(2)}%
+                            </Badge>
+                            {inflationEnabled && (
+                              <span className="text-xs text-amber-700 dark:text-amber-300 font-medium" data-testid="text-inflation-status">
+                                {t.invoices?.inflationActive || "Inflácia bude pripočítaná k položkám faktúry"}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-destructive mt-1" data-testid="text-no-inflation-data">
+                            {t.invoices?.noInflationData || "Pre rok"} {issueDateYear} {t.invoices?.noInflationDataCountry || "a krajinu"} {countryCode} {t.invoices?.noInflationDataAvailable || "nie sú dostupné údaje o inflácii"}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -2636,18 +2715,25 @@ export function CreateInvoiceWizard({
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {items.map((item) => (
-                                <TableRow key={item.id}>
-                                  <TableCell className="text-sm font-medium">{item.name}</TableCell>
+                              {effectiveItems.map((item) => (
+                                <TableRow key={item.id} className={item.id === "inflation-adjustment" ? "bg-amber-50/50 dark:bg-amber-900/10" : ""}>
+                                  <TableCell className="text-sm font-medium">
+                                    {item.id === "inflation-adjustment" && <TrendingUp className="h-3 w-3 inline mr-1.5 text-amber-600 dark:text-amber-400" />}
+                                    {item.name}
+                                  </TableCell>
                                   <TableCell className="text-right">
-                                    <Input
-                                      type="number"
-                                      min="1"
-                                      value={item.quantity}
-                                      onChange={(e) => updateItemQuantity(item.id, parseInt(e.target.value) || 1)}
-                                      className="w-14 h-7 text-right text-sm"
-                                      data-testid={`input-qty-${item.id}`}
-                                    />
+                                    {item.id === "inflation-adjustment" ? (
+                                      <span className="text-sm text-muted-foreground">{item.quantity}</span>
+                                    ) : (
+                                      <Input
+                                        type="number"
+                                        min="1"
+                                        value={item.quantity}
+                                        onChange={(e) => updateItemQuantity(item.id, parseInt(e.target.value) || 1)}
+                                        className="w-14 h-7 text-right text-sm"
+                                        data-testid={`input-qty-${item.id}`}
+                                      />
+                                    )}
                                   </TableCell>
                                   <TableCell className="text-right text-sm text-muted-foreground">{formatCurrency(parseFloat(item.unitPrice))}</TableCell>
                                   <TableCell className="text-center">
@@ -2655,6 +2741,7 @@ export function CreateInvoiceWizard({
                                   </TableCell>
                                   <TableCell className="text-right font-medium">{formatCurrency(parseFloat(item.total))}</TableCell>
                                   <TableCell>
+                                    {item.id !== "inflation-adjustment" && (
                                     <Button
                                       type="button"
                                       variant="ghost"
@@ -2664,6 +2751,7 @@ export function CreateInvoiceWizard({
                                     >
                                       <Trash2 className="h-4 w-4 text-destructive" />
                                     </Button>
+                                    )}
                                   </TableCell>
                                 </TableRow>
                               ))}
@@ -2902,9 +2990,9 @@ export function CreateInvoiceWizard({
                         </div>
                         {/* Show VAT rates breakdown */}
                         {(() => {
-                          const vatRates = [...new Set(items.map(item => item.vatRate))];
+                          const vatRates = [...new Set(effectiveItems.map(item => item.vatRate))];
                           return vatRates.map(rate => {
-                            const rateItems = items.filter(item => item.vatRate === rate);
+                            const rateItems = effectiveItems.filter(item => item.vatRate === rate);
                             const rateVatAmount = rateItems.reduce((sum, item) => {
                               const net = parseFloat(item.unitPrice) * item.quantity;
                               return sum + (net * parseFloat(rate) / 100);
@@ -2929,7 +3017,7 @@ export function CreateInvoiceWizard({
                   </div>
 
                   {/* Invoice Generation Plan - Multi-invoice breakdown */}
-                  {items.some(item => item.paymentType === 'installment') && (
+                  {effectiveItems.some(item => item.paymentType === 'installment') && (
                     <Card className="border-2 border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-900/10">
                       <CardHeader>
                         <CardTitle className="text-sm flex items-center gap-2">
@@ -2940,8 +3028,8 @@ export function CreateInvoiceWizard({
                       </CardHeader>
                       <CardContent className="space-y-4">
                         {(() => {
-                          const installmentItems = items.filter(item => item.paymentType === 'installment');
-                          const oneTimeItems = items.filter(item => item.paymentType !== 'installment');
+                          const installmentItems = effectiveItems.filter(item => item.paymentType === 'installment');
+                          const oneTimeItems = effectiveItems.filter(item => item.paymentType !== 'installment');
                           const oneTimeTotal = oneTimeItems.reduce((sum, item) => sum + parseFloat(item.total), 0);
                           
                           const maxInstallments = Math.max(...installmentItems.map(item => item.installmentCount || 6), 1);
@@ -3114,9 +3202,12 @@ export function CreateInvoiceWizard({
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {items.map((item) => (
-                            <TableRow key={item.id}>
-                              <TableCell>{item.name}</TableCell>
+                          {effectiveItems.map((item) => (
+                            <TableRow key={item.id} className={item.id === "inflation-adjustment" ? "bg-amber-50/50 dark:bg-amber-900/10" : ""}>
+                              <TableCell>
+                                {item.id === "inflation-adjustment" && <TrendingUp className="h-3 w-3 inline mr-1.5 text-amber-600 dark:text-amber-400" />}
+                                {item.name}
+                              </TableCell>
                               <TableCell className="text-right">{item.quantity}</TableCell>
                               <TableCell className="text-right">{formatCurrency(parseFloat(item.unitPrice))}</TableCell>
                               <TableCell className="text-center">
