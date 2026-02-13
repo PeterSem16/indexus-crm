@@ -88,7 +88,16 @@ import {
   Paperclip,
   X,
   File as FileIcon,
+  Maximize2,
+  Filter,
+  ArrowUpDown,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useSip } from "@/contexts/sip-context";
@@ -277,6 +286,7 @@ function TaskListPanel({
   campaignContacts,
   onSelectCampaignContact,
   currentUserId,
+  onOpenContactsModal,
   isAutoMode,
   onToggleAutoMode,
   autoCountdown,
@@ -299,6 +309,7 @@ function TaskListPanel({
   isAutoMode: boolean;
   onToggleAutoMode: () => void;
   autoCountdown: number | null;
+  onOpenContactsModal: () => void;
 }) {
   const filteredCampaigns = useMemo(() => {
     if (channelFilter === "all") return campaigns;
@@ -457,21 +468,29 @@ function TaskListPanel({
 
       {selectedCampaignId && (
         <div className="border-t flex flex-col flex-1 min-h-0">
-          <div className="px-3 py-2 flex items-center justify-between gap-1">
-            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-              Kontakty ({campaignContacts.length})
-            </span>
-            <div className="flex items-center gap-1">
+          <div
+            className="px-3 py-2 flex items-center justify-between gap-1 cursor-pointer hover-elevate rounded-md mx-1 mt-1"
+            onDoubleClick={onOpenContactsModal}
+            title="Dvojklik pre otvorenie v modálnom okne"
+            data-testid="contacts-header-dblclick"
+          >
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                Kontakty ({campaignContacts.length})
+              </span>
+              <Maximize2 className="h-3 w-3 text-muted-foreground/50" />
+            </div>
+            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
               {autoCountdown !== null && (
                 <Badge variant="secondary" className="text-[10px] font-mono">
                   {autoCountdown}s
                 </Badge>
               )}
-              <Button size="sm" variant={isAutoMode ? "default" : "ghost"} onClick={onToggleAutoMode} className={`h-7 text-xs gap-1 ${isAutoMode ? "bg-green-600 hover:bg-green-700 text-white" : ""}`} data-testid="btn-auto-mode">
+              <Button size="sm" variant={isAutoMode ? "default" : "ghost"} onClick={onToggleAutoMode} className={`text-xs gap-1 ${isAutoMode ? "bg-green-600 text-white" : ""}`} data-testid="btn-auto-mode">
                 {isAutoMode ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
                 Auto
               </Button>
-              <Button size="sm" variant="ghost" onClick={onLoadNextContact} disabled={isLoadingContact || campaignContacts.length === 0 || isAutoMode} className="h-7 text-xs gap-1" data-testid="btn-next-contact">
+              <Button size="sm" variant="ghost" onClick={onLoadNextContact} disabled={isLoadingContact || campaignContacts.length === 0 || isAutoMode} className="text-xs gap-1" data-testid="btn-next-contact">
                 {isLoadingContact ? <Loader2 className="h-3 w-3 animate-spin" /> : <SkipForward className="h-3 w-3" />}
                 Ďalší
               </Button>
@@ -1897,6 +1916,10 @@ export default function AgentWorkspacePage() {
   const [isAutoMode, setIsAutoMode] = useState(false);
   const [autoCountdown, setAutoCountdown] = useState<number | null>(null);
   const autoTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [contactsModalOpen, setContactsModalOpen] = useState(false);
+  const [modalFilter, setModalFilter] = useState<"all" | "my_callbacks" | "team_callbacks" | "pending" | "due">("all");
+  const [modalSort, setModalSort] = useState<"callback_asc" | "name_asc" | "attempts_desc">("callback_asc");
+  const [modalSearch, setModalSearch] = useState("");
 
   const allowedRoles = ["callCenter", "admin"];
   const hasRoleAccess = user && allowedRoles.includes(user.role);
@@ -2459,6 +2482,7 @@ export default function AgentWorkspacePage() {
           isAutoMode={isAutoMode}
           onToggleAutoMode={handleToggleAutoMode}
           autoCountdown={autoCountdown}
+          onOpenContactsModal={() => { setModalFilter("all"); setModalSearch(""); setContactsModalOpen(true); }}
         />
 
         <CommunicationCanvas
@@ -2489,6 +2513,189 @@ export default function AgentWorkspacePage() {
           currentUserId={user?.id}
         />
       </div>
+
+      <Dialog open={contactsModalOpen} onOpenChange={setContactsModalOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" />
+              Kontakty kampane
+              {selectedCampaign && (
+                <Badge variant="secondary" className="ml-2">{selectedCampaign.name}</Badge>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="flex flex-wrap items-center gap-2 pb-3 border-b">
+            <div className="flex-1 min-w-[200px]">
+              <Input
+                placeholder="Hľadať meno, telefón, email..."
+                value={modalSearch}
+                onChange={(e) => setModalSearch(e.target.value)}
+                className="h-9 text-sm"
+                data-testid="input-modal-search"
+              />
+            </div>
+            <Select value={modalFilter} onValueChange={(v) => setModalFilter(v as typeof modalFilter)}>
+              <SelectTrigger className="w-[180px] h-9 text-xs" data-testid="select-modal-filter">
+                <Filter className="h-3 w-3 mr-1.5 text-muted-foreground" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Všetky kontakty</SelectItem>
+                <SelectItem value="my_callbacks">Moje preplánované</SelectItem>
+                <SelectItem value="team_callbacks">Tímové preplánované</SelectItem>
+                <SelectItem value="due">Splatné teraz</SelectItem>
+                <SelectItem value="pending">Čakajúce (nové)</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={modalSort} onValueChange={(v) => setModalSort(v as typeof modalSort)}>
+              <SelectTrigger className="w-[170px] h-9 text-xs" data-testid="select-modal-sort">
+                <ArrowUpDown className="h-3 w-3 mr-1.5 text-muted-foreground" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="callback_asc">Callback (najskôr)</SelectItem>
+                <SelectItem value="name_asc">Meno (A-Z)</SelectItem>
+                <SelectItem value="attempts_desc">Pokusov (najviac)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <ScrollArea className="flex-1 -mx-6 px-6">
+            {(() => {
+              const now = new Date();
+              let filtered = sortedPendingContacts.filter(cc => {
+                const cust = cc.customer;
+                if (!cust) return false;
+                if (modalSearch) {
+                  const q = modalSearch.toLowerCase();
+                  const match = [cust.firstName, cust.lastName, cust.phone, cust.email]
+                    .filter(Boolean).join(" ").toLowerCase().includes(q);
+                  if (!match) return false;
+                }
+                const isCallback = cc.status === "callback_scheduled";
+                const isDue = cc.callbackDate && new Date(cc.callbackDate) <= now;
+                const isMine = cc.assignedTo === user?.id;
+                const isTeam = !cc.assignedTo;
+                switch (modalFilter) {
+                  case "my_callbacks": return isCallback && isMine;
+                  case "team_callbacks": return isCallback && isTeam;
+                  case "due": return isCallback && isDue;
+                  case "pending": return cc.status === "pending";
+                  default: return true;
+                }
+              });
+
+              filtered = [...filtered].sort((a, b) => {
+                switch (modalSort) {
+                  case "callback_asc": {
+                    const aDate = a.callbackDate ? new Date(a.callbackDate).getTime() : Infinity;
+                    const bDate = b.callbackDate ? new Date(b.callbackDate).getTime() : Infinity;
+                    return aDate - bDate;
+                  }
+                  case "name_asc": {
+                    const aName = `${a.customer?.firstName || ""} ${a.customer?.lastName || ""}`.trim();
+                    const bName = `${b.customer?.firstName || ""} ${b.customer?.lastName || ""}`.trim();
+                    return aName.localeCompare(bName, "sk");
+                  }
+                  case "attempts_desc":
+                    return (b.attemptCount || 0) - (a.attemptCount || 0);
+                  default:
+                    return 0;
+                }
+              });
+
+              if (filtered.length === 0) {
+                return (
+                  <div className="text-center py-12">
+                    <Users className="h-10 w-10 mx-auto text-muted-foreground/20 mb-3" />
+                    <p className="text-sm text-muted-foreground">Žiadne kontakty zodpovedajúce filtru</p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-1 py-2">
+                  <div className="text-xs text-muted-foreground px-1 pb-2">
+                    {filtered.length} {filtered.length === 1 ? "kontakt" : filtered.length < 5 ? "kontakty" : "kontaktov"}
+                  </div>
+                  {filtered.map((cc) => {
+                    const cust = cc.customer;
+                    if (!cust) return null;
+                    const isCallback = cc.status === "callback_scheduled";
+                    const isDueCallback = isCallback && cc.callbackDate && new Date(cc.callbackDate) <= now;
+                    const isMyCallback = isCallback && cc.assignedTo === user?.id;
+                    const isTeamCallback = isCallback && !cc.assignedTo;
+                    const callbackDateStr = cc.callbackDate ? format(new Date(cc.callbackDate), "dd.MM.yyyy HH:mm") : null;
+
+                    let rowClass = "";
+                    if (isDueCallback && isMyCallback) rowClass = "ring-1 ring-purple-400 dark:ring-purple-600 bg-purple-50/50 dark:bg-purple-950/20";
+                    else if (isDueCallback && isTeamCallback) rowClass = "ring-1 ring-blue-400 dark:ring-blue-600 bg-blue-50/50 dark:bg-blue-950/20";
+                    else if (isCallback) rowClass = "bg-muted/30";
+
+                    return (
+                      <div
+                        key={cc.id}
+                        className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer hover-elevate ${rowClass}`}
+                        onClick={() => {
+                          handleSelectCampaignContact(cc);
+                          setContactsModalOpen(false);
+                        }}
+                        data-testid={`modal-contact-${cc.id}`}
+                      >
+                        <Avatar className="h-9 w-9 shrink-0">
+                          <AvatarFallback className={`text-xs ${isDueCallback && isMyCallback ? "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300" : isDueCallback ? "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300" : "bg-muted"}`}>
+                            {cust.firstName?.[0]}{cust.lastName?.[0]}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{cust.firstName} {cust.lastName}</p>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                            {cust.phone && (
+                              <span className="flex items-center gap-1">
+                                <Phone className="h-3 w-3" />
+                                {cust.phone}
+                              </span>
+                            )}
+                            {cust.email && (
+                              <span className="flex items-center gap-1 truncate">
+                                <Mail className="h-3 w-3 shrink-0" />
+                                {cust.email}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {isCallback && (
+                            <Badge variant={isDueCallback ? "default" : "outline"} className={`text-[10px] ${isDueCallback && isMyCallback ? "bg-purple-500 text-white" : isDueCallback ? "bg-blue-500 text-white" : ""}`}>
+                              {isDueCallback ? "Zavolať!" : isMyCallback ? "Môj CB" : isTeamCallback ? "Tím CB" : "CB"}
+                            </Badge>
+                          )}
+                          {callbackDateStr && (
+                            <span className={`text-[10px] ${isDueCallback ? (isMyCallback ? "text-purple-600 dark:text-purple-400" : "text-blue-600 dark:text-blue-400") + " font-medium" : "text-muted-foreground"}`}>
+                              <Calendar className="h-3 w-3 inline mr-0.5" />
+                              {callbackDateStr}
+                            </span>
+                          )}
+                          {cc.attemptCount > 0 && (
+                            <Badge variant="outline" className="text-[10px]">
+                              {cc.attemptCount}x
+                            </Badge>
+                          )}
+                          {cc.status === "pending" && (
+                            <Badge variant="secondary" className="text-[10px]">Nový</Badge>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
