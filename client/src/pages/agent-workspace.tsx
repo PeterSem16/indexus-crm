@@ -1439,7 +1439,7 @@ function CustomerInfoPanel({
 
   if (!contact) {
     return (
-      <div className="w-80 border-l bg-card flex items-center justify-center shrink-0">
+      <div className="w-64 border-l bg-card flex items-center justify-center shrink-0">
         <div className="text-center p-6">
           <User className="h-10 w-10 mx-auto mb-3 text-muted-foreground/20" />
           <p className="text-xs text-muted-foreground">Žiadny kontakt</p>
@@ -1452,11 +1452,11 @@ function CustomerInfoPanel({
   const stars = Math.round(leadScore / 20);
 
   return (
-    <div className="w-80 border-l bg-card flex flex-col shrink-0">
-      <div className="p-4 border-b">
-        <div className="flex items-start gap-3">
-          <Avatar className="h-12 w-12 ring-2 ring-primary/20 shrink-0">
-            <AvatarFallback className="bg-gradient-to-br from-primary to-primary/70 text-primary-foreground font-bold">
+    <div className="w-64 border-l bg-card flex flex-col shrink-0">
+      <div className="p-3 border-b">
+        <div className="flex items-start gap-2.5">
+          <Avatar className="h-10 w-10 ring-2 ring-primary/20 shrink-0">
+            <AvatarFallback className="bg-gradient-to-br from-primary to-primary/70 text-primary-foreground font-bold text-xs">
               {contact.firstName?.[0]}{contact.lastName?.[0]}
             </AvatarFallback>
           </Avatar>
@@ -1464,16 +1464,18 @@ function CustomerInfoPanel({
             <h2 className="font-bold text-sm truncate" data-testid="text-contact-name">
               {contact.firstName} {contact.lastName}
             </h2>
-            <Badge variant="secondary" className="mt-1 text-[10px]">
-              {contact.status || "Nový"}
-            </Badge>
-            <div className="flex items-center gap-0.5 mt-1">
-              {[...Array(5)].map((_, i) => (
-                <Star
-                  key={i}
-                  className={`h-3 w-3 ${i < stars ? "text-yellow-500 fill-yellow-500" : "text-muted-foreground/20"}`}
-                />
-              ))}
+            <div className="flex items-center gap-1.5 mt-1">
+              <Badge variant="secondary" className="text-[10px]">
+                {contact.status || "Nový"}
+              </Badge>
+              <div className="flex items-center gap-0.5">
+                {[...Array(5)].map((_, i) => (
+                  <Star
+                    key={i}
+                    className={`h-2.5 w-2.5 ${i < stars ? "text-yellow-500 fill-yellow-500" : "text-muted-foreground/20"}`}
+                  />
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -1481,6 +1483,17 @@ function CustomerInfoPanel({
 
       <div className="border-b">
         <div className="flex">
+          <button
+            className={`flex-1 py-2 text-[10px] font-semibold uppercase tracking-wider border-b-2 transition-colors ${
+              rightTab === "actions"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => onRightTabChange("actions")}
+            data-testid="tab-actions"
+          >
+            Akcie
+          </button>
           <button
             className={`flex-1 py-2 text-[10px] font-semibold uppercase tracking-wider border-b-2 transition-colors ${
               rightTab === "profile"
@@ -1503,23 +1516,12 @@ function CustomerInfoPanel({
           >
             História
           </button>
-          <button
-            className={`flex-1 py-2 text-[10px] font-semibold uppercase tracking-wider border-b-2 transition-colors ${
-              rightTab === "actions"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-            onClick={() => onRightTabChange("actions")}
-            data-testid="tab-actions"
-          >
-            Akcie
-          </button>
         </div>
       </div>
 
       <ScrollArea className="flex-1">
         {rightTab === "profile" && (
-          <div className="p-4 space-y-3">
+          <div className="p-3 space-y-3">
             <div className="space-y-2">
               <div className="flex items-center gap-2.5 p-2.5 rounded-md bg-blue-50 dark:bg-blue-950/30">
                 <Phone className="h-3.5 w-3.5 text-blue-500 shrink-0" />
@@ -1589,7 +1591,7 @@ function CustomerInfoPanel({
         )}
 
         {rightTab === "history" && (
-          <div className="p-4 space-y-2">
+          <div className="p-3 space-y-2">
             {contactHistory.length === 0 && (
               <div className="text-center py-8">
                 <History className="h-8 w-8 mx-auto mb-2 text-muted-foreground/20" />
@@ -1627,7 +1629,7 @@ function CustomerInfoPanel({
         )}
 
         {rightTab === "actions" && (
-          <div className="p-4 space-y-4">
+          <div className="p-3 space-y-3">
             <div>
               <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
                 <Zap className="h-3 w-3" />
@@ -1884,7 +1886,7 @@ export default function AgentWorkspacePage() {
   const [workTime, setWorkTime] = useState("00:00:00");
   const [startTime] = useState(new Date());
   const [activeChannel, setActiveChannel] = useState("script");
-  const [rightTab, setRightTab] = useState("profile");
+  const [rightTab, setRightTab] = useState("actions");
   const [callNotes, setCallNotes] = useState("");
   const [channelFilter, setChannelFilter] = useState("all");
   const [stats, setStats] = useState({ calls: 0, emails: 0, sms: 0 });
@@ -2332,7 +2334,7 @@ export default function AgentWorkspacePage() {
     setAgentStatus("busy");
     setCallNotes("");
     setActiveChannel("script");
-    setRightTab("profile");
+    setRightTab("actions");
 
     const campaignChannel = (selectedCampaign?.channel || "phone") as ChannelType;
     const newTask: TaskItem = {
