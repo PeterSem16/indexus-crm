@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Select,
   SelectContent,
@@ -2613,6 +2613,7 @@ export default function AgentWorkspacePage() {
             </p>
             <div className="flex items-center gap-3 p-3 rounded-md bg-muted/50">
               <Avatar className="h-10 w-10">
+                {user?.avatarUrl && <AvatarImage src={user.avatarUrl} alt={`${user.firstName} ${user.lastName}`} />}
                 <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
                   {user?.firstName?.[0]}{user?.lastName?.[0]}
                 </AvatarFallback>
