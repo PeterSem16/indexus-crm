@@ -2084,6 +2084,9 @@ Príklad:
                     ))}
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
+                    <strong>krajina</strong> (SK, CZ, HU, RO, IT, DE, US) &middot; <strong>datum</strong> (YYYY-MM-DD, DD.MM.YYYY, DD/MM/YYYY)
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
                     Podporované formáty: CSV (oddelené bodkočiarkou alebo čiarkou), Excel (.xlsx)
                   </p>
                 </CardContent>
