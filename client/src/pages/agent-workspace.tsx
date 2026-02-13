@@ -1964,6 +1964,10 @@ export default function AgentWorkspacePage() {
     );
   }, [rawCampaignContacts]);
 
+  const selectedCampaign = useMemo(() => {
+    return campaigns.find((c) => c.id === selectedCampaignId) || null;
+  }, [campaigns, selectedCampaignId]);
+
   const campaignAutoSettings = useMemo(() => {
     if (!selectedCampaign?.settings) return { autoMode: false, autoDelaySeconds: 5, contactSortField: "createdAt", contactSortOrder: "desc" };
     try {
@@ -2013,10 +2017,6 @@ export default function AgentWorkspacePage() {
         channel: c.channel || "phone",
       }));
   }, [campaigns, campaignContactCounts]);
-
-  const selectedCampaign = useMemo(() => {
-    return campaigns.find((c) => c.id === selectedCampaignId) || null;
-  }, [campaigns, selectedCampaignId]);
 
   const { data: customerMessages = [] } = useQuery<any[]>({
     queryKey: ["/api/customers", currentContact?.id, "messages"],

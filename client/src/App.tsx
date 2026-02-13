@@ -50,6 +50,33 @@ import CustomerInvoicesPage from "@/pages/customer-invoices";
 import AgentWorkspacePage from "@/pages/agent-workspace";
 import NotFound from "@/pages/not-found";
 import { Loader2 } from "lucide-react";
+import { Component as ReactComponent, type ErrorInfo, type ReactNode } from "react";
+
+class ErrorBoundary extends ReactComponent<{ children: ReactNode; fallback?: ReactNode }, { hasError: boolean; error: Error | null }> {
+  constructor(props: { children: ReactNode; fallback?: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("[ErrorBoundary] Caught error:", error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: "2rem", color: "red" }}>
+          <h2>Component Error</h2>
+          <pre style={{ whiteSpace: "pre-wrap", fontSize: "0.85rem" }}>{this.state.error?.message}</pre>
+          <pre style={{ whiteSpace: "pre-wrap", fontSize: "0.75rem", marginTop: "1rem", color: "#666" }}>{this.state.error?.stack}</pre>
+          <button onClick={() => this.setState({ hasError: false, error: null })} style={{ marginTop: "1rem", padding: "0.5rem 1rem", cursor: "pointer" }}>Retry</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { user, isLoading } = useAuth();
@@ -171,7 +198,11 @@ function AuthenticatedApp() {
                     <Route path="/email" component={EmailClientPage} />
                     <Route path="/notifications" component={NotificationCenterPage} />
                     <Route path="/mobile-preview" component={MobilePreview} />
-                    <Route path="/agent-workspace" component={AgentWorkspacePage} />
+                    <Route path="/agent-workspace">
+                      <ErrorBoundary>
+                        <AgentWorkspacePage />
+                      </ErrorBoundary>
+                    </Route>
                     <Route path="/login">
                       <Redirect to="/" />
                     </Route>
