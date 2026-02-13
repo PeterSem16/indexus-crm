@@ -22636,6 +22636,242 @@ Guidelines:
     }
   });
 
+  // Agent Session Management
+  app.get("/api/agent-sessions/active", requireAuth, async (req, res) => {
+    try {
+      const session = await storage.getActiveAgentSession(req.user!.id);
+      res.json(session || null);
+    } catch (error) {
+      console.error("Error fetching active agent session:", error);
+      res.status(500).json({ error: "Failed to fetch active session" });
+    }
+  });
+
+  app.get("/api/agent-sessions", requireAuth, async (req, res) => {
+    try {
+      const { userId, startDate, endDate } = req.query;
+      const targetUserId = (userId as string) || req.user!.id;
+      const sessions = await storage.getAgentSessions(
+        targetUserId,
+        startDate ? new Date(startDate as string) : undefined,
+        endDate ? new Date(endDate as string) : undefined
+      );
+      res.json(sessions);
+    } catch (error) {
+      console.error("Error fetching agent sessions:", error);
+      res.status(500).json({ error: "Failed to fetch sessions" });
+    }
+  });
+
+  app.post("/api/agent-sessions/start", requireAuth, async (req, res) => {
+    try {
+      const existing = await storage.getActiveAgentSession(req.user!.id);
+      if (existing) {
+        return res.status(409).json({ error: "Active session already exists", session: existing });
+      }
+      const session = await storage.createAgentSession({
+        userId: req.user!.id,
+        campaignId: req.body.campaignId || null,
+        status: "available",
+      });
+      res.status(201).json(session);
+    } catch (error) {
+      console.error("Error starting agent session:", error);
+      res.status(500).json({ error: "Failed to start session" });
+    }
+  });
+
+  app.patch("/api/agent-sessions/:id/status", requireAuth, async (req, res) => {
+    try {
+      const { status } = req.body;
+      if (!status) return res.status(400).json({ error: "Status is required" });
+      const session = await storage.updateAgentSession(req.params.id, {
+        status,
+        lastActiveAt: new Date(),
+      });
+      if (!session) return res.status(404).json({ error: "Session not found" });
+      res.json(session);
+    } catch (error) {
+      console.error("Error updating session status:", error);
+      res.status(500).json({ error: "Failed to update session status" });
+    }
+  });
+
+  app.post("/api/agent-sessions/:id/end", requireAuth, async (req, res) => {
+    try {
+      const activeBreak = await storage.getActiveAgentBreak(req.params.id);
+      if (activeBreak) await storage.endAgentBreak(activeBreak.id);
+      const activeActivity = await storage.getActiveAgentActivity(req.params.id);
+      if (activeActivity) await storage.endAgentActivity(activeActivity.id);
+      const session = await storage.endAgentSession(req.params.id);
+      if (!session) return res.status(404).json({ error: "Session not found" });
+      res.json(session);
+    } catch (error) {
+      console.error("Error ending agent session:", error);
+      res.status(500).json({ error: "Failed to end session" });
+    }
+  });
+
+  app.get("/api/agent-sessions/:id", requireAuth, async (req, res) => {
+    try {
+      const session = await storage.getAgentSession(req.params.id);
+      if (!session) return res.status(404).json({ error: "Session not found" });
+      res.json(session);
+    } catch (error) {
+      console.error("Error fetching session:", error);
+      res.status(500).json({ error: "Failed to fetch session" });
+    }
+  });
+
+  // Agent Session Activities
+  app.post("/api/agent-sessions/:sessionId/activities", requireAuth, async (req, res) => {
+    try {
+      const activity = await storage.createAgentActivity({
+        sessionId: req.params.sessionId,
+        activityType: req.body.activityType,
+        contactId: req.body.contactId || null,
+        campaignContactId: req.body.campaignContactId || null,
+        metadata: req.body.metadata || null,
+      });
+      await storage.updateAgentSession(req.params.sessionId, { lastActiveAt: new Date() });
+      res.status(201).json(activity);
+    } catch (error) {
+      console.error("Error creating activity:", error);
+      res.status(500).json({ error: "Failed to create activity" });
+    }
+  });
+
+  app.post("/api/agent-activities/:id/end", requireAuth, async (req, res) => {
+    try {
+      const activity = await storage.endAgentActivity(req.params.id);
+      if (!activity) return res.status(404).json({ error: "Activity not found" });
+      if (activity.sessionId) {
+        const session = await storage.getAgentSession(activity.sessionId);
+        if (session) {
+          const updates: Record<string, any> = { lastActiveAt: new Date() };
+          if (activity.activityType === "call") {
+            updates.totalCallTime = (session.totalCallTime || 0) + (activity.durationSeconds || 0);
+          } else if (activity.activityType === "email") {
+            updates.totalEmailTime = (session.totalEmailTime || 0) + (activity.durationSeconds || 0);
+          } else if (activity.activityType === "sms") {
+            updates.totalSmsTime = (session.totalSmsTime || 0) + (activity.durationSeconds || 0);
+          } else if (activity.activityType === "wrap_up") {
+            updates.totalWrapUpTime = (session.totalWrapUpTime || 0) + (activity.durationSeconds || 0);
+          }
+          updates.contactsHandled = (session.contactsHandled || 0) + (activity.activityType === "disposition" ? 1 : 0);
+          await storage.updateAgentSession(activity.sessionId, updates);
+        }
+      }
+      res.json(activity);
+    } catch (error) {
+      console.error("Error ending activity:", error);
+      res.status(500).json({ error: "Failed to end activity" });
+    }
+  });
+
+  app.get("/api/agent-sessions/:sessionId/activities", requireAuth, async (req, res) => {
+    try {
+      const activities = await storage.getAgentActivities(req.params.sessionId);
+      res.json(activities);
+    } catch (error) {
+      console.error("Error fetching activities:", error);
+      res.status(500).json({ error: "Failed to fetch activities" });
+    }
+  });
+
+  // Agent Break Types
+  app.get("/api/agent-break-types", requireAuth, async (req, res) => {
+    try {
+      const campaignId = req.query.campaignId as string | undefined;
+      const breakTypes = await storage.getAgentBreakTypes(campaignId);
+      res.json(breakTypes);
+    } catch (error) {
+      console.error("Error fetching break types:", error);
+      res.status(500).json({ error: "Failed to fetch break types" });
+    }
+  });
+
+  app.post("/api/agent-break-types", requireAuth, async (req, res) => {
+    try {
+      const breakType = await storage.createAgentBreakType(req.body);
+      res.status(201).json(breakType);
+    } catch (error) {
+      console.error("Error creating break type:", error);
+      res.status(500).json({ error: "Failed to create break type" });
+    }
+  });
+
+  app.patch("/api/agent-break-types/:id", requireAuth, async (req, res) => {
+    try {
+      const breakType = await storage.updateAgentBreakType(req.params.id, req.body);
+      if (!breakType) return res.status(404).json({ error: "Break type not found" });
+      res.json(breakType);
+    } catch (error) {
+      console.error("Error updating break type:", error);
+      res.status(500).json({ error: "Failed to update break type" });
+    }
+  });
+
+  app.delete("/api/agent-break-types/:id", requireAuth, async (req, res) => {
+    try {
+      await storage.deleteAgentBreakType(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting break type:", error);
+      res.status(500).json({ error: "Failed to delete break type" });
+    }
+  });
+
+  // Agent Breaks
+  app.post("/api/agent-sessions/:sessionId/breaks", requireAuth, async (req, res) => {
+    try {
+      const existing = await storage.getActiveAgentBreak(req.params.sessionId);
+      if (existing) {
+        return res.status(409).json({ error: "Active break already exists", break: existing });
+      }
+      const brk = await storage.createAgentBreak({
+        sessionId: req.params.sessionId,
+        breakTypeId: req.body.breakTypeId,
+      });
+      await storage.updateAgentSession(req.params.sessionId, { status: "break", lastActiveAt: new Date() });
+      res.status(201).json(brk);
+    } catch (error) {
+      console.error("Error starting break:", error);
+      res.status(500).json({ error: "Failed to start break" });
+    }
+  });
+
+  app.post("/api/agent-breaks/:id/end", requireAuth, async (req, res) => {
+    try {
+      const brk = await storage.endAgentBreak(req.params.id);
+      if (!brk) return res.status(404).json({ error: "Break not found" });
+      if (brk.sessionId) {
+        const session = await storage.getAgentSession(brk.sessionId);
+        if (session) {
+          await storage.updateAgentSession(brk.sessionId, {
+            status: "available",
+            totalBreakTime: (session.totalBreakTime || 0) + (brk.durationSeconds || 0),
+            lastActiveAt: new Date(),
+          });
+        }
+      }
+      res.json(brk);
+    } catch (error) {
+      console.error("Error ending break:", error);
+      res.status(500).json({ error: "Failed to end break" });
+    }
+  });
+
+  app.get("/api/agent-sessions/:sessionId/breaks", requireAuth, async (req, res) => {
+    try {
+      const breaks = await storage.getAgentBreaks(req.params.sessionId);
+      res.json(breaks);
+    } catch (error) {
+      console.error("Error fetching breaks:", error);
+      res.status(500).json({ error: "Failed to fetch breaks" });
+    }
+  });
+
   return httpServer;
 }
 
