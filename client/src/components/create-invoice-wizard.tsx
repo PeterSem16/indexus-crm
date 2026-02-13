@@ -1624,6 +1624,7 @@ export function CreateInvoiceWizard({
           <Form {...form}>
             <div className="min-h-[300px]">
               {currentStep === 0 && (
+                <>
                 <div className="grid grid-cols-1 lg:grid-cols-[1fr_40%] gap-6 overflow-hidden">
                   {/* Left Column - Step 1: Customer (60%) */}
                   <div className="space-y-4 min-w-0 overflow-hidden">
@@ -1798,6 +1799,51 @@ export function CreateInvoiceWizard({
                     )}
                   </div>
                 </div>
+
+                <div className="flex items-center gap-2 pb-2 border-b mt-2">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-600 dark:bg-amber-500 text-white text-xs font-medium">3</div>
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                    {t.invoices?.applyInflation || "Zohľadniť infláciu"}
+                  </h3>
+                  <Badge variant="outline" className="text-[10px]">{t.invoices?.optional || "Voliteľné"}</Badge>
+                </div>
+                <div className="p-4 border rounded-lg bg-amber-50/50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800">
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      id="inflation-enabled"
+                      checked={inflationEnabled}
+                      onCheckedChange={(checked) => setInflationEnabled(checked === true)}
+                      disabled={inflationRate === null}
+                      data-testid="checkbox-inflation"
+                    />
+                    <div className="flex-1 space-y-1">
+                      <Label htmlFor="inflation-enabled" className="font-medium flex items-center gap-2 cursor-pointer">
+                        {t.invoices?.applyInflation || "Zohľadniť infláciu"}
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        {t.invoices?.inflationDescription || "Pripočítať infláciu k celkovej fakturovanej sume podľa ročnej miery inflácie pre danú krajinu"}
+                      </p>
+                      {inflationRate !== null ? (
+                        <div className="flex items-center gap-2 mt-2">
+                          <Badge variant="secondary" className="text-xs" data-testid="badge-inflation-rate">
+                            {countryCode} {issueDateYear}: {inflationRate.toFixed(2)}%
+                          </Badge>
+                          {inflationEnabled && (
+                            <span className="text-xs text-amber-700 dark:text-amber-300 font-medium" data-testid="text-inflation-status">
+                              {t.invoices?.inflationActive || "Inflácia bude pripočítaná k položkám faktúry"}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-destructive mt-1" data-testid="text-no-inflation-data">
+                          {t.invoices?.noInflationData || "Pre rok"} {issueDateYear} {t.invoices?.noInflationDataCountry || "a krajinu"} {countryCode} {t.invoices?.noInflationDataAvailable || "nie sú dostupné údaje o inflácii"}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                </>
               )}
 
               {currentStep === 1 && (
@@ -2272,42 +2318,6 @@ export function CreateInvoiceWizard({
                     </div>
                   </div>
 
-                  <div className="p-4 border rounded-lg bg-amber-50/50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800">
-                    <div className="flex items-start gap-3">
-                      <Checkbox
-                        id="inflation-enabled"
-                        checked={inflationEnabled}
-                        onCheckedChange={(checked) => setInflationEnabled(checked === true)}
-                        disabled={inflationRate === null}
-                        data-testid="checkbox-inflation"
-                      />
-                      <div className="flex-1 space-y-1">
-                        <Label htmlFor="inflation-enabled" className="font-medium flex items-center gap-2 cursor-pointer">
-                          <TrendingUp className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                          {t.invoices?.applyInflation || "Zohľadniť infláciu"}
-                        </Label>
-                        <p className="text-xs text-muted-foreground">
-                          {t.invoices?.inflationDescription || "Pripočítať infláciu k celkovej fakturovanej sume podľa ročnej miery inflácie pre danú krajinu"}
-                        </p>
-                        {inflationRate !== null ? (
-                          <div className="flex items-center gap-2 mt-2">
-                            <Badge variant="secondary" className="text-xs" data-testid="badge-inflation-rate">
-                              {countryCode} {issueDateYear}: {inflationRate.toFixed(2)}%
-                            </Badge>
-                            {inflationEnabled && (
-                              <span className="text-xs text-amber-700 dark:text-amber-300 font-medium" data-testid="text-inflation-status">
-                                {t.invoices?.inflationActive || "Inflácia bude pripočítaná k položkám faktúry"}
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <p className="text-xs text-destructive mt-1" data-testid="text-no-inflation-data">
-                            {t.invoices?.noInflationData || "Pre rok"} {issueDateYear} {t.invoices?.noInflationDataCountry || "a krajinu"} {countryCode} {t.invoices?.noInflationDataAvailable || "nie sú dostupné údaje o inflácii"}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
                 </div>
               )}
 
