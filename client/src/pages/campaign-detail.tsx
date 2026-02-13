@@ -2078,7 +2078,7 @@ Príklad:
                   <div className="grid grid-cols-2 gap-1">
                     {[
                       "meno", "priezvisko", "telefon", "telefon_2",
-                      "email", "datum_ocakavaneho_porodu", "extra_pole_1", "extra_pole_2"
+                      "email", "krajina", "datum_ocakavaneho_porodu", "extra_pole_1", "extra_pole_2"
                     ].map(col => (
                       <span key={col} className="text-xs text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">{col}</span>
                     ))}
