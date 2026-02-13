@@ -13983,10 +13983,10 @@ export async function registerRoutes(
       if (ext === ".csv" || ext === ".txt") {
         const content = file.buffer.toString("utf-8").replace(/^\uFEFF/, "");
         const separator = content.split("\n")[0]?.includes(";") ? ";" : ",";
-        const workbook = XLSX.read(content, { type: "string", FS: separator });
+        const workbook = XLSX.read(content, { type: "string", FS: separator, raw: true });
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         if (!sheet) return res.status(400).json({ error: "Empty file" });
-        rows = XLSX.utils.sheet_to_json<Record<string, string>>(sheet, { defval: "" });
+        rows = XLSX.utils.sheet_to_json<Record<string, string>>(sheet, { defval: "", raw: true });
         rows = rows.map(r => {
           const normalized: Record<string, string> = {};
           Object.entries(r).forEach(([k, v]) => {
@@ -13995,9 +13995,9 @@ export async function registerRoutes(
           return normalized;
         });
       } else {
-        const workbook = XLSX.read(file.buffer, { type: "buffer" });
+        const workbook = XLSX.read(file.buffer, { type: "buffer", raw: true });
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        rows = XLSX.utils.sheet_to_json<Record<string, string>>(sheet, { defval: "" });
+        rows = XLSX.utils.sheet_to_json<Record<string, string>>(sheet, { defval: "", raw: true });
         rows = rows.map(r => {
           const normalized: Record<string, string> = {};
           Object.entries(r).forEach(([k, v]) => {
@@ -14102,8 +14102,15 @@ export async function registerRoutes(
 
             if (expectedDate) {
               try {
-                const parsed = new Date(expectedDate);
-                if (!isNaN(parsed.getTime())) {
+                let parsed: Date | null = null;
+                const ddmmyyyy = expectedDate.match(/^(\d{1,2})[.\/\-](\d{1,2})[.\/\-](\d{4})$/);
+                const yyyymmdd = expectedDate.match(/^(\d{4})[.\/\-](\d{1,2})[.\/\-](\d{1,2})$/);
+                if (ddmmyyyy) {
+                  parsed = new Date(parseInt(ddmmyyyy[3]), parseInt(ddmmyyyy[2]) - 1, parseInt(ddmmyyyy[1]));
+                } else if (yyyymmdd) {
+                  parsed = new Date(parseInt(yyyymmdd[1]), parseInt(yyyymmdd[2]) - 1, parseInt(yyyymmdd[3]));
+                }
+                if (parsed && !isNaN(parsed.getTime()) && parsed.getFullYear() > 1900 && parsed.getFullYear() < 2100) {
                   customerData.dateOfBirth = parsed;
                 }
               } catch {}
