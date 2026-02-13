@@ -14028,7 +14028,8 @@ export async function registerRoutes(
         return "";
       }
 
-      const results = { created: 0, skipped: 0, duplicates: 0, errors: [] as string[] };
+      const updateExisting = req.body?.updateExisting === "true" || req.body?.updateExisting === true;
+      const results = { created: 0, updated: 0, skipped: 0, duplicates: 0, errors: [] as string[], importedContactIds: [] as string[] };
       const countryCode = campaign.countryCodes?.[0] || "SK";
 
       const existingCampaignContacts = await storage.getCampaignContacts(campaign.id);
@@ -14074,9 +14075,36 @@ export async function registerRoutes(
           let customer;
           if (existingCustomer) {
             if (existingCustomerIds.has(existingCustomer.id)) {
+              if (updateExisting) {
+                const updateData: any = {};
+                if (firstName) updateData.firstName = firstName;
+                if (lastName) updateData.lastName = lastName;
+                if (phone) { updateData.phone = phone; updateData.mobile = phone; }
+                if (phone2) updateData.mobile2 = phone2;
+                if (country) updateData.country = country.toUpperCase();
+                if (Object.keys(updateData).length > 0) {
+                  await storage.updateCustomer(existingCustomer.id, updateData);
+                  results.updated++;
+                } else {
+                  results.duplicates++;
+                }
+                continue;
+              }
               results.duplicates++;
               results.errors.push(`Riadok ${i + 2}: ${firstName} ${lastName} - už je v kampani`);
               continue;
+            }
+            if (updateExisting) {
+              const updateData: any = {};
+              if (firstName) updateData.firstName = firstName;
+              if (lastName) updateData.lastName = lastName;
+              if (phone) { updateData.phone = phone; updateData.mobile = phone; }
+              if (phone2) updateData.mobile2 = phone2;
+              if (country) updateData.country = country.toUpperCase();
+              if (Object.keys(updateData).length > 0) {
+                await storage.updateCustomer(existingCustomer.id, updateData);
+                results.updated++;
+              }
             }
             customer = existingCustomer;
           } else {
@@ -14126,7 +14154,7 @@ export async function registerRoutes(
 
           existingCustomerIds.add(customer.id);
 
-          await storage.createCampaignContacts([{
+          const [newContact] = await storage.createCampaignContacts([{
             campaignId: campaign.id,
             customerId: customer.id,
             status: "pending",
@@ -14134,6 +14162,7 @@ export async function registerRoutes(
             priorityScore: 50,
           }]);
 
+          if (newContact) results.importedContactIds.push(newContact.id);
           results.created++;
         } catch (err: any) {
           results.errors.push(`Riadok ${i + 2}: ${err.message || "Neznáma chyba"}`);
@@ -14155,6 +14184,44 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Failed to import contacts:", error);
       res.status(500).json({ error: error.message || "Failed to import contacts" });
+    }
+  });
+
+  // Delete imported contacts batch (undo last import)
+  app.post("/api/campaigns/:id/contacts/delete-batch", requireAuth, async (req, res) => {
+    try {
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+
+      const { contactIds } = req.body;
+      if (!Array.isArray(contactIds) || contactIds.length === 0) {
+        return res.status(400).json({ error: "No contact IDs provided" });
+      }
+
+      const campaignContacts = await storage.getCampaignContacts(campaign.id);
+      const validIds = new Set(campaignContacts.map(c => c.id));
+
+      let deleted = 0;
+      for (const id of contactIds) {
+        if (!validIds.has(id)) continue;
+        const success = await storage.deleteCampaignContact(id);
+        if (success) deleted++;
+      }
+
+      await logActivity(
+        req.session.user!.id,
+        "deleted_imported_contacts",
+        "campaign",
+        campaign.id,
+        campaign.name,
+        { deleted, total: contactIds.length },
+        req.ip
+      );
+
+      res.json({ deleted });
+    } catch (error: any) {
+      console.error("Failed to delete imported contacts:", error);
+      res.status(500).json({ error: error.message || "Failed to delete contacts" });
     }
   });
 

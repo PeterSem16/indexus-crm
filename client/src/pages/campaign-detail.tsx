@@ -635,10 +635,11 @@ export default function CampaignDetailPage() {
   const [structuredScriptModified, setStructuredScriptModified] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
-  const [importResult, setImportResult] = useState<{ created: number; skipped: number; duplicates?: number; errors: string[] } | null>(null);
+  const [importResult, setImportResult] = useState<{ created: number; skipped: number; duplicates?: number; updated?: number; errors: string[]; importedContactIds?: string[] } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
   const [importPhase, setImportPhase] = useState<"upload" | "processing" | null>(null);
+  const [updateExisting, setUpdateExisting] = useState(false);
 
   const { data: campaign, isLoading: loadingCampaign } = useQuery<Campaign>({
     queryKey: ["/api/campaigns", campaignId],
@@ -724,12 +725,28 @@ export default function CampaignDetailPage() {
     },
   });
 
+  const deleteImportMutation = useMutation({
+    mutationFn: async (contactIds: string[]) => {
+      return apiRequest("POST", `/api/campaigns/${campaignId}/contacts/delete-batch`, { contactIds });
+    },
+    onSuccess: (data: any) => {
+      setImportResult(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "stats"] });
+      toast({ title: "Import zmazaný", description: `Zmazaných: ${data.deleted} kontaktov` });
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa zmazať importované kontakty.", variant: "destructive" });
+    },
+  });
+
   const importContactsMutation = useMutation({
     mutationFn: async (file: File) => {
       setImportProgress(0);
       setImportPhase("upload");
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("updateExisting", String(updateExisting));
       return new Promise<any>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open("POST", `/api/campaigns/${campaignId}/contacts/import`);
@@ -1992,7 +2009,7 @@ Príklad:
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showImportDialog} onOpenChange={(open) => { if (!open) { setShowImportDialog(false); setImportFile(null); setImportResult(null); } }}>
+      <Dialog open={showImportDialog} onOpenChange={(open) => { if (!open) { setShowImportDialog(false); setImportFile(null); setImportResult(null); setUpdateExisting(false); } }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Import externých kontaktov</DialogTitle>
@@ -2009,6 +2026,7 @@ Príklad:
                   <p className="font-medium text-green-800 dark:text-green-200">Import dokončený</p>
                   <p className="text-sm text-green-700 dark:text-green-300">
                     Vytvorených: {importResult.created} kontaktov
+                    {(importResult.updated || 0) > 0 && `, aktualizovaných: ${importResult.updated}`}
                     {(importResult.duplicates || 0) > 0 && `, duplikátov: ${importResult.duplicates}`}
                     {importResult.skipped > 0 && `, preskočených: ${importResult.skipped}`}
                   </p>
@@ -2029,7 +2047,25 @@ Príklad:
                   </ScrollArea>
                 </div>
               )}
-              <div className="flex justify-end">
+              <div className="flex justify-between gap-2 flex-wrap">
+                {importResult.importedContactIds && importResult.importedContactIds.length > 0 && (
+                  <Button
+                    variant="destructive"
+                    onClick={() => {
+                      if (importResult.importedContactIds) {
+                        deleteImportMutation.mutate(importResult.importedContactIds);
+                      }
+                    }}
+                    disabled={deleteImportMutation.isPending}
+                    data-testid="button-delete-last-import"
+                  >
+                    {deleteImportMutation.isPending ? (
+                      <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Mažem...</>
+                    ) : (
+                      <><Trash2 className="w-4 h-4 mr-2" />Zmazať posledný import ({importResult.importedContactIds.length})</>
+                    )}
+                  </Button>
+                )}
                 <Button onClick={() => { setShowImportDialog(false); setImportFile(null); setImportResult(null); }} data-testid="button-close-import">
                   Zavrieť
                 </Button>
@@ -2115,6 +2151,16 @@ Príklad:
                   </p>
                 </CardContent>
               </Card>
+
+              <label className="flex items-center gap-2 cursor-pointer" data-testid="checkbox-update-existing">
+                <input
+                  type="checkbox"
+                  checked={updateExisting}
+                  onChange={(e) => setUpdateExisting(e.target.checked)}
+                  className="rounded border-muted-foreground/50"
+                />
+                <span className="text-sm">Aktualizovať existujúce kontakty (prepíše údaje ak kontakt už existuje)</span>
+              </label>
 
               {importPhase && (
                 <div className="space-y-2" data-testid="import-progress">
