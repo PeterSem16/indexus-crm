@@ -216,6 +216,123 @@ function CriteriaCard({ campaign }: { campaign: Campaign }) {
   );
 }
 
+function AutoModeCard({ campaign }: { campaign: Campaign }) {
+  const { toast } = useToast();
+  const [autoMode, setAutoMode] = useState(false);
+  const [autoDelaySeconds, setAutoDelaySeconds] = useState(5);
+  const [contactSortField, setContactSortField] = useState("createdAt");
+  const [contactSortOrder, setContactSortOrder] = useState("desc");
+  const [hasChanges, setHasChanges] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (campaign.settings) {
+        const s = JSON.parse(campaign.settings);
+        setAutoMode(!!s.autoMode);
+        setAutoDelaySeconds(s.autoDelaySeconds || 5);
+        setContactSortField(s.contactSortField || "createdAt");
+        setContactSortOrder(s.contactSortOrder || "desc");
+      }
+    } catch {}
+  }, [campaign.settings]);
+
+  const saveAutoModeMutation = useMutation({
+    mutationFn: async () => {
+      let existing: Record<string, any> = {};
+      try {
+        if (campaign.settings) existing = JSON.parse(campaign.settings);
+      } catch {}
+      const merged = { ...existing, autoMode, autoDelaySeconds, contactSortField, contactSortOrder };
+      return apiRequest("PATCH", `/api/campaigns/${campaign.id}`, {
+        settings: JSON.stringify(merged),
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Nastavenia uložené" });
+      setHasChanges(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
+    },
+    onError: () => {
+      toast({ title: "Chyba pri ukladaní", variant: "destructive" });
+    },
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div>
+            <CardTitle>Režim prideľovania kontaktov</CardTitle>
+            <CardDescription>
+              Nastavte automatické prideľovanie kontaktov operátorom
+            </CardDescription>
+          </div>
+          {hasChanges && (
+            <Button
+              onClick={() => saveAutoModeMutation.mutate()}
+              disabled={saveAutoModeMutation.isPending}
+              data-testid="button-save-auto-mode"
+            >
+              {saveAutoModeMutation.isPending ? "Ukladám..." : "Uložiť"}
+            </Button>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center gap-3">
+          <Switch
+            checked={autoMode}
+            onCheckedChange={(checked) => { setAutoMode(checked); setHasChanges(true); }}
+            data-testid="switch-auto-mode"
+          />
+          <Label className="text-sm font-medium">Automatický režim</Label>
+        </div>
+        {autoMode && (
+          <div className="space-y-4 pl-1">
+            <div className="space-y-1.5">
+              <Label className="text-sm">Oneskorenie (sekundy)</Label>
+              <Input
+                type="number"
+                min={1}
+                max={120}
+                value={autoDelaySeconds}
+                onChange={(e) => { setAutoDelaySeconds(parseInt(e.target.value) || 5); setHasChanges(true); }}
+                className="w-32"
+                data-testid="input-auto-delay"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm">Radiť kontakty podľa</Label>
+              <Select value={contactSortField} onValueChange={(v) => { setContactSortField(v); setHasChanges(true); }}>
+                <SelectTrigger className="w-64" data-testid="select-sort-field">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="createdAt">Dátum vytvorenia</SelectItem>
+                  <SelectItem value="dateOfBirth">Očakávaný dátum pôrodu</SelectItem>
+                  <SelectItem value="priorityScore">Priorita</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm">Smer radenia</Label>
+              <Select value={contactSortOrder} onValueChange={(v) => { setContactSortOrder(v); setHasChanges(true); }}>
+                <SelectTrigger className="w-64" data-testid="select-sort-order">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="desc">Od najnovšieho</SelectItem>
+                  <SelectItem value="asc">Od najstaršieho</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function SchedulingCard({ campaign }: { campaign: Campaign }) {
   const { t } = useI18n();
   const { toast } = useToast();
@@ -1416,6 +1533,7 @@ export default function CampaignDetailPage() {
 
         <TabsContent value="settings" className="space-y-6">
           <SchedulingCard campaign={campaign} />
+          <AutoModeCard campaign={campaign} />
 
           <Card>
             <CardHeader>

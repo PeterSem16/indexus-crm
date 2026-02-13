@@ -293,6 +293,9 @@ function TaskListPanel({
   campaignContacts: EnrichedCampaignContact[];
   onSelectCampaignContact: (contact: EnrichedCampaignContact) => void;
   currentUserId?: string;
+  isAutoMode: boolean;
+  onToggleAutoMode: () => void;
+  autoCountdown: number | null;
 }) {
   const filteredCampaigns = useMemo(() => {
     if (channelFilter === "all") return campaigns;
@@ -451,25 +454,25 @@ function TaskListPanel({
 
       {selectedCampaignId && (
         <div className="border-t flex flex-col flex-1 min-h-0">
-          <div className="px-3 py-2 flex items-center justify-between">
+          <div className="px-3 py-2 flex items-center justify-between gap-1">
             <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
               Kontakty ({campaignContacts.length})
             </span>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={onLoadNextContact}
-              disabled={isLoadingContact || campaignContacts.length === 0}
-              className="h-7 text-xs gap-1"
-              data-testid="btn-next-contact"
-            >
-              {isLoadingContact ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <SkipForward className="h-3 w-3" />
+            <div className="flex items-center gap-1">
+              {autoCountdown !== null && (
+                <Badge variant="secondary" className="text-[10px] font-mono">
+                  {autoCountdown}s
+                </Badge>
               )}
-              Ďalší
-            </Button>
+              <Button size="sm" variant={isAutoMode ? "default" : "ghost"} onClick={onToggleAutoMode} className={`h-7 text-xs gap-1 ${isAutoMode ? "bg-green-600 hover:bg-green-700 text-white" : ""}`} data-testid="btn-auto-mode">
+                {isAutoMode ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+                Auto
+              </Button>
+              <Button size="sm" variant="ghost" onClick={onLoadNextContact} disabled={isLoadingContact || campaignContacts.length === 0 || isAutoMode} className="h-7 text-xs gap-1" data-testid="btn-next-contact">
+                {isLoadingContact ? <Loader2 className="h-3 w-3 animate-spin" /> : <SkipForward className="h-3 w-3" />}
+                Ďalší
+              </Button>
+            </div>
           </div>
           <ScrollArea className="flex-1">
             <div className="px-2 pb-2 space-y-1">
@@ -1053,6 +1056,37 @@ function CommunicationCanvas({
             SMS
           </button>
         </div>
+      </div>
+
+      <div className="border-b bg-muted/30 px-4 py-1.5 flex items-center gap-4 flex-wrap text-xs" data-testid="contact-info-bar">
+        <div className="flex items-center gap-1.5">
+          <User className="h-3 w-3 text-muted-foreground" />
+          <span className="font-medium">{contact.firstName} {contact.lastName}</span>
+        </div>
+        {contact.phone && (
+          <div className="flex items-center gap-1.5 text-muted-foreground">
+            <Phone className="h-3 w-3" />
+            <span>{contact.phone}</span>
+          </div>
+        )}
+        {contact.email && (
+          <div className="flex items-center gap-1.5 text-muted-foreground">
+            <Mail className="h-3 w-3" />
+            <span>{contact.email}</span>
+          </div>
+        )}
+        {contact.country && (
+          <div className="flex items-center gap-1.5 text-muted-foreground">
+            <Globe className="h-3 w-3" />
+            <span>{contact.country}</span>
+          </div>
+        )}
+        {contact.notes && (
+          <div className="flex items-center gap-1.5 text-muted-foreground truncate max-w-[200px]">
+            <FileText className="h-3 w-3 shrink-0" />
+            <span className="truncate">{contact.notes.split("\n")[0]}</span>
+          </div>
+        )}
       </div>
 
       {activeChannel === "script" && (
@@ -1855,6 +1889,9 @@ export default function AgentWorkspacePage() {
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
+  const [isAutoMode, setIsAutoMode] = useState(false);
+  const [autoCountdown, setAutoCountdown] = useState<number | null>(null);
+  const autoTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const allowedRoles = ["callCenter", "admin"];
   const hasRoleAccess = user && allowedRoles.includes(user.role);
@@ -1927,6 +1964,39 @@ export default function AgentWorkspacePage() {
     );
   }, [rawCampaignContacts]);
 
+  const campaignAutoSettings = useMemo(() => {
+    if (!selectedCampaign?.settings) return { autoMode: false, autoDelaySeconds: 5, contactSortField: "createdAt", contactSortOrder: "desc" };
+    try {
+      const s = JSON.parse(selectedCampaign.settings);
+      return {
+        autoMode: !!s.autoMode,
+        autoDelaySeconds: s.autoDelaySeconds || 5,
+        contactSortField: s.contactSortField || "createdAt",
+        contactSortOrder: s.contactSortOrder || "desc",
+      };
+    } catch { return { autoMode: false, autoDelaySeconds: 5, contactSortField: "createdAt", contactSortOrder: "desc" }; }
+  }, [selectedCampaign]);
+
+  const sortedPendingContacts = useMemo(() => {
+    if (!campaignAutoSettings.autoMode) return pendingCampaignContacts;
+    const field = campaignAutoSettings.contactSortField;
+    const order = campaignAutoSettings.contactSortOrder;
+    return [...pendingCampaignContacts].sort((a, b) => {
+      let aVal: any, bVal: any;
+      if (field === "dateOfBirth") {
+        aVal = a.customer?.dateOfBirth ? new Date(a.customer.dateOfBirth).getTime() : 0;
+        bVal = b.customer?.dateOfBirth ? new Date(b.customer.dateOfBirth).getTime() : 0;
+      } else if (field === "priorityScore") {
+        aVal = (a as any).priorityScore || 0;
+        bVal = (b as any).priorityScore || 0;
+      } else {
+        aVal = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        bVal = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      }
+      return order === "desc" ? bVal - aVal : aVal - bVal;
+    });
+  }, [pendingCampaignContacts, campaignAutoSettings]);
+
   const { data: campaignContactCounts = {} } = useQuery<Record<string, { total: number; pending: number }>>({
     queryKey: ["/api/campaigns/contact-counts"],
     enabled: !!hasAccess,
@@ -1981,6 +2051,49 @@ export default function AgentWorkspacePage() {
       </div>
     );
   }
+
+  useEffect(() => {
+    if (autoTimerRef.current) {
+      clearInterval(autoTimerRef.current);
+      autoTimerRef.current = null;
+    }
+    if (!isAutoMode || currentContact || sortedPendingContacts.length === 0) {
+      setAutoCountdown(null);
+      return;
+    }
+    const delay = campaignAutoSettings.autoDelaySeconds;
+    setAutoCountdown(delay);
+    let remaining = delay;
+    autoTimerRef.current = setInterval(() => {
+      remaining--;
+      if (remaining <= 0) {
+        if (autoTimerRef.current) clearInterval(autoTimerRef.current);
+        autoTimerRef.current = null;
+        setAutoCountdown(null);
+        const next = sortedPendingContacts[0];
+        if (next?.customer) {
+          setCurrentCampaignContactId(next.id);
+          loadContact(next.customer);
+        }
+      } else {
+        setAutoCountdown(remaining);
+      }
+    }, 1000);
+    return () => { if (autoTimerRef.current) clearInterval(autoTimerRef.current); };
+  }, [isAutoMode, currentContact, sortedPendingContacts, campaignAutoSettings.autoDelaySeconds]);
+
+  useEffect(() => {
+    setIsAutoMode(false);
+    setAutoCountdown(null);
+  }, [selectedCampaignId]);
+
+  const handleToggleAutoMode = () => {
+    if (!campaignAutoSettings.autoMode) {
+      toast({ title: "Automatický režim", description: "Táto kampaň nemá povolený automatický režim. Nastavte ho v nastaveniach kampane.", variant: "destructive" });
+      return;
+    }
+    setIsAutoMode(prev => !prev);
+  };
 
   const handleStatusChange = (status: AgentStatus) => {
     setAgentStatus(status);
@@ -2244,8 +2357,8 @@ export default function AgentWorkspacePage() {
   };
 
   const handleNextContact = () => {
-    if (pendingCampaignContacts.length > 0) {
-      const nextEnriched = pendingCampaignContacts[0];
+    if (sortedPendingContacts.length > 0) {
+      const nextEnriched = sortedPendingContacts[0];
       if (nextEnriched.customer) {
         setCurrentCampaignContactId(nextEnriched.id);
         loadContact(nextEnriched.customer);
@@ -2335,9 +2448,12 @@ export default function AgentWorkspacePage() {
           onChannelFilterChange={setChannelFilter}
           onLoadNextContact={handleNextContact}
           isLoadingContact={false}
-          campaignContacts={pendingCampaignContacts}
+          campaignContacts={sortedPendingContacts}
           onSelectCampaignContact={handleSelectCampaignContact}
           currentUserId={user?.id}
+          isAutoMode={isAutoMode}
+          onToggleAutoMode={handleToggleAutoMode}
+          autoCountdown={autoCountdown}
         />
 
         <CommunicationCanvas
