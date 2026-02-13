@@ -9,7 +9,7 @@ import {
   Play, Pause, CheckCircle, Clock, Phone, User, Calendar,
   RefreshCw, Download, Filter, MoreHorizontal, Trash2, CheckCheck,
   Copy, Save, ScrollText, History, ArrowRight, Mail, MessageSquare, FileEdit, Package, Shield,
-  Plus, ChevronDown, ChevronRight, ListChecks,
+  Plus, ChevronDown, ChevronRight, ListChecks, Upload, FileUp, AlertTriangle,
   ThumbsUp, ThumbsDown, CalendarPlus, PhoneOff, AlertCircle, XCircle, Zap, Star,
   CircleDot, Info, Heart, Ban, Bell, Send, Target, Flag, Eye, EyeOff,
   Volume2, VolumeX, UserCheck, UserX, Briefcase, Gift, Home, MapPin, Globe,
@@ -633,6 +633,10 @@ export default function CampaignDetailPage() {
   const [structuredScript, setStructuredScript] = useState<OperatorScript | null>(null);
   const [scriptMode, setScriptMode] = useState<"builder" | "preview" | "legacy">("builder");
   const [structuredScriptModified, setStructuredScriptModified] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importResult, setImportResult] = useState<{ created: number; skipped: number; duplicates?: number; errors: string[] } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const { data: campaign, isLoading: loadingCampaign } = useQuery<Campaign>({
     queryKey: ["/api/campaigns", campaignId],
@@ -715,6 +719,35 @@ export default function CampaignDetailPage() {
         description: "Failed to generate contacts.",
         variant: "destructive",
       });
+    },
+  });
+
+  const importContactsMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`/api/campaigns/${campaignId}/contacts/import`, {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Import failed");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setImportResult(data);
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "stats"] });
+      toast({
+        title: "Import dokončený",
+        description: `Vytvorených: ${data.created}, preskočených: ${data.skipped}`,
+      });
+    },
+    onError: (err: any) => {
+      toast({ title: "Chyba importu", description: err.message, variant: "destructive" });
     },
   });
 
@@ -1289,6 +1322,18 @@ export default function CampaignDetailPage() {
               <span className="text-sm text-muted-foreground">
                 {filteredContacts.length} / {contacts.length} kontaktov
               </span>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setImportFile(null);
+                  setImportResult(null);
+                  setShowImportDialog(true);
+                }}
+                data-testid="button-import-contacts"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Import
+              </Button>
               <Button
                 variant="outline"
                 onClick={() => generateContactsMutation.mutate()}
@@ -1917,6 +1962,154 @@ Príklad:
                     </div>
                   )}
                 </ScrollArea>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showImportDialog} onOpenChange={(open) => { if (!open) { setShowImportDialog(false); setImportFile(null); setImportResult(null); } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Import externých kontaktov</DialogTitle>
+            <DialogDescription>
+              Nahrajte CSV alebo Excel súbor s kontaktmi pre túto kampaň.
+            </DialogDescription>
+          </DialogHeader>
+
+          {importResult ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 p-4 rounded-md bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800">
+                <CheckCircle className="h-5 w-5 text-green-600 shrink-0" />
+                <div>
+                  <p className="font-medium text-green-800 dark:text-green-200">Import dokončený</p>
+                  <p className="text-sm text-green-700 dark:text-green-300">
+                    Vytvorených: {importResult.created} kontaktov
+                    {(importResult.duplicates || 0) > 0 && `, duplikátov: ${importResult.duplicates}`}
+                    {importResult.skipped > 0 && `, preskočených: ${importResult.skipped}`}
+                  </p>
+                </div>
+              </div>
+              {importResult.errors.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium flex items-center gap-1.5">
+                    <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                    Chyby ({importResult.errors.length})
+                  </p>
+                  <ScrollArea className="h-32">
+                    <div className="space-y-1">
+                      {importResult.errors.map((err, i) => (
+                        <p key={i} className="text-xs text-muted-foreground">{err}</p>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
+              <div className="flex justify-end">
+                <Button onClick={() => { setShowImportDialog(false); setImportFile(null); setImportResult(null); }} data-testid="button-close-import">
+                  Zavrieť
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div
+                className={`relative border-2 border-dashed rounded-md p-8 text-center transition-colors ${
+                  isDragging ? "border-primary bg-primary/5" : "border-muted-foreground/25"
+                }`}
+                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDragging(false);
+                  const file = e.dataTransfer.files[0];
+                  if (file) setImportFile(file);
+                }}
+                data-testid="dropzone-import"
+              >
+                {importFile ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <FileUp className="h-8 w-8 text-primary" />
+                    <p className="text-sm font-medium">{importFile.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {(importFile.size / 1024).toFixed(1)} KB
+                    </p>
+                    <Button variant="outline" size="sm" onClick={() => setImportFile(null)} data-testid="button-remove-file">
+                      Odstrániť
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-2">
+                    <Upload className="h-8 w-8 text-muted-foreground" />
+                    <p className="text-sm font-medium">Pretiahnite súbor sem</p>
+                    <p className="text-xs text-muted-foreground">alebo kliknite pre výber</p>
+                    <input
+                      type="file"
+                      accept=".csv,.xlsx,.xls"
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) setImportFile(file);
+                      }}
+                      data-testid="input-import-file"
+                      style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer" }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    window.open("/api/campaigns/contacts/import-template", "_blank");
+                  }}
+                  data-testid="button-download-template"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Stiahnuť vzorový CSV
+                </Button>
+              </div>
+
+              <Card>
+                <CardContent className="pt-4">
+                  <p className="text-xs font-medium mb-2">Očakávané stĺpce:</p>
+                  <div className="grid grid-cols-2 gap-1">
+                    {[
+                      "meno", "priezvisko", "telefon", "telefon_2",
+                      "email", "datum_ocakavaneho_porodu", "extra_pole_1", "extra_pole_2"
+                    ].map(col => (
+                      <span key={col} className="text-xs text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">{col}</span>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Podporované formáty: CSV (oddelené bodkočiarkou alebo čiarkou), Excel (.xlsx)
+                  </p>
+                </CardContent>
+              </Card>
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowImportDialog(false)} data-testid="button-cancel-import">
+                  Zrušiť
+                </Button>
+                <Button
+                  onClick={() => { if (importFile) importContactsMutation.mutate(importFile); }}
+                  disabled={!importFile || importContactsMutation.isPending}
+                  data-testid="button-start-import"
+                >
+                  {importContactsMutation.isPending ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      Importujem...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4 mr-2" />
+                      Importovať
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
           )}

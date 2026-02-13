@@ -304,6 +304,26 @@ const uploadAvatar = multer({
   },
 });
 
+// Configure multer for CSV/Excel contact imports (memory storage)
+const uploadContactsFile = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      "text/csv",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "text/plain",
+    ];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowedTypes.includes(file.mimetype) || [".csv", ".xlsx", ".xls"].includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Invalid file type. Only CSV and Excel files are allowed."));
+    }
+  },
+});
+
 // Configure multer for email attachments (memory storage for base64 conversion)
 const uploadEmailAttachment = multer({
   storage: multer.memoryStorage(),
@@ -13929,6 +13949,203 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Failed to generate campaign contacts:", error);
       res.status(500).json({ error: "Failed to generate campaign contacts" });
+    }
+  });
+
+  // Download sample CSV template for external contacts import
+  app.get("/api/campaigns/contacts/import-template", requireAuth, (req, res) => {
+    const headers = [
+      "meno", "priezvisko", "telefon", "telefon_2", "email",
+      "datum_ocakavaneho_porodu", "extra_pole_1", "extra_pole_2"
+    ];
+    const sampleRows = [
+      ["Jana", "Nováková", "+421901234567", "+421912345678", "jana.novakova@email.com", "2026-06-15", "Poznámka 1", "Hodnota 1"],
+      ["Mária", "Kováčová", "+421903456789", "", "maria.kovacova@email.com", "2026-08-20", "", ""],
+    ];
+    const csvContent = [headers.join(";"), ...sampleRows.map(r => r.join(";"))].join("\n");
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", "attachment; filename=vzor_import_kontaktov.csv");
+    res.send("\uFEFF" + csvContent);
+  });
+
+  // Upload external contacts for a campaign (CSV or Excel)
+  app.post("/api/campaigns/:id/contacts/import", requireAuth, uploadContactsFile.single("file"), async (req, res) => {
+    try {
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+
+      const file = req.file;
+      if (!file) return res.status(400).json({ error: "No file uploaded" });
+
+      let rows: Record<string, string>[] = [];
+      const ext = path.extname(file.originalname).toLowerCase();
+
+      if (ext === ".csv" || ext === ".txt") {
+        const content = file.buffer.toString("utf-8").replace(/^\uFEFF/, "");
+        const separator = content.split("\n")[0]?.includes(";") ? ";" : ",";
+        const workbook = XLSX.read(content, { type: "string", FS: separator });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        if (!sheet) return res.status(400).json({ error: "Empty file" });
+        rows = XLSX.utils.sheet_to_json<Record<string, string>>(sheet, { defval: "" });
+        rows = rows.map(r => {
+          const normalized: Record<string, string> = {};
+          Object.entries(r).forEach(([k, v]) => {
+            normalized[k.trim().toLowerCase()] = String(v).trim();
+          });
+          return normalized;
+        });
+      } else {
+        const workbook = XLSX.read(file.buffer, { type: "buffer" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        rows = XLSX.utils.sheet_to_json<Record<string, string>>(sheet, { defval: "" });
+        rows = rows.map(r => {
+          const normalized: Record<string, string> = {};
+          Object.entries(r).forEach(([k, v]) => {
+            normalized[k.trim().toLowerCase()] = String(v).trim();
+          });
+          return normalized;
+        });
+      }
+
+      if (rows.length === 0) return res.status(400).json({ error: "No data rows found in file" });
+
+      const fieldMap: Record<string, string[]> = {
+        firstName: ["meno", "first_name", "firstname", "krstne_meno", "krstné_meno", "name"],
+        lastName: ["priezvisko", "last_name", "lastname", "surname"],
+        phone: ["telefon", "telefón", "phone", "tel", "tel_1", "telefon_1"],
+        phone2: ["telefon_2", "telefón_2", "phone_2", "tel_2", "mobile_2"],
+        email: ["email", "e-mail", "e_mail", "mail"],
+        expectedDeliveryDate: ["datum_ocakavaneho_porodu", "dátum_očakávaného_pôrodu", "expected_delivery_date", "due_date", "termin_porodu", "termín_pôrodu"],
+        extra1: ["extra_pole_1", "extra_1", "extra1", "poznamka", "poznámka", "note"],
+        extra2: ["extra_pole_2", "extra_2", "extra2", "poznamka_2", "poznámka_2", "note_2"],
+      };
+
+      function findField(row: Record<string, string>, candidates: string[]): string {
+        for (const c of candidates) {
+          if (row[c] !== undefined && row[c] !== "") return row[c];
+        }
+        return "";
+      }
+
+      const results = { created: 0, skipped: 0, duplicates: 0, errors: [] as string[] };
+      const countryCode = campaign.countryCodes?.[0] || "SK";
+
+      const existingCampaignContacts = await storage.getCampaignContacts(campaign.id);
+      const existingCustomerIds = new Set(existingCampaignContacts.map(c => c.customerId));
+
+      const allCustomers = await storage.getAllCustomers();
+      const emailIndex = new Map<string, any>();
+      const phoneIndex = new Map<string, any>();
+      for (const c of allCustomers) {
+        if (c.email) emailIndex.set(c.email.toLowerCase(), c);
+        if (c.phone) phoneIndex.set(c.phone, c);
+        if (c.mobile) phoneIndex.set(c.mobile, c);
+        if (c.mobile2) phoneIndex.set(c.mobile2, c);
+      }
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const firstName = findField(row, fieldMap.firstName);
+        const lastName = findField(row, fieldMap.lastName);
+        const phone = findField(row, fieldMap.phone);
+        const phone2 = findField(row, fieldMap.phone2);
+        const email = findField(row, fieldMap.email);
+        const expectedDate = findField(row, fieldMap.expectedDeliveryDate);
+        const extra1 = findField(row, fieldMap.extra1);
+        const extra2 = findField(row, fieldMap.extra2);
+
+        if (!firstName && !lastName) {
+          results.skipped++;
+          results.errors.push(`Riadok ${i + 2}: Chýba meno alebo priezvisko`);
+          continue;
+        }
+
+        try {
+          let existingCustomer: any = null;
+          if (email && !email.includes("@noemail.local")) {
+            existingCustomer = emailIndex.get(email.toLowerCase());
+          }
+          if (!existingCustomer && phone) {
+            existingCustomer = phoneIndex.get(phone);
+          }
+
+          let customer;
+          if (existingCustomer) {
+            if (existingCustomerIds.has(existingCustomer.id)) {
+              results.duplicates++;
+              results.errors.push(`Riadok ${i + 2}: ${firstName} ${lastName} - už je v kampani`);
+              continue;
+            }
+            customer = existingCustomer;
+          } else {
+            const customerData: any = {
+              firstName: firstName || "Neznámy",
+              lastName: lastName || "Neznámy",
+              phone: phone || null,
+              mobile: phone || null,
+              mobile2: phone2 || null,
+              email: email || `import-${Date.now()}-${i}@noemail.local`,
+              country: countryCode,
+              status: "active",
+              clientStatus: "potential",
+              leadStatus: "cold",
+              leadScore: 0,
+              newsletter: false,
+              useCorrespondenceAddress: false,
+              notes: [
+                extra1 ? `Extra 1: ${extra1}` : "",
+                extra2 ? `Extra 2: ${extra2}` : "",
+                expectedDate ? `Očakávaný dátum pôrodu: ${expectedDate}` : "",
+                `Importovaný z kampane: ${campaign.name}`,
+              ].filter(Boolean).join("\n"),
+            };
+
+            if (expectedDate) {
+              try {
+                const parsed = new Date(expectedDate);
+                if (!isNaN(parsed.getTime())) {
+                  customerData.dateOfBirth = parsed;
+                }
+              } catch {}
+            }
+
+            customer = await storage.createCustomer(customerData);
+            if (customer.email) emailIndex.set(customer.email.toLowerCase(), customer);
+            if (customer.phone) phoneIndex.set(customer.phone, customer);
+            if (customer.mobile) phoneIndex.set(customer.mobile, customer);
+          }
+
+          existingCustomerIds.add(customer.id);
+
+          await storage.createCampaignContacts([{
+            campaignId: campaign.id,
+            customerId: customer.id,
+            status: "pending",
+            attemptCount: 0,
+            priorityScore: 50,
+          }]);
+
+          results.created++;
+        } catch (err: any) {
+          results.errors.push(`Riadok ${i + 2}: ${err.message || "Neznáma chyba"}`);
+          results.skipped++;
+        }
+      }
+
+      await logActivity(
+        req.session.user!.id,
+        "imported_external_contacts",
+        "campaign",
+        campaign.id,
+        campaign.name,
+        { created: results.created, skipped: results.skipped, duplicates: results.duplicates, total: rows.length },
+        req.ip
+      );
+
+      res.json(results);
+    } catch (error: any) {
+      console.error("Failed to import contacts:", error);
+      res.status(500).json({ error: error.message || "Failed to import contacts" });
     }
   });
 
