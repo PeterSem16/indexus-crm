@@ -13956,11 +13956,11 @@ export async function registerRoutes(
   app.get("/api/campaigns/contacts/import-template", requireAuth, (req, res) => {
     const headers = [
       "meno", "priezvisko", "telefon", "telefon_2", "email",
-      "datum_ocakavaneho_porodu", "extra_pole_1", "extra_pole_2"
+      "krajina", "datum_ocakavaneho_porodu", "extra_pole_1", "extra_pole_2"
     ];
     const sampleRows = [
-      ["Jana", "Nováková", "+421901234567", "+421912345678", "jana.novakova@email.com", "2026-06-15", "Poznámka 1", "Hodnota 1"],
-      ["Mária", "Kováčová", "+421903456789", "", "maria.kovacova@email.com", "2026-08-20", "", ""],
+      ["Jana", "Nováková", "+421901234567", "+421912345678", "jana.novakova@email.com", "SK", "2026-06-15", "Poznámka 1", "Hodnota 1"],
+      ["Mária", "Kováčová", "+421903456789", "", "maria.kovacova@email.com", "CZ", "2026-08-20", "", ""],
     ];
     const csvContent = [headers.join(";"), ...sampleRows.map(r => r.join(";"))].join("\n");
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
@@ -14015,6 +14015,7 @@ export async function registerRoutes(
         phone: ["telefon", "telefón", "phone", "tel", "tel_1", "telefon_1"],
         phone2: ["telefon_2", "telefón_2", "phone_2", "tel_2", "mobile_2"],
         email: ["email", "e-mail", "e_mail", "mail"],
+        country: ["krajina", "country", "kraj", "land", "paese", "tara", "ország"],
         expectedDeliveryDate: ["datum_ocakavaneho_porodu", "dátum_očakávaného_pôrodu", "expected_delivery_date", "due_date", "termin_porodu", "termín_pôrodu"],
         extra1: ["extra_pole_1", "extra_1", "extra1", "poznamka", "poznámka", "note"],
         extra2: ["extra_pole_2", "extra_2", "extra2", "poznamka_2", "poznámka_2", "note_2"],
@@ -14050,6 +14051,7 @@ export async function registerRoutes(
         const phone = findField(row, fieldMap.phone);
         const phone2 = findField(row, fieldMap.phone2);
         const email = findField(row, fieldMap.email);
+        const country = findField(row, fieldMap.country);
         const expectedDate = findField(row, fieldMap.expectedDeliveryDate);
         const extra1 = findField(row, fieldMap.extra1);
         const extra2 = findField(row, fieldMap.extra2);
@@ -14085,7 +14087,7 @@ export async function registerRoutes(
               mobile: phone || null,
               mobile2: phone2 || null,
               email: email || `import-${Date.now()}-${i}@noemail.local`,
-              country: countryCode,
+              country: country?.toUpperCase() || countryCode,
               status: "active",
               clientStatus: "potential",
               leadStatus: "cold",
