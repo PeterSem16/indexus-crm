@@ -2073,36 +2073,6 @@ export default function AgentWorkspacePage() {
     setAutoCountdown(null);
   }, [selectedCampaignId]);
 
-  if (!hasAccess) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Card className="p-6 text-center">
-          <AlertCircle className="h-12 w-12 mx-auto mb-4 text-destructive" />
-          <h2 className="text-lg font-semibold mb-2">Prístup zamietnutý</h2>
-          <p className="text-muted-foreground">
-            Táto stránka je dostupná len pre operátorov call centra.
-          </p>
-        </Card>
-      </div>
-    );
-  }
-
-  const handleToggleAutoMode = () => {
-    if (!campaignAutoSettings.autoMode) {
-      toast({ title: "Automatický režim", description: "Táto kampaň nemá povolený automatický režim. Nastavte ho v nastaveniach kampane.", variant: "destructive" });
-      return;
-    }
-    setIsAutoMode(prev => !prev);
-  };
-
-  const handleStatusChange = (status: AgentStatus) => {
-    setAgentStatus(status);
-    toast({
-      title: "Status zmenený",
-      description: `Váš status je teraz: ${STATUS_CONFIG[status].label}`,
-    });
-  };
-
   const dispositionMutation = useMutation({
     mutationFn: async (data: { contactId: string; campaignId: string; disposition: string; notes: string; callbackDateTime?: string; parentCode?: string; callbackAssignedTo?: string | null }) => {
       const disp = campaignDispositions.find(d => d.code === data.disposition) 
@@ -2288,6 +2258,36 @@ export default function AgentWorkspacePage() {
       });
     },
   });
+
+  if (!hasAccess) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Card className="p-6 text-center">
+          <AlertCircle className="h-12 w-12 mx-auto mb-4 text-destructive" />
+          <h2 className="text-lg font-semibold mb-2">Prístup zamietnutý</h2>
+          <p className="text-muted-foreground">
+            Táto stránka je dostupná len pre operátorov call centra.
+          </p>
+        </Card>
+      </div>
+    );
+  }
+
+  const handleToggleAutoMode = () => {
+    if (!campaignAutoSettings.autoMode) {
+      toast({ title: "Automatický režim", description: "Táto kampaň nemá povolený automatický režim. Nastavte ho v nastaveniach kampane.", variant: "destructive" });
+      return;
+    }
+    setIsAutoMode(prev => !prev);
+  };
+
+  const handleStatusChange = (status: AgentStatus) => {
+    setAgentStatus(status);
+    toast({
+      title: "Status zmenený",
+      description: `Váš status je teraz: ${STATUS_CONFIG[status].label}`,
+    });
+  };
 
   const handleSendEmail = (data: { subject: string; body: string; attachments?: { name: string; contentBase64: string; contentType: string }[] }) => {
     if (!currentContact?.email) {
