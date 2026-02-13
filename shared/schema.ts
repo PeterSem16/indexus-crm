@@ -5003,3 +5003,124 @@ export const messageTemplatesRelations = relations(messageTemplates, ({ one }) =
 export const templateCategoriesRelations = relations(templateCategories, ({ many }) => ({
   templates: many(messageTemplates),
 }));
+
+// ============================================
+// AGENT SESSION MANAGEMENT
+// Session tracking, activity logging, and break management
+// ============================================
+
+export const AGENT_SESSION_STATUSES = ["available", "busy", "break", "wrap_up", "offline"] as const;
+export type AgentSessionStatus = typeof AGENT_SESSION_STATUSES[number];
+
+export const AGENT_ACTIVITY_TYPES = ["call", "email", "sms", "chat", "wrap_up", "status_change", "disposition"] as const;
+export type AgentActivityType = typeof AGENT_ACTIVITY_TYPES[number];
+
+export const agentSessions = pgTable("agent_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  status: varchar("status", { length: 20 }).notNull().default("available"),
+  campaignId: varchar("campaign_id"),
+  startedAt: timestamp("started_at").notNull().default(sql`now()`),
+  endedAt: timestamp("ended_at"),
+  lastActiveAt: timestamp("last_active_at").notNull().default(sql`now()`),
+  totalWorkTime: integer("total_work_time").default(0),
+  totalBreakTime: integer("total_break_time").default(0),
+  totalCallTime: integer("total_call_time").default(0),
+  totalEmailTime: integer("total_email_time").default(0),
+  totalSmsTime: integer("total_sms_time").default(0),
+  totalWrapUpTime: integer("total_wrap_up_time").default(0),
+  contactsHandled: integer("contacts_handled").default(0),
+  metadata: jsonb("metadata"),
+});
+
+export const insertAgentSessionSchema = createInsertSchema(agentSessions).omit({
+  id: true,
+  startedAt: true,
+  endedAt: true,
+  lastActiveAt: true,
+  totalWorkTime: true,
+  totalBreakTime: true,
+  totalCallTime: true,
+  totalEmailTime: true,
+  totalSmsTime: true,
+  totalWrapUpTime: true,
+  contactsHandled: true,
+});
+export type InsertAgentSession = z.infer<typeof insertAgentSessionSchema>;
+export type AgentSession = typeof agentSessions.$inferSelect;
+
+export const agentSessionActivities = pgTable("agent_session_activities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull().references(() => agentSessions.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  type: varchar("type", { length: 30 }).notNull(),
+  startedAt: timestamp("started_at").notNull().default(sql`now()`),
+  endedAt: timestamp("ended_at"),
+  durationSeconds: integer("duration_seconds"),
+  contactId: varchar("contact_id"),
+  campaignId: varchar("campaign_id"),
+  metadata: jsonb("metadata"),
+});
+
+export const insertAgentSessionActivitySchema = createInsertSchema(agentSessionActivities).omit({
+  id: true,
+  startedAt: true,
+  endedAt: true,
+  durationSeconds: true,
+});
+export type InsertAgentSessionActivity = z.infer<typeof insertAgentSessionActivitySchema>;
+export type AgentSessionActivity = typeof agentSessionActivities.$inferSelect;
+
+export const agentBreakTypes = pgTable("agent_break_types", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 100 }).notNull(),
+  icon: varchar("icon", { length: 50 }),
+  color: varchar("color", { length: 20 }),
+  campaignId: varchar("campaign_id"),
+  isDefault: boolean("is_default").default(false),
+  isActive: boolean("is_active").default(true),
+  maxDurationMinutes: integer("max_duration_minutes"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertAgentBreakTypeSchema = createInsertSchema(agentBreakTypes).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertAgentBreakType = z.infer<typeof insertAgentBreakTypeSchema>;
+export type AgentBreakType = typeof agentBreakTypes.$inferSelect;
+
+export const agentBreaks = pgTable("agent_breaks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull().references(() => agentSessions.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  breakTypeId: varchar("break_type_id").references(() => agentBreakTypes.id),
+  breakTypeName: varchar("break_type_name", { length: 100 }),
+  startedAt: timestamp("started_at").notNull().default(sql`now()`),
+  endedAt: timestamp("ended_at"),
+  durationSeconds: integer("duration_seconds"),
+});
+
+export const insertAgentBreakSchema = createInsertSchema(agentBreaks).omit({
+  id: true,
+  startedAt: true,
+  endedAt: true,
+  durationSeconds: true,
+});
+export type InsertAgentBreak = z.infer<typeof insertAgentBreakSchema>;
+export type AgentBreak = typeof agentBreaks.$inferSelect;
+
+export const agentSessionsRelations = relations(agentSessions, ({ one, many }) => ({
+  user: one(users, { fields: [agentSessions.userId], references: [users.id] }),
+  activities: many(agentSessionActivities),
+  breaks: many(agentBreaks),
+}));
+
+export const agentSessionActivitiesRelations = relations(agentSessionActivities, ({ one }) => ({
+  session: one(agentSessions, { fields: [agentSessionActivities.sessionId], references: [agentSessions.id] }),
+}));
+
+export const agentBreaksRelations = relations(agentBreaks, ({ one }) => ({
+  session: one(agentSessions, { fields: [agentBreaks.sessionId], references: [agentSessions.id] }),
+  breakType: one(agentBreakTypes, { fields: [agentBreaks.breakTypeId], references: [agentBreakTypes.id] }),
+}));

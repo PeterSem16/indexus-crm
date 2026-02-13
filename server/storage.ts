@@ -128,7 +128,12 @@ import {
   type AlertRule, type InsertAlertRule,
   type TemplateCategory, type InsertTemplateCategory,
   type MessageTemplate, type InsertMessageTemplate,
-  type AlertInstance, type InsertAlertInstance
+  type AlertInstance, type InsertAlertInstance,
+  agentSessions, agentSessionActivities, agentBreakTypes, agentBreaks,
+  type AgentSession, type InsertAgentSession,
+  type AgentSessionActivity, type InsertAgentSessionActivity,
+  type AgentBreakType, type InsertAgentBreakType,
+  type AgentBreak, type InsertAgentBreak
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, inArray, sql, desc, and, or, asc, gte, lte, lt, isNull, isNotNull } from "drizzle-orm";
@@ -983,6 +988,32 @@ export interface IStorage {
   updateMessageTemplate(id: string, data: Partial<InsertMessageTemplate>): Promise<MessageTemplate | undefined>;
   deleteMessageTemplate(id: string): Promise<void>;
   incrementTemplateUsage(id: string): Promise<void>;
+
+  // Agent Sessions
+  getActiveAgentSession(userId: string): Promise<AgentSession | undefined>;
+  getAgentSession(id: string): Promise<AgentSession | undefined>;
+  getAgentSessions(userId: string, startDate?: Date, endDate?: Date): Promise<AgentSession[]>;
+  createAgentSession(data: InsertAgentSession): Promise<AgentSession>;
+  updateAgentSession(id: string, data: Partial<AgentSession>): Promise<AgentSession | undefined>;
+  endAgentSession(id: string): Promise<AgentSession | undefined>;
+
+  // Agent Session Activities
+  createAgentActivity(data: InsertAgentSessionActivity): Promise<AgentSessionActivity>;
+  endAgentActivity(id: string): Promise<AgentSessionActivity | undefined>;
+  getAgentActivities(sessionId: string): Promise<AgentSessionActivity[]>;
+  getActiveAgentActivity(sessionId: string): Promise<AgentSessionActivity | undefined>;
+
+  // Agent Break Types
+  getAgentBreakTypes(campaignId?: string): Promise<AgentBreakType[]>;
+  createAgentBreakType(data: InsertAgentBreakType): Promise<AgentBreakType>;
+  updateAgentBreakType(id: string, data: Partial<InsertAgentBreakType>): Promise<AgentBreakType | undefined>;
+  deleteAgentBreakType(id: string): Promise<boolean>;
+
+  // Agent Breaks
+  createAgentBreak(data: InsertAgentBreak): Promise<AgentBreak>;
+  endAgentBreak(id: string): Promise<AgentBreak | undefined>;
+  getActiveAgentBreak(sessionId: string): Promise<AgentBreak | undefined>;
+  getAgentBreaks(sessionId: string): Promise<AgentBreak[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -5989,6 +6020,140 @@ export class DatabaseStorage implements IStorage {
         lastUsedAt: new Date()
       })
       .where(eq(messageTemplates.id, id));
+  }
+
+  // Agent Sessions
+  async getActiveAgentSession(userId: string): Promise<AgentSession | undefined> {
+    const [session] = await db.select().from(agentSessions)
+      .where(and(eq(agentSessions.userId, userId), isNull(agentSessions.endedAt)))
+      .orderBy(desc(agentSessions.startedAt))
+      .limit(1);
+    return session;
+  }
+
+  async getAgentSession(id: string): Promise<AgentSession | undefined> {
+    const [session] = await db.select().from(agentSessions).where(eq(agentSessions.id, id));
+    return session;
+  }
+
+  async getAgentSessions(userId: string, startDate?: Date, endDate?: Date): Promise<AgentSession[]> {
+    const conditions = [eq(agentSessions.userId, userId)];
+    if (startDate) conditions.push(gte(agentSessions.startedAt, startDate));
+    if (endDate) conditions.push(lte(agentSessions.startedAt, endDate));
+    return db.select().from(agentSessions).where(and(...conditions)).orderBy(desc(agentSessions.startedAt));
+  }
+
+  async createAgentSession(data: InsertAgentSession): Promise<AgentSession> {
+    const [session] = await db.insert(agentSessions).values(data).returning();
+    return session;
+  }
+
+  async updateAgentSession(id: string, data: Partial<AgentSession>): Promise<AgentSession | undefined> {
+    const [session] = await db.update(agentSessions).set(data).where(eq(agentSessions.id, id)).returning();
+    return session;
+  }
+
+  async endAgentSession(id: string): Promise<AgentSession | undefined> {
+    const session = await this.getAgentSession(id);
+    if (!session) return undefined;
+    const now = new Date();
+    const totalWorkTime = Math.floor((now.getTime() - session.startedAt.getTime()) / 1000);
+    const [updated] = await db.update(agentSessions)
+      .set({ endedAt: now, status: "offline", totalWorkTime, lastActiveAt: now })
+      .where(eq(agentSessions.id, id)).returning();
+    return updated;
+  }
+
+  // Agent Session Activities
+  async createAgentActivity(data: InsertAgentSessionActivity): Promise<AgentSessionActivity> {
+    const [activity] = await db.insert(agentSessionActivities).values(data).returning();
+    return activity;
+  }
+
+  async endAgentActivity(id: string): Promise<AgentSessionActivity | undefined> {
+    const [activity] = await db.select().from(agentSessionActivities).where(eq(agentSessionActivities.id, id));
+    if (!activity) return undefined;
+    const now = new Date();
+    const durationSeconds = Math.floor((now.getTime() - activity.startedAt.getTime()) / 1000);
+    const [updated] = await db.update(agentSessionActivities)
+      .set({ endedAt: now, durationSeconds })
+      .where(eq(agentSessionActivities.id, id)).returning();
+    return updated;
+  }
+
+  async getAgentActivities(sessionId: string): Promise<AgentSessionActivity[]> {
+    return db.select().from(agentSessionActivities)
+      .where(eq(agentSessionActivities.sessionId, sessionId))
+      .orderBy(desc(agentSessionActivities.startedAt));
+  }
+
+  async getActiveAgentActivity(sessionId: string): Promise<AgentSessionActivity | undefined> {
+    const [activity] = await db.select().from(agentSessionActivities)
+      .where(and(eq(agentSessionActivities.sessionId, sessionId), isNull(agentSessionActivities.endedAt)))
+      .orderBy(desc(agentSessionActivities.startedAt))
+      .limit(1);
+    return activity;
+  }
+
+  // Agent Break Types
+  async getAgentBreakTypes(campaignId?: string): Promise<AgentBreakType[]> {
+    if (campaignId) {
+      return db.select().from(agentBreakTypes)
+        .where(and(
+          eq(agentBreakTypes.isActive, true),
+          or(isNull(agentBreakTypes.campaignId), eq(agentBreakTypes.campaignId, campaignId))
+        ))
+        .orderBy(asc(agentBreakTypes.name));
+    }
+    return db.select().from(agentBreakTypes)
+      .where(eq(agentBreakTypes.isActive, true))
+      .orderBy(asc(agentBreakTypes.name));
+  }
+
+  async createAgentBreakType(data: InsertAgentBreakType): Promise<AgentBreakType> {
+    const [breakType] = await db.insert(agentBreakTypes).values(data).returning();
+    return breakType;
+  }
+
+  async updateAgentBreakType(id: string, data: Partial<InsertAgentBreakType>): Promise<AgentBreakType | undefined> {
+    const [breakType] = await db.update(agentBreakTypes).set(data).where(eq(agentBreakTypes.id, id)).returning();
+    return breakType;
+  }
+
+  async deleteAgentBreakType(id: string): Promise<boolean> {
+    const result = await db.delete(agentBreakTypes).where(eq(agentBreakTypes.id, id));
+    return (result?.rowCount ?? 0) > 0;
+  }
+
+  // Agent Breaks
+  async createAgentBreak(data: InsertAgentBreak): Promise<AgentBreak> {
+    const [brk] = await db.insert(agentBreaks).values(data).returning();
+    return brk;
+  }
+
+  async endAgentBreak(id: string): Promise<AgentBreak | undefined> {
+    const [brk] = await db.select().from(agentBreaks).where(eq(agentBreaks.id, id));
+    if (!brk) return undefined;
+    const now = new Date();
+    const durationSeconds = Math.floor((now.getTime() - brk.startedAt.getTime()) / 1000);
+    const [updated] = await db.update(agentBreaks)
+      .set({ endedAt: now, durationSeconds })
+      .where(eq(agentBreaks.id, id)).returning();
+    return updated;
+  }
+
+  async getActiveAgentBreak(sessionId: string): Promise<AgentBreak | undefined> {
+    const [brk] = await db.select().from(agentBreaks)
+      .where(and(eq(agentBreaks.sessionId, sessionId), isNull(agentBreaks.endedAt)))
+      .orderBy(desc(agentBreaks.startedAt))
+      .limit(1);
+    return brk;
+  }
+
+  async getAgentBreaks(sessionId: string): Promise<AgentBreak[]> {
+    return db.select().from(agentBreaks)
+      .where(eq(agentBreaks.sessionId, sessionId))
+      .orderBy(desc(agentBreaks.startedAt));
   }
 }
 
