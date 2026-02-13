@@ -91,6 +91,7 @@ import {
   Maximize2,
   Filter,
   ArrowUpDown,
+  ListTodo,
 } from "lucide-react";
 import {
   Dialog,
@@ -290,6 +291,7 @@ function TaskListPanel({
   isAutoMode,
   onToggleAutoMode,
   autoCountdown,
+  onOpenTasksModal,
 }: {
   tasks: TaskItem[];
   activeTaskId: string | null;
@@ -310,6 +312,7 @@ function TaskListPanel({
   onToggleAutoMode: () => void;
   autoCountdown: number | null;
   onOpenContactsModal: () => void;
+  onOpenTasksModal: () => void;
 }) {
   const filteredCampaigns = useMemo(() => {
     if (channelFilter === "all") return campaigns;
@@ -355,10 +358,13 @@ function TaskListPanel({
 
       {tasks.length > 0 && (
         <div className="border-b">
-          <div className="px-3 py-2">
+          <div className="px-3 py-2 flex items-center justify-between gap-1">
             <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
               Aktívne úlohy ({tasks.length})
             </span>
+            <Button size="icon" variant="ghost" onClick={onOpenTasksModal} data-testid="btn-maximize-tasks">
+              <Maximize2 className="h-3.5 w-3.5" />
+            </Button>
           </div>
           <ScrollArea className="max-h-48">
             <div className="px-2 pb-2 space-y-1">
@@ -469,16 +475,14 @@ function TaskListPanel({
       {selectedCampaignId && (
         <div className="border-t flex flex-col flex-1 min-h-0">
           <div
-            className="px-3 py-2 flex items-center justify-between gap-1 cursor-pointer hover-elevate rounded-md mx-1 mt-1"
-            onDoubleClick={onOpenContactsModal}
-            title="Dvojklik pre otvorenie v modálnom okne"
-            data-testid="contacts-header-dblclick"
+            className="px-3 py-2 flex items-center justify-between gap-1 rounded-md mx-1 mt-1"
+            data-testid="contacts-header"
           >
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                 Kontakty ({campaignContacts.length})
               </span>
-              <Maximize2 className="h-3 w-3 text-muted-foreground/50" />
+              <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); onOpenContactsModal(); }} data-testid="btn-maximize-contacts"><Maximize2 className="h-3.5 w-3.5" /></Button>
             </div>
             <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
               {autoCountdown !== null && (
@@ -842,6 +846,7 @@ function CommunicationCanvas({
   isSendingSms,
   onMakeCall,
   isSipRegistered,
+  onOpenScriptModal,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
@@ -854,6 +859,7 @@ function CommunicationCanvas({
   isSendingSms: boolean;
   onMakeCall?: (phoneNumber: string) => void;
   isSipRegistered?: boolean;
+  onOpenScriptModal: () => void;
 }) {
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
@@ -1112,7 +1118,18 @@ function CommunicationCanvas({
       </div>
 
       {activeChannel === "script" && (
-        <ScriptViewer script={campaign?.script || null} />
+        <div className="flex flex-col flex-1 relative">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="absolute top-2 right-2 z-10"
+            onClick={onOpenScriptModal}
+            data-testid="btn-maximize-script"
+          >
+            <Maximize2 className="h-3.5 w-3.5" />
+          </Button>
+          <ScriptViewer script={campaign?.script || null} />
+        </div>
       )}
 
       {activeChannel === "phone" && (
@@ -1430,6 +1447,7 @@ function CustomerInfoPanel({
   contactHistory,
   dispositions,
   currentUserId,
+  onOpenDispositionModal,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
@@ -1442,6 +1460,7 @@ function CustomerInfoPanel({
   contactHistory: ContactHistory[];
   dispositions: CampaignDisposition[];
   currentUserId?: string;
+  onOpenDispositionModal: () => void;
 }) {
   const [newNote, setNewNote] = useState("");
   const [selectedParentDisposition, setSelectedParentDisposition] = useState<string | null>(null);
@@ -1704,9 +1723,14 @@ function CustomerInfoPanel({
             <Separator />
 
             <div>
-              <h4 className="text-xs font-semibold uppercase text-muted-foreground">
-                {selectedParentDisposition ? "Podkategória" : "Výsledok kontaktu"}
-              </h4>
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-semibold uppercase text-muted-foreground">
+                  {selectedParentDisposition ? "Podkategória" : "Výsledok kontaktu"}
+                </h4>
+                <Button size="icon" variant="ghost" onClick={onOpenDispositionModal} data-testid="btn-maximize-disposition">
+                  <Maximize2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
 
               {dispositions.length === 0 ? (
                 <div className="text-center py-4">
@@ -1917,6 +1941,13 @@ export default function AgentWorkspacePage() {
   const [autoCountdown, setAutoCountdown] = useState<number | null>(null);
   const autoTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [contactsModalOpen, setContactsModalOpen] = useState(false);
+  const [tasksModalOpen, setTasksModalOpen] = useState(false);
+  const [dispositionModalOpen, setDispositionModalOpen] = useState(false);
+  const [modalSelectedParent, setModalSelectedParent] = useState<string | null>(null);
+  const [modalCallbackDate, setModalCallbackDate] = useState("");
+  const [modalCallbackTime, setModalCallbackTime] = useState("09:00");
+  const [modalCallbackAssign, setModalCallbackAssign] = useState<"me" | "all">("me");
+  const [scriptModalOpen, setScriptModalOpen] = useState(false);
   const [modalFilter, setModalFilter] = useState<"all" | "my_callbacks" | "team_callbacks" | "pending" | "due">("all");
   const [modalSort, setModalSort] = useState<"callback_asc" | "name_asc" | "attempts_desc">("callback_asc");
   const [modalSearch, setModalSearch] = useState("");
@@ -2483,6 +2514,7 @@ export default function AgentWorkspacePage() {
           onToggleAutoMode={handleToggleAutoMode}
           autoCountdown={autoCountdown}
           onOpenContactsModal={() => { setModalFilter("all"); setModalSearch(""); setContactsModalOpen(true); }}
+          onOpenTasksModal={() => setTasksModalOpen(true)}
         />
 
         <CommunicationCanvas
@@ -2497,6 +2529,7 @@ export default function AgentWorkspacePage() {
           isSendingSms={sendSmsMutation.isPending}
           onMakeCall={handleMakeCall}
           isSipRegistered={isSipRegistered}
+          onOpenScriptModal={() => setScriptModalOpen(true)}
         />
 
         <CustomerInfoPanel
@@ -2511,6 +2544,7 @@ export default function AgentWorkspacePage() {
           contactHistory={contactHistory}
           dispositions={campaignDispositions}
           currentUserId={user?.id}
+          onOpenDispositionModal={() => setDispositionModalOpen(true)}
         />
       </div>
 
@@ -2694,6 +2728,196 @@ export default function AgentWorkspacePage() {
               );
             })()}
           </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={tasksModalOpen} onOpenChange={setTasksModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ListTodo className="h-5 w-5 text-primary" />
+              Aktívne úlohy
+              <Badge variant="secondary" className="ml-2">{tasks.length}</Badge>
+            </DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="flex-1 -mx-6 px-6">
+            {tasks.length === 0 ? (
+              <div className="text-center py-12">
+                <ListTodo className="h-10 w-10 mx-auto text-muted-foreground/20 mb-3" />
+                <p className="text-sm text-muted-foreground">Žiadne aktívne úlohy</p>
+              </div>
+            ) : (
+              <div className="space-y-1 py-2">
+                {tasks.map((task) => {
+                  const chConfig = CHANNEL_CONFIG[task.channel];
+                  const ChIcon = chConfig.icon;
+                  const isActive = activeTaskId === task.id;
+                  const elapsed = Math.floor((Date.now() - task.startedAt.getTime()) / 1000);
+                  const mins = Math.floor(elapsed / 60);
+                  const secs = elapsed % 60;
+                  return (
+                    <div
+                      key={task.id}
+                      className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer hover-elevate ${isActive ? "ring-1 ring-primary bg-primary/5" : ""}`}
+                      onClick={() => { handleSelectTask(task); setTasksModalOpen(false); }}
+                      data-testid={`modal-task-${task.id}`}
+                    >
+                      <div className="relative shrink-0">
+                        <Avatar className="h-10 w-10">
+                          <AvatarFallback className="text-xs bg-muted">
+                            {task.contact.firstName?.[0]}{task.contact.lastName?.[0]}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className={`absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full ${chConfig.bg} flex items-center justify-center`}>
+                          <ChIcon className="h-2.5 w-2.5 text-white" />
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">{task.contact.firstName} {task.contact.lastName}</p>
+                        <p className="text-xs text-muted-foreground">{task.campaignName}</p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Badge variant="outline" className="text-[10px] font-mono">{mins}:{secs.toString().padStart(2, "0")}</Badge>
+                        {task.status === "active" && <span className="h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse" />}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={dispositionModalOpen} onOpenChange={(open) => { setDispositionModalOpen(open); if (!open) { setModalSelectedParent(null); setModalCallbackDate(""); setModalCallbackTime("09:00"); setModalCallbackAssign("me"); } }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Target className="h-5 w-5 text-primary" />
+              {modalSelectedParent ? "Podkategória" : "Výsledok kontaktu"}
+              {currentContact && (
+                <Badge variant="secondary" className="ml-2">{currentContact.firstName} {currentContact.lastName}</Badge>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="flex-1 -mx-6 px-6">
+            <div className="py-4 space-y-3">
+              {campaignDispositions.length === 0 ? (
+                <div className="text-center py-12">
+                  <Target className="h-10 w-10 mx-auto text-muted-foreground/20 mb-3" />
+                  <p className="text-sm text-muted-foreground">Žiadne výsledky kontaktu definované</p>
+                </div>
+              ) : modalSelectedParent ? (() => {
+                const parent = campaignDispositions.find(d => d.id === modalSelectedParent);
+                const children = campaignDispositions.filter(d => d.parentId === modalSelectedParent && d.isActive);
+                const cbAssignTo = modalCallbackAssign === "me" && user?.id ? user.id : null;
+
+                return (
+                  <div className="space-y-3">
+                    <Button variant="ghost" size="sm" className="gap-1 text-xs" onClick={() => { setModalSelectedParent(null); setModalCallbackDate(""); setModalCallbackTime("09:00"); }} data-testid="btn-modal-disposition-back">
+                      <ChevronLeft className="h-3 w-3" />
+                      Späť
+                    </Button>
+                    {parent?.actionType === "callback" && (
+                      <>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-xs text-muted-foreground">Dátum</label>
+                            <Input type="date" value={modalCallbackDate} onChange={(e) => setModalCallbackDate(e.target.value)} min={new Date().toISOString().split("T")[0]} data-testid="input-modal-callback-date" />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground">Čas</label>
+                            <Input type="time" value={modalCallbackTime} onChange={(e) => setModalCallbackTime(e.target.value)} data-testid="input-modal-callback-time" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-xs text-muted-foreground">Priradiť komu</label>
+                          <div className="flex gap-2 mt-1">
+                            <Button size="sm" variant={modalCallbackAssign === "me" ? "default" : "outline"} className="flex-1 gap-1 text-xs" onClick={() => setModalCallbackAssign("me")} disabled={!user?.id} data-testid="btn-modal-cb-assign-me">
+                              <User className="h-3 w-3" />
+                              Mne
+                            </Button>
+                            <Button size="sm" variant={modalCallbackAssign === "all" ? "default" : "outline"} className="flex-1 gap-1 text-xs" onClick={() => setModalCallbackAssign("all")} data-testid="btn-modal-cb-assign-all">
+                              <Users className="h-3 w-3" />
+                              Všetkým
+                            </Button>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                    {children.length > 0 && (
+                      <div className="grid grid-cols-2 gap-2">
+                        {children.map((child) => {
+                          const IconComp = DISPOSITION_ICON_MAP[child.icon || ""] || CircleDot;
+                          const colorClass = DISPOSITION_COLOR_MAP[child.color || "gray"] || DISPOSITION_COLOR_MAP.gray;
+                          return (
+                            <Button key={child.id} variant="outline" className={`gap-2 justify-start py-3 ${colorClass}`} onClick={() => { handleDisposition(child.code, parent?.code, parent?.actionType === "callback" && modalCallbackDate && modalCallbackTime ? `${modalCallbackDate}T${modalCallbackTime}` : undefined, parent?.actionType === "callback" ? cbAssignTo : undefined); setDispositionModalOpen(false); setModalSelectedParent(null); }} data-testid={`modal-disposition-${child.code}`}>
+                              <IconComp className="h-4 w-4" />
+                              <span className="text-sm font-medium">{child.name}</span>
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {parent?.actionType === "callback" && (
+                      <Button className="w-full" disabled={!modalCallbackDate} onClick={() => { handleDisposition(parent!.code, undefined, modalCallbackDate && modalCallbackTime ? `${modalCallbackDate}T${modalCallbackTime}` : undefined, cbAssignTo); setDispositionModalOpen(false); setModalSelectedParent(null); }} data-testid="btn-modal-disposition-confirm-callback">
+                        <CalendarPlus className="h-4 w-4 mr-1" />
+                        Potvrdiť preplánovanie
+                      </Button>
+                    )}
+                  </div>
+                );
+              })() : (
+                <div className="grid grid-cols-2 gap-2">
+                  {campaignDispositions.filter(d => !d.parentId && d.isActive).map((disp) => {
+                    const IconComp = DISPOSITION_ICON_MAP[disp.icon || ""] || CircleDot;
+                    const colorClass = DISPOSITION_COLOR_MAP[disp.color || "gray"] || DISPOSITION_COLOR_MAP.gray;
+                    const children = campaignDispositions.filter(d => d.parentId === disp.id && d.isActive);
+                    const hasChildren = children.length > 0;
+                    const isCallback = disp.actionType === "callback";
+                    return (
+                      <Button key={disp.id} variant="outline" className={`gap-2 justify-start py-4 ${colorClass}`} onClick={() => {
+                        if (hasChildren || isCallback) {
+                          setModalSelectedParent(disp.id);
+                          if (isCallback) {
+                            const tomorrow = new Date();
+                            tomorrow.setDate(tomorrow.getDate() + 1);
+                            setModalCallbackDate(tomorrow.toISOString().split("T")[0]);
+                          }
+                        } else {
+                          handleDisposition(disp.code);
+                          setDispositionModalOpen(false);
+                        }
+                      }} data-testid={`modal-disposition-${disp.code}`}>
+                        <IconComp className="h-5 w-5" />
+                        <span className="text-sm font-medium flex-1 text-left">{disp.name}</span>
+                        {(hasChildren || isCallback) && <ChevronRight className="h-4 w-4 opacity-50" />}
+                      </Button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={scriptModalOpen} onOpenChange={setScriptModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
+              Scenár kampane
+              {selectedCampaign && (
+                <Badge variant="secondary" className="ml-2">{selectedCampaign.name}</Badge>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 min-h-0 -mx-6 px-6">
+            <div className="h-full max-h-[65vh]">
+              <ScriptViewer script={selectedCampaign?.script || null} />
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
