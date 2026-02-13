@@ -1244,25 +1244,33 @@ export async function registerRoutes(
       // Check if user already has an active session (prevent duplicate login)
       const activeSession = await storage.getActiveSession(user.id);
       if (activeSession) {
-        const parseUserAgent = (ua: string | null) => {
-          if (!ua) return "Unknown";
-          if (ua.includes('Mobile')) return 'Mobile';
-          if (ua.includes('Windows')) return 'Windows PC';
-          if (ua.includes('Mac')) return 'Mac';
-          if (ua.includes('Linux')) return 'Linux PC';
-          return 'Desktop';
-        };
-        return res.status(409).json({ 
-          error: "User already logged in",
-          message: "Tento používateľ je už prihlásený v systéme.",
-          activeSession: {
-            id: activeSession.id,
-            loginAt: activeSession.loginAt,
-            ipAddress: activeSession.ipAddress || "Unknown",
-            device: parseUserAgent(activeSession.userAgent),
-            lastActivityAt: activeSession.lastActivityAt
-          }
-        });
+        const currentSessionUser = req.session?.user;
+        const isCurrentUserSession = currentSessionUser && currentSessionUser.id === user.id;
+        
+        if (isCurrentUserSession || !currentSessionUser) {
+          console.log(`[Auth] ${isCurrentUserSession ? 'Re-authenticating' : 'Stale session detected'} for user ${user.username}, replacing old session`);
+          await storage.endUserSession(activeSession.id);
+        } else {
+          const parseUserAgent = (ua: string | null) => {
+            if (!ua) return "Unknown";
+            if (ua.includes('Mobile')) return 'Mobile';
+            if (ua.includes('Windows')) return 'Windows PC';
+            if (ua.includes('Mac')) return 'Mac';
+            if (ua.includes('Linux')) return 'Linux PC';
+            return 'Desktop';
+          };
+          return res.status(409).json({ 
+            error: "User already logged in",
+            message: "Tento používateľ je už prihlásený v systéme.",
+            activeSession: {
+              id: activeSession.id,
+              loginAt: activeSession.loginAt,
+              ipAddress: activeSession.ipAddress || "Unknown",
+              device: parseUserAgent(activeSession.userAgent),
+              lastActivityAt: activeSession.lastActivityAt
+            }
+          });
+        }
       }
       
       const { passwordHash, ...safeUser } = user;
@@ -2235,21 +2243,32 @@ export async function registerRoutes(
         // Check if user already has an active session (prevent duplicate login)
         const activeSession = await storage.getActiveSession(user.id);
         if (activeSession) {
-          console.log(`[MS365 Login] Duplicate login blocked for user ${user.username}`);
-          const parseUserAgent = (ua: string | null) => {
-            if (!ua) return "Unknown";
-            if (ua.includes('Mobile')) return 'Mobile';
-            if (ua.includes('Windows')) return 'Windows';
-            if (ua.includes('Mac')) return 'Mac';
-            if (ua.includes('Linux')) return 'Linux';
-            return 'Desktop';
-          };
-          const sessionInfo = encodeURIComponent(JSON.stringify({
-            ipAddress: activeSession.ipAddress || "Unknown",
-            device: parseUserAgent(activeSession.userAgent),
-            loginAt: activeSession.loginAt
-          }));
-          return res.redirect(`/login?error=already_logged_in&session=${sessionInfo}`);
+          const currentSessionUser = req.session?.user;
+          const isCurrentUserSession = currentSessionUser && currentSessionUser.id === user.id;
+          
+          if (isCurrentUserSession) {
+            console.log(`[MS365 Login] Same user re-authenticating, allowing for user ${user.username}`);
+            await storage.endUserSession(activeSession.id);
+          } else if (!currentSessionUser) {
+            console.log(`[MS365 Login] Stale session detected for user ${user.username}, replacing old session`);
+            await storage.endUserSession(activeSession.id);
+          } else {
+            console.log(`[MS365 Login] Duplicate login blocked for user ${user.username}`);
+            const parseUserAgent = (ua: string | null) => {
+              if (!ua) return "Unknown";
+              if (ua.includes('Mobile')) return 'Mobile';
+              if (ua.includes('Windows')) return 'Windows';
+              if (ua.includes('Mac')) return 'Mac';
+              if (ua.includes('Linux')) return 'Linux';
+              return 'Desktop';
+            };
+            const sessionInfo = encodeURIComponent(JSON.stringify({
+              ipAddress: activeSession.ipAddress || "Unknown",
+              device: parseUserAgent(activeSession.userAgent),
+              loginAt: activeSession.loginAt
+            }));
+            return res.redirect(`/login?error=already_logged_in&session=${sessionInfo}`);
+          }
         }
         
         // Login successful - set session
