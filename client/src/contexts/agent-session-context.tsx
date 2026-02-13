@@ -116,8 +116,26 @@ export function AgentSessionProvider({ children }: { children: React.ReactNode }
   }, [activeBreak]);
 
   const startSession = useCallback(async (campaignId?: string | null) => {
-    await apiRequest("POST", "/api/agent-sessions/start", { campaignId: campaignId || null });
-    queryClient.invalidateQueries({ queryKey: ["/api/agent-sessions/active"] });
+    try {
+      const res = await fetch("/api/agent-sessions/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ campaignId: campaignId || null }),
+        credentials: "include",
+      });
+      if (res.status === 409) {
+        // Session already exists, just refresh
+        await queryClient.invalidateQueries({ queryKey: ["/api/agent-sessions/active"] });
+        return;
+      }
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || "Failed to start session");
+      }
+      await queryClient.invalidateQueries({ queryKey: ["/api/agent-sessions/active"] });
+    } catch (error) {
+      throw error;
+    }
   }, []);
 
   const endSession = useCallback(async () => {
