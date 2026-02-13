@@ -637,6 +637,8 @@ export default function CampaignDetailPage() {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importResult, setImportResult] = useState<{ created: number; skipped: number; duplicates?: number; errors: string[] } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [importProgress, setImportProgress] = useState(0);
+  const [importPhase, setImportPhase] = useState<"upload" | "processing" | null>(null);
 
   const { data: campaign, isLoading: loadingCampaign } = useQuery<Campaign>({
     queryKey: ["/api/campaigns", campaignId],
@@ -724,20 +726,40 @@ export default function CampaignDetailPage() {
 
   const importContactsMutation = useMutation({
     mutationFn: async (file: File) => {
+      setImportProgress(0);
+      setImportPhase("upload");
       const formData = new FormData();
       formData.append("file", file);
-      const res = await fetch(`/api/campaigns/${campaignId}/contacts/import`, {
-        method: "POST",
-        body: formData,
-        credentials: "include",
+      return new Promise<any>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", `/api/campaigns/${campaignId}/contacts/import`);
+        xhr.withCredentials = true;
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            setImportProgress(Math.round((e.loaded / e.total) * 100));
+          }
+        };
+        xhr.upload.onload = () => {
+          setImportProgress(100);
+          setImportPhase("processing");
+        };
+        xhr.onload = () => {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve(data);
+            } else {
+              reject(new Error(data.error || "Import failed"));
+            }
+          } catch { reject(new Error("Import failed")); }
+        };
+        xhr.onerror = () => reject(new Error("Network error"));
+        xhr.send(formData);
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Import failed");
-      }
-      return res.json();
     },
     onSuccess: (data) => {
+      setImportPhase(null);
+      setImportProgress(0);
       setImportResult(data);
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "contacts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "stats"] });
@@ -747,6 +769,8 @@ export default function CampaignDetailPage() {
       });
     },
     onError: (err: any) => {
+      setImportPhase(null);
+      setImportProgress(0);
       toast({ title: "Chyba importu", description: err.message, variant: "destructive" });
     },
   });
@@ -2092,8 +2116,27 @@ Príklad:
                 </CardContent>
               </Card>
 
+              {importPhase && (
+                <div className="space-y-2" data-testid="import-progress">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{importPhase === "upload" ? "Nahrávam súbor..." : "Spracúvam kontakty..."}</span>
+                    <span>{importPhase === "upload" ? `${importProgress}%` : ""}</span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                    {importPhase === "upload" ? (
+                      <div
+                        className="h-full rounded-full bg-primary transition-all duration-300"
+                        style={{ width: `${importProgress}%` }}
+                      />
+                    ) : (
+                      <div className="h-full rounded-full bg-primary animate-pulse w-full" />
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setShowImportDialog(false)} data-testid="button-cancel-import">
+                <Button variant="outline" onClick={() => setShowImportDialog(false)} disabled={importContactsMutation.isPending} data-testid="button-cancel-import">
                   Zrušiť
                 </Button>
                 <Button
