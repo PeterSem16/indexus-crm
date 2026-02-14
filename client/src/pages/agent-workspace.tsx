@@ -2599,8 +2599,8 @@ export default function AgentWorkspacePage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-8rem)] -m-6">
-      <Dialog open={sessionLoginOpen && !agentSession.isSessionActive} onOpenChange={() => {}}>
-        <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+      <Dialog open={sessionLoginOpen && !agentSession.isSessionActive} onOpenChange={(open) => { if (!open) setSessionLoginOpen(false); }}>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Headphones className="h-5 w-5" />
