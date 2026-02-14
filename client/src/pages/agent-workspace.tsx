@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { useSidebar } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Select,
@@ -1988,12 +1989,14 @@ export default function AgentWorkspacePage() {
   const { toast } = useToast();
   const { makeCall, isRegistered: isSipRegistered } = useSip();
   const [, setLocation] = useLocation();
+  const { open: sidebarOpen, setOpen: setSidebarOpen } = useSidebar();
+  const prevSidebarOpenRef = useRef(sidebarOpen);
 
   const agentSession = useAgentSession();
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
   const [currentContact, setCurrentContact] = useState<Customer | null>(null);
   const [currentCampaignContactId, setCurrentCampaignContactId] = useState<string | null>(null);
-  const [sessionLoginOpen, setSessionLoginOpen] = useState(false);
+  const [sessionLoginOpen, setSessionLoginOpen] = useState(true);
   const [activeChannel, setActiveChannel] = useState("script");
   const [rightTab, setRightTab] = useState("actions");
   const [callNotes, setCallNotes] = useState("");
@@ -2043,6 +2046,23 @@ export default function AgentWorkspacePage() {
       setSessionLoginOpen(true);
     }
   }, [hasAccess, agentSession.isSessionActive, agentSession.isLoading]);
+
+  useEffect(() => {
+    if (agentSession.isSessionActive) {
+      prevSidebarOpenRef.current = sidebarOpen;
+      setSidebarOpen(false);
+      document.documentElement.setAttribute('data-agent-fullscreen', 'true');
+    } else {
+      document.documentElement.removeAttribute('data-agent-fullscreen');
+    }
+  }, [agentSession.isSessionActive]);
+
+  useEffect(() => {
+    return () => {
+      setSidebarOpen(prevSidebarOpenRef.current);
+      document.documentElement.removeAttribute('data-agent-fullscreen');
+    };
+  }, []);
 
   const { data: allCampaigns = [] } = useQuery<Campaign[]>({
     queryKey: ["/api/campaigns"],
@@ -2445,6 +2465,7 @@ export default function AgentWorkspacePage() {
   const handleEndSession = async () => {
     try {
       await agentSession.endSession();
+      setSidebarOpen(prevSidebarOpenRef.current);
       setSessionLoginOpen(true);
       setCurrentContact(null);
       setCurrentCampaignContactId(null);
@@ -2598,8 +2619,8 @@ export default function AgentWorkspacePage() {
     : null;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-8rem)] -m-6">
-      <Dialog open={sessionLoginOpen && !agentSession.isSessionActive} onOpenChange={(open) => { if (!open) setSessionLoginOpen(false); }}>
+    <div className={`flex flex-col ${agentSession.isSessionActive ? "h-[calc(100vh-3.5rem)]" : "h-[calc(100vh-8rem)]"} -m-6`}>
+      <Dialog open={sessionLoginOpen && !agentSession.isSessionActive} onOpenChange={(open) => { if (!open) { setSessionLoginOpen(false); setLocation("/"); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
