@@ -2736,7 +2736,7 @@ function CustomerHistoryTimeline({
   );
 }
 
-function CustomerDetailsContent({ 
+export function CustomerDetailsContent({ 
   customer, 
   onEdit 
 }: { 

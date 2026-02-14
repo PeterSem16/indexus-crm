@@ -106,6 +106,7 @@ import { useSip } from "@/contexts/sip-context";
 import { format } from "date-fns";
 import { sk } from "date-fns/locale";
 import { useAgentSession } from "@/contexts/agent-session-context";
+import { CustomerDetailsContent } from "@/pages/customers";
 import type { Campaign, Customer, CampaignContact, CampaignDisposition, AgentBreakType } from "@shared/schema";
 
 type AgentStatus = "available" | "busy" | "break" | "wrap_up" | "offline";
@@ -1151,6 +1152,18 @@ function CommunicationCanvas({
             <MessageSquare className="h-3.5 w-3.5" />
             SMS
           </button>
+          <button
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
+              activeChannel === "customer"
+                ? "border-purple-500 text-purple-600 dark:text-purple-400"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => onChannelChange("customer")}
+            data-testid="tab-customer"
+          >
+            <User className="h-3.5 w-3.5" />
+            KLIENT
+          </button>
         </div>
       </div>
 
@@ -1498,6 +1511,14 @@ function CommunicationCanvas({
             </div>
           </div>
         </div>
+      )}
+
+      {activeChannel === "customer" && contact && (
+        <ScrollArea className="flex-1">
+          <div className="p-4">
+            <CustomerDetailsContent customer={contact} onEdit={() => {}} />
+          </div>
+        </ScrollArea>
       )}
     </div>
   );
