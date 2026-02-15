@@ -3422,38 +3422,8 @@ export function CustomerDetailsContent({
   const availableProducts = activeProducts.filter(p => !assignedProductIds.includes(p.id));
 
   return (
-    <div className={compact ? "space-y-3" : "mt-6 space-y-6"}>
-      {compact ? (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs border-b pb-2">
-          <span className="font-semibold text-sm text-foreground" data-testid="text-compact-name">
-            {customer.firstName} {customer.lastName}
-          </span>
-          {customer.phone && (
-            <span className="text-muted-foreground flex items-center gap-1">
-              <Phone className="h-3 w-3" />
-              {customer.phone}
-            </span>
-          )}
-          {customer.email && (
-            <span className="text-muted-foreground flex items-center gap-1">
-              <Mail className="h-3 w-3" />
-              {customer.email}
-            </span>
-          )}
-          {customer.country && (
-            <span className="text-muted-foreground">{customer.country}</span>
-          )}
-          <StatusBadge status={customer.status as any} />
-          <Badge variant="outline" className="text-[10px]">
-            {customer.clientStatus === "acquired" ? "Acquired" : customer.clientStatus === "potential" ? "Prospect" : customer.clientStatus || "—"}
-          </Badge>
-          {customer.notes && (
-            <span className="text-muted-foreground italic truncate max-w-[250px]">
-              {customer.notes.split("\n")[0]}
-            </span>
-          )}
-        </div>
-      ) : (
+    <div className={compact ? "space-y-2" : "mt-6 space-y-6"}>
+      {compact ? null : (
         <>
           <div className="flex items-center gap-4">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground text-xl font-bold">

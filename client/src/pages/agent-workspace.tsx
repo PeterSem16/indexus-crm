@@ -108,6 +108,7 @@ import { format } from "date-fns";
 import { sk } from "date-fns/locale";
 import { useAgentSession } from "@/contexts/agent-session-context";
 import { CustomerDetailsContent } from "@/pages/customers";
+import { StatusBadge } from "@/components/status-badge";
 import { CustomerForm, type CustomerFormData } from "@/components/customer-form";
 import type { Campaign, Customer, CampaignContact, CampaignDisposition, AgentBreakType } from "@shared/schema";
 
@@ -940,7 +941,7 @@ function CommunicationCanvas({
   const [emailBody, setEmailBody] = useState("");
   const [smsMessage, setSmsMessage] = useState("");
   const [emailAttachments, setEmailAttachments] = useState<File[]>([]);
-  const [phoneSubTab, setPhoneSubTab] = useState<"card" | "details">("card");
+  const [phoneSubTab, setPhoneSubTab] = useState<"card" | "details" | "history">("card");
 
   useEffect(() => {
     setPhoneSubTab("card");
@@ -1196,6 +1197,10 @@ function CommunicationCanvas({
             <span className="truncate">{contact.notes.split("\n")[0]}</span>
           </div>
         )}
+        <StatusBadge status={(contact.status as any) || "pending"} className="text-[10px] h-5" />
+        <Badge variant="outline" className="text-[10px] h-5">
+          {contact.clientStatus === "acquired" ? "Acquired" : contact.clientStatus === "potential" ? "Prospect" : contact.clientStatus || "—"}
+        </Badge>
       </div>
 
       {activeChannel === "script" && (
@@ -1240,6 +1245,18 @@ function CommunicationCanvas({
               <Eye className="h-3 w-3" />
               Detail zákazníka
             </button>
+            <button
+              className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium border-b-2 transition-colors ${
+                phoneSubTab === "history"
+                  ? "border-green-500 text-green-600 dark:text-green-400"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+              onClick={() => setPhoneSubTab("history")}
+              data-testid="subtab-communication-history"
+            >
+              <History className="h-3 w-3" />
+              História
+            </button>
           </div>
 
           {phoneSubTab === "card" && contact && (
@@ -1260,6 +1277,67 @@ function CommunicationCanvas({
             <ScrollArea className="flex-1">
               <div className="p-4">
                 <CustomerDetailsContent customer={contact} onEdit={() => {}} compact />
+              </div>
+            </ScrollArea>
+          )}
+
+          {phoneSubTab === "history" && contact && (
+            <ScrollArea className="flex-1">
+              <div className="p-4 space-y-2">
+                {timeline.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground text-sm">
+                    <History className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                    <p>Žiadna história komunikácie</p>
+                  </div>
+                ) : (
+                  [...timeline]
+                    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                    .map((entry) => (
+                      <div
+                        key={entry.id}
+                        className="flex items-start gap-3 p-2.5 rounded-md bg-muted/30 border border-border/50"
+                        data-testid={`history-entry-${entry.id}`}
+                      >
+                        <div className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+                          entry.type === "call" ? "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400" :
+                          entry.type === "email" ? "bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400" :
+                          entry.type === "sms" ? "bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400" :
+                          entry.type === "note" ? "bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400" :
+                          "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                        }`}>
+                          {entry.type === "call" && <PhoneCall className="h-3.5 w-3.5" />}
+                          {entry.type === "email" && <Mail className="h-3.5 w-3.5" />}
+                          {entry.type === "sms" && <MessageSquare className="h-3.5 w-3.5" />}
+                          {entry.type === "note" && <FileText className="h-3.5 w-3.5" />}
+                          {entry.type === "system" && <AlertCircle className="h-3.5 w-3.5" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant="outline" className="text-[10px] h-5 capitalize">
+                              {entry.type === "call" ? "Hovor" : entry.type === "email" ? "Email" : entry.type === "sms" ? "SMS" : entry.type === "note" ? "Poznámka" : "Systém"}
+                            </Badge>
+                            {entry.direction && (
+                              <Badge variant="secondary" className="text-[10px] h-5">
+                                {entry.direction === "inbound" ? "Prichádzajúci" : "Odchádzajúci"}
+                              </Badge>
+                            )}
+                            {entry.status && (
+                              <Badge variant="secondary" className="text-[10px] h-5">
+                                {entry.status}
+                              </Badge>
+                            )}
+                            <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
+                              {format(new Date(entry.timestamp), "d.M.yyyy HH:mm", { locale: sk })}
+                            </span>
+                          </div>
+                          <p className="text-xs text-foreground mt-1 line-clamp-2">{entry.content}</p>
+                          {entry.details && (
+                            <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{entry.details}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                )}
               </div>
             </ScrollArea>
           )}
