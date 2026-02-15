@@ -403,14 +403,52 @@ function SchedulingCard({ campaign }: { campaign: Campaign }) {
   );
 }
 
+function KpiTargetField({ 
+  icon: Icon, label, description, hint, value, onChange, unit, min = 0, max = 999, testId 
+}: {
+  icon: any; label: string; description: string; hint: string;
+  value: number; onChange: (v: number) => void; unit?: string;
+  min?: number; max?: number; testId: string;
+}) {
+  return (
+    <div className="space-y-1.5 p-4 rounded-lg border bg-muted/20">
+      <Label className="text-sm font-medium flex items-center gap-2">
+        <Icon className="w-4 h-4 text-primary" />
+        {label}
+      </Label>
+      <p className="text-xs text-muted-foreground">{description}</p>
+      <div className="flex items-center gap-2 pt-1">
+        <Input
+          type="number"
+          min={min}
+          max={max}
+          value={value}
+          onChange={(e) => onChange(parseInt(e.target.value) || 0)}
+          className="w-28"
+          data-testid={testId}
+        />
+        {unit && <span className="text-sm text-muted-foreground">{unit}</span>}
+      </div>
+      <p className="text-xs text-muted-foreground/70 italic">{hint}</p>
+    </div>
+  );
+}
+
 function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
   const { toast } = useToast();
   const [targets, setTargets] = useState({
-    dailyCallsTarget: 0,
-    dailyContactsTarget: 0,
-    conversionRateTarget: 0,
-    completionRateTarget: 0,
-    avgCallDurationTarget: 0,
+    campaignTotalContactsTarget: 0,
+    campaignCompletionTarget: 0,
+    campaignConversionTarget: 0,
+    campaignRevenueTarget: 0,
+    campaignDurationDays: 0,
+    agentDailyCallsTarget: 0,
+    agentDailyContactsTarget: 0,
+    agentDailySuccessTarget: 0,
+    agentConversionRateTarget: 0,
+    agentAvgCallDurationTarget: 0,
+    agentMaxIdleMinutes: 0,
+    agentCallbackComplianceTarget: 0,
   });
   const [hasChanges, setHasChanges] = useState(false);
 
@@ -452,109 +490,192 @@ function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <Target className="w-5 h-5" />
-              KPI Ciele kampane
-            </CardTitle>
-            <CardDescription>
-              Nastavte cieľové hodnoty pre sledovanie výkonnosti operátorov
-            </CardDescription>
-          </div>
-          {hasChanges && (
-            <Button
-              onClick={() => saveKpiMutation.mutate()}
-              disabled={saveKpiMutation.isPending}
-              data-testid="button-save-kpi"
-            >
-              {saveKpiMutation.isPending ? "Ukladám..." : "Uložiť"}
-            </Button>
-          )}
+    <div className="space-y-6">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div>
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <Target className="w-5 h-5" />
+            KPI Ciele
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Nastavte cieľové hodnoty pre celú kampaň aj pre jednotlivých operátorov
+          </p>
         </div>
-      </CardHeader>
-      <CardContent>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          <div className="space-y-2">
-            <Label className="text-sm font-medium flex items-center gap-2">
-              <Phone className="w-4 h-4 text-muted-foreground" />
-              Denný cieľ hovorov
-            </Label>
-            <Input
-              type="number"
-              min={0}
-              max={500}
-              value={targets.dailyCallsTarget}
-              onChange={(e) => updateTarget("dailyCallsTarget", parseInt(e.target.value) || 0)}
-              data-testid="input-daily-calls-target"
+        {hasChanges && (
+          <Button
+            onClick={() => saveKpiMutation.mutate()}
+            disabled={saveKpiMutation.isPending}
+            data-testid="button-save-kpi"
+          >
+            {saveKpiMutation.isPending ? "Ukladám..." : "Uložiť KPI ciele"}
+          </Button>
+        )}
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <BarChart3 className="w-5 h-5" />
+            Celkové ciele kampane
+          </CardTitle>
+          <CardDescription>
+            Hlavné ukazovatele úspešnosti celej kampane. Tieto ciele sa sledujú v prehľade reportov.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <KpiTargetField
+              icon={Users}
+              label="Celkový počet kontaktov na spracovanie"
+              description="Koľko kontaktov chcete spracovať počas trvania kampane"
+              hint="Napr. 1000 kontaktov = celá databáza pre danú krajinu"
+              value={targets.campaignTotalContactsTarget}
+              onChange={(v) => updateTarget("campaignTotalContactsTarget", v)}
+              unit="kontaktov"
+              max={100000}
+              testId="input-campaign-total-contacts"
             />
-            <p className="text-xs text-muted-foreground">Počet hovorov na operátora za deň</p>
-          </div>
-          <div className="space-y-2">
-            <Label className="text-sm font-medium flex items-center gap-2">
-              <Users className="w-4 h-4 text-muted-foreground" />
-              Denný cieľ kontaktov
-            </Label>
-            <Input
-              type="number"
-              min={0}
-              max={500}
-              value={targets.dailyContactsTarget}
-              onChange={(e) => updateTarget("dailyContactsTarget", parseInt(e.target.value) || 0)}
-              data-testid="input-daily-contacts-target"
-            />
-            <p className="text-xs text-muted-foreground">Počet úspešných kontaktov za deň</p>
-          </div>
-          <div className="space-y-2">
-            <Label className="text-sm font-medium flex items-center gap-2">
-              <Target className="w-4 h-4 text-muted-foreground" />
-              Cieľový konverzný pomer (%)
-            </Label>
-            <Input
-              type="number"
-              min={0}
+            <KpiTargetField
+              icon={CheckCircle}
+              label="Cieľová miera dokončenia (%)"
+              description="Percento kontaktov, ktoré musia byť úspešne spracované"
+              hint="Bežná hodnota: 70-90% podľa typu kampane"
+              value={targets.campaignCompletionTarget}
+              onChange={(v) => updateTarget("campaignCompletionTarget", v)}
+              unit="%"
               max={100}
-              value={targets.conversionRateTarget}
-              onChange={(e) => updateTarget("conversionRateTarget", parseInt(e.target.value) || 0)}
-              data-testid="input-conversion-rate-target"
+              testId="input-campaign-completion"
             />
-            <p className="text-xs text-muted-foreground">Percento kontaktov vedúcich ku konverzii</p>
-          </div>
-          <div className="space-y-2">
-            <Label className="text-sm font-medium flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 text-muted-foreground" />
-              Cieľová miera dokončenia (%)
-            </Label>
-            <Input
-              type="number"
-              min={0}
+            <KpiTargetField
+              icon={Target}
+              label="Cieľový konverzný pomer (%)"
+              description="Percento kontaktov, ktoré vedú ku konverzii (podpis zmluvy, objednávka)"
+              hint="Bežná hodnota: 5-20% podľa produktu a cieľovej skupiny"
+              value={targets.campaignConversionTarget}
+              onChange={(v) => updateTarget("campaignConversionTarget", v)}
+              unit="%"
               max={100}
-              value={targets.completionRateTarget}
-              onChange={(e) => updateTarget("completionRateTarget", parseInt(e.target.value) || 0)}
-              data-testid="input-completion-rate-target"
+              testId="input-campaign-conversion"
             />
-            <p className="text-xs text-muted-foreground">Percento dokončených kontaktov z celkového počtu</p>
+            <KpiTargetField
+              icon={Flag}
+              label="Cieľový výnos kampane"
+              description="Očakávaný finančný výnos z kampane"
+              hint="Celková suma objednávok/zmlúv generovaných kampaňou"
+              value={targets.campaignRevenueTarget}
+              onChange={(v) => updateTarget("campaignRevenueTarget", v)}
+              unit="EUR"
+              max={10000000}
+              testId="input-campaign-revenue"
+            />
+            <KpiTargetField
+              icon={Calendar}
+              label="Plánované trvanie kampane"
+              description="Počet pracovných dní na dokončenie kampane"
+              hint="Zohľadňuje sa pri výpočte denných cieľov operátorov"
+              value={targets.campaignDurationDays}
+              onChange={(v) => updateTarget("campaignDurationDays", v)}
+              unit="dní"
+              max={365}
+              testId="input-campaign-duration"
+            />
           </div>
-          <div className="space-y-2">
-            <Label className="text-sm font-medium flex items-center gap-2">
-              <Clock className="w-4 h-4 text-muted-foreground" />
-              Priemerná dĺžka hovoru (min)
-            </Label>
-            <Input
-              type="number"
-              min={0}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <User className="w-5 h-5" />
+            Ciele na operátora (denne)
+          </CardTitle>
+          <CardDescription>
+            Individuálne denné ciele pre každého operátora. Tieto metriky sa sledujú v reálnom čase v pracovnom priestore agenta.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <KpiTargetField
+              icon={Phone}
+              label="Denný cieľ hovorov"
+              description="Minimálny počet hovorov (úspešných aj neúspešných), ktoré musí operátor uskutočniť"
+              hint="Bežná hodnota: 50-80 hovorov za 8-hodinovú smenu"
+              value={targets.agentDailyCallsTarget}
+              onChange={(v) => updateTarget("agentDailyCallsTarget", v)}
+              unit="hovorov/deň"
+              max={500}
+              testId="input-agent-daily-calls"
+            />
+            <KpiTargetField
+              icon={UserCheck}
+              label="Denný cieľ úspešných kontaktov"
+              description="Počet kontaktov, kde sa operátor skutočne dohovorí s klientom (nie nedvíha, obsadené)"
+              hint="Bežná hodnota: 20-40 úspešných kontaktov za smenu"
+              value={targets.agentDailyContactsTarget}
+              onChange={(v) => updateTarget("agentDailyContactsTarget", v)}
+              unit="kontaktov/deň"
+              max={500}
+              testId="input-agent-daily-contacts"
+            />
+            <KpiTargetField
+              icon={Star}
+              label="Denný cieľ konverzií"
+              description="Počet úspešných konverzií (podpis, objednávka) na operátora za deň"
+              hint="Bežná hodnota: 3-10 konverzií podľa produktu"
+              value={targets.agentDailySuccessTarget}
+              onChange={(v) => updateTarget("agentDailySuccessTarget", v)}
+              unit="konverzií/deň"
+              max={100}
+              testId="input-agent-daily-success"
+            />
+            <KpiTargetField
+              icon={Target}
+              label="Konverzný pomer operátora (%)"
+              description="Minimálne percento konverzií z úspešných kontaktov"
+              hint="Bežná hodnota: 10-25% podľa skúseností operátora"
+              value={targets.agentConversionRateTarget}
+              onChange={(v) => updateTarget("agentConversionRateTarget", v)}
+              unit="%"
+              max={100}
+              testId="input-agent-conversion-rate"
+            />
+            <KpiTargetField
+              icon={Clock}
+              label="Priemerná dĺžka hovoru"
+              description="Cieľová priemerná dĺžka jedného hovoru v minútach"
+              hint="Kratšie hovory = vyšší throughput, dlhšie = lepšia kvalita"
+              value={targets.agentAvgCallDurationTarget}
+              onChange={(v) => updateTarget("agentAvgCallDurationTarget", v)}
+              unit="minút"
               max={60}
-              value={targets.avgCallDurationTarget}
-              onChange={(e) => updateTarget("avgCallDurationTarget", parseInt(e.target.value) || 0)}
-              data-testid="input-avg-call-duration-target"
+              testId="input-agent-avg-call-duration"
             />
-            <p className="text-xs text-muted-foreground">Cieľová priemerná dĺžka hovoru v minútach</p>
+            <KpiTargetField
+              icon={Clock}
+              label="Max. nečinnosť medzi hovormi"
+              description="Maximálny povolený čas nečinnosti medzi dvoma hovormi"
+              hint="Dlhšia nečinnosť znižuje produktivitu operátora"
+              value={targets.agentMaxIdleMinutes}
+              onChange={(v) => updateTarget("agentMaxIdleMinutes", v)}
+              unit="minút"
+              max={30}
+              testId="input-agent-max-idle"
+            />
+            <KpiTargetField
+              icon={CalendarPlus}
+              label="Plnenie spätných volaní (%)"
+              description="Percento naplánovaných spätných volaní, ktoré operátor skutočne uskutočnil"
+              hint="Ideálna hodnota: 90-100% - ukazuje spoľahlivosť operátora"
+              value={targets.agentCallbackComplianceTarget}
+              onChange={(v) => updateTarget("agentCallbackComplianceTarget", v)}
+              unit="%"
+              max={100}
+              testId="input-agent-callback-compliance"
+            />
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
@@ -1306,11 +1427,22 @@ export default function CampaignDetailPage() {
       header: t.campaigns?.status || "Status",
       sortable: true,
       sortValue: (contact: EnrichedContact) => contact.status,
-      cell: (contact: EnrichedContact) => (
-        <Badge className={CONTACT_STATUS_COLORS[contact.status] || ""}>
-          {contact.status.replace("_", " ")}
-        </Badge>
-      ),
+      cell: (contact: EnrichedContact) => {
+        const STATUS_SK: Record<string, string> = {
+          pending: "Čakajúci",
+          contacted: "Kontaktovaný",
+          completed: "Dokončený",
+          failed: "Neúspešný",
+          no_answer: "Nedvíha",
+          callback_scheduled: "Callback",
+          not_interested: "Nemá záujem",
+        };
+        return (
+          <Badge className={CONTACT_STATUS_COLORS[contact.status] || ""}>
+            {STATUS_SK[contact.status] || contact.status.replace("_", " ")}
+          </Badge>
+        );
+      },
     },
     {
       key: "attemptCount",
@@ -1355,10 +1487,48 @@ export default function CampaignDetailPage() {
       key: "assignedTo",
       header: "Operátor",
       sortable: true,
-      sortValue: (contact: EnrichedContact) => contact.assignedTo || "",
-      cell: (contact: EnrichedContact) => (
-        <span>{contact.assignedTo || "-"}</span>
-      ),
+      sortValue: (contact: EnrichedContact) => {
+        const agent = allUsers.find(u => u.id === contact.assignedTo);
+        return agent?.fullName || contact.assignedTo || "";
+      },
+      cell: (contact: EnrichedContact) => {
+        if (!contact.assignedTo) return <span className="text-muted-foreground">-</span>;
+        const agent = allUsers.find(u => u.id === contact.assignedTo);
+        return (
+          <div className="flex items-center gap-1.5">
+            <User className="w-3.5 h-3.5 text-muted-foreground" />
+            <span>{agent?.fullName || contact.assignedTo}</span>
+          </div>
+        );
+      },
+    },
+    {
+      key: "disposition",
+      header: "Výsledok",
+      sortable: true,
+      sortValue: (contact: EnrichedContact) => contact.notes || contact.status || "",
+      cell: (contact: EnrichedContact) => {
+        const hasCallback = contact.status === "callback_scheduled" && contact.callbackDate;
+        const hasNotes = contact.notes && contact.notes.trim().length > 0;
+        if (!hasCallback && !hasNotes) {
+          return <span className="text-muted-foreground">-</span>;
+        }
+        return (
+          <div className="space-y-0.5 max-w-[200px]">
+            {hasCallback && (
+              <div className="flex items-center gap-1 text-xs">
+                <CalendarPlus className="w-3 h-3 text-blue-500" />
+                <span>{format(new Date(contact.callbackDate!), "dd.MM. HH:mm")}</span>
+              </div>
+            )}
+            {hasNotes && (
+              <p className="text-xs text-muted-foreground truncate" title={contact.notes!}>
+                {contact.notes}
+              </p>
+            )}
+          </div>
+        );
+      },
     },
   ];
 
@@ -2052,6 +2222,136 @@ export default function CampaignDetailPage() {
               </div>
             </CardContent>
           </Card>
+
+          {(() => {
+            let kpiTargets: Record<string, number> = {};
+            try {
+              if (campaign.settings) {
+                const s = JSON.parse(campaign.settings);
+                if (s.kpiTargets) kpiTargets = s.kpiTargets;
+              }
+            } catch {}
+            const hasAnyTarget = Object.values(kpiTargets).some(v => v > 0);
+            if (!hasAnyTarget) return null;
+
+            const totalContacts = stats?.totalContacts || 0;
+            const completedContacts = stats?.completedContacts || 0;
+            const contactedContacts = stats?.contactedContacts || 0;
+            const processedContacts = completedContacts + contactedContacts + (stats?.noAnswerContacts || 0) + (stats?.notInterestedContacts || 0) + (stats?.failedContacts || 0);
+            const completionPct = totalContacts > 0 ? (processedContacts / totalContacts * 100) : 0;
+            const conversionPct = processedContacts > 0 ? (completedContacts / processedContacts * 100) : 0;
+
+            const campaignKpis = [
+              { key: "campaignTotalContactsTarget", label: "Celkový počet kontaktov", current: totalContacts, unit: "" },
+              { key: "campaignCompletionTarget", label: "Miera dokončenia", current: parseFloat(completionPct.toFixed(1)), unit: "%" },
+              { key: "campaignConversionTarget", label: "Konverzný pomer", current: parseFloat(conversionPct.toFixed(1)), unit: "%" },
+            ].filter(k => (kpiTargets[k.key] || 0) > 0);
+
+            return (
+              <Card data-testid="card-kpi-tracking">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Target className="w-5 h-5" />
+                    Plnenie KPI cieľov
+                  </CardTitle>
+                  <CardDescription>
+                    Sledovanie pokroku voči nastaveným KPI cieľom kampane
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {campaignKpis.length > 0 && (
+                    <div className="space-y-4">
+                      <h4 className="text-sm font-semibold flex items-center gap-2">
+                        <BarChart3 className="w-4 h-4" />
+                        Ciele kampane
+                      </h4>
+                      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        {campaignKpis.map(kpi => {
+                          const target = kpiTargets[kpi.key] || 0;
+                          const pct = target > 0 ? Math.min((kpi.current / target) * 100, 100) : 0;
+                          const status = pct >= 100 ? "text-green-600 dark:text-green-400" : pct >= 70 ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400";
+                          const bgStatus = pct >= 100 ? "bg-green-500" : pct >= 70 ? "bg-yellow-500" : "bg-red-500";
+                          return (
+                            <div key={kpi.key} className="p-4 rounded-lg border space-y-3" data-testid={`kpi-progress-${kpi.key}`}>
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-sm font-medium">{kpi.label}</span>
+                                <span className={`text-sm font-bold ${status}`}>{pct.toFixed(0)}%</span>
+                              </div>
+                              <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
+                                <div className={`h-full rounded-full transition-all ${bgStatus}`} style={{ width: `${pct}%` }} />
+                              </div>
+                              <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                                <span>Aktuálne: {kpi.current}{kpi.unit}</span>
+                                <span>Cieľ: {target}{kpi.unit}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {(kpiTargets.campaignRevenueTarget || 0) > 0 && (
+                    <div className="p-4 rounded-lg border space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-medium flex items-center gap-2">
+                          <Flag className="w-4 h-4 text-muted-foreground" />
+                          Cieľový výnos
+                        </span>
+                        <span className="text-sm font-bold text-muted-foreground">
+                          {(kpiTargets.campaignRevenueTarget || 0).toLocaleString("sk-SK")} EUR
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Sledovanie výnosov vyžaduje prepojenie so systémom fakturácie
+                      </p>
+                    </div>
+                  )}
+
+                  {(kpiTargets.agentDailyCallsTarget || 0) > 0 && (
+                    <div className="space-y-4">
+                      <h4 className="text-sm font-semibold flex items-center gap-2">
+                        <User className="w-4 h-4" />
+                        Denné ciele na operátora
+                      </h4>
+                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                        {[
+                          { key: "agentDailyCallsTarget", label: "Hovory/deň", icon: Phone },
+                          { key: "agentDailyContactsTarget", label: "Kontakty/deň", icon: UserCheck },
+                          { key: "agentDailySuccessTarget", label: "Konverzie/deň", icon: Star },
+                          { key: "agentConversionRateTarget", label: "Konverzný pomer", icon: Target, unit: "%" },
+                          { key: "agentAvgCallDurationTarget", label: "Priem. dĺžka hovoru", icon: Clock, unit: " min" },
+                          { key: "agentMaxIdleMinutes", label: "Max. nečinnosť", icon: Clock, unit: " min" },
+                          { key: "agentCallbackComplianceTarget", label: "Plnenie callbackov", icon: CalendarPlus, unit: "%" },
+                        ].filter(k => (kpiTargets[k.key] || 0) > 0).map(kpi => {
+                          const IconComp = kpi.icon;
+                          return (
+                            <div key={kpi.key} className="p-3 rounded-lg border flex items-center gap-3" data-testid={`kpi-agent-${kpi.key}`}>
+                              <IconComp className="w-4 h-4 text-primary shrink-0" />
+                              <div>
+                                <p className="text-xs text-muted-foreground">{kpi.label}</p>
+                                <p className="text-sm font-bold">{kpiTargets[kpi.key]}{kpi.unit || ""}</p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {(kpiTargets.campaignDurationDays || 0) > 0 && (
+                    <div className="p-4 rounded-lg border bg-muted/30">
+                      <div className="flex items-center gap-2 text-sm">
+                        <Calendar className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">Plánované trvanie kampane:</span>
+                        <span className="font-semibold">{kpiTargets.campaignDurationDays} pracovných dní</span>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })()}
         </TabsContent>
 
         <TabsContent value="script" className="space-y-6">

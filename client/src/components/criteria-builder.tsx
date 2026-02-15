@@ -28,52 +28,84 @@ interface CriteriaBuilderProps {
 }
 
 const FIELD_OPTIONS = [
-  { value: "country", label: "Country", type: "select", options: COUNTRIES.map(c => ({ value: c.code, label: c.name })) },
-  { value: "clientStatus", label: "Client Status", type: "select", options: [
-    { value: "potential", label: "Potential" },
-    { value: "acquired", label: "Acquired" },
-    { value: "terminated", label: "Terminated" },
+  { value: "country", label: "Krajina", type: "select", options: COUNTRIES.map(c => ({ value: c.code, label: c.name })) },
+  { value: "clientStatus", label: "Status klienta", type: "select", options: [
+    { value: "potential", label: "Potenciálny" },
+    { value: "acquired", label: "Získaný" },
+    { value: "terminated", label: "Ukončený" },
   ]},
-  { value: "status", label: "Record Status", type: "select", options: [
-    { value: "active", label: "Active" },
-    { value: "pending", label: "Pending" },
-    { value: "inactive", label: "Inactive" },
+  { value: "status", label: "Status záznamu", type: "select", options: [
+    { value: "active", label: "Aktívny" },
+    { value: "pending", label: "Čakajúci" },
+    { value: "inactive", label: "Neaktívny" },
   ]},
-  { value: "serviceType", label: "Service Type", type: "select", options: [
-    { value: "cord_blood", label: "Cord Blood" },
-    { value: "cord_tissue", label: "Cord Tissue" },
-    { value: "both", label: "Both" },
+  { value: "serviceType", label: "Typ služby", type: "select", options: [
+    { value: "cord_blood", label: "Pupočníková krv" },
+    { value: "cord_tissue", label: "Pupočníkové tkanivo" },
+    { value: "both", label: "Oboje" },
   ]},
-  { value: "leadStatus", label: "Lead Status", type: "select", options: [
-    { value: "cold", label: "Cold" },
-    { value: "warm", label: "Warm" },
-    { value: "hot", label: "Hot" },
-    { value: "qualified", label: "Qualified" },
+  { value: "leadStatus", label: "Status leadu", type: "select", options: [
+    { value: "cold", label: "Studený" },
+    { value: "warm", label: "Teplý" },
+    { value: "hot", label: "Horúci" },
+    { value: "qualified", label: "Kvalifikovaný" },
   ]},
-  { value: "newsletter", label: "Newsletter Subscribed", type: "boolean", options: [
-    { value: "true", label: "Yes" },
-    { value: "false", label: "No" },
+  { value: "newsletter", label: "Odoberá newsletter", type: "boolean", options: [
+    { value: "true", label: "Áno" },
+    { value: "false", label: "Nie" },
   ]},
-  { value: "city", label: "City", type: "text" },
-  { value: "postalCode", label: "Postal Code", type: "text" },
+  { value: "city", label: "Mesto", type: "text" },
+  { value: "postalCode", label: "PSČ", type: "text" },
+  { value: "trimester", label: "Trimester tehotenstva", type: "select", options: [
+    { value: "1", label: "1. trimester" },
+    { value: "2", label: "2. trimester" },
+    { value: "3", label: "3. trimester" },
+  ]},
+  { value: "expectedDelivery", label: "Očakávaný termín pôrodu", type: "text" },
+  { value: "source", label: "Zdroj kontaktu", type: "select", options: [
+    { value: "web", label: "Web" },
+    { value: "phone", label: "Telefón" },
+    { value: "referral", label: "Odporúčanie" },
+    { value: "hospital", label: "Nemocnica" },
+    { value: "event", label: "Event" },
+    { value: "other", label: "Iné" },
+  ]},
+  { value: "ageRange", label: "Veková kategória", type: "select", options: [
+    { value: "18-25", label: "18-25" },
+    { value: "26-30", label: "26-30" },
+    { value: "31-35", label: "31-35" },
+    { value: "36-40", label: "36-40" },
+    { value: "40+", label: "40+" },
+  ]},
+  { value: "hasContract", label: "Má zmluvu", type: "boolean", options: [
+    { value: "true", label: "Áno" },
+    { value: "false", label: "Nie" },
+  ]},
+  { value: "productType", label: "Produkt", type: "select", options: [
+    { value: "standard", label: "Standard" },
+    { value: "premium", label: "Premium" },
+    { value: "vip", label: "VIP" },
+  ]},
+  { value: "lastContactDays", label: "Posledný kontakt (dní)", type: "text" },
+  { value: "assignedManager", label: "Pridelený obchodník", type: "text" },
 ];
 
 const OPERATORS = {
   select: [
-    { value: "equals", label: "equals" },
-    { value: "notEquals", label: "does not equal" },
-    { value: "in", label: "is one of" },
-    { value: "notIn", label: "is not one of" },
+    { value: "equals", label: "je" },
+    { value: "notEquals", label: "nie je" },
+    { value: "in", label: "je jedným z" },
+    { value: "notIn", label: "nie je žiadnym z" },
   ],
   text: [
-    { value: "equals", label: "equals" },
-    { value: "notEquals", label: "does not equal" },
-    { value: "contains", label: "contains" },
-    { value: "startsWith", label: "starts with" },
-    { value: "endsWith", label: "ends with" },
+    { value: "equals", label: "je" },
+    { value: "notEquals", label: "nie je" },
+    { value: "contains", label: "obsahuje" },
+    { value: "startsWith", label: "začína na" },
+    { value: "endsWith", label: "končí na" },
   ],
   boolean: [
-    { value: "equals", label: "is" },
+    { value: "equals", label: "je" },
   ],
 };
 
@@ -120,7 +152,7 @@ function ConditionRow({
         disabled={readonly}
       >
         <SelectTrigger className="w-40" data-testid={`select-condition-field-${condition.id}`}>
-          <SelectValue placeholder="Select field" />
+          <SelectValue placeholder="Vybrať pole" />
         </SelectTrigger>
         <SelectContent>
           {FIELD_OPTIONS.map(field => (
@@ -137,7 +169,7 @@ function ConditionRow({
         disabled={readonly}
       >
         <SelectTrigger className="w-36" data-testid={`select-condition-operator-${condition.id}`}>
-          <SelectValue placeholder="Operator" />
+          <SelectValue placeholder="Operátor" />
         </SelectTrigger>
         <SelectContent>
           {operators.map(op => (
@@ -155,7 +187,7 @@ function ConditionRow({
           disabled={readonly}
         >
           <SelectTrigger className="w-40" data-testid={`select-condition-value-${condition.id}`}>
-            <SelectValue placeholder="Select value" />
+            <SelectValue placeholder="Vybrať hodnotu" />
           </SelectTrigger>
           <SelectContent>
             {fieldConfig.options.map(opt => (
@@ -169,7 +201,7 @@ function ConditionRow({
         <Input
           value={Array.isArray(condition.value) ? condition.value.join(", ") : condition.value}
           onChange={(e) => onUpdate({ ...condition, value: e.target.value })}
-          placeholder="Enter value"
+          placeholder="Zadajte hodnotu"
           className="w-40"
           disabled={readonly}
           data-testid={`input-condition-value-${condition.id}`}
@@ -232,7 +264,7 @@ function CriteriaGroupCard({
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <Badge variant="outline">Group {groupIndex + 1}</Badge>
+            <Badge variant="outline">Skupina {groupIndex + 1}</Badge>
             <Select
               value={group.logic}
               onValueChange={(logic: "AND" | "OR") => onUpdate({ ...group, logic })}
@@ -247,7 +279,7 @@ function CriteriaGroupCard({
               </SelectContent>
             </Select>
             <span className="text-sm text-muted-foreground">
-              Match {group.logic === "AND" ? "all" : "any"} conditions
+              {group.logic === "AND" ? "Splniť všetky podmienky" : "Splniť aspoň jednu podmienku"}
             </span>
           </div>
           {!readonly && (
@@ -265,7 +297,7 @@ function CriteriaGroupCard({
       <CardContent className="space-y-2">
         {group.conditions.length === 0 ? (
           <p className="text-sm text-muted-foreground italic">
-            No conditions defined. Add a condition to filter customers.
+            Žiadne podmienky. Pridajte podmienku na filtrovanie zákazníkov.
           </p>
         ) : (
           group.conditions.map((condition, index) => (
@@ -296,7 +328,7 @@ function CriteriaGroupCard({
             data-testid={`button-add-condition-${group.id}`}
           >
             <Plus className="w-4 h-4 mr-2" />
-            Add Condition
+            Pridať podmienku
           </Button>
         )}
       </CardContent>
@@ -330,13 +362,13 @@ export function CriteriaBuilder({ criteria, onChange, readonly }: CriteriaBuilde
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div>
-          <Label className="text-base font-medium">Target Criteria</Label>
+          <Label className="text-base font-medium">Cieľové kritériá</Label>
           <p className="text-sm text-muted-foreground">
-            Define which customers should be included in this campaign
+            Definujte ktorí zákazníci majú byť zahrnutí do tejto kampane
           </p>
         </div>
         <Badge variant="secondary">
-          {totalConditions} condition{totalConditions !== 1 ? "s" : ""} in {criteria.length} group{criteria.length !== 1 ? "s" : ""}
+          {totalConditions} podmienok v {criteria.length} skupinách
         </Badge>
       </div>
 
@@ -344,12 +376,12 @@ export function CriteriaBuilder({ criteria, onChange, readonly }: CriteriaBuilde
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-8">
             <p className="text-muted-foreground mb-4">
-              No criteria defined. All customers will be eligible for this campaign.
+              Žiadne kritériá. Všetci zákazníci budú zahrnutí do tejto kampane.
             </p>
             {!readonly && (
               <Button onClick={addGroup} data-testid="button-add-first-group">
                 <Plus className="w-4 h-4 mr-2" />
-                Add Criteria Group
+                Pridať skupinu kritérií
               </Button>
             )}
           </CardContent>
@@ -383,7 +415,7 @@ export function CriteriaBuilder({ criteria, onChange, readonly }: CriteriaBuilde
               data-testid="button-add-group"
             >
               <Plus className="w-4 h-4 mr-2" />
-              Add Another Group
+              Pridať ďalšiu skupinu
             </Button>
           )}
         </>
@@ -393,7 +425,7 @@ export function CriteriaBuilder({ criteria, onChange, readonly }: CriteriaBuilde
 }
 
 export function criteriaToDescription(criteria: CriteriaGroup[]): string {
-  if (criteria.length === 0) return "All customers";
+  if (criteria.length === 0) return "Všetci zákazníci";
   
   const groupDescriptions = criteria.map(group => {
     const conditionDescriptions = group.conditions.map(cond => {
