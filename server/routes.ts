@@ -14919,7 +14919,7 @@ export async function registerRoutes(
       const contacts = await storage.getCampaignContacts(campaignId);
       const agents = await storage.getCampaignAgents(campaignId);
       const allUsers = await storage.getAllUsers();
-      const userMap = new Map(allUsers.map(u => [u.id, u.fullName || u.email]));
+      const userMap = new Map(allUsers.map(u => [u.id, { name: u.fullName || u.email, avatarUrl: u.avatarUrl || null }]));
 
       const agentUserIds = new Set(agents.map(a => a.userId));
       const assignedToIds = new Set(contacts.filter(c => c.assignedTo).map(c => c.assignedTo!));
@@ -14939,6 +14939,7 @@ export async function registerRoutes(
       const agentStats: Record<string, {
         userId: string;
         name: string;
+        avatarUrl: string | null;
         totalContacts: number;
         contactedToday: number;
         completedTotal: number;
@@ -14954,9 +14955,11 @@ export async function registerRoutes(
       }> = {};
 
       for (const uid of agentUserIds) {
+        const userInfo = userMap.get(uid);
         agentStats[uid] = {
           userId: uid,
-          name: userMap.get(uid) || "Neznámy",
+          name: userInfo?.name || "Neznámy",
+          avatarUrl: userInfo?.avatarUrl || null,
           totalContacts: 0,
           contactedToday: 0,
           completedTotal: 0,
@@ -14992,9 +14995,11 @@ export async function registerRoutes(
         const contactId = row.campaign_contacts.id;
         const agentId = h.userId;
         if (!agentStats[agentId]) {
+          const uInfo = userMap.get(agentId);
           agentStats[agentId] = {
             userId: agentId,
-            name: userMap.get(agentId) || "Neznámy",
+            name: uInfo?.name || "Neznámy",
+            avatarUrl: uInfo?.avatarUrl || null,
             totalContacts: 0, contactedToday: 0, completedTotal: 0, completedToday: 0,
             noAnswerTotal: 0, callbackTotal: 0, notInterestedTotal: 0, failedTotal: 0,
             totalDispositions: 0, dispositionsToday: 0, avgAttemptsPerContact: 0, lastActiveAt: null,

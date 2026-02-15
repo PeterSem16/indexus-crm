@@ -16,6 +16,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -1084,6 +1085,7 @@ export default function CampaignDetailPage() {
   const { data: agentStatsData = [], isError: agentStatsError, error: agentStatsErrorMsg, isLoading: agentStatsLoading } = useQuery<Array<{
     userId: string;
     name: string;
+    avatarUrl: string | null;
     totalContacts: number;
     contactedToday: number;
     completedTotal: number;
@@ -2561,9 +2563,12 @@ export default function CampaignDetailPage() {
                       <div key={agent.userId} className="p-4 rounded-lg border space-y-3" data-testid={`agent-perf-card-${agent.userId}`}>
                         <div className="flex items-center justify-between gap-4 flex-wrap">
                           <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                              <User className="w-4 h-4 text-primary" />
-                            </div>
+                            <Avatar className="h-8 w-8">
+                              {agent.avatarUrl && <AvatarImage src={agent.avatarUrl} alt={agent.name} />}
+                              <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                                {agent.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
                             <div>
                               <p className="text-sm font-semibold" data-testid={`text-agent-perf-name-${agent.userId}`}>{agent.name}</p>
                               <p className="text-xs text-muted-foreground">
