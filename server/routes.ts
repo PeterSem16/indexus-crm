@@ -14919,7 +14919,7 @@ export async function registerRoutes(
       const contacts = await storage.getCampaignContacts(campaignId);
       const agents = await storage.getCampaignAgents(campaignId);
       const allUsers = await storage.getUsers();
-      const userMap = new Map(allUsers.map(u => [u.id, `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.email]));
+      const userMap = new Map(allUsers.map(u => [u.id, u.fullName || u.email]));
 
       const agentUserIds = new Set(agents.map(a => a.userId));
       const assignedToIds = new Set(contacts.filter(c => c.assignedTo).map(c => c.assignedTo!));
