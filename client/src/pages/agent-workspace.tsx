@@ -2308,9 +2308,10 @@ export default function AgentWorkspacePage() {
       
       const updateData: Record<string, any> = {
         status: newStatus,
-        lastContactedAt: new Date().toISOString(),
+        lastAttemptAt: new Date().toISOString(),
         notes: data.notes || undefined,
-        result: data.disposition,
+        dispositionCode: data.disposition,
+        incrementAttempt: true,
       };
       
       if (data.callbackDateTime && disp?.actionType === "callback") {

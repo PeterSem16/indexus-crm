@@ -14272,21 +14272,42 @@ export async function registerRoutes(
       }
       
       const previousStatus = existingContact.status;
-      const contact = await storage.updateCampaignContact(req.params.contactId, req.body);
+      
+      const { incrementAttempt, dispositionCode, lastContactedAt, result, ...cleanBody } = req.body;
+      
+      const updatePayload: Record<string, any> = { ...cleanBody };
+      
+      if (incrementAttempt) {
+        updatePayload.attemptCount = (existingContact.attemptCount || 0) + 1;
+        updatePayload.lastAttemptAt = new Date().toISOString();
+      }
+      
+      if (lastContactedAt && !updatePayload.lastAttemptAt) {
+        updatePayload.lastAttemptAt = lastContactedAt;
+      }
+      
+      if (updatePayload.status === "contacted" || updatePayload.status === "completed") {
+        updatePayload.contactedAt = new Date().toISOString();
+      }
+      if (updatePayload.status === "completed") {
+        updatePayload.completedAt = new Date().toISOString();
+      }
+      
+      const contact = await storage.updateCampaignContact(req.params.contactId, updatePayload);
       
       // Get customer and campaign info for logging
       const customer = await storage.getCustomer(existingContact.customerId);
       const campaign = await storage.getCampaign(existingContact.campaignId);
       
       // Log history if status changed
-      if (req.body.status && req.body.status !== previousStatus) {
+      if (updatePayload.status && updatePayload.status !== previousStatus) {
         await storage.createCampaignContactHistory({
           campaignContactId: req.params.contactId,
           userId: req.session.user!.id,
           action: "status_change",
           previousStatus,
-          newStatus: req.body.status,
-          notes: req.body.notes || null,
+          newStatus: updatePayload.status,
+          notes: updatePayload.notes || dispositionCode || null,
         });
         
         // Log to customer activity
@@ -14301,18 +14322,19 @@ export async function registerRoutes(
               campaignId: campaign?.id,
               campaignName: campaign?.name || "Kampaň",
               previousStatus,
-              newStatus: req.body.status,
-              notes: req.body.notes || null
+              newStatus: updatePayload.status,
+              dispositionCode: dispositionCode || null,
+              notes: updatePayload.notes || null
             },
             req.ip
           );
         }
-      } else if (req.body.notes) {
+      } else if (updatePayload.notes) {
         await storage.createCampaignContactHistory({
           campaignContactId: req.params.contactId,
           userId: req.session.user!.id,
           action: "note_added",
-          notes: req.body.notes,
+          notes: updatePayload.notes,
         });
         
         // Log note to customer activity
@@ -14326,7 +14348,7 @@ export async function registerRoutes(
             { 
               campaignId: campaign?.id,
               campaignName: campaign?.name || "Kampaň",
-              content: req.body.notes
+              content: updatePayload.notes
             },
             req.ip
           );

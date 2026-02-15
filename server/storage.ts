@@ -3494,6 +3494,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateCampaignContact(id: string, data: Partial<InsertCampaignContact>): Promise<CampaignContact | undefined> {
     const updateData: any = { ...data, updatedAt: new Date() };
+    if (data.lastAttemptAt) updateData.lastAttemptAt = new Date(data.lastAttemptAt);
     if (data.callbackDate) updateData.callbackDate = new Date(data.callbackDate);
     if (data.contactedAt) updateData.contactedAt = new Date(data.contactedAt);
     if (data.completedAt) updateData.completedAt = new Date(data.completedAt);
