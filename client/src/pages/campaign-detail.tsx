@@ -1042,6 +1042,11 @@ export default function CampaignDetailPage() {
   const [importProgress, setImportProgress] = useState(0);
   const [importPhase, setImportPhase] = useState<"upload" | "processing" | null>(null);
   const [updateExisting, setUpdateExisting] = useState(false);
+  const [showRequeueDialog, setShowRequeueDialog] = useState(false);
+  const [requeueDispositions, setRequeueDispositions] = useState<Set<string>>(new Set());
+  const [requeueStatuses, setRequeueStatuses] = useState<Set<string>>(new Set());
+  const [requeueCallbackFrom, setRequeueCallbackFrom] = useState("");
+  const [requeueCallbackTo, setRequeueCallbackTo] = useState("");
 
   const { data: campaign, isLoading: loadingCampaign } = useQuery<Campaign>({
     queryKey: ["/api/campaigns", campaignId],
@@ -1288,6 +1293,55 @@ export default function CampaignDetailPage() {
     },
     onError: () => {
       toast({ title: "Chyba", description: "Nepodarilo sa aktualizovať kontakty.", variant: "destructive" });
+    },
+  });
+
+  const requeueMatchingContacts = useMemo(() => {
+    if (!showRequeueDialog) return [];
+    return contacts.filter((c: any) => {
+      if (c.status === "pending") return false;
+
+      if (requeueStatuses.size > 0 && !requeueStatuses.has(c.status)) return false;
+
+      if (requeueDispositions.size > 0) {
+        if (!c.dispositionCode || !requeueDispositions.has(c.dispositionCode)) return false;
+      }
+
+      if (requeueCallbackFrom || requeueCallbackTo) {
+        if (!c.callbackDate) return false;
+        const cbDate = new Date(c.callbackDate);
+        if (requeueCallbackFrom && cbDate < new Date(requeueCallbackFrom)) return false;
+        if (requeueCallbackTo) {
+          const toDate = new Date(requeueCallbackTo);
+          toDate.setHours(23, 59, 59, 999);
+          if (cbDate > toDate) return false;
+        }
+      }
+
+      return true;
+    });
+  }, [contacts, showRequeueDialog, requeueStatuses, requeueDispositions, requeueCallbackFrom, requeueCallbackTo]);
+
+  const requeueMutation = useMutation({
+    mutationFn: async (contactIds: string[]) => {
+      const res = await apiRequest("POST", `/api/campaigns/${campaignId}/contacts/bulk-update`, {
+        contactIds,
+        requeue: true,
+      });
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      toast({ title: "Kontakty zaradené do fronty", description: `${data.count} kontaktov bolo zaradených na opätovné spracovanie.` });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "stats"] });
+      setShowRequeueDialog(false);
+      setRequeueDispositions(new Set());
+      setRequeueStatuses(new Set());
+      setRequeueCallbackFrom("");
+      setRequeueCallbackTo("");
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa zaradiť kontakty do fronty.", variant: "destructive" });
     },
   });
 
@@ -1841,6 +1895,20 @@ export default function CampaignDetailPage() {
               <span className="text-sm text-muted-foreground">
                 {filteredContacts.length} / {contacts.length} kontaktov
               </span>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setRequeueDispositions(new Set());
+                  setRequeueStatuses(new Set());
+                  setRequeueCallbackFrom("");
+                  setRequeueCallbackTo("");
+                  setShowRequeueDialog(true);
+                }}
+                data-testid="button-requeue-contacts"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Zaradiť znova
+              </Button>
               <Button
                 variant="outline"
                 onClick={() => {
@@ -2884,6 +2952,153 @@ Príklad:
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showRequeueDialog} onOpenChange={setShowRequeueDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Zaradiť kontakty znova do fronty</DialogTitle>
+            <DialogDescription>
+              Vyberte filtre na určenie kontaktov, ktoré sa majú znova zaradiť na spracovanie agentmi. Status sa zmení na "Čakajúci" a kontakty budú opäť dostupné v agent workspace.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Podľa statusu</label>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { value: "contacted", label: "Kontaktovaný" },
+                  { value: "completed", label: "Dokončený" },
+                  { value: "failed", label: "Neúspešný" },
+                  { value: "no_answer", label: "Nedvíha" },
+                  { value: "callback_scheduled", label: "Callback" },
+                  { value: "not_interested", label: "Nemá záujem" },
+                ].map(s => (
+                  <Button
+                    key={s.value}
+                    variant="outline"
+                    size="sm"
+                    className={`toggle-elevate ${requeueStatuses.has(s.value) ? "toggle-elevated border-primary" : ""}`}
+                    onClick={() => {
+                      setRequeueStatuses(prev => {
+                        const next = new Set(prev);
+                        next.has(s.value) ? next.delete(s.value) : next.add(s.value);
+                        return next;
+                      });
+                    }}
+                    data-testid={`requeue-status-${s.value}`}
+                  >
+                    {s.label}
+                  </Button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">Prázdny výber = všetky statusy okrem "Čakajúci"</p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Podľa výsledku (dispozícia)</label>
+              <div className="flex flex-wrap gap-1.5">
+                {campaignDispositions.filter(d => !d.parentId).map(d => {
+                  const colorClasses: Record<string, string> = {
+                    green: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+                    blue: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+                    orange: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
+                    red: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+                    yellow: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+                    gray: "bg-muted text-muted-foreground",
+                  };
+                  const children = campaignDispositions.filter(ch => ch.parentId === d.id);
+                  const allCodes = [d.code, ...children.map(ch => ch.code)];
+                  const isSelected = allCodes.some(code => requeueDispositions.has(code));
+                  return (
+                    <Button
+                      key={d.id}
+                      variant="outline"
+                      size="sm"
+                      className={`toggle-elevate ${isSelected ? "toggle-elevated border-primary" : ""}`}
+                      onClick={() => {
+                        setRequeueDispositions(prev => {
+                          const next = new Set(prev);
+                          if (isSelected) {
+                            allCodes.forEach(code => next.delete(code));
+                          } else {
+                            allCodes.forEach(code => next.add(code));
+                          }
+                          return next;
+                        });
+                      }}
+                      data-testid={`requeue-disp-${d.code}`}
+                    >
+                      <Badge variant="secondary" className={`text-xs mr-1 ${colorClasses[d.color || "gray"] || colorClasses.gray}`}>
+                        {d.name}
+                      </Badge>
+                      {children.length > 0 && <span className="text-xs text-muted-foreground">+{children.length}</span>}
+                    </Button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground">Prázdny výber = všetky výsledky (aj bez výsledku)</p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Callback v rozsahu dátumov</label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="date"
+                  value={requeueCallbackFrom}
+                  onChange={(e) => setRequeueCallbackFrom(e.target.value)}
+                  data-testid="requeue-callback-from"
+                />
+                <span className="text-muted-foreground">-</span>
+                <Input
+                  type="date"
+                  value={requeueCallbackTo}
+                  onChange={(e) => setRequeueCallbackTo(e.target.value)}
+                  data-testid="requeue-callback-to"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">Filtruje len kontakty s naplánovaným callback v tomto období</p>
+            </div>
+
+            <Separator />
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-sm font-medium">
+                  Zodpovedajúce kontakty: <span className="text-lg font-bold">{requeueMatchingContacts.length}</span>
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Týmto kontaktom sa resetuje status na "Čakajúci", vymaže sa výsledok a callback, a budú znova dostupné pre agentov.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowRequeueDialog(false)} data-testid="button-requeue-cancel">
+                Zrušiť
+              </Button>
+              <Button
+                disabled={requeueMatchingContacts.length === 0 || requeueMutation.isPending}
+                onClick={() => {
+                  requeueMutation.mutate(requeueMatchingContacts.map((c: any) => c.id));
+                }}
+                data-testid="button-requeue-confirm"
+              >
+                {requeueMutation.isPending ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Spracúvam...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Zaradiť {requeueMatchingContacts.length} kontaktov
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 

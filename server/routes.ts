@@ -14375,7 +14375,7 @@ export async function registerRoutes(
   // Bulk update campaign contacts
   app.post("/api/campaigns/:id/contacts/bulk-update", requireAuth, async (req, res) => {
     try {
-      const { contactIds, status, priority, assignedTo } = req.body;
+      const { contactIds, status, priority, assignedTo, requeue } = req.body;
       if (!contactIds || !Array.isArray(contactIds) || contactIds.length === 0) {
         return res.status(400).json({ error: "contactIds is required and must be a non-empty array" });
       }
@@ -14385,6 +14385,15 @@ export async function registerRoutes(
       if (priority !== undefined) updateData.priority = priority;
       if (assignedTo !== undefined) updateData.assignedTo = assignedTo;
 
+      if (requeue) {
+        updateData.status = "pending";
+        updateData.dispositionCode = null;
+        updateData.callbackDate = null;
+        updateData.assignedTo = null;
+        updateData.completedAt = null;
+        updateData.contactedAt = null;
+      }
+
       let updatedCount = 0;
       for (const contactId of contactIds) {
         try {
@@ -14392,14 +14401,15 @@ export async function registerRoutes(
           if (existingContact && existingContact.campaignId === req.params.id) {
             await storage.updateCampaignContact(contactId, updateData);
             
-            if (status && status !== existingContact.status) {
+            const newStatus = updateData.status || existingContact.status;
+            if (newStatus !== existingContact.status) {
               await storage.createCampaignContactHistory({
                 campaignContactId: contactId,
                 userId: req.session.user!.id,
-                action: "status_change",
+                action: requeue ? "requeue" : "status_change",
                 previousStatus: existingContact.status,
-                newStatus: status,
-                notes: "Bulk update",
+                newStatus,
+                notes: requeue ? "Kontakt zaradený späť do fronty supervízorom" : "Bulk update",
               });
             }
             updatedCount++;
