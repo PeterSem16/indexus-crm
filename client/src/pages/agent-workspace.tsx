@@ -108,6 +108,7 @@ import { format } from "date-fns";
 import { sk } from "date-fns/locale";
 import { useAgentSession } from "@/contexts/agent-session-context";
 import { CustomerDetailsContent } from "@/pages/customers";
+import { CustomerForm, type CustomerFormData } from "@/components/customer-form";
 import type { Campaign, Customer, CampaignContact, CampaignDisposition, AgentBreakType } from "@shared/schema";
 
 type AgentStatus = "available" | "busy" | "break" | "wrap_up" | "offline";
@@ -917,6 +918,8 @@ function CommunicationCanvas({
   onMakeCall,
   isSipRegistered,
   onOpenScriptModal,
+  onUpdateContact,
+  isUpdatingContact,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
@@ -930,6 +933,8 @@ function CommunicationCanvas({
   onMakeCall?: (phoneNumber: string) => void;
   isSipRegistered?: boolean;
   onOpenScriptModal: () => void;
+  onUpdateContact?: (data: CustomerFormData) => void;
+  isUpdatingContact?: boolean;
 }) {
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
@@ -1237,67 +1242,18 @@ function CommunicationCanvas({
             </button>
           </div>
 
-          {phoneSubTab === "card" && (
-            <>
-              <ScrollArea className="flex-1">
-                <div className="p-4 space-y-3">
-                  {timeline.filter(e => e.type === "call" || e.type === "system").map((entry) => (
-                    <div key={entry.id} className="flex gap-3 items-start">
-                      <div className={`p-1.5 rounded-full shrink-0 mt-0.5 ${
-                        entry.type === "call" ? "bg-blue-100 dark:bg-blue-950/40" : "bg-muted"
-                      }`}>
-                        {entry.type === "call" ? (
-                          <Phone className="h-3 w-3 text-blue-500" />
-                        ) : (
-                          <Info className="h-3 w-3 text-muted-foreground" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-medium">{entry.content}</span>
-                          <span className="text-[10px] text-muted-foreground">
-                            {format(entry.timestamp, "HH:mm", { locale: sk })}
-                          </span>
-                        </div>
-                        {entry.details && (
-                          <p className="text-xs text-muted-foreground mt-0.5">{entry.details}</p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  {timeline.filter(e => e.type === "call" || e.type === "system").length === 0 && (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Phone className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                      <p className="text-xs">Žiadna história hovorov</p>
-                    </div>
-                  )}
-                </div>
-              </ScrollArea>
-              <div className="border-t p-4 bg-card">
-                {contact.phone && isSipRegistered && onMakeCall ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">{contact.phone}</span>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={() => onMakeCall(contact.phone!)}
-                        className="gap-2 flex-1"
-                        data-testid="btn-call-primary"
-                      >
-                        <Phone className="h-4 w-4" />
-                        Zavolať
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Phone className="h-4 w-4" />
-                    <span>{isSipRegistered ? "Kontakt nemá telefónne číslo" : "SIP telefón nie je pripojený"}</span>
-                  </div>
-                )}
+          {phoneSubTab === "card" && contact && (
+            <ScrollArea className="flex-1">
+              <div className="p-4">
+                <CustomerForm
+                  key={contact.id}
+                  initialData={contact}
+                  onSubmit={(data) => onUpdateContact?.(data)}
+                  isLoading={isUpdatingContact}
+                  onCancel={() => setPhoneSubTab("details")}
+                />
               </div>
-            </>
+            </ScrollArea>
           )}
 
           {phoneSubTab === "details" && contact && (
@@ -2444,6 +2400,27 @@ export default function AgentWorkspacePage() {
     },
   });
 
+  const updateContactMutation = useMutation({
+    mutationFn: async (data: CustomerFormData) => {
+      if (!currentContact) throw new Error("No contact");
+      const serializedData = {
+        ...data,
+        dateOfBirth: data.dateOfBirth ? data.dateOfBirth.toISOString() : null,
+      };
+      return apiRequest("PATCH", `/api/customers/${currentContact.id}`, serializedData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      if (currentContact?.id) {
+        queryClient.invalidateQueries({ queryKey: ["/api/customers", currentContact.id] });
+      }
+      toast({ title: "Zákazník aktualizovaný" });
+    },
+    onError: () => {
+      toast({ title: "Chyba pri aktualizácii zákazníka", variant: "destructive" });
+    },
+  });
+
   if (!hasAccess) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -2757,6 +2734,8 @@ export default function AgentWorkspacePage() {
           onMakeCall={handleMakeCall}
           isSipRegistered={isSipRegistered}
           onOpenScriptModal={() => setScriptModalOpen(true)}
+          onUpdateContact={(data) => updateContactMutation.mutate(data)}
+          isUpdatingContact={updateContactMutation.isPending}
         />
 
         <CustomerInfoPanel
