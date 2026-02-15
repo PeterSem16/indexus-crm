@@ -592,6 +592,7 @@ export interface IStorage {
 
   // Campaign Contact History
   getCampaignContactHistory(campaignContactId: string): Promise<CampaignContactHistory[]>;
+  getCampaignContactHistoryByCustomer(customerId: string): Promise<(CampaignContactHistory & { campaignName?: string; campaignId?: string })[]>;
   createCampaignContactHistory(data: InsertCampaignContactHistory): Promise<CampaignContactHistory>;
 
   // Campaign Templates
@@ -3523,6 +3524,34 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(campaignContactHistory)
       .where(eq(campaignContactHistory.campaignContactId, campaignContactId))
       .orderBy(desc(campaignContactHistory.createdAt));
+  }
+
+  async getCampaignContactHistoryByCustomer(customerId: string): Promise<(CampaignContactHistory & { campaignName?: string; campaignId?: string })[]> {
+    const customerCampaignContacts = await db.select({ id: campaignContacts.id, campaignId: campaignContacts.campaignId })
+      .from(campaignContacts)
+      .where(eq(campaignContacts.customerId, customerId));
+    
+    if (customerCampaignContacts.length === 0) return [];
+    
+    const ccIds = customerCampaignContacts.map(cc => cc.id);
+    const campaignIds = [...new Set(customerCampaignContacts.map(cc => cc.campaignId))];
+    
+    const campaignList = campaignIds.length > 0
+      ? await db.select({ id: campaigns.id, name: campaigns.name }).from(campaigns).where(inArray(campaigns.id, campaignIds))
+      : [];
+    const campaignMap = new Map(campaignList.map(c => [c.id, c.name]));
+    
+    const ccCampaignMap = new Map(customerCampaignContacts.map(cc => [cc.id, cc.campaignId]));
+    
+    const history = await db.select().from(campaignContactHistory)
+      .where(inArray(campaignContactHistory.campaignContactId, ccIds))
+      .orderBy(desc(campaignContactHistory.createdAt));
+    
+    return history.map(h => ({
+      ...h,
+      campaignId: ccCampaignMap.get(h.campaignContactId) || undefined,
+      campaignName: campaignMap.get(ccCampaignMap.get(h.campaignContactId) || "") || undefined,
+    }));
   }
 
   async createCampaignContactHistory(data: InsertCampaignContactHistory): Promise<CampaignContactHistory> {

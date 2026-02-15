@@ -7728,6 +7728,110 @@ export async function registerRoutes(
     }
   });
 
+  // Comprehensive Contact History API - combines call logs, messages, campaign interactions
+  app.get("/api/customers/:customerId/contact-history", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.params.customerId;
+      
+      const [callLogsList, messages, campaignHistory, allUsers] = await Promise.all([
+        storage.getCallLogsByCustomer(customerId),
+        storage.getCommunicationMessagesByCustomer(customerId),
+        storage.getCampaignContactHistoryByCustomer(customerId),
+        storage.getUsers(),
+      ]);
+      
+      const userMap = new Map(allUsers.map(u => [u.id, `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.username]));
+      
+      const statusLabels: Record<string, string> = {
+        pending: "Čakajúci", contacted: "Kontaktovaný", completed: "Dokončený",
+        failed: "Neúspešný", no_answer: "Nedvíha", callback_scheduled: "Spätné volanie",
+        not_interested: "Nemá záujem",
+      };
+      
+      const callStatusLabels: Record<string, string> = {
+        initiated: "Začatý", ringing: "Zvonenie", answered: "Zodvihnutý",
+        completed: "Dokončený", failed: "Neúspešný", no_answer: "Nedvíha",
+        busy: "Obsadený", cancelled: "Zrušený",
+      };
+
+      const historyItems: any[] = [];
+
+      for (const call of callLogsList) {
+        const agentName = userMap.get(call.userId) || "Neznámy";
+        const duration = call.durationSeconds ? `${Math.floor(call.durationSeconds / 60)}:${String(call.durationSeconds % 60).padStart(2, "0")}` : null;
+        historyItems.push({
+          id: `call-${call.id}`,
+          type: "call",
+          direction: call.direction || "outbound",
+          timestamp: call.startedAt || call.createdAt,
+          status: callStatusLabels[call.status] || call.status,
+          statusCode: call.status,
+          agentName,
+          agentId: call.userId,
+          content: `Hovor ${call.direction === "inbound" ? "prichádzajúci" : "odchádzajúci"}: ${call.phoneNumber}`,
+          details: duration ? `Trvanie: ${duration}` : null,
+          duration: call.durationSeconds,
+          notes: call.notes,
+          campaignId: call.campaignId,
+        });
+      }
+
+      for (const msg of messages) {
+        const msgType = (msg as any).type === "sms" ? "sms" : "email";
+        historyItems.push({
+          id: `msg-${msg.id}`,
+          type: msgType,
+          direction: (msg as any).direction || "outbound",
+          timestamp: (msg as any).createdAt || (msg as any).sentAt,
+          status: ({ sent: "Odoslaný", delivered: "Doručený", read: "Prečítaný", failed: "Neúspešný", draft: "Koncept", received: "Prijatý" } as Record<string, string>)[(msg as any).status || "sent"] || (msg as any).status || "Odoslaný",
+          statusCode: (msg as any).status,
+          agentName: (msg as any).userId ? (userMap.get((msg as any).userId) || null) : null,
+          agentId: (msg as any).userId || null,
+          content: msgType === "email" 
+            ? ((msg as any).subject || "Email") 
+            : ((msg as any).content?.substring(0, 100) || "SMS"),
+          details: msgType === "email" ? (msg as any).content?.substring(0, 200) : null,
+        });
+      }
+
+      for (const h of campaignHistory) {
+        const agentName = userMap.get(h.userId) || "Neznámy";
+        const actionLabels: Record<string, string> = {
+          status_change: "Zmena statusu",
+          note_added: "Poznámka pridaná",
+          callback_set: "Spätné volanie nastavené",
+        };
+        
+        let content = actionLabels[h.action] || h.action;
+        if (h.action === "status_change" && h.previousStatus && h.newStatus) {
+          content = `${statusLabels[h.previousStatus] || h.previousStatus} → ${statusLabels[h.newStatus] || h.newStatus}`;
+        }
+        
+        historyItems.push({
+          id: `cch-${h.id}`,
+          type: "disposition",
+          timestamp: h.createdAt,
+          agentName,
+          agentId: h.userId,
+          content,
+          details: h.notes || null,
+          campaignName: h.campaignName || null,
+          campaignId: h.campaignId || null,
+          action: h.action,
+          previousStatus: h.previousStatus,
+          newStatus: h.newStatus,
+        });
+      }
+
+      historyItems.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      
+      res.json(historyItems);
+    } catch (error) {
+      console.error("Error fetching contact history:", error);
+      res.status(500).json({ error: "Failed to fetch contact history" });
+    }
+  });
+
   // Communication Messages API
   app.get("/api/customers/:customerId/messages", requireAuth, async (req, res) => {
     try {

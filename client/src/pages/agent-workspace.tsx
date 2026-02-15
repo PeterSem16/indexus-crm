@@ -93,7 +93,9 @@ import {
   Filter,
   ArrowUpDown,
   ListTodo,
+  ListChecks,
   Pencil,
+  UserCircle,
 } from "lucide-react";
 import {
   Dialog,
@@ -133,12 +135,22 @@ interface TaskItem {
 
 interface ContactHistory {
   id: string;
-  type: "call" | "email" | "sms";
-  direction: "inbound" | "outbound";
+  type: "call" | "email" | "sms" | "disposition";
+  direction?: "inbound" | "outbound";
   date: string;
   duration?: number;
-  status: string;
+  status?: string;
+  statusCode?: string;
   notes?: string;
+  agentName?: string;
+  agentId?: string;
+  content?: string;
+  details?: string;
+  campaignName?: string;
+  campaignId?: string;
+  action?: string;
+  previousStatus?: string;
+  newStatus?: string;
 }
 
 interface TimelineEntry {
@@ -1787,29 +1799,56 @@ function CustomerInfoPanel({
               </div>
             )}
             {contactHistory.map((item) => (
-              <div key={item.id} className="flex items-start gap-2.5 p-2.5 rounded-md bg-muted/30">
-                <div className={`p-1 rounded-full shrink-0 mt-0.5 ${
-                  item.type === "call" ? "bg-blue-100 dark:bg-blue-950/40" :
-                  item.type === "email" ? "bg-green-100 dark:bg-green-950/40" :
-                  "bg-orange-100 dark:bg-orange-950/40"
+              <div key={item.id} className="flex items-start gap-2.5 p-2.5 rounded-md bg-muted/30 border border-border/50" data-testid={`history-item-${item.id}`}>
+                <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full mt-0.5 ${
+                  item.type === "call" ? "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400" :
+                  item.type === "email" ? "bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400" :
+                  item.type === "sms" ? "bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400" :
+                  "bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400"
                 }`}>
-                  {item.type === "call" && <Phone className="h-3 w-3 text-blue-500" />}
-                  {item.type === "email" && <Mail className="h-3 w-3 text-green-500" />}
-                  {item.type === "sms" && <MessageSquare className="h-3 w-3 text-orange-500" />}
+                  {item.type === "call" && <Phone className="h-3.5 w-3.5" />}
+                  {item.type === "email" && <Mail className="h-3.5 w-3.5" />}
+                  {item.type === "sms" && <MessageSquare className="h-3.5 w-3.5" />}
+                  {item.type === "disposition" && <ListChecks className="h-3.5 w-3.5" />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium capitalize">{item.type}</span>
-                    <Badge variant="outline" className="text-[10px] py-0 px-1">
-                      {item.direction === "inbound" ? "Prichádz." : "Odchádz."}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <Badge variant="outline" className="text-[10px] h-5">
+                      {item.type === "call" ? "Hovor" : item.type === "email" ? "Email" : item.type === "sms" ? "SMS" : "Dispozícia"}
                     </Badge>
+                    {item.direction && (
+                      <Badge variant="secondary" className="text-[10px] h-5">
+                        {item.direction === "inbound" ? "Prichádz." : "Odchádz."}
+                      </Badge>
+                    )}
+                    {item.status && (
+                      <Badge variant="secondary" className="text-[10px] h-5">
+                        {item.status}
+                      </Badge>
+                    )}
                   </div>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                    {format(new Date(item.date), "d.M.yyyy HH:mm", { locale: sk })}
+                  <p className="text-xs text-foreground mt-1 line-clamp-2">
+                    {item.content || item.notes || "—"}
                   </p>
-                  {item.notes && (
-                    <p className="text-xs text-muted-foreground mt-1 truncate">{item.notes}</p>
+                  {item.details && (
+                    <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{item.details}</p>
                   )}
+                  {item.campaignName && (
+                    <p className="text-[10px] text-muted-foreground mt-0.5 italic">
+                      Kampaň: {item.campaignName}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-[10px] text-muted-foreground">
+                      {format(new Date(item.date), "d.M.yyyy HH:mm", { locale: sk })}
+                    </span>
+                    {item.agentName && (
+                      <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                        <UserCircle className="h-3 w-3" />
+                        {item.agentName}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
@@ -2246,16 +2285,37 @@ export default function AgentWorkspacePage() {
     enabled: !!currentContact?.id,
   });
 
+  const { data: persistentHistory = [] } = useQuery<any[]>({
+    queryKey: ["/api/customers", currentContact?.id, "contact-history"],
+    queryFn: async () => {
+      const res = await fetch(`/api/customers/${currentContact!.id}/contact-history`, { credentials: "include" });
+      return res.ok ? res.json() : [];
+    },
+    enabled: !!currentContact?.id,
+    refetchInterval: 30000,
+  });
+
   const contactHistory: ContactHistory[] = useMemo(() => {
-    return customerMessages.map((msg: any) => ({
-      id: msg.id,
-      type: msg.type === "sms" ? "sms" as const : "email" as const,
-      direction: msg.direction as "inbound" | "outbound",
-      date: msg.createdAt || msg.sentAt || new Date().toISOString(),
-      status: msg.status || "sent",
-      notes: msg.subject || msg.content?.substring(0, 80),
+    return persistentHistory.map((item: any) => ({
+      id: item.id,
+      type: item.type as ContactHistory["type"],
+      direction: item.direction,
+      date: item.timestamp || new Date().toISOString(),
+      duration: item.duration,
+      status: item.status,
+      statusCode: item.statusCode,
+      notes: item.notes,
+      agentName: item.agentName,
+      agentId: item.agentId,
+      content: item.content,
+      details: item.details,
+      campaignName: item.campaignName,
+      campaignId: item.campaignId,
+      action: item.action,
+      previousStatus: item.previousStatus,
+      newStatus: item.newStatus,
     }));
-  }, [customerMessages]);
+  }, [persistentHistory]);
 
   useEffect(() => {
     if (autoTimerRef.current) {
@@ -2334,6 +2394,9 @@ export default function AgentWorkspacePage() {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns/contact-counts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/agent/callbacks"] });
+      if (currentContact?.id) {
+        queryClient.invalidateQueries({ queryKey: ["/api/customers", currentContact.id, "contact-history"] });
+      }
     },
     onError: (error: Error) => {
       toast({ title: "Chyba", description: error.message, variant: "destructive" });
@@ -2427,6 +2490,7 @@ export default function AgentWorkspacePage() {
       if (variables.customerId) {
         queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "messages"] });
         queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "activity-logs"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "contact-history"] });
       }
     },
     onError: (error: Error) => {
@@ -2471,6 +2535,7 @@ export default function AgentWorkspacePage() {
       if (variables.customerId) {
         queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "messages"] });
         queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "activity-logs"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "contact-history"] });
       }
     },
     onError: (error: Error) => {
