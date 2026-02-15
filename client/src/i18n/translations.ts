@@ -1259,6 +1259,68 @@ export interface Translations {
       scriptGuideText: string;
       scriptGuideNotes: string;
       scriptGuideOutcome: string;
+      sortContactsBy: string;
+      sortByCreatedAt: string;
+      sortByDateOfBirth: string;
+      sortDirection: string;
+      sortDesc: string;
+      sortAsc: string;
+      dispAddResult: string;
+      defaultAgentTab: string;
+      defaultAgentTabDesc: string;
+      assignedOperators: string;
+      assignedOperatorsDesc: string;
+      noOperatorsAvailable: string;
+      assigned: string;
+      assign: string;
+      changeStatus: string;
+      customerHistory: string;
+      noHistory: string;
+      campaignJoined: string;
+      campaignLeft: string;
+      emailSent: string;
+      smsSent: string;
+      noteAdded: string;
+      dragFileHere: string;
+      orClickToSelect: string;
+      downloadSampleCsv: string;
+      expectedColumns: string;
+      supportedFormats: string;
+      updateExisting: string;
+      uploadingFile: string;
+      processingContacts: string;
+      created: string;
+      updated: string;
+      duplicates: string;
+      skipped: string;
+      deleteLastImport: string;
+      deleting: string;
+      close: string;
+      remove: string;
+      import: string;
+      kpiTracking: string;
+      kpiTrackingDesc: string;
+      current: string;
+      target: string;
+      targetRevenue: string;
+      revenueTrackingDesc: string;
+      dailyOperatorTargets: string;
+      callsPerDay: string;
+      contactsPerDay: string;
+      conversionsPerDay: string;
+      conversionRate: string;
+      successful: string;
+      notInterested: string;
+      preview: string;
+      textMode: string;
+      operatorPerformance: string;
+      operatorPerformanceDesc: string;
+      loadingOperatorStats: string;
+      operatorStatsError: string;
+      refreshPage: string;
+      dispositionsToday: string;
+      importing: string;
+      workingDays: string;
       weekdays: {
         mon: string;
         tue: string;
@@ -3986,6 +4048,68 @@ export const translations: Record<Locale, Translations> = {
         scriptGuideText: 'Text fields: For notes and free-form client responses',
         scriptGuideNotes: 'Notes: For important alerts and tips for the operator',
         scriptGuideOutcome: 'Call outcome: For recording the final call status',
+        sortContactsBy: 'Sort contacts by',
+        sortByCreatedAt: 'Created date',
+        sortByDateOfBirth: 'Expected date of birth',
+        sortDirection: 'Sort direction',
+        sortDesc: 'Newest first',
+        sortAsc: 'Oldest first',
+        dispAddResult: 'Add disposition',
+        defaultAgentTab: 'Default agent tab',
+        defaultAgentTabDesc: 'Select which tab opens for the operator when loading a contact',
+        assignedOperators: 'Assigned operators',
+        assignedOperatorsDesc: 'Select operators who will work on this campaign',
+        noOperatorsAvailable: 'No operators available. Create users with "Call Center" role first.',
+        assigned: 'Assigned',
+        assign: 'Assign',
+        changeStatus: 'Change status',
+        customerHistory: 'Customer history',
+        noHistory: 'No history',
+        campaignJoined: 'Joined campaign',
+        campaignLeft: 'Left campaign',
+        emailSent: 'Email sent',
+        smsSent: 'SMS sent',
+        noteAdded: 'Note added',
+        dragFileHere: 'Drag file here',
+        orClickToSelect: 'or click to select',
+        downloadSampleCsv: 'Download sample CSV',
+        expectedColumns: 'Expected columns:',
+        supportedFormats: 'Supported formats: CSV (semicolon or comma separated), Excel (.xlsx)',
+        updateExisting: 'Update existing contacts (overwrites data if contact already exists)',
+        uploadingFile: 'Uploading file...',
+        processingContacts: 'Processing contacts...',
+        created: 'Created',
+        updated: 'Updated',
+        duplicates: 'Duplicates',
+        skipped: 'Skipped',
+        deleteLastImport: 'Delete last import',
+        deleting: 'Deleting...',
+        close: 'Close',
+        remove: 'Remove',
+        import: 'Import',
+        kpiTracking: 'KPI target tracking',
+        kpiTrackingDesc: 'Track progress against campaign KPI targets',
+        current: 'Current',
+        target: 'Target',
+        targetRevenue: 'Target revenue',
+        revenueTrackingDesc: 'Revenue tracking requires billing system integration',
+        dailyOperatorTargets: 'Daily operator targets',
+        callsPerDay: 'Calls/day',
+        contactsPerDay: 'Contacts/day',
+        conversionsPerDay: 'Conversions/day',
+        conversionRate: 'Conversion rate',
+        successful: 'Successful',
+        notInterested: 'Not interested',
+        preview: 'Preview',
+        textMode: 'Text mode',
+        operatorPerformance: 'Operator performance',
+        operatorPerformanceDesc: 'Daily and total performance of operators working on this campaign',
+        loadingOperatorStats: 'Loading operator statistics...',
+        operatorStatsError: 'Failed to load operator statistics',
+        refreshPage: 'Try refreshing the page',
+        dispositionsToday: 'Today',
+        importing: 'Importing...',
+        workingDays: 'working days',
         weekdays: {
           mon: 'Mon',
           tue: 'Tue',
@@ -6698,6 +6822,14 @@ export const translations: Record<Locale, Translations> = {
         scriptGuideText: 'Textové polia: Pre poznámky a voľné odpovede klienta',
         scriptGuideNotes: 'Poznámky: Pre dôležité upozornenia a tipy pre operátora',
         scriptGuideOutcome: 'Výsledok hovoru: Pre záznam konečného stavu hovoru',
+        operatorPerformance: 'Výkon operátorov',
+        operatorPerformanceDesc: 'Denný a celkový výkon operátorov pracujúcich na tejto kampani',
+        loadingOperatorStats: 'Načítavam štatistiky operátorov...',
+        operatorStatsError: 'Nepodarilo sa načítať štatistiky operátorov',
+        refreshPage: 'Skúste obnoviť stránku',
+        dispositionsToday: 'Dnes',
+        importing: 'Importujem...',
+        workingDays: 'pracovných dní',
         weekdays: {
           mon: 'Po',
           tue: 'Ut',
@@ -9395,6 +9527,14 @@ export const translations: Record<Locale, Translations> = {
         scriptGuideText: 'Textová pole: Pro poznámky a volné odpovědi klienta',
         scriptGuideNotes: 'Poznámky: Pro důležitá upozornění a tipy pro operátora',
         scriptGuideOutcome: 'Výsledek hovoru: Pro záznam konečného stavu hovoru',
+        operatorPerformance: 'Výkon operátorů',
+        operatorPerformanceDesc: 'Denní a celkový výkon operátorů pracujících na této kampani',
+        loadingOperatorStats: 'Načítám statistiky operátorů...',
+        operatorStatsError: 'Nepodařilo se načíst statistiky operátorů',
+        refreshPage: 'Zkuste obnovit stránku',
+        dispositionsToday: 'Dnes',
+        importing: 'Importuji...',
+        workingDays: 'pracovních dní',
         weekdays: {
           mon: 'Po',
           tue: 'Út',
@@ -12055,6 +12195,14 @@ export const translations: Record<Locale, Translations> = {
         scriptGuideText: 'Szövegmezők: Jegyzetekhez és szabad válaszokhoz',
         scriptGuideNotes: 'Jegyzetek: Fontos figyelmeztetésekhez és tippekhez',
         scriptGuideOutcome: 'Hívás eredménye: A végső hívási állapot rögzítéséhez',
+        operatorPerformance: 'Operátor teljesítmény',
+        operatorPerformanceDesc: 'Az ezen a kampányon dolgozó operátorok napi és összesített teljesítménye',
+        loadingOperatorStats: 'Operátor statisztikák betöltése...',
+        operatorStatsError: 'Nem sikerült betölteni az operátor statisztikákat',
+        refreshPage: 'Próbálja meg frissíteni az oldalt',
+        dispositionsToday: 'Ma',
+        importing: 'Importálás...',
+        workingDays: 'munkanap',
         weekdays: {
           mon: 'Hé',
           tue: 'Ke',
@@ -14714,6 +14862,14 @@ export const translations: Record<Locale, Translations> = {
         scriptGuideText: 'Câmpuri text: Pentru note și răspunsuri libere ale clientului',
         scriptGuideNotes: 'Note: Pentru alerte importante și sfaturi pentru operator',
         scriptGuideOutcome: 'Rezultatul apelului: Pentru înregistrarea stării finale a apelului',
+        operatorPerformance: 'Performanța operatorilor',
+        operatorPerformanceDesc: 'Performanța zilnică și totală a operatorilor care lucrează la această campanie',
+        loadingOperatorStats: 'Se încarcă statisticile operatorilor...',
+        operatorStatsError: 'Nu s-au putut încărca statisticile operatorilor',
+        refreshPage: 'Încercați să reîmprospătați pagina',
+        dispositionsToday: 'Azi',
+        importing: 'Se importă...',
+        workingDays: 'zile lucrătoare',
         weekdays: {
           mon: 'Lu',
           tue: 'Ma',
@@ -17374,6 +17530,14 @@ export const translations: Record<Locale, Translations> = {
         scriptGuideText: 'Campi di testo: Per note e risposte libere del cliente',
         scriptGuideNotes: 'Note: Per avvisi importanti e suggerimenti per l\'operatore',
         scriptGuideOutcome: 'Esito della chiamata: Per registrare lo stato finale della chiamata',
+        operatorPerformance: 'Prestazioni operatore',
+        operatorPerformanceDesc: 'Prestazioni giornaliere e totali degli operatori che lavorano su questa campagna',
+        loadingOperatorStats: 'Caricamento statistiche operatori...',
+        operatorStatsError: 'Impossibile caricare le statistiche degli operatori',
+        refreshPage: 'Prova ad aggiornare la pagina',
+        dispositionsToday: 'Oggi',
+        importing: 'Importazione...',
+        workingDays: 'giorni lavorativi',
         weekdays: {
           mon: 'Lun',
           tue: 'Mar',
@@ -20034,6 +20198,14 @@ export const translations: Record<Locale, Translations> = {
         scriptGuideText: 'Textfelder: Für Notizen und freie Kundenantworten',
         scriptGuideNotes: 'Hinweise: Für wichtige Warnungen und Tipps für den Operator',
         scriptGuideOutcome: 'Anrufergebnis: Für die Erfassung des endgültigen Anrufstatus',
+        operatorPerformance: 'Operatorleistung',
+        operatorPerformanceDesc: 'Tägliche und Gesamtleistung der Operatoren in dieser Kampagne',
+        loadingOperatorStats: 'Lade Operator-Statistiken...',
+        operatorStatsError: 'Operator-Statistiken konnten nicht geladen werden',
+        refreshPage: 'Versuchen Sie die Seite zu aktualisieren',
+        dispositionsToday: 'Heute',
+        importing: 'Importiere...',
+        workingDays: 'Arbeitstage',
         weekdays: {
           mon: 'Mo',
           tue: 'Di',

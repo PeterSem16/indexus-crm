@@ -151,9 +151,9 @@ function CampaignForm({
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>{t.campaigns?.campaignName || "Názov kampane"}</FormLabel>
+              <FormLabel>{t.campaigns.campaignName}</FormLabel>
               <FormControl>
-                <Input placeholder={t.campaigns?.campaignName || "Názov kampane"} {...field} data-testid="input-campaign-name" />
+                <Input placeholder={t.campaigns.campaignName} {...field} data-testid="input-campaign-name" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -165,10 +165,10 @@ function CampaignForm({
           name="description"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>{t.campaigns?.description || "Popis"}</FormLabel>
+              <FormLabel>{t.campaigns.description}</FormLabel>
               <FormControl>
                 <Textarea 
-                  placeholder={t.campaigns?.description || "Popis"} 
+                  placeholder={t.campaigns.description} 
                   {...field} 
                   data-testid="input-campaign-description"
                 />
@@ -184,11 +184,11 @@ function CampaignForm({
             name="type"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>{t.campaigns?.type || "Typ"}</FormLabel>
+                <FormLabel>{t.campaigns.type}</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>
                     <SelectTrigger data-testid="select-campaign-type">
-                      <SelectValue placeholder={t.campaigns?.selectType || "Vybrať typ"} />
+                      <SelectValue placeholder={t.campaigns.selectType} />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
@@ -209,11 +209,11 @@ function CampaignForm({
             name="channel"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>{t.campaigns?.channel || "Kanál"}</FormLabel>
+                <FormLabel>{t.campaigns.channel}</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>
                     <SelectTrigger data-testid="select-campaign-channel">
-                      <SelectValue placeholder={t.campaigns?.selectChannel || "Vybrať kanál"} />
+                      <SelectValue placeholder={t.campaigns.selectChannel} />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
@@ -258,11 +258,11 @@ function CampaignForm({
             name="status"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>{t.campaigns?.status || "Status"}</FormLabel>
+                <FormLabel>{t.campaigns.status}</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>
                     <SelectTrigger data-testid="select-campaign-status">
-                      <SelectValue placeholder={t.campaigns?.selectStatus || "Vybrať status"} />
+                      <SelectValue placeholder={t.campaigns.selectStatus} />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
@@ -285,7 +285,7 @@ function CampaignForm({
             name="startDate"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>{t.campaigns?.startDate || "Dátum začiatku"}</FormLabel>
+                <FormLabel>{t.campaigns.startDate}</FormLabel>
                 <FormControl>
                   <Input type="date" {...field} data-testid="input-campaign-start-date" />
                 </FormControl>
@@ -299,7 +299,7 @@ function CampaignForm({
             name="endDate"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>{t.campaigns?.endDate || "Dátum ukončenia"}</FormLabel>
+                <FormLabel>{t.campaigns.endDate}</FormLabel>
                 <FormControl>
                   <Input type="date" {...field} data-testid="input-campaign-end-date" />
                 </FormControl>
@@ -314,7 +314,7 @@ function CampaignForm({
           name="countryCodes"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>{t.campaigns?.targetCountries || "Cieľové krajiny"}</FormLabel>
+              <FormLabel>{t.campaigns.targetCountries}</FormLabel>
               <div className="grid grid-cols-4 gap-2">
                 {COUNTRIES.map((country) => (
                   <div key={country.code} className="flex items-center gap-2">
@@ -549,11 +549,11 @@ function AgentWorkspaceAccessTab() {
       return apiRequest("POST", `/api/campaigns/${campaignId}/agents`, { userIds: newAgents });
     },
     onSuccess: () => {
-      toast({ title: "Agent bol priradený ku kampani" });
+      toast({ title: t.campaigns.agentAssigned });
       queryClient.invalidateQueries({ queryKey: ["/api/campaign-agents"] });
     },
     onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa priradiť agenta", variant: "destructive" });
+      toast({ title: t.common.error, description: t.campaigns.assignError, variant: "destructive" });
     },
   });
 
@@ -562,11 +562,11 @@ function AgentWorkspaceAccessTab() {
       return apiRequest("DELETE", `/api/campaigns/${campaignId}/agents/${userId}`);
     },
     onSuccess: () => {
-      toast({ title: "Agent bol odobraný z kampane" });
+      toast({ title: t.campaigns.agentRemoved });
       queryClient.invalidateQueries({ queryKey: ["/api/campaign-agents"] });
     },
     onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa odobrať agenta", variant: "destructive" });
+      toast({ title: t.common.error, description: t.campaigns.removeError, variant: "destructive" });
     },
   });
 
@@ -589,7 +589,7 @@ function AgentWorkspaceAccessTab() {
       }
     }
     queryClient.invalidateQueries({ queryKey: ["/api/campaign-agents"] });
-    toast({ title: "Agent bol priradený ku všetkým kampaniam" });
+    toast({ title: t.campaigns.agentAssignedAll });
   };
 
   const removeAllCampaigns = async (userId: string) => {
@@ -598,7 +598,7 @@ function AgentWorkspaceAccessTab() {
       await apiRequest("DELETE", `/api/campaigns/${campaignId}/agents/${userId}`);
     }
     queryClient.invalidateQueries({ queryKey: ["/api/campaign-agents"] });
-    toast({ title: "Agent bol odobraný zo všetkých kampaní" });
+    toast({ title: t.campaigns.agentRemovedAll });
   };
 
   const getChannelIcon = (channel: string) => {
@@ -636,7 +636,7 @@ function AgentWorkspaceAccessTab() {
             Prístup agentov ku kampaniam
           </CardTitle>
           <CardDescription>
-            Priraďte kampane jednotlivým call center agentom. Agenti uvidia len kampane, ktoré sú im priradené.
+            {t.campaigns.detail.operatorAssignmentDesc}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -674,7 +674,7 @@ function AgentWorkspaceAccessTab() {
                         </div>
                         <div className="flex items-center gap-3">
                           <Badge variant={agentCampaigns.length > 0 ? "default" : "secondary"}>
-                            {agentCampaigns.length} {agentCampaigns.length === 1 ? 'kampaň' : agentCampaigns.length < 5 ? 'kampane' : 'kampaní'}
+                            {agentCampaigns.length} {t.campaigns.title.toLowerCase()}
                           </Badge>
                           {isExpanded ? (
                             <ChevronUp className="w-4 h-4 text-muted-foreground" />
@@ -688,7 +688,7 @@ function AgentWorkspaceAccessTab() {
                     {isExpanded && (
                       <div className="border-t bg-muted/20 p-4">
                         <div className="flex items-center justify-between mb-4">
-                          <span className="text-sm font-medium">Priradené kampane</span>
+                          <span className="text-sm font-medium">{t.campaigns.agentsAssigned}</span>
                           <div className="flex gap-2">
                             <Button
                               variant="outline"
@@ -715,7 +715,7 @@ function AgentWorkspaceAccessTab() {
                         
                         {allCampaigns.length === 0 ? (
                           <p className="text-sm text-muted-foreground text-center py-4">
-                            Žiadne kampane nie sú k dispozícii.
+                            {t.campaigns.noCampaigns}
                           </p>
                         ) : (
                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -821,10 +821,10 @@ export default function CampaignsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
       setIsDialogOpen(false);
-      toast({ title: t.campaigns?.created || "Kampaň vytvorená" });
+      toast({ title: t.campaigns.created });
     },
     onError: () => {
-      toast({ title: "Chyba", variant: "destructive" });
+      toast({ title: t.common.error, variant: "destructive" });
     },
   });
 
@@ -835,10 +835,10 @@ export default function CampaignsPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
       setIsDialogOpen(false);
       setEditingCampaign(null);
-      toast({ title: t.campaigns?.updated || "Kampaň aktualizovaná" });
+      toast({ title: t.campaigns.updated });
     },
     onError: () => {
-      toast({ title: "Chyba", variant: "destructive" });
+      toast({ title: t.common.error, variant: "destructive" });
     },
   });
 
@@ -847,10 +847,10 @@ export default function CampaignsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
       setDeletingCampaign(null);
-      toast({ title: t.campaigns?.deleted || "Kampaň zmazaná" });
+      toast({ title: t.campaigns.deleted });
     },
     onError: () => {
-      toast({ title: "Chyba", variant: "destructive" });
+      toast({ title: t.common.error, variant: "destructive" });
     },
   });
 
@@ -861,10 +861,10 @@ export default function CampaignsPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", agentsDialogCampaign?.id, "agents"] });
       setAgentsDialogCampaign(null);
       setSelectedAgentIds([]);
-      toast({ title: "Agenti priradení" });
+      toast({ title: t.campaigns.agentsAssigned });
     },
     onError: () => {
-      toast({ title: "Chyba pri priraďovaní agentov", variant: "destructive" });
+      toast({ title: t.campaigns.assignAgentError, variant: "destructive" });
     },
   });
 
@@ -912,7 +912,7 @@ export default function CampaignsPage() {
     };
     const config = variants[status] || variants.draft;
     const Icon = config.icon;
-    const statusLabels = t.campaigns?.statuses as Record<string, string> | undefined;
+    const statusLabels = t.campaigns.statuses as Record<string, string>;
     return (
       <Badge variant={config.variant} className="gap-1">
         <Icon className="h-3 w-3" />
@@ -922,7 +922,7 @@ export default function CampaignsPage() {
   };
 
   const getTypeBadge = (type: string) => {
-    const typeLabels = t.campaigns?.types as Record<string, string> | undefined;
+    const typeLabels = t.campaigns.types as Record<string, string>;
     return (
       <Badge variant="outline">
         {typeLabels?.[type] || type}
@@ -985,7 +985,7 @@ export default function CampaignsPage() {
   const columns = [
     {
       key: "name",
-      header: t.campaigns?.campaignName || "Názov",
+      header: t.campaigns.campaignName,
       cell: (campaign: Campaign) => (
         <div>
           <div className="font-medium">{campaign.name}</div>
@@ -995,12 +995,12 @@ export default function CampaignsPage() {
     },
     {
       key: "type",
-      header: t.campaigns?.type || "Typ",
+      header: t.campaigns.type,
       cell: (campaign: Campaign) => getTypeBadge(campaign.type),
     },
     {
       key: "channel",
-      header: (t.campaigns as any)?.channel || "Kanál",
+      header: t.campaigns.channel,
       cell: (campaign: Campaign) => {
         const channelConfig: Record<string, { icon: typeof Phone; label: string; color: string }> = {
           phone: { icon: Phone, label: "Telefón", color: "text-blue-500" },
@@ -1013,19 +1013,19 @@ export default function CampaignsPage() {
         return (
           <Badge variant="outline" className="gap-1">
             <Icon className={`h-3 w-3 ${config.color}`} />
-            {(t.campaigns as any)?.channels?.[campaign.channel || "phone"] || config.label}
+            {(t.campaigns.channels as Record<string, string>)[campaign.channel || "phone"] || config.label}
           </Badge>
         );
       },
     },
     {
       key: "status",
-      header: t.campaigns?.status || "Status",
+      header: t.campaigns.status,
       cell: (campaign: Campaign) => getStatusBadge(campaign.status),
     },
     {
       key: "countryCodes",
-      header: t.campaigns?.targetCountries || "Krajiny",
+      header: t.campaigns.targetCountries,
       cell: (campaign: Campaign) => (
         <div className="flex gap-1 flex-wrap">
           {campaign.countryCodes?.map((code) => {
@@ -1041,7 +1041,7 @@ export default function CampaignsPage() {
     },
     {
       key: "dates",
-      header: t.campaigns?.dates || "Dátumy",
+      header: t.campaigns.dates,
       cell: (campaign: Campaign) => (
         <div className="text-sm text-muted-foreground">
           {campaign.startDate && format(new Date(campaign.startDate), "dd.MM.yyyy")}
@@ -1091,8 +1091,8 @@ export default function CampaignsPage() {
   return (
     <div className="flex flex-col h-full">
       <PageHeader
-        title={t.campaigns?.title || "Kampane"}
-        description={t.campaigns?.description || "Správa marketingových a predajných kampaní"}
+        title={t.campaigns.title}
+        description={t.campaigns.description}
       >
         {activeTab === "campaigns" && (
           <div className="flex gap-2 flex-wrap">
@@ -1106,7 +1106,7 @@ export default function CampaignsPage() {
             </Button>
             <Button onClick={() => setIsDialogOpen(true)} data-testid="button-add-campaign" data-tour="create-campaign">
               <Plus className="h-4 w-4 mr-2" />
-              {t.campaigns?.addCampaign || "Pridať kampaň"}
+              {t.campaigns.addCampaign}
             </Button>
           </div>
         )}
@@ -1132,7 +1132,7 @@ export default function CampaignsPage() {
               <div className="relative flex-1 max-w-sm">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder={t.campaigns?.searchPlaceholder || "Hľadať kampane..."}
+                  placeholder={t.campaigns.searchPlaceholder}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="pl-10"
@@ -1164,7 +1164,7 @@ export default function CampaignsPage() {
                   columns={columns}
                   data={filteredCampaigns}
                   isLoading={isLoading}
-                  emptyMessage={t.campaigns?.noCampaigns || "Žiadne kampane"}
+                  emptyMessage={t.campaigns.noCampaigns}
                   getRowKey={(campaign) => campaign.id}
                   onRowClick={(campaign) => setLocation(`/campaigns/${campaign.id}`)}
                 />
@@ -1194,13 +1194,13 @@ export default function CampaignsPage() {
           <DialogHeader>
             <DialogTitle>
               {editingCampaign 
-                ? (t.campaigns?.editCampaign || "Upraviť kampaň")
-                : (t.campaigns?.addCampaign || "Pridať kampaň")}
+                ? t.campaigns.editCampaign
+                : t.campaigns.addCampaign}
             </DialogTitle>
             <DialogDescription>
               {editingCampaign 
-                ? (t.campaigns?.editCampaignDesc || "Aktualizovať údaje kampane")
-                : (t.campaigns?.addCampaignDesc || "Vytvoriť novú marketingovú alebo predajnú kampaň")}
+                ? t.campaigns.editCampaignDesc
+                : t.campaigns.addCampaignDesc}
             </DialogDescription>
           </DialogHeader>
           
@@ -1251,9 +1251,9 @@ export default function CampaignsPage() {
       <AlertDialog open={!!deletingCampaign} onOpenChange={() => setDeletingCampaign(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t.campaigns?.deleteCampaign || "Zmazať kampaň"}</AlertDialogTitle>
+            <AlertDialogTitle>{t.campaigns.deleteCampaign}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t.campaigns?.deleteConfirm || "Naozaj chcete zmazať túto kampaň? Túto akciu nie je možné vrátiť späť."}
+              {t.campaigns.deleteConfirm}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1412,7 +1412,7 @@ export default function CampaignsPage() {
               }}
               data-testid="button-close-comparison"
             >
-              Zavrieť
+              {t.common.close}
             </Button>
           </div>
         </DialogContent>
@@ -1477,7 +1477,7 @@ export default function CampaignsPage() {
               }}
               data-testid="button-cancel-agents"
             >
-              Zrušiť
+              {t.common.cancel}
             </Button>
             <Button 
               onClick={() => {
@@ -1491,7 +1491,7 @@ export default function CampaignsPage() {
               disabled={updateAgentsMutation.isPending}
               data-testid="button-save-agents"
             >
-              {updateAgentsMutation.isPending ? "Ukladám..." : "Uložiť"}
+              {updateAgentsMutation.isPending ? t.common.saving : t.common.save}
             </Button>
           </div>
         </DialogContent>

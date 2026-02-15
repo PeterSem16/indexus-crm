@@ -171,12 +171,12 @@ function CriteriaCard({ campaign }: { campaign: Campaign }) {
       });
     },
     onSuccess: () => {
-      toast({ title: t.common?.saved || "Kritériá uložené" });
+      toast({ title: t.campaigns.detail.settingsSaved });
       setHasChanges(false);
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
     },
     onError: () => {
-      toast({ title: "Chyba pri ukladaní kritérií", variant: "destructive" });
+      toast({ title: t.campaigns.detail.error, variant: "destructive" });
     },
   });
 
@@ -190,9 +190,9 @@ function CriteriaCard({ campaign }: { campaign: Campaign }) {
       <CardHeader>
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div>
-            <CardTitle>{t.campaigns?.detail?.targetCriteria || "Cieľové kritériá"}</CardTitle>
+            <CardTitle>{t.campaigns.detail.targetCriteria}</CardTitle>
             <CardDescription>
-              {t.campaigns?.detail?.targetCriteriaDesc || "Definujte, ktorí zákazníci majú byť zahrnutí do tejto kampane"}
+              {t.campaigns.detail.targetCriteriaDesc}
             </CardDescription>
           </div>
           {hasChanges && (
@@ -201,7 +201,7 @@ function CriteriaCard({ campaign }: { campaign: Campaign }) {
               disabled={saveCriteriaMutation.isPending}
               data-testid="button-save-criteria"
             >
-              {saveCriteriaMutation.isPending ? (t.common?.saving || "Ukladám...") : (t.common?.save || "Uložiť")}
+              {saveCriteriaMutation.isPending ? t.campaigns.detail.saving : t.common.save}
             </Button>
           )}
         </div>
@@ -218,6 +218,7 @@ function CriteriaCard({ campaign }: { campaign: Campaign }) {
 }
 
 function AutoModeCard({ campaign }: { campaign: Campaign }) {
+  const { t } = useI18n();
   const { toast } = useToast();
   const [autoMode, setAutoMode] = useState(false);
   const [autoDelaySeconds, setAutoDelaySeconds] = useState(5);
@@ -249,12 +250,12 @@ function AutoModeCard({ campaign }: { campaign: Campaign }) {
       });
     },
     onSuccess: () => {
-      toast({ title: "Nastavenia uložené" });
+      toast({ title: t.campaigns.detail.settingsSaved });
       setHasChanges(false);
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
     },
     onError: () => {
-      toast({ title: "Chyba pri ukladaní", variant: "destructive" });
+      toast({ title: t.campaigns.detail.error, variant: "destructive" });
     },
   });
 
@@ -263,9 +264,9 @@ function AutoModeCard({ campaign }: { campaign: Campaign }) {
       <CardHeader>
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div>
-            <CardTitle>Režim prideľovania kontaktov</CardTitle>
+            <CardTitle>{t.campaigns.detail.autoMode}</CardTitle>
             <CardDescription>
-              Nastavte automatické prideľovanie kontaktov operátorom
+              {t.campaigns.detail.autoModeDesc}
             </CardDescription>
           </div>
           {hasChanges && (
@@ -274,7 +275,7 @@ function AutoModeCard({ campaign }: { campaign: Campaign }) {
               disabled={saveAutoModeMutation.isPending}
               data-testid="button-save-auto-mode"
             >
-              {saveAutoModeMutation.isPending ? "Ukladám..." : "Uložiť"}
+              {saveAutoModeMutation.isPending ? t.campaigns.detail.saving : t.common.save}
             </Button>
           )}
         </div>
@@ -286,7 +287,7 @@ function AutoModeCard({ campaign }: { campaign: Campaign }) {
             onCheckedChange={(checked) => { setAutoMode(checked); setHasChanges(true); }}
             data-testid="switch-auto-mode"
           />
-          <Label className="text-sm font-medium">Automatický režim</Label>
+          <Label className="text-sm font-medium">{t.campaigns.detail.autoMode}</Label>
         </div>
         {autoMode && (
           <div className="space-y-4 pl-1">
@@ -303,27 +304,27 @@ function AutoModeCard({ campaign }: { campaign: Campaign }) {
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-sm">Radiť kontakty podľa</Label>
+              <Label className="text-sm">{t.campaigns.detail.sortContactsBy}</Label>
               <Select value={contactSortField} onValueChange={(v) => { setContactSortField(v); setHasChanges(true); }}>
                 <SelectTrigger className="w-64" data-testid="select-sort-field">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="createdAt">Dátum vytvorenia</SelectItem>
-                  <SelectItem value="dateOfBirth">Očakávaný dátum pôrodu</SelectItem>
-                  <SelectItem value="priorityScore">Priorita</SelectItem>
+                  <SelectItem value="createdAt">{t.campaigns.detail.sortByCreatedAt}</SelectItem>
+                  <SelectItem value="dateOfBirth">{t.campaigns.detail.sortByDateOfBirth}</SelectItem>
+                  <SelectItem value="priorityScore">{t.campaigns.detail.priority}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-sm">Smer radenia</Label>
+              <Label className="text-sm">{t.campaigns.detail.sortDirection}</Label>
               <Select value={contactSortOrder} onValueChange={(v) => { setContactSortOrder(v); setHasChanges(true); }}>
                 <SelectTrigger className="w-64" data-testid="select-sort-order">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="desc">Od najnovšieho</SelectItem>
-                  <SelectItem value="asc">Od najstaršieho</SelectItem>
+                  <SelectItem value="desc">{t.campaigns.detail.sortDesc}</SelectItem>
+                  <SelectItem value="asc">{t.campaigns.detail.sortAsc}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -358,12 +359,12 @@ function SchedulingCard({ campaign }: { campaign: Campaign }) {
       });
     },
     onSuccess: () => {
-      toast({ title: t.common?.saved || "Rozvrh uložený" });
+      toast({ title: t.campaigns.detail.scheduleSaved });
       setHasChanges(false);
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
     },
     onError: () => {
-      toast({ title: "Chyba pri ukladaní rozvrhu", variant: "destructive" });
+      toast({ title: t.campaigns.detail.scheduleError, variant: "destructive" });
     },
   });
 
@@ -377,9 +378,9 @@ function SchedulingCard({ campaign }: { campaign: Campaign }) {
       <CardHeader>
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div>
-            <CardTitle>{t.campaigns?.detail?.scheduling || "Plánovanie"}</CardTitle>
+            <CardTitle>{t.campaigns.detail.scheduling}</CardTitle>
             <CardDescription>
-              {t.campaigns?.detail?.schedulingDesc || "Nastavte pracovné hodiny a limity frekvencie kontaktovania"}
+              {t.campaigns.detail.schedulingDesc}
             </CardDescription>
           </div>
           {hasChanges && (
@@ -388,7 +389,7 @@ function SchedulingCard({ campaign }: { campaign: Campaign }) {
               disabled={saveScheduleMutation.isPending}
               data-testid="button-save-schedule"
             >
-              {saveScheduleMutation.isPending ? (t.common?.saving || "Ukladám...") : (t.common?.save || "Uložiť")}
+              {saveScheduleMutation.isPending ? t.campaigns.detail.saving : t.common.save}
             </Button>
           )}
         </div>
@@ -436,6 +437,7 @@ function KpiTargetField({
 }
 
 function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
+  const { t } = useI18n();
   const { toast } = useToast();
   const [targets, setTargets] = useState({
     campaignTotalContactsTarget: 0,
@@ -476,12 +478,12 @@ function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
       });
     },
     onSuccess: () => {
-      toast({ title: "KPI ciele uložené" });
+      toast({ title: t.campaigns.detail.settingsSaved });
       setHasChanges(false);
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
     },
     onError: () => {
-      toast({ title: "Chyba pri ukladaní", variant: "destructive" });
+      toast({ title: t.campaigns.detail.error, variant: "destructive" });
     },
   });
 
@@ -496,10 +498,10 @@ function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
         <div>
           <h3 className="text-lg font-semibold flex items-center gap-2">
             <Target className="w-5 h-5" />
-            KPI Ciele
+            {t.campaigns.detail.kpiTargets}
           </h3>
           <p className="text-sm text-muted-foreground">
-            Nastavte cieľové hodnoty pre celú kampaň aj pre jednotlivých operátorov
+            {t.campaigns.detail.kpiTotalContactsDesc}
           </p>
         </div>
         {hasChanges && (
@@ -508,7 +510,7 @@ function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
             disabled={saveKpiMutation.isPending}
             data-testid="button-save-kpi"
           >
-            {saveKpiMutation.isPending ? "Ukladám..." : "Uložiť KPI ciele"}
+            {saveKpiMutation.isPending ? t.campaigns.detail.saving : t.common.save}
           </Button>
         )}
       </div>
@@ -517,30 +519,30 @@ function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <BarChart3 className="w-5 h-5" />
-            Celkové ciele kampane
+            {t.campaigns.detail.kpiTargets}
           </CardTitle>
           <CardDescription>
-            Hlavné ukazovatele úspešnosti celej kampane. Tieto ciele sa sledujú v prehľade reportov.
+            {t.campaigns.detail.kpiTotalContactsDesc}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <KpiTargetField
               icon={Users}
-              label="Celkový počet kontaktov na spracovanie"
-              description="Koľko kontaktov chcete spracovať počas trvania kampane"
-              hint="Napr. 1000 kontaktov = celá databáza pre danú krajinu"
+              label={t.campaigns.detail.kpiTotalContacts}
+              description={t.campaigns.detail.kpiTotalContactsDesc}
+              hint=""
               value={targets.campaignTotalContactsTarget}
               onChange={(v) => updateTarget("campaignTotalContactsTarget", v)}
-              unit="kontaktov"
+              unit=""
               max={100000}
               testId="input-campaign-total-contacts"
             />
             <KpiTargetField
               icon={CheckCircle}
-              label="Cieľová miera dokončenia (%)"
-              description="Percento kontaktov, ktoré musia byť úspešne spracované"
-              hint="Bežná hodnota: 70-90% podľa typu kampane"
+              label={t.campaigns.detail.completionRate}
+              description=""
+              hint=""
               value={targets.campaignCompletionTarget}
               onChange={(v) => updateTarget("campaignCompletionTarget", v)}
               unit="%"
@@ -549,9 +551,9 @@ function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
             />
             <KpiTargetField
               icon={Target}
-              label="Cieľový konverzný pomer (%)"
-              description="Percento kontaktov, ktoré vedú ku konverzii (podpis zmluvy, objednávka)"
-              hint="Bežná hodnota: 5-20% podľa produktu a cieľovej skupiny"
+              label={t.campaigns.detail.kpiMinConversionRate}
+              description={t.campaigns.detail.kpiMinConversionRateDesc}
+              hint=""
               value={targets.campaignConversionTarget}
               onChange={(v) => updateTarget("campaignConversionTarget", v)}
               unit="%"
@@ -560,9 +562,9 @@ function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
             />
             <KpiTargetField
               icon={Flag}
-              label="Cieľový výnos kampane"
-              description="Očakávaný finančný výnos z kampane"
-              hint="Celková suma objednávok/zmlúv generovaných kampaňou"
+              label={t.campaigns.detail.kpiTargetRevenue}
+              description={t.campaigns.detail.kpiTargetRevenueDesc}
+              hint=""
               value={targets.campaignRevenueTarget}
               onChange={(v) => updateTarget("campaignRevenueTarget", v)}
               unit="EUR"
@@ -571,12 +573,12 @@ function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
             />
             <KpiTargetField
               icon={Calendar}
-              label="Plánované trvanie kampane"
-              description="Počet pracovných dní na dokončenie kampane"
-              hint="Zohľadňuje sa pri výpočte denných cieľov operátorov"
+              label={t.campaigns.detail.kpiPlannedDuration}
+              description={t.campaigns.detail.kpiPlannedDurationDesc}
+              hint={t.campaigns.detail.kpiPlannedDurationHint}
               value={targets.campaignDurationDays}
               onChange={(v) => updateTarget("campaignDurationDays", v)}
-              unit="dní"
+              unit={t.common.days}
               max={365}
               testId="input-campaign-duration"
             />
@@ -588,52 +590,52 @@ function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <User className="w-5 h-5" />
-            Ciele na operátora (denne)
+            {t.campaigns.detail.operator}
           </CardTitle>
           <CardDescription>
-            Individuálne denné ciele pre každého operátora. Tieto metriky sa sledujú v reálnom čase v pracovnom priestore agenta.
+            {t.campaigns.detail.kpiDailyCallTarget}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <KpiTargetField
               icon={Phone}
-              label="Denný cieľ hovorov"
-              description="Minimálny počet hovorov (úspešných aj neúspešných), ktoré musí operátor uskutočniť"
-              hint="Bežná hodnota: 50-80 hovorov za 8-hodinovú smenu"
+              label={t.campaigns.detail.kpiDailyCallTarget}
+              description=""
+              hint=""
               value={targets.agentDailyCallsTarget}
               onChange={(v) => updateTarget("agentDailyCallsTarget", v)}
-              unit="hovorov/deň"
+              unit=""
               max={500}
               testId="input-agent-daily-calls"
             />
             <KpiTargetField
               icon={UserCheck}
-              label="Denný cieľ úspešných kontaktov"
-              description="Počet kontaktov, kde sa operátor skutočne dohovorí s klientom (nie nedvíha, obsadené)"
-              hint="Bežná hodnota: 20-40 úspešných kontaktov za smenu"
+              label={t.campaigns.detail.kpiDailyContactTarget}
+              description=""
+              hint=""
               value={targets.agentDailyContactsTarget}
               onChange={(v) => updateTarget("agentDailyContactsTarget", v)}
-              unit="kontaktov/deň"
+              unit=""
               max={500}
               testId="input-agent-daily-contacts"
             />
             <KpiTargetField
               icon={Star}
-              label="Denný cieľ konverzií"
-              description="Počet úspešných konverzií (podpis, objednávka) na operátora za deň"
-              hint="Bežná hodnota: 3-10 konverzií podľa produktu"
+              label={t.campaigns.detail.kpiDailyConversionTarget}
+              description=""
+              hint=""
               value={targets.agentDailySuccessTarget}
               onChange={(v) => updateTarget("agentDailySuccessTarget", v)}
-              unit="konverzií/deň"
+              unit=""
               max={100}
               testId="input-agent-daily-success"
             />
             <KpiTargetField
               icon={Target}
-              label="Konverzný pomer operátora (%)"
-              description="Minimálne percento konverzií z úspešných kontaktov"
-              hint="Bežná hodnota: 10-25% podľa skúseností operátora"
+              label={t.campaigns.detail.kpiMinConversionRate}
+              description={t.campaigns.detail.kpiMinConversionRateDesc}
+              hint=""
               value={targets.agentConversionRateTarget}
               onChange={(v) => updateTarget("agentConversionRateTarget", v)}
               unit="%"
@@ -642,31 +644,31 @@ function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
             />
             <KpiTargetField
               icon={Clock}
-              label="Priemerná dĺžka hovoru"
-              description="Cieľová priemerná dĺžka jedného hovoru v minútach"
-              hint="Kratšie hovory = vyšší throughput, dlhšie = lepšia kvalita"
+              label={t.campaigns.detail.kpiAvgCallDuration}
+              description={t.campaigns.detail.kpiAvgCallDurationDesc}
+              hint=""
               value={targets.agentAvgCallDurationTarget}
               onChange={(v) => updateTarget("agentAvgCallDurationTarget", v)}
-              unit="minút"
+              unit=""
               max={60}
               testId="input-agent-avg-call-duration"
             />
             <KpiTargetField
               icon={Clock}
-              label="Max. nečinnosť medzi hovormi"
-              description="Maximálny povolený čas nečinnosti medzi dvoma hovormi"
-              hint="Dlhšia nečinnosť znižuje produktivitu operátora"
+              label={t.campaigns.detail.kpiMaxIdleTime}
+              description={t.campaigns.detail.kpiMaxIdleTimeDesc}
+              hint={t.campaigns.detail.kpiMaxIdleTimeHint}
               value={targets.agentMaxIdleMinutes}
               onChange={(v) => updateTarget("agentMaxIdleMinutes", v)}
-              unit="minút"
+              unit=""
               max={30}
               testId="input-agent-max-idle"
             />
             <KpiTargetField
               icon={CalendarPlus}
-              label="Plnenie spätných volaní (%)"
-              description="Percento naplánovaných spätných volaní, ktoré operátor skutočne uskutočnil"
-              hint="Ideálna hodnota: 90-100% - ukazuje spoľahlivosť operátora"
+              label={t.campaigns.detail.callbackScheduled}
+              description=""
+              hint=""
               value={targets.agentCallbackComplianceTarget}
               onChange={(v) => updateTarget("agentCallbackComplianceTarget", v)}
               unit="%"
@@ -689,6 +691,7 @@ const ACTION_TYPE_COLORS: Record<string, string> = {
 };
 
 function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedded?: boolean }) {
+  const { t } = useI18n();
   const { toast } = useToast();
   const [showAddForm, setShowAddForm] = useState(false);
   const [addingSubFor, setAddingSubFor] = useState<string | null>(null);
@@ -720,22 +723,22 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
   const seedMutation = useMutation({
     mutationFn: () => apiRequest("POST", `/api/campaigns/${campaignId}/dispositions/seed`),
     onSuccess: () => {
-      toast({ title: "Predvolené výsledky boli vytvorené" });
+      toast({ title: t.campaigns.detail.dispDefaultsCreated });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "dispositions"] });
     },
-    onError: () => toast({ title: "Chyba", variant: "destructive" }),
+    onError: () => toast({ title: t.campaigns.detail.error, variant: "destructive" }),
   });
 
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", `/api/campaigns/${campaignId}/dispositions`, data),
     onSuccess: () => {
-      toast({ title: "Výsledok pridaný" });
+      toast({ title: t.campaigns.detail.dispCreated });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "dispositions"] });
       setShowAddForm(false);
       setAddingSubFor(null);
       setNewDisp({ name: "", code: "", icon: "", color: "#6b7280", actionType: "none" });
     },
-    onError: () => toast({ title: "Chyba pri vytváraní", variant: "destructive" }),
+    onError: () => toast({ title: t.campaigns.detail.dispCreateError, variant: "destructive" }),
   });
 
   const toggleActiveMutation = useMutation({
@@ -744,16 +747,16 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "dispositions"] });
     },
-    onError: () => toast({ title: "Chyba", variant: "destructive" }),
+    onError: () => toast({ title: t.campaigns.detail.error, variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/campaigns/${campaignId}/dispositions/${id}`),
     onSuccess: () => {
-      toast({ title: "Výsledok zmazaný" });
+      toast({ title: t.campaigns.detail.dispDeleted });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "dispositions"] });
     },
-    onError: () => toast({ title: "Chyba pri mazaní", variant: "destructive" }),
+    onError: () => toast({ title: t.campaigns.detail.dispDeleteError, variant: "destructive" }),
   });
 
   const handleCreate = (parentId?: string) => {
@@ -772,17 +775,17 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
   const renderAddForm = (parentId?: string) => (
     <div className="flex flex-wrap items-end gap-2 p-3 rounded-md border bg-muted/30" data-testid="disposition-add-form">
       <div className="space-y-1">
-        <Label className="text-xs">Názov</Label>
+        <Label className="text-xs">{t.campaigns.detail.dispName}</Label>
         <Input
           value={newDisp.name}
           onChange={e => setNewDisp(p => ({ ...p, name: e.target.value }))}
-          placeholder="Názov"
+          placeholder={t.campaigns.detail.dispName}
           className="w-40"
           data-testid="input-disposition-name"
         />
       </div>
       <div className="space-y-1">
-        <Label className="text-xs">Kód</Label>
+        <Label className="text-xs">{t.common.code}</Label>
         <Input
           value={newDisp.code}
           onChange={e => setNewDisp(p => ({ ...p, code: e.target.value }))}
@@ -792,7 +795,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
         />
       </div>
       <div className="space-y-1">
-        <Label className="text-xs">Ikona</Label>
+        <Label className="text-xs">{t.campaigns.detail.dispSelectIcon}</Label>
         <Popover>
           <PopoverTrigger asChild>
             <Button variant="outline" className="w-28 gap-2 justify-start" data-testid="input-disposition-icon">
@@ -800,7 +803,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
                 const Ic = ICON_MAP[newDisp.icon];
                 return <Ic className="h-4 w-4 shrink-0" />;
               })() : <CircleDot className="h-4 w-4 shrink-0 opacity-40" />}
-              <span className="text-xs truncate">{newDisp.icon || "Vybrať"}</span>
+              <span className="text-xs truncate">{newDisp.icon || t.common.select}</span>
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-72 p-2" align="start">
@@ -826,14 +829,14 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
                 onClick={() => setNewDisp(p => ({ ...p, icon: "" }))}
                 data-testid="button-clear-icon"
               >
-                Odstrániť ikonu
+                {t.common.clear}
               </Button>
             )}
           </PopoverContent>
         </Popover>
       </div>
       <div className="space-y-1">
-        <Label className="text-xs">Farba</Label>
+        <Label className="text-xs">{t.common.status}</Label>
         <Input
           type="color"
           value={newDisp.color}
@@ -843,7 +846,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
         />
       </div>
       <div className="space-y-1">
-        <Label className="text-xs">Akcia</Label>
+        <Label className="text-xs">{t.common.actions}</Label>
         <Select value={newDisp.actionType} onValueChange={v => setNewDisp(p => ({ ...p, actionType: v }))}>
           <SelectTrigger className="w-32" data-testid="select-disposition-action">
             <SelectValue />
@@ -851,11 +854,11 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
           <SelectContent>
             {DISPOSITION_ACTION_TYPES.map(at => {
               const actionLabels: Record<string, string> = {
-                none: "Žiadna",
-                callback: "Spätné volanie",
-                dnd: "Nevolať",
-                complete: "Dokončiť",
-                convert: "Konverzia",
+                none: t.campaigns.detail.dispActionNone,
+                callback: t.campaigns.detail.dispActionCallback,
+                dnd: t.campaigns.detail.dispActionDnd,
+                complete: t.campaigns.detail.dispActionComplete,
+                convert: t.campaigns.detail.dispActionConvert,
               };
               return (
                 <SelectItem key={at} value={at}>{actionLabels[at] || at}</SelectItem>
@@ -870,7 +873,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
         disabled={createMutation.isPending || !newDisp.name || !newDisp.code}
         data-testid="button-save-disposition"
       >
-        {createMutation.isPending ? "..." : "Uložiť"}
+        {createMutation.isPending ? "..." : t.campaigns.detail.dispSave}
       </Button>
       <Button
         size="sm"
@@ -878,7 +881,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
         onClick={() => { setShowAddForm(false); setAddingSubFor(null); }}
         data-testid="button-cancel-disposition"
       >
-        Zrušiť
+        {t.campaigns.detail.cancel}
       </Button>
     </div>
   );
@@ -887,8 +890,8 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h3 className="text-lg font-semibold" data-testid="text-dispositions-title">Výsledky kontaktu</h3>
-          <p className="text-sm text-muted-foreground">Definujte možné výsledky kontaktovania pre túto kampaň</p>
+          <h3 className="text-lg font-semibold" data-testid="text-dispositions-title">{t.campaigns.detail.dispTitle}</h3>
+          <p className="text-sm text-muted-foreground">{t.campaigns.detail.dispTitle}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {dispositions.length === 0 && (
@@ -899,7 +902,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
               data-testid="button-seed-dispositions"
             >
               <ListChecks className="w-4 h-4 mr-2" />
-              {seedMutation.isPending ? "Vytváranie..." : "Načítať predvolené"}
+              {seedMutation.isPending ? t.campaigns.detail.dispLoadDefaultsLoading : t.campaigns.detail.dispLoadDefaults}
             </Button>
           )}
           <Button
@@ -907,7 +910,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
             data-testid="button-add-disposition"
           >
             <Plus className="w-4 h-4 mr-2" />
-            Pridať výsledok
+            {t.campaigns.detail.dispAddResult}
           </Button>
         </div>
       </div>
@@ -920,7 +923,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
         </div>
       ) : parents.length === 0 && !showAddForm ? (
         <div className="text-center py-12 text-muted-foreground" data-testid="text-no-dispositions">
-          Žiadne výsledky kontaktu. Kliknite na "Načítať predvolené" alebo pridajte vlastné.
+          {t.campaigns.detail.noDataAvailable}
         </div>
       ) : (
         <div className="space-y-3">
@@ -1174,16 +1177,15 @@ export default function CampaignDetailPage() {
     },
     onSuccess: (data: any) => {
       toast({
-        title: "Kontakty vygenerované",
-        description: `${data.count} kontaktov bolo vygenerovaných pre túto kampaň.`,
+        title: t.campaigns.detail.contactsGenerated,
+        description: `${data.count}`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "contacts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "stats"] });
     },
     onError: () => {
       toast({
-        title: "Chyba",
-        description: "Nepodarilo sa vygenerovať kontakty.",
+        title: t.campaigns.detail.error,
         variant: "destructive",
       });
     },
@@ -1197,10 +1199,10 @@ export default function CampaignDetailPage() {
       setImportResult(null);
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "contacts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "stats"] });
-      toast({ title: "Import zmazaný", description: `Zmazaných: ${data.deleted} kontaktov` });
+      toast({ title: t.campaigns.detail.importDeleted, description: `${data.deleted}` });
     },
     onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa zmazať importované kontakty.", variant: "destructive" });
+      toast({ title: t.campaigns.detail.error, description: t.campaigns.detail.importDeleteError, variant: "destructive" });
     },
   });
 
@@ -1230,11 +1232,11 @@ export default function CampaignDetailPage() {
             if (xhr.status >= 200 && xhr.status < 300) {
               resolve(data);
             } else {
-              reject(new Error(data.error || "Import zlyhal"));
+              reject(new Error(data.error || t.campaigns.detail.importFailed));
             }
-          } catch { reject(new Error("Import zlyhal")); }
+          } catch { reject(new Error(t.campaigns.detail.importFailed)); }
         };
-        xhr.onerror = () => reject(new Error("Chyba siete"));
+        xhr.onerror = () => reject(new Error(t.campaigns.detail.networkError));
         xhr.send(formData);
       });
     },
@@ -1245,14 +1247,14 @@ export default function CampaignDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "contacts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "stats"] });
       toast({
-        title: "Import dokončený",
-        description: `Vytvorených: ${data.created}, preskočených: ${data.skipped}`,
+        title: t.campaigns.detail.importCompleted,
+        description: `${data.created} / ${data.skipped}`,
       });
     },
     onError: (err: any) => {
       setImportPhase(null);
       setImportProgress(0);
-      toast({ title: "Chyba importu", description: err.message, variant: "destructive" });
+      toast({ title: t.campaigns.detail.importError, description: err.message, variant: "destructive" });
     },
   });
 
@@ -1261,13 +1263,13 @@ export default function CampaignDetailPage() {
       return apiRequest("PATCH", `/api/campaigns/${campaignId}/contacts/${contactId}`, data);
     },
     onSuccess: () => {
-      toast({ title: "Kontakt aktualizovaný" });
+      toast({ title: t.campaigns.detail.contactUpdated });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "contacts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "stats"] });
       setSelectedContact(null);
     },
     onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa aktualizovať kontakt.", variant: "destructive" });
+      toast({ title: t.campaigns.detail.error, description: t.campaigns.detail.contactUpdateError, variant: "destructive" });
     },
   });
 
@@ -1276,11 +1278,11 @@ export default function CampaignDetailPage() {
       return apiRequest("POST", `/api/campaigns/${campaignId}/agents`, { userIds });
     },
     onSuccess: () => {
-      toast({ title: "Operátori boli aktualizovaní" });
+      toast({ title: t.campaigns.detail.operatorsUpdated });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "agents"] });
     },
     onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa aktualizovať operátorov.", variant: "destructive" });
+      toast({ title: t.campaigns.detail.error, description: t.campaigns.detail.operatorsError, variant: "destructive" });
     },
   });
 
@@ -1289,12 +1291,12 @@ export default function CampaignDetailPage() {
       return apiRequest("PATCH", `/api/campaigns/${campaignId}`, { status: newStatus });
     },
     onSuccess: () => {
-      toast({ title: "Status kampane aktualizovaný" });
+      toast({ title: t.campaigns.detail.statusUpdated });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
     },
     onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa aktualizovať status kampane.", variant: "destructive" });
+      toast({ title: t.campaigns.detail.error, description: t.campaigns.detail.statusUpdateError, variant: "destructive" });
     },
   });
 
@@ -1303,12 +1305,12 @@ export default function CampaignDetailPage() {
       return apiRequest("POST", `/api/campaigns/${campaignId}/clone`, {});
     },
     onSuccess: (newCampaign: any) => {
-      toast({ title: "Kampaň naklonovaná" });
+      toast({ title: t.campaigns.detail.statusUpdated });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
       window.location.href = `/campaigns/${newCampaign.id}`;
     },
     onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa naklonovať kampaň.", variant: "destructive" });
+      toast({ title: t.campaigns.detail.error, variant: "destructive" });
     },
   });
 
@@ -1317,11 +1319,11 @@ export default function CampaignDetailPage() {
       return apiRequest("POST", `/api/campaigns/${campaignId}/save-as-template`, {});
     },
     onSuccess: () => {
-      toast({ title: "Šablóna uložená" });
+      toast({ title: t.campaigns.detail.settingsSaved });
       queryClient.invalidateQueries({ queryKey: ["/api/campaign-templates"] });
     },
     onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa uložiť šablónu.", variant: "destructive" });
+      toast({ title: t.campaigns.detail.error, description: t.campaigns.detail.settingsError, variant: "destructive" });
     },
   });
 
@@ -1330,13 +1332,13 @@ export default function CampaignDetailPage() {
       return apiRequest("POST", `/api/campaigns/${campaignId}/contacts/bulk-update`, { contactIds, ...data });
     },
     onSuccess: (data: any) => {
-      toast({ title: "Kontakty aktualizované", description: `${data.count || selectedContacts.size} kontaktov bolo aktualizovaných.` });
+      toast({ title: t.campaigns.detail.contactUpdated, description: `${data.count || selectedContacts.size}` });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "contacts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "stats"] });
       setSelectedContacts(new Set());
     },
     onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa aktualizovať kontakty.", variant: "destructive" });
+      toast({ title: t.campaigns.detail.error, description: t.campaigns.detail.contactUpdateError, variant: "destructive" });
     },
   });
 
@@ -1386,7 +1388,7 @@ export default function CampaignDetailPage() {
       return res.json();
     },
     onSuccess: (data: any) => {
-      toast({ title: "Kontakty zaradené do fronty", description: `${data.count} kontaktov bolo zaradených na opätovné spracovanie.` });
+      toast({ title: t.campaigns.detail.requeueTitle, description: `${data.count}` });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "contacts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "stats"] });
       setShowRequeueDialog(false);
@@ -1396,7 +1398,7 @@ export default function CampaignDetailPage() {
       setRequeueCallbackTo("");
     },
     onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa zaradiť kontakty do fronty.", variant: "destructive" });
+      toast({ title: t.campaigns.detail.error, variant: "destructive" });
     },
   });
 
@@ -1405,12 +1407,12 @@ export default function CampaignDetailPage() {
       return apiRequest("PATCH", `/api/campaigns/${campaignId}`, { script });
     },
     onSuccess: () => {
-      toast({ title: "Skript uložený" });
+      toast({ title: t.campaigns.detail.settingsSaved });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId] });
       setScriptModified(false);
     },
     onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa uložiť skript.", variant: "destructive" });
+      toast({ title: t.campaigns.detail.error, description: t.campaigns.detail.settingsError, variant: "destructive" });
     },
   });
 
@@ -1464,13 +1466,13 @@ export default function CampaignDetailPage() {
       ? filteredContacts.filter((c: any) => selectedContacts.has(c.id))
       : filteredContacts;
     
-    const headers = ["Meno", "Priezvisko", "Email", "Telefón", "Status", "Výsledok", "Kód výsledku", "Pokusy", "Posledný pokus", "Krajina"];
+    const headers = [t.common.firstName, t.common.lastName, t.common.email, t.common.phone, t.common.status, t.campaigns.detail.result, t.common.code, t.campaigns.detail.attempts, t.campaigns.detail.lastAttempt, t.campaigns.detail.country];
     const rows = dataToExport.map((c: any) => [
       c.customer?.firstName || "",
       c.customer?.lastName || "",
       c.customer?.email || "",
       c.customer?.phone || "",
-      ({"pending": "Čakajúci", "contacted": "Kontaktovaný", "completed": "Dokončený", "failed": "Neúspešný", "no_answer": "Nedvíha", "callback_scheduled": "Spätné volanie", "not_interested": "Nemá záujem"} as Record<string, string>)[c.status] || c.status,
+      (t.campaigns.contactStatuses as Record<string, string>)[c.status] || c.status,
       c.dispositionCode ? (dispositionMap[c.dispositionCode]?.name || c.dispositionCode) : "",
       c.dispositionCode || "",
       c.attemptCount || 0,
@@ -1486,7 +1488,7 @@ export default function CampaignDetailPage() {
     link.download = `campaign-${campaign?.name || campaignId}-contacts.csv`;
     link.click();
     URL.revokeObjectURL(url);
-    toast({ title: "Export dokončený", description: `${dataToExport.length} kontaktov bolo exportovaných.` });
+    toast({ title: t.campaigns.detail.exportContacts, description: `${dataToExport.length}` });
   };
 
   if (loadingCampaign) {
@@ -1520,13 +1522,13 @@ export default function CampaignDetailPage() {
   const contactColumns = [
     {
       key: "customer",
-      header: "Kontakt",
+      header: t.campaigns.detail.contacts,
       sortable: true,
       sortValue: (contact: EnrichedContact) => contact.customer ? `${contact.customer.lastName} ${contact.customer.firstName}` : "",
       cell: (contact: EnrichedContact) => (
         <div>
           <div className="font-medium">
-            {contact.customer ? `${contact.customer.firstName} ${contact.customer.lastName}` : "Neznámy kontakt"}
+            {contact.customer ? `${contact.customer.firstName} ${contact.customer.lastName}` : t.campaigns.detail.unknownContact}
           </div>
           <div className="text-sm text-muted-foreground">
             {contact.customer?.phone || contact.customer?.email || "-"}
@@ -1536,7 +1538,7 @@ export default function CampaignDetailPage() {
     },
     {
       key: "country",
-      header: "Krajina",
+      header: t.campaigns.detail.country,
       sortable: true,
       sortValue: (contact: EnrichedContact) => contact.customer?.country || "",
       cell: (contact: EnrichedContact) => {
@@ -1553,13 +1555,13 @@ export default function CampaignDetailPage() {
       sortValue: (contact: EnrichedContact) => contact.status,
       cell: (contact: EnrichedContact) => {
         const STATUS_SK: Record<string, string> = {
-          pending: "Čakajúci",
-          contacted: "Kontaktovaný",
-          completed: "Dokončený",
-          failed: "Neúspešný",
-          no_answer: "Nedvíha",
-          callback_scheduled: "Callback",
-          not_interested: "Nemá záujem",
+          pending: t.campaigns.contactStatuses.pending,
+          contacted: t.campaigns.contactStatuses.contacted,
+          completed: t.campaigns.contactStatuses.completed,
+          failed: t.campaigns.contactStatuses.failed,
+          no_answer: t.campaigns.contactStatuses.no_answer,
+          callback_scheduled: t.campaigns.contactStatuses.callback_scheduled,
+          not_interested: t.campaigns.contactStatuses.not_interested,
         };
         return (
           <Badge className={CONTACT_STATUS_COLORS[contact.status] || ""}>
@@ -1570,7 +1572,7 @@ export default function CampaignDetailPage() {
     },
     {
       key: "attemptCount",
-      header: "Pokusy",
+      header: t.campaigns.detail.attempts,
       sortable: true,
       sortValue: (contact: EnrichedContact) => contact.attemptCount || 0,
       cell: (contact: EnrichedContact) => (
@@ -1579,7 +1581,7 @@ export default function CampaignDetailPage() {
     },
     {
       key: "lastAttemptAt",
-      header: "Posledný pokus",
+      header: t.campaigns.detail.lastAttempt,
       sortable: true,
       sortValue: (contact: EnrichedContact) => contact.lastAttemptAt ? new Date(contact.lastAttemptAt) : null,
       cell: (contact: EnrichedContact) => (
@@ -1590,7 +1592,7 @@ export default function CampaignDetailPage() {
     },
     {
       key: "priorityScore",
-      header: "Priorita",
+      header: t.campaigns.detail.priority,
       sortable: true,
       sortValue: (contact: EnrichedContact) => contact.priorityScore || 0,
       cell: (contact: EnrichedContact) => {
@@ -1602,14 +1604,14 @@ export default function CampaignDetailPage() {
           : "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
         return (
           <Badge variant="outline" className={colors}>
-            {score >= 75 ? "Vysoká" : score >= 50 ? "Stredná" : "Nízka"}
+            {score >= 75 ? t.campaigns.detail.priorityHigh : score >= 50 ? t.campaigns.detail.priorityMedium : t.campaigns.detail.priorityLow}
           </Badge>
         );
       },
     },
     {
       key: "assignedTo",
-      header: "Operátor",
+      header: t.campaigns.detail.operator,
       sortable: true,
       sortValue: (contact: EnrichedContact) => {
         const agent = allUsers.find(u => u.id === contact.assignedTo);
@@ -1628,7 +1630,7 @@ export default function CampaignDetailPage() {
     },
     {
       key: "disposition",
-      header: "Výsledok",
+      header: t.campaigns.detail.result,
       sortable: true,
       sortValue: (contact: EnrichedContact) => {
         const dc = (contact as any).dispositionCode;
@@ -1688,11 +1690,11 @@ export default function CampaignDetailPage() {
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-2xl font-bold">{campaign.name}</h1>
             <Badge className={STATUS_COLORS[campaign.status]}>
-              {t.campaigns?.statuses?.[campaign.status as keyof typeof t.campaigns.statuses] || campaign.status}
+              {t.campaigns.statuses[campaign.status as keyof typeof t.campaigns.statuses] || campaign.status}
             </Badge>
           </div>
           <p className="text-muted-foreground">
-            {campaign.description || "Bez popisu"}
+            {campaign.description || ""}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -1702,7 +1704,7 @@ export default function CampaignDetailPage() {
               data-testid="button-activate-campaign"
             >
               <Play className="w-4 h-4 mr-2" />
-              Aktivovať
+              {t.campaigns.statuses.active}
             </Button>
           )}
           {campaign.status === "active" && (
@@ -1712,7 +1714,7 @@ export default function CampaignDetailPage() {
               data-testid="button-pause-campaign"
             >
               <Pause className="w-4 h-4 mr-2" />
-              Pozastaviť
+              {t.campaigns.statuses.paused}
             </Button>
           )}
           {campaign.status === "paused" && (
@@ -1721,7 +1723,7 @@ export default function CampaignDetailPage() {
               data-testid="button-resume-campaign"
             >
               <Play className="w-4 h-4 mr-2" />
-              Obnoviť
+              {t.campaigns.statuses.active}
             </Button>
           )}
           <DropdownMenu>
@@ -1737,7 +1739,7 @@ export default function CampaignDetailPage() {
                 data-testid="button-clone-campaign"
               >
                 <Copy className="w-4 h-4 mr-2" />
-                Klonovať kampaň
+                {t.common.copy}
               </DropdownMenuItem>
               <DropdownMenuItem 
                 onClick={() => saveAsTemplateMutation.mutate()}
@@ -1745,7 +1747,7 @@ export default function CampaignDetailPage() {
                 data-testid="button-save-as-template"
               >
                 <Save className="w-4 h-4 mr-2" />
-                Uložiť ako šablónu
+                {t.common.save}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -1756,47 +1758,47 @@ export default function CampaignDetailPage() {
         <TabsList>
           <TabsTrigger value="overview" data-testid="tab-overview">
             <FileText className="w-4 h-4 mr-2" />
-            {t.campaigns?.detail?.overview || "Prehľad"}
+            {t.campaigns.detail.overview}
           </TabsTrigger>
           <TabsTrigger value="contacts" data-testid="tab-contacts">
             <Users className="w-4 h-4 mr-2" />
-            {t.campaigns?.detail?.contacts || "Kontakty"}
+            {t.campaigns.detail.contacts}
           </TabsTrigger>
           <TabsTrigger value="settings" data-testid="tab-settings">
             <Settings className="w-4 h-4 mr-2" />
-            {t.campaigns?.detail?.settings || "Nastavenia"}
+            {t.campaigns.detail.settings}
           </TabsTrigger>
           <TabsTrigger value="reporting" data-testid="tab-reporting">
             <BarChart3 className="w-4 h-4 mr-2" />
-            {t.campaigns?.detail?.reporting || "Reporty"}
+            {t.campaigns.detail.reporting}
           </TabsTrigger>
           <TabsTrigger value="script" data-testid="tab-script">
             <ScrollText className="w-4 h-4 mr-2" />
-            Skript pre operátorov
+            {t.campaigns.detail.script}
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <StatsCard
-              title={t.campaigns?.detail?.totalContacts || "Celkový počet kontaktov"}
+              title={t.campaigns.detail.totalContacts}
               value={stats?.totalContacts || 0}
               icon={Users}
             />
             <StatsCard
-              title={t.campaigns?.detail?.pendingContacts || "Čakajúce"}
+              title={t.campaigns.detail.pendingContacts}
               value={stats?.pendingContacts || 0}
               description={`${((stats?.pendingContacts || 0) / Math.max(stats?.totalContacts || 1, 1) * 100).toFixed(1)}%`}
               icon={Clock}
             />
             <StatsCard
-              title={t.campaigns?.detail?.completedContacts || "Dokončené"}
+              title={t.campaigns.detail.completedContacts}
               value={stats?.completedContacts || 0}
               description={`${((stats?.completedContacts || 0) / Math.max(stats?.totalContacts || 1, 1) * 100).toFixed(1)}%`}
               icon={CheckCircle}
             />
             <StatsCard
-              title={t.campaigns?.detail?.callbackScheduled || "Spätné volania"}
+              title={t.campaigns.detail.callbackScheduled}
               value={stats?.callbackContacts || 0}
               icon={Phone}
             />
@@ -1804,9 +1806,9 @@ export default function CampaignDetailPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>{t.campaigns?.detail?.progress || "Priebeh kampane"}</CardTitle>
+              <CardTitle>{t.campaigns.detail.progress}</CardTitle>
               <CardDescription>
-                {stats?.completedContacts || 0} z {stats?.totalContacts || 0} kontaktov spracovaných
+                {stats?.completedContacts || 0} / {stats?.totalContacts || 0}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -1817,16 +1819,16 @@ export default function CampaignDetailPage() {
           <div className="grid gap-4 md:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle>Detaily kampane</CardTitle>
+                <CardTitle>{t.campaigns.detail.campaignSummary}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Typ</span>
+                  <span className="text-muted-foreground">{t.campaigns.type}</span>
                   <Badge variant="outline">{campaign.type}</Badge>
                 </div>
                 <Separator />
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Krajiny</span>
+                  <span className="text-muted-foreground">{t.campaigns.detail.country}</span>
                   <div className="flex flex-wrap gap-1 justify-end">
                     {campaign.countryCodes?.map(code => (
                       <Badge key={code} variant="secondary" className="text-xs">
@@ -1834,18 +1836,18 @@ export default function CampaignDetailPage() {
                       </Badge>
                     ))}
                     {(!campaign.countryCodes || campaign.countryCodes.length === 0) && (
-                      <span>Všetky krajiny</span>
+                      <span>{t.common.allCountries}</span>
                     )}
                   </div>
                 </div>
                 <Separator />
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Začiatok</span>
+                  <span className="text-muted-foreground">{t.campaigns.startDate}</span>
                   <span>{campaign.startDate ? format(new Date(campaign.startDate), "PP") : "-"}</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Koniec</span>
+                  <span className="text-muted-foreground">{t.campaigns.endDate}</span>
                   <span>{campaign.endDate ? format(new Date(campaign.endDate), "PP") : "-"}</span>
                 </div>
               </CardContent>
@@ -1853,48 +1855,48 @@ export default function CampaignDetailPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Rozloženie kontaktov</CardTitle>
+                <CardTitle>{t.campaigns.detail.statusDistribution}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-green-500" />
-                    Dokončené
+                    {t.campaigns.contactStatuses.completed}
                   </span>
                   <span className="font-medium">{stats?.completedContacts || 0}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-blue-500" />
-                    Kontaktované
+                    {t.campaigns.contactStatuses.contacted}
                   </span>
                   <span className="font-medium">{stats?.contactedContacts || 0}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-yellow-500" />
-                    Bez odpovede
+                    {t.campaigns.contactStatuses.no_answer}
                   </span>
                   <span className="font-medium">{stats?.noAnswerContacts || 0}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-purple-500" />
-                    Spätné volanie
+                    {t.campaigns.contactStatuses.callback_scheduled}
                   </span>
                   <span className="font-medium">{stats?.callbackContacts || 0}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-gray-500" />
-                    Nemá záujem
+                    {t.campaigns.contactStatuses.not_interested}
                   </span>
                   <span className="font-medium">{stats?.notInterestedContacts || 0}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-red-500" />
-                    Neúspešné
+                    {t.campaigns.contactStatuses.failed}
                   </span>
                   <span className="font-medium">{stats?.failedContacts || 0}</span>
                 </div>
@@ -1915,31 +1917,31 @@ export default function CampaignDetailPage() {
               {selectedContacts.size > 0 && (
                 <div className="flex items-center gap-2 pl-2 border-l">
                   <span className="text-sm font-medium">
-                    {selectedContacts.size} vybraných
+                    {selectedContacts.size} {t.campaigns.detail.selected}
                   </span>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline" size="sm" data-testid="button-bulk-actions">
                         <MoreHorizontal className="w-4 h-4 mr-2" />
-                        Hromadné akcie
+                        {t.campaigns.detail.bulkActions}
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start">
                       <DropdownMenuItem onClick={() => handleBulkStatusUpdate("completed")} data-testid="menu-bulk-completed">
                         <CheckCheck className="w-4 h-4 mr-2" />
-                        Označiť ako dokončené
+                        {t.campaigns.detail.markCompleted}
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleBulkStatusUpdate("not_interested")} data-testid="menu-bulk-not-interested">
                         <Trash2 className="w-4 h-4 mr-2" />
-                        Označiť ako nezaujíma
+                        {t.campaigns.detail.markNotInterested}
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleBulkStatusUpdate("pending")} data-testid="menu-bulk-pending">
                         <Clock className="w-4 h-4 mr-2" />
-                        Resetovať na čakajúce
+                        {t.campaigns.detail.resetPending}
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => setSelectedContacts(new Set())} data-testid="menu-clear-selection">
-                        Zrušiť výber
+                        {t.campaigns.detail.clearSelection}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -1962,7 +1964,7 @@ export default function CampaignDetailPage() {
                 data-testid="button-requeue-contacts"
               >
                 <RefreshCw className="w-4 h-4 mr-2" />
-                Zaradiť znova
+                {t.campaigns.detail.requeueButton}
               </Button>
               <Button
                 variant="outline"
@@ -1983,7 +1985,7 @@ export default function CampaignDetailPage() {
                 data-testid="button-generate-contacts"
               >
                 <RefreshCw className={`w-4 h-4 mr-2 ${generateContactsMutation.isPending ? "animate-spin" : ""}`} />
-                Generovať
+                {t.campaigns.detail.generateContacts}
               </Button>
               <Button 
                 variant="outline" 
@@ -2020,32 +2022,32 @@ export default function CampaignDetailPage() {
             <TabsList>
               <TabsTrigger value="general" data-testid="subtab-general">
                 <Settings className="w-4 h-4 mr-2" />
-                Všeobecné
+                {t.campaigns.detail.general}
               </TabsTrigger>
               <TabsTrigger value="scheduling" data-testid="subtab-scheduling">
                 <Clock className="w-4 h-4 mr-2" />
-                Plánovanie
+                {t.campaigns.detail.scheduling}
               </TabsTrigger>
               <TabsTrigger value="operators" data-testid="subtab-operators">
                 <Shield className="w-4 h-4 mr-2" />
-                Operátori
+                {t.campaigns.detail.operator}
               </TabsTrigger>
               <TabsTrigger value="dispositions" data-testid="subtab-dispositions">
                 <CheckCheck className="w-4 h-4 mr-2" />
-                Výsledky kontaktu
+                {t.campaigns.detail.dispositions}
               </TabsTrigger>
               <TabsTrigger value="kpi" data-testid="subtab-kpi">
                 <Target className="w-4 h-4 mr-2" />
-                KPI Ciele
+                {t.campaigns.detail.kpiTargets}
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="general" className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Predvolený tab agenta</CardTitle>
+                  <CardTitle>{t.campaigns.detail.defaultAgentTab}</CardTitle>
                   <CardDescription>
-                    Vyberte, ktorý tab sa operátorovi otvorí pri načítaní kontaktu
+                    {t.campaigns.detail.defaultAgentTabDesc}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -2054,19 +2056,19 @@ export default function CampaignDetailPage() {
                     onValueChange={(v) => {
                       apiRequest("PATCH", `/api/campaigns/${campaign.id}`, { defaultActiveTab: v })
                         .then(() => {
-                          toast({ title: "Predvolený tab uložený" });
+                          toast({ title: t.campaigns.detail.settingsSaved });
                           queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
                         })
-                        .catch(() => toast({ title: "Chyba pri ukladaní", variant: "destructive" }));
+                        .catch(() => toast({ title: t.campaigns.detail.error, variant: "destructive" }));
                     }}
                   >
                     <SelectTrigger className="w-64" data-testid="select-default-active-tab">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="phone">Telefón</SelectItem>
-                      <SelectItem value="script">Skript</SelectItem>
-                      <SelectItem value="email">E-mail</SelectItem>
+                      <SelectItem value="phone">{t.campaigns.detail.phone}</SelectItem>
+                      <SelectItem value="script">{t.campaigns.detail.script}</SelectItem>
+                      <SelectItem value="email">{t.campaigns.detail.email}</SelectItem>
                       <SelectItem value="sms">SMS</SelectItem>
                     </SelectContent>
                   </Select>
@@ -2086,17 +2088,17 @@ export default function CampaignDetailPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Shield className="w-5 h-5" />
-                    Priradení operátori
+                    {t.campaigns.detail.assignedOperators}
                   </CardTitle>
                   <CardDescription>
-                    Vyberte operátorov, ktorí budú pracovať na tejto kampani
+                    {t.campaigns.detail.assignedOperatorsDesc}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
                     {callCenterUsers.length === 0 ? (
                       <p className="text-sm text-muted-foreground text-center py-8">
-                        Žiadni operátori nie sú k dispozícii. Najprv vytvorte používateľov s rolou "Call Center".
+                        {t.campaigns.detail.noOperatorsAvailable}
                       </p>
                     ) : (
                       <div className="grid gap-3">
@@ -2131,10 +2133,10 @@ export default function CampaignDetailPage() {
                                 {isAssigned ? (
                                   <>
                                     <CheckCheck className="w-4 h-4 mr-2" />
-                                    Priradený
+                                    {t.campaigns.detail.assigned}
                                   </>
                                 ) : (
-                                  "Priradiť"
+                                  t.campaigns.detail.assign
                                 )}
                               </Button>
                             </div>
@@ -2148,15 +2150,15 @@ export default function CampaignDetailPage() {
               {assignedAgentIds.length > 0 && (
                 <Card>
                   <CardHeader>
-                    <CardTitle>Zhrnutie</CardTitle>
+                    <CardTitle>{t.campaigns.detail.campaignSummary}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary" className="text-sm">
-                        {assignedAgentIds.length} {assignedAgentIds.length === 1 ? 'operátor' : assignedAgentIds.length < 5 ? 'operátori' : 'operátorov'}
+                        {assignedAgentIds.length} {t.campaigns.detail.operator}
                       </Badge>
                       <span className="text-sm text-muted-foreground">
-                        priradených k tejto kampani
+                        {t.campaigns.detail.assignedOperators}
                       </span>
                     </div>
                   </CardContent>
@@ -2177,30 +2179,30 @@ export default function CampaignDetailPage() {
         <TabsContent value="reporting" className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <StatsCard
-              title="Miera kontaktovania"
+              title={t.campaigns.detail.contactRate}
               value={`${((stats?.contactedContacts || 0) / Math.max(stats?.totalContacts || 1, 1) * 100).toFixed(1)}%`}
-              description="Kontaktovaní / Celkovo"
+              description={`${t.campaigns.contactStatuses.contacted} / ${t.campaigns.detail.totalContacts}`}
               icon={Phone}
             />
             <StatsCard
-              title="Miera dokončenia"
+              title={t.campaigns.detail.completionRate}
               value={`${((stats?.completedContacts || 0) / Math.max(stats?.totalContacts || 1, 1) * 100).toFixed(1)}%`}
-              description="Dokončení / Celkovo"
+              description={`${t.campaigns.detail.completedContacts} / ${t.campaigns.detail.totalContacts}`}
               icon={CheckCircle}
             />
             <StatsCard
-              title="Konverzný pomer"
+              title={t.campaigns.detail.conversionRate}
               value={`${(((stats?.completedContacts || 0) / Math.max((stats?.contactedContacts || 0) + (stats?.completedContacts || 0), 1)) * 100).toFixed(1)}%`}
-              description="Dokončení / Kontaktovaní"
+              description={`${t.campaigns.detail.completedContacts} / ${t.campaigns.contactStatuses.contacted}`}
               icon={Users}
             />
             <StatsCard
-              title="Priemer pokusov"
+              title={t.campaigns.detail.avgAttempts}
               value={contacts.length > 0 
                 ? (contacts.reduce((sum, c) => sum + (c.attemptCount || 0), 0) / contacts.length).toFixed(1)
                 : "0"
               }
-              description="Na kontakt"
+              description={t.campaigns.detail.contacts}
               icon={RefreshCw}
             />
           </div>
@@ -2213,7 +2215,7 @@ export default function CampaignDetailPage() {
                     <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Úspešné</p>
+                    <p className="text-sm text-muted-foreground">{t.campaigns.detail.successful}</p>
                     <p className="text-2xl font-bold">{stats?.completedContacts || 0}</p>
                   </div>
                 </div>
@@ -2226,7 +2228,7 @@ export default function CampaignDetailPage() {
                     <Clock className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Čakajúce</p>
+                    <p className="text-sm text-muted-foreground">{t.campaigns.detail.pendingContacts}</p>
                     <p className="text-2xl font-bold">{stats?.pendingContacts || 0}</p>
                   </div>
                 </div>
@@ -2239,7 +2241,7 @@ export default function CampaignDetailPage() {
                     <Phone className="h-6 w-6 text-red-600 dark:text-red-400" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Bez odpovede</p>
+                    <p className="text-sm text-muted-foreground">{t.campaigns.contactStatuses.no_answer}</p>
                     <p className="text-2xl font-bold">{stats?.noAnswerContacts || 0}</p>
                   </div>
                 </div>
@@ -2252,7 +2254,7 @@ export default function CampaignDetailPage() {
                     <Users className="h-6 w-6 text-gray-600 dark:text-gray-400" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Nezáujem</p>
+                    <p className="text-sm text-muted-foreground">{t.campaigns.detail.notInterested}</p>
                     <p className="text-2xl font-bold">{stats?.notInterestedContacts || 0}</p>
                   </div>
                 </div>
@@ -2263,7 +2265,7 @@ export default function CampaignDetailPage() {
           <div className="grid gap-4 md:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle>{t.campaigns?.detail?.statusDistribution || "Rozloženie statusov kontaktov"}</CardTitle>
+                <CardTitle>{t.campaigns.detail.statusDistribution}</CardTitle>
               </CardHeader>
               <CardContent>
                 {stats && stats.totalContacts > 0 ? (
@@ -2271,12 +2273,12 @@ export default function CampaignDetailPage() {
                     <PieChart>
                       <Pie
                         data={[
-                          { name: "Čakajúce", value: stats.pendingContacts || 0, color: CHART_PALETTE[3] },
-                          { name: "Kontaktované", value: stats.contactedContacts || 0, color: CHART_PALETTE[1] },
-                          { name: "Dokončené", value: stats.completedContacts || 0, color: CHART_PALETTE[0] },
-                          { name: "Bez odpovede", value: stats.noAnswerContacts || 0, color: CHART_PALETTE[2] },
-                          { name: "Nemá záujem", value: stats.notInterestedContacts || 0, color: CHART_PALETTE[4] },
-                          { name: "Neúspešné", value: stats.failedContacts || 0, color: CHART_PALETTE[6] },
+                          { name: t.campaigns.contactStatuses.pending, value: stats.pendingContacts || 0, color: CHART_PALETTE[3] },
+                          { name: t.campaigns.contactStatuses.contacted, value: stats.contactedContacts || 0, color: CHART_PALETTE[1] },
+                          { name: t.campaigns.contactStatuses.completed, value: stats.completedContacts || 0, color: CHART_PALETTE[0] },
+                          { name: t.campaigns.contactStatuses.no_answer, value: stats.noAnswerContacts || 0, color: CHART_PALETTE[2] },
+                          { name: t.campaigns.contactStatuses.not_interested, value: stats.notInterestedContacts || 0, color: CHART_PALETTE[4] },
+                          { name: t.campaigns.contactStatuses.failed, value: stats.failedContacts || 0, color: CHART_PALETTE[6] },
                         ].filter(d => d.value > 0)}
                         cx="50%"
                         cy="50%"
@@ -2303,7 +2305,7 @@ export default function CampaignDetailPage() {
                   </ResponsiveContainer>
                 ) : (
                   <div className="h-[250px] flex items-center justify-center text-muted-foreground">
-                    {t.campaigns?.detail?.noDataAvailable || "Žiadne dáta"}
+                    {t.campaigns.detail.noDataAvailable}
                   </div>
                 )}
               </CardContent>
@@ -2311,7 +2313,7 @@ export default function CampaignDetailPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>{t.campaigns?.detail?.attemptDistribution || "Rozloženie pokusov"}</CardTitle>
+                <CardTitle>{t.campaigns.detail.attemptDistribution}</CardTitle>
               </CardHeader>
               <CardContent>
                 {contacts.length > 0 ? (
@@ -2340,7 +2342,7 @@ export default function CampaignDetailPage() {
                   </ResponsiveContainer>
                 ) : (
                   <div className="h-[250px] flex items-center justify-center text-muted-foreground">
-                    {t.campaigns?.detail?.noDataAvailable || "Žiadne dáta"}
+                    {t.campaigns.detail.noDataAvailable}
                   </div>
                 )}
               </CardContent>
@@ -2350,31 +2352,31 @@ export default function CampaignDetailPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
               <div>
-                <CardTitle>{t.campaigns?.detail?.campaignSummary || "Súhrn kampane"}</CardTitle>
+                <CardTitle>{t.campaigns.detail.campaignSummary}</CardTitle>
               </div>
               <Button variant="outline" data-testid="button-export-report">
                 <Download className="w-4 h-4 mr-2" />
-                {t.campaigns?.detail?.exportReport || "Exportovať report"}
+                {t.campaigns.detail.exportReport}
               </Button>
             </CardHeader>
             <CardContent>
               <div className="grid gap-4 md:grid-cols-4">
                 <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">{t.campaigns?.detail?.totalContacts || "Celkový počet kontaktov"}</p>
+                  <p className="text-sm text-muted-foreground">{t.campaigns.detail.totalContacts}</p>
                   <p className="text-2xl font-bold">{stats?.totalContacts || 0}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">{t.campaigns?.detail?.successRate || "Miera úspešnosti"}</p>
+                  <p className="text-sm text-muted-foreground">{t.campaigns.detail.successRate}</p>
                   <p className="text-2xl font-bold">
                     {((stats?.completedContacts || 0) / Math.max(stats?.totalContacts || 1, 1) * 100).toFixed(1)}%
                   </p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">{t.campaigns?.detail?.pendingContacts || "Čakajúce"}</p>
+                  <p className="text-sm text-muted-foreground">{t.campaigns.detail.pendingContacts}</p>
                   <p className="text-2xl font-bold">{stats?.pendingContacts || 0}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">{t.campaigns?.detail?.callbackScheduled || "Naplánované spätné volania"}</p>
+                  <p className="text-sm text-muted-foreground">{t.campaigns.detail.callbackScheduled}</p>
                   <p className="text-2xl font-bold">{stats?.callbackContacts || 0}</p>
                 </div>
               </div>
@@ -2400,9 +2402,9 @@ export default function CampaignDetailPage() {
             const conversionPct = processedContacts > 0 ? (completedContacts / processedContacts * 100) : 0;
 
             const campaignKpis = [
-              { key: "campaignTotalContactsTarget", label: "Celkový počet kontaktov", current: totalContacts, unit: "" },
-              { key: "campaignCompletionTarget", label: "Miera dokončenia", current: parseFloat(completionPct.toFixed(1)), unit: "%" },
-              { key: "campaignConversionTarget", label: "Konverzný pomer", current: parseFloat(conversionPct.toFixed(1)), unit: "%" },
+              { key: "campaignTotalContactsTarget", label: t.campaigns.detail.totalContacts, current: totalContacts, unit: "" },
+              { key: "campaignCompletionTarget", label: t.campaigns.detail.completionRate, current: parseFloat(completionPct.toFixed(1)), unit: "%" },
+              { key: "campaignConversionTarget", label: t.campaigns.detail.conversionRate, current: parseFloat(conversionPct.toFixed(1)), unit: "%" },
             ].filter(k => (kpiTargets[k.key] || 0) > 0);
 
             return (
@@ -2410,10 +2412,10 @@ export default function CampaignDetailPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Target className="w-5 h-5" />
-                    Plnenie KPI cieľov
+                    {t.campaigns.detail.kpiTracking}
                   </CardTitle>
                   <CardDescription>
-                    Sledovanie pokroku voči nastaveným KPI cieľom kampane
+                    {t.campaigns.detail.kpiTrackingDesc}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -2421,7 +2423,7 @@ export default function CampaignDetailPage() {
                     <div className="space-y-4">
                       <h4 className="text-sm font-semibold flex items-center gap-2">
                         <BarChart3 className="w-4 h-4" />
-                        Ciele kampane
+                        {t.campaigns.detail.kpiTargets}
                       </h4>
                       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                         {campaignKpis.map(kpi => {
@@ -2439,8 +2441,8 @@ export default function CampaignDetailPage() {
                                 <div className={`h-full rounded-full transition-all ${bgStatus}`} style={{ width: `${pct}%` }} />
                               </div>
                               <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                                <span>Aktuálne: {kpi.current}{kpi.unit}</span>
-                                <span>Cieľ: {target}{kpi.unit}</span>
+                                <span>{t.campaigns.detail.current}: {kpi.current}{kpi.unit}</span>
+                                <span>{t.campaigns.detail.target}: {target}{kpi.unit}</span>
                               </div>
                             </div>
                           );
@@ -2454,14 +2456,14 @@ export default function CampaignDetailPage() {
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-sm font-medium flex items-center gap-2">
                           <Flag className="w-4 h-4 text-muted-foreground" />
-                          Cieľový výnos
+                          {t.campaigns.detail.targetRevenue}
                         </span>
                         <span className="text-sm font-bold text-muted-foreground">
                           {(kpiTargets.campaignRevenueTarget || 0).toLocaleString("sk-SK")} EUR
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        Sledovanie výnosov vyžaduje prepojenie so systémom fakturácie
+                        {t.campaigns.detail.revenueTrackingDesc}
                       </p>
                     </div>
                   )}
@@ -2470,17 +2472,17 @@ export default function CampaignDetailPage() {
                     <div className="space-y-4">
                       <h4 className="text-sm font-semibold flex items-center gap-2">
                         <User className="w-4 h-4" />
-                        Denné ciele na operátora
+                        {t.campaigns.detail.dailyOperatorTargets}
                       </h4>
                       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                         {[
-                          { key: "agentDailyCallsTarget", label: "Hovory/deň", icon: Phone },
-                          { key: "agentDailyContactsTarget", label: "Kontakty/deň", icon: UserCheck },
-                          { key: "agentDailySuccessTarget", label: "Konverzie/deň", icon: Star },
-                          { key: "agentConversionRateTarget", label: "Konverzný pomer", icon: Target, unit: "%" },
-                          { key: "agentAvgCallDurationTarget", label: "Priem. dĺžka hovoru", icon: Clock, unit: " min" },
-                          { key: "agentMaxIdleMinutes", label: "Max. nečinnosť", icon: Clock, unit: " min" },
-                          { key: "agentCallbackComplianceTarget", label: "Plnenie callbackov", icon: CalendarPlus, unit: "%" },
+                          { key: "agentDailyCallsTarget", label: t.campaigns.detail.callsPerDay, icon: Phone },
+                          { key: "agentDailyContactsTarget", label: t.campaigns.detail.contactsPerDay, icon: UserCheck },
+                          { key: "agentDailySuccessTarget", label: t.campaigns.detail.conversionsPerDay, icon: Star },
+                          { key: "agentConversionRateTarget", label: t.campaigns.detail.conversionRate, icon: Target, unit: "%" },
+                          { key: "agentAvgCallDurationTarget", label: t.campaigns.detail.kpiAvgCallDuration, icon: Clock, unit: " min" },
+                          { key: "agentMaxIdleMinutes", label: t.campaigns.detail.kpiMaxIdleTime, icon: Clock, unit: " min" },
+                          { key: "agentCallbackComplianceTarget", label: t.campaigns.detail.dispActionCallback, icon: CalendarPlus, unit: "%" },
                         ].filter(k => (kpiTargets[k.key] || 0) > 0).map(kpi => {
                           const IconComp = kpi.icon;
                           return (
@@ -2501,8 +2503,8 @@ export default function CampaignDetailPage() {
                     <div className="p-4 rounded-lg border bg-muted/30">
                       <div className="flex items-center gap-2 text-sm">
                         <Calendar className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">Plánované trvanie kampane:</span>
-                        <span className="font-semibold">{kpiTargets.campaignDurationDays} pracovných dní</span>
+                        <span className="text-muted-foreground">{t.campaigns.detail.kpiPlannedDuration}:</span>
+                        <span className="font-semibold">{kpiTargets.campaignDurationDays} {t.campaigns.detail.workingDays}</span>
                       </div>
                     </div>
                   )}
@@ -2515,29 +2517,29 @@ export default function CampaignDetailPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Users className="w-5 h-5" />
-                Výkon operátorov v kampani
+                {t.campaigns.detail.operatorPerformance}
               </CardTitle>
               <CardDescription>
-                Denný a celkový výkon jednotlivých operátorov, ktorí pracovali na tejto kampani
+                {t.campaigns.detail.operatorPerformanceDesc}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {agentStatsLoading ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <RefreshCw className="w-6 h-6 mx-auto mb-2 animate-spin" />
-                  <p className="text-sm">Načítavam štatistiky operátorov...</p>
+                  <p className="text-sm">{t.campaigns.detail.loadingOperatorStats}</p>
                 </div>
               ) : agentStatsError ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50 text-destructive" />
-                  <p className="text-sm">Nepodarilo sa načítať štatistiky operátorov</p>
-                  <p className="text-xs mt-1">{agentStatsErrorMsg?.message || "Skúste obnoviť stránku"}</p>
+                  <p className="text-sm">{t.campaigns.detail.operatorStatsError}</p>
+                  <p className="text-xs mt-1">{agentStatsErrorMsg?.message || t.campaigns.detail.refreshPage}</p>
                 </div>
               ) : agentStatsData.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">Zatiaľ žiadni operátori nepracovali na tejto kampani</p>
-                  <p className="text-xs mt-1">Priraďte operátorov v nastaveniach kampane a začnite kontaktovanie</p>
+                  <p className="text-sm">{t.campaigns.detail.noDataAvailable}</p>
+                  <p className="text-xs mt-1">{t.campaigns.detail.operatorAssignmentDesc}</p>
                 </div>
               ) : (() => {
                   const kpiTgts: Record<string, number> = {};
@@ -2593,11 +2595,11 @@ export default function CampaignDetailPage() {
                           <div className="flex items-center gap-3 flex-wrap">
                             <Badge variant="secondary" className="text-xs">
                               <CheckCircle2 className="w-3 h-3 mr-1" />
-                              {agent.completedTotal} úspešných
+                              {agent.completedTotal} {t.campaigns.detail.successful}
                             </Badge>
                             <Badge variant="secondary" className="text-xs">
                               <PhoneMissed className="w-3 h-3 mr-1" />
-                              {agent.noAnswerTotal} nedvíha
+                              {agent.noAnswerTotal} {t.campaigns.contactStatuses.no_answer}
                             </Badge>
                             <Badge variant="secondary" className="text-xs">
                               <CalendarPlus className="w-3 h-3 mr-1" />
@@ -2605,7 +2607,7 @@ export default function CampaignDetailPage() {
                             </Badge>
                             <Badge variant="secondary" className="text-xs">
                               <Ban className="w-3 h-3 mr-1" />
-                              {agent.notInterestedTotal} nezáujem
+                              {agent.notInterestedTotal} {t.campaigns.detail.notInterested}
                             </Badge>
                           </div>
                         </div>
@@ -2628,7 +2630,7 @@ export default function CampaignDetailPage() {
                             {dailyCallsTarget > 0 && (
                               <div className="space-y-1.5">
                                 <div className="flex items-center justify-between gap-2">
-                                  <span className="text-xs text-muted-foreground">Dispozície dnes</span>
+                                  <span className="text-xs text-muted-foreground">{t.campaigns.detail.dispositionsToday}</span>
                                   <span className={`text-xs font-bold ${getTextColor(dispositionsTodayPct)}`}>
                                     {agent.dispositionsToday}/{dailyCallsTarget}
                                   </span>
@@ -2654,7 +2656,7 @@ export default function CampaignDetailPage() {
                             {conversionTarget > 0 && (
                               <div className="space-y-1.5">
                                 <div className="flex items-center justify-between gap-2">
-                                  <span className="text-xs text-muted-foreground">Konverzný pomer</span>
+                                  <span className="text-xs text-muted-foreground">{t.campaigns.detail.conversionRate}</span>
                                   <span className={`text-xs font-bold ${getTextColor(conversionFulfillPct)}`}>
                                     {conversionPct.toFixed(1)}%/{conversionTarget}%
                                   </span>
@@ -2670,23 +2672,23 @@ export default function CampaignDetailPage() {
                         <div className="grid gap-4 md:grid-cols-5 text-center pt-2 border-t">
                           <div>
                             <p className="text-lg font-bold">{agent.totalContacts}</p>
-                            <p className="text-xs text-muted-foreground">Kontaktov</p>
+                            <p className="text-xs text-muted-foreground">{t.campaigns.detail.contacts}</p>
                           </div>
                           <div>
                             <p className="text-lg font-bold">{agent.totalDispositions}</p>
-                            <p className="text-xs text-muted-foreground">Dispozícií</p>
+                            <p className="text-xs text-muted-foreground">{t.campaigns.detail.dispositions}</p>
                           </div>
                           <div>
                             <p className="text-lg font-bold">{agent.dispositionsToday}</p>
-                            <p className="text-xs text-muted-foreground">Dnes</p>
+                            <p className="text-xs text-muted-foreground">{t.campaigns.detail.kpiDailyCallTarget}</p>
                           </div>
                           <div>
                             <p className="text-lg font-bold">{agent.avgAttemptsPerContact}</p>
-                            <p className="text-xs text-muted-foreground">Priem. pokusov</p>
+                            <p className="text-xs text-muted-foreground">{t.campaigns.detail.avgAttempts}</p>
                           </div>
                           <div>
                             <p className="text-lg font-bold">{processedTotal > 0 ? conversionPct.toFixed(0) : 0}%</p>
-                            <p className="text-xs text-muted-foreground">Konverzia</p>
+                            <p className="text-xs text-muted-foreground">{t.campaigns.detail.conversionRate}</p>
                           </div>
                         </div>
                       </div>
@@ -2703,10 +2705,10 @@ export default function CampaignDetailPage() {
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <ScrollText className="w-5 h-5" />
-                  Skript pre operátorov
+                  {t.campaigns.detail.scriptBuilder}
                 </CardTitle>
                 <CardDescription>
-                  Interaktívny skript s výberovými poľami, zaškrtávacími tlačidlami a ďalšími prvkami
+                  {t.campaigns.detail.scriptBuilder}
                 </CardDescription>
               </div>
               <div className="flex items-center gap-2">
@@ -2719,8 +2721,8 @@ export default function CampaignDetailPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="builder">Editor</SelectItem>
-                    <SelectItem value="preview">Náhľad</SelectItem>
-                    <SelectItem value="legacy">Textový režim</SelectItem>
+                    <SelectItem value="preview">{t.campaigns.detail.preview}</SelectItem>
+                    <SelectItem value="legacy">{t.campaigns.detail.textMode}</SelectItem>
                   </SelectContent>
                 </Select>
                 {scriptMode !== "legacy" && (
@@ -2735,7 +2737,7 @@ export default function CampaignDetailPage() {
                     data-testid="button-save-structured-script"
                   >
                     <Save className="w-4 h-4 mr-2" />
-                    {saveScriptMutation.isPending ? "Ukladám..." : "Uložiť skript"}
+                    {saveScriptMutation.isPending ? t.campaigns.detail.saving : t.common.save}
                   </Button>
                 )}
                 {scriptMode === "legacy" && (
@@ -2745,7 +2747,7 @@ export default function CampaignDetailPage() {
                     data-testid="button-save-script"
                   >
                     <Save className="w-4 h-4 mr-2" />
-                    {saveScriptMutation.isPending ? "Ukladám..." : "Uložiť skript"}
+                    {saveScriptMutation.isPending ? t.campaigns.detail.saving : t.common.save}
                   </Button>
                 )}
               </div>
@@ -2764,7 +2766,7 @@ export default function CampaignDetailPage() {
                   {structuredScriptModified && (
                     <div className="mt-4 flex items-center gap-2">
                       <Badge variant="outline" className="bg-yellow-50 dark:bg-yellow-900/20">
-                        Neuložené zmeny
+                        {t.campaigns.detail.saving}
                       </Badge>
                     </div>
                   )}
@@ -2777,8 +2779,8 @@ export default function CampaignDetailPage() {
                     script={structuredScript}
                     onComplete={(session) => {
                       toast({ 
-                        title: "Skript dokončený", 
-                        description: `Vyplnených ${session.responses.length} odpovedí` 
+                        title: t.campaigns.detail.settingsSaved, 
+                        description: `${session.responses.length}` 
                       });
                     }}
                   />
@@ -2788,19 +2790,10 @@ export default function CampaignDetailPage() {
               {scriptMode === "legacy" && (
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="script-editor">Obsah skriptu (textový režim)</Label>
+                    <Label htmlFor="script-editor">{t.campaigns.detail.scriptBuilder}</Label>
                     <Textarea
                       id="script-editor"
-                      placeholder="Napíšte skript pre operátorov...
-
-Príklad:
-1. Pozdrav: 'Dobrý deň, volám z [Názov spoločnosti]...'
-2. Overenie identity: 'Môžem hovoriť s pánom/pani [Meno]?'
-3. Účel hovoru: 'Volám vám ohľadom...'
-4. Otázky pre klienta:
-   - Otázka 1
-   - Otázka 2
-5. Záver hovoru: 'Ďakujem za váš čas...'"
+                      placeholder={t.campaigns.detail.scriptBuilder}
                       value={scriptContent.startsWith("{") ? "" : scriptContent}
                       onChange={(e) => {
                         setScriptContent(e.target.value);
@@ -2814,12 +2807,12 @@ Príklad:
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     {scriptModified && (
                       <Badge variant="outline" className="bg-yellow-50 dark:bg-yellow-900/20">
-                        Neuložené zmeny
+                        {t.campaigns.detail.saving}
                       </Badge>
                     )}
                     {!scriptModified && scriptContent && !scriptContent.startsWith("{") && (
                       <Badge variant="outline" className="bg-green-50 dark:bg-green-900/20">
-                        Uložené
+                        {t.common.saved}
                       </Badge>
                     )}
                   </div>
@@ -2831,17 +2824,17 @@ Príklad:
           {scriptMode === "builder" && (
             <Card>
               <CardHeader>
-                <CardTitle>Návod na tvorbu skriptu</CardTitle>
+                <CardTitle>{t.campaigns.detail.scriptGuideTitle}</CardTitle>
               </CardHeader>
               <CardContent>
                 <ul className="list-disc list-inside space-y-2 text-sm text-muted-foreground">
-                  <li><strong>Kroky:</strong> Rozdeľte skript do logických krokov (napr. Pozdrav, Overenie, Ponuka, Záver)</li>
-                  <li><strong>Nadpisy a odseky:</strong> Použite pre textové inštrukcie a informácie</li>
-                  <li><strong>Výberové polia:</strong> Pre otázky s jednoznačnou odpoveďou (napr. "Má záujem?" - Áno/Nie/Premyslí si)</li>
-                  <li><strong>Zaškrtávacie polia:</strong> Pre zoznam položiek, ktoré treba overiť alebo splniť</li>
-                  <li><strong>Textové polia:</strong> Pre poznámky a voľné odpovede klienta</li>
-                  <li><strong>Poznámky:</strong> Pre dôležité upozornenia a tipy pre operátora</li>
-                  <li><strong>Výsledok hovoru:</strong> Pre zaznamenanie finálneho stavu hovoru</li>
+                  <li>{t.campaigns.detail.scriptGuideSteps}</li>
+                  <li>{t.campaigns.detail.scriptGuideHeadings}</li>
+                  <li>{t.campaigns.detail.scriptGuideSelect}</li>
+                  <li>{t.campaigns.detail.scriptGuideCheckbox}</li>
+                  <li>{t.campaigns.detail.scriptGuideText}</li>
+                  <li>{t.campaigns.detail.scriptGuideNotes}</li>
+                  <li>{t.campaigns.detail.scriptGuideOutcome}</li>
                 </ul>
               </CardContent>
             </Card>
@@ -2853,11 +2846,11 @@ Príklad:
       <Dialog open={!!selectedContact} onOpenChange={() => setSelectedContact(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Detail kontaktu</DialogTitle>
+            <DialogTitle>{t.campaigns.detail.contactDetail}</DialogTitle>
             <DialogDescription>
               {selectedContact?.customer 
                 ? `${selectedContact.customer.firstName} ${selectedContact.customer.lastName}`
-                : "Neznámy kontakt"
+                : t.campaigns.detail.unknownContact
               }
             </DialogDescription>
           </DialogHeader>
@@ -2867,20 +2860,12 @@ Príklad:
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Status</span>
                   <Badge className={CONTACT_STATUS_COLORS[selectedContact.status]}>
-                    {({
-                      pending: "Čakajúci",
-                      contacted: "Kontaktovaný",
-                      completed: "Dokončený",
-                      failed: "Neúspešný",
-                      no_answer: "Nedvíha",
-                      callback_scheduled: "Spätné volanie",
-                      not_interested: "Nemá záujem",
-                    } as Record<string, string>)[selectedContact.status] || selectedContact.status}
+                    {t.campaigns.contactStatuses[selectedContact.status as keyof typeof t.campaigns.contactStatuses] || selectedContact.status}
                   </Badge>
                 </div>
                 {(selectedContact as any).dispositionCode && dispositionMap[(selectedContact as any).dispositionCode] && (
                   <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Výsledok</span>
+                    <span className="text-muted-foreground">{t.campaigns.detail.result}</span>
                     <Badge variant="secondary" className={`text-xs ${
                       {
                         green: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
@@ -2896,21 +2881,21 @@ Príklad:
                   </div>
                 )}
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Pokusy</span>
+                  <span className="text-muted-foreground">{t.campaigns.detail.attempts}</span>
                   <span>{selectedContact.attemptCount || 0}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Telefón</span>
+                  <span className="text-muted-foreground">{t.campaigns.detail.phone}</span>
                   <span>{selectedContact.customer?.phone || "-"}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">E-mail</span>
+                  <span className="text-muted-foreground">{t.campaigns.detail.email}</span>
                   <span>{selectedContact.customer?.email || "-"}</span>
                 </div>
               </div>
               <Separator />
               <div className="space-y-2">
-                <label className="text-sm font-medium">Zmeniť status</label>
+                <label className="text-sm font-medium">{t.campaigns.detail.changeStatus}</label>
                 <Select
                   value={selectedContact.status}
                   onValueChange={(value) => {
@@ -2924,13 +2909,13 @@ Príklad:
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="pending">Čakajúci</SelectItem>
-                    <SelectItem value="contacted">Kontaktovaný</SelectItem>
-                    <SelectItem value="completed">Dokončený</SelectItem>
-                    <SelectItem value="no_answer">Nedvíha</SelectItem>
-                    <SelectItem value="callback_scheduled">Spätné volanie</SelectItem>
-                    <SelectItem value="not_interested">Nemá záujem</SelectItem>
-                    <SelectItem value="failed">Neúspešný</SelectItem>
+                    <SelectItem value="pending">{t.campaigns.contactStatuses.pending}</SelectItem>
+                    <SelectItem value="contacted">{t.campaigns.contactStatuses.contacted}</SelectItem>
+                    <SelectItem value="completed">{t.campaigns.contactStatuses.completed}</SelectItem>
+                    <SelectItem value="no_answer">{t.campaigns.contactStatuses.no_answer}</SelectItem>
+                    <SelectItem value="callback_scheduled">{t.campaigns.contactStatuses.callback_scheduled}</SelectItem>
+                    <SelectItem value="not_interested">{t.campaigns.contactStatuses.not_interested}</SelectItem>
+                    <SelectItem value="failed">{t.campaigns.contactStatuses.failed}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -2938,27 +2923,27 @@ Príklad:
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <History className="h-4 w-4 text-muted-foreground" />
-                  <label className="text-sm font-medium">História zákazníka</label>
+                  <label className="text-sm font-medium">{t.campaigns.detail.customerHistory}</label>
                 </div>
                 <ScrollArea className="h-48 rounded-md border p-2">
                   {contactActivityLogs.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-4">Žiadna história</p>
+                    <p className="text-sm text-muted-foreground text-center py-4">{t.campaigns.detail.noHistory}</p>
                   ) : (
                     <div className="space-y-2">
                       {contactActivityLogs.slice(0, 10).map((log) => {
                         const details = log.details || {};
                         const getActionLabel = (action: string) => {
                           const labels: Record<string, string> = {
-                            create: "Vytvorenie",
-                            update: "Úprava",
-                            delete: "Zmazanie",
-                            pipeline_move: "Presun v pipeline",
-                            stage_changed: "Presun v pipeline",
-                            campaign_joined: "Pridaný do kampane",
-                            campaign_left: "Odstránený z kampane",
-                            email_sent: "Email odoslaný",
-                            sms_sent: "SMS odoslaná",
-                            note_added: "Poznámka pridaná",
+                            create: t.campaigns.detail.created,
+                            update: t.campaigns.detail.updated,
+                            delete: t.campaigns.detail.remove,
+                            pipeline_move: "Pipeline",
+                            stage_changed: "Pipeline",
+                            campaign_joined: t.campaigns.detail.campaignJoined,
+                            campaign_left: t.campaigns.detail.campaignLeft,
+                            email_sent: t.campaigns.detail.emailSent,
+                            sms_sent: t.campaigns.detail.smsSent,
+                            note_added: t.campaigns.detail.noteAdded,
                           };
                           return labels[action] || action;
                         };
@@ -3007,9 +2992,9 @@ Príklad:
       <Dialog open={showImportDialog} onOpenChange={(open) => { if (!open) { setShowImportDialog(false); setImportFile(null); setImportResult(null); setUpdateExisting(false); } }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Import externých kontaktov</DialogTitle>
+            <DialogTitle>{t.campaigns.detail.importContacts}</DialogTitle>
             <DialogDescription>
-              Nahrajte CSV alebo Excel súbor s kontaktmi pre túto kampaň.
+              {t.campaigns.detail.importContacts}
             </DialogDescription>
           </DialogHeader>
 
@@ -3018,7 +3003,7 @@ Príklad:
               <div className="flex items-center gap-3 p-4 rounded-md bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800">
                 <CheckCircle className="h-5 w-5 text-green-600 shrink-0" />
                 <div>
-                  <p className="font-medium text-green-800 dark:text-green-200">Import dokončený</p>
+                  <p className="font-medium text-green-800 dark:text-green-200">{t.campaigns.detail.importCompleted}</p>
                   <p className="text-sm text-green-700 dark:text-green-300">
                     Vytvorených: {importResult.created} kontaktov
                     {(importResult.updated || 0) > 0 && `, aktualizovaných: ${importResult.updated}`}
@@ -3055,14 +3040,14 @@ Príklad:
                     data-testid="button-delete-last-import"
                   >
                     {deleteImportMutation.isPending ? (
-                      <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Mažem...</>
+                      <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />{t.campaigns.detail.deleting}</>
                     ) : (
-                      <><Trash2 className="w-4 h-4 mr-2" />Zmazať posledný import ({importResult.importedContactIds.length})</>
+                      <><Trash2 className="w-4 h-4 mr-2" />{t.campaigns.detail.deleteLastImport} ({importResult.importedContactIds.length})</>
                     )}
                   </Button>
                 )}
                 <Button onClick={() => { setShowImportDialog(false); setImportFile(null); setImportResult(null); }} data-testid="button-close-import">
-                  Zavrieť
+                  {t.campaigns.detail.close}
                 </Button>
               </div>
             </div>
@@ -3090,14 +3075,14 @@ Príklad:
                       {(importFile.size / 1024).toFixed(1)} KB
                     </p>
                     <Button variant="outline" size="sm" onClick={() => setImportFile(null)} data-testid="button-remove-file">
-                      Odstrániť
+                      {t.campaigns.detail.remove}
                     </Button>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center gap-2">
                     <Upload className="h-8 w-8 text-muted-foreground" />
-                    <p className="text-sm font-medium">Pretiahnite súbor sem</p>
-                    <p className="text-xs text-muted-foreground">alebo kliknite pre výber</p>
+                    <p className="text-sm font-medium">{t.campaigns.detail.dragFileHere}</p>
+                    <p className="text-xs text-muted-foreground">{t.campaigns.detail.orClickToSelect}</p>
                     <input
                       type="file"
                       accept=".csv,.xlsx,.xls"
@@ -3123,13 +3108,13 @@ Príklad:
                   data-testid="button-download-template"
                 >
                   <Download className="w-4 h-4 mr-2" />
-                  Stiahnuť vzorový CSV
+                  {t.campaigns.detail.downloadSampleCsv}
                 </Button>
               </div>
 
               <Card>
                 <CardContent className="pt-4">
-                  <p className="text-xs font-medium mb-2">Očakávané stĺpce:</p>
+                  <p className="text-xs font-medium mb-2">{t.campaigns.detail.expectedColumns}:</p>
                   <div className="grid grid-cols-2 gap-1">
                     {[
                       "meno", "priezvisko", "telefon", "telefon_2",
@@ -3142,7 +3127,7 @@ Príklad:
                     <strong>krajina</strong> (SK, CZ, HU, RO, IT, DE, US) &middot; <strong>datum</strong> (YYYY-MM-DD, DD.MM.YYYY, DD/MM/YYYY)
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Podporované formáty: CSV (oddelené bodkočiarkou alebo čiarkou), Excel (.xlsx)
+                    {t.campaigns.detail.supportedFormats}
                   </p>
                 </CardContent>
               </Card>
@@ -3154,13 +3139,13 @@ Príklad:
                   onChange={(e) => setUpdateExisting(e.target.checked)}
                   className="rounded border-muted-foreground/50"
                 />
-                <span className="text-sm">Aktualizovať existujúce kontakty (prepíše údaje ak kontakt už existuje)</span>
+                <span className="text-sm">{t.campaigns.detail.updateExisting}</span>
               </label>
 
               {importPhase && (
                 <div className="space-y-2" data-testid="import-progress">
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>{importPhase === "upload" ? "Nahrávam súbor..." : "Spracúvam kontakty..."}</span>
+                    <span>{importPhase === "upload" ? t.campaigns.detail.uploadingFile : t.campaigns.detail.processingContacts}</span>
                     <span>{importPhase === "upload" ? `${importProgress}%` : ""}</span>
                   </div>
                   <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
@@ -3178,7 +3163,7 @@ Príklad:
 
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setShowImportDialog(false)} disabled={importContactsMutation.isPending} data-testid="button-cancel-import">
-                  Zrušiť
+                  {t.campaigns.detail.cancel}
                 </Button>
                 <Button
                   onClick={() => { if (importFile) importContactsMutation.mutate(importFile); }}
@@ -3188,12 +3173,12 @@ Príklad:
                   {importContactsMutation.isPending ? (
                     <>
                       <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                      Importujem...
+                      {t.campaigns.detail.importing}
                     </>
                   ) : (
                     <>
                       <Upload className="w-4 h-4 mr-2" />
-                      Importovať
+                      {t.campaigns.detail.import}
                     </>
                   )}
                 </Button>
@@ -3208,10 +3193,10 @@ Príklad:
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <RefreshCw className="w-5 h-5 text-amber-500" />
-              Zaradiť kontakty znova do fronty
+              {t.campaigns.detail.requeueTitle}
             </DialogTitle>
             <DialogDescription>
-              Vyberte filtre na určenie kontaktov, ktoré sa majú znova zaradiť na spracovanie.
+              {t.campaigns.detail.requeueDesc}
             </DialogDescription>
           </DialogHeader>
 
@@ -3221,16 +3206,16 @@ Príklad:
                 <div className="space-y-3 p-4 rounded-lg border">
                   <div className="flex items-center gap-2">
                     <Filter className="w-4 h-4 text-amber-500" />
-                    <label className="text-sm font-semibold">Podľa statusu</label>
+                    <label className="text-sm font-semibold">{t.campaigns.detail.requeueByStatus}</label>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {[
-                      { value: "contacted", label: "Kontaktovaný" },
-                      { value: "completed", label: "Dokončený" },
-                      { value: "failed", label: "Neúspešný" },
-                      { value: "no_answer", label: "Nedvíha" },
-                      { value: "callback_scheduled", label: "Spätné volanie" },
-                      { value: "not_interested", label: "Nemá záujem" },
+                      { value: "contacted", label: t.campaigns.contactStatuses.contacted },
+                      { value: "completed", label: t.campaigns.contactStatuses.completed },
+                      { value: "failed", label: t.campaigns.contactStatuses.failed },
+                      { value: "no_answer", label: t.campaigns.contactStatuses.no_answer },
+                      { value: "callback_scheduled", label: t.campaigns.contactStatuses.callback_scheduled },
+                      { value: "not_interested", label: t.campaigns.contactStatuses.not_interested },
                     ].map(s => (
                       <Badge
                         key={s.value}
@@ -3251,17 +3236,17 @@ Príklad:
                       </Badge>
                     ))}
                   </div>
-                  <p className="text-xs text-muted-foreground">Prázdny výber = všetky okrem "Čakajúci"</p>
+                  <p className="text-xs text-muted-foreground">{t.campaigns.detail.requeueEmptyStatus}</p>
                 </div>
 
                 <div className="space-y-3 p-4 rounded-lg border">
                   <div className="flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-amber-500" />
-                    <label className="text-sm font-semibold">Spätné volanie v období</label>
+                    <label className="text-sm font-semibold">{t.campaigns.detail.requeueByCallback}</label>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
-                      <label className="text-xs text-muted-foreground">Od</label>
+                      <label className="text-xs text-muted-foreground">{t.campaigns.detail.from}</label>
                       <Input
                         type="date"
                         value={requeueCallbackFrom}
@@ -3270,7 +3255,7 @@ Príklad:
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs text-muted-foreground">Do</label>
+                      <label className="text-xs text-muted-foreground">{t.campaigns.detail.to}</label>
                       <Input
                         type="date"
                         value={requeueCallbackTo}
@@ -3285,7 +3270,7 @@ Príklad:
               <div className="space-y-3 p-4 rounded-lg border">
                 <div className="flex items-center gap-2">
                   <ListChecks className="w-4 h-4 text-amber-500" />
-                  <label className="text-sm font-semibold">Podľa výsledku (dispozícia)</label>
+                  <label className="text-sm font-semibold">{t.campaigns.detail.requeueByDisposition}</label>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {campaignDispositions.filter(d => !d.parentId).map(d => {
@@ -3326,13 +3311,13 @@ Príklad:
                     );
                   })}
                 </div>
-                <p className="text-xs text-muted-foreground">Prázdny výber = všetky výsledky</p>
+                <p className="text-xs text-muted-foreground">{t.campaigns.detail.requeueEmptyDisp}</p>
               </div>
 
               <div className="rounded-lg border">
                 <div className="flex items-center justify-between p-3 border-b bg-muted/30">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold">Zodpovedajúce kontakty</span>
+                    <span className="text-sm font-semibold">{t.campaigns.detail.requeueMatchingContacts}</span>
                     <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
                       {requeueMatchingContacts.length}
                     </Badge>
@@ -3379,7 +3364,7 @@ Príklad:
                               </Badge>
                             )}
                             <Badge variant="secondary" className="text-xs">
-                              {{"pending": "Čakajúci", "contacted": "Kontaktovaný", "completed": "Dokončený", "failed": "Neúspešný", "no_answer": "Nedvíha", "callback_scheduled": "Spätné volanie", "not_interested": "Nemá záujem"}[c.status] || c.status}
+                              {(t.campaigns.contactStatuses as Record<string, string>)[c.status] || c.status}
                             </Badge>
                           </div>
                         </div>
@@ -3387,7 +3372,7 @@ Príklad:
                   </div>
                 ) : (
                   <div className="p-6 text-center text-sm text-muted-foreground">
-                    Žiadne kontakty nezodpovedajú zvoleným filtrom
+                    {t.campaigns.detail.noDataAvailable}
                   </div>
                 )}
               </div>
@@ -3397,11 +3382,11 @@ Príklad:
           <Separator />
           <div className="flex items-center justify-between pt-1">
             <p className="text-xs text-muted-foreground">
-              Status sa zmení na "Čakajúci", výsledok a spätné volanie sa resetujú
+              {t.campaigns.detail.requeueStatusReset}
             </p>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setShowRequeueDialog(false)} data-testid="button-requeue-cancel">
-                Zrušiť
+                {t.campaigns.detail.cancel}
               </Button>
               <Button
                 className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-amber-600 dark:from-amber-600 dark:to-orange-600"
@@ -3414,12 +3399,12 @@ Príklad:
                 {requeueMutation.isPending ? (
                   <>
                     <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                    Spracúvam...
+                    {t.campaigns.detail.requeueProcessing}
                   </>
                 ) : (
                   <>
                     <RefreshCw className="w-4 h-4 mr-2" />
-                    Zaradiť {requeueMatchingContacts.length} kontaktov
+                    {t.campaigns.detail.requeueConfirm} ({requeueMatchingContacts.length})
                   </>
                 )}
               </Button>
