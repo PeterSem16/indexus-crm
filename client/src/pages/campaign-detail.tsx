@@ -1098,8 +1098,14 @@ export default function CampaignDetailPage() {
     lastActiveAt: string | null;
   }>>({
     queryKey: ["/api/campaigns", campaignId, "agent-stats"],
+    queryFn: async () => {
+      const res = await fetch(`/api/campaigns/${campaignId}/agent-stats`, { credentials: "include" });
+      if (!res.ok) throw new Error(`Failed to fetch agent stats: ${res.status}`);
+      return res.json();
+    },
     enabled: !!campaignId,
     refetchInterval: 30000,
+    staleTime: 0,
   });
 
   const selectedCustomerId = selectedContact?.customerId;

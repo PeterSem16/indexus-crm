@@ -14925,9 +14925,13 @@ export async function registerRoutes(
       const assignedToIds = new Set(contacts.filter(c => c.assignedTo).map(c => c.assignedTo!));
       for (const uid of assignedToIds) agentUserIds.add(uid);
 
+      console.log(`[AgentStats] Campaign ${campaignId}: ${contacts.length} contacts, ${agents.length} agents, ${agentUserIds.size} unique agent IDs`);
+
       const historyEntries = await db.select().from(campaignContactHistory)
         .innerJoin(campaignContacts, eq(campaignContactHistory.campaignContactId, campaignContacts.id))
         .where(eq(campaignContacts.campaignId, campaignId));
+
+      console.log(`[AgentStats] Found ${historyEntries.length} history entries`);
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -15042,6 +15046,7 @@ export async function registerRoutes(
 
       agentArray.sort((a, b) => b.totalDispositions - a.totalDispositions);
 
+      console.log(`[AgentStats] Returning ${agentArray.length} agents:`, agentArray.map(a => `${a.name}(${a.userId}): ${a.totalContacts}c/${a.totalDispositions}d`));
       res.json(agentArray);
     } catch (error) {
       console.error("Failed to fetch campaign agent stats:", error);
