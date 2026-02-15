@@ -93,6 +93,7 @@ import {
   Filter,
   ArrowUpDown,
   ListTodo,
+  Pencil,
 } from "lucide-react";
 import {
   Dialog,
@@ -934,6 +935,12 @@ function CommunicationCanvas({
   const [emailBody, setEmailBody] = useState("");
   const [smsMessage, setSmsMessage] = useState("");
   const [emailAttachments, setEmailAttachments] = useState<File[]>([]);
+  const [phoneSubTab, setPhoneSubTab] = useState<"card" | "details">("card");
+
+  useEffect(() => {
+    setPhoneSubTab("card");
+  }, [contact?.id]);
+
   const editorRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const timelineEndRef = useRef<HTMLDivElement>(null);
@@ -1106,18 +1113,6 @@ function CommunicationCanvas({
         <div className="flex">
           <button
             className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
-              activeChannel === "script"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-            onClick={() => onChannelChange("script")}
-            data-testid="tab-script"
-          >
-            <FileText className="h-3.5 w-3.5" />
-            SCRIPT
-          </button>
-          <button
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
               activeChannel === "phone"
                 ? "border-blue-500 text-blue-600 dark:text-blue-400"
                 : "border-transparent text-muted-foreground hover:text-foreground"
@@ -1127,6 +1122,18 @@ function CommunicationCanvas({
           >
             <Phone className="h-3.5 w-3.5" />
             HOVOR
+          </button>
+          <button
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
+              activeChannel === "script"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => onChannelChange("script")}
+            data-testid="tab-script"
+          >
+            <FileText className="h-3.5 w-3.5" />
+            SCRIPT
           </button>
           <button
             className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
@@ -1151,18 +1158,6 @@ function CommunicationCanvas({
           >
             <MessageSquare className="h-3.5 w-3.5" />
             SMS
-          </button>
-          <button
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
-              activeChannel === "customer"
-                ? "border-purple-500 text-purple-600 dark:text-purple-400"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-            onClick={() => onChannelChange("customer")}
-            data-testid="tab-customer"
-          >
-            <User className="h-3.5 w-3.5" />
-            KLIENT
           </button>
         </div>
       </div>
@@ -1215,64 +1210,103 @@ function CommunicationCanvas({
 
       {activeChannel === "phone" && (
         <div className="flex-1 flex flex-col">
-          <ScrollArea className="flex-1">
-            <div className="p-4 space-y-3">
-              {timeline.filter(e => e.type === "call" || e.type === "system").map((entry) => (
-                <div key={entry.id} className="flex gap-3 items-start">
-                  <div className={`p-1.5 rounded-full shrink-0 mt-0.5 ${
-                    entry.type === "call" ? "bg-blue-100 dark:bg-blue-950/40" : "bg-muted"
-                  }`}>
-                    {entry.type === "call" ? (
-                      <Phone className="h-3 w-3 text-blue-500" />
-                    ) : (
-                      <Info className="h-3 w-3 text-muted-foreground" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium">{entry.content}</span>
-                      <span className="text-[10px] text-muted-foreground">
-                        {format(entry.timestamp, "HH:mm", { locale: sk })}
-                      </span>
-                    </div>
-                    {entry.details && (
-                      <p className="text-xs text-muted-foreground mt-0.5">{entry.details}</p>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {timeline.filter(e => e.type === "call" || e.type === "system").length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Phone className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                  <p className="text-xs">Žiadna história hovorov</p>
-                </div>
-              )}
-            </div>
-          </ScrollArea>
-          <div className="border-t p-4 bg-card">
-            {contact.phone && isSipRegistered && onMakeCall ? (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">{contact.phone}</span>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    onClick={() => onMakeCall(contact.phone!)}
-                    className="gap-2 flex-1"
-                    data-testid="btn-call-primary"
-                  >
-                    <Phone className="h-4 w-4" />
-                    Zavolať
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Phone className="h-4 w-4" />
-                <span>{isSipRegistered ? "Kontakt nemá telefónne číslo" : "SIP telefón nie je pripojený"}</span>
-              </div>
-            )}
+          <div className="border-b bg-card/50 flex items-center">
+            <button
+              className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium border-b-2 transition-colors ${
+                phoneSubTab === "card"
+                  ? "border-blue-500 text-blue-600 dark:text-blue-400"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+              onClick={() => setPhoneSubTab("card")}
+              data-testid="subtab-customer-card"
+            >
+              <Pencil className="h-3 w-3" />
+              Karta zákazníka
+            </button>
+            <button
+              className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium border-b-2 transition-colors ${
+                phoneSubTab === "details"
+                  ? "border-purple-500 text-purple-600 dark:text-purple-400"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+              onClick={() => setPhoneSubTab("details")}
+              data-testid="subtab-customer-details"
+            >
+              <Eye className="h-3 w-3" />
+              Detail zákazníka
+            </button>
           </div>
+
+          {phoneSubTab === "card" && (
+            <>
+              <ScrollArea className="flex-1">
+                <div className="p-4 space-y-3">
+                  {timeline.filter(e => e.type === "call" || e.type === "system").map((entry) => (
+                    <div key={entry.id} className="flex gap-3 items-start">
+                      <div className={`p-1.5 rounded-full shrink-0 mt-0.5 ${
+                        entry.type === "call" ? "bg-blue-100 dark:bg-blue-950/40" : "bg-muted"
+                      }`}>
+                        {entry.type === "call" ? (
+                          <Phone className="h-3 w-3 text-blue-500" />
+                        ) : (
+                          <Info className="h-3 w-3 text-muted-foreground" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium">{entry.content}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {format(entry.timestamp, "HH:mm", { locale: sk })}
+                          </span>
+                        </div>
+                        {entry.details && (
+                          <p className="text-xs text-muted-foreground mt-0.5">{entry.details}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {timeline.filter(e => e.type === "call" || e.type === "system").length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Phone className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                      <p className="text-xs">Žiadna história hovorov</p>
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+              <div className="border-t p-4 bg-card">
+                {contact.phone && isSipRegistered && onMakeCall ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">{contact.phone}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => onMakeCall(contact.phone!)}
+                        className="gap-2 flex-1"
+                        data-testid="btn-call-primary"
+                      >
+                        <Phone className="h-4 w-4" />
+                        Zavolať
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Phone className="h-4 w-4" />
+                    <span>{isSipRegistered ? "Kontakt nemá telefónne číslo" : "SIP telefón nie je pripojený"}</span>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {phoneSubTab === "details" && contact && (
+            <ScrollArea className="flex-1">
+              <div className="p-4">
+                <CustomerDetailsContent customer={contact} onEdit={() => {}} />
+              </div>
+            </ScrollArea>
+          )}
         </div>
       )}
 
@@ -1513,13 +1547,6 @@ function CommunicationCanvas({
         </div>
       )}
 
-      {activeChannel === "customer" && contact && (
-        <ScrollArea className="flex-1">
-          <div className="p-4">
-            <CustomerDetailsContent customer={contact} onEdit={() => {}} />
-          </div>
-        </ScrollArea>
-      )}
     </div>
   );
 }
@@ -2018,7 +2045,7 @@ export default function AgentWorkspacePage() {
   const [currentContact, setCurrentContact] = useState<Customer | null>(null);
   const [currentCampaignContactId, setCurrentCampaignContactId] = useState<string | null>(null);
   const [sessionLoginOpen, setSessionLoginOpen] = useState(true);
-  const [activeChannel, setActiveChannel] = useState("script");
+  const [activeChannel, setActiveChannel] = useState("phone");
   const [rightTab, setRightTab] = useState("actions");
   const [callNotes, setCallNotes] = useState("");
   const [channelFilter, setChannelFilter] = useState("all");
@@ -2319,7 +2346,7 @@ export default function AgentWorkspacePage() {
     setCurrentCampaignContactId(null);
     setCallNotes("");
     setTimeline([]);
-    setActiveChannel("script");
+    setActiveChannel("phone");
 
     setTimeout(() => {
       setAgentStatus("available");
@@ -2538,7 +2565,7 @@ export default function AgentWorkspacePage() {
     setCurrentContact(customer);
     agentSession.updateStatus("busy").catch(() => {});
     setCallNotes("");
-    setActiveChannel("script");
+    setActiveChannel("phone");
     setRightTab("actions");
 
     const campaignChannel = (selectedCampaign?.channel || "phone") as ChannelType;
