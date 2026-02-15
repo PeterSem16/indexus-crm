@@ -27,7 +27,7 @@ import {
   insertVisitEventSchema,
   campaignDispositions, insertCampaignDispositionSchema,
   DEFAULT_PHONE_DISPOSITIONS, DEFAULT_EMAIL_DISPOSITIONS, DEFAULT_SMS_DISPOSITIONS,
-  campaignContacts,
+  campaignContacts, campaignContactHistory,
   type SafeUser, type Customer, type Product, type BillingDetails, type ActivityLog, type LeadScoringCriteria,
   type ServiceConfiguration, type InvoiceTemplate, type InvoiceLayout, type Role,
   type Campaign, type CampaignContact, type ContractInstance
@@ -14909,6 +14909,143 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Failed to fetch campaign stats:", error);
       res.status(500).json({ error: "Failed to fetch campaign stats" });
+    }
+  });
+
+  // Campaign per-agent KPI stats
+  app.get("/api/campaigns/:id/agent-stats", requireAuth, async (req, res) => {
+    try {
+      const campaignId = req.params.id;
+      const contacts = await storage.getCampaignContacts(campaignId);
+      const agents = await storage.getCampaignAgents(campaignId);
+      const allUsers = await storage.getUsers();
+      const userMap = new Map(allUsers.map(u => [u.id, `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.email]));
+
+      const agentUserIds = new Set(agents.map(a => a.userId));
+      const assignedToIds = new Set(contacts.filter(c => c.assignedTo).map(c => c.assignedTo!));
+      for (const uid of assignedToIds) agentUserIds.add(uid);
+
+      const historyEntries = await db.select().from(campaignContactHistory)
+        .innerJoin(campaignContacts, eq(campaignContactHistory.campaignContactId, campaignContacts.id))
+        .where(eq(campaignContacts.campaignId, campaignId));
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const agentStats: Record<string, {
+        userId: string;
+        name: string;
+        totalContacts: number;
+        contactedToday: number;
+        completedTotal: number;
+        completedToday: number;
+        noAnswerTotal: number;
+        callbackTotal: number;
+        notInterestedTotal: number;
+        failedTotal: number;
+        totalDispositions: number;
+        dispositionsToday: number;
+        avgAttemptsPerContact: number;
+        lastActiveAt: string | null;
+      }> = {};
+
+      for (const uid of agentUserIds) {
+        agentStats[uid] = {
+          userId: uid,
+          name: userMap.get(uid) || "Neznámy",
+          totalContacts: 0,
+          contactedToday: 0,
+          completedTotal: 0,
+          completedToday: 0,
+          noAnswerTotal: 0,
+          callbackTotal: 0,
+          notInterestedTotal: 0,
+          failedTotal: 0,
+          totalDispositions: 0,
+          dispositionsToday: 0,
+          avgAttemptsPerContact: 0,
+          lastActiveAt: null,
+        };
+      }
+
+      for (const c of contacts) {
+        const agentId = c.assignedTo;
+        if (!agentId || !agentStats[agentId]) continue;
+        const stat = agentStats[agentId];
+        stat.totalContacts++;
+        if (c.status === "completed") stat.completedTotal++;
+        if (c.status === "no_answer") stat.noAnswerTotal++;
+        if (c.status === "callback_scheduled") stat.callbackTotal++;
+        if (c.status === "not_interested") stat.notInterestedTotal++;
+        if (c.status === "failed") stat.failedTotal++;
+      }
+
+      const todayContactedSets: Record<string, Set<string>> = {};
+      const todayCompletedSets: Record<string, Set<string>> = {};
+
+      for (const row of historyEntries) {
+        const h = row.campaign_contact_history;
+        const contactId = row.campaign_contacts.id;
+        const agentId = h.userId;
+        if (!agentStats[agentId]) {
+          agentStats[agentId] = {
+            userId: agentId,
+            name: userMap.get(agentId) || "Neznámy",
+            totalContacts: 0, contactedToday: 0, completedTotal: 0, completedToday: 0,
+            noAnswerTotal: 0, callbackTotal: 0, notInterestedTotal: 0, failedTotal: 0,
+            totalDispositions: 0, dispositionsToday: 0, avgAttemptsPerContact: 0, lastActiveAt: null,
+          };
+        }
+        const stat = agentStats[agentId];
+
+        if (h.action === "status_change") {
+          stat.totalDispositions++;
+          const entryDate = new Date(h.createdAt);
+          if (entryDate >= today) {
+            stat.dispositionsToday++;
+            if (!todayContactedSets[agentId]) todayContactedSets[agentId] = new Set();
+            if (!todayCompletedSets[agentId]) todayCompletedSets[agentId] = new Set();
+            if (h.newStatus === "contacted" || h.newStatus === "completed") {
+              todayContactedSets[agentId].add(contactId);
+            }
+            if (h.newStatus === "completed") {
+              todayCompletedSets[agentId].add(contactId);
+            }
+          }
+        }
+
+        const entryDate = new Date(h.createdAt);
+        if (!stat.lastActiveAt || entryDate > new Date(stat.lastActiveAt)) {
+          stat.lastActiveAt = h.createdAt.toISOString();
+        }
+      }
+
+      for (const [agentId, contactSet] of Object.entries(todayContactedSets)) {
+        if (agentStats[agentId]) agentStats[agentId].contactedToday = contactSet.size;
+      }
+      for (const [agentId, contactSet] of Object.entries(todayCompletedSets)) {
+        if (agentStats[agentId]) agentStats[agentId].completedToday = contactSet.size;
+      }
+
+      const agentArray = Object.values(agentStats).filter(a =>
+        a.totalContacts > 0 || a.totalDispositions > 0
+      );
+
+      for (const a of agentArray) {
+        if (a.totalContacts > 0) {
+          const totalAttempts = contacts
+            .filter(c => c.assignedTo === a.userId)
+            .reduce((sum, c) => sum + (c.attemptCount || 0), 0);
+          a.avgAttemptsPerContact = parseFloat((totalAttempts / a.totalContacts).toFixed(1));
+        }
+      }
+
+      agentArray.sort((a, b) => b.totalDispositions - a.totalDispositions);
+
+      res.json(agentArray);
+    } catch (error) {
+      console.error("Failed to fetch campaign agent stats:", error);
+      res.status(500).json({ error: "Failed to fetch campaign agent stats" });
     }
   });
 
