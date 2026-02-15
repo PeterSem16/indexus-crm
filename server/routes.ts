@@ -14918,7 +14918,7 @@ export async function registerRoutes(
       const campaignId = req.params.id;
       const contacts = await storage.getCampaignContacts(campaignId);
       const agents = await storage.getCampaignAgents(campaignId);
-      const allUsers = await storage.getUsers();
+      const allUsers = await storage.getAllUsers();
       const userMap = new Map(allUsers.map(u => [u.id, u.fullName || u.email]));
 
       const agentUserIds = new Set(agents.map(a => a.userId));
