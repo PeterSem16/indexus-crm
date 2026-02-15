@@ -1259,7 +1259,7 @@ function CommunicationCanvas({
           {phoneSubTab === "details" && contact && (
             <ScrollArea className="flex-1">
               <div className="p-4">
-                <CustomerDetailsContent customer={contact} onEdit={() => {}} />
+                <CustomerDetailsContent customer={contact} onEdit={() => {}} compact />
               </div>
             </ScrollArea>
           )}

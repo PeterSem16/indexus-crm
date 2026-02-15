@@ -2738,10 +2738,12 @@ function CustomerHistoryTimeline({
 
 export function CustomerDetailsContent({ 
   customer, 
-  onEdit 
+  onEdit,
+  compact = false,
 }: { 
   customer: Customer; 
   onEdit: () => void;
+  compact?: boolean;
 }) {
   const { t, locale } = useI18n();
   const { toast } = useToast();
@@ -3420,111 +3422,145 @@ export function CustomerDetailsContent({
   const availableProducts = activeProducts.filter(p => !assignedProductIds.includes(p.id));
 
   return (
-    <div className="mt-6 space-y-6">
-      <div className="flex items-center gap-4">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground text-xl font-bold">
-          {customer.firstName[0]}{customer.lastName[0]}
-        </div>
-        <div>
-          <h3 className="text-xl font-semibold">
+    <div className={compact ? "space-y-3" : "mt-6 space-y-6"}>
+      {compact ? (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs border-b pb-2">
+          <span className="font-semibold text-sm text-foreground" data-testid="text-compact-name">
             {customer.firstName} {customer.lastName}
-          </h3>
-          <p className="text-muted-foreground">{customer.email}</p>
+          </span>
           {customer.phone && (
-            <p className="text-muted-foreground flex items-center gap-1 mt-1">
+            <span className="text-muted-foreground flex items-center gap-1">
               <Phone className="h-3 w-3" />
               {customer.phone}
-            </p>
+            </span>
           )}
-          <div className="flex flex-wrap items-center gap-4 mt-2 text-sm">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Badge
-                  variant="outline"
-                  className="cursor-pointer hover-elevate"
-                  onClick={() => {
-                    navigator.clipboard.writeText(customer.id);
-                    toast({ title: t.customers.fields.copiedToClipboard });
-                  }}
-                  data-testid="button-copy-detail-client-id"
-                >
-                  <Copy className="h-3 w-3 mr-1" />
-                  {t.customers.fields.clientId}
-                </Badge>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{t.customers.details.copyClientId}</p>
-              </TooltipContent>
-            </Tooltip>
-            {customer.internalId && (
-              <div className="flex items-center gap-1">
-                <span className="text-muted-foreground">{t.customers.fields.internalId}:</span>
-                <span className="font-mono text-xs">{customer.internalId}</span>
+          {customer.email && (
+            <span className="text-muted-foreground flex items-center gap-1">
+              <Mail className="h-3 w-3" />
+              {customer.email}
+            </span>
+          )}
+          {customer.country && (
+            <span className="text-muted-foreground">{customer.country}</span>
+          )}
+          <StatusBadge status={customer.status as any} />
+          <Badge variant="outline" className="text-[10px]">
+            {customer.clientStatus === "acquired" ? "Acquired" : customer.clientStatus === "potential" ? "Prospect" : customer.clientStatus || "—"}
+          </Badge>
+          {customer.notes && (
+            <span className="text-muted-foreground italic truncate max-w-[250px]">
+              {customer.notes.split("\n")[0]}
+            </span>
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center gap-4">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground text-xl font-bold">
+              {customer.firstName[0]}{customer.lastName[0]}
+            </div>
+            <div>
+              <h3 className="text-xl font-semibold">
+                {customer.firstName} {customer.lastName}
+              </h3>
+              <p className="text-muted-foreground">{customer.email}</p>
+              {customer.phone && (
+                <p className="text-muted-foreground flex items-center gap-1 mt-1">
+                  <Phone className="h-3 w-3" />
+                  {customer.phone}
+                </p>
+              )}
+              <div className="flex flex-wrap items-center gap-4 mt-2 text-sm">
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6"
+                    <Badge
+                      variant="outline"
+                      className="cursor-pointer hover-elevate"
                       onClick={() => {
-                        navigator.clipboard.writeText(customer.internalId || "");
+                        navigator.clipboard.writeText(customer.id);
                         toast({ title: t.customers.fields.copiedToClipboard });
                       }}
-                      data-testid="button-copy-detail-internal-id"
+                      data-testid="button-copy-detail-client-id"
                     >
-                      <Copy className="h-3 w-3" />
-                    </Button>
+                      <Copy className="h-3 w-3 mr-1" />
+                      {t.customers.fields.clientId}
+                    </Badge>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>{t.customers.details.copyInternalId}</p>
+                    <p>{t.customers.details.copyClientId}</p>
                   </TooltipContent>
                 </Tooltip>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">{t.customers.details?.country || "Country"}</p>
-            <p className="flex items-center gap-2 mt-1">
-              <span>{getCountryFlag(customer.country)}</span>
-              {getCountryName(customer.country)}
-            </p>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">{t.customers.details?.status || "Status"}</p>
-            <div className="mt-1">
-              <StatusBadge status={customer.status as any} />
-            </div>
-          </div>
-          {customer.phone && (
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">{t.customers.details.phone}</p>
-              <div className="flex items-center gap-2 mt-1">
-                <span>{customer.phone}</span>
-                <CallCustomerButton 
-                  phoneNumber={customer.phone}
-                  customerId={customer.id}
-                  customerName={`${customer.firstName} ${customer.lastName}`}
-                  leadScore={customer.leadScore}
-                  clientStatus={customer.clientStatus}
-                  variant="icon"
-                />
+                {customer.internalId && (
+                  <div className="flex items-center gap-1">
+                    <span className="text-muted-foreground">{t.customers.fields.internalId}:</span>
+                    <span className="font-mono text-xs">{customer.internalId}</span>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => {
+                            navigator.clipboard.writeText(customer.internalId || "");
+                            toast({ title: t.customers.fields.copiedToClipboard });
+                          }}
+                          data-testid="button-copy-detail-internal-id"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{t.customers.details.copyInternalId}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                )}
               </div>
             </div>
-          )}
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">{t.customers.details?.serviceType || "Service Type"}</p>
-            <p className="mt-1 capitalize">{customer.serviceType?.replace("_", " ") || "-"}</p>
           </div>
-        </div>
-      </div>
 
-      <Separator />
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">{t.customers.details?.country || "Country"}</p>
+                <p className="flex items-center gap-2 mt-1">
+                  <span>{getCountryFlag(customer.country)}</span>
+                  {getCountryName(customer.country)}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">{t.customers.details?.status || "Status"}</p>
+                <div className="mt-1">
+                  <StatusBadge status={customer.status as any} />
+                </div>
+              </div>
+              {customer.phone && (
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">{t.customers.details.phone}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span>{customer.phone}</span>
+                    <CallCustomerButton 
+                      phoneNumber={customer.phone}
+                      customerId={customer.id}
+                      customerName={`${customer.firstName} ${customer.lastName}`}
+                      leadScore={customer.leadScore}
+                      clientStatus={customer.clientStatus}
+                      variant="icon"
+                    />
+                  </div>
+                </div>
+              )}
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">{t.customers.details?.serviceType || "Service Type"}</p>
+                <p className="mt-1 capitalize">{customer.serviceType?.replace("_", " ") || "-"}</p>
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+        </>
+      )}
 
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className={`grid w-full ${customer.clientStatus === "acquired" ? "grid-cols-9" : "grid-cols-8"}`}>
