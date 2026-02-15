@@ -2312,12 +2312,15 @@ export default function AgentWorkspacePage() {
         notes: data.notes || undefined,
         dispositionCode: data.disposition,
         incrementAttempt: true,
+        assignedTo: user?.id || null,
       };
       
       if (data.callbackDateTime && disp?.actionType === "callback") {
         updateData.callbackDate = data.callbackDateTime;
         updateData.status = "callback_scheduled";
-        updateData.assignedTo = data.callbackAssignedTo || null;
+        if (data.callbackAssignedTo) {
+          updateData.assignedTo = data.callbackAssignedTo;
+        }
       }
       
       const res = await apiRequest("PATCH", `/api/campaigns/${data.campaignId}/contacts/${data.contactId}`, updateData);
