@@ -13839,7 +13839,7 @@ export async function registerRoutes(
 
   app.get("/api/campaigns/batch-stats", requireAuth, async (req, res) => {
     try {
-      const allCampaigns = await storage.getCampaigns();
+      const allCampaigns = await storage.getAllCampaigns();
       const result: Record<string, {
         totalContacts: number;
         completedContacts: number;
