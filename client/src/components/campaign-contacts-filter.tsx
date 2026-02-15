@@ -58,10 +58,10 @@ const CLIENT_STATUSES = [
 ];
 
 const LEAD_STATUSES = [
-  { value: "cold", label: "Cold" },
-  { value: "warm", label: "Warm" },
-  { value: "hot", label: "Hot" },
-  { value: "qualified", label: "Qualified" },
+  { value: "cold", label: "Studený" },
+  { value: "warm", label: "Teplý" },
+  { value: "hot", label: "Horúci" },
+  { value: "qualified", label: "Kvalifikovaný" },
 ];
 
 const CASE_STATUSES = [

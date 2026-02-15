@@ -151,9 +151,9 @@ function CampaignForm({
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>{t.campaigns?.campaignName || "Campaign Name"}</FormLabel>
+              <FormLabel>{t.campaigns?.campaignName || "Názov kampane"}</FormLabel>
               <FormControl>
-                <Input placeholder={t.campaigns?.campaignName || "Campaign Name"} {...field} data-testid="input-campaign-name" />
+                <Input placeholder={t.campaigns?.campaignName || "Názov kampane"} {...field} data-testid="input-campaign-name" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -165,10 +165,10 @@ function CampaignForm({
           name="description"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>{t.campaigns?.description || "Description"}</FormLabel>
+              <FormLabel>{t.campaigns?.description || "Popis"}</FormLabel>
               <FormControl>
                 <Textarea 
-                  placeholder={t.campaigns?.description || "Description"} 
+                  placeholder={t.campaigns?.description || "Popis"} 
                   {...field} 
                   data-testid="input-campaign-description"
                 />
@@ -184,11 +184,11 @@ function CampaignForm({
             name="type"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>{t.campaigns?.type || "Type"}</FormLabel>
+                <FormLabel>{t.campaigns?.type || "Typ"}</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>
                     <SelectTrigger data-testid="select-campaign-type">
-                      <SelectValue placeholder={t.campaigns?.selectType || "Select type"} />
+                      <SelectValue placeholder={t.campaigns?.selectType || "Vybrať typ"} />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
@@ -262,7 +262,7 @@ function CampaignForm({
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>
                     <SelectTrigger data-testid="select-campaign-status">
-                      <SelectValue placeholder={t.campaigns?.selectStatus || "Select status"} />
+                      <SelectValue placeholder={t.campaigns?.selectStatus || "Vybrať status"} />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
@@ -285,7 +285,7 @@ function CampaignForm({
             name="startDate"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>{t.campaigns?.startDate || "Start Date"}</FormLabel>
+                <FormLabel>{t.campaigns?.startDate || "Dátum začiatku"}</FormLabel>
                 <FormControl>
                   <Input type="date" {...field} data-testid="input-campaign-start-date" />
                 </FormControl>
@@ -299,7 +299,7 @@ function CampaignForm({
             name="endDate"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>{t.campaigns?.endDate || "End Date"}</FormLabel>
+                <FormLabel>{t.campaigns?.endDate || "Dátum ukončenia"}</FormLabel>
                 <FormControl>
                   <Input type="date" {...field} data-testid="input-campaign-end-date" />
                 </FormControl>
@@ -314,7 +314,7 @@ function CampaignForm({
           name="countryCodes"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>{t.campaigns?.targetCountries || "Target Countries"}</FormLabel>
+              <FormLabel>{t.campaigns?.targetCountries || "Cieľové krajiny"}</FormLabel>
               <div className="grid grid-cols-4 gap-2">
                 {COUNTRIES.map((country) => (
                   <div key={country.code} className="flex items-center gap-2">
@@ -799,10 +799,10 @@ export default function CampaignsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
       setIsDialogOpen(false);
-      toast({ title: t.campaigns?.created || "Campaign created" });
+      toast({ title: t.campaigns?.created || "Kampaň vytvorená" });
     },
     onError: () => {
-      toast({ title: "Error", variant: "destructive" });
+      toast({ title: "Chyba", variant: "destructive" });
     },
   });
 
@@ -813,10 +813,10 @@ export default function CampaignsPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
       setIsDialogOpen(false);
       setEditingCampaign(null);
-      toast({ title: t.campaigns?.updated || "Campaign updated" });
+      toast({ title: t.campaigns?.updated || "Kampaň aktualizovaná" });
     },
     onError: () => {
-      toast({ title: "Error", variant: "destructive" });
+      toast({ title: "Chyba", variant: "destructive" });
     },
   });
 
@@ -825,10 +825,10 @@ export default function CampaignsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
       setDeletingCampaign(null);
-      toast({ title: t.campaigns?.deleted || "Campaign deleted" });
+      toast({ title: t.campaigns?.deleted || "Kampaň zmazaná" });
     },
     onError: () => {
-      toast({ title: "Error", variant: "destructive" });
+      toast({ title: "Chyba", variant: "destructive" });
     },
   });
 
@@ -911,14 +911,14 @@ export default function CampaignsPage() {
   const columns = [
     {
       key: "name",
-      header: t.campaigns?.campaignName || "Name",
+      header: t.campaigns?.campaignName || "Názov",
       cell: (campaign: Campaign) => (
         <div className="font-medium">{campaign.name}</div>
       ),
     },
     {
       key: "type",
-      header: t.campaigns?.type || "Type",
+      header: t.campaigns?.type || "Typ",
       cell: (campaign: Campaign) => getTypeBadge(campaign.type),
     },
     {
@@ -948,7 +948,7 @@ export default function CampaignsPage() {
     },
     {
       key: "countryCodes",
-      header: t.campaigns?.targetCountries || "Countries",
+      header: t.campaigns?.targetCountries || "Krajiny",
       cell: (campaign: Campaign) => (
         <div className="flex gap-1 flex-wrap">
           {campaign.countryCodes?.map((code) => {
@@ -964,7 +964,7 @@ export default function CampaignsPage() {
     },
     {
       key: "dates",
-      header: t.campaigns?.dates || "Dates",
+      header: t.campaigns?.dates || "Dátumy",
       cell: (campaign: Campaign) => (
         <div className="text-sm text-muted-foreground">
           {campaign.startDate && format(new Date(campaign.startDate), "dd.MM.yyyy")}
@@ -1014,8 +1014,8 @@ export default function CampaignsPage() {
   return (
     <div className="flex flex-col h-full">
       <PageHeader
-        title={t.campaigns?.title || "Campaigns"}
-        description={t.campaigns?.description || "Manage marketing and sales campaigns"}
+        title={t.campaigns?.title || "Kampane"}
+        description={t.campaigns?.description || "Správa marketingových a predajných kampaní"}
       >
         {activeTab === "campaigns" && (
           <div className="flex gap-2 flex-wrap">
@@ -1029,7 +1029,7 @@ export default function CampaignsPage() {
             </Button>
             <Button onClick={() => setIsDialogOpen(true)} data-testid="button-add-campaign" data-tour="create-campaign">
               <Plus className="h-4 w-4 mr-2" />
-              {t.campaigns?.addCampaign || "Add Campaign"}
+              {t.campaigns?.addCampaign || "Pridať kampaň"}
             </Button>
           </div>
         )}
@@ -1055,7 +1055,7 @@ export default function CampaignsPage() {
               <div className="relative flex-1 max-w-sm">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder={t.campaigns?.searchPlaceholder || "Search campaigns..."}
+                  placeholder={t.campaigns?.searchPlaceholder || "Hľadať kampane..."}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="pl-10"
@@ -1087,7 +1087,7 @@ export default function CampaignsPage() {
                   columns={columns}
                   data={filteredCampaigns}
                   isLoading={isLoading}
-                  emptyMessage={t.campaigns?.noCampaigns || "No campaigns found"}
+                  emptyMessage={t.campaigns?.noCampaigns || "Žiadne kampane"}
                   getRowKey={(campaign) => campaign.id}
                   onRowClick={(campaign) => setLocation(`/campaigns/${campaign.id}`)}
                 />
@@ -1117,13 +1117,13 @@ export default function CampaignsPage() {
           <DialogHeader>
             <DialogTitle>
               {editingCampaign 
-                ? (t.campaigns?.editCampaign || "Edit Campaign")
-                : (t.campaigns?.addCampaign || "Add Campaign")}
+                ? (t.campaigns?.editCampaign || "Upraviť kampaň")
+                : (t.campaigns?.addCampaign || "Pridať kampaň")}
             </DialogTitle>
             <DialogDescription>
               {editingCampaign 
-                ? (t.campaigns?.editCampaignDesc || "Update campaign details")
-                : (t.campaigns?.addCampaignDesc || "Create a new marketing or sales campaign")}
+                ? (t.campaigns?.editCampaignDesc || "Aktualizovať údaje kampane")
+                : (t.campaigns?.addCampaignDesc || "Vytvoriť novú marketingovú alebo predajnú kampaň")}
             </DialogDescription>
           </DialogHeader>
           
@@ -1174,9 +1174,9 @@ export default function CampaignsPage() {
       <AlertDialog open={!!deletingCampaign} onOpenChange={() => setDeletingCampaign(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t.campaigns?.deleteCampaign || "Delete Campaign"}</AlertDialogTitle>
+            <AlertDialogTitle>{t.campaigns?.deleteCampaign || "Zmazať kampaň"}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t.campaigns?.deleteConfirm || "Are you sure you want to delete this campaign? This action cannot be undone."}
+              {t.campaigns?.deleteConfirm || "Naozaj chcete zmazať túto kampaň? Túto akciu nie je možné vrátiť späť."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

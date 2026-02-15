@@ -170,7 +170,7 @@ function CriteriaCard({ campaign }: { campaign: Campaign }) {
       });
     },
     onSuccess: () => {
-      toast({ title: t.common?.saved || "Criteria saved successfully" });
+      toast({ title: t.common?.saved || "Kritériá uložené" });
       setHasChanges(false);
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
     },
@@ -189,9 +189,9 @@ function CriteriaCard({ campaign }: { campaign: Campaign }) {
       <CardHeader>
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div>
-            <CardTitle>{t.campaigns?.detail?.targetCriteria || "Target Criteria"}</CardTitle>
+            <CardTitle>{t.campaigns?.detail?.targetCriteria || "Cieľové kritériá"}</CardTitle>
             <CardDescription>
-              {t.campaigns?.detail?.targetCriteriaDesc || "Define which customers should be included in this campaign"}
+              {t.campaigns?.detail?.targetCriteriaDesc || "Definujte, ktorí zákazníci majú byť zahrnutí do tejto kampane"}
             </CardDescription>
           </div>
           {hasChanges && (
@@ -200,7 +200,7 @@ function CriteriaCard({ campaign }: { campaign: Campaign }) {
               disabled={saveCriteriaMutation.isPending}
               data-testid="button-save-criteria"
             >
-              {saveCriteriaMutation.isPending ? (t.common?.saving || "Saving...") : (t.common?.save || "Save")}
+              {saveCriteriaMutation.isPending ? (t.common?.saving || "Ukladám...") : (t.common?.save || "Uložiť")}
             </Button>
           )}
         </div>
@@ -357,7 +357,7 @@ function SchedulingCard({ campaign }: { campaign: Campaign }) {
       });
     },
     onSuccess: () => {
-      toast({ title: t.common?.saved || "Schedule saved successfully" });
+      toast({ title: t.common?.saved || "Rozvrh uložený" });
       setHasChanges(false);
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
     },
@@ -376,9 +376,9 @@ function SchedulingCard({ campaign }: { campaign: Campaign }) {
       <CardHeader>
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div>
-            <CardTitle>{t.campaigns?.detail?.scheduling || "Scheduling"}</CardTitle>
+            <CardTitle>{t.campaigns?.detail?.scheduling || "Plánovanie"}</CardTitle>
             <CardDescription>
-              {t.campaigns?.detail?.schedulingDesc || "Configure working hours and contact frequency limits"}
+              {t.campaigns?.detail?.schedulingDesc || "Nastavte pracovné hodiny a limity frekvencie kontaktovania"}
             </CardDescription>
           </div>
           {hasChanges && (
@@ -387,7 +387,7 @@ function SchedulingCard({ campaign }: { campaign: Campaign }) {
               disabled={saveScheduleMutation.isPending}
               data-testid="button-save-schedule"
             >
-              {saveScheduleMutation.isPending ? (t.common?.saving || "Saving...") : (t.common?.save || "Save")}
+              {saveScheduleMutation.isPending ? (t.common?.saving || "Ukladám...") : (t.common?.save || "Uložiť")}
             </Button>
           )}
         </div>
@@ -848,9 +848,18 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {DISPOSITION_ACTION_TYPES.map(at => (
-              <SelectItem key={at} value={at}>{at}</SelectItem>
-            ))}
+            {DISPOSITION_ACTION_TYPES.map(at => {
+              const actionLabels: Record<string, string> = {
+                none: "Žiadna",
+                callback: "Spätné volanie",
+                dnd: "Nevolať",
+                complete: "Dokončiť",
+                convert: "Konverzia",
+              };
+              return (
+                <SelectItem key={at} value={at}>{actionLabels[at] || at}</SelectItem>
+              );
+            })}
           </SelectContent>
         </Select>
       </div>
@@ -1130,16 +1139,16 @@ export default function CampaignDetailPage() {
     },
     onSuccess: (data: any) => {
       toast({
-        title: "Contacts generated",
-        description: `${data.count} contacts were generated for this campaign.`,
+        title: "Kontakty vygenerované",
+        description: `${data.count} kontaktov bolo vygenerovaných pre túto kampaň.`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "contacts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "stats"] });
     },
     onError: () => {
       toast({
-        title: "Error",
-        description: "Failed to generate contacts.",
+        title: "Chyba",
+        description: "Nepodarilo sa vygenerovať kontakty.",
         variant: "destructive",
       });
     },
@@ -1186,11 +1195,11 @@ export default function CampaignDetailPage() {
             if (xhr.status >= 200 && xhr.status < 300) {
               resolve(data);
             } else {
-              reject(new Error(data.error || "Import failed"));
+              reject(new Error(data.error || "Import zlyhal"));
             }
-          } catch { reject(new Error("Import failed")); }
+          } catch { reject(new Error("Import zlyhal")); }
         };
-        xhr.onerror = () => reject(new Error("Network error"));
+        xhr.onerror = () => reject(new Error("Chyba siete"));
         xhr.send(formData);
       });
     },
@@ -1217,13 +1226,13 @@ export default function CampaignDetailPage() {
       return apiRequest("PATCH", `/api/campaigns/${campaignId}/contacts/${contactId}`, data);
     },
     onSuccess: () => {
-      toast({ title: "Contact updated" });
+      toast({ title: "Kontakt aktualizovaný" });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "contacts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "stats"] });
       setSelectedContact(null);
     },
     onError: () => {
-      toast({ title: "Error", description: "Failed to update contact.", variant: "destructive" });
+      toast({ title: "Chyba", description: "Nepodarilo sa aktualizovať kontakt.", variant: "destructive" });
     },
   });
 
@@ -1245,12 +1254,12 @@ export default function CampaignDetailPage() {
       return apiRequest("PATCH", `/api/campaigns/${campaignId}`, { status: newStatus });
     },
     onSuccess: () => {
-      toast({ title: "Campaign status updated" });
+      toast({ title: "Status kampane aktualizovaný" });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
     },
     onError: () => {
-      toast({ title: "Error", description: "Failed to update campaign status.", variant: "destructive" });
+      toast({ title: "Chyba", description: "Nepodarilo sa aktualizovať status kampane.", variant: "destructive" });
     },
   });
 
@@ -1465,13 +1474,13 @@ export default function CampaignDetailPage() {
   const contactColumns = [
     {
       key: "customer",
-      header: t.campaigns?.detail?.contacts || "Kontakt",
+      header: "Kontakt",
       sortable: true,
       sortValue: (contact: EnrichedContact) => contact.customer ? `${contact.customer.lastName} ${contact.customer.firstName}` : "",
       cell: (contact: EnrichedContact) => (
         <div>
           <div className="font-medium">
-            {contact.customer ? `${contact.customer.firstName} ${contact.customer.lastName}` : "Neznámy"}
+            {contact.customer ? `${contact.customer.firstName} ${contact.customer.lastName}` : "Neznámy kontakt"}
           </div>
           <div className="text-sm text-muted-foreground">
             {contact.customer?.phone || contact.customer?.email || "-"}
@@ -1493,7 +1502,7 @@ export default function CampaignDetailPage() {
     },
     {
       key: "status",
-      header: t.campaigns?.status || "Status",
+      header: "Status",
       sortable: true,
       sortValue: (contact: EnrichedContact) => contact.status,
       cell: (contact: EnrichedContact) => {
@@ -1701,19 +1710,19 @@ export default function CampaignDetailPage() {
         <TabsList>
           <TabsTrigger value="overview" data-testid="tab-overview">
             <FileText className="w-4 h-4 mr-2" />
-            {t.campaigns?.detail?.overview || "Overview"}
+            {t.campaigns?.detail?.overview || "Prehľad"}
           </TabsTrigger>
           <TabsTrigger value="contacts" data-testid="tab-contacts">
             <Users className="w-4 h-4 mr-2" />
-            {t.campaigns?.detail?.contacts || "Contacts"}
+            {t.campaigns?.detail?.contacts || "Kontakty"}
           </TabsTrigger>
           <TabsTrigger value="settings" data-testid="tab-settings">
             <Settings className="w-4 h-4 mr-2" />
-            {t.campaigns?.detail?.settings || "Settings"}
+            {t.campaigns?.detail?.settings || "Nastavenia"}
           </TabsTrigger>
           <TabsTrigger value="reporting" data-testid="tab-reporting">
             <BarChart3 className="w-4 h-4 mr-2" />
-            {t.campaigns?.detail?.reporting || "Reporting"}
+            {t.campaigns?.detail?.reporting || "Reporty"}
           </TabsTrigger>
           <TabsTrigger value="script" data-testid="tab-script">
             <ScrollText className="w-4 h-4 mr-2" />
@@ -1724,24 +1733,24 @@ export default function CampaignDetailPage() {
         <TabsContent value="overview" className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <StatsCard
-              title={t.campaigns?.detail?.totalContacts || "Total Contacts"}
+              title={t.campaigns?.detail?.totalContacts || "Celkový počet kontaktov"}
               value={stats?.totalContacts || 0}
               icon={Users}
             />
             <StatsCard
-              title={t.campaigns?.detail?.pendingContacts || "Pending"}
+              title={t.campaigns?.detail?.pendingContacts || "Čakajúce"}
               value={stats?.pendingContacts || 0}
               description={`${((stats?.pendingContacts || 0) / Math.max(stats?.totalContacts || 1, 1) * 100).toFixed(1)}%`}
               icon={Clock}
             />
             <StatsCard
-              title={t.campaigns?.detail?.completedContacts || "Completed"}
+              title={t.campaigns?.detail?.completedContacts || "Dokončené"}
               value={stats?.completedContacts || 0}
               description={`${((stats?.completedContacts || 0) / Math.max(stats?.totalContacts || 1, 1) * 100).toFixed(1)}%`}
               icon={CheckCircle}
             />
             <StatsCard
-              title={t.campaigns?.detail?.callbackScheduled || "Callbacks"}
+              title={t.campaigns?.detail?.callbackScheduled || "Spätné volania"}
               value={stats?.callbackContacts || 0}
               icon={Phone}
             />
@@ -1749,9 +1758,9 @@ export default function CampaignDetailPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>{t.campaigns?.detail?.progress || "Campaign Progress"}</CardTitle>
+              <CardTitle>{t.campaigns?.detail?.progress || "Priebeh kampane"}</CardTitle>
               <CardDescription>
-                {stats?.completedContacts || 0} of {stats?.totalContacts || 0} contacts processed
+                {stats?.completedContacts || 0} z {stats?.totalContacts || 0} kontaktov spracovaných
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -1762,16 +1771,16 @@ export default function CampaignDetailPage() {
           <div className="grid gap-4 md:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle>Campaign Details</CardTitle>
+                <CardTitle>Detaily kampane</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Type</span>
+                  <span className="text-muted-foreground">Typ</span>
                   <Badge variant="outline">{campaign.type}</Badge>
                 </div>
                 <Separator />
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Countries</span>
+                  <span className="text-muted-foreground">Krajiny</span>
                   <div className="flex flex-wrap gap-1 justify-end">
                     {campaign.countryCodes?.map(code => (
                       <Badge key={code} variant="secondary" className="text-xs">
@@ -1779,18 +1788,18 @@ export default function CampaignDetailPage() {
                       </Badge>
                     ))}
                     {(!campaign.countryCodes || campaign.countryCodes.length === 0) && (
-                      <span>All countries</span>
+                      <span>Všetky krajiny</span>
                     )}
                   </div>
                 </div>
                 <Separator />
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Start Date</span>
+                  <span className="text-muted-foreground">Začiatok</span>
                   <span>{campaign.startDate ? format(new Date(campaign.startDate), "PP") : "-"}</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">End Date</span>
+                  <span className="text-muted-foreground">Koniec</span>
                   <span>{campaign.endDate ? format(new Date(campaign.endDate), "PP") : "-"}</span>
                 </div>
               </CardContent>
@@ -1798,48 +1807,48 @@ export default function CampaignDetailPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Contact Distribution</CardTitle>
+                <CardTitle>Rozloženie kontaktov</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-green-500" />
-                    Completed
+                    Dokončené
                   </span>
                   <span className="font-medium">{stats?.completedContacts || 0}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-blue-500" />
-                    Contacted
+                    Kontaktované
                   </span>
                   <span className="font-medium">{stats?.contactedContacts || 0}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-yellow-500" />
-                    No Answer
+                    Bez odpovede
                   </span>
                   <span className="font-medium">{stats?.noAnswerContacts || 0}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-purple-500" />
-                    Callback
+                    Spätné volanie
                   </span>
                   <span className="font-medium">{stats?.callbackContacts || 0}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-gray-500" />
-                    Not Interested
+                    Nemá záujem
                   </span>
                   <span className="font-medium">{stats?.notInterestedContacts || 0}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-red-500" />
-                    Failed
+                    Neúspešné
                   </span>
                   <span className="font-medium">{stats?.failedContacts || 0}</span>
                 </div>
@@ -2208,7 +2217,7 @@ export default function CampaignDetailPage() {
           <div className="grid gap-4 md:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle>{t.campaigns?.detail?.statusDistribution || "Contact Status Distribution"}</CardTitle>
+                <CardTitle>{t.campaigns?.detail?.statusDistribution || "Rozloženie statusov kontaktov"}</CardTitle>
               </CardHeader>
               <CardContent>
                 {stats && stats.totalContacts > 0 ? (
@@ -2216,12 +2225,12 @@ export default function CampaignDetailPage() {
                     <PieChart>
                       <Pie
                         data={[
-                          { name: "Pending", value: stats.pendingContacts || 0, color: CHART_PALETTE[3] },
-                          { name: "Contacted", value: stats.contactedContacts || 0, color: CHART_PALETTE[1] },
-                          { name: "Completed", value: stats.completedContacts || 0, color: CHART_PALETTE[0] },
-                          { name: "No Answer", value: stats.noAnswerContacts || 0, color: CHART_PALETTE[2] },
-                          { name: "Not Interested", value: stats.notInterestedContacts || 0, color: CHART_PALETTE[4] },
-                          { name: "Failed", value: stats.failedContacts || 0, color: CHART_PALETTE[6] },
+                          { name: "Čakajúce", value: stats.pendingContacts || 0, color: CHART_PALETTE[3] },
+                          { name: "Kontaktované", value: stats.contactedContacts || 0, color: CHART_PALETTE[1] },
+                          { name: "Dokončené", value: stats.completedContacts || 0, color: CHART_PALETTE[0] },
+                          { name: "Bez odpovede", value: stats.noAnswerContacts || 0, color: CHART_PALETTE[2] },
+                          { name: "Nemá záujem", value: stats.notInterestedContacts || 0, color: CHART_PALETTE[4] },
+                          { name: "Neúspešné", value: stats.failedContacts || 0, color: CHART_PALETTE[6] },
                         ].filter(d => d.value > 0)}
                         cx="50%"
                         cy="50%"
@@ -2248,7 +2257,7 @@ export default function CampaignDetailPage() {
                   </ResponsiveContainer>
                 ) : (
                   <div className="h-[250px] flex items-center justify-center text-muted-foreground">
-                    {t.campaigns?.detail?.noDataAvailable || "No data available"}
+                    {t.campaigns?.detail?.noDataAvailable || "Žiadne dáta"}
                   </div>
                 )}
               </CardContent>
@@ -2256,7 +2265,7 @@ export default function CampaignDetailPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>{t.campaigns?.detail?.attemptDistribution || "Attempt Distribution"}</CardTitle>
+                <CardTitle>{t.campaigns?.detail?.attemptDistribution || "Rozloženie pokusov"}</CardTitle>
               </CardHeader>
               <CardContent>
                 {contacts.length > 0 ? (
@@ -2270,7 +2279,7 @@ export default function CampaignDetailPage() {
                         });
                         return Object.entries(attemptCounts)
                           .map(([attempts, count]) => ({
-                            attempts: `${attempts} attempts`,
+                            attempts: `${attempts} pokusov`,
                             count,
                           }))
                           .sort((a, b) => parseInt(a.attempts) - parseInt(b.attempts));
@@ -2285,7 +2294,7 @@ export default function CampaignDetailPage() {
                   </ResponsiveContainer>
                 ) : (
                   <div className="h-[250px] flex items-center justify-center text-muted-foreground">
-                    {t.campaigns?.detail?.noDataAvailable || "No data available"}
+                    {t.campaigns?.detail?.noDataAvailable || "Žiadne dáta"}
                   </div>
                 )}
               </CardContent>
@@ -2295,31 +2304,31 @@ export default function CampaignDetailPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
               <div>
-                <CardTitle>{t.campaigns?.detail?.campaignSummary || "Campaign Summary"}</CardTitle>
+                <CardTitle>{t.campaigns?.detail?.campaignSummary || "Súhrn kampane"}</CardTitle>
               </div>
               <Button variant="outline" data-testid="button-export-report">
                 <Download className="w-4 h-4 mr-2" />
-                {t.campaigns?.detail?.exportReport || "Export Report"}
+                {t.campaigns?.detail?.exportReport || "Exportovať report"}
               </Button>
             </CardHeader>
             <CardContent>
               <div className="grid gap-4 md:grid-cols-4">
                 <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">{t.campaigns?.detail?.totalContacts || "Total Contacts"}</p>
+                  <p className="text-sm text-muted-foreground">{t.campaigns?.detail?.totalContacts || "Celkový počet kontaktov"}</p>
                   <p className="text-2xl font-bold">{stats?.totalContacts || 0}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">{t.campaigns?.detail?.successRate || "Success Rate"}</p>
+                  <p className="text-sm text-muted-foreground">{t.campaigns?.detail?.successRate || "Miera úspešnosti"}</p>
                   <p className="text-2xl font-bold">
                     {((stats?.completedContacts || 0) / Math.max(stats?.totalContacts || 1, 1) * 100).toFixed(1)}%
                   </p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">{t.campaigns?.detail?.pendingContacts || "Pending"}</p>
+                  <p className="text-sm text-muted-foreground">{t.campaigns?.detail?.pendingContacts || "Čakajúce"}</p>
                   <p className="text-2xl font-bold">{stats?.pendingContacts || 0}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">{t.campaigns?.detail?.callbackScheduled || "Callback Scheduled"}</p>
+                  <p className="text-sm text-muted-foreground">{t.campaigns?.detail?.callbackScheduled || "Naplánované spätné volania"}</p>
                   <p className="text-2xl font-bold">{stats?.callbackContacts || 0}</p>
                 </div>
               </div>
@@ -2613,11 +2622,11 @@ Príklad:
       <Dialog open={!!selectedContact} onOpenChange={() => setSelectedContact(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Contact Details</DialogTitle>
+            <DialogTitle>Detail kontaktu</DialogTitle>
             <DialogDescription>
               {selectedContact?.customer 
                 ? `${selectedContact.customer.firstName} ${selectedContact.customer.lastName}`
-                : "Unknown contact"
+                : "Neznámy kontakt"
               }
             </DialogDescription>
           </DialogHeader>
@@ -2627,7 +2636,15 @@ Príklad:
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Status</span>
                   <Badge className={CONTACT_STATUS_COLORS[selectedContact.status]}>
-                    {selectedContact.status.replace("_", " ")}
+                    {({
+                      pending: "Čakajúci",
+                      contacted: "Kontaktovaný",
+                      completed: "Dokončený",
+                      failed: "Neúspešný",
+                      no_answer: "Nedvíha",
+                      callback_scheduled: "Spätné volanie",
+                      not_interested: "Nemá záujem",
+                    } as Record<string, string>)[selectedContact.status] || selectedContact.status}
                   </Badge>
                 </div>
                 {(selectedContact as any).dispositionCode && dispositionMap[(selectedContact as any).dispositionCode] && (
@@ -2648,21 +2665,21 @@ Príklad:
                   </div>
                 )}
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Attempts</span>
+                  <span className="text-muted-foreground">Pokusy</span>
                   <span>{selectedContact.attemptCount || 0}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Phone</span>
+                  <span className="text-muted-foreground">Telefón</span>
                   <span>{selectedContact.customer?.phone || "-"}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Email</span>
+                  <span className="text-muted-foreground">E-mail</span>
                   <span>{selectedContact.customer?.email || "-"}</span>
                 </div>
               </div>
               <Separator />
               <div className="space-y-2">
-                <label className="text-sm font-medium">Update Status</label>
+                <label className="text-sm font-medium">Zmeniť status</label>
                 <Select
                   value={selectedContact.status}
                   onValueChange={(value) => {
@@ -2676,13 +2693,13 @@ Príklad:
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="contacted">Contacted</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="no_answer">No Answer</SelectItem>
-                    <SelectItem value="callback_scheduled">Callback</SelectItem>
-                    <SelectItem value="not_interested">Not Interested</SelectItem>
-                    <SelectItem value="failed">Failed</SelectItem>
+                    <SelectItem value="pending">Čakajúci</SelectItem>
+                    <SelectItem value="contacted">Kontaktovaný</SelectItem>
+                    <SelectItem value="completed">Dokončený</SelectItem>
+                    <SelectItem value="no_answer">Nedvíha</SelectItem>
+                    <SelectItem value="callback_scheduled">Spätné volanie</SelectItem>
+                    <SelectItem value="not_interested">Nemá záujem</SelectItem>
+                    <SelectItem value="failed">Neúspešný</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -2956,30 +2973,33 @@ Príklad:
       </Dialog>
 
       <Dialog open={showRequeueDialog} onOpenChange={setShowRequeueDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>Zaradiť kontakty znova do fronty</DialogTitle>
             <DialogDescription>
-              Vyberte filtre na určenie kontaktov, ktoré sa majú znova zaradiť na spracovanie agentmi. Status sa zmení na "Čakajúci" a kontakty budú opäť dostupné v agent workspace.
+              Vyberte filtre na určenie kontaktov, ktoré sa majú znova zaradiť na spracovanie. Status sa zmení na "Čakajúci".
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-5">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Podľa statusu</label>
-              <div className="flex flex-wrap gap-1.5">
+          <div className="grid grid-cols-3 gap-6">
+            <div className="space-y-3 p-4 rounded-lg border">
+              <div className="flex items-center gap-2 mb-3">
+                <Filter className="w-4 h-4 text-primary" />
+                <label className="text-sm font-semibold">Podľa statusu</label>
+              </div>
+              <div className="space-y-1.5">
                 {[
                   { value: "contacted", label: "Kontaktovaný" },
                   { value: "completed", label: "Dokončený" },
                   { value: "failed", label: "Neúspešný" },
                   { value: "no_answer", label: "Nedvíha" },
-                  { value: "callback_scheduled", label: "Callback" },
+                  { value: "callback_scheduled", label: "Spätné volanie" },
                   { value: "not_interested", label: "Nemá záujem" },
                 ].map(s => (
                   <Button
                     key={s.value}
                     variant="outline"
                     size="sm"
-                    className={`toggle-elevate ${requeueStatuses.has(s.value) ? "toggle-elevated border-primary" : ""}`}
+                    className={`w-full justify-start toggle-elevate ${requeueStatuses.has(s.value) ? "toggle-elevated border-primary" : ""}`}
                     onClick={() => {
                       setRequeueStatuses(prev => {
                         const next = new Set(prev);
@@ -2989,16 +3009,20 @@ Príklad:
                     }}
                     data-testid={`requeue-status-${s.value}`}
                   >
+                    {requeueStatuses.has(s.value) && <CheckCircle className="w-3.5 h-3.5 mr-2 text-primary" />}
                     {s.label}
                   </Button>
                 ))}
               </div>
-              <p className="text-xs text-muted-foreground">Prázdny výber = všetky statusy okrem "Čakajúci"</p>
+              <p className="text-xs text-muted-foreground">Prázdny výber = všetky okrem "Čakajúci"</p>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Podľa výsledku (dispozícia)</label>
-              <div className="flex flex-wrap gap-1.5">
+            <div className="space-y-3 p-4 rounded-lg border">
+              <div className="flex items-center gap-2 mb-3">
+                <ListChecks className="w-4 h-4 text-primary" />
+                <label className="text-sm font-semibold">Podľa výsledku</label>
+              </div>
+              <div className="space-y-1.5">
                 {campaignDispositions.filter(d => !d.parentId).map(d => {
                   const colorClasses: Record<string, string> = {
                     green: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
@@ -3016,7 +3040,7 @@ Príklad:
                       key={d.id}
                       variant="outline"
                       size="sm"
-                      className={`toggle-elevate ${isSelected ? "toggle-elevated border-primary" : ""}`}
+                      className={`w-full justify-start toggle-elevate ${isSelected ? "toggle-elevated border-primary" : ""}`}
                       onClick={() => {
                         setRequeueDispositions(prev => {
                           const next = new Set(prev);
@@ -3030,74 +3054,82 @@ Príklad:
                       }}
                       data-testid={`requeue-disp-${d.code}`}
                     >
+                      {isSelected && <CheckCircle className="w-3.5 h-3.5 mr-2 text-primary shrink-0" />}
                       <Badge variant="secondary" className={`text-xs mr-1 ${colorClasses[d.color || "gray"] || colorClasses.gray}`}>
                         {d.name}
                       </Badge>
-                      {children.length > 0 && <span className="text-xs text-muted-foreground">+{children.length}</span>}
+                      {children.length > 0 && <span className="text-xs text-muted-foreground ml-auto">+{children.length}</span>}
                     </Button>
                   );
                 })}
               </div>
-              <p className="text-xs text-muted-foreground">Prázdny výber = všetky výsledky (aj bez výsledku)</p>
+              <p className="text-xs text-muted-foreground">Prázdny výber = všetky výsledky</p>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Callback v rozsahu dátumov</label>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="date"
-                  value={requeueCallbackFrom}
-                  onChange={(e) => setRequeueCallbackFrom(e.target.value)}
-                  data-testid="requeue-callback-from"
-                />
-                <span className="text-muted-foreground">-</span>
-                <Input
-                  type="date"
-                  value={requeueCallbackTo}
-                  onChange={(e) => setRequeueCallbackTo(e.target.value)}
-                  data-testid="requeue-callback-to"
-                />
+            <div className="space-y-3 p-4 rounded-lg border">
+              <div className="flex items-center gap-2 mb-3">
+                <Calendar className="w-4 h-4 text-primary" />
+                <label className="text-sm font-semibold">Spätné volanie v období</label>
               </div>
-              <p className="text-xs text-muted-foreground">Filtruje len kontakty s naplánovaným callback v tomto období</p>
-            </div>
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs text-muted-foreground">Od</label>
+                  <Input
+                    type="date"
+                    value={requeueCallbackFrom}
+                    onChange={(e) => setRequeueCallbackFrom(e.target.value)}
+                    data-testid="requeue-callback-from"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-muted-foreground">Do</label>
+                  <Input
+                    type="date"
+                    value={requeueCallbackTo}
+                    onChange={(e) => setRequeueCallbackTo(e.target.value)}
+                    data-testid="requeue-callback-to"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">Filtruje kontakty s naplánovaným spätným volaním v tomto období</p>
 
-            <Separator />
+              <Separator className="my-3" />
 
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="text-sm font-medium">
-                  Zodpovedajúce kontakty: <span className="text-lg font-bold">{requeueMatchingContacts.length}</span>
-                </p>
+              <div className="space-y-2 p-3 rounded-lg bg-muted/50">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Zodpovedajúce kontakty</span>
+                  <span className="text-2xl font-bold">{requeueMatchingContacts.length}</span>
+                </div>
                 <p className="text-xs text-muted-foreground">
-                  Týmto kontaktom sa resetuje status na "Čakajúci", vymaže sa výsledok a callback, a budú znova dostupné pre agentov.
+                  Resetuje sa status, výsledok a spätné volanie
                 </p>
               </div>
             </div>
+          </div>
 
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setShowRequeueDialog(false)} data-testid="button-requeue-cancel">
-                Zrušiť
-              </Button>
-              <Button
-                disabled={requeueMatchingContacts.length === 0 || requeueMutation.isPending}
-                onClick={() => {
-                  requeueMutation.mutate(requeueMatchingContacts.map((c: any) => c.id));
-                }}
-                data-testid="button-requeue-confirm"
-              >
-                {requeueMutation.isPending ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                    Spracúvam...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Zaradiť {requeueMatchingContacts.length} kontaktov
-                  </>
-                )}
-              </Button>
-            </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setShowRequeueDialog(false)} data-testid="button-requeue-cancel">
+              Zrušiť
+            </Button>
+            <Button
+              disabled={requeueMatchingContacts.length === 0 || requeueMutation.isPending}
+              onClick={() => {
+                requeueMutation.mutate(requeueMatchingContacts.map((c: any) => c.id));
+              }}
+              data-testid="button-requeue-confirm"
+            >
+              {requeueMutation.isPending ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Spracúvam...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Zaradiť {requeueMatchingContacts.length} kontaktov
+                </>
+              )}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
