@@ -8,13 +8,13 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 
 const DAYS_OF_WEEK = [
-  { value: 0, label: "Sunday", short: "Sun" },
-  { value: 1, label: "Monday", short: "Mon" },
-  { value: 2, label: "Tuesday", short: "Tue" },
-  { value: 3, label: "Wednesday", short: "Wed" },
-  { value: 4, label: "Thursday", short: "Thu" },
-  { value: 5, label: "Friday", short: "Fri" },
-  { value: 6, label: "Saturday", short: "Sat" },
+  { value: 1, label: "Pondelok", short: "Po" },
+  { value: 2, label: "Utorok", short: "Ut" },
+  { value: 3, label: "Streda", short: "St" },
+  { value: 4, label: "Štvrtok", short: "Št" },
+  { value: 5, label: "Piatok", short: "Pi" },
+  { value: 6, label: "Sobota", short: "So" },
+  { value: 0, label: "Nedeľa", short: "Ne" },
 ];
 
 export interface TimeSlot {
@@ -94,7 +94,7 @@ function DayRow({
       <div className="flex-1 space-y-2">
         {schedule.enabled ? (
           schedule.slots.length === 0 ? (
-            <p className="text-sm text-muted-foreground italic">No time slots configured</p>
+            <p className="text-sm text-muted-foreground italic">Žiadne časové sloty</p>
           ) : (
             schedule.slots.map((slot, index) => (
               <div key={index} className="flex items-center gap-2">
@@ -106,7 +106,7 @@ function DayRow({
                   disabled={readonly}
                   data-testid={`input-start-time-${day.value}-${index}`}
                 />
-                <span className="text-muted-foreground">to</span>
+                <span className="text-muted-foreground">do</span>
                 <Input
                   type="time"
                   value={slot.endTime}
@@ -129,7 +129,7 @@ function DayRow({
             ))
           )
         ) : (
-          <Badge variant="secondary">Closed</Badge>
+          <Badge variant="secondary">Zatvorené</Badge>
         )}
         
         {!readonly && schedule.enabled && (
@@ -140,7 +140,7 @@ function DayRow({
             data-testid={`button-add-slot-${day.value}`}
           >
             <Plus className="w-4 h-4 mr-1" />
-            Add Slot
+            Pridať slot
           </Button>
         )}
       </div>
@@ -230,7 +230,7 @@ export function ScheduleEditor({ schedule, onChange, readonly }: ScheduleEditorP
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="maxAttempts">Maximum Attempts per Contact</Label>
+          <Label htmlFor="maxAttempts">Max. počet pokusov na kontakt</Label>
           <Input
             id="maxAttempts"
             type="number"
@@ -242,12 +242,12 @@ export function ScheduleEditor({ schedule, onChange, readonly }: ScheduleEditorP
             data-testid="input-max-attempts"
           />
           <p className="text-xs text-muted-foreground">
-            Stop trying to contact after this many attempts
+            Prestať kontaktovať po tomto počte pokusov
           </p>
         </div>
         
         <div className="space-y-2">
-          <Label htmlFor="minHours">Minimum Hours Between Attempts</Label>
+          <Label htmlFor="minHours">Min. hodín medzi pokusmi</Label>
           <Input
             id="minHours"
             type="number"
@@ -259,7 +259,7 @@ export function ScheduleEditor({ schedule, onChange, readonly }: ScheduleEditorP
             data-testid="input-min-hours"
           />
           <p className="text-xs text-muted-foreground">
-            Wait at least this many hours before trying again
+            Čakať aspoň toľko hodín pred ďalším pokusom
           </p>
         </div>
       </div>
@@ -269,15 +269,15 @@ export function ScheduleEditor({ schedule, onChange, readonly }: ScheduleEditorP
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-2">
               <Clock className="w-5 h-5 text-muted-foreground" />
-              <CardTitle className="text-base">Working Hours</CardTitle>
+              <CardTitle className="text-base">Pracovné hodiny</CardTitle>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="secondary">{activeDays} days active</Badge>
-              <Badge variant="outline">{totalHours.toFixed(1)} hrs/week</Badge>
+              <Badge variant="secondary">{activeDays} dní aktívnych</Badge>
+              <Badge variant="outline">{totalHours.toFixed(1)} hod/týždeň</Badge>
             </div>
           </div>
           <CardDescription>
-            Configure when operators can make calls for this campaign
+            Nastavte kedy môžu operátori volať v tejto kampani
           </CardDescription>
         </CardHeader>
         <CardContent>

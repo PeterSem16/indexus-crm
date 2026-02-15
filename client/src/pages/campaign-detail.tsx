@@ -347,8 +347,13 @@ function SchedulingCard({ campaign }: { campaign: Campaign }) {
 
   const saveScheduleMutation = useMutation({
     mutationFn: async () => {
+      let existing: Record<string, any> = {};
+      try {
+        if (campaign.settings) existing = JSON.parse(campaign.settings);
+      } catch {}
+      const merged = { ...existing, ...schedule };
       return apiRequest("PATCH", `/api/campaigns/${campaign.id}`, {
-        settings: JSON.stringify(schedule),
+        settings: JSON.stringify(merged),
       });
     },
     onSuccess: () => {
@@ -398,6 +403,161 @@ function SchedulingCard({ campaign }: { campaign: Campaign }) {
   );
 }
 
+function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
+  const { toast } = useToast();
+  const [targets, setTargets] = useState({
+    dailyCallsTarget: 0,
+    dailyContactsTarget: 0,
+    conversionRateTarget: 0,
+    completionRateTarget: 0,
+    avgCallDurationTarget: 0,
+  });
+  const [hasChanges, setHasChanges] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (campaign.settings) {
+        const s = JSON.parse(campaign.settings);
+        if (s.kpiTargets) {
+          setTargets(prev => ({ ...prev, ...s.kpiTargets }));
+        }
+      }
+    } catch {}
+  }, [campaign.settings]);
+
+  const saveKpiMutation = useMutation({
+    mutationFn: async () => {
+      let existing: Record<string, any> = {};
+      try {
+        if (campaign.settings) existing = JSON.parse(campaign.settings);
+      } catch {}
+      const merged = { ...existing, kpiTargets: targets };
+      return apiRequest("PATCH", `/api/campaigns/${campaign.id}`, {
+        settings: JSON.stringify(merged),
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "KPI ciele uložené" });
+      setHasChanges(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
+    },
+    onError: () => {
+      toast({ title: "Chyba pri ukladaní", variant: "destructive" });
+    },
+  });
+
+  const updateTarget = (key: string, value: number) => {
+    setTargets(prev => ({ ...prev, [key]: value }));
+    setHasChanges(true);
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Target className="w-5 h-5" />
+              KPI Ciele kampane
+            </CardTitle>
+            <CardDescription>
+              Nastavte cieľové hodnoty pre sledovanie výkonnosti operátorov
+            </CardDescription>
+          </div>
+          {hasChanges && (
+            <Button
+              onClick={() => saveKpiMutation.mutate()}
+              disabled={saveKpiMutation.isPending}
+              data-testid="button-save-kpi"
+            >
+              {saveKpiMutation.isPending ? "Ukladám..." : "Uložiť"}
+            </Button>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-2">
+            <Label className="text-sm font-medium flex items-center gap-2">
+              <Phone className="w-4 h-4 text-muted-foreground" />
+              Denný cieľ hovorov
+            </Label>
+            <Input
+              type="number"
+              min={0}
+              max={500}
+              value={targets.dailyCallsTarget}
+              onChange={(e) => updateTarget("dailyCallsTarget", parseInt(e.target.value) || 0)}
+              data-testid="input-daily-calls-target"
+            />
+            <p className="text-xs text-muted-foreground">Počet hovorov na operátora za deň</p>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-sm font-medium flex items-center gap-2">
+              <Users className="w-4 h-4 text-muted-foreground" />
+              Denný cieľ kontaktov
+            </Label>
+            <Input
+              type="number"
+              min={0}
+              max={500}
+              value={targets.dailyContactsTarget}
+              onChange={(e) => updateTarget("dailyContactsTarget", parseInt(e.target.value) || 0)}
+              data-testid="input-daily-contacts-target"
+            />
+            <p className="text-xs text-muted-foreground">Počet úspešných kontaktov za deň</p>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-sm font-medium flex items-center gap-2">
+              <Target className="w-4 h-4 text-muted-foreground" />
+              Cieľový konverzný pomer (%)
+            </Label>
+            <Input
+              type="number"
+              min={0}
+              max={100}
+              value={targets.conversionRateTarget}
+              onChange={(e) => updateTarget("conversionRateTarget", parseInt(e.target.value) || 0)}
+              data-testid="input-conversion-rate-target"
+            />
+            <p className="text-xs text-muted-foreground">Percento kontaktov vedúcich ku konverzii</p>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-sm font-medium flex items-center gap-2">
+              <CheckCircle className="w-4 h-4 text-muted-foreground" />
+              Cieľová miera dokončenia (%)
+            </Label>
+            <Input
+              type="number"
+              min={0}
+              max={100}
+              value={targets.completionRateTarget}
+              onChange={(e) => updateTarget("completionRateTarget", parseInt(e.target.value) || 0)}
+              data-testid="input-completion-rate-target"
+            />
+            <p className="text-xs text-muted-foreground">Percento dokončených kontaktov z celkového počtu</p>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-sm font-medium flex items-center gap-2">
+              <Clock className="w-4 h-4 text-muted-foreground" />
+              Priemerná dĺžka hovoru (min)
+            </Label>
+            <Input
+              type="number"
+              min={0}
+              max={60}
+              value={targets.avgCallDurationTarget}
+              onChange={(e) => updateTarget("avgCallDurationTarget", parseInt(e.target.value) || 0)}
+              data-testid="input-avg-call-duration-target"
+            />
+            <p className="text-xs text-muted-foreground">Cieľová priemerná dĺžka hovoru v minútach</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 const ACTION_TYPE_COLORS: Record<string, string> = {
   callback: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
   dnd: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
@@ -406,7 +566,7 @@ const ACTION_TYPE_COLORS: Record<string, string> = {
   none: "bg-muted text-muted-foreground",
 };
 
-function DispositionsTab({ campaignId }: { campaignId: string }) {
+function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedded?: boolean }) {
   const { toast } = useToast();
   const [showAddForm, setShowAddForm] = useState(false);
   const [addingSubFor, setAddingSubFor] = useState<string | null>(null);
@@ -592,8 +752,8 @@ function DispositionsTab({ campaignId }: { campaignId: string }) {
     </div>
   );
 
-  return (
-    <TabsContent value="dispositions" className="space-y-4">
+  const content = (
+    <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h3 className="text-lg font-semibold" data-testid="text-dispositions-title">Výsledky kontaktu</h3>
@@ -731,8 +891,11 @@ function DispositionsTab({ campaignId }: { campaignId: string }) {
           })}
         </div>
       )}
-    </TabsContent>
+    </div>
   );
+
+  if (embedded) return content;
+  return <TabsContent value="dispositions" className="space-y-4">{content}</TabsContent>;
 }
 
 export default function CampaignDetailPage() {
@@ -741,6 +904,7 @@ export default function CampaignDetailPage() {
   const { t } = useI18n();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("overview");
+  const [settingsSubTab, setSettingsSubTab] = useState("general");
   const [contactFilters, setContactFilters] = useState<CampaignContactFilters>({});
   const [selectedContact, setSelectedContact] = useState<EnrichedContact | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
@@ -1296,14 +1460,6 @@ export default function CampaignDetailPage() {
             <ScrollText className="w-4 h-4 mr-2" />
             Skript pre operátorov
           </TabsTrigger>
-          <TabsTrigger value="agents" data-testid="tab-agents">
-            <Shield className="w-4 h-4 mr-2" />
-            Operátori
-          </TabsTrigger>
-          <TabsTrigger value="dispositions" data-testid="tab-dispositions">
-            <CheckCheck className="w-4 h-4 mr-2" />
-            Výsledky kontaktu
-          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -1531,25 +1687,163 @@ export default function CampaignDetailPage() {
           )}
         </TabsContent>
 
-        <TabsContent value="settings" className="space-y-6">
-          <SchedulingCard campaign={campaign} />
-          <AutoModeCard campaign={campaign} />
+        <TabsContent value="settings" className="space-y-4">
+          <Tabs value={settingsSubTab} onValueChange={setSettingsSubTab}>
+            <TabsList>
+              <TabsTrigger value="general" data-testid="subtab-general">
+                <Settings className="w-4 h-4 mr-2" />
+                Všeobecné
+              </TabsTrigger>
+              <TabsTrigger value="scheduling" data-testid="subtab-scheduling">
+                <Clock className="w-4 h-4 mr-2" />
+                Plánovanie
+              </TabsTrigger>
+              <TabsTrigger value="operators" data-testid="subtab-operators">
+                <Shield className="w-4 h-4 mr-2" />
+                Operátori
+              </TabsTrigger>
+              <TabsTrigger value="dispositions" data-testid="subtab-dispositions">
+                <CheckCheck className="w-4 h-4 mr-2" />
+                Výsledky kontaktu
+              </TabsTrigger>
+              <TabsTrigger value="kpi" data-testid="subtab-kpi">
+                <Target className="w-4 h-4 mr-2" />
+                KPI Ciele
+              </TabsTrigger>
+            </TabsList>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>{t.campaigns?.detail?.operatorAssignment || "Operator Assignment"}</CardTitle>
-              <CardDescription>
-                {t.campaigns?.detail?.operatorAssignmentDesc || "Manage operators assigned to this campaign"}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                Add and configure operators for this campaign. Set workload limits and language preferences.
-              </p>
-            </CardContent>
-          </Card>
+            <TabsContent value="general" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Predvolený tab agenta</CardTitle>
+                  <CardDescription>
+                    Vyberte, ktorý tab sa operátorovi otvorí pri načítaní kontaktu
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Select 
+                    value={campaign.defaultActiveTab || "phone"} 
+                    onValueChange={(v) => {
+                      apiRequest("PATCH", `/api/campaigns/${campaign.id}`, { defaultActiveTab: v })
+                        .then(() => {
+                          toast({ title: "Predvolený tab uložený" });
+                          queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
+                        })
+                        .catch(() => toast({ title: "Chyba pri ukladaní", variant: "destructive" }));
+                    }}
+                  >
+                    <SelectTrigger className="w-64" data-testid="select-default-active-tab">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="phone">Telefón</SelectItem>
+                      <SelectItem value="script">Skript</SelectItem>
+                      <SelectItem value="email">E-mail</SelectItem>
+                      <SelectItem value="sms">SMS</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </CardContent>
+              </Card>
 
-          <CriteriaCard campaign={campaign} />
+              <AutoModeCard campaign={campaign} />
+              <CriteriaCard campaign={campaign} />
+            </TabsContent>
+
+            <TabsContent value="scheduling" className="space-y-6">
+              <SchedulingCard campaign={campaign} />
+            </TabsContent>
+
+            <TabsContent value="operators" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Shield className="w-5 h-5" />
+                    Priradení operátori
+                  </CardTitle>
+                  <CardDescription>
+                    Vyberte operátorov, ktorí budú pracovať na tejto kampani
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {callCenterUsers.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-8">
+                        Žiadni operátori nie sú k dispozícii. Najprv vytvorte používateľov s rolou "Call Center".
+                      </p>
+                    ) : (
+                      <div className="grid gap-3">
+                        {callCenterUsers.map((user) => {
+                          const isAssigned = assignedAgentIds.includes(user.id);
+                          return (
+                            <div 
+                              key={user.id} 
+                              className={`flex items-center justify-between gap-3 p-3 rounded-lg border ${isAssigned ? 'bg-primary/5 border-primary/20' : 'bg-muted/30'}`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isAssigned ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                                  <User className="w-5 h-5" />
+                                </div>
+                                <div>
+                                  <p className="font-medium">{user.fullName}</p>
+                                  <p className="text-sm text-muted-foreground">{roles.find(r => r.id === user.roleId)?.name || user.role}</p>
+                                </div>
+                              </div>
+                              <Button
+                                variant={isAssigned ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => {
+                                  const newAgentIds = isAssigned
+                                    ? assignedAgentIds.filter(id => id !== user.id)
+                                    : [...assignedAgentIds, user.id];
+                                  updateAgentsMutation.mutate(newAgentIds);
+                                }}
+                                disabled={updateAgentsMutation.isPending}
+                                data-testid={`button-toggle-agent-settings-${user.id}`}
+                              >
+                                {isAssigned ? (
+                                  <>
+                                    <CheckCheck className="w-4 h-4 mr-2" />
+                                    Priradený
+                                  </>
+                                ) : (
+                                  "Priradiť"
+                                )}
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+              {assignedAgentIds.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Zhrnutie</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="text-sm">
+                        {assignedAgentIds.length} {assignedAgentIds.length === 1 ? 'operátor' : assignedAgentIds.length < 5 ? 'operátori' : 'operátorov'}
+                      </Badge>
+                      <span className="text-sm text-muted-foreground">
+                        priradených k tejto kampani
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+
+            <TabsContent value="dispositions" className="space-y-4">
+              <DispositionsTab campaignId={campaignId} embedded />
+            </TabsContent>
+
+            <TabsContent value="kpi" className="space-y-6">
+              <KpiTargetsCard campaign={campaign} />
+            </TabsContent>
+          </Tabs>
         </TabsContent>
 
         <TabsContent value="reporting" className="space-y-6">
@@ -1911,91 +2205,6 @@ Príklad:
           )}
         </TabsContent>
 
-        <TabsContent value="agents" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="w-5 h-5" />
-                Priradení operátori
-              </CardTitle>
-              <CardDescription>
-                Vyberte operátorov, ktorí budú pracovať na tejto kampani
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {callCenterUsers.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-8">
-                    Žiadni operátori nie sú k dispozícii. Najprv vytvorte používateľov s rolou "Call Center".
-                  </p>
-                ) : (
-                  <div className="grid gap-3">
-                    {callCenterUsers.map((user) => {
-                      const isAssigned = assignedAgentIds.includes(user.id);
-                      return (
-                        <div 
-                          key={user.id} 
-                          className={`flex items-center justify-between p-3 rounded-lg border ${isAssigned ? 'bg-primary/5 border-primary/20' : 'bg-muted/30'}`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isAssigned ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                              <User className="w-5 h-5" />
-                            </div>
-                            <div>
-                              <p className="font-medium">{user.fullName}</p>
-                              <p className="text-sm text-muted-foreground">{roles.find(r => r.id === user.roleId)?.name || user.role}</p>
-                            </div>
-                          </div>
-                          <Button
-                            variant={isAssigned ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => {
-                              const newAgentIds = isAssigned
-                                ? assignedAgentIds.filter(id => id !== user.id)
-                                : [...assignedAgentIds, user.id];
-                              updateAgentsMutation.mutate(newAgentIds);
-                            }}
-                            disabled={updateAgentsMutation.isPending}
-                            data-testid={`button-toggle-agent-${user.id}`}
-                          >
-                            {isAssigned ? (
-                              <>
-                                <CheckCheck className="w-4 h-4 mr-2" />
-                                Priradený
-                              </>
-                            ) : (
-                              "Priradiť"
-                            )}
-                          </Button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-          
-          {assignedAgentIds.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Zhrnutie</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="text-sm">
-                    {assignedAgentIds.length} {assignedAgentIds.length === 1 ? 'operátor' : assignedAgentIds.length < 5 ? 'operátori' : 'operátorov'}
-                  </Badge>
-                  <span className="text-sm text-muted-foreground">
-                    priradených k tejto kampani
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        <DispositionsTab campaignId={campaignId} />
       </Tabs>
 
       <Dialog open={!!selectedContact} onOpenChange={() => setSelectedContact(null)}>
