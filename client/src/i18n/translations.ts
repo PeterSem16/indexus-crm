@@ -1068,6 +1068,20 @@ export interface Translations {
     created: string;
     updated: string;
     deleted: string;
+    channel: string;
+    selectChannel: string;
+    defaultTab: string;
+    selectDefaultTab: string;
+    agentAssigned: string;
+    agentRemoved: string;
+    agentsAssigned: string;
+    assignError: string;
+    removeError: string;
+    assignAgentError: string;
+    removeAgentError: string;
+    agentAssignedAll: string;
+    agentRemovedAll: string;
+    bulkAssignError: string;
     types: {
       marketing: string;
       sales: string;
@@ -1083,11 +1097,30 @@ export interface Translations {
       completed: string;
       cancelled: string;
     };
+    channels: {
+      phone: string;
+      email: string;
+      sms: string;
+      mixed: string;
+    };
+    contactStatuses: {
+      pending: string;
+      contacted: string;
+      completed: string;
+      failed: string;
+      no_answer: string;
+      callback_scheduled: string;
+      not_interested: string;
+    };
     detail: {
       overview: string;
       contacts: string;
       settings: string;
       reporting: string;
+      script: string;
+      dispositions: string;
+      general: string;
+      kpiTargets: string;
       totalContacts: string;
       pendingContacts: string;
       completedContacts: string;
@@ -1096,6 +1129,7 @@ export interface Translations {
       generateContacts: string;
       exportContacts: string;
       exportReport: string;
+      importContacts: string;
       scheduling: string;
       schedulingDesc: string;
       operatorAssignment: string;
@@ -1120,6 +1154,232 @@ export interface Translations {
       matchAll: string;
       matchAny: string;
       noDataAvailable: string;
+      criteriaSaved: string;
+      criteriaError: string;
+      settingsSaved: string;
+      settingsError: string;
+      saving: string;
+      scheduleSaved: string;
+      scheduleError: string;
+      contactsGenerated: string;
+      importCompleted: string;
+      importError: string;
+      importDeleted: string;
+      importDeleteError: string;
+      contactUpdated: string;
+      contactUpdateError: string;
+      operatorsUpdated: string;
+      operatorsError: string;
+      statusUpdated: string;
+      statusUpdateError: string;
+      networkError: string;
+      importFailed: string;
+      error: string;
+      requeueTitle: string;
+      requeueDesc: string;
+      requeueByStatus: string;
+      requeueByDisposition: string;
+      requeueByCallback: string;
+      requeueCallbackPeriod: string;
+      requeueEmptyStatus: string;
+      requeueEmptyDisp: string;
+      requeueMatchingContacts: string;
+      requeueNoMatches: string;
+      requeueStatusReset: string;
+      requeueConfirm: string;
+      requeueProcessing: string;
+      requeueButton: string;
+      cancel: string;
+      from: string;
+      to: string;
+      attempts: string;
+      lastAttempt: string;
+      priority: string;
+      priorityHigh: string;
+      priorityMedium: string;
+      priorityLow: string;
+      operator: string;
+      result: string;
+      selected: string;
+      bulkActions: string;
+      markCompleted: string;
+      markNotInterested: string;
+      resetPending: string;
+      clearSelection: string;
+      contactDetail: string;
+      unknownContact: string;
+      phone: string;
+      email: string;
+      country: string;
+      autoMode: string;
+      autoModeDesc: string;
+      autoModeEnabled: string;
+      autoModeDisabled: string;
+      kpiTotalContacts: string;
+      kpiTotalContactsDesc: string;
+      kpiTargetRevenue: string;
+      kpiTargetRevenueDesc: string;
+      kpiPlannedDuration: string;
+      kpiPlannedDurationDesc: string;
+      kpiPlannedDurationHint: string;
+      kpiDailyCallTarget: string;
+      kpiDailyContactTarget: string;
+      kpiDailyConversionTarget: string;
+      kpiMinConversionRate: string;
+      kpiMinConversionRateDesc: string;
+      kpiAvgCallDuration: string;
+      kpiAvgCallDurationDesc: string;
+      kpiMaxIdleTime: string;
+      kpiMaxIdleTimeDesc: string;
+      kpiMaxIdleTimeHint: string;
+      dispTitle: string;
+      dispName: string;
+      dispSelectIcon: string;
+      dispActionNone: string;
+      dispActionCallback: string;
+      dispActionDnd: string;
+      dispActionComplete: string;
+      dispActionConvert: string;
+      dispSave: string;
+      dispLoadDefaults: string;
+      dispLoadDefaultsLoading: string;
+      dispDefaultsCreated: string;
+      dispCreated: string;
+      dispCreateError: string;
+      dispDeleted: string;
+      dispDeleteError: string;
+      dispNoDispositions: string;
+      dispNoDispositionsHint: string;
+      scriptBuilder: string;
+      scriptGuideTitle: string;
+      scriptGuideSteps: string;
+      scriptGuideHeadings: string;
+      scriptGuideSelect: string;
+      scriptGuideCheckbox: string;
+      scriptGuideText: string;
+      scriptGuideNotes: string;
+      scriptGuideOutcome: string;
+      weekdays: {
+        mon: string;
+        tue: string;
+        wed: string;
+        thu: string;
+        fri: string;
+        sat: string;
+        sun: string;
+      };
+    };
+    filter: {
+      title: string;
+      filters: string;
+      activeFilters: string;
+      resetAll: string;
+      reset: string;
+      apply: string;
+      searchPlaceholder: string;
+      contactStatusInCampaign: string;
+      client: string;
+      clientStatus: string;
+      leadQuality: string;
+      serviceType: string;
+      location: string;
+      countryLabel: string;
+      city: string;
+      cityPlaceholder: string;
+      potentialCase: string;
+      caseStatus: string;
+      productType: string;
+      hospital: string;
+      expectedDateFrom: string;
+      expectedDateTo: string;
+      acquisition: string;
+      salesChannel: string;
+      infoSource: string;
+      clientStatuses: {
+        potential: string;
+        acquired: string;
+        terminated: string;
+      };
+      leadStatuses: {
+        cold: string;
+        warm: string;
+        hot: string;
+        qualified: string;
+      };
+      caseStatuses: {
+        realized: string;
+        duplicate: string;
+        in_progress: string;
+        postponed: string;
+        not_interested: string;
+        cancelled: string;
+      };
+      productTypes: {
+        cord_blood: string;
+        cord_tissue: string;
+        both: string;
+      };
+      serviceTypes: {
+        cord_blood: string;
+        cord_tissue: string;
+        both: string;
+      };
+      infoSources: {
+        internet: string;
+        friends: string;
+        doctor: string;
+        hospital: string;
+        advertisement: string;
+        event: string;
+        other: string;
+      };
+    };
+    criteriaBuilder: {
+      title: string;
+      description: string;
+      group: string;
+      conditionsInGroups: string;
+      noCriteria: string;
+      noCriteriaDesc: string;
+      addFirstGroup: string;
+      addGroup: string;
+      addCondition: string;
+      noConditions: string;
+      selectField: string;
+      selectValue: string;
+      enterValue: string;
+      operators: {
+        equals: string;
+        notEquals: string;
+        in: string;
+        notIn: string;
+        contains: string;
+        startsWith: string;
+        endsWith: string;
+      };
+      fields: {
+        country: string;
+        clientStatus: string;
+        status: string;
+        serviceType: string;
+        leadStatus: string;
+        newsletter: string;
+        city: string;
+        postalCode: string;
+        trimester: string;
+        expectedDelivery: string;
+        source: string;
+        ageRange: string;
+        hasContract: string;
+        productType: string;
+        lastContactDays: string;
+        assignedManager: string;
+      };
+      allCustomers: string;
+      andAlso: string;
+      or: string;
+      yes: string;
+      no: string;
     };
   };
   settings: {
@@ -3535,6 +3795,20 @@ export const translations: Record<Locale, Translations> = {
       created: 'Campaign created',
       updated: 'Campaign updated',
       deleted: 'Campaign deleted',
+      channel: 'Channel',
+      selectChannel: 'Select channel',
+      defaultTab: 'Default Tab',
+      selectDefaultTab: 'Select default tab',
+      agentAssigned: 'Agent assigned to campaign',
+      agentRemoved: 'Agent removed from campaign',
+      agentsAssigned: 'Agents assigned',
+      assignError: 'Error',
+      removeError: 'Error',
+      assignAgentError: 'Failed to assign agent',
+      removeAgentError: 'Failed to remove agent',
+      agentAssignedAll: 'Agent assigned to all campaigns',
+      agentRemovedAll: 'Agent removed from all campaigns',
+      bulkAssignError: 'Failed to assign agents',
       types: {
         marketing: 'Marketing',
         sales: 'Sales',
@@ -3550,19 +3824,39 @@ export const translations: Record<Locale, Translations> = {
         completed: 'Completed',
         cancelled: 'Cancelled',
       },
+      channels: {
+        phone: 'Phone',
+        email: 'Email',
+        sms: 'SMS',
+        mixed: 'Mixed',
+      },
+      contactStatuses: {
+        pending: 'Pending',
+        contacted: 'Contacted',
+        completed: 'Completed',
+        failed: 'Failed',
+        no_answer: 'No answer',
+        callback_scheduled: 'Callback scheduled',
+        not_interested: 'Not interested',
+      },
       detail: {
         overview: 'Overview',
         contacts: 'Contacts',
         settings: 'Settings',
         reporting: 'Reporting',
+        script: 'Script',
+        dispositions: 'Dispositions',
+        general: 'General',
+        kpiTargets: 'KPI Targets',
         totalContacts: 'Total Contacts',
         pendingContacts: 'Pending',
         completedContacts: 'Completed',
         failedContacts: 'Failed',
         progress: 'Progress',
-        generateContacts: 'Generate Contacts',
+        generateContacts: 'Generate',
         exportContacts: 'Export',
         exportReport: 'Export Report',
+        importContacts: 'Import',
         scheduling: 'Scheduling',
         schedulingDesc: 'Configure working hours and contact frequency limits',
         operatorAssignment: 'Operator Assignment',
@@ -3587,6 +3881,232 @@ export const translations: Record<Locale, Translations> = {
         matchAll: 'Match all conditions',
         matchAny: 'Match any condition',
         noDataAvailable: 'No data available',
+        criteriaSaved: 'Criteria saved',
+        criteriaError: 'Error saving criteria',
+        settingsSaved: 'Settings saved',
+        settingsError: 'Error saving settings',
+        saving: 'Saving...',
+        scheduleSaved: 'Schedule saved',
+        scheduleError: 'Error saving schedule',
+        contactsGenerated: 'Contacts generated',
+        importCompleted: 'Import completed',
+        importError: 'Import error',
+        importDeleted: 'Import deleted',
+        importDeleteError: 'Failed to delete imported contacts.',
+        contactUpdated: 'Contact updated',
+        contactUpdateError: 'Failed to update contact.',
+        operatorsUpdated: 'Operators updated',
+        operatorsError: 'Failed to update operators.',
+        statusUpdated: 'Campaign status updated',
+        statusUpdateError: 'Failed to update campaign status.',
+        networkError: 'Network error',
+        importFailed: 'Import failed',
+        error: 'Error',
+        requeueTitle: 'Re-queue contacts',
+        requeueDesc: 'Select filters to determine which contacts should be re-queued for processing.',
+        requeueByStatus: 'By status',
+        requeueByDisposition: 'By disposition',
+        requeueByCallback: 'Callback in period',
+        requeueCallbackPeriod: 'Filters contacts with scheduled callback in this period',
+        requeueEmptyStatus: 'Empty selection = all except "Pending"',
+        requeueEmptyDisp: 'Empty selection = all dispositions',
+        requeueMatchingContacts: 'Matching contacts',
+        requeueNoMatches: 'No contacts match the selected filters',
+        requeueStatusReset: 'Status will be reset to "Pending", disposition and callback will be cleared',
+        requeueConfirm: 'Re-queue',
+        requeueProcessing: 'Processing...',
+        requeueButton: 'Re-queue',
+        cancel: 'Cancel',
+        from: 'From',
+        to: 'To',
+        attempts: 'Attempts',
+        lastAttempt: 'Last attempt',
+        priority: 'Priority',
+        priorityHigh: 'High',
+        priorityMedium: 'Medium',
+        priorityLow: 'Low',
+        operator: 'Operator',
+        result: 'Result',
+        selected: 'selected',
+        bulkActions: 'Bulk actions',
+        markCompleted: 'Mark as completed',
+        markNotInterested: 'Mark as not interested',
+        resetPending: 'Reset to pending',
+        clearSelection: 'Clear selection',
+        contactDetail: 'Contact detail',
+        unknownContact: 'Unknown contact',
+        phone: 'Phone',
+        email: 'Email',
+        country: 'Country',
+        autoMode: 'Auto-assign mode',
+        autoModeDesc: 'Automatically assign contacts to available operators',
+        autoModeEnabled: 'Auto-assign enabled',
+        autoModeDisabled: 'Auto-assign disabled',
+        kpiTotalContacts: 'Total contacts to process',
+        kpiTotalContactsDesc: 'How many contacts you want to process during the campaign',
+        kpiTargetRevenue: 'Target campaign revenue',
+        kpiTargetRevenueDesc: 'Expected financial revenue from the campaign',
+        kpiPlannedDuration: 'Planned campaign duration',
+        kpiPlannedDurationDesc: 'Number of working days to complete the campaign',
+        kpiPlannedDurationHint: 'Considered when calculating daily operator targets',
+        kpiDailyCallTarget: 'Daily call target',
+        kpiDailyContactTarget: 'Daily successful contact target',
+        kpiDailyConversionTarget: 'Daily conversion target',
+        kpiMinConversionRate: 'Minimum conversion rate',
+        kpiMinConversionRateDesc: 'Minimum percentage of conversions from successful contacts',
+        kpiAvgCallDuration: 'Average call duration',
+        kpiAvgCallDurationDesc: 'Target average call duration in minutes',
+        kpiMaxIdleTime: 'Maximum idle time',
+        kpiMaxIdleTimeDesc: 'Maximum allowed idle time between two calls',
+        kpiMaxIdleTimeHint: 'Longer idle time reduces operator productivity',
+        dispTitle: 'Contact dispositions',
+        dispName: 'Name',
+        dispSelectIcon: 'Select',
+        dispActionNone: 'None',
+        dispActionCallback: 'Callback',
+        dispActionDnd: 'Do not call',
+        dispActionComplete: 'Complete',
+        dispActionConvert: 'Convert',
+        dispSave: 'Save',
+        dispLoadDefaults: 'Load defaults',
+        dispLoadDefaultsLoading: 'Creating...',
+        dispDefaultsCreated: 'Default dispositions created',
+        dispCreated: 'Disposition added',
+        dispCreateError: 'Error creating disposition',
+        dispDeleted: 'Disposition deleted',
+        dispDeleteError: 'Error deleting disposition',
+        dispNoDispositions: 'No contact dispositions.',
+        dispNoDispositionsHint: 'Click "Load defaults" or add your own.',
+        scriptBuilder: 'Script Builder',
+        scriptGuideTitle: 'Script building guide',
+        scriptGuideSteps: 'Steps: Divide the script into logical steps (e.g. Greeting, Verification, Offer, Closing)',
+        scriptGuideHeadings: 'Headings and paragraphs: Use for text instructions and information',
+        scriptGuideSelect: 'Select fields: For questions with a clear answer (e.g. "Interested?" - Yes/No/Will think)',
+        scriptGuideCheckbox: 'Checkboxes: For lists of items to verify or complete',
+        scriptGuideText: 'Text fields: For notes and free-form client responses',
+        scriptGuideNotes: 'Notes: For important alerts and tips for the operator',
+        scriptGuideOutcome: 'Call outcome: For recording the final call status',
+        weekdays: {
+          mon: 'Mon',
+          tue: 'Tue',
+          wed: 'Wed',
+          thu: 'Thu',
+          fri: 'Fri',
+          sat: 'Sat',
+          sun: 'Sun',
+        },
+      },
+      filter: {
+        title: 'Complex contact filter',
+        filters: 'Filters',
+        activeFilters: 'active filters',
+        resetAll: 'Reset all',
+        reset: 'Reset',
+        apply: 'Apply filters',
+        searchPlaceholder: 'Search name, email, phone...',
+        contactStatusInCampaign: 'Contact status in campaign',
+        client: 'Client',
+        clientStatus: 'Client status',
+        leadQuality: 'Lead quality',
+        serviceType: 'Service type',
+        location: 'Location',
+        countryLabel: 'Country',
+        city: 'City',
+        cityPlaceholder: 'Filter by city',
+        potentialCase: 'Potential case',
+        caseStatus: 'Case status',
+        productType: 'Product type',
+        hospital: 'Hospital',
+        expectedDateFrom: 'Expected date (from)',
+        expectedDateTo: 'Expected date (to)',
+        acquisition: 'Acquisition',
+        salesChannel: 'Sales channel',
+        infoSource: 'Information source',
+        clientStatuses: {
+          potential: 'Potential client',
+          acquired: 'Acquired client',
+          terminated: 'Terminated client',
+        },
+        leadStatuses: {
+          cold: 'Cold',
+          warm: 'Warm',
+          hot: 'Hot',
+          qualified: 'Qualified',
+        },
+        caseStatuses: {
+          realized: 'Realized',
+          duplicate: 'Duplicate',
+          in_progress: 'In progress',
+          postponed: 'Postponed',
+          not_interested: 'Not interested',
+          cancelled: 'Cancelled',
+        },
+        productTypes: {
+          cord_blood: 'Cord blood',
+          cord_tissue: 'Cord tissue',
+          both: 'Both',
+        },
+        serviceTypes: {
+          cord_blood: 'Cord blood',
+          cord_tissue: 'Cord tissue',
+          both: 'Both',
+        },
+        infoSources: {
+          internet: 'Internet',
+          friends: 'From friends',
+          doctor: 'Doctor',
+          hospital: 'Hospital',
+          advertisement: 'Advertisement',
+          event: 'Event',
+          other: 'Other',
+        },
+      },
+      criteriaBuilder: {
+        title: 'Target criteria',
+        description: 'Define which customers should be included in this campaign',
+        group: 'Group',
+        conditionsInGroups: 'conditions in',
+        noCriteria: 'No criteria.',
+        noCriteriaDesc: 'All customers will be included in this campaign.',
+        addFirstGroup: 'Add criteria group',
+        addGroup: 'Add another group',
+        addCondition: 'Add condition',
+        noConditions: 'No conditions. Add a condition to filter customers.',
+        selectField: 'Select field',
+        selectValue: 'Select value',
+        enterValue: 'Enter value',
+        operators: {
+          equals: 'is',
+          notEquals: 'is not',
+          in: 'is one of',
+          notIn: 'is none of',
+          contains: 'contains',
+          startsWith: 'starts with',
+          endsWith: 'ends with',
+        },
+        fields: {
+          country: 'Country',
+          clientStatus: 'Client status',
+          status: 'Record status',
+          serviceType: 'Service type',
+          leadStatus: 'Lead status',
+          newsletter: 'Subscribes newsletter',
+          city: 'City',
+          postalCode: 'Postal code',
+          trimester: 'Pregnancy trimester',
+          expectedDelivery: 'Expected delivery date',
+          source: 'Contact source',
+          ageRange: 'Age category',
+          hasContract: 'Has contract',
+          productType: 'Product',
+          lastContactDays: 'Last contact (days)',
+          assignedManager: 'Assigned manager',
+        },
+        allCustomers: 'All customers',
+        andAlso: 'and also',
+        or: 'or',
+        yes: 'Yes',
+        no: 'No',
       },
     },
     settings: {
