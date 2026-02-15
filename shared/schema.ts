@@ -2714,6 +2714,7 @@ export const campaignContacts = pgTable("campaign_contacts", {
   status: text("status").notNull().default("pending"), // pending, contacted, completed, failed, no_answer, callback_scheduled, not_interested
   assignedTo: varchar("assigned_to"), // user id
   notes: text("notes"),
+  dispositionCode: text("disposition_code"),
   attemptCount: integer("attempt_count").notNull().default(0),
   lastAttemptAt: timestamp("last_attempt_at"),
   priorityScore: integer("priority_score").notNull().default(50), // 0-100, higher = more priority
@@ -2732,6 +2733,7 @@ export const insertCampaignContactSchema = createInsertSchema(campaignContacts).
   status: z.enum(["pending", "contacted", "completed", "failed", "no_answer", "callback_scheduled", "not_interested"]).optional().default("pending"),
   assignedTo: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
+  dispositionCode: z.string().optional().nullable(),
   attemptCount: z.number().optional().default(0),
   lastAttemptAt: z.string().optional().nullable(),
   priorityScore: z.number().optional().default(50),
