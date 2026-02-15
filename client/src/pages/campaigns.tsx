@@ -788,7 +788,14 @@ export default function CampaignsPage() {
     callbackContacts: number;
   }>>({
     queryKey: ["/api/campaigns/batch-stats"],
+    queryFn: async () => {
+      const res = await fetch("/api/campaigns/batch-stats", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch batch stats");
+      return res.json();
+    },
+    retry: 3,
     staleTime: 30000,
+    refetchOnMount: "always",
     refetchInterval: 60000,
   });
 

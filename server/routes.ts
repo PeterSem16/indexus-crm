@@ -7737,7 +7737,7 @@ export async function registerRoutes(
         storage.getCallLogsByCustomer(customerId),
         storage.getCommunicationMessagesByCustomer(customerId),
         storage.getCampaignContactHistoryByCustomer(customerId),
-        storage.getUsers(),
+        storage.getAllUsers(),
       ]);
       
       const userMap = new Map(allUsers.map(u => [u.id, `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.username]));
