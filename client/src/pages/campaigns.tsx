@@ -777,6 +777,21 @@ export default function CampaignsPage() {
     queryKey: ["/api/campaigns"],
   });
 
+  const { data: batchStats = {} } = useQuery<Record<string, {
+    totalContacts: number;
+    completedContacts: number;
+    failedContacts: number;
+    noAnswerContacts: number;
+    notInterestedContacts: number;
+    pendingContacts: number;
+    contactedContacts: number;
+    callbackContacts: number;
+  }>>({
+    queryKey: ["/api/campaigns/batch-stats"],
+    staleTime: 30000,
+    refetchInterval: 60000,
+  });
+
   const { data: users = [] } = useQuery<{ id: string; fullName: string; role: string; roleId: string | null }[]>({
     queryKey: ["/api/users"],
   });
@@ -908,12 +923,67 @@ export default function CampaignsPage() {
     );
   };
 
+  const getKpiBadges = (campaign: Campaign) => {
+    const stats = batchStats[campaign.id];
+    if (!stats) return null;
+
+    let kpiTargets: Record<string, number> = {};
+    try {
+      if (campaign.settings) {
+        const s = JSON.parse(campaign.settings);
+        if (s.kpiTargets) kpiTargets = s.kpiTargets;
+      }
+    } catch {}
+
+    const badges: { label: string; pct: number }[] = [];
+
+    if (kpiTargets.campaignTotalContactsTarget && kpiTargets.campaignTotalContactsTarget > 0) {
+      const pct = Math.round((stats.totalContacts / kpiTargets.campaignTotalContactsTarget) * 100);
+      badges.push({ label: `Kontakty ${pct}%`, pct });
+    }
+
+    if (kpiTargets.campaignCompletionTarget && kpiTargets.campaignCompletionTarget > 0) {
+      const processed = stats.completedContacts + stats.failedContacts + stats.noAnswerContacts + stats.notInterestedContacts;
+      const completionRate = stats.totalContacts > 0 ? (processed / stats.totalContacts) * 100 : 0;
+      const pct = Math.round((completionRate / kpiTargets.campaignCompletionTarget) * 100);
+      badges.push({ label: `Dokončenie ${pct}%`, pct });
+    }
+
+    if (kpiTargets.campaignConversionTarget && kpiTargets.campaignConversionTarget > 0) {
+      const processed = stats.completedContacts + stats.failedContacts + stats.noAnswerContacts + stats.notInterestedContacts;
+      const conversionRate = processed > 0 ? (stats.completedContacts / processed) * 100 : 0;
+      const pct = Math.round((conversionRate / kpiTargets.campaignConversionTarget) * 100);
+      badges.push({ label: `Konverzia ${pct}%`, pct });
+    }
+
+    if (badges.length === 0) return null;
+
+    return (
+      <div className="flex gap-1 mt-1 flex-wrap">
+        {badges.map((b, i) => {
+          const color = b.pct >= 100 ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+            : b.pct >= 70 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+            : b.pct >= 30 ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
+            : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
+          return (
+            <span key={i} className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${color}`} data-testid={`badge-kpi-${campaign.id}-${i}`}>
+              {b.label}
+            </span>
+          );
+        })}
+      </div>
+    );
+  };
+
   const columns = [
     {
       key: "name",
       header: t.campaigns?.campaignName || "Názov",
       cell: (campaign: Campaign) => (
-        <div className="font-medium">{campaign.name}</div>
+        <div>
+          <div className="font-medium">{campaign.name}</div>
+          {getKpiBadges(campaign)}
+        </div>
       ),
     },
     {

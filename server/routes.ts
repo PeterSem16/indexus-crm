@@ -13837,6 +13837,31 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/campaigns/batch-stats", requireAuth, async (req, res) => {
+    try {
+      const allCampaigns = await storage.getCampaigns();
+      const result: Record<string, {
+        totalContacts: number;
+        completedContacts: number;
+        failedContacts: number;
+        noAnswerContacts: number;
+        notInterestedContacts: number;
+        pendingContacts: number;
+        contactedContacts: number;
+        callbackContacts: number;
+      }> = {};
+      await Promise.all(allCampaigns.map(async (c) => {
+        try {
+          result[c.id] = await storage.getCampaignStats(c.id);
+        } catch { /* skip */ }
+      }));
+      res.json(result);
+    } catch (error) {
+      console.error("Failed to fetch batch campaign stats:", error);
+      res.status(500).json({ error: "Failed to fetch batch campaign stats" });
+    }
+  });
+
   app.get("/api/campaigns/:id", requireAuth, async (req, res) => {
     try {
       const campaign = await storage.getCampaign(req.params.id);
