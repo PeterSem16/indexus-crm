@@ -2620,7 +2620,8 @@ export default function AgentWorkspacePage() {
     setCurrentContact(customer);
     agentSession.updateStatus("busy").catch(() => {});
     setCallNotes("");
-    setActiveChannel("phone");
+    const defaultTab = selectedCampaign?.defaultActiveTab || "phone";
+    setActiveChannel(defaultTab);
     setRightTab("actions");
 
     const campaignChannel = (selectedCampaign?.channel || "phone") as ChannelType;

@@ -68,6 +68,7 @@ const campaignFormSchema = z.object({
   endDate: z.string().optional(),
   criteria: z.string().optional(),
   script: z.string().optional(),
+  defaultActiveTab: z.enum(["phone", "script", "email", "sms"]).optional().default("phone"),
 });
 
 type CampaignFormData = z.infer<typeof campaignFormSchema>;
@@ -104,6 +105,7 @@ function CampaignForm({
         endDate: initialData.endDate ? format(new Date(initialData.endDate), "yyyy-MM-dd") : "",
         criteria: initialData.criteria || "",
         script: initialData.script || "",
+        defaultActiveTab: (initialData.defaultActiveTab || "phone") as any,
       };
     }
     if (templateData) {
@@ -118,6 +120,7 @@ function CampaignForm({
         endDate: "",
         criteria: templateData.criteria || "",
         script: templateData.script || "",
+        defaultActiveTab: "phone" as const,
       };
     }
     return {
@@ -131,6 +134,7 @@ function CampaignForm({
       endDate: "",
       criteria: "",
       script: "",
+      defaultActiveTab: "phone" as const,
     };
   };
 
@@ -218,6 +222,30 @@ function CampaignForm({
                         {t.campaigns?.channels?.[channel] || channel}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="defaultActiveTab"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Predvolený tab</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value || "phone"}>
+                  <FormControl>
+                    <SelectTrigger data-testid="select-campaign-default-tab">
+                      <SelectValue placeholder="Vybrať predvolený tab" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="phone">Hovor</SelectItem>
+                    <SelectItem value="script">Script</SelectItem>
+                    <SelectItem value="email">Email</SelectItem>
+                    <SelectItem value="sms">SMS</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />
