@@ -15031,9 +15031,7 @@ export async function registerRoutes(
         if (agentStats[agentId]) agentStats[agentId].completedToday = contactSet.size;
       }
 
-      const agentArray = Object.values(agentStats).filter(a =>
-        a.totalContacts > 0 || a.totalDispositions > 0
-      );
+      const agentArray = Object.values(agentStats);
 
       for (const a of agentArray) {
         if (a.totalContacts > 0) {

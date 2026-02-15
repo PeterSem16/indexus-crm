@@ -1081,7 +1081,7 @@ export default function CampaignDetailPage() {
     enabled: !!campaignId,
   });
 
-  const { data: agentStatsData = [] } = useQuery<Array<{
+  const { data: agentStatsData = [], isError: agentStatsError, error: agentStatsErrorMsg, isLoading: agentStatsLoading } = useQuery<Array<{
     userId: string;
     name: string;
     totalContacts: number;
@@ -1106,6 +1106,10 @@ export default function CampaignDetailPage() {
     enabled: !!campaignId,
     refetchInterval: 30000,
     staleTime: 0,
+    retry: 3,
+    retryDelay: 1000,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
   const selectedCustomerId = selectedContact?.customerId;
@@ -2503,7 +2507,18 @@ export default function CampaignDetailPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {agentStatsData.length === 0 ? (
+              {agentStatsLoading ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <RefreshCw className="w-6 h-6 mx-auto mb-2 animate-spin" />
+                  <p className="text-sm">Načítavam štatistiky operátorov...</p>
+                </div>
+              ) : agentStatsError ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-50 text-destructive" />
+                  <p className="text-sm">Nepodarilo sa načítať štatistiky operátorov</p>
+                  <p className="text-xs mt-1">{agentStatsErrorMsg?.message || "Skúste obnoviť stránku"}</p>
+                </div>
+              ) : agentStatsData.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
                   <p className="text-sm">Zatiaľ žiadni operátori nepracovali na tejto kampani</p>
