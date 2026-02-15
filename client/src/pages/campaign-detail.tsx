@@ -2486,28 +2486,33 @@ export default function CampaignDetailPage() {
             );
           })()}
 
-          {agentStatsData.length > 0 && (
-            <Card data-testid="card-agent-performance">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="w-5 h-5" />
-                  Výkon operátorov v kampani
-                </CardTitle>
-                <CardDescription>
-                  Denný a celkový výkon jednotlivých operátorov, ktorí pracovali na tejto kampani
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {(() => {
-                  let kpiTgts: Record<string, number> = {};
+          <Card data-testid="card-agent-performance">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                Výkon operátorov v kampani
+              </CardTitle>
+              <CardDescription>
+                Denný a celkový výkon jednotlivých operátorov, ktorí pracovali na tejto kampani
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {agentStatsData.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">Zatiaľ žiadni operátori nepracovali na tejto kampani</p>
+                  <p className="text-xs mt-1">Priraďte operátorov v nastaveniach kampane a začnite kontaktovanie</p>
+                </div>
+              ) : (() => {
+                  const kpiTgts: Record<string, number> = {};
                   try {
                     if (campaign.settings) {
                       const s = JSON.parse(campaign.settings);
-                      if (s.kpiTargets) kpiTgts = s.kpiTargets;
+                      if (s.kpiTargets) Object.assign(kpiTgts, s.kpiTargets);
                     }
                   } catch {}
 
-                  return agentStatsData.map(agent => {
+                  return (<>{agentStatsData.map(agent => {
                     const dailyContactsTarget = kpiTgts.agentDailyContactsTarget || 0;
                     const dailyCallsTarget = kpiTgts.agentDailyCallsTarget || 0;
                     const dailySuccessTarget = kpiTgts.agentDailySuccessTarget || 0;
@@ -2647,11 +2652,10 @@ export default function CampaignDetailPage() {
                         </div>
                       </div>
                     );
-                  });
+                  })}</>);
                 })()}
               </CardContent>
             </Card>
-          )}
         </TabsContent>
 
         <TabsContent value="script" className="space-y-6">
