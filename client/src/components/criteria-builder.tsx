@@ -424,6 +424,16 @@ export function CriteriaBuilder({ criteria, onChange, readonly }: CriteriaBuilde
   );
 }
 
+const OPERATOR_LABELS: Record<string, string> = {
+  equals: "je",
+  notEquals: "nie je",
+  in: "je jedným z",
+  notIn: "nie je žiadnym z",
+  contains: "obsahuje",
+  startsWith: "začína na",
+  endsWith: "končí na",
+};
+
 export function criteriaToDescription(criteria: CriteriaGroup[]): string {
   if (criteria.length === 0) return "Všetci zákazníci";
   
@@ -431,13 +441,14 @@ export function criteriaToDescription(criteria: CriteriaGroup[]): string {
     const conditionDescriptions = group.conditions.map(cond => {
       const fieldConfig = FIELD_OPTIONS.find(f => f.value === cond.field);
       const fieldLabel = fieldConfig?.label || cond.field;
+      const operatorLabel = OPERATOR_LABELS[cond.operator] || cond.operator;
       const valueLabel = fieldConfig?.options?.find(o => o.value === cond.value)?.label || cond.value;
-      return `${fieldLabel} ${cond.operator} "${valueLabel}"`;
+      return `${fieldLabel} ${operatorLabel} "${valueLabel}"`;
     });
-    return conditionDescriptions.join(` ${group.logic} `);
+    return conditionDescriptions.join(group.logic === "AND" ? " a zároveň " : " alebo ");
   });
   
-  return groupDescriptions.join(" AND ");
+  return groupDescriptions.join(" a zároveň ");
 }
 
 export function getDefaultCriteria(): CriteriaGroup[] {

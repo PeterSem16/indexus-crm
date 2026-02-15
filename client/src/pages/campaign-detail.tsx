@@ -1470,7 +1470,7 @@ export default function CampaignDetailPage() {
       c.customer?.lastName || "",
       c.customer?.email || "",
       c.customer?.phone || "",
-      c.status,
+      ({"pending": "Čakajúci", "contacted": "Kontaktovaný", "completed": "Dokončený", "failed": "Neúspešný", "no_answer": "Nedvíha", "callback_scheduled": "Spätné volanie", "not_interested": "Nemá záujem"} as Record<string, string>)[c.status] || c.status,
       c.dispositionCode ? (dispositionMap[c.dispositionCode]?.name || c.dispositionCode) : "",
       c.dispositionCode || "",
       c.attemptCount || 0,
@@ -3374,9 +3374,13 @@ Príklad:
                           </span>
                           <div className="flex items-center gap-2">
                             {c.dispositionCode && (
-                              <Badge variant="outline" className="text-xs">{c.dispositionCode}</Badge>
+                              <Badge variant="outline" className="text-xs">
+                                {dispositionMap[c.dispositionCode]?.name || c.dispositionCode}
+                              </Badge>
                             )}
-                            <Badge variant="secondary" className="text-xs">{c.status}</Badge>
+                            <Badge variant="secondary" className="text-xs">
+                              {{"pending": "Čakajúci", "contacted": "Kontaktovaný", "completed": "Dokončený", "failed": "Neúspešný", "no_answer": "Nedvíha", "callback_scheduled": "Spätné volanie", "not_interested": "Nemá záujem"}[c.status] || c.status}
+                            </Badge>
                           </div>
                         </div>
                       ))}
