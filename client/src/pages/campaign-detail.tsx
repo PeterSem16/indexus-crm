@@ -9,7 +9,7 @@ import {
   Play, Pause, CheckCircle, CheckCircle2, Clock, Phone, PhoneMissed, User, Calendar,
   RefreshCw, Download, Filter, MoreHorizontal, Trash2, CheckCheck,
   Copy, Save, ScrollText, History, ArrowRight, Mail, MessageSquare, FileEdit, Package, Shield,
-  Plus, ChevronDown, ChevronRight, ListChecks, Upload, FileUp, AlertTriangle,
+  Plus, ChevronDown, ChevronLeft, ChevronRight, ListChecks, Upload, FileUp, AlertTriangle,
   ThumbsUp, ThumbsDown, CalendarPlus, PhoneOff, AlertCircle, XCircle, Zap, Star,
   CircleDot, Info, Heart, Ban, Bell, Send, Target, Flag, Eye, EyeOff,
   Volume2, VolumeX, UserCheck, UserX, Briefcase, Gift, Home, MapPin, Globe,
@@ -1057,6 +1057,8 @@ export default function CampaignDetailPage() {
   const [requeueStatuses, setRequeueStatuses] = useState<Set<string>>(new Set());
   const [requeueCallbackFrom, setRequeueCallbackFrom] = useState("");
   const [requeueCallbackTo, setRequeueCallbackTo] = useState("");
+  const [requeuePage, setRequeuePage] = useState(0);
+  const REQUEUE_PAGE_SIZE = 20;
 
   const { data: campaign, isLoading: loadingCampaign } = useQuery<Campaign>({
     queryKey: ["/api/campaigns", campaignId],
@@ -1363,6 +1365,17 @@ export default function CampaignDetailPage() {
       return true;
     });
   }, [contacts, showRequeueDialog, requeueStatuses, requeueDispositions, requeueCallbackFrom, requeueCallbackTo]);
+
+  useEffect(() => {
+    if (requeueMatchingContacts.length > 0) {
+      const maxPage = Math.ceil(requeueMatchingContacts.length / REQUEUE_PAGE_SIZE) - 1;
+      if (requeuePage > maxPage) {
+        setRequeuePage(maxPage);
+      }
+    } else {
+      setRequeuePage(0);
+    }
+  }, [requeueMatchingContacts.length, requeuePage]);
 
   const requeueMutation = useMutation({
     mutationFn: async (contactIds: string[]) => {
@@ -1938,7 +1951,7 @@ export default function CampaignDetailPage() {
                 {filteredContacts.length} / {contacts.length} kontaktov
               </span>
               <Button
-                variant="outline"
+                className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-amber-600 dark:from-amber-600 dark:to-orange-600 dark:border-amber-700"
                 onClick={() => {
                   setRequeueDispositions(new Set());
                   setRequeueStatuses(new Set());
@@ -3190,164 +3203,223 @@ Príklad:
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showRequeueDialog} onOpenChange={setShowRequeueDialog}>
-        <DialogContent className="max-w-4xl">
+      <Dialog open={showRequeueDialog} onOpenChange={(open) => { setShowRequeueDialog(open); if (!open) setRequeuePage(0); }}>
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>Zaradiť kontakty znova do fronty</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <RefreshCw className="w-5 h-5 text-amber-500" />
+              Zaradiť kontakty znova do fronty
+            </DialogTitle>
             <DialogDescription>
-              Vyberte filtre na určenie kontaktov, ktoré sa majú znova zaradiť na spracovanie. Status sa zmení na "Čakajúci".
+              Vyberte filtre na určenie kontaktov, ktoré sa majú znova zaradiť na spracovanie.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-3 gap-6">
-            <div className="space-y-3 p-4 rounded-lg border">
-              <div className="flex items-center gap-2 mb-3">
-                <Filter className="w-4 h-4 text-primary" />
-                <label className="text-sm font-semibold">Podľa statusu</label>
-              </div>
-              <div className="space-y-1.5">
-                {[
-                  { value: "contacted", label: "Kontaktovaný" },
-                  { value: "completed", label: "Dokončený" },
-                  { value: "failed", label: "Neúspešný" },
-                  { value: "no_answer", label: "Nedvíha" },
-                  { value: "callback_scheduled", label: "Spätné volanie" },
-                  { value: "not_interested", label: "Nemá záujem" },
-                ].map(s => (
-                  <Button
-                    key={s.value}
-                    variant="outline"
-                    size="sm"
-                    className={`w-full justify-start toggle-elevate ${requeueStatuses.has(s.value) ? "toggle-elevated border-primary" : ""}`}
-                    onClick={() => {
-                      setRequeueStatuses(prev => {
-                        const next = new Set(prev);
-                        next.has(s.value) ? next.delete(s.value) : next.add(s.value);
-                        return next;
-                      });
-                    }}
-                    data-testid={`requeue-status-${s.value}`}
-                  >
-                    {requeueStatuses.has(s.value) && <CheckCircle className="w-3.5 h-3.5 mr-2 text-primary" />}
-                    {s.label}
-                  </Button>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground">Prázdny výber = všetky okrem "Čakajúci"</p>
-            </div>
 
-            <div className="space-y-3 p-4 rounded-lg border">
-              <div className="flex items-center gap-2 mb-3">
-                <ListChecks className="w-4 h-4 text-primary" />
-                <label className="text-sm font-semibold">Podľa výsledku</label>
-              </div>
-              <div className="space-y-1.5">
-                {campaignDispositions.filter(d => !d.parentId).map(d => {
-                  const colorClasses: Record<string, string> = {
-                    green: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-                    blue: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-                    orange: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
-                    red: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-                    yellow: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
-                    gray: "bg-muted text-muted-foreground",
-                  };
-                  const children = campaignDispositions.filter(ch => ch.parentId === d.id);
-                  const allCodes = [d.code, ...children.map(ch => ch.code)];
-                  const isSelected = allCodes.some(code => requeueDispositions.has(code));
-                  return (
-                    <Button
-                      key={d.id}
-                      variant="outline"
-                      size="sm"
-                      className={`w-full justify-start toggle-elevate ${isSelected ? "toggle-elevated border-primary" : ""}`}
-                      onClick={() => {
-                        setRequeueDispositions(prev => {
-                          const next = new Set(prev);
-                          if (isSelected) {
-                            allCodes.forEach(code => next.delete(code));
-                          } else {
-                            allCodes.forEach(code => next.add(code));
-                          }
-                          return next;
-                        });
-                      }}
-                      data-testid={`requeue-disp-${d.code}`}
-                    >
-                      {isSelected && <CheckCircle className="w-3.5 h-3.5 mr-2 text-primary shrink-0" />}
-                      <Badge variant="secondary" className={`text-xs mr-1 ${colorClasses[d.color || "gray"] || colorClasses.gray}`}>
-                        {d.name}
+          <ScrollArea className="flex-1 overflow-y-auto pr-2" style={{ maxHeight: "calc(90vh - 200px)" }}>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-3 p-4 rounded-lg border">
+                  <div className="flex items-center gap-2">
+                    <Filter className="w-4 h-4 text-amber-500" />
+                    <label className="text-sm font-semibold">Podľa statusu</label>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      { value: "contacted", label: "Kontaktovaný" },
+                      { value: "completed", label: "Dokončený" },
+                      { value: "failed", label: "Neúspešný" },
+                      { value: "no_answer", label: "Nedvíha" },
+                      { value: "callback_scheduled", label: "Spätné volanie" },
+                      { value: "not_interested", label: "Nemá záujem" },
+                    ].map(s => (
+                      <Badge
+                        key={s.value}
+                        variant={requeueStatuses.has(s.value) ? "default" : "outline"}
+                        className={`cursor-pointer select-none ${requeueStatuses.has(s.value) ? "bg-amber-500 text-white dark:bg-amber-600" : ""}`}
+                        onClick={() => {
+                          setRequeueStatuses(prev => {
+                            const next = new Set(prev);
+                            next.has(s.value) ? next.delete(s.value) : next.add(s.value);
+                            return next;
+                          });
+                          setRequeuePage(0);
+                        }}
+                        data-testid={`requeue-status-${s.value}`}
+                      >
+                        {requeueStatuses.has(s.value) && <CheckCircle className="w-3 h-3 mr-1" />}
+                        {s.label}
                       </Badge>
-                      {children.length > 0 && <span className="text-xs text-muted-foreground ml-auto">+{children.length}</span>}
-                    </Button>
-                  );
-                })}
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Prázdny výber = všetky okrem "Čakajúci"</p>
+                </div>
+
+                <div className="space-y-3 p-4 rounded-lg border">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-amber-500" />
+                    <label className="text-sm font-semibold">Spätné volanie v období</label>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">Od</label>
+                      <Input
+                        type="date"
+                        value={requeueCallbackFrom}
+                        onChange={(e) => { setRequeueCallbackFrom(e.target.value); setRequeuePage(0); }}
+                        data-testid="requeue-callback-from"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">Do</label>
+                      <Input
+                        type="date"
+                        value={requeueCallbackTo}
+                        onChange={(e) => { setRequeueCallbackTo(e.target.value); setRequeuePage(0); }}
+                        data-testid="requeue-callback-to"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground">Prázdny výber = všetky výsledky</p>
+
+              <div className="space-y-3 p-4 rounded-lg border">
+                <div className="flex items-center gap-2">
+                  <ListChecks className="w-4 h-4 text-amber-500" />
+                  <label className="text-sm font-semibold">Podľa výsledku (dispozícia)</label>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {campaignDispositions.filter(d => !d.parentId).map(d => {
+                    const colorMap: Record<string, string> = {
+                      green: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300 border-green-300 dark:border-green-700",
+                      blue: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 border-blue-300 dark:border-blue-700",
+                      orange: "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300 border-orange-300 dark:border-orange-700",
+                      red: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300 border-red-300 dark:border-red-700",
+                      yellow: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300 border-yellow-300 dark:border-yellow-700",
+                      gray: "",
+                    };
+                    const children = campaignDispositions.filter(ch => ch.parentId === d.id);
+                    const allCodes = [d.code, ...children.map(ch => ch.code)];
+                    const isSelected = allCodes.some(code => requeueDispositions.has(code));
+                    return (
+                      <Badge
+                        key={d.id}
+                        variant={isSelected ? "default" : "outline"}
+                        className={`cursor-pointer select-none ${isSelected ? "bg-amber-500 text-white dark:bg-amber-600 border-amber-600" : colorMap[d.color || "gray"] || ""}`}
+                        onClick={() => {
+                          setRequeueDispositions(prev => {
+                            const next = new Set(prev);
+                            if (isSelected) {
+                              allCodes.forEach(code => next.delete(code));
+                            } else {
+                              allCodes.forEach(code => next.add(code));
+                            }
+                            return next;
+                          });
+                          setRequeuePage(0);
+                        }}
+                        data-testid={`requeue-disp-${d.code}`}
+                      >
+                        {isSelected && <CheckCircle className="w-3 h-3 mr-1 shrink-0" />}
+                        {d.name}
+                        {children.length > 0 && <span className="opacity-60 ml-1">+{children.length}</span>}
+                      </Badge>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-muted-foreground">Prázdny výber = všetky výsledky</p>
+              </div>
+
+              <div className="rounded-lg border">
+                <div className="flex items-center justify-between p-3 border-b bg-muted/30">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold">Zodpovedajúce kontakty</span>
+                    <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                      {requeueMatchingContacts.length}
+                    </Badge>
+                  </div>
+                  {requeueMatchingContacts.length > REQUEUE_PAGE_SIZE && (
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={requeuePage === 0}
+                        onClick={() => setRequeuePage(p => Math.max(0, p - 1))}
+                        data-testid="requeue-prev-page"
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                      </Button>
+                      <span className="text-xs text-muted-foreground px-2">
+                        {requeuePage + 1} / {Math.ceil(requeueMatchingContacts.length / REQUEUE_PAGE_SIZE)}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={(requeuePage + 1) * REQUEUE_PAGE_SIZE >= requeueMatchingContacts.length}
+                        onClick={() => setRequeuePage(p => p + 1)}
+                        data-testid="requeue-next-page"
+                      >
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                {requeueMatchingContacts.length > 0 ? (
+                  <div className="divide-y max-h-[200px] overflow-y-auto">
+                    {requeueMatchingContacts
+                      .slice(requeuePage * REQUEUE_PAGE_SIZE, (requeuePage + 1) * REQUEUE_PAGE_SIZE)
+                      .map((c: any) => (
+                        <div key={c.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                          <span className="font-medium">
+                            {c.customer?.firstName} {c.customer?.lastName}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            {c.dispositionCode && (
+                              <Badge variant="outline" className="text-xs">{c.dispositionCode}</Badge>
+                            )}
+                            <Badge variant="secondary" className="text-xs">{c.status}</Badge>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <div className="p-6 text-center text-sm text-muted-foreground">
+                    Žiadne kontakty nezodpovedajú zvoleným filtrom
+                  </div>
+                )}
+              </div>
             </div>
+          </ScrollArea>
 
-            <div className="space-y-3 p-4 rounded-lg border">
-              <div className="flex items-center gap-2 mb-3">
-                <Calendar className="w-4 h-4 text-primary" />
-                <label className="text-sm font-semibold">Spätné volanie v období</label>
-              </div>
-              <div className="space-y-3">
-                <div className="space-y-1.5">
-                  <label className="text-xs text-muted-foreground">Od</label>
-                  <Input
-                    type="date"
-                    value={requeueCallbackFrom}
-                    onChange={(e) => setRequeueCallbackFrom(e.target.value)}
-                    data-testid="requeue-callback-from"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs text-muted-foreground">Do</label>
-                  <Input
-                    type="date"
-                    value={requeueCallbackTo}
-                    onChange={(e) => setRequeueCallbackTo(e.target.value)}
-                    data-testid="requeue-callback-to"
-                  />
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">Filtruje kontakty s naplánovaným spätným volaním v tomto období</p>
-
-              <Separator className="my-3" />
-
-              <div className="space-y-2 p-3 rounded-lg bg-muted/50">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Zodpovedajúce kontakty</span>
-                  <span className="text-2xl font-bold">{requeueMatchingContacts.length}</span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Resetuje sa status, výsledok a spätné volanie
-                </p>
-              </div>
+          <Separator />
+          <div className="flex items-center justify-between pt-1">
+            <p className="text-xs text-muted-foreground">
+              Status sa zmení na "Čakajúci", výsledok a spätné volanie sa resetujú
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setShowRequeueDialog(false)} data-testid="button-requeue-cancel">
+                Zrušiť
+              </Button>
+              <Button
+                className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-amber-600 dark:from-amber-600 dark:to-orange-600"
+                disabled={requeueMatchingContacts.length === 0 || requeueMutation.isPending}
+                onClick={() => {
+                  requeueMutation.mutate(requeueMatchingContacts.map((c: any) => c.id));
+                }}
+                data-testid="button-requeue-confirm"
+              >
+                {requeueMutation.isPending ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Spracúvam...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Zaradiť {requeueMatchingContacts.length} kontaktov
+                  </>
+                )}
+              </Button>
             </div>
-          </div>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setShowRequeueDialog(false)} data-testid="button-requeue-cancel">
-              Zrušiť
-            </Button>
-            <Button
-              disabled={requeueMatchingContacts.length === 0 || requeueMutation.isPending}
-              onClick={() => {
-                requeueMutation.mutate(requeueMatchingContacts.map((c: any) => c.id));
-              }}
-              data-testid="button-requeue-confirm"
-            >
-              {requeueMutation.isPending ? (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                  Spracúvam...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Zaradiť {requeueMatchingContacts.length} kontaktov
-                </>
-              )}
-            </Button>
           </div>
         </DialogContent>
       </Dialog>

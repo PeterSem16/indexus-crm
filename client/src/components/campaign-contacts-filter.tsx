@@ -1,27 +1,18 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Filter, X, ChevronDown, ChevronUp, Search } from "lucide-react";
+import { Filter, X, Search, Users, Briefcase, Phone, MapPin, Calendar, Package, Megaphone, Lightbulb, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { useI18n } from "@/i18n";
 import { COUNTRIES, type Hospital } from "@shared/schema";
 import { getCountryFlag } from "@/lib/countries";
@@ -115,6 +106,41 @@ const SERVICE_TYPES = [
   { value: "both", label: "Oboje" },
 ];
 
+function FilterSection({ icon: Icon, title, children }: { icon: any; title: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-2.5">
+      <div className="flex items-center gap-2">
+        <Icon className="w-4 h-4 text-primary" />
+        <span className="text-sm font-semibold">{title}</span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function ChipSelect({ options, value, onChange, testIdPrefix }: {
+  options: { value: string; label: string }[];
+  value?: string;
+  onChange: (val: string | undefined) => void;
+  testIdPrefix: string;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {options.map(opt => (
+        <Badge
+          key={opt.value}
+          variant={value === opt.value ? "default" : "outline"}
+          className={`cursor-pointer select-none ${value === opt.value ? "" : ""}`}
+          onClick={() => onChange(value === opt.value ? undefined : opt.value)}
+          data-testid={`${testIdPrefix}-${opt.value}`}
+        >
+          {opt.label}
+        </Badge>
+      ))}
+    </div>
+  );
+}
+
 export function CampaignContactsFilter({ 
   filters, 
   onFiltersChange, 
@@ -123,9 +149,6 @@ export function CampaignContactsFilter({
 }: CampaignContactsFilterProps) {
   const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
-  const [customerSectionOpen, setCustomerSectionOpen] = useState(true);
-  const [caseSectionOpen, setCaseSectionOpen] = useState(true);
-  const [contactSectionOpen, setContactSectionOpen] = useState(true);
 
   const { data: hospitals = [] } = useQuery<Hospital[]>({
     queryKey: ["/api/hospitals"],
@@ -143,13 +166,54 @@ export function CampaignContactsFilter({
     ([key, v]) => v && v !== "all" && key !== "search"
   ).length;
 
-  const updateFilter = (key: keyof CampaignContactFilters, value: string) => {
-    onFiltersChange({ ...filters, [key]: value === "all" ? undefined : value });
+  const updateFilter = (key: keyof CampaignContactFilters, value: string | undefined) => {
+    onFiltersChange({ ...filters, [key]: value });
   };
 
-  const handleClear = () => {
-    onClear();
-    setIsOpen(false);
+  const getActiveFilterLabels = (): { key: keyof CampaignContactFilters; label: string }[] => {
+    const labels: { key: keyof CampaignContactFilters; label: string }[] = [];
+    if (filters.country) {
+      const c = COUNTRIES.find(c => c.code === filters.country);
+      labels.push({ key: "country", label: `${getCountryFlag(filters.country)} ${c?.name || filters.country}` });
+    }
+    if (filters.clientStatus) {
+      labels.push({ key: "clientStatus", label: CLIENT_STATUSES.find(s => s.value === filters.clientStatus)?.label || filters.clientStatus });
+    }
+    if (filters.serviceType) {
+      labels.push({ key: "serviceType", label: SERVICE_TYPES.find(s => s.value === filters.serviceType)?.label || filters.serviceType });
+    }
+    if (filters.leadStatus) {
+      labels.push({ key: "leadStatus", label: LEAD_STATUSES.find(s => s.value === filters.leadStatus)?.label || filters.leadStatus });
+    }
+    if (filters.caseStatus) {
+      labels.push({ key: "caseStatus", label: CASE_STATUSES.find(s => s.value === filters.caseStatus)?.label || filters.caseStatus });
+    }
+    if (filters.contactStatus) {
+      labels.push({ key: "contactStatus", label: CONTACT_STATUSES.find(s => s.value === filters.contactStatus)?.label || filters.contactStatus });
+    }
+    if (filters.salesChannel) {
+      labels.push({ key: "salesChannel", label: `Kanál: ${filters.salesChannel}` });
+    }
+    if (filters.productType) {
+      labels.push({ key: "productType", label: PRODUCT_TYPES.find(s => s.value === filters.productType)?.label || filters.productType });
+    }
+    if (filters.infoSource) {
+      labels.push({ key: "infoSource", label: INFO_SOURCES.find(s => s.value === filters.infoSource)?.label || filters.infoSource });
+    }
+    if (filters.hospitalId) {
+      const h = filteredHospitals.find(h => h.id === filters.hospitalId);
+      labels.push({ key: "hospitalId", label: h?.name || "Nemocnica" });
+    }
+    if (filters.city) {
+      labels.push({ key: "city", label: `Mesto: ${filters.city}` });
+    }
+    if (filters.expectedDateFrom) {
+      labels.push({ key: "expectedDateFrom", label: `Od: ${filters.expectedDateFrom}` });
+    }
+    if (filters.expectedDateTo) {
+      labels.push({ key: "expectedDateTo", label: `Do: ${filters.expectedDateTo}` });
+    }
+    return labels;
   };
 
   return (
@@ -157,338 +221,242 @@ export function CampaignContactsFilter({
       <div className="relative flex-1 min-w-[200px] max-w-sm">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder={t.common?.search || "Hľadať..."}
+          placeholder={t.common?.search || "Hľadať meno, email, telefón..."}
           value={filters.search || ""}
-          onChange={(e) => updateFilter("search", e.target.value)}
+          onChange={(e) => updateFilter("search", e.target.value || undefined)}
           className="pl-10"
           data-testid="input-search-contacts"
         />
       </div>
 
-      <Popover open={isOpen} onOpenChange={setIsOpen}>
-        <PopoverTrigger asChild>
+      <Sheet open={isOpen} onOpenChange={setIsOpen}>
+        <SheetTrigger asChild>
           <Button variant="outline" data-testid="button-contacts-filter">
             <Filter className="h-4 w-4 mr-2" />
-            {t.common?.filter || "Filter"}
+            Filtre
             {activeFilterCount > 0 && (
-              <Badge variant="secondary" className="ml-2">
+              <Badge variant="secondary" className="ml-2 bg-primary/10 text-primary">
                 {activeFilterCount}
               </Badge>
             )}
           </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-[400px] max-h-[80vh] overflow-y-auto" align="start">
-          <div className="space-y-4">
+        </SheetTrigger>
+        <SheetContent side="right" className="w-[420px] sm:w-[480px] flex flex-col p-0">
+          <SheetHeader className="px-6 pt-6 pb-4 border-b">
             <div className="flex items-center justify-between">
-              <h4 className="font-medium">{t.common?.filter || "Komplexný filter"}</h4>
-              {activeFilterCount > 0 && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={handleClear}
-                  data-testid="button-clear-contacts-filter"
-                >
-                  <X className="h-4 w-4 mr-1" />
-                  {t.common?.clear || "Vyčistiť"}
-                </Button>
-              )}
+              <SheetTitle className="flex items-center gap-2">
+                <Filter className="w-5 h-5 text-primary" />
+                Komplexný filter kontaktov
+              </SheetTitle>
             </div>
-
-            <Collapsible open={customerSectionOpen} onOpenChange={setCustomerSectionOpen}>
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" className="w-full justify-between" data-testid="button-customer-section">
-                  <span className="font-medium">Klient</span>
-                  {customerSectionOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            {activeFilterCount > 0 && (
+              <div className="flex items-center justify-between pt-2">
+                <span className="text-sm text-muted-foreground">{activeFilterCount} aktívnych filtrov</span>
+                <Button variant="ghost" size="sm" onClick={onClear} data-testid="button-clear-contacts-filter">
+                  <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+                  Resetovať všetko
                 </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="space-y-3 pt-2">
-                <div className="space-y-1.5">
-                  <Label>{t.common?.country || "Krajina"}</Label>
-                  <Select 
-                    value={filters.country || "all"} 
-                    onValueChange={(v) => updateFilter("country", v)}
-                  >
-                    <SelectTrigger data-testid="select-filter-country">
-                      <SelectValue placeholder="Všetky krajiny" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Všetky krajiny</SelectItem>
-                      {availableCountries.map((c) => (
-                        <SelectItem key={c.code} value={c.code}>
+              </div>
+            )}
+          </SheetHeader>
+
+          <ScrollArea className="flex-1">
+            <div className="p-6 space-y-6">
+
+              <FilterSection icon={Phone} title="Stav kontaktu v kampani">
+                <ChipSelect
+                  options={CONTACT_STATUSES}
+                  value={filters.contactStatus}
+                  onChange={(v) => updateFilter("contactStatus", v)}
+                  testIdPrefix="chip-contact-status"
+                />
+              </FilterSection>
+
+              <Separator />
+
+              <FilterSection icon={Users} title="Klient">
+                <div className="space-y-3">
+                  <div>
+                    <span className="text-xs text-muted-foreground mb-1.5 block">Stav klienta</span>
+                    <ChipSelect
+                      options={CLIENT_STATUSES}
+                      value={filters.clientStatus}
+                      onChange={(v) => updateFilter("clientStatus", v)}
+                      testIdPrefix="chip-client-status"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground mb-1.5 block">Kvalita leadu</span>
+                    <ChipSelect
+                      options={LEAD_STATUSES}
+                      value={filters.leadStatus}
+                      onChange={(v) => updateFilter("leadStatus", v)}
+                      testIdPrefix="chip-lead-status"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground mb-1.5 block">Typ služby</span>
+                    <ChipSelect
+                      options={SERVICE_TYPES}
+                      value={filters.serviceType}
+                      onChange={(v) => updateFilter("serviceType", v)}
+                      testIdPrefix="chip-service-type"
+                    />
+                  </div>
+                </div>
+              </FilterSection>
+
+              <Separator />
+
+              <FilterSection icon={MapPin} title="Lokácia">
+                <div className="space-y-3">
+                  <div>
+                    <span className="text-xs text-muted-foreground mb-1.5 block">Krajina</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {availableCountries.map(c => (
+                        <Badge
+                          key={c.code}
+                          variant={filters.country === c.code ? "default" : "outline"}
+                          className="cursor-pointer select-none"
+                          onClick={() => updateFilter("country", filters.country === c.code ? undefined : c.code)}
+                          data-testid={`chip-country-${c.code}`}
+                        >
                           {getCountryFlag(c.code)} {c.name}
-                        </SelectItem>
+                        </Badge>
                       ))}
-                    </SelectContent>
-                  </Select>
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground mb-1.5 block">Mesto</span>
+                    <Input
+                      placeholder="Filtrovať podľa mesta"
+                      value={filters.city || ""}
+                      onChange={(e) => updateFilter("city", e.target.value || undefined)}
+                      data-testid="input-filter-city"
+                    />
+                  </div>
                 </div>
+              </FilterSection>
 
-                <div className="space-y-1.5">
-                  <Label>Mesto</Label>
-                  <Input
-                    placeholder="Filtrovať podľa mesta"
-                    value={filters.city || ""}
-                    onChange={(e) => updateFilter("city", e.target.value)}
-                    data-testid="input-filter-city"
-                  />
+              <Separator />
+
+              <FilterSection icon={Briefcase} title="Potenciálny prípad">
+                <div className="space-y-3">
+                  <div>
+                    <span className="text-xs text-muted-foreground mb-1.5 block">Stav prípadu</span>
+                    <ChipSelect
+                      options={CASE_STATUSES}
+                      value={filters.caseStatus}
+                      onChange={(v) => updateFilter("caseStatus", v)}
+                      testIdPrefix="chip-case-status"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground mb-1.5 block">Typ produktu</span>
+                    <ChipSelect
+                      options={PRODUCT_TYPES}
+                      value={filters.productType}
+                      onChange={(v) => updateFilter("productType", v)}
+                      testIdPrefix="chip-product-type"
+                    />
+                  </div>
+                  {filteredHospitals.length > 0 && (
+                    <div>
+                      <span className="text-xs text-muted-foreground mb-1.5 block">Nemocnica</span>
+                      <div className="flex flex-wrap gap-1.5 max-h-[120px] overflow-y-auto">
+                        {filteredHospitals.map(h => (
+                          <Badge
+                            key={h.id}
+                            variant={filters.hospitalId === h.id ? "default" : "outline"}
+                            className="cursor-pointer select-none"
+                            onClick={() => updateFilter("hospitalId", filters.hospitalId === h.id ? undefined : h.id)}
+                            data-testid={`chip-hospital-${h.id}`}
+                          >
+                            {h.name}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <span className="text-xs text-muted-foreground mb-1.5 block">Očakávaný dátum (od)</span>
+                      <Input
+                        type="date"
+                        value={filters.expectedDateFrom || ""}
+                        onChange={(e) => updateFilter("expectedDateFrom", e.target.value || undefined)}
+                        data-testid="input-filter-expected-from"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-xs text-muted-foreground mb-1.5 block">Očakávaný dátum (do)</span>
+                      <Input
+                        type="date"
+                        value={filters.expectedDateTo || ""}
+                        onChange={(e) => updateFilter("expectedDateTo", e.target.value || undefined)}
+                        data-testid="input-filter-expected-to"
+                      />
+                    </div>
+                  </div>
                 </div>
+              </FilterSection>
 
-                <div className="space-y-1.5">
-                  <Label>Stav klienta</Label>
-                  <Select 
-                    value={filters.clientStatus || "all"} 
-                    onValueChange={(v) => updateFilter("clientStatus", v)}
-                  >
-                    <SelectTrigger data-testid="select-filter-client-status">
-                      <SelectValue placeholder="Všetky stavy" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Všetky stavy</SelectItem>
-                      {CLIENT_STATUSES.map((s) => (
-                        <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              <Separator />
+
+              <FilterSection icon={Megaphone} title="Akvizícia">
+                <div className="space-y-3">
+                  <div>
+                    <span className="text-xs text-muted-foreground mb-1.5 block">Predajný kanál</span>
+                    <ChipSelect
+                      options={SALES_CHANNELS}
+                      value={filters.salesChannel}
+                      onChange={(v) => updateFilter("salesChannel", v)}
+                      testIdPrefix="chip-sales-channel"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-xs text-muted-foreground mb-1.5 block">Zdroj informácií</span>
+                    <ChipSelect
+                      options={INFO_SOURCES}
+                      value={filters.infoSource}
+                      onChange={(v) => updateFilter("infoSource", v)}
+                      testIdPrefix="chip-info-source"
+                    />
+                  </div>
                 </div>
+              </FilterSection>
 
-                <div className="space-y-1.5">
-                  <Label>Typ služby</Label>
-                  <Select 
-                    value={filters.serviceType || "all"} 
-                    onValueChange={(v) => updateFilter("serviceType", v)}
-                  >
-                    <SelectTrigger data-testid="select-filter-service-type">
-                      <SelectValue placeholder="Všetky typy" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Všetky typy</SelectItem>
-                      {SERVICE_TYPES.map((s) => (
-                        <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label>Lead status</Label>
-                  <Select 
-                    value={filters.leadStatus || "all"} 
-                    onValueChange={(v) => updateFilter("leadStatus", v)}
-                  >
-                    <SelectTrigger data-testid="select-filter-lead-status">
-                      <SelectValue placeholder="Všetky" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Všetky</SelectItem>
-                      {LEAD_STATUSES.map((s) => (
-                        <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-
-            <Collapsible open={caseSectionOpen} onOpenChange={setCaseSectionOpen}>
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" className="w-full justify-between" data-testid="button-case-section">
-                  <span className="font-medium">Potenciálny prípad</span>
-                  {caseSectionOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="space-y-3 pt-2">
-                <div className="space-y-1.5">
-                  <Label>Stav prípadu</Label>
-                  <Select 
-                    value={filters.caseStatus || "all"} 
-                    onValueChange={(v) => updateFilter("caseStatus", v)}
-                  >
-                    <SelectTrigger data-testid="select-filter-case-status">
-                      <SelectValue placeholder="Všetky stavy" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Všetky stavy</SelectItem>
-                      {CASE_STATUSES.map((s) => (
-                        <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label>Očakávaný dátum (od)</Label>
-                  <Input
-                    type="date"
-                    value={filters.expectedDateFrom || ""}
-                    onChange={(e) => updateFilter("expectedDateFrom", e.target.value)}
-                    data-testid="input-filter-expected-from"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label>Očakávaný dátum (do)</Label>
-                  <Input
-                    type="date"
-                    value={filters.expectedDateTo || ""}
-                    onChange={(e) => updateFilter("expectedDateTo", e.target.value)}
-                    data-testid="input-filter-expected-to"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label>Nemocnica</Label>
-                  <Select 
-                    value={filters.hospitalId || "all"} 
-                    onValueChange={(v) => updateFilter("hospitalId", v)}
-                  >
-                    <SelectTrigger data-testid="select-filter-hospital">
-                      <SelectValue placeholder="Všetky nemocnice" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Všetky nemocnice</SelectItem>
-                      {filteredHospitals.map((h) => (
-                        <SelectItem key={h.id} value={h.id}>{h.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label>Typ produktu</Label>
-                  <Select 
-                    value={filters.productType || "all"} 
-                    onValueChange={(v) => updateFilter("productType", v)}
-                  >
-                    <SelectTrigger data-testid="select-filter-product-type">
-                      <SelectValue placeholder="Všetky typy" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Všetky typy</SelectItem>
-                      {PRODUCT_TYPES.map((s) => (
-                        <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label>Predajný kanál</Label>
-                  <Select 
-                    value={filters.salesChannel || "all"} 
-                    onValueChange={(v) => updateFilter("salesChannel", v)}
-                  >
-                    <SelectTrigger data-testid="select-filter-sales-channel">
-                      <SelectValue placeholder="Všetky kanály" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Všetky kanály</SelectItem>
-                      {SALES_CHANNELS.map((s) => (
-                        <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label>Zdroj informácií</Label>
-                  <Select 
-                    value={filters.infoSource || "all"} 
-                    onValueChange={(v) => updateFilter("infoSource", v)}
-                  >
-                    <SelectTrigger data-testid="select-filter-info-source">
-                      <SelectValue placeholder="Všetky zdroje" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Všetky zdroje</SelectItem>
-                      {INFO_SOURCES.map((s) => (
-                        <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-
-            <Collapsible open={contactSectionOpen} onOpenChange={setContactSectionOpen}>
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" className="w-full justify-between" data-testid="button-contact-status-section">
-                  <span className="font-medium">Stav kontaktu</span>
-                  {contactSectionOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="space-y-3 pt-2">
-                <div className="space-y-1.5">
-                  <Label>Stav kontaktu v kampani</Label>
-                  <Select 
-                    value={filters.contactStatus || "all"} 
-                    onValueChange={(v) => updateFilter("contactStatus", v)}
-                  >
-                    <SelectTrigger data-testid="select-filter-contact-status">
-                      <SelectValue placeholder="Všetky stavy" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Všetky stavy</SelectItem>
-                      {CONTACT_STATUSES.map((s) => (
-                        <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-
-            <div className="flex justify-end gap-2 pt-2 border-t">
-              <Button variant="outline" size="sm" onClick={() => setIsOpen(false)}>
-                {t.common?.cancel || "Zavrieť"}
-              </Button>
-              <Button size="sm" onClick={() => setIsOpen(false)}>
-                Použiť
-              </Button>
             </div>
+          </ScrollArea>
+
+          <div className="border-t p-4 flex items-center justify-between gap-2">
+            {activeFilterCount > 0 ? (
+              <Button variant="ghost" size="sm" onClick={onClear} data-testid="button-reset-filters-bottom">
+                <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+                Resetovať
+              </Button>
+            ) : (
+              <span />
+            )}
+            <Button onClick={() => setIsOpen(false)} data-testid="button-apply-filter">
+              Použiť filtre
+            </Button>
           </div>
-        </PopoverContent>
-      </Popover>
+        </SheetContent>
+      </Sheet>
 
       {activeFilterCount > 0 && (
-        <div className="flex items-center gap-1 flex-wrap">
-          {filters.country && (
-            <Badge variant="secondary" className="gap-1">
-              {getCountryFlag(filters.country)} {filters.country}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {getActiveFilterLabels().map(f => (
+            <Badge key={f.key} variant="secondary" className="gap-1 bg-primary/10 text-primary">
+              {f.label}
               <X 
                 className="h-3 w-3 cursor-pointer" 
-                onClick={() => updateFilter("country", "all")} 
+                onClick={() => updateFilter(f.key, undefined)}
+                data-testid={`remove-filter-${f.key}`}
               />
             </Badge>
-          )}
-          {filters.clientStatus && (
-            <Badge variant="secondary" className="gap-1">
-              {CLIENT_STATUSES.find(s => s.value === filters.clientStatus)?.label}
-              <X 
-                className="h-3 w-3 cursor-pointer" 
-                onClick={() => updateFilter("clientStatus", "all")} 
-              />
-            </Badge>
-          )}
-          {filters.caseStatus && (
-            <Badge variant="secondary" className="gap-1">
-              {CASE_STATUSES.find(s => s.value === filters.caseStatus)?.label}
-              <X 
-                className="h-3 w-3 cursor-pointer" 
-                onClick={() => updateFilter("caseStatus", "all")} 
-              />
-            </Badge>
-          )}
-          {filters.salesChannel && (
-            <Badge variant="secondary" className="gap-1">
-              {filters.salesChannel}
-              <X 
-                className="h-3 w-3 cursor-pointer" 
-                onClick={() => updateFilter("salesChannel", "all")} 
-              />
-            </Badge>
-          )}
-          {activeFilterCount > 4 && (
-            <Badge variant="outline">+{activeFilterCount - 4}</Badge>
-          )}
+          ))}
         </div>
       )}
     </div>
