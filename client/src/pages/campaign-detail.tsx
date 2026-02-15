@@ -2365,7 +2365,7 @@ export default function CampaignDetailPage() {
               }
             } catch {}
             const hasAnyTarget = Object.values(kpiTargets).some(v => v > 0);
-            if (!hasAnyTarget && agentStatsData.length === 0) return null;
+            if (!hasAnyTarget) return null;
 
             const totalContacts = stats?.totalContacts || 0;
             const completedContacts = stats?.completedContacts || 0;
@@ -2472,140 +2472,6 @@ export default function CampaignDetailPage() {
                     </div>
                   )}
 
-                  {agentStatsData.length > 0 && (
-                    <div className="space-y-4">
-                      <h4 className="text-sm font-semibold flex items-center gap-2">
-                        <Users className="w-4 h-4" />
-                        Plnenie KPI cieľov podľa operátorov
-                      </h4>
-                      <p className="text-xs text-muted-foreground">
-                        Denný a celkový výkon jednotlivých operátorov kampane
-                      </p>
-                      <div className="space-y-4">
-                        {agentStatsData.map(agent => {
-                          const dailyContactsTarget = kpiTargets.agentDailyContactsTarget || 0;
-                          const dailyCallsTarget = kpiTargets.agentDailyCallsTarget || 0;
-                          const dailySuccessTarget = kpiTargets.agentDailySuccessTarget || 0;
-
-                          const contactedTodayPct = dailyContactsTarget > 0 
-                            ? Math.min((agent.contactedToday / dailyContactsTarget) * 100, 100) : 0;
-                          const dispositionsTodayPct = dailyCallsTarget > 0 
-                            ? Math.min((agent.dispositionsToday / dailyCallsTarget) * 100, 100) : 0;
-                          const completedTodayPct = dailySuccessTarget > 0 
-                            ? Math.min((agent.completedToday / dailySuccessTarget) * 100, 100) : 0;
-
-                          const processedTotal = agent.completedTotal + agent.noAnswerTotal + agent.notInterestedTotal + agent.failedTotal;
-                          const conversionPct = processedTotal > 0 ? ((agent.completedTotal / processedTotal) * 100) : 0;
-                          const conversionTarget = kpiTargets.agentConversionRateTarget || 0;
-                          const conversionFulfillPct = conversionTarget > 0 ? Math.min((conversionPct / conversionTarget) * 100, 100) : 0;
-
-                          const getBarColor = (pct: number) =>
-                            pct >= 100 ? "bg-green-500" : pct >= 70 ? "bg-yellow-500" : pct >= 30 ? "bg-orange-500" : "bg-red-500";
-                          const getTextColor = (pct: number) =>
-                            pct >= 100 ? "text-green-600 dark:text-green-400" : pct >= 70 ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400";
-
-                          return (
-                            <div key={agent.userId} className="p-4 rounded-lg border space-y-3" data-testid={`kpi-agent-card-${agent.userId}`}>
-                              <div className="flex items-center justify-between gap-4 flex-wrap">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                                    <User className="w-4 h-4 text-primary" />
-                                  </div>
-                                  <div>
-                                    <p className="text-sm font-semibold" data-testid={`text-agent-name-${agent.userId}`}>{agent.name}</p>
-                                    <p className="text-xs text-muted-foreground">
-                                      {agent.totalContacts} kontaktov celkom
-                                      {agent.lastActiveAt && ` · Posledná aktivita: ${new Date(agent.lastActiveAt).toLocaleDateString("sk-SK")} ${new Date(agent.lastActiveAt).toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" })}`}
-                                    </p>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-3 flex-wrap">
-                                  <Badge variant="secondary" className="text-xs" data-testid={`badge-completed-${agent.userId}`}>
-                                    <CheckCircle2 className="w-3 h-3 mr-1" />
-                                    {agent.completedTotal} úspešných
-                                  </Badge>
-                                  <Badge variant="secondary" className="text-xs" data-testid={`badge-noans-${agent.userId}`}>
-                                    <PhoneMissed className="w-3 h-3 mr-1" />
-                                    {agent.noAnswerTotal} nedvíha
-                                  </Badge>
-                                  <Badge variant="secondary" className="text-xs" data-testid={`badge-callback-${agent.userId}`}>
-                                    <CalendarPlus className="w-3 h-3 mr-1" />
-                                    {agent.callbackTotal} callback
-                                  </Badge>
-                                  <Badge variant="secondary" className="text-xs" data-testid={`badge-notint-${agent.userId}`}>
-                                    <Ban className="w-3 h-3 mr-1" />
-                                    {agent.notInterestedTotal} nezáujem
-                                  </Badge>
-                                </div>
-                              </div>
-
-                              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                                {dailyContactsTarget > 0 && (
-                                  <div className="space-y-1.5" data-testid={`kpi-daily-contacts-${agent.userId}`}>
-                                    <div className="flex items-center justify-between gap-2">
-                                      <span className="text-xs text-muted-foreground">Kontakty dnes</span>
-                                      <span className={`text-xs font-bold ${getTextColor(contactedTodayPct)}`}>
-                                        {agent.contactedToday}/{dailyContactsTarget}
-                                      </span>
-                                    </div>
-                                    <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
-                                      <div className={`h-full rounded-full transition-all ${getBarColor(contactedTodayPct)}`} style={{ width: `${contactedTodayPct}%` }} />
-                                    </div>
-                                  </div>
-                                )}
-                                {dailyCallsTarget > 0 && (
-                                  <div className="space-y-1.5" data-testid={`kpi-daily-calls-${agent.userId}`}>
-                                    <div className="flex items-center justify-between gap-2">
-                                      <span className="text-xs text-muted-foreground">Dispozície dnes</span>
-                                      <span className={`text-xs font-bold ${getTextColor(dispositionsTodayPct)}`}>
-                                        {agent.dispositionsToday}/{dailyCallsTarget}
-                                      </span>
-                                    </div>
-                                    <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
-                                      <div className={`h-full rounded-full transition-all ${getBarColor(dispositionsTodayPct)}`} style={{ width: `${dispositionsTodayPct}%` }} />
-                                    </div>
-                                  </div>
-                                )}
-                                {dailySuccessTarget > 0 && (
-                                  <div className="space-y-1.5" data-testid={`kpi-daily-success-${agent.userId}`}>
-                                    <div className="flex items-center justify-between gap-2">
-                                      <span className="text-xs text-muted-foreground">Konverzie dnes</span>
-                                      <span className={`text-xs font-bold ${getTextColor(completedTodayPct)}`}>
-                                        {agent.completedToday}/{dailySuccessTarget}
-                                      </span>
-                                    </div>
-                                    <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
-                                      <div className={`h-full rounded-full transition-all ${getBarColor(completedTodayPct)}`} style={{ width: `${completedTodayPct}%` }} />
-                                    </div>
-                                  </div>
-                                )}
-                                {conversionTarget > 0 && (
-                                  <div className="space-y-1.5" data-testid={`kpi-conversion-${agent.userId}`}>
-                                    <div className="flex items-center justify-between gap-2">
-                                      <span className="text-xs text-muted-foreground">Konverzný pomer</span>
-                                      <span className={`text-xs font-bold ${getTextColor(conversionFulfillPct)}`}>
-                                        {conversionPct.toFixed(1)}%/{conversionTarget}%
-                                      </span>
-                                    </div>
-                                    <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
-                                      <div className={`h-full rounded-full transition-all ${getBarColor(conversionFulfillPct)}`} style={{ width: `${conversionFulfillPct}%` }} />
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-
-                              <div className="flex items-center gap-4 flex-wrap text-xs text-muted-foreground pt-1 border-t">
-                                <span>Priem. pokusov: {agent.avgAttemptsPerContact}</span>
-                                <span>Celkom dispozícií: {agent.totalDispositions}</span>
-                                <span>Dnes dispozícií: {agent.dispositionsToday}</span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
                   {(kpiTargets.campaignDurationDays || 0) > 0 && (
                     <div className="p-4 rounded-lg border bg-muted/30">
                       <div className="flex items-center gap-2 text-sm">
@@ -2619,6 +2485,173 @@ export default function CampaignDetailPage() {
               </Card>
             );
           })()}
+
+          {agentStatsData.length > 0 && (
+            <Card data-testid="card-agent-performance">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="w-5 h-5" />
+                  Výkon operátorov v kampani
+                </CardTitle>
+                <CardDescription>
+                  Denný a celkový výkon jednotlivých operátorov, ktorí pracovali na tejto kampani
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {(() => {
+                  let kpiTgts: Record<string, number> = {};
+                  try {
+                    if (campaign.settings) {
+                      const s = JSON.parse(campaign.settings);
+                      if (s.kpiTargets) kpiTgts = s.kpiTargets;
+                    }
+                  } catch {}
+
+                  return agentStatsData.map(agent => {
+                    const dailyContactsTarget = kpiTgts.agentDailyContactsTarget || 0;
+                    const dailyCallsTarget = kpiTgts.agentDailyCallsTarget || 0;
+                    const dailySuccessTarget = kpiTgts.agentDailySuccessTarget || 0;
+                    const conversionTarget = kpiTgts.agentConversionRateTarget || 0;
+
+                    const contactedTodayPct = dailyContactsTarget > 0 
+                      ? Math.min((agent.contactedToday / dailyContactsTarget) * 100, 100) : 0;
+                    const dispositionsTodayPct = dailyCallsTarget > 0 
+                      ? Math.min((agent.dispositionsToday / dailyCallsTarget) * 100, 100) : 0;
+                    const completedTodayPct = dailySuccessTarget > 0 
+                      ? Math.min((agent.completedToday / dailySuccessTarget) * 100, 100) : 0;
+
+                    const processedTotal = agent.completedTotal + agent.noAnswerTotal + agent.notInterestedTotal + agent.failedTotal;
+                    const conversionPct = processedTotal > 0 ? ((agent.completedTotal / processedTotal) * 100) : 0;
+                    const conversionFulfillPct = conversionTarget > 0 ? Math.min((conversionPct / conversionTarget) * 100, 100) : 0;
+
+                    const hasAnyDailyTarget = dailyContactsTarget > 0 || dailyCallsTarget > 0 || dailySuccessTarget > 0 || conversionTarget > 0;
+
+                    const getBarColor = (pct: number) =>
+                      pct >= 100 ? "bg-green-500" : pct >= 70 ? "bg-yellow-500" : pct >= 30 ? "bg-orange-500" : "bg-red-500";
+                    const getTextColor = (pct: number) =>
+                      pct >= 100 ? "text-green-600 dark:text-green-400" : pct >= 70 ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400";
+
+                    return (
+                      <div key={agent.userId} className="p-4 rounded-lg border space-y-3" data-testid={`agent-perf-card-${agent.userId}`}>
+                        <div className="flex items-center justify-between gap-4 flex-wrap">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                              <User className="w-4 h-4 text-primary" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold" data-testid={`text-agent-perf-name-${agent.userId}`}>{agent.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {agent.totalContacts} kontaktov celkom
+                                {agent.lastActiveAt && ` · Posledná aktivita: ${new Date(agent.lastActiveAt).toLocaleDateString("sk-SK")} ${new Date(agent.lastActiveAt).toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" })}`}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <Badge variant="secondary" className="text-xs">
+                              <CheckCircle2 className="w-3 h-3 mr-1" />
+                              {agent.completedTotal} úspešných
+                            </Badge>
+                            <Badge variant="secondary" className="text-xs">
+                              <PhoneMissed className="w-3 h-3 mr-1" />
+                              {agent.noAnswerTotal} nedvíha
+                            </Badge>
+                            <Badge variant="secondary" className="text-xs">
+                              <CalendarPlus className="w-3 h-3 mr-1" />
+                              {agent.callbackTotal} callback
+                            </Badge>
+                            <Badge variant="secondary" className="text-xs">
+                              <Ban className="w-3 h-3 mr-1" />
+                              {agent.notInterestedTotal} nezáujem
+                            </Badge>
+                          </div>
+                        </div>
+
+                        {hasAnyDailyTarget && (
+                          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                            {dailyContactsTarget > 0 && (
+                              <div className="space-y-1.5">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-xs text-muted-foreground">Kontakty dnes</span>
+                                  <span className={`text-xs font-bold ${getTextColor(contactedTodayPct)}`}>
+                                    {agent.contactedToday}/{dailyContactsTarget}
+                                  </span>
+                                </div>
+                                <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+                                  <div className={`h-full rounded-full transition-all ${getBarColor(contactedTodayPct)}`} style={{ width: `${contactedTodayPct}%` }} />
+                                </div>
+                              </div>
+                            )}
+                            {dailyCallsTarget > 0 && (
+                              <div className="space-y-1.5">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-xs text-muted-foreground">Dispozície dnes</span>
+                                  <span className={`text-xs font-bold ${getTextColor(dispositionsTodayPct)}`}>
+                                    {agent.dispositionsToday}/{dailyCallsTarget}
+                                  </span>
+                                </div>
+                                <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+                                  <div className={`h-full rounded-full transition-all ${getBarColor(dispositionsTodayPct)}`} style={{ width: `${dispositionsTodayPct}%` }} />
+                                </div>
+                              </div>
+                            )}
+                            {dailySuccessTarget > 0 && (
+                              <div className="space-y-1.5">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-xs text-muted-foreground">Konverzie dnes</span>
+                                  <span className={`text-xs font-bold ${getTextColor(completedTodayPct)}`}>
+                                    {agent.completedToday}/{dailySuccessTarget}
+                                  </span>
+                                </div>
+                                <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+                                  <div className={`h-full rounded-full transition-all ${getBarColor(completedTodayPct)}`} style={{ width: `${completedTodayPct}%` }} />
+                                </div>
+                              </div>
+                            )}
+                            {conversionTarget > 0 && (
+                              <div className="space-y-1.5">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-xs text-muted-foreground">Konverzný pomer</span>
+                                  <span className={`text-xs font-bold ${getTextColor(conversionFulfillPct)}`}>
+                                    {conversionPct.toFixed(1)}%/{conversionTarget}%
+                                  </span>
+                                </div>
+                                <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+                                  <div className={`h-full rounded-full transition-all ${getBarColor(conversionFulfillPct)}`} style={{ width: `${conversionFulfillPct}%` }} />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="grid gap-4 md:grid-cols-5 text-center pt-2 border-t">
+                          <div>
+                            <p className="text-lg font-bold">{agent.totalContacts}</p>
+                            <p className="text-xs text-muted-foreground">Kontaktov</p>
+                          </div>
+                          <div>
+                            <p className="text-lg font-bold">{agent.totalDispositions}</p>
+                            <p className="text-xs text-muted-foreground">Dispozícií</p>
+                          </div>
+                          <div>
+                            <p className="text-lg font-bold">{agent.dispositionsToday}</p>
+                            <p className="text-xs text-muted-foreground">Dnes</p>
+                          </div>
+                          <div>
+                            <p className="text-lg font-bold">{agent.avgAttemptsPerContact}</p>
+                            <p className="text-xs text-muted-foreground">Priem. pokusov</p>
+                          </div>
+                          <div>
+                            <p className="text-lg font-bold">{processedTotal > 0 ? conversionPct.toFixed(0) : 0}%</p>
+                            <p className="text-xs text-muted-foreground">Konverzia</p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="script" className="space-y-6">
