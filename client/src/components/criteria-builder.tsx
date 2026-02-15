@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { COUNTRIES } from "@shared/schema";
+import { useI18n } from "@/i18n";
+import type { Translations } from "@/i18n";
 
 export interface CriteriaCondition {
   id: string;
@@ -27,87 +29,87 @@ interface CriteriaBuilderProps {
   readonly?: boolean;
 }
 
-const FIELD_OPTIONS = [
-  { value: "country", label: "Krajina", type: "select", options: COUNTRIES.map(c => ({ value: c.code, label: c.name })) },
-  { value: "clientStatus", label: "Status klienta", type: "select", options: [
-    { value: "potential", label: "Potenciálny" },
-    { value: "acquired", label: "Získaný" },
-    { value: "terminated", label: "Ukončený" },
+const getFieldOptions = (t: Translations) => [
+  { value: "country", label: t.campaigns.criteriaBuilder.fields.country, type: "select", options: COUNTRIES.map(c => ({ value: c.code, label: c.name })) },
+  { value: "clientStatus", label: t.campaigns.criteriaBuilder.fields.clientStatus, type: "select", options: [
+    { value: "potential", label: t.campaigns.filter.clientStatuses.potential },
+    { value: "acquired", label: t.campaigns.filter.clientStatuses.acquired },
+    { value: "terminated", label: t.campaigns.filter.clientStatuses.terminated },
   ]},
-  { value: "status", label: "Status záznamu", type: "select", options: [
-    { value: "active", label: "Aktívny" },
-    { value: "pending", label: "Čakajúci" },
-    { value: "inactive", label: "Neaktívny" },
+  { value: "status", label: t.campaigns.criteriaBuilder.fields.status, type: "select", options: [
+    { value: "active", label: t.campaigns.statuses.active },
+    { value: "pending", label: t.campaigns.statuses.paused },
+    { value: "inactive", label: t.campaigns.statuses.cancelled },
   ]},
-  { value: "serviceType", label: "Typ služby", type: "select", options: [
-    { value: "cord_blood", label: "Pupočníková krv" },
-    { value: "cord_tissue", label: "Pupočníkové tkanivo" },
-    { value: "both", label: "Oboje" },
+  { value: "serviceType", label: t.campaigns.criteriaBuilder.fields.serviceType, type: "select", options: [
+    { value: "cord_blood", label: t.campaigns.filter.serviceTypes.cord_blood },
+    { value: "cord_tissue", label: t.campaigns.filter.serviceTypes.cord_tissue },
+    { value: "both", label: t.campaigns.filter.serviceTypes.both },
   ]},
-  { value: "leadStatus", label: "Status leadu", type: "select", options: [
-    { value: "cold", label: "Studený" },
-    { value: "warm", label: "Teplý" },
-    { value: "hot", label: "Horúci" },
-    { value: "qualified", label: "Kvalifikovaný" },
+  { value: "leadStatus", label: t.campaigns.criteriaBuilder.fields.leadStatus, type: "select", options: [
+    { value: "cold", label: t.campaigns.filter.leadStatuses.cold },
+    { value: "warm", label: t.campaigns.filter.leadStatuses.warm },
+    { value: "hot", label: t.campaigns.filter.leadStatuses.hot },
+    { value: "qualified", label: t.campaigns.filter.leadStatuses.qualified },
   ]},
-  { value: "newsletter", label: "Odoberá newsletter", type: "boolean", options: [
-    { value: "true", label: "Áno" },
-    { value: "false", label: "Nie" },
+  { value: "newsletter", label: t.campaigns.criteriaBuilder.fields.newsletter, type: "boolean", options: [
+    { value: "true", label: t.campaigns.criteriaBuilder.yes },
+    { value: "false", label: t.campaigns.criteriaBuilder.no },
   ]},
-  { value: "city", label: "Mesto", type: "text" },
-  { value: "postalCode", label: "PSČ", type: "text" },
-  { value: "trimester", label: "Trimester tehotenstva", type: "select", options: [
+  { value: "city", label: t.campaigns.criteriaBuilder.fields.city, type: "text" },
+  { value: "postalCode", label: t.campaigns.criteriaBuilder.fields.postalCode, type: "text" },
+  { value: "trimester", label: t.campaigns.criteriaBuilder.fields.trimester, type: "select", options: [
     { value: "1", label: "1. trimester" },
     { value: "2", label: "2. trimester" },
     { value: "3", label: "3. trimester" },
   ]},
-  { value: "expectedDelivery", label: "Očakávaný termín pôrodu", type: "text" },
-  { value: "source", label: "Zdroj kontaktu", type: "select", options: [
+  { value: "expectedDelivery", label: t.campaigns.criteriaBuilder.fields.expectedDelivery, type: "text" },
+  { value: "source", label: t.campaigns.criteriaBuilder.fields.source, type: "select", options: [
     { value: "web", label: "Web" },
-    { value: "phone", label: "Telefón" },
-    { value: "referral", label: "Odporúčanie" },
-    { value: "hospital", label: "Nemocnica" },
-    { value: "event", label: "Event" },
-    { value: "other", label: "Iné" },
+    { value: "phone", label: t.campaigns.channels.phone },
+    { value: "referral", label: t.campaigns.filter.infoSources.friends },
+    { value: "hospital", label: t.campaigns.filter.infoSources.hospital },
+    { value: "event", label: t.campaigns.filter.infoSources.event },
+    { value: "other", label: t.campaigns.filter.infoSources.other },
   ]},
-  { value: "ageRange", label: "Veková kategória", type: "select", options: [
+  { value: "ageRange", label: t.campaigns.criteriaBuilder.fields.ageRange, type: "select", options: [
     { value: "18-25", label: "18-25" },
     { value: "26-30", label: "26-30" },
     { value: "31-35", label: "31-35" },
     { value: "36-40", label: "36-40" },
     { value: "40+", label: "40+" },
   ]},
-  { value: "hasContract", label: "Má zmluvu", type: "boolean", options: [
-    { value: "true", label: "Áno" },
-    { value: "false", label: "Nie" },
+  { value: "hasContract", label: t.campaigns.criteriaBuilder.fields.hasContract, type: "boolean", options: [
+    { value: "true", label: t.campaigns.criteriaBuilder.yes },
+    { value: "false", label: t.campaigns.criteriaBuilder.no },
   ]},
-  { value: "productType", label: "Produkt", type: "select", options: [
+  { value: "productType", label: t.campaigns.criteriaBuilder.fields.productType, type: "select", options: [
     { value: "standard", label: "Standard" },
     { value: "premium", label: "Premium" },
     { value: "vip", label: "VIP" },
   ]},
-  { value: "lastContactDays", label: "Posledný kontakt (dní)", type: "text" },
-  { value: "assignedManager", label: "Pridelený obchodník", type: "text" },
+  { value: "lastContactDays", label: t.campaigns.criteriaBuilder.fields.lastContactDays, type: "text" },
+  { value: "assignedManager", label: t.campaigns.criteriaBuilder.fields.assignedManager, type: "text" },
 ];
 
-const OPERATORS = {
+const getOperators = (t: Translations) => ({
   select: [
-    { value: "equals", label: "je" },
-    { value: "notEquals", label: "nie je" },
-    { value: "in", label: "je jedným z" },
-    { value: "notIn", label: "nie je žiadnym z" },
+    { value: "equals", label: t.campaigns.criteriaBuilder.operators.equals },
+    { value: "notEquals", label: t.campaigns.criteriaBuilder.operators.notEquals },
+    { value: "in", label: t.campaigns.criteriaBuilder.operators.in },
+    { value: "notIn", label: t.campaigns.criteriaBuilder.operators.notIn },
   ],
   text: [
-    { value: "equals", label: "je" },
-    { value: "notEquals", label: "nie je" },
-    { value: "contains", label: "obsahuje" },
-    { value: "startsWith", label: "začína na" },
-    { value: "endsWith", label: "končí na" },
+    { value: "equals", label: t.campaigns.criteriaBuilder.operators.equals },
+    { value: "notEquals", label: t.campaigns.criteriaBuilder.operators.notEquals },
+    { value: "contains", label: t.campaigns.criteriaBuilder.operators.contains },
+    { value: "startsWith", label: t.campaigns.criteriaBuilder.operators.startsWith },
+    { value: "endsWith", label: t.campaigns.criteriaBuilder.operators.endsWith },
   ],
   boolean: [
-    { value: "equals", label: "je" },
+    { value: "equals", label: t.campaigns.criteriaBuilder.operators.equals },
   ],
-};
+});
 
 function generateId(): string {
   return Math.random().toString(36).substring(2, 15);
@@ -124,14 +126,17 @@ function ConditionRow({
   onRemove: () => void;
   readonly?: boolean;
 }) {
-  const fieldConfig = FIELD_OPTIONS.find(f => f.value === condition.field);
+  const { t } = useI18n();
+  const fieldOptions = getFieldOptions(t);
+  const operators = getOperators(t);
+  const fieldConfig = fieldOptions.find(f => f.value === condition.field);
   const fieldType = fieldConfig?.type || "text";
-  const operators = OPERATORS[fieldType as keyof typeof OPERATORS] || OPERATORS.text;
+  const fieldOperators = operators[fieldType as keyof typeof operators] || operators.text;
 
   const handleFieldChange = (field: string) => {
-    const newFieldConfig = FIELD_OPTIONS.find(f => f.value === field);
+    const newFieldConfig = fieldOptions.find(f => f.value === field);
     const newType = newFieldConfig?.type || "text";
-    const newOperators = OPERATORS[newType as keyof typeof OPERATORS] || OPERATORS.text;
+    const newOperators = operators[newType as keyof typeof operators] || operators.text;
     onUpdate({
       ...condition,
       field,
@@ -152,10 +157,10 @@ function ConditionRow({
         disabled={readonly}
       >
         <SelectTrigger className="w-40" data-testid={`select-condition-field-${condition.id}`}>
-          <SelectValue placeholder="Vybrať pole" />
+          <SelectValue placeholder={t.campaigns.criteriaBuilder.selectField} />
         </SelectTrigger>
         <SelectContent>
-          {FIELD_OPTIONS.map(field => (
+          {fieldOptions.map(field => (
             <SelectItem key={field.value} value={field.value}>
               {field.label}
             </SelectItem>
@@ -169,10 +174,10 @@ function ConditionRow({
         disabled={readonly}
       >
         <SelectTrigger className="w-36" data-testid={`select-condition-operator-${condition.id}`}>
-          <SelectValue placeholder="Operátor" />
+          <SelectValue placeholder={t.campaigns.criteriaBuilder.operators.equals} />
         </SelectTrigger>
         <SelectContent>
-          {operators.map(op => (
+          {fieldOperators.map(op => (
             <SelectItem key={op.value} value={op.value}>
               {op.label}
             </SelectItem>
@@ -187,7 +192,7 @@ function ConditionRow({
           disabled={readonly}
         >
           <SelectTrigger className="w-40" data-testid={`select-condition-value-${condition.id}`}>
-            <SelectValue placeholder="Vybrať hodnotu" />
+            <SelectValue placeholder={t.campaigns.criteriaBuilder.selectValue} />
           </SelectTrigger>
           <SelectContent>
             {fieldConfig.options.map(opt => (
@@ -201,7 +206,7 @@ function ConditionRow({
         <Input
           value={Array.isArray(condition.value) ? condition.value.join(", ") : condition.value}
           onChange={(e) => onUpdate({ ...condition, value: e.target.value })}
-          placeholder="Zadajte hodnotu"
+          placeholder={t.campaigns.criteriaBuilder.enterValue}
           className="w-40"
           disabled={readonly}
           data-testid={`input-condition-value-${condition.id}`}
@@ -235,6 +240,8 @@ function CriteriaGroupCard({
   onRemove: () => void;
   readonly?: boolean;
 }) {
+  const { t } = useI18n();
+
   const addCondition = () => {
     const newCondition: CriteriaCondition = {
       id: generateId(),
@@ -264,7 +271,7 @@ function CriteriaGroupCard({
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <Badge variant="outline">Skupina {groupIndex + 1}</Badge>
+            <Badge variant="outline">{t.campaigns.criteriaBuilder.group} {groupIndex + 1}</Badge>
             <Select
               value={group.logic}
               onValueChange={(logic: "AND" | "OR") => onUpdate({ ...group, logic })}
@@ -279,7 +286,7 @@ function CriteriaGroupCard({
               </SelectContent>
             </Select>
             <span className="text-sm text-muted-foreground">
-              {group.logic === "AND" ? "Splniť všetky podmienky" : "Splniť aspoň jednu podmienku"}
+              {group.logic === "AND" ? t.campaigns.detail.matchAll : t.campaigns.detail.matchAny}
             </span>
           </div>
           {!readonly && (
@@ -297,7 +304,7 @@ function CriteriaGroupCard({
       <CardContent className="space-y-2">
         {group.conditions.length === 0 ? (
           <p className="text-sm text-muted-foreground italic">
-            Žiadne podmienky. Pridajte podmienku na filtrovanie zákazníkov.
+            {t.campaigns.criteriaBuilder.noConditions}
           </p>
         ) : (
           group.conditions.map((condition, index) => (
@@ -328,7 +335,7 @@ function CriteriaGroupCard({
             data-testid={`button-add-condition-${group.id}`}
           >
             <Plus className="w-4 h-4 mr-2" />
-            Pridať podmienku
+            {t.campaigns.criteriaBuilder.addCondition}
           </Button>
         )}
       </CardContent>
@@ -337,6 +344,8 @@ function CriteriaGroupCard({
 }
 
 export function CriteriaBuilder({ criteria, onChange, readonly }: CriteriaBuilderProps) {
+  const { t } = useI18n();
+
   const addGroup = () => {
     const newGroup: CriteriaGroup = {
       id: generateId(),
@@ -362,13 +371,13 @@ export function CriteriaBuilder({ criteria, onChange, readonly }: CriteriaBuilde
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div>
-          <Label className="text-base font-medium">Cieľové kritériá</Label>
+          <Label className="text-base font-medium">{t.campaigns.criteriaBuilder.title}</Label>
           <p className="text-sm text-muted-foreground">
-            Definujte ktorí zákazníci majú byť zahrnutí do tejto kampane
+            {t.campaigns.criteriaBuilder.description}
           </p>
         </div>
         <Badge variant="secondary">
-          {totalConditions} podmienok v {criteria.length} skupinách
+          {totalConditions} {t.campaigns.criteriaBuilder.conditionsInGroups} {criteria.length} {t.campaigns.criteriaBuilder.group.toLowerCase()}
         </Badge>
       </div>
 
@@ -376,12 +385,12 @@ export function CriteriaBuilder({ criteria, onChange, readonly }: CriteriaBuilde
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-8">
             <p className="text-muted-foreground mb-4">
-              Žiadne kritériá. Všetci zákazníci budú zahrnutí do tejto kampane.
+              {t.campaigns.criteriaBuilder.noCriteria} {t.campaigns.criteriaBuilder.noCriteriaDesc}
             </p>
             {!readonly && (
               <Button onClick={addGroup} data-testid="button-add-first-group">
                 <Plus className="w-4 h-4 mr-2" />
-                Pridať skupinu kritérií
+                {t.campaigns.criteriaBuilder.addFirstGroup}
               </Button>
             )}
           </CardContent>
@@ -415,7 +424,7 @@ export function CriteriaBuilder({ criteria, onChange, readonly }: CriteriaBuilde
               data-testid="button-add-group"
             >
               <Plus className="w-4 h-4 mr-2" />
-              Pridať ďalšiu skupinu
+              {t.campaigns.criteriaBuilder.addGroup}
             </Button>
           )}
         </>
@@ -424,31 +433,34 @@ export function CriteriaBuilder({ criteria, onChange, readonly }: CriteriaBuilde
   );
 }
 
-const OPERATOR_LABELS: Record<string, string> = {
-  equals: "je",
-  notEquals: "nie je",
-  in: "je jedným z",
-  notIn: "nie je žiadnym z",
-  contains: "obsahuje",
-  startsWith: "začína na",
-  endsWith: "končí na",
-};
+const getOperatorLabels = (t: Translations): Record<string, string> => ({
+  equals: t.campaigns.criteriaBuilder.operators.equals,
+  notEquals: t.campaigns.criteriaBuilder.operators.notEquals,
+  in: t.campaigns.criteriaBuilder.operators.in,
+  notIn: t.campaigns.criteriaBuilder.operators.notIn,
+  contains: t.campaigns.criteriaBuilder.operators.contains,
+  startsWith: t.campaigns.criteriaBuilder.operators.startsWith,
+  endsWith: t.campaigns.criteriaBuilder.operators.endsWith,
+});
 
-export function criteriaToDescription(criteria: CriteriaGroup[]): string {
-  if (criteria.length === 0) return "Všetci zákazníci";
+export function criteriaToDescription(criteria: CriteriaGroup[], t: Translations): string {
+  if (criteria.length === 0) return t.campaigns.criteriaBuilder.allCustomers;
   
+  const fieldOptions = getFieldOptions(t);
+  const operatorLabels = getOperatorLabels(t);
+
   const groupDescriptions = criteria.map(group => {
     const conditionDescriptions = group.conditions.map(cond => {
-      const fieldConfig = FIELD_OPTIONS.find(f => f.value === cond.field);
+      const fieldConfig = fieldOptions.find(f => f.value === cond.field);
       const fieldLabel = fieldConfig?.label || cond.field;
-      const operatorLabel = OPERATOR_LABELS[cond.operator] || cond.operator;
+      const operatorLabel = operatorLabels[cond.operator] || cond.operator;
       const valueLabel = fieldConfig?.options?.find(o => o.value === cond.value)?.label || cond.value;
       return `${fieldLabel} ${operatorLabel} "${valueLabel}"`;
     });
-    return conditionDescriptions.join(group.logic === "AND" ? " a zároveň " : " alebo ");
+    return conditionDescriptions.join(group.logic === "AND" ? ` ${t.campaigns.criteriaBuilder.andAlso} ` : ` ${t.campaigns.criteriaBuilder.or} `);
   });
   
-  return groupDescriptions.join(" a zároveň ");
+  return groupDescriptions.join(` ${t.campaigns.criteriaBuilder.andAlso} `);
 }
 
 export function getDefaultCriteria(): CriteriaGroup[] {

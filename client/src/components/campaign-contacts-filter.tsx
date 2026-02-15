@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Filter, X, Search, Users, Briefcase, Phone, MapPin, Calendar, Package, Megaphone, Lightbulb, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { useI18n } from "@/i18n";
+import type { Translations } from "@/i18n/translations";
 import { COUNTRIES, type Hospital } from "@shared/schema";
 import { getCountryFlag } from "@/lib/countries";
 
@@ -42,33 +43,41 @@ interface CampaignContactsFilterProps {
   countryCodes?: string[];
 }
 
-const CLIENT_STATUSES = [
-  { value: "potential", label: "Potenciálny klient" },
-  { value: "acquired", label: "Získaný klient" },
-  { value: "terminated", label: "Ukončený klient" },
-];
+function getClientStatuses(t: Translations) {
+  return [
+    { value: "potential", label: t.campaigns.filter.clientStatuses.potential },
+    { value: "acquired", label: t.campaigns.filter.clientStatuses.acquired },
+    { value: "terminated", label: t.campaigns.filter.clientStatuses.terminated },
+  ];
+}
 
-const LEAD_STATUSES = [
-  { value: "cold", label: "Studený" },
-  { value: "warm", label: "Teplý" },
-  { value: "hot", label: "Horúci" },
-  { value: "qualified", label: "Kvalifikovaný" },
-];
+function getLeadStatuses(t: Translations) {
+  return [
+    { value: "cold", label: t.campaigns.filter.leadStatuses.cold },
+    { value: "warm", label: t.campaigns.filter.leadStatuses.warm },
+    { value: "hot", label: t.campaigns.filter.leadStatuses.hot },
+    { value: "qualified", label: t.campaigns.filter.leadStatuses.qualified },
+  ];
+}
 
-const CASE_STATUSES = [
-  { value: "realized", label: "Zrealizovaný" },
-  { value: "duplicate", label: "Duplikát" },
-  { value: "in_progress", label: "Prebieha" },
-  { value: "postponed", label: "Odložený" },
-  { value: "not_interested", label: "Nezáujem" },
-  { value: "cancelled", label: "Zrušený" },
-];
+function getCaseStatuses(t: Translations) {
+  return [
+    { value: "realized", label: t.campaigns.filter.caseStatuses.realized },
+    { value: "duplicate", label: t.campaigns.filter.caseStatuses.duplicate },
+    { value: "in_progress", label: t.campaigns.filter.caseStatuses.in_progress },
+    { value: "postponed", label: t.campaigns.filter.caseStatuses.postponed },
+    { value: "not_interested", label: t.campaigns.filter.caseStatuses.not_interested },
+    { value: "cancelled", label: t.campaigns.filter.caseStatuses.cancelled },
+  ];
+}
 
-const PRODUCT_TYPES = [
-  { value: "cord_blood", label: "Pupočníková krv" },
-  { value: "cord_tissue", label: "Pupočníkové tkanivo" },
-  { value: "both", label: "Oboje" },
-];
+function getProductTypes(t: Translations) {
+  return [
+    { value: "cord_blood", label: t.campaigns.filter.productTypes.cord_blood },
+    { value: "cord_tissue", label: t.campaigns.filter.productTypes.cord_tissue },
+    { value: "both", label: t.campaigns.filter.productTypes.both },
+  ];
+}
 
 const SALES_CHANNELS = [
   { value: "CCP", label: "CCP" },
@@ -80,31 +89,37 @@ const SALES_CHANNELS = [
   { value: "I", label: "I" },
 ];
 
-const INFO_SOURCES = [
-  { value: "internet", label: "Internet" },
-  { value: "friends", label: "Od známych" },
-  { value: "doctor", label: "Lekár" },
-  { value: "hospital", label: "Nemocnica" },
-  { value: "advertisement", label: "Reklama" },
-  { value: "event", label: "Podujatie" },
-  { value: "other", label: "Iné" },
-];
+function getInfoSources(t: Translations) {
+  return [
+    { value: "internet", label: t.campaigns.filter.infoSources.internet },
+    { value: "friends", label: t.campaigns.filter.infoSources.friends },
+    { value: "doctor", label: t.campaigns.filter.infoSources.doctor },
+    { value: "hospital", label: t.campaigns.filter.infoSources.hospital },
+    { value: "advertisement", label: t.campaigns.filter.infoSources.advertisement },
+    { value: "event", label: t.campaigns.filter.infoSources.event },
+    { value: "other", label: t.campaigns.filter.infoSources.other },
+  ];
+}
 
-const CONTACT_STATUSES = [
-  { value: "pending", label: "Čaká" },
-  { value: "contacted", label: "Kontaktovaný" },
-  { value: "completed", label: "Dokončený" },
-  { value: "failed", label: "Neúspešný" },
-  { value: "no_answer", label: "Neodpovedal" },
-  { value: "callback_scheduled", label: "Naplánovaný callback" },
-  { value: "not_interested", label: "Nezáujem" },
-];
+function getContactStatuses(t: Translations) {
+  return [
+    { value: "pending", label: t.campaigns.contactStatuses.pending },
+    { value: "contacted", label: t.campaigns.contactStatuses.contacted },
+    { value: "completed", label: t.campaigns.contactStatuses.completed },
+    { value: "failed", label: t.campaigns.contactStatuses.failed },
+    { value: "no_answer", label: t.campaigns.contactStatuses.no_answer },
+    { value: "callback_scheduled", label: t.campaigns.contactStatuses.callback_scheduled },
+    { value: "not_interested", label: t.campaigns.contactStatuses.not_interested },
+  ];
+}
 
-const SERVICE_TYPES = [
-  { value: "cord_blood", label: "Pupočníková krv" },
-  { value: "cord_tissue", label: "Pupočníkové tkanivo" },
-  { value: "both", label: "Oboje" },
-];
+function getServiceTypes(t: Translations) {
+  return [
+    { value: "cord_blood", label: t.campaigns.filter.serviceTypes.cord_blood },
+    { value: "cord_tissue", label: t.campaigns.filter.serviceTypes.cord_tissue },
+    { value: "both", label: t.campaigns.filter.serviceTypes.both },
+  ];
+}
 
 function FilterSection({ icon: Icon, title, children }: { icon: any; title: string; children: React.ReactNode }) {
   return (
@@ -150,6 +165,14 @@ export function CampaignContactsFilter({
   const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
 
+  const CLIENT_STATUSES = useMemo(() => getClientStatuses(t), [t]);
+  const LEAD_STATUSES = useMemo(() => getLeadStatuses(t), [t]);
+  const CASE_STATUSES = useMemo(() => getCaseStatuses(t), [t]);
+  const PRODUCT_TYPES = useMemo(() => getProductTypes(t), [t]);
+  const INFO_SOURCES = useMemo(() => getInfoSources(t), [t]);
+  const CONTACT_STATUSES = useMemo(() => getContactStatuses(t), [t]);
+  const SERVICE_TYPES = useMemo(() => getServiceTypes(t), [t]);
+
   const { data: hospitals = [] } = useQuery<Hospital[]>({
     queryKey: ["/api/hospitals"],
   });
@@ -192,7 +215,7 @@ export function CampaignContactsFilter({
       labels.push({ key: "contactStatus", label: CONTACT_STATUSES.find(s => s.value === filters.contactStatus)?.label || filters.contactStatus });
     }
     if (filters.salesChannel) {
-      labels.push({ key: "salesChannel", label: `Kanál: ${filters.salesChannel}` });
+      labels.push({ key: "salesChannel", label: `${t.campaigns.filter.salesChannel}: ${filters.salesChannel}` });
     }
     if (filters.productType) {
       labels.push({ key: "productType", label: PRODUCT_TYPES.find(s => s.value === filters.productType)?.label || filters.productType });
@@ -202,16 +225,16 @@ export function CampaignContactsFilter({
     }
     if (filters.hospitalId) {
       const h = filteredHospitals.find(h => h.id === filters.hospitalId);
-      labels.push({ key: "hospitalId", label: h?.name || "Nemocnica" });
+      labels.push({ key: "hospitalId", label: h?.name || t.campaigns.filter.hospital });
     }
     if (filters.city) {
-      labels.push({ key: "city", label: `Mesto: ${filters.city}` });
+      labels.push({ key: "city", label: `${t.campaigns.filter.city}: ${filters.city}` });
     }
     if (filters.expectedDateFrom) {
-      labels.push({ key: "expectedDateFrom", label: `Od: ${filters.expectedDateFrom}` });
+      labels.push({ key: "expectedDateFrom", label: `${t.campaigns.filter.expectedDateFrom}: ${filters.expectedDateFrom}` });
     }
     if (filters.expectedDateTo) {
-      labels.push({ key: "expectedDateTo", label: `Do: ${filters.expectedDateTo}` });
+      labels.push({ key: "expectedDateTo", label: `${t.campaigns.filter.expectedDateTo}: ${filters.expectedDateTo}` });
     }
     return labels;
   };
@@ -221,7 +244,7 @@ export function CampaignContactsFilter({
       <div className="relative flex-1 min-w-[200px] max-w-sm">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder={t.common?.search || "Hľadať meno, email, telefón..."}
+          placeholder={t.campaigns.filter.searchPlaceholder}
           value={filters.search || ""}
           onChange={(e) => updateFilter("search", e.target.value || undefined)}
           className="pl-10"
@@ -233,7 +256,7 @@ export function CampaignContactsFilter({
         <SheetTrigger asChild>
           <Button variant="outline" data-testid="button-contacts-filter">
             <Filter className="h-4 w-4 mr-2" />
-            Filtre
+            {t.campaigns.filter.filters}
             {activeFilterCount > 0 && (
               <Badge variant="secondary" className="ml-2 bg-primary/10 text-primary">
                 {activeFilterCount}
@@ -246,15 +269,15 @@ export function CampaignContactsFilter({
             <div className="flex items-center justify-between">
               <SheetTitle className="flex items-center gap-2">
                 <Filter className="w-5 h-5 text-primary" />
-                Komplexný filter kontaktov
+                {t.campaigns.filter.title}
               </SheetTitle>
             </div>
             {activeFilterCount > 0 && (
               <div className="flex items-center justify-between pt-2">
-                <span className="text-sm text-muted-foreground">{activeFilterCount} aktívnych filtrov</span>
+                <span className="text-sm text-muted-foreground">{activeFilterCount} {t.campaigns.filter.activeFilters}</span>
                 <Button variant="ghost" size="sm" onClick={onClear} data-testid="button-clear-contacts-filter">
                   <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
-                  Resetovať všetko
+                  {t.campaigns.filter.resetAll}
                 </Button>
               </div>
             )}
@@ -263,7 +286,7 @@ export function CampaignContactsFilter({
           <ScrollArea className="flex-1">
             <div className="p-6 space-y-6">
 
-              <FilterSection icon={Phone} title="Stav kontaktu v kampani">
+              <FilterSection icon={Phone} title={t.campaigns.filter.contactStatusInCampaign}>
                 <ChipSelect
                   options={CONTACT_STATUSES}
                   value={filters.contactStatus}
@@ -274,10 +297,10 @@ export function CampaignContactsFilter({
 
               <Separator />
 
-              <FilterSection icon={Users} title="Klient">
+              <FilterSection icon={Users} title={t.campaigns.filter.client}>
                 <div className="space-y-3">
                   <div>
-                    <span className="text-xs text-muted-foreground mb-1.5 block">Stav klienta</span>
+                    <span className="text-xs text-muted-foreground mb-1.5 block">{t.campaigns.filter.clientStatus}</span>
                     <ChipSelect
                       options={CLIENT_STATUSES}
                       value={filters.clientStatus}
@@ -286,7 +309,7 @@ export function CampaignContactsFilter({
                     />
                   </div>
                   <div>
-                    <span className="text-xs text-muted-foreground mb-1.5 block">Kvalita leadu</span>
+                    <span className="text-xs text-muted-foreground mb-1.5 block">{t.campaigns.filter.leadQuality}</span>
                     <ChipSelect
                       options={LEAD_STATUSES}
                       value={filters.leadStatus}
@@ -295,7 +318,7 @@ export function CampaignContactsFilter({
                     />
                   </div>
                   <div>
-                    <span className="text-xs text-muted-foreground mb-1.5 block">Typ služby</span>
+                    <span className="text-xs text-muted-foreground mb-1.5 block">{t.campaigns.filter.serviceType}</span>
                     <ChipSelect
                       options={SERVICE_TYPES}
                       value={filters.serviceType}
@@ -308,10 +331,10 @@ export function CampaignContactsFilter({
 
               <Separator />
 
-              <FilterSection icon={MapPin} title="Lokácia">
+              <FilterSection icon={MapPin} title={t.campaigns.filter.location}>
                 <div className="space-y-3">
                   <div>
-                    <span className="text-xs text-muted-foreground mb-1.5 block">Krajina</span>
+                    <span className="text-xs text-muted-foreground mb-1.5 block">{t.campaigns.filter.countryLabel}</span>
                     <div className="flex flex-wrap gap-1.5">
                       {availableCountries.map(c => (
                         <Badge
@@ -327,9 +350,9 @@ export function CampaignContactsFilter({
                     </div>
                   </div>
                   <div>
-                    <span className="text-xs text-muted-foreground mb-1.5 block">Mesto</span>
+                    <span className="text-xs text-muted-foreground mb-1.5 block">{t.campaigns.filter.city}</span>
                     <Input
-                      placeholder="Filtrovať podľa mesta"
+                      placeholder={t.campaigns.filter.cityPlaceholder}
                       value={filters.city || ""}
                       onChange={(e) => updateFilter("city", e.target.value || undefined)}
                       data-testid="input-filter-city"
@@ -340,10 +363,10 @@ export function CampaignContactsFilter({
 
               <Separator />
 
-              <FilterSection icon={Briefcase} title="Potenciálny prípad">
+              <FilterSection icon={Briefcase} title={t.campaigns.filter.potentialCase}>
                 <div className="space-y-3">
                   <div>
-                    <span className="text-xs text-muted-foreground mb-1.5 block">Stav prípadu</span>
+                    <span className="text-xs text-muted-foreground mb-1.5 block">{t.campaigns.filter.caseStatus}</span>
                     <ChipSelect
                       options={CASE_STATUSES}
                       value={filters.caseStatus}
@@ -352,7 +375,7 @@ export function CampaignContactsFilter({
                     />
                   </div>
                   <div>
-                    <span className="text-xs text-muted-foreground mb-1.5 block">Typ produktu</span>
+                    <span className="text-xs text-muted-foreground mb-1.5 block">{t.campaigns.filter.productType}</span>
                     <ChipSelect
                       options={PRODUCT_TYPES}
                       value={filters.productType}
@@ -362,7 +385,7 @@ export function CampaignContactsFilter({
                   </div>
                   {filteredHospitals.length > 0 && (
                     <div>
-                      <span className="text-xs text-muted-foreground mb-1.5 block">Nemocnica</span>
+                      <span className="text-xs text-muted-foreground mb-1.5 block">{t.campaigns.filter.hospital}</span>
                       <div className="flex flex-wrap gap-1.5 max-h-[120px] overflow-y-auto">
                         {filteredHospitals.map(h => (
                           <Badge
@@ -380,7 +403,7 @@ export function CampaignContactsFilter({
                   )}
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <span className="text-xs text-muted-foreground mb-1.5 block">Očakávaný dátum (od)</span>
+                      <span className="text-xs text-muted-foreground mb-1.5 block">{t.campaigns.filter.expectedDateFrom}</span>
                       <Input
                         type="date"
                         value={filters.expectedDateFrom || ""}
@@ -389,7 +412,7 @@ export function CampaignContactsFilter({
                       />
                     </div>
                     <div>
-                      <span className="text-xs text-muted-foreground mb-1.5 block">Očakávaný dátum (do)</span>
+                      <span className="text-xs text-muted-foreground mb-1.5 block">{t.campaigns.filter.expectedDateTo}</span>
                       <Input
                         type="date"
                         value={filters.expectedDateTo || ""}
@@ -403,10 +426,10 @@ export function CampaignContactsFilter({
 
               <Separator />
 
-              <FilterSection icon={Megaphone} title="Akvizícia">
+              <FilterSection icon={Megaphone} title={t.campaigns.filter.acquisition}>
                 <div className="space-y-3">
                   <div>
-                    <span className="text-xs text-muted-foreground mb-1.5 block">Predajný kanál</span>
+                    <span className="text-xs text-muted-foreground mb-1.5 block">{t.campaigns.filter.salesChannel}</span>
                     <ChipSelect
                       options={SALES_CHANNELS}
                       value={filters.salesChannel}
@@ -415,7 +438,7 @@ export function CampaignContactsFilter({
                     />
                   </div>
                   <div>
-                    <span className="text-xs text-muted-foreground mb-1.5 block">Zdroj informácií</span>
+                    <span className="text-xs text-muted-foreground mb-1.5 block">{t.campaigns.filter.infoSource}</span>
                     <ChipSelect
                       options={INFO_SOURCES}
                       value={filters.infoSource}
@@ -433,13 +456,13 @@ export function CampaignContactsFilter({
             {activeFilterCount > 0 ? (
               <Button variant="ghost" size="sm" onClick={onClear} data-testid="button-reset-filters-bottom">
                 <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
-                Resetovať
+                {t.campaigns.filter.reset}
               </Button>
             ) : (
               <span />
             )}
             <Button onClick={() => setIsOpen(false)} data-testid="button-apply-filter">
-              Použiť filtre
+              {t.campaigns.filter.apply}
             </Button>
           </div>
         </SheetContent>
