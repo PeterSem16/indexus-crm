@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
 import { useI18n } from "@/i18n";
@@ -1097,6 +1097,19 @@ export default function CampaignDetailPage() {
     queryKey: ["/api/roles"],
   });
 
+  const { data: campaignDispositions = [] } = useQuery<CampaignDisposition[]>({
+    queryKey: ["/api/campaigns", campaignId, "dispositions"],
+    enabled: !!campaignId,
+  });
+
+  const dispositionMap = useMemo(() => {
+    const map: Record<string, { name: string; color: string; icon: string; actionType: string }> = {};
+    for (const d of campaignDispositions) {
+      map[d.code] = { name: d.name, color: d.color || "gray", icon: d.icon || "", actionType: d.actionType };
+    }
+    return map;
+  }, [campaignDispositions]);
+
   const callCenterRoleId = roles.find(r => r.name === "Call Center")?.id;
   const callCenterUsers = allUsers.filter(u => u.role === "admin" || (callCenterRoleId && u.roleId === callCenterRoleId));
   const assignedAgentIds = campaignAgents.map(a => a.userId);
@@ -1342,13 +1355,15 @@ export default function CampaignDetailPage() {
       ? filteredContacts.filter((c: any) => selectedContacts.has(c.id))
       : filteredContacts;
     
-    const headers = ["Meno", "Priezvisko", "Email", "Telefón", "Status", "Pokusy", "Posledný pokus", "Krajina"];
+    const headers = ["Meno", "Priezvisko", "Email", "Telefón", "Status", "Výsledok", "Kód výsledku", "Pokusy", "Posledný pokus", "Krajina"];
     const rows = dataToExport.map((c: any) => [
       c.customer?.firstName || "",
       c.customer?.lastName || "",
       c.customer?.email || "",
       c.customer?.phone || "",
       c.status,
+      c.dispositionCode ? (dispositionMap[c.dispositionCode]?.name || c.dispositionCode) : "",
+      c.dispositionCode || "",
       c.attemptCount || 0,
       c.lastAttemptAt ? format(new Date(c.lastAttemptAt), "yyyy-MM-dd HH:mm") : "",
       c.customer?.country || "",
@@ -1506,15 +1521,35 @@ export default function CampaignDetailPage() {
       key: "disposition",
       header: "Výsledok",
       sortable: true,
-      sortValue: (contact: EnrichedContact) => contact.notes || contact.status || "",
+      sortValue: (contact: EnrichedContact) => {
+        const dc = (contact as any).dispositionCode;
+        return dc ? (dispositionMap[dc]?.name || dc) : "";
+      },
       cell: (contact: EnrichedContact) => {
+        const dc = (contact as any).dispositionCode;
+        const disp = dc ? dispositionMap[dc] : null;
         const hasCallback = contact.status === "callback_scheduled" && contact.callbackDate;
         const hasNotes = contact.notes && contact.notes.trim().length > 0;
-        if (!hasCallback && !hasNotes) {
+
+        const colorClasses: Record<string, string> = {
+          green: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+          blue: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+          orange: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
+          red: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+          yellow: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+          gray: "bg-muted text-muted-foreground",
+        };
+
+        if (!disp && !hasCallback && !hasNotes) {
           return <span className="text-muted-foreground">-</span>;
         }
         return (
-          <div className="space-y-0.5 max-w-[200px]">
+          <div className="space-y-1 max-w-[220px]">
+            {disp && (
+              <Badge variant="secondary" className={`text-xs ${colorClasses[disp.color] || colorClasses.gray}`} data-testid={`badge-disposition-${dc}`}>
+                {disp.name}
+              </Badge>
+            )}
             {hasCallback && (
               <div className="flex items-center gap-1 text-xs">
                 <CalendarPlus className="w-3 h-3 text-blue-500" />
@@ -2527,6 +2562,23 @@ Príklad:
                     {selectedContact.status.replace("_", " ")}
                   </Badge>
                 </div>
+                {(selectedContact as any).dispositionCode && dispositionMap[(selectedContact as any).dispositionCode] && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Výsledok</span>
+                    <Badge variant="secondary" className={`text-xs ${
+                      {
+                        green: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+                        blue: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+                        orange: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
+                        red: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+                        yellow: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+                        gray: "bg-muted text-muted-foreground",
+                      }[dispositionMap[(selectedContact as any).dispositionCode]?.color] || "bg-muted text-muted-foreground"
+                    }`}>
+                      {dispositionMap[(selectedContact as any).dispositionCode]?.name}
+                    </Badge>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Attempts</span>
                   <span>{selectedContact.attemptCount || 0}</span>

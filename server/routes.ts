@@ -14273,7 +14273,7 @@ export async function registerRoutes(
       
       const previousStatus = existingContact.status;
       
-      const { incrementAttempt, dispositionCode, lastContactedAt, result, ...cleanBody } = req.body;
+      const { incrementAttempt, lastContactedAt, result, ...cleanBody } = req.body;
       
       const updatePayload: Record<string, any> = { ...cleanBody };
       
@@ -14307,7 +14307,7 @@ export async function registerRoutes(
           action: "status_change",
           previousStatus,
           newStatus: updatePayload.status,
-          notes: updatePayload.notes || dispositionCode || null,
+          notes: updatePayload.notes || updatePayload.dispositionCode || null,
         });
         
         // Log to customer activity
@@ -14323,7 +14323,7 @@ export async function registerRoutes(
               campaignName: campaign?.name || "Kampaň",
               previousStatus,
               newStatus: updatePayload.status,
-              dispositionCode: dispositionCode || null,
+              dispositionCode: updatePayload.dispositionCode || null,
               notes: updatePayload.notes || null
             },
             req.ip
