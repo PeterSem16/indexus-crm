@@ -3409,6 +3409,10 @@ export const contractInstances = pgTable("contract_instances", {
   // Rendered content
   renderedHtml: text("rendered_html"), // Final rendered HTML with all variables filled
   pdfPath: text("pdf_path"), // Path to generated PDF
+  pdfGeneratedAt: timestamp("pdf_generated_at"), // When PDF was generated
+  pdfFileSize: integer("pdf_file_size"), // PDF file size in bytes
+  pdfFileHash: text("pdf_file_hash"), // SHA-256 hash for integrity verification
+  pdfGeneratedBy: varchar("pdf_generated_by"), // User ID who generated the PDF
   // Signature settings
   signatureMode: varchar("signature_mode", { length: 20 }).notNull().default("simple"), // simple, advanced, qualified
   // Denormalized snapshots for legal immutability

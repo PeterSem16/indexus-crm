@@ -19322,10 +19322,105 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         actorName: req.session.user!.fullName,
         actorEmail: req.session.user!.email,
         ipAddress: req.ip,
+        userAgent: req.headers["user-agent"] || null,
         details: JSON.stringify({ status: "draft", categoryId: parseInt(categoryId), countryCode })
       });
       
       await logActivity(req.session.user!.id, "create", "contract", contract.id, contract.contractNumber, null, req.ip);
+
+      // Auto-generate PDF after contract creation
+      try {
+        const hasDocxTemplate = categoryDefaultTemplate.sourceDocxPath && 
+          fs.existsSync(path.join(process.cwd(), categoryDefaultTemplate.sourceDocxPath));
+        
+        if (hasDocxTemplate) {
+          const docxPath = path.join(process.cwd(), categoryDefaultTemplate.sourceDocxPath!);
+          const billingDetails = billingDetailsId ? await storage.getBillingDetailsById(String(billingDetailsId)) : null;
+          
+          // Build variables for DOCX template
+          const docxData: Record<string, string> = {
+            "customer.fullName": `${customer.firstName || ""} ${customer.lastName || ""}`.trim(),
+            "customer.firstName": customer.firstName || "",
+            "customer.lastName": customer.lastName || "",
+            "customer.email": customer.email || "",
+            "customer.phone": customer.phone || "",
+            "customer.address": customer.address || "",
+            "customer.city": customer.city || "",
+            "customer.postalCode": customer.postalCode || "",
+            "customer.dateOfBirth": customer.dateOfBirth ? new Date(customer.dateOfBirth).toLocaleDateString("sk-SK") : "",
+            "customer.birthNumber": customer.nationalId || "",
+            "mother.permanentAddress": customer.address || "",
+            "mother.birthDate": customer.dateOfBirth ? new Date(customer.dateOfBirth).toLocaleDateString("sk-SK") : "",
+            "mother.fullName": `${customer.firstName || ""} ${customer.lastName || ""}`.trim(),
+            "billing.companyName": billingDetails?.companyName || "",
+            "billing.ico": billingDetails?.ico || "",
+            "billing.dic": billingDetails?.dic || "",
+            "billing.vatNumber": billingDetails?.vatNumber || "",
+            "billing.address": billingDetails?.address || billingDetails?.residencyStreet || "",
+            "billing.city": billingDetails?.city || billingDetails?.residencyCity || "",
+            "billing.postalCode": billingDetails?.postalCode || billingDetails?.residencyPostalCode || "",
+            "billing.iban": billingDetails?.bankIban || "",
+            "billing.swift": billingDetails?.bankSwift || "",
+            "billing.bankName": billingDetails?.bankName || "",
+            "contract.number": contract.contractNumber,
+            "contract.date": new Date().toLocaleDateString("sk-SK"),
+            "contract.currency": contract.currency || "EUR",
+          };
+
+          const outputDir = path.join(process.cwd(), "uploads", "generated-contracts");
+          await fs.promises.mkdir(outputDir, { recursive: true });
+          
+          const result = await generateContractFromTemplate(
+            "docx",
+            docxPath,
+            docxData,
+            outputDir,
+            contract.id
+          );
+          
+          const relativePdfPath = result.pdfPath.replace(process.cwd() + "/", "");
+          const pdfBuffer = await fs.promises.readFile(result.pdfPath);
+          const { createHash } = await import("crypto");
+          const pdfHash = createHash("sha256").update(pdfBuffer).digest("hex");
+          
+          await storage.updateContractInstance(contract.id, { 
+            pdfPath: relativePdfPath,
+            pdfGeneratedAt: new Date(),
+            pdfFileSize: pdfBuffer.length,
+            pdfFileHash: pdfHash,
+            pdfGeneratedBy: req.session.user!.id
+          });
+          
+          await storage.createContractAuditLog({
+            contractId: contract.id,
+            action: "pdf_generated",
+            actorId: req.session.user!.id,
+            actorType: "user",
+            actorName: req.session.user!.fullName,
+            actorEmail: req.session.user!.email,
+            ipAddress: req.ip,
+            userAgent: req.headers["user-agent"] || null,
+            details: JSON.stringify({
+              pdfPath: relativePdfPath,
+              pdfFileSize: pdfBuffer.length,
+              pdfFileHash: pdfHash,
+              generatedAt: new Date().toISOString(),
+              templateId: categoryDefaultTemplate.id,
+              templateSourceDocx: categoryDefaultTemplate.sourceDocxPath
+            })
+          });
+          
+          console.log(`[Contract] Auto-generated PDF for ${contract.contractNumber}: ${relativePdfPath} (${pdfBuffer.length} bytes, SHA-256: ${pdfHash.substring(0, 16)}...)`);
+          
+          // Return updated contract with pdfPath
+          const updatedContract = await storage.getContractInstance(contract.id);
+          return res.status(201).json(updatedContract);
+        }
+      } catch (pdfError) {
+        console.error(`[Contract] Auto PDF generation failed for ${contract.contractNumber}:`, pdfError);
+        // Don't fail the contract creation if PDF generation fails
+      }
+
       res.status(201).json(contract);
     } catch (error) {
       console.error("Error creating contract:", error);
@@ -20202,40 +20297,67 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
 
   // Helper: Send OTP email via system MS365 email for country or fallback to SendGrid
   async function sendContractOtpEmail(
-    contract: { contractNumber: string; templateId: string | null; customerId?: string | null },
+    contract: { contractNumber: string; templateId: string | null; customerId?: string | null; pdfPath?: string | null },
     signerName: string,
     signerEmail: string,
-    otpCode: string
+    otpCode: string,
+    userSession?: any
   ) {
     if (!signerEmail) {
       console.warn("[ContractOTP] No signer email provided, skipping OTP email");
       return false;
     }
     try {
+      const emailSubject = `Zmluva č. ${contract.contractNumber} - Overovací kód`;
+      const emailHtml = `
+        <h2>Dobrý deň ${signerName},</h2>
+        <p>Váš overovací kód pre zmluvu č. <strong>${contract.contractNumber}</strong> je:</p>
+        <p style="font-size: 32px; font-weight: bold; text-align: center; padding: 20px; background: #f5f5f5; border-radius: 8px;">${otpCode}</p>
+        <p>Kód je platný 24 hodín.</p>
+        <p>Pre podpísanie zmluvy prosím použite tento kód v systéme INDEXUS.</p>
+        ${contract.pdfPath ? '<p><strong>V prílohe nájdete zmluvu na stiahnutie.</strong></p>' : ''}
+        <br>
+        <p>S pozdravom,<br>INDEXUS CRM</p>
+      `;
+
+      let attachments: Array<{ name: string; contentType: string; contentBase64: string }> | undefined;
+      if (contract.pdfPath) {
+        try {
+          const fullPdfPath = path.join(process.cwd(), contract.pdfPath);
+          if (fs.existsSync(fullPdfPath)) {
+            const pdfBuffer = await fs.promises.readFile(fullPdfPath);
+            attachments = [{
+              name: `zmluva-${contract.contractNumber}.pdf`,
+              contentType: "application/pdf",
+              contentBase64: pdfBuffer.toString("base64")
+            }];
+            console.log(`[ContractOTP] Attaching PDF (${pdfBuffer.length} bytes) to OTP email`);
+          } else {
+            console.warn(`[ContractOTP] PDF path ${fullPdfPath} does not exist, sending without attachment`);
+          }
+        } catch (attachErr) {
+          console.warn("[ContractOTP] Failed to attach PDF:", attachErr);
+        }
+      }
+
       let countryCode: string | null | undefined = null;
       
       if (contract.templateId) {
         const template = await storage.getContractTemplate(contract.templateId);
         countryCode = template?.countryCode;
-        if (!countryCode) {
-          console.warn(`[ContractOTP] Template ${contract.templateId} not found or has no countryCode`);
-        }
       }
       
       if (!countryCode && contract.customerId) {
         try {
           const customer = await storage.getCustomer(contract.customerId);
           countryCode = customer?.country || null;
-          if (countryCode) {
-            console.log(`[ContractOTP] Got countryCode '${countryCode}' from customer ${contract.customerId}`);
-          }
         } catch (e) {
-          console.warn(`[ContractOTP] Failed to get customer ${contract.customerId} for country lookup`);
+          console.warn(`[ContractOTP] Failed to get customer for country lookup`);
         }
       }
 
+      // 1. Try system MS365 connection for this country
       if (countryCode) {
-        // Try to use system MS365 email for this country
         const systemConnection = await storage.getSystemMs365Connection(countryCode);
         if (systemConnection && systemConnection.isConnected) {
           try {
@@ -20256,44 +20378,51 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
               await sendMs365Email(
                 tokenResult.accessToken,
                 [signerEmail],
-                `Zmluva č. ${contract.contractNumber} - Overovací kód`,
-                `
-                  <h2>Dobrý deň ${signerName},</h2>
-                  <p>Váš overovací kód pre zmluvu č. <strong>${contract.contractNumber}</strong> je:</p>
-                  <p style="font-size: 32px; font-weight: bold; text-align: center; padding: 20px;">${otpCode}</p>
-                  <p>Kód je platný 24 hodín.</p>
-                  <p>Pre podpísanie zmluvy prosím použite tento kód v systéme INDEXUS.</p>
-                  <br>
-                  <p>S pozdravom,<br>INDEXUS CRM</p>
-                `,
-                true
+                emailSubject,
+                emailHtml,
+                true,
+                undefined,
+                attachments
               );
-              console.log(`[ContractOTP] Sent OTP email via MS365 system email (${systemConnection.email}) for country ${countryCode} to ${signerEmail}`);
+              console.log(`[ContractOTP] Sent OTP email via MS365 system (${systemConnection.email}) to ${signerEmail}`);
               return true;
+            } else {
+              console.warn(`[ContractOTP] System MS365 token expired and refresh failed for ${countryCode}`);
             }
           } catch (ms365Error) {
-            console.error(`[ContractOTP] MS365 system email failed for ${countryCode}, falling back to SendGrid:`, ms365Error);
+            console.error(`[ContractOTP] MS365 system email failed for ${countryCode}:`, ms365Error);
           }
+        } else {
+          console.warn(`[ContractOTP] No system MS365 connection for country ${countryCode}`);
         }
       }
 
-      // Fallback to SendGrid
-      const { sendEmail } = await import("./email");
-      await sendEmail({
-        to: signerEmail,
-        subject: `Zmluva č. ${contract.contractNumber} - Overovací kód`,
-        html: `
-          <h2>Dobrý deň ${signerName},</h2>
-          <p>Váš overovací kód pre zmluvu č. <strong>${contract.contractNumber}</strong> je:</p>
-          <p style="font-size: 32px; font-weight: bold; text-align: center; padding: 20px;">${otpCode}</p>
-          <p>Kód je platný 24 hodín.</p>
-          <p>Pre podpísanie zmluvy prosím použite tento kód v systéme INDEXUS.</p>
-          <br>
-          <p>S pozdravom,<br>INDEXUS CRM</p>
-        `
-      });
-      console.log(`[ContractOTP] Sent OTP email via SendGrid to ${signerEmail}`);
-      return true;
+      // 2. Try user's MS365 session
+      const ms365Session = userSession?.ms365;
+      if (ms365Session?.accessToken) {
+        try {
+          const { sendEmail: sendMs365Email } = await import("./lib/ms365");
+          await sendMs365Email(
+            ms365Session.accessToken,
+            [signerEmail],
+            emailSubject,
+            emailHtml,
+            true,
+            undefined,
+            attachments
+          );
+          console.log(`[ContractOTP] Sent OTP email via user MS365 session to ${signerEmail}`);
+          return true;
+        } catch (userMs365Error) {
+          console.error("[ContractOTP] User MS365 session email failed:", userMs365Error);
+        }
+      } else {
+        console.warn("[ContractOTP] No user MS365 session available");
+      }
+
+      // 3. Fallback - no email method available
+      console.error("[ContractOTP] All email methods failed. No MS365 system/user session available.");
+      return false;
     } catch (error) {
       console.error("[ContractOTP] Failed to send OTP email:", error);
       return false;
@@ -20352,21 +20481,22 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
   }
 
   async function sendOtpByMethod(
-    contract: { contractNumber: string; templateId: string | null; customerId?: string | null },
+    contract: { contractNumber: string; templateId: string | null; customerId?: string | null; pdfPath?: string | null },
     signerName: string,
     signerEmail: string | null,
     signerPhone: string | null,
     otpCode: string,
-    method: "email_otp" | "sms_otp"
+    method: "email_otp" | "sms_otp",
+    userSession?: any
   ): Promise<boolean> {
     if (method === "sms_otp" && signerPhone) {
       return sendContractOtpSms(contract, signerName, signerPhone, otpCode);
     }
     if (method === "email_otp" && signerEmail) {
-      return sendContractOtpEmail(contract, signerName, signerEmail, otpCode);
+      return sendContractOtpEmail(contract, signerName, signerEmail, otpCode, userSession);
     }
     if (signerEmail) {
-      return sendContractOtpEmail(contract, signerName, signerEmail, otpCode);
+      return sendContractOtpEmail(contract, signerName, signerEmail, otpCode, userSession);
     }
     if (signerPhone) {
       return sendContractOtpSms(contract, signerName, signerPhone, otpCode);
@@ -20437,7 +20567,10 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         });
         createdSignatureRequests.push(signatureRequest);
         
-        await sendOtpByMethod(contract, signer.fullName, signer.email, signer.phone, otpCode, actualMethod);
+        const sent = await sendOtpByMethod(contract, signer.fullName, signer.email, signer.phone, otpCode, actualMethod, req.session);
+        if (!sent) {
+          console.error(`[ContractOTP] Failed to send OTP via ${actualMethod} to ${signer.fullName}`);
+        }
       }
       
       await storage.updateContractInstance(contract.id, {
@@ -20454,7 +20587,20 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         actorName: req.session.user!.fullName,
         actorEmail: req.session.user!.email,
         ipAddress: req.ip,
-        details: JSON.stringify({ signersCount: signers.length })
+        userAgent: req.headers["user-agent"] || null,
+        details: JSON.stringify({ 
+          signersCount: signers.length,
+          verificationMethod: method,
+          signers: createdSignatureRequests.map(sr => ({
+            name: sr.signerName,
+            email: sr.signerEmail,
+            phone: sr.signerPhone,
+            method: sr.verificationMethod,
+            requestId: sr.id
+          })),
+          pdfPath: contract.pdfPath || null,
+          sentAt: new Date().toISOString()
+        })
       });
       
       res.json({ 
@@ -20586,7 +20732,8 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         signatureRequest.signerEmail, 
         signatureRequest.signerPhone, 
         otpCode, 
-        method
+        method,
+        req.session
       );
 
       if (!sent) {
@@ -20604,7 +20751,15 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         actorName: req.session.user!.fullName,
         actorEmail: req.session.user!.email,
         ipAddress: req.ip,
-        details: JSON.stringify({ signatureRequestId: signatureRequest.id, method })
+        userAgent: req.headers["user-agent"] || null,
+        details: JSON.stringify({ 
+          signatureRequestId: signatureRequest.id, 
+          method,
+          signerName: signatureRequest.signerName,
+          signerEmail: signatureRequest.signerEmail,
+          signerPhone: signatureRequest.signerPhone,
+          resentAt: new Date().toISOString()
+        })
       });
 
       res.json({ 

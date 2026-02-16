@@ -1623,7 +1623,7 @@ export default function ContractsPage() {
         description={t.contractsModule.description}
       />
       
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto p-6 min-w-0">
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabType)}>
           <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
             <TabsList>
@@ -1818,7 +1818,7 @@ export default function ContractsPage() {
             </Tabs>
           </TabsContent>
 
-          <TabsContent value="contracts" className="mt-0">
+          <TabsContent value="contracts" className="mt-0 min-w-0">
             <div className="flex items-center gap-4 mb-4 flex-wrap">
               <div className="flex-1 min-w-[200px] max-w-sm">
                 <Input
@@ -3305,6 +3305,34 @@ export default function ContractsPage() {
               </div>
               
               <Separator />
+
+              {selectedContract.pdfPath && (
+                <div className="flex items-center justify-between gap-2 p-3 bg-muted rounded-md">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-primary" />
+                    <div>
+                      <p className="text-sm font-medium">{t.contractsModule.pdfContract || "PDF zmluva"}</p>
+                      {(selectedContract as any).pdfGeneratedAt && (
+                        <p className="text-xs text-muted-foreground">
+                          {t.contractsModule.generated || "Vygenerované"}: {new Date((selectedContract as any).pdfGeneratedAt).toLocaleString()}
+                          {(selectedContract as any).pdfFileSize && ` (${Math.round((selectedContract as any).pdfFileSize / 1024)} KB)`}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      window.open(`/api/contracts/${selectedContract.id}/pdf`, "_blank");
+                    }}
+                    data-testid="button-download-pdf"
+                  >
+                    <Download className="h-4 w-4 mr-1" />
+                    {t.contractsModule.downloadPdf || "Stiahnuť PDF"}
+                  </Button>
+                </div>
+              )}
               
               {selectedContract.status === "draft" && (
                 <div className="space-y-3">
