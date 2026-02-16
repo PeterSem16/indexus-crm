@@ -25,6 +25,7 @@ import { useSessionHeartbeat } from "@/hooks/use-session-heartbeat";
 import { NotificationBell, NotificationCenterPage } from "@/components/notification-center";
 import { NexusButton } from "@/components/nexus/nexus-button";
 import PublicSigningPage from "@/pages/public-signing";
+import AuditTimelinePublic from "@/pages/audit-timeline-public";
 import Dashboard from "@/pages/dashboard";
 import UsersPage from "@/pages/users";
 import CustomersPage from "@/pages/customers";
@@ -110,6 +111,14 @@ function AppRouter() {
       <Switch>
         <Route path="/sign/:token" component={PublicSigningPage} />
         <Route path="/s/:token" component={PublicSigningPage} />
+      </Switch>
+    );
+  }
+
+  if (location.startsWith("/audit-timeline/")) {
+    return (
+      <Switch>
+        <Route path="/audit-timeline/:token" component={AuditTimelinePublic} />
       </Switch>
     );
   }

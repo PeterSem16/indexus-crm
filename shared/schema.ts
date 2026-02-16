@@ -3590,6 +3590,29 @@ export type InsertContractAuditLog = z.infer<typeof insertContractAuditLogSchema
 export type ContractAuditLog = typeof contractAuditLog.$inferSelect;
 
 // ============================================
+// CONTRACT AUDIT SHARE TOKENS
+// Shareable links for customer audit timeline view
+// ============================================
+
+export const contractAuditShareTokens = pgTable("contract_audit_share_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  contractId: varchar("contract_id").notNull(),
+  token: varchar("token", { length: 64 }).notNull().unique(),
+  email: text("email").notNull(),
+  createdById: varchar("created_by_id"),
+  createdByName: text("created_by_name"),
+  expiresAt: timestamp("expires_at"),
+  accessCount: integer("access_count").notNull().default(0),
+  lastAccessedAt: timestamp("last_accessed_at"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertContractAuditShareTokenSchema = createInsertSchema(contractAuditShareTokens).omit({ id: true, createdAt: true, accessCount: true, lastAccessedAt: true });
+export type InsertContractAuditShareToken = z.infer<typeof insertContractAuditShareTokenSchema>;
+export type ContractAuditShareToken = typeof contractAuditShareTokens.$inferSelect;
+
+// ============================================
 // VARIABLE REGISTRY SYSTEM
 // Centralized management of all template variables
 // ============================================

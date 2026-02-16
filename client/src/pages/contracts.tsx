@@ -554,6 +554,7 @@ export default function ContractsPage() {
 
   const { data: contracts = [], isLoading: contractsLoading } = useQuery<ContractInstance[]>({
     queryKey: ["/api/contracts"],
+    refetchInterval: 10000,
   });
 
   const { data: customers = [], isLoading: customersLoading } = useQuery<Customer[]>({

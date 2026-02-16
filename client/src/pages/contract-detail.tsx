@@ -96,11 +96,9 @@ export default function ContractDetailPage() {
   const [activeTab, setActiveTab] = useState("basic");
   const [formState, setFormState] = useState<Record<string, any>>({});
   const [formInitialized, setFormInitialized] = useState(false);
-  const auditExportKey = `audit_export_used_${contractId}`;
-  const [auditExportUsed, setAuditExportUsed] = useState(() => {
-    try { return localStorage.getItem(auditExportKey) === "true"; } catch { return false; }
-  });
   const [exportEmail, setExportEmail] = useState("");
+  const [sendingAuditEmail, setSendingAuditEmail] = useState(false);
+  const [lastTimelineUrl, setLastTimelineUrl] = useState<string | null>(null);
 
   const { data: contractDetail, isLoading } = useQuery<any>({
     queryKey: ["/api/contracts", contractId],
@@ -1129,54 +1127,65 @@ export default function ContractDetailPage() {
                 {t.contractsModule.auditLog}
               </CardTitle>
               <div className="flex items-center gap-2">
-                {!auditExportUsed ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setAuditExportUsed(true);
-                      try { localStorage.setItem(auditExportKey, "true"); } catch {}
-                      toast({ title: t.contractsModule.firstFreeExport, description: t.contractsModule.exportAuditLogFree });
-                    }}
-                    data-testid="button-export-audit-free"
-                  >
-                    <Mail className="h-4 w-4 mr-2" />
-                    {t.contractsModule.firstFreeExport}
-                  </Button>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="email"
-                      placeholder="email@example.com"
-                      value={exportEmail}
-                      onChange={(e) => setExportEmail(e.target.value)}
-                      className="w-48"
-                      data-testid="input-export-email"
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={!exportEmail}
-                      onClick={async () => {
-                        try {
-                          await apiRequest("POST", `/api/contracts/${contractId}/export-audit`, { email: exportEmail });
-                          toast({ title: t.contractsModule.exportAuditLog });
-                          setExportEmail("");
-                        } catch {
-                          toast({ title: t.contractsModule.saveError, variant: "destructive" });
-                        }
-                      }}
-                      data-testid="button-export-audit-send"
-                    >
-                      <Send className="h-4 w-4 mr-2" />
-                      {t.contractsModule.exportAuditLog}
-                    </Button>
-                  </div>
-                )}
+                <Input
+                  type="email"
+                  placeholder="email@example.com"
+                  value={exportEmail}
+                  onChange={(e) => setExportEmail(e.target.value)}
+                  className="w-48"
+                  data-testid="input-export-email"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!exportEmail || sendingAuditEmail}
+                  onClick={async () => {
+                    setSendingAuditEmail(true);
+                    try {
+                      const res = await apiRequest("POST", `/api/contracts/${contractId}/export-audit`, { email: exportEmail });
+                      const data = await res.json();
+                      toast({ title: t.contractsModule.auditTimelineSent, description: data.timelineUrl ? t.contractsModule.auditTimelineSentDesc : undefined });
+                      setExportEmail("");
+                      if (data.timelineUrl) {
+                        setLastTimelineUrl(data.timelineUrl);
+                      }
+                    } catch {
+                      toast({ title: t.contractsModule.saveError, variant: "destructive" });
+                    } finally {
+                      setSendingAuditEmail(false);
+                    }
+                  }}
+                  data-testid="button-export-audit-send"
+                >
+                  {sendingAuditEmail ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+                  {t.contractsModule.sendAuditTimeline}
+                </Button>
               </div>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">{t.contractsModule.auditLogDescription}</p>
+              {lastTimelineUrl && (
+                <div className="flex items-center gap-2 mb-4 p-3 bg-muted/50 rounded-md">
+                  <ExternalLink className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <span className="text-sm text-muted-foreground truncate flex-1">{lastTimelineUrl}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(lastTimelineUrl);
+                      toast({ title: t.contractsModule.linkCopied });
+                    }}
+                    data-testid="button-copy-timeline-link"
+                  >
+                    {t.contractsModule.copyLink}
+                  </Button>
+                  <a href={lastTimelineUrl} target="_blank" rel="noopener noreferrer">
+                    <Button variant="ghost" size="sm" data-testid="button-open-timeline">
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  </a>
+                </div>
+              )}
               {auditLog.length > 0 ? (
                 <div className="space-y-3">
                   {auditLog.map((entry: any, index: number) => {

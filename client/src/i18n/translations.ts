@@ -2772,6 +2772,11 @@ export interface Translations {
     exportAuditLogFree: string;
     exportAuditLogRequiresPermission: string;
     firstFreeExport: string;
+    sendAuditTimeline: string;
+    auditTimelineSent: string;
+    auditTimelineSentDesc: string;
+    linkCopied: string;
+    copyLink: string;
     signedBadge: string;
   };
 }
@@ -5852,6 +5857,11 @@ export const translations: Record<Locale, Translations> = {
       exportAuditLogFree: 'Send audit log via email (first export is free)',
       exportAuditLogRequiresPermission: 'Additional exports require permission',
       firstFreeExport: 'First Free Export',
+      sendAuditTimeline: 'Send Audit Timeline',
+      auditTimelineSent: 'Audit Timeline Sent',
+      auditTimelineSentDesc: 'Customer will receive an email with a link to the audit timeline',
+      linkCopied: 'Link Copied',
+      copyLink: 'Copy Link',
       signedBadge: 'Signed',
     },
   },
@@ -8869,6 +8879,11 @@ export const translations: Record<Locale, Translations> = {
       exportAuditLogFree: 'Odoslať audit log emailom (prvý export je zadarmo)',
       exportAuditLogRequiresPermission: 'Ďalšie exporty vyžadujú povolenie',
       firstFreeExport: 'Prvý bezplatný export',
+      sendAuditTimeline: 'Odoslať audit timeline',
+      auditTimelineSent: 'Audit timeline odoslaný',
+      auditTimelineSentDesc: 'Zákazník dostane email s odkazom na audit timeline',
+      linkCopied: 'Odkaz skopírovaný',
+      copyLink: 'Kopírovať odkaz',
       signedBadge: 'Podpísané',
     },
   },
@@ -11818,6 +11833,11 @@ export const translations: Record<Locale, Translations> = {
       exportAuditLogFree: 'Odeslat audit log emailem (první export je zdarma)',
       exportAuditLogRequiresPermission: 'Další exporty vyžadují povolení',
       firstFreeExport: 'První bezplatný export',
+      sendAuditTimeline: 'Odeslat audit timeline',
+      auditTimelineSent: 'Audit timeline odeslán',
+      auditTimelineSentDesc: 'Zákazník obdrží email s odkazem na audit timeline',
+      linkCopied: 'Odkaz zkopírován',
+      copyLink: 'Kopírovat odkaz',
       signedBadge: 'Podepsáno',
     },
   },
@@ -14767,6 +14787,11 @@ export const translations: Record<Locale, Translations> = {
       exportAuditLogFree: 'Audit napló küldése emailben (első export ingyenes)',
       exportAuditLogRequiresPermission: 'További exportok engedélyt igényelnek',
       firstFreeExport: 'Első ingyenes export',
+      sendAuditTimeline: 'Audit idővonal küldése',
+      auditTimelineSent: 'Audit idővonal elküldve',
+      auditTimelineSentDesc: 'Az ügyfél kap egy emailt az audit idővonal linkkel',
+      linkCopied: 'Link másolva',
+      copyLink: 'Link másolása',
       signedBadge: 'Aláírva',
     },
   },
@@ -17715,6 +17740,11 @@ export const translations: Record<Locale, Translations> = {
       exportAuditLogFree: 'Trimite jurnalul de audit pe email (primul export este gratuit)',
       exportAuditLogRequiresPermission: 'Exporturile suplimentare necesită permisiune',
       firstFreeExport: 'Primul export gratuit',
+      sendAuditTimeline: 'Trimite cronologia audit',
+      auditTimelineSent: 'Cronologie audit trimisă',
+      auditTimelineSentDesc: 'Clientul va primi un email cu un link către cronologia audit',
+      linkCopied: 'Link copiat',
+      copyLink: 'Copiază linkul',
       signedBadge: 'Semnat',
     },
   },
@@ -20664,6 +20694,11 @@ export const translations: Record<Locale, Translations> = {
       exportAuditLogFree: 'Invia registro audit via email (primo export gratuito)',
       exportAuditLogRequiresPermission: 'Gli export aggiuntivi richiedono autorizzazione',
       firstFreeExport: 'Primo export gratuito',
+      sendAuditTimeline: 'Invia timeline audit',
+      auditTimelineSent: 'Timeline audit inviata',
+      auditTimelineSentDesc: 'Il cliente riceverà un email con il link alla timeline audit',
+      linkCopied: 'Link copiato',
+      copyLink: 'Copia link',
       signedBadge: 'Firmato',
     },
   },
@@ -23613,6 +23648,11 @@ export const translations: Record<Locale, Translations> = {
       exportAuditLogFree: 'Prüfprotokoll per E-Mail senden (erster Export kostenlos)',
       exportAuditLogRequiresPermission: 'Weitere Exporte erfordern Genehmigung',
       firstFreeExport: 'Erster kostenloser Export',
+      sendAuditTimeline: 'Prüfprotokoll-Timeline senden',
+      auditTimelineSent: 'Prüfprotokoll-Timeline gesendet',
+      auditTimelineSentDesc: 'Kunde erhält eine E-Mail mit dem Link zur Prüfprotokoll-Timeline',
+      linkCopied: 'Link kopiert',
+      copyLink: 'Link kopieren',
       signedBadge: 'Unterschrieben',
     },
   },

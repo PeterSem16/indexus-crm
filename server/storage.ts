@@ -72,7 +72,7 @@ import {
   sipSettings, sipExtensions, callLogs, chatMessages, exchangeRates, inflationRates,
   productSets, productSetCollections, productSetStorage, customerConsents, tasks, taskComments,
   contractCategories, contractCategoryDefaultTemplates, contractTemplates, contractTemplateVersions, contractInstances, contractInstanceProducts,
-  contractParticipants, contractSignatureRequests, contractAuditLog,
+  contractParticipants, contractSignatureRequests, contractAuditLog, contractAuditShareTokens,
   type SipSettings, type InsertSipSettings,
   type SipExtension, type InsertSipExtension,
   type CallLog, type InsertCallLog,
@@ -94,6 +94,7 @@ import {
   type ContractParticipant, type InsertContractParticipant,
   type ContractSignatureRequest, type InsertContractSignatureRequest,
   type ContractAuditLog, type InsertContractAuditLog,
+  type ContractAuditShareToken, type InsertContractAuditShareToken,
   variableBlocks, variables, variableKeywords,
   type VariableBlock, type InsertVariableBlock,
   type Variable, type InsertVariable,
@@ -780,6 +781,11 @@ export interface IStorage {
   // Contract Audit Log
   getContractAuditLog(contractId: string): Promise<ContractAuditLog[]>;
   createContractAuditLog(data: InsertContractAuditLog): Promise<ContractAuditLog>;
+
+  // Contract Audit Share Tokens
+  createAuditShareToken(data: InsertContractAuditShareToken): Promise<ContractAuditShareToken>;
+  getAuditShareTokenByToken(token: string): Promise<ContractAuditShareToken | undefined>;
+  incrementAuditShareTokenAccess(token: string): Promise<void>;
 
   // Variable Registry - Blocks
   getAllVariableBlocks(): Promise<VariableBlock[]>;
@@ -4861,6 +4867,27 @@ export class DatabaseStorage implements IStorage {
   async createContractAuditLog(data: InsertContractAuditLog): Promise<ContractAuditLog> {
     const [log] = await db.insert(contractAuditLog).values(data).returning();
     return log;
+  }
+
+  // Contract Audit Share Tokens
+  async createAuditShareToken(data: InsertContractAuditShareToken): Promise<ContractAuditShareToken> {
+    const [token] = await db.insert(contractAuditShareTokens).values(data).returning();
+    return token;
+  }
+
+  async getAuditShareTokenByToken(token: string): Promise<ContractAuditShareToken | undefined> {
+    const [result] = await db.select().from(contractAuditShareTokens)
+      .where(and(eq(contractAuditShareTokens.token, token), eq(contractAuditShareTokens.isActive, true)));
+    return result;
+  }
+
+  async incrementAuditShareTokenAccess(token: string): Promise<void> {
+    await db.update(contractAuditShareTokens)
+      .set({ 
+        accessCount: sql`${contractAuditShareTokens.accessCount} + 1`,
+        lastAccessedAt: new Date()
+      })
+      .where(eq(contractAuditShareTokens.token, token));
   }
 
   // Variable Registry - Blocks

@@ -21371,7 +21371,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
     }
   });
 
-  // Export contract audit log via email
+  // Send contract audit timeline link via email
   app.post("/api/contracts/:id/export-audit", requireAuth, async (req, res) => {
     try {
       const { email } = req.body;
@@ -21383,32 +21383,61 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       if (!contract) {
         return res.status(404).json({ error: "Contract not found" });
       }
+
+      const crypto = await import("crypto");
+      const token = crypto.randomBytes(32).toString("hex");
       
-      const auditLog = await storage.getContractAuditLog(req.params.id);
-      const participants = await storage.getContractParticipants(req.params.id);
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 30);
       
-      let htmlContent = `<h2>Audit Log - ${contract.contractNumber}</h2>`;
-      htmlContent += `<p><strong>Contract:</strong> ${contract.contractNumber}</p>`;
-      htmlContent += `<p><strong>Status:</strong> ${contract.status}</p>`;
-      htmlContent += `<p><strong>Created:</strong> ${contract.createdAt ? new Date(contract.createdAt).toLocaleString() : "-"}</p>`;
-      htmlContent += `<hr/>`;
-      
-      htmlContent += `<h3>Participants</h3><table border="1" cellpadding="5" cellspacing="0">`;
-      htmlContent += `<tr><th>Name</th><th>Type</th><th>Email</th><th>Phone</th><th>Signed</th></tr>`;
-      for (const p of participants) {
-        htmlContent += `<tr><td>${p.fullName}</td><td>${p.participantType}</td><td>${p.email || "-"}</td><td>${p.phone || "-"}</td><td>${p.signedAt ? new Date(p.signedAt).toLocaleString() : "-"}</td></tr>`;
+      await storage.createAuditShareToken({
+        contractId: req.params.id,
+        token,
+        email,
+        createdById: req.session.user!.id,
+        createdByName: req.session.user!.fullName,
+        expiresAt,
+        isActive: true,
+      });
+
+      const host = req.headers.host || req.hostname;
+      const protocol = req.headers["x-forwarded-proto"] || "https";
+      const timelineUrl = `${protocol}://${host}/audit-timeline/${token}`;
+
+      try {
+        const ms365Session = (req.session as any)?.ms365;
+        if (ms365Session?.accessToken) {
+          const { sendEmail: ms365SendEmail } = await import("./lib/ms365");
+          const decryptTokenSafe = (t: string) => {
+            try {
+              const { decryptToken } = require("./lib/ms365");
+              return decryptToken(t);
+            } catch { return t; }
+          };
+          const accessToken = decryptTokenSafe(ms365Session.accessToken);
+          
+          const emailHtml = `
+            <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f8f9fa; padding: 20px;">
+              <div style="background: #6B1C3B; padding: 24px; border-radius: 12px 12px 0 0; text-align: center;">
+                <h1 style="color: white; margin: 0; font-size: 22px;">INDEXUS</h1>
+                <p style="color: rgba(255,255,255,0.8); margin: 4px 0 0; font-size: 14px;">Contract Audit Timeline</p>
+              </div>
+              <div style="background: white; padding: 24px; border-radius: 0 0 12px 12px; border: 1px solid #e5e7eb; border-top: 0;">
+                <p style="color: #374151; font-size: 15px;">A detailed timeline of all actions related to your contract <strong>${contract.contractNumber}</strong> is available for review.</p>
+                <p style="color: #6b7280; font-size: 14px;">Click the button below to view the complete audit trail, including contract creation, signatures, and all status changes.</p>
+                <div style="text-align: center; margin: 24px 0;">
+                  <a href="${timelineUrl}" style="display: inline-block; background: #6B1C3B; color: white; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">View Audit Timeline</a>
+                </div>
+                <p style="color: #9ca3af; font-size: 12px; text-align: center;">This link expires in 30 days.</p>
+              </div>
+            </div>`;
+
+          await ms365SendEmail(accessToken, [email], `Contract Audit Timeline - ${contract.contractNumber}`, emailHtml, true);
+        }
+      } catch (emailErr) {
+        console.error("Failed to send audit email via MS365:", emailErr);
       }
-      htmlContent += `</table>`;
-      
-      htmlContent += `<h3>Events</h3><table border="1" cellpadding="5" cellspacing="0">`;
-      htmlContent += `<tr><th>Date</th><th>Action</th><th>Actor</th><th>IP</th><th>Details</th></tr>`;
-      for (const entry of auditLog) {
-        let details = "";
-        try { details = entry.details ? JSON.stringify(JSON.parse(entry.details), null, 0) : ""; } catch { details = entry.details || ""; }
-        htmlContent += `<tr><td>${entry.createdAt ? new Date(entry.createdAt).toLocaleString() : "-"}</td><td>${entry.action}</td><td>${entry.actorName || entry.actorEmail || entry.actorType}</td><td>${entry.ipAddress || "-"}</td><td>${details}</td></tr>`;
-      }
-      htmlContent += `</table>`;
-      
+
       await storage.createContractAuditLog({
         contractId: req.params.id,
         action: "audit_exported",
@@ -21418,13 +21447,62 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         actorEmail: req.session.user!.email,
         ipAddress: req.ip,
         userAgent: req.headers["user-agent"] || null,
-        details: JSON.stringify({ exportedTo: email })
+        details: JSON.stringify({ exportedTo: email, timelineUrl })
       });
       
-      res.json({ success: true, message: "Audit log export prepared" });
+      res.json({ success: true, timelineUrl, message: "Audit timeline link sent" });
     } catch (error) {
       console.error("Error exporting contract audit log:", error);
       res.status(500).json({ error: "Failed to export audit log" });
+    }
+  });
+
+  // Public audit timeline API - no auth required, token-based access
+  app.get("/api/public/audit-timeline/:token", async (req, res) => {
+    try {
+      const shareToken = await storage.getAuditShareTokenByToken(req.params.token);
+      if (!shareToken) {
+        return res.status(404).json({ error: "Timeline not found or expired" });
+      }
+      if (shareToken.expiresAt && new Date(shareToken.expiresAt) < new Date()) {
+        return res.status(410).json({ error: "This timeline link has expired" });
+      }
+
+      await storage.incrementAuditShareTokenAccess(req.params.token);
+
+      const contract = await storage.getContractInstance(shareToken.contractId);
+      if (!contract) {
+        return res.status(404).json({ error: "Contract not found" });
+      }
+      const auditLog = await storage.getContractAuditLog(shareToken.contractId);
+      const participants = await storage.getContractParticipants(shareToken.contractId);
+
+      res.json({
+        contract: {
+          contractNumber: contract.contractNumber,
+          status: contract.status,
+          createdAt: contract.createdAt,
+          signedAt: contract.signedAt,
+          contactDate: contract.contactDate,
+        },
+        participants: participants.map(p => ({
+          fullName: p.fullName,
+          participantType: p.participantType,
+          role: p.role,
+          signedAt: p.signedAt,
+          signatureRequired: p.signatureRequired,
+        })),
+        events: auditLog.map(e => ({
+          action: e.action,
+          actorType: e.actorType,
+          actorName: e.actorName,
+          createdAt: e.createdAt,
+          details: e.details,
+        })).reverse(),
+      });
+    } catch (error) {
+      console.error("Error fetching public audit timeline:", error);
+      res.status(500).json({ error: "Failed to load timeline" });
     }
   });
 
