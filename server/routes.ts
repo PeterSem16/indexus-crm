@@ -20301,20 +20301,34 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
     signerName: string,
     signerEmail: string,
     otpCode: string,
-    userSession?: any
+    userSession?: any,
+    signingToken?: string | null
   ) {
     if (!signerEmail) {
       console.warn("[ContractOTP] No signer email provided, skipping OTP email");
       return false;
     }
     try {
+      const baseUrl = process.env.REPLIT_DEV_DOMAIN 
+        ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+        : process.env.REPL_SLUG 
+          ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
+          : 'https://indexus.replit.app';
+      const signingLink = signingToken ? `${baseUrl}/sign/${signingToken}` : null;
+      
       const emailSubject = `Zmluva č. ${contract.contractNumber} - Overovací kód`;
       const emailHtml = `
         <h2>Dobrý deň ${signerName},</h2>
         <p>Váš overovací kód pre zmluvu č. <strong>${contract.contractNumber}</strong> je:</p>
         <p style="font-size: 32px; font-weight: bold; text-align: center; padding: 20px; background: #f5f5f5; border-radius: 8px;">${otpCode}</p>
         <p>Kód je platný 24 hodín.</p>
-        <p>Pre podpísanie zmluvy prosím použite tento kód v systéme INDEXUS.</p>
+        ${signingLink ? `
+        <p>Pre podpísanie zmluvy kliknite na nasledujúci odkaz:</p>
+        <p style="text-align: center; padding: 15px;">
+          <a href="${signingLink}" style="display: inline-block; padding: 12px 30px; background-color: #6B1C3B; color: white; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold;">Podpísať zmluvu</a>
+        </p>
+        <p style="font-size: 12px; color: #666;">Alebo skopírujte tento odkaz do prehliadača: <a href="${signingLink}">${signingLink}</a></p>
+        ` : '<p>Pre podpísanie zmluvy prosím použite tento kód v systéme INDEXUS.</p>'}
         ${contract.pdfPath ? '<p><strong>V prílohe nájdete zmluvu na stiahnutie.</strong></p>' : ''}
         <br>
         <p>S pozdravom,<br>INDEXUS CRM</p>
@@ -20512,16 +20526,17 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
     signerPhone: string | null,
     otpCode: string,
     method: "email_otp" | "sms_otp",
-    userSession?: any
+    userSession?: any,
+    signingToken?: string | null
   ): Promise<boolean> {
     if (method === "sms_otp" && signerPhone) {
       return sendContractOtpSms(contract, signerName, signerPhone, otpCode);
     }
     if (method === "email_otp" && signerEmail) {
-      return sendContractOtpEmail(contract, signerName, signerEmail, otpCode, userSession);
+      return sendContractOtpEmail(contract, signerName, signerEmail, otpCode, userSession, signingToken);
     }
     if (signerEmail) {
-      return sendContractOtpEmail(contract, signerName, signerEmail, otpCode, userSession);
+      return sendContractOtpEmail(contract, signerName, signerEmail, otpCode, userSession, signingToken);
     }
     if (signerPhone) {
       return sendContractOtpSms(contract, signerName, signerPhone, otpCode);
@@ -20577,6 +20592,8 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
           : method === "email_otp" && signer.email ? "email_otp"
           : signer.email ? "email_otp" : "sms_otp";
         
+        const cryptoMod = await import("crypto");
+        const signingToken = cryptoMod.randomBytes(32).toString('hex');
         const signatureRequest = await storage.createContractSignatureRequest({
           contractId: contract.id,
           participantId: signer.id,
@@ -20586,6 +20603,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
           verificationMethod: actualMethod,
           otpCode,
           otpExpiresAt: expiresAt,
+          signingToken,
           status: "sent",
           requestSentAt: new Date(),
           expiresAt
@@ -20593,7 +20611,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         createdSignatureRequests.push(signatureRequest);
         
         try {
-          const sent = await sendOtpByMethod(contract, signer.fullName, signer.email, signer.phone, otpCode, actualMethod, req.session);
+          const sent = await sendOtpByMethod(contract, signer.fullName, signer.email, signer.phone, otpCode, actualMethod, req.session, signingToken);
           if (!sent) {
             console.error(`[ContractOTP] Failed to send OTP via ${actualMethod} to ${signer.fullName}`);
           }
@@ -20762,7 +20780,8 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         signatureRequest.signerPhone, 
         otpCode, 
         method,
-        req.session
+        req.session,
+        signatureRequest.signingToken
       );
 
       if (!sent) {

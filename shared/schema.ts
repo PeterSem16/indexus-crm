@@ -3555,6 +3555,8 @@ export const contractSignatureRequests = pgTable("contract_signature_requests", 
   signedAt: timestamp("signed_at"),
   signerIpAddress: text("signer_ip_address"),
   signerUserAgent: text("signer_user_agent"),
+  // Public signing link
+  signingToken: varchar("signing_token", { length: 64 }), // Unique token for public signing URL
   // Status
   status: varchar("status", { length: 20 }).notNull().default("pending"), // pending, sent, otp_verified, signed, expired, cancelled
   expiresAt: timestamp("expires_at"),

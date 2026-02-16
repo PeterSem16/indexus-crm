@@ -772,6 +772,7 @@ export interface IStorage {
   // Contract Signature Requests
   getContractSignatureRequests(contractId: string): Promise<ContractSignatureRequest[]>;
   getContractSignatureRequest(id: string): Promise<ContractSignatureRequest | undefined>;
+  getContractSignatureRequestByToken(signingToken: string): Promise<ContractSignatureRequest | undefined>;
   getSignatureRequestByOtp(contractId: string, otpCode: string): Promise<ContractSignatureRequest | undefined>;
   createContractSignatureRequest(data: InsertContractSignatureRequest): Promise<ContractSignatureRequest>;
   updateContractSignatureRequest(id: string, data: Partial<InsertContractSignatureRequest>): Promise<ContractSignatureRequest | undefined>;
@@ -4819,6 +4820,12 @@ export class DatabaseStorage implements IStorage {
 
   async getContractSignatureRequest(id: string): Promise<ContractSignatureRequest | undefined> {
     const [request] = await db.select().from(contractSignatureRequests).where(eq(contractSignatureRequests.id, id));
+    return request || undefined;
+  }
+
+  async getContractSignatureRequestByToken(signingToken: string): Promise<ContractSignatureRequest | undefined> {
+    const [request] = await db.select().from(contractSignatureRequests)
+      .where(eq(contractSignatureRequests.signingToken, signingToken));
     return request || undefined;
   }
 
