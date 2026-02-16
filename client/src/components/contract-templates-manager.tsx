@@ -340,6 +340,8 @@ export function ContractTemplatesManager() {
     { code: "US", name: "USA" },
   ];
 
+  useEffect(() => { setCurrentPage(1); }, [selectedCountry]);
+
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<ContractCategory | null>(null);
@@ -1171,7 +1173,12 @@ export function ContractTemplatesManager() {
 
           <Card>
             <CardContent className="p-0">
-              {filteredTemplates.length === 0 ? (
+              {templatesLoading ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
+                  {t.contractsModule.loading}
+                </div>
+              ) : filteredTemplates.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   {templates.length === 0
                     ? t.contractsModule.noTemplates
@@ -1201,14 +1208,7 @@ export function ContractTemplatesManager() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {templatesLoading ? (
-                        <TableRow>
-                          <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                            {t.contractsModule.loading}
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        paginatedTemplates.map(template => (
+                      {paginatedTemplates.map(template => (
                           <TableRow key={template.id} data-testid={`row-template-${template.id}`}>
                             <TableCell className="font-medium">{template.name}</TableCell>
                             <TableCell>
@@ -1250,8 +1250,7 @@ export function ContractTemplatesManager() {
                               </div>
                             </TableCell>
                           </TableRow>
-                        ))
-                      )}
+                        ))}
                     </TableBody>
                   </Table>
                   {totalPages > 1 && (
