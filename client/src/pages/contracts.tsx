@@ -525,9 +525,10 @@ export default function ContractsPage() {
   });
 
   useEffect(() => {
-    if (signatureRequests && signatureRequests.length > 0) {
+    if (signatureRequests && signatureRequests.length > 0 && !signatureForm.signatureRequestId) {
       const activeRequest = signatureRequests.find(r => r.status === "otp_verified") 
-        || signatureRequests.find(r => r.status === "sent");
+        || signatureRequests.find(r => r.status === "sent")
+        || signatureRequests.find(r => r.status !== "signed");
       if (activeRequest) {
         setSignatureForm(prev => ({ ...prev, signatureRequestId: activeRequest.id }));
         if (activeRequest.status === "otp_verified") {
@@ -535,7 +536,7 @@ export default function ContractsPage() {
         }
       }
     }
-  }, [signatureRequests]);
+  }, [signatureRequests, signatureForm.signatureRequestId]);
 
   const { data: templates = [], isLoading: templatesLoading } = useQuery<ContractTemplate[]>({
     queryKey: ["/api/contracts/templates", selectedCountry],
@@ -713,6 +714,19 @@ export default function ContractsPage() {
     },
     onError: () => {
       toast({ title: "Chyba", description: "Neplatný alebo expirovaný kód.", variant: "destructive" });
+    }
+  });
+
+  const resendOtpMutation = useMutation({
+    mutationFn: async ({ contractId, signatureRequestId }: { contractId: string; signatureRequestId: string }) => {
+      return apiRequest("POST", `/api/contracts/${contractId}/resend-otp`, { signatureRequestId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts", selectedContract?.id, "signature-requests"] });
+      toast({ title: "OTP odoslaný", description: "Nový overovací kód bol odoslaný na email klienta." });
+    },
+    onError: () => {
+      toast({ title: "Chyba", description: "Nepodarilo sa odoslať nový OTP kód.", variant: "destructive" });
     }
   });
 
@@ -1888,6 +1902,23 @@ export default function ContractsPage() {
                                   data-testid={`button-send-contract-${contract.id}`}
                                 >
                                   <Send className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {(contract.status === "sent" || contract.status === "pending_signature") && (
+                                <Button 
+                                  size="icon" 
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setSelectedContract(contract);
+                                    setOtpVerified(false);
+                                    setSignatureForm({ otpCode: "", signatureRequestId: "" });
+                                    setSignatureData("");
+                                    setIsSignatureModalOpen(true);
+                                  }}
+                                  title="Podpísať zmluvu"
+                                  data-testid={`button-sign-contract-${contract.id}`}
+                                >
+                                  <FileSignature className="h-4 w-4" />
                                 </Button>
                               )}
                               {(contract.status === "draft" || contract.status === "sent") && (
@@ -3524,7 +3555,7 @@ export default function ContractsPage() {
           setSignatureData("");
         }
       }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Elektronický podpis zmluvy</DialogTitle>
             <DialogDescription>
@@ -3534,58 +3565,138 @@ export default function ContractsPage() {
 
           {selectedContract && (
             <div className="space-y-4">
-              {!otpVerified ? (
+              {signatureRequests === undefined ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  <span className="ml-2 text-muted-foreground">Načítavam podpisové požiadavky...</span>
+                </div>
+              ) : signatureRequests.length === 0 ? (
                 <div className="space-y-4">
                   <div className="p-4 bg-muted rounded-md">
                     <div className="flex items-center gap-2 mb-2">
-                      <Shield className="h-5 w-5 text-primary" />
-                      <span className="font-medium">Overenie identity</span>
+                      <AlertCircle className="h-5 w-5 text-destructive" />
+                      <span className="font-medium">Žiadne podpisové požiadavky</span>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      Na email/telefón klienta bol odoslaný 6-miestny overovací kód. 
-                      Zadajte ho pre pokračovanie v podpise.
+                      Pre túto zmluvu neboli vytvorené žiadne podpisové požiadavky. 
+                      Najprv pridajte podpisovateľov a odošlite zmluvu na podpis.
                     </p>
                   </div>
-
+                </div>
+              ) : !otpVerified ? (
+                <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="otpCode">Overovací kód (OTP)</Label>
-                    <Input
-                      id="otpCode"
-                      placeholder="123456"
-                      maxLength={6}
-                      value={signatureForm.otpCode}
-                      onChange={(e) => setSignatureForm({
-                        ...signatureForm,
-                        otpCode: e.target.value.replace(/\D/g, "").slice(0, 6)
-                      })}
-                      className="text-center text-2xl tracking-widest"
-                      data-testid="input-otp-code"
-                    />
+                    <Label className="text-sm font-medium">Podpisovatelia</Label>
+                    {signatureRequests.map((sr) => (
+                      <div 
+                        key={sr.id}
+                        className={`p-3 border rounded-md cursor-pointer transition-colors ${
+                          signatureForm.signatureRequestId === sr.id 
+                            ? "border-primary bg-primary/5" 
+                            : "hover-elevate"
+                        } ${sr.status === "signed" ? "opacity-50" : ""}`}
+                        onClick={() => {
+                          if (sr.status === "signed") return;
+                          if (sr.status === "otp_verified") {
+                            setSignatureForm(prev => ({ ...prev, signatureRequestId: sr.id, otpCode: "" }));
+                            setOtpVerified(true);
+                          } else {
+                            setSignatureForm(prev => ({ ...prev, signatureRequestId: sr.id, otpCode: "" }));
+                            setOtpVerified(false);
+                          }
+                        }}
+                        data-testid={`signer-${sr.id}`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <div className="font-medium text-sm">{sr.signerName}</div>
+                            <div className="text-xs text-muted-foreground">{sr.signerEmail || "Bez emailu"}</div>
+                          </div>
+                          <Badge variant={
+                            sr.status === "signed" ? "default" : 
+                            sr.status === "otp_verified" ? "default" : 
+                            "secondary"
+                          } className="text-xs">
+                            {sr.status === "signed" ? "Podpísané" : 
+                             sr.status === "otp_verified" ? "OTP overené" : 
+                             "Čaká na OTP"}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
                   </div>
 
-                  <Button
-                    className="w-full"
-                    disabled={signatureForm.otpCode.length !== 6 || verifyOtpMutation.isPending || !signatureForm.signatureRequestId}
-                    onClick={() => {
-                      if (!signatureForm.signatureRequestId) {
-                        toast({ title: "Chyba", description: "Nebola nájdená žiadosť o podpis.", variant: "destructive" });
-                        return;
-                      }
-                      verifyOtpMutation.mutate({
-                        contractId: selectedContract.id,
-                        otpCode: signatureForm.otpCode,
-                        signatureRequestId: signatureForm.signatureRequestId
-                      });
-                    }}
-                    data-testid="button-verify-otp"
-                  >
-                    {verifyOtpMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                    )}
-                    Overiť kód
-                  </Button>
+                  {signatureForm.signatureRequestId && (
+                    <>
+                      <Separator />
+                      <div className="p-4 bg-muted rounded-md">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Shield className="h-5 w-5 text-primary" />
+                          <span className="font-medium">Overenie identity</span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Na email/telefón klienta bol odoslaný 6-miestny overovací kód. 
+                          Zadajte ho pre pokračovanie v podpise.
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="otpCode">Overovací kód (OTP)</Label>
+                        <Input
+                          id="otpCode"
+                          placeholder="123456"
+                          maxLength={6}
+                          value={signatureForm.otpCode}
+                          onChange={(e) => setSignatureForm({
+                            ...signatureForm,
+                            otpCode: e.target.value.replace(/\D/g, "").slice(0, 6)
+                          })}
+                          className="text-center text-2xl tracking-widest"
+                          data-testid="input-otp-code"
+                        />
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button
+                          className="flex-1"
+                          disabled={signatureForm.otpCode.length !== 6 || verifyOtpMutation.isPending}
+                          onClick={() => {
+                            verifyOtpMutation.mutate({
+                              contractId: selectedContract.id,
+                              otpCode: signatureForm.otpCode,
+                              signatureRequestId: signatureForm.signatureRequestId
+                            });
+                          }}
+                          data-testid="button-verify-otp"
+                        >
+                          {verifyOtpMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                          )}
+                          Overiť kód
+                        </Button>
+                        <Button
+                          variant="outline"
+                          disabled={resendOtpMutation.isPending}
+                          onClick={() => {
+                            resendOtpMutation.mutate({
+                              contractId: selectedContract.id,
+                              signatureRequestId: signatureForm.signatureRequestId
+                            });
+                          }}
+                          data-testid="button-resend-otp"
+                        >
+                          {resendOtpMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                          )}
+                          Znova odoslať
+                        </Button>
+                      </div>
+                    </>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-4">

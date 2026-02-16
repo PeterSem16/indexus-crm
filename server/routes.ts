@@ -20347,6 +20347,85 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
     }
   });
 
+  // Resend OTP for signature request
+  app.post("/api/contracts/:id/resend-otp", requireAuth, async (req, res) => {
+    try {
+      const { signatureRequestId } = req.body;
+      const contract = await storage.getContractInstance(req.params.id);
+      if (!contract) {
+        return res.status(404).json({ error: "Contract not found" });
+      }
+
+      let signatureRequest;
+      if (signatureRequestId) {
+        signatureRequest = await storage.getContractSignatureRequest(signatureRequestId);
+      } else {
+        const requests = await storage.getContractSignatureRequests(req.params.id);
+        signatureRequest = requests.find(r => r.status === "sent" || r.status === "expired");
+      }
+
+      if (!signatureRequest) {
+        return res.status(404).json({ error: "Signature request not found" });
+      }
+
+      if (signatureRequest.contractId !== req.params.id) {
+        return res.status(403).json({ error: "Signature request does not belong to this contract" });
+      }
+
+      const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+      await storage.updateContractSignatureRequest(signatureRequest.id, {
+        otpCode,
+        otpExpiresAt: expiresAt,
+        otpAttempts: 0,
+        status: "sent",
+        requestSentAt: new Date()
+      });
+
+      if (signatureRequest.signerEmail) {
+        try {
+          const { sendEmail } = await import("./email");
+          await sendEmail({
+            to: signatureRequest.signerEmail,
+            subject: `Zmluva č. ${contract.contractNumber} - Nový overovací kód`,
+            html: `
+              <h2>Dobrý deň ${signatureRequest.signerName},</h2>
+              <p>Váš nový overovací kód pre zmluvu č. <strong>${contract.contractNumber}</strong> je:</p>
+              <p style="font-size: 32px; font-weight: bold; text-align: center; padding: 20px;">${otpCode}</p>
+              <p>Kód je platný 24 hodín.</p>
+              <br>
+              <p>S pozdravom,<br>INDEXUS CRM</p>
+            `
+          });
+        } catch (emailError) {
+          console.error("Error sending OTP email:", emailError);
+        }
+      }
+
+      await storage.createContractAuditLog({
+        contractId: contract.id,
+        action: "otp_resent",
+        actorId: req.session.user!.id,
+        actorType: "user",
+        actorName: req.session.user!.fullName,
+        actorEmail: req.session.user!.email,
+        ipAddress: req.ip,
+        details: JSON.stringify({ signatureRequestId: signatureRequest.id })
+      });
+
+      res.json({ 
+        success: true, 
+        signatureRequestId: signatureRequest.id,
+        signerName: signatureRequest.signerName,
+        signerEmail: signatureRequest.signerEmail
+      });
+    } catch (error) {
+      console.error("Error resending OTP:", error);
+      res.status(500).json({ error: "Failed to resend OTP" });
+    }
+  });
+
   // Submit signature
   app.post("/api/contracts/:id/sign", async (req, res) => {
     try {
