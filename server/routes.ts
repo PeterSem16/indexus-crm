@@ -20369,16 +20369,20 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         if (systemConnection && systemConnection.isConnected) {
           try {
             const { getValidAccessToken, sendEmail: sendMs365Email } = await import("./lib/ms365");
+            const { decryptTokenSafe } = await import("./lib/token-crypto");
+            const decryptedAccessToken = systemConnection.accessToken ? decryptTokenSafe(systemConnection.accessToken) : null;
+            const decryptedRefreshToken = systemConnection.refreshToken ? decryptTokenSafe(systemConnection.refreshToken) : null;
             const tokenResult = await getValidAccessToken(
-              systemConnection.accessToken,
+              decryptedAccessToken,
               systemConnection.tokenExpiresAt,
-              systemConnection.refreshToken
+              decryptedRefreshToken
             );
             if (tokenResult) {
               if (tokenResult.refreshed) {
+                const { encryptTokenWithMarker } = await import("./lib/token-crypto");
                 await storage.updateSystemMs365Connection(countryCode, {
-                  accessToken: tokenResult.accessToken,
-                  refreshToken: tokenResult.refreshToken || systemConnection.refreshToken,
+                  accessToken: encryptTokenWithMarker(tokenResult.accessToken),
+                  refreshToken: tokenResult.refreshToken ? encryptTokenWithMarker(tokenResult.refreshToken) : systemConnection.refreshToken,
                   tokenExpiresAt: tokenResult.expiresOn
                 });
               }
