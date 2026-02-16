@@ -1815,7 +1815,6 @@ export default function ContractsPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Číslo zmluvy</TableHead>
-                      <TableHead>Legacy ID</TableHead>
                       <TableHead>Klient</TableHead>
                       <TableHead>Stav</TableHead>
                       <TableHead>Dátum kontaktu</TableHead>
@@ -1829,13 +1828,13 @@ export default function ContractsPage() {
                   <TableBody>
                     {contractsLoading ? (
                       <TableRow>
-                        <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                           Načítavam...
                         </TableCell>
                       </TableRow>
                     ) : filteredContracts.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                           Žiadne zmluvy
                         </TableCell>
                       </TableRow>
@@ -1846,9 +1845,6 @@ export default function ContractsPage() {
                             <Link href={`/contracts/${contract.id}`} className="text-primary hover:underline" data-testid={`link-contract-${contract.id}`}>
                               {contract.contractNumber}
                             </Link>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground text-xs font-mono">
-                            {contract.internalId || "-"}
                           </TableCell>
                           <TableCell>{getCustomerName(contract.customerId)}</TableCell>
                           <TableCell>{getStatusBadge(contract.status)}</TableCell>
