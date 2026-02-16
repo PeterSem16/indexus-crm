@@ -20421,11 +20421,12 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       }
 
       // 3. Fallback - no email method available
-      console.error("[ContractOTP] All email methods failed. No MS365 system/user session available.");
-      return false;
+      const errMsg = `Systémové pripojenie MS365${countryCode ? ` pre ${countryCode}` : ''} je neaktívne. Prosím obnovte pripojenie v nastaveniach alebo sa prihláste cez MS365.`;
+      console.error("[ContractOTP]", errMsg);
+      throw new Error(errMsg);
     } catch (error) {
       console.error("[ContractOTP] Failed to send OTP email:", error);
-      return false;
+      throw error;
     }
   }
 
@@ -20567,9 +20568,13 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         });
         createdSignatureRequests.push(signatureRequest);
         
-        const sent = await sendOtpByMethod(contract, signer.fullName, signer.email, signer.phone, otpCode, actualMethod, req.session);
-        if (!sent) {
-          console.error(`[ContractOTP] Failed to send OTP via ${actualMethod} to ${signer.fullName}`);
+        try {
+          const sent = await sendOtpByMethod(contract, signer.fullName, signer.email, signer.phone, otpCode, actualMethod, req.session);
+          if (!sent) {
+            console.error(`[ContractOTP] Failed to send OTP via ${actualMethod} to ${signer.fullName}`);
+          }
+        } catch (sendErr) {
+          console.error(`[ContractOTP] Failed to send OTP via ${actualMethod} to ${signer.fullName}:`, (sendErr as Error).message);
         }
       }
       
@@ -20771,7 +20776,8 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       });
     } catch (error) {
       console.error("Error resending OTP:", error);
-      res.status(500).json({ error: "Failed to resend OTP" });
+      const errorMessage = (error as Error).message || "Failed to resend OTP";
+      res.status(500).json({ error: errorMessage });
     }
   });
 

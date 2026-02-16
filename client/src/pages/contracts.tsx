@@ -747,8 +747,8 @@ export default function ContractsPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/contracts", selectedContract?.id, "signature-requests"] });
       toast({ title: t.contractsModule.otpResent, description: t.contractsModule.otpResentMessage });
     },
-    onError: () => {
-      toast({ title: t.contractsModule.saveError, variant: "destructive" });
+    onError: (error: Error) => {
+      toast({ title: t.contractsModule.otpSendFailed || "Nepodarilo sa odoslať kód", description: error.message, variant: "destructive" });
     }
   });
 
@@ -3305,6 +3305,32 @@ export default function ContractsPage() {
               </div>
               
               <Separator />
+
+              {selectedContract.pdfPath && (
+                <div className="flex items-center justify-between gap-2 p-3 bg-muted rounded-md">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <FileText className="h-5 w-5 text-primary shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">{t.contractsModule.pdfContract || "PDF zmluva"}</p>
+                      {(selectedContract as any).pdfGeneratedAt && (
+                        <p className="text-xs text-muted-foreground truncate">
+                          {new Date((selectedContract as any).pdfGeneratedAt).toLocaleString()}
+                          {(selectedContract as any).pdfFileSize && ` (${Math.round((selectedContract as any).pdfFileSize / 1024)} KB)`}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(`/api/contracts/${selectedContract.id}/pdf`, "_blank")}
+                    data-testid="button-download-contract-pdf"
+                  >
+                    <Download className="h-4 w-4 mr-1" />
+                    {t.contractsModule.downloadPdf || "Stiahnuť"}
+                  </Button>
+                </div>
+              )}
 
               {selectedContract.status === "draft" && (
                 <div className="space-y-3">
