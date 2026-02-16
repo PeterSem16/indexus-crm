@@ -39,6 +39,7 @@ import CampaignsPage from "@/pages/campaigns";
 import CampaignDetailPage from "@/pages/campaign-detail";
 import TasksPage from "@/pages/tasks";
 import ContractsPage from "@/pages/contracts";
+import ContractDetailPage from "@/pages/contract-detail";
 import TemplateEditorPage from "@/pages/template-editor";
 import PipelinePage from "@/pages/pipeline";
 import MS365IntegrationPage from "@/pages/ms365-integration";
@@ -191,6 +192,7 @@ function AuthenticatedApp() {
                     <Route path="/contracts/editor/:categoryId/:countryCode">
                       {(params) => <TemplateEditorPage categoryId={params.categoryId} countryCode={params.countryCode} />}
                     </Route>
+                    <Route path="/contracts/:id" component={ContractDetailPage} />
                     <Route path="/contracts" component={ContractsPage} />
                     <Route path="/customer-invoices" component={CustomerInvoicesPage} />
                     <Route path="/settings" component={SettingsPage} />

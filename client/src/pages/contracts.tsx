@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useSearch } from "wouter";
+import { useSearch, Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -58,10 +58,16 @@ type TemplateSubTab = "list" | "categories";
 
 const CONTRACT_STATUSES: Record<string, { label: string; variant: "secondary" | "default" | "destructive"; icon: typeof FileText }> = {
   draft: { label: "Koncept", variant: "secondary" as const, icon: FileText },
+  created: { label: "Vytvorená", variant: "secondary" as const, icon: FileText },
   sent: { label: "Odoslaná", variant: "default" as const, icon: Send },
+  received: { label: "Prijatá", variant: "default" as const, icon: Check },
+  returned: { label: "Vrátená", variant: "default" as const, icon: Check },
   pending_signature: { label: "Čaká na podpis", variant: "default" as const, icon: Clock },
+  verified: { label: "Overená", variant: "default" as const, icon: CheckCircle },
   signed: { label: "Podpísaná", variant: "default" as const, icon: Check },
+  executed: { label: "Vykonaná", variant: "default" as const, icon: Check },
   completed: { label: "Dokončená", variant: "default" as const, icon: Check },
+  terminated: { label: "Ukončená", variant: "destructive" as const, icon: X },
   cancelled: { label: "Zrušená", variant: "destructive" as const, icon: X },
   expired: { label: "Expirovaná", variant: "secondary" as const, icon: AlertCircle }
 };
@@ -1774,10 +1780,16 @@ export default function ContractsPage() {
                 <SelectContent>
                   <SelectItem value="all">Všetky stavy</SelectItem>
                   <SelectItem value="draft">Koncept</SelectItem>
+                  <SelectItem value="created">Vytvorená</SelectItem>
                   <SelectItem value="sent">Odoslaná</SelectItem>
+                  <SelectItem value="received">Prijatá</SelectItem>
+                  <SelectItem value="returned">Vrátená</SelectItem>
                   <SelectItem value="pending_signature">Čaká na podpis</SelectItem>
+                  <SelectItem value="verified">Overená</SelectItem>
                   <SelectItem value="signed">Podpísaná</SelectItem>
+                  <SelectItem value="executed">Vykonaná</SelectItem>
                   <SelectItem value="completed">Dokončená</SelectItem>
+                  <SelectItem value="terminated">Ukončená</SelectItem>
                   <SelectItem value="cancelled">Zrušená</SelectItem>
                   <SelectItem value="expired">Expirovaná</SelectItem>
                 </SelectContent>
@@ -1803,57 +1815,75 @@ export default function ContractsPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Číslo zmluvy</TableHead>
+                      <TableHead>Legacy ID</TableHead>
                       <TableHead>Klient</TableHead>
                       <TableHead>Stav</TableHead>
-                      <TableHead>Dôvod zrušenia</TableHead>
+                      <TableHead>Dátum kontaktu</TableHead>
                       <TableHead>Vytvorená</TableHead>
+                      <TableHead>Odoslaná</TableHead>
+                      <TableHead>Overená</TableHead>
+                      <TableHead>Dôvod ukončenia</TableHead>
                       <TableHead className="text-right">Akcie</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {contractsLoading ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                           Načítavam...
                         </TableCell>
                       </TableRow>
                     ) : filteredContracts.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                           Žiadne zmluvy
                         </TableCell>
                       </TableRow>
                     ) : (
                       filteredContracts.map(contract => (
                         <TableRow key={contract.id} data-testid={`row-contract-${contract.id}`}>
-                          <TableCell className="font-medium">{contract.contractNumber}</TableCell>
+                          <TableCell className="font-medium">
+                            <Link href={`/contracts/${contract.id}`} className="text-primary hover:underline" data-testid={`link-contract-${contract.id}`}>
+                              {contract.contractNumber}
+                            </Link>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-xs font-mono">
+                            {contract.internalId || "-"}
+                          </TableCell>
                           <TableCell>{getCustomerName(contract.customerId)}</TableCell>
                           <TableCell>{getStatusBadge(contract.status)}</TableCell>
+                          <TableCell className="text-sm">
+                            {contract.contactDate ? format(new Date(contract.contactDate), "d.M.yyyy", { locale: sk }) : "-"}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {contract.createdAt && format(new Date(contract.createdAt), "d.M.yyyy", { locale: sk })}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {contract.sentContractDate ? format(new Date(contract.sentContractDate), "d.M.yyyy", { locale: sk }) : "-"}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {contract.verifiedDate ? format(new Date(contract.verifiedDate), "d.M.yyyy", { locale: sk }) : "-"}
+                          </TableCell>
                           <TableCell className="max-w-[200px]">
-                            {contract.status === "cancelled" && contract.cancellationReason ? (
-                              <span className="text-sm text-destructive truncate block" title={contract.cancellationReason}>
-                                {contract.cancellationReason}
+                            {(contract.status === "cancelled" && contract.cancellationReason) || contract.terminationReason ? (
+                              <span className="text-sm text-destructive truncate block" title={contract.cancellationReason || contract.terminationReason || ""}>
+                                {contract.cancellationReason || contract.terminationReason}
                               </span>
                             ) : (
                               <span className="text-muted-foreground">-</span>
                             )}
                           </TableCell>
-                          <TableCell>
-                            {contract.createdAt && format(new Date(contract.createdAt), "d.M.yyyy", { locale: sk })}
-                          </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-1">
-                              <Button 
-                                size="icon" 
-                                variant="ghost"
-                                onClick={() => {
-                                  setSelectedContract(contract);
-                                  setIsPreviewOpen(true);
-                                }}
-                                data-testid={`button-preview-contract-${contract.id}`}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
+                              <Link href={`/contracts/${contract.id}`}>
+                                <Button 
+                                  size="icon" 
+                                  variant="ghost"
+                                  data-testid={`button-detail-contract-${contract.id}`}
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              </Link>
                               {contract.status === "draft" && (
                                 <Button 
                                   size="icon" 

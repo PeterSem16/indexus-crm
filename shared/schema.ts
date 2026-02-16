@@ -3418,6 +3418,46 @@ export const contractInstances = pgTable("contract_instances", {
   selectedProductId: varchar("selected_product_id", { length: 50 }), // e.g., standard, premium, premium_tissue
   // Notes
   internalNotes: text("internal_notes"),
+  // Legacy
+  internalId: varchar("internal_id", { length: 100 }),
+  // Lifecycle dates
+  contactDate: timestamp("contact_date"),
+  filledDate: timestamp("filled_date"),
+  createdContractDate: timestamp("created_contract_date"),
+  sentContractDate: timestamp("sent_contract_date"),
+  receivedByClientDate: timestamp("received_by_client_date"),
+  returnedDate: timestamp("returned_date"),
+  verifiedDate: timestamp("verified_date"),
+  executedDate: timestamp("executed_date"),
+  terminatedDate: timestamp("terminated_date"),
+  terminationReason: text("termination_reason"),
+  // Medical
+  ambulantDoctor: text("ambulant_doctor"),
+  expectedDeliveryDate: date("expected_delivery_date"),
+  hospitalId: integer("hospital_id"),
+  obstetrician: text("obstetrician"),
+  multiplePregnancy: boolean("multiple_pregnancy").default(false),
+  // Sales & Marketing
+  salesChannel: varchar("sales_channel", { length: 100 }),
+  infoSource: varchar("info_source", { length: 100 }),
+  selectionReason: text("selection_reason"),
+  marketingAction: text("marketing_action"),
+  marketingCode: varchar("marketing_code", { length: 100 }),
+  // Refinancing
+  refinancing: text("refinancing"),
+  refinancingId: varchar("refinancing_id", { length: 100 }),
+  // Gift & Collection kit
+  giftVoucher: text("gift_voucher"),
+  collectionKit: text("collection_kit"),
+  collectionKitSentDate: timestamp("collection_kit_sent_date"),
+  // Client
+  clientNote: text("client_note"),
+  representativeId: varchar("representative_id"),
+  indicatedContract: boolean("indicated_contract").default(false),
+  // Product references
+  initialProductId: varchar("initial_product_id"),
+  recruitedToProductId: varchar("recruited_to_product_id"),
+  recruitedDate: timestamp("recruited_date"),
   // Audit
   createdBy: varchar("created_by"),
   sentAt: timestamp("sent_at"),
