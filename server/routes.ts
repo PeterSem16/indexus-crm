@@ -20344,21 +20344,28 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       
       if (contract.templateId) {
         const template = await storage.getContractTemplate(contract.templateId);
+        console.log(`[ContractOTP] Template lookup for templateId=${contract.templateId}: found=${!!template}, countryCode=${template?.countryCode}`);
         countryCode = template?.countryCode;
       }
       
       if (!countryCode && contract.customerId) {
         try {
           const customer = await storage.getCustomer(contract.customerId);
+          console.log(`[ContractOTP] Customer lookup for customerId=${contract.customerId}: found=${!!customer}, country=${customer?.country}`);
           countryCode = customer?.country || null;
         } catch (e) {
           console.warn(`[ContractOTP] Failed to get customer for country lookup`);
         }
       }
 
+      console.log(`[ContractOTP] Resolved countryCode=${countryCode} for contract ${contract.contractNumber}`);
+
+      const errors: string[] = [];
+
       // 1. Try system MS365 connection for this country
       if (countryCode) {
         const systemConnection = await storage.getSystemMs365Connection(countryCode);
+        console.log(`[ContractOTP] System MS365 for ${countryCode}: found=${!!systemConnection}, isConnected=${systemConnection?.isConnected}, tokenExpires=${systemConnection?.tokenExpiresAt}`);
         if (systemConnection && systemConnection.isConnected) {
           try {
             const { getValidAccessToken, sendEmail: sendMs365Email } = await import("./lib/ms365");
@@ -20375,6 +20382,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
                   tokenExpiresAt: tokenResult.expiresOn
                 });
               }
+              console.log(`[ContractOTP] Got valid token, sending email to ${signerEmail}...`);
               await sendMs365Email(
                 tokenResult.accessToken,
                 [signerEmail],
@@ -20387,14 +20395,24 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
               console.log(`[ContractOTP] Sent OTP email via MS365 system (${systemConnection.email}) to ${signerEmail}`);
               return true;
             } else {
-              console.warn(`[ContractOTP] System MS365 token expired and refresh failed for ${countryCode}`);
+              const msg = `System MS365 token pre ${countryCode} expiroval a refresh zlyhal`;
+              console.warn(`[ContractOTP] ${msg}`);
+              errors.push(msg);
             }
           } catch (ms365Error) {
-            console.error(`[ContractOTP] MS365 system email failed for ${countryCode}:`, ms365Error);
+            const msg = `MS365 system email pre ${countryCode} zlyhal: ${(ms365Error as Error).message}`;
+            console.error(`[ContractOTP] ${msg}`);
+            errors.push(msg);
           }
         } else {
-          console.warn(`[ContractOTP] No system MS365 connection for country ${countryCode}`);
+          const msg = systemConnection 
+            ? `Systémové MS365 pre ${countryCode} je odpojené` 
+            : `Žiadne systémové MS365 pripojenie pre ${countryCode}`;
+          console.warn(`[ContractOTP] ${msg}`);
+          errors.push(msg);
         }
+      } else {
+        errors.push("Nepodarilo sa zistiť krajinu zmluvy");
       }
 
       // 2. Try user's MS365 session
@@ -20414,14 +20432,16 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
           console.log(`[ContractOTP] Sent OTP email via user MS365 session to ${signerEmail}`);
           return true;
         } catch (userMs365Error) {
-          console.error("[ContractOTP] User MS365 session email failed:", userMs365Error);
+          const msg = `Používateľský MS365 email zlyhal: ${(userMs365Error as Error).message}`;
+          console.error(`[ContractOTP] ${msg}`);
+          errors.push(msg);
         }
       } else {
-        console.warn("[ContractOTP] No user MS365 session available");
+        errors.push("Nie ste prihlásený cez MS365");
       }
 
-      // 3. Fallback - no email method available
-      const errMsg = `Systémové pripojenie MS365${countryCode ? ` pre ${countryCode}` : ''} je neaktívne. Prosím obnovte pripojenie v nastaveniach alebo sa prihláste cez MS365.`;
+      // 3. Fallback - all methods failed
+      const errMsg = `Nepodarilo sa odoslať OTP email. ${errors.join('. ')}`;
       console.error("[ContractOTP]", errMsg);
       throw new Error(errMsg);
     } catch (error) {
