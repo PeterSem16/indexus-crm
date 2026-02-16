@@ -20300,25 +20300,127 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
     }
   }
 
+  async function sendContractOtpSms(
+    contract: { contractNumber: string; templateId: string | null; customerId?: string | null },
+    signerName: string,
+    signerPhone: string,
+    otpCode: string
+  ) {
+    if (!signerPhone) {
+      console.warn("[ContractOTP] No signer phone provided, skipping OTP SMS");
+      return false;
+    }
+    try {
+      let countryCode: string | null | undefined = null;
+      if (contract.templateId) {
+        const template = await storage.getContractTemplate(contract.templateId);
+        countryCode = template?.countryCode;
+      }
+      if (!countryCode && contract.customerId) {
+        try {
+          const customer = await storage.getCustomer(contract.customerId);
+          countryCode = customer?.country || null;
+        } catch (e) {
+          console.warn(`[ContractOTP] Failed to get customer for country lookup`);
+        }
+      }
+
+      const { sendTransactionalSms, isBulkGateConfigured } = await import("./lib/bulkgate");
+      if (isBulkGateConfigured()) {
+        const result = await sendTransactionalSms({
+          number: signerPhone,
+          text: `INDEXUS: Vas overovaci kod pre zmluvu ${contract.contractNumber} je: ${otpCode}. Kod je platny 24 hodin.`,
+          country: countryCode || undefined,
+        });
+        if (result.success) {
+          console.log(`[ContractOTP] Sent OTP SMS via BulkGate to ${signerPhone}`);
+          return true;
+        } else {
+          console.error(`[ContractOTP] BulkGate SMS failed:`, result.error);
+        }
+      } else {
+        console.log(`[ContractOTP SMS Simulation] BulkGate not configured`);
+        console.log(`To: ${signerPhone}`);
+        console.log(`Message: INDEXUS: Vas overovaci kod pre zmluvu ${contract.contractNumber} je: ${otpCode}`);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error("[ContractOTP] Failed to send OTP SMS:", error);
+      return false;
+    }
+  }
+
+  async function sendOtpByMethod(
+    contract: { contractNumber: string; templateId: string | null; customerId?: string | null },
+    signerName: string,
+    signerEmail: string | null,
+    signerPhone: string | null,
+    otpCode: string,
+    method: "email_otp" | "sms_otp"
+  ): Promise<boolean> {
+    if (method === "sms_otp" && signerPhone) {
+      return sendContractOtpSms(contract, signerName, signerPhone, otpCode);
+    }
+    if (method === "email_otp" && signerEmail) {
+      return sendContractOtpEmail(contract, signerName, signerEmail, otpCode);
+    }
+    if (signerEmail) {
+      return sendContractOtpEmail(contract, signerName, signerEmail, otpCode);
+    }
+    if (signerPhone) {
+      return sendContractOtpSms(contract, signerName, signerPhone, otpCode);
+    }
+    console.warn("[ContractOTP] No email or phone for signer, cannot send OTP");
+    return false;
+  }
+
   // Send contract for signature
   app.post("/api/contracts/:id/send", requireAuth, async (req, res) => {
     try {
+      const { verificationMethod } = req.body || {};
       const contract = await storage.getContractInstance(req.params.id);
       if (!contract) {
         return res.status(404).json({ error: "Contract not found" });
       }
       
-      const participants = await storage.getContractParticipants(contract.id);
-      const signers = participants.filter(p => p.signatureRequired);
+      let participants = await storage.getContractParticipants(contract.id);
+      let signers = participants.filter(p => p.signatureRequired);
       
       if (signers.length === 0) {
-        return res.status(400).json({ error: "No signers defined for this contract" });
+        if (!contract.customerId) {
+          return res.status(400).json({ error: "No signers defined and no customer linked to this contract" });
+        }
+        const customer = await storage.getCustomer(contract.customerId);
+        if (!customer) {
+          return res.status(400).json({ error: "No signers defined and customer not found" });
+        }
+        if (!customer.email && !customer.phone) {
+          return res.status(400).json({ error: "Customer has no email or phone for verification" });
+        }
+        const autoParticipant = await storage.createContractParticipant({
+          contractId: contract.id,
+          participantType: "customer",
+          fullName: `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || customer.email || 'Client',
+          email: customer.email,
+          phone: customer.phone,
+          role: "signer",
+          signatureRequired: true,
+        });
+        signers = [autoParticipant];
+        console.log(`[ContractOTP] Auto-added customer ${customer.id} as signer for contract ${contract.id}`);
       }
+      
+      const method: "email_otp" | "sms_otp" = verificationMethod === "sms_otp" ? "sms_otp" : "email_otp";
       
       const createdSignatureRequests = [];
       for (const signer of signers) {
         const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
         const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        
+        const actualMethod = method === "sms_otp" && signer.phone ? "sms_otp" 
+          : method === "email_otp" && signer.email ? "email_otp"
+          : signer.email ? "email_otp" : "sms_otp";
         
         const signatureRequest = await storage.createContractSignatureRequest({
           contractId: contract.id,
@@ -20326,7 +20428,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
           signerName: signer.fullName,
           signerEmail: signer.email,
           signerPhone: signer.phone,
-          verificationMethod: signer.email ? "email_otp" : "sms_otp",
+          verificationMethod: actualMethod,
           otpCode,
           otpExpiresAt: expiresAt,
           status: "sent",
@@ -20335,9 +20437,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         });
         createdSignatureRequests.push(signatureRequest);
         
-        if (signer.email) {
-          await sendContractOtpEmail(contract, signer.fullName, signer.email, otpCode);
-        }
+        await sendOtpByMethod(contract, signer.fullName, signer.email, signer.phone, otpCode, actualMethod);
       }
       
       await storage.updateContractInstance(contract.id, {
@@ -20360,10 +20460,13 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       res.json({ 
         success: true, 
         signersCount: signers.length,
+        verificationMethod: method,
         signatureRequests: createdSignatureRequests.map(sr => ({
           id: sr.id,
           signerName: sr.signerName,
           signerEmail: sr.signerEmail,
+          signerPhone: sr.signerPhone,
+          verificationMethod: sr.verificationMethod,
           status: sr.status
         }))
       });
@@ -20437,7 +20540,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
   // Resend OTP for signature request
   app.post("/api/contracts/:id/resend-otp", requireAuth, async (req, res) => {
     try {
-      const { signatureRequestId } = req.body;
+      const { signatureRequestId, verificationMethod } = req.body;
       const contract = await storage.getContractInstance(req.params.id);
       if (!contract) {
         return res.status(404).json({ error: "Contract not found" });
@@ -20461,18 +20564,27 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
 
       const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      
+      const method: "email_otp" | "sms_otp" = verificationMethod === "sms_otp" ? "sms_otp" : 
+        (signatureRequest.verificationMethod === "sms_otp" ? "sms_otp" : "email_otp");
 
       await storage.updateContractSignatureRequest(signatureRequest.id, {
         otpCode,
         otpExpiresAt: expiresAt,
         otpAttempts: 0,
         status: "sent",
-        requestSentAt: new Date()
+        requestSentAt: new Date(),
+        verificationMethod: method
       });
 
-      if (signatureRequest.signerEmail) {
-        await sendContractOtpEmail(contract, signatureRequest.signerName, signatureRequest.signerEmail, otpCode);
-      }
+      await sendOtpByMethod(
+        contract, 
+        signatureRequest.signerName, 
+        signatureRequest.signerEmail, 
+        signatureRequest.signerPhone, 
+        otpCode, 
+        method
+      );
 
       await storage.createContractAuditLog({
         contractId: contract.id,
@@ -20482,14 +20594,15 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         actorName: req.session.user!.fullName,
         actorEmail: req.session.user!.email,
         ipAddress: req.ip,
-        details: JSON.stringify({ signatureRequestId: signatureRequest.id })
+        details: JSON.stringify({ signatureRequestId: signatureRequest.id, method })
       });
 
       res.json({ 
         success: true, 
         signatureRequestId: signatureRequest.id,
         signerName: signatureRequest.signerName,
-        signerEmail: signatureRequest.signerEmail
+        signerEmail: signatureRequest.signerEmail,
+        verificationMethod: method
       });
     } catch (error) {
       console.error("Error resending OTP:", error);

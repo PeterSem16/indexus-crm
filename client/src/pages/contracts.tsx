@@ -370,6 +370,9 @@ export default function ContractsPage() {
   const [isContractWizardOpen, setIsContractWizardOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
+  const [isSendConfirmOpen, setIsSendConfirmOpen] = useState(false);
+  const [sendContractId, setSendContractId] = useState<string | null>(null);
+  const [sendMethod, setSendMethod] = useState<"email_otp" | "sms_otp">("email_otp");
   
   const [selectedTemplate, setSelectedTemplate] = useState<ContractTemplate | null>(null);
   const [selectedContract, setSelectedContract] = useState<ContractInstance | null>(null);
@@ -487,7 +490,8 @@ export default function ContractsPage() {
   
   const [signatureForm, setSignatureForm] = useState({
     otpCode: "",
-    signatureRequestId: ""
+    signatureRequestId: "",
+    verificationMethod: "email_otp" as "email_otp" | "sms_otp"
   });
   const [otpVerified, setOtpVerified] = useState(false);
   const [signatureData, setSignatureData] = useState("");
@@ -678,9 +682,13 @@ export default function ContractsPage() {
   });
 
   const sendContractMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const response = await apiRequest("POST", `/api/contracts/${id}/send`);
-      const data = await response.json() as { success: boolean; signersCount: number; signatureRequests: Array<{ id: string; signerName: string; signerEmail: string | null; status: string }>; error?: string };
+    mutationFn: async ({ id, verificationMethod }: { id: string; verificationMethod?: "email_otp" | "sms_otp" }) => {
+      const response = await apiRequest("POST", `/api/contracts/${id}/send`, { verificationMethod });
+      const data = await response.json() as { 
+        success: boolean; signersCount: number; verificationMethod?: string;
+        signatureRequests: Array<{ id: string; signerName: string; signerEmail: string | null; signerPhone: string | null; verificationMethod: string; status: string }>; 
+        error?: string 
+      };
       if (!data.success && data.error) {
         throw new Error(data.error);
       }
@@ -689,9 +697,15 @@ export default function ContractsPage() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
       if (data.signatureRequests && data.signatureRequests.length > 0) {
-        setSignatureForm(prev => ({ ...prev, signatureRequestId: data.signatureRequests[0].id }));
+        const method = (data.verificationMethod || data.signatureRequests[0].verificationMethod || "email_otp") as "email_otp" | "sms_otp";
+        setSignatureForm(prev => ({ ...prev, signatureRequestId: data.signatureRequests[0].id, verificationMethod: method }));
       }
-      toast({ title: t.contractsModule.sendForSignature, description: t.contractsModule.otpSentMessage });
+      setIsSendConfirmOpen(false);
+      const isSmsSent = data.verificationMethod === "sms_otp";
+      toast({ 
+        title: t.contractsModule.sendForSignature, 
+        description: isSmsSent ? t.contractsModule.otpSentToPhone : t.contractsModule.otpSentMessage 
+      });
     },
     onError: (error: Error) => {
       toast({ title: t.contractsModule.saveError, description: error.message, variant: "destructive" });
@@ -726,8 +740,8 @@ export default function ContractsPage() {
   });
 
   const resendOtpMutation = useMutation({
-    mutationFn: async ({ contractId, signatureRequestId }: { contractId: string; signatureRequestId: string }) => {
-      return apiRequest("POST", `/api/contracts/${contractId}/resend-otp`, { signatureRequestId });
+    mutationFn: async ({ contractId, signatureRequestId, verificationMethod }: { contractId: string; signatureRequestId: string; verificationMethod?: "email_otp" | "sms_otp" }) => {
+      return apiRequest("POST", `/api/contracts/${contractId}/resend-otp`, { signatureRequestId, verificationMethod });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contracts", selectedContract?.id, "signature-requests"] });
@@ -750,7 +764,7 @@ export default function ContractsPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
       setIsSignatureModalOpen(false);
       setOtpVerified(false);
-      setSignatureForm({ otpCode: "", signatureRequestId: "" });
+      setSignatureForm({ otpCode: "", signatureRequestId: "", verificationMethod: "email_otp" });
       setSignatureData("");
       toast({ title: t.contractsModule.contractSigned, description: t.contractsModule.contractSignedMessage });
     },
@@ -1925,7 +1939,11 @@ export default function ContractsPage() {
                                 <Button 
                                   size="icon" 
                                   variant="ghost"
-                                  onClick={() => sendContractMutation.mutate(contract.id)}
+                                  onClick={() => {
+                                    setSendContractId(contract.id);
+                                    setSendMethod("email_otp");
+                                    setIsSendConfirmOpen(true);
+                                  }}
                                   data-testid={`button-send-contract-${contract.id}`}
                                 >
                                   <Send className="h-4 w-4" />
@@ -1938,7 +1956,7 @@ export default function ContractsPage() {
                                   onClick={() => {
                                     setSelectedContract(contract);
                                     setOtpVerified(false);
-                                    setSignatureForm({ otpCode: "", signatureRequestId: "" });
+                                    setSignatureForm({ otpCode: "", signatureRequestId: "", verificationMethod: "email_otp" });
                                     setSignatureData("");
                                     setIsSignatureModalOpen(true);
                                   }}
@@ -3549,8 +3567,10 @@ export default function ContractsPage() {
             {selectedContract?.status === "draft" && (
               <Button onClick={() => {
                 if (selectedContract) {
-                  sendContractMutation.mutate(selectedContract.id);
+                  setSendContractId(selectedContract.id);
+                  setSendMethod("email_otp");
                   setIsPreviewOpen(false);
+                  setIsSendConfirmOpen(true);
                 }
               }}>
                 <Send className="h-4 w-4 mr-2" />
@@ -3561,7 +3581,7 @@ export default function ContractsPage() {
               <Button onClick={() => {
                 setIsPreviewOpen(false);
                 setOtpVerified(false);
-                setSignatureForm({ otpCode: "", signatureRequestId: "" });
+                setSignatureForm({ otpCode: "", signatureRequestId: "", verificationMethod: "email_otp" });
                 setSignatureData("");
                 setIsSignatureModalOpen(true);
               }}>
@@ -3573,12 +3593,73 @@ export default function ContractsPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Send Confirmation Dialog with Verification Method Choice */}
+      <Dialog open={isSendConfirmOpen} onOpenChange={(open) => {
+        setIsSendConfirmOpen(open);
+        if (!open) {
+          setSendContractId(null);
+          setSendMethod("email_otp");
+        }
+      }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t.contractsModule.sendForSignature}</DialogTitle>
+            <DialogDescription>{t.contractsModule.verificationMethod}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Label>{t.contractsModule.verificationMethod}</Label>
+            <div className="flex gap-2">
+              <Button
+                variant={sendMethod === "email_otp" ? "default" : "outline"}
+                className="flex-1"
+                onClick={() => setSendMethod("email_otp")}
+                data-testid="button-send-method-email"
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                {t.contractsModule.sendViaEmail}
+              </Button>
+              <Button
+                variant={sendMethod === "sms_otp" ? "default" : "outline"}
+                className="flex-1"
+                onClick={() => setSendMethod("sms_otp")}
+                data-testid="button-send-method-sms"
+              >
+                <Phone className="h-4 w-4 mr-2" />
+                {t.contractsModule.sendViaSms}
+              </Button>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsSendConfirmOpen(false)}>
+              <X className="h-4 w-4 mr-2" />
+              {t.common.cancel}
+            </Button>
+            <Button 
+              onClick={() => {
+                if (sendContractId) {
+                  sendContractMutation.mutate({ id: sendContractId, verificationMethod: sendMethod });
+                }
+              }}
+              disabled={sendContractMutation.isPending}
+              data-testid="button-confirm-send-contract"
+            >
+              {sendContractMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4 mr-2" />
+              )}
+              {t.contractsModule.sendForSignature}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Signature Modal */}
       <Dialog open={isSignatureModalOpen} onOpenChange={(open) => {
         setIsSignatureModalOpen(open);
         if (!open) {
           setOtpVerified(false);
-          setSignatureForm({ otpCode: "", signatureRequestId: "" });
+          setSignatureForm({ otpCode: "", signatureRequestId: "", verificationMethod: "email_otp" });
           setSignatureData("");
         }
       }}>
@@ -3661,7 +3742,9 @@ export default function ContractsPage() {
                           <span className="font-medium">{t.contractsModule.identityVerification}</span>
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          {t.contractsModule.otpSentMessage}
+                          {signatureForm.verificationMethod === "sms_otp" 
+                            ? t.contractsModule.otpSentToPhone 
+                            : t.contractsModule.otpSentToEmail}
                         </p>
                       </div>
 
@@ -3707,17 +3790,39 @@ export default function ContractsPage() {
                           onClick={() => {
                             resendOtpMutation.mutate({
                               contractId: selectedContract.id,
-                              signatureRequestId: signatureForm.signatureRequestId
+                              signatureRequestId: signatureForm.signatureRequestId,
+                              verificationMethod: "email_otp"
                             });
+                            setSignatureForm(prev => ({ ...prev, verificationMethod: "email_otp" }));
                           }}
-                          data-testid="button-resend-otp"
+                          data-testid="button-resend-otp-email"
                         >
-                          {resendOtpMutation.isPending ? (
+                          {resendOtpMutation.isPending && signatureForm.verificationMethod === "email_otp" ? (
                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                           ) : (
-                            <RefreshCw className="h-4 w-4 mr-2" />
+                            <Mail className="h-4 w-4 mr-2" />
                           )}
-                          {t.contractsModule.resendOtp}
+                          {t.contractsModule.sendCodeViaEmail}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          disabled={resendOtpMutation.isPending}
+                          onClick={() => {
+                            resendOtpMutation.mutate({
+                              contractId: selectedContract.id,
+                              signatureRequestId: signatureForm.signatureRequestId,
+                              verificationMethod: "sms_otp"
+                            });
+                            setSignatureForm(prev => ({ ...prev, verificationMethod: "sms_otp" }));
+                          }}
+                          data-testid="button-resend-otp-sms"
+                        >
+                          {resendOtpMutation.isPending && signatureForm.verificationMethod === "sms_otp" ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <Phone className="h-4 w-4 mr-2" />
+                          )}
+                          {t.contractsModule.sendCodeViaSms}
                         </Button>
                       </div>
                     </>
