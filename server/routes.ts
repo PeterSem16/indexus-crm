@@ -20594,6 +20594,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         
         const cryptoMod = await import("crypto");
         const signingToken = cryptoMod.randomBytes(32).toString('hex');
+        console.log(`[ContractOTP] Generated signingToken for ${signer.fullName}: ${signingToken.substring(0, 8)}...`);
         const signatureRequest = await storage.createContractSignatureRequest({
           contractId: contract.id,
           participantId: signer.id,
@@ -20937,6 +20938,13 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         : verificationMethod === "sms_otp" ? "sms_otp" 
         : (signatureRequest.verificationMethod as "email_otp" | "sms_otp") || "email_otp";
 
+      let currentSigningToken = signatureRequest.signingToken;
+      if (!currentSigningToken) {
+        const cryptoMod = await import("crypto");
+        currentSigningToken = cryptoMod.randomBytes(32).toString('hex');
+        console.log(`[ContractOTP] Generated missing signingToken on resend for ${signatureRequest.signerName}: ${currentSigningToken.substring(0, 8)}...`);
+      }
+
       console.log(`[ContractOTP] Resend OTP: requested=${verificationMethod}, stored=${signatureRequest.verificationMethod}, resolved=${method}, email=${signatureRequest.signerEmail}, phone=${signatureRequest.signerPhone}`);
 
       await storage.updateContractSignatureRequest(signatureRequest.id, {
@@ -20945,7 +20953,8 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         otpAttempts: 0,
         status: "sent",
         requestSentAt: new Date(),
-        verificationMethod: method
+        verificationMethod: method,
+        signingToken: currentSigningToken
       });
 
       const sent = await sendOtpByMethod(
@@ -20956,7 +20965,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         otpCode, 
         method,
         req.session,
-        signatureRequest.signingToken
+        currentSigningToken
       );
 
       if (!sent) {
