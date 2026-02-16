@@ -22,7 +22,7 @@ import { sk } from "date-fns/locale";
 import { 
   FileText, Plus, Edit2, Trash2, Send, Eye, Check, X, Clock, 
   FileSignature, Download, Copy, RefreshCw, AlertCircle, Filter,
-  ChevronRight, Settings, PenTool, Mail, Phone, Shield, 
+  ChevronRight, Settings, PenTool, Mail, Phone, Shield, Users,
   CheckCircle, Loader2, Edit, Pencil, GripVertical, Globe, ExternalLink,
   Sparkles, ArrowRight, Maximize2, Minimize2
 } from "lucide-react";
@@ -894,7 +894,7 @@ export default function ContractsPage() {
 
   const { data: contractDetail } = useQuery<ContractDetail>({
     queryKey: ["/api/contracts", selectedContract?.id],
-    enabled: isPreviewOpen && !!selectedContract?.id
+    enabled: (isPreviewOpen || isContractWizardOpen) && !!selectedContract?.id
   });
 
   type ProductWithSets = {
@@ -1865,7 +1865,7 @@ export default function ContractsPage() {
               )}
             </div>
             <Card>
-              <CardContent className="p-0">
+              <CardContent className="p-0 overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -1935,6 +1935,29 @@ export default function ContractsPage() {
                                   <Eye className="h-4 w-4" />
                                 </Button>
                               </Link>
+                              {contract.status === "draft" && (
+                                <Button 
+                                  size="icon" 
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setSelectedContract(contract);
+                                    setIsAddingParticipant(false);
+                                    setEditingParticipantId(null);
+                                    setWizardStep(3);
+                                    setContractForm(prev => ({
+                                      ...prev,
+                                      customerId: contract.customerId || "",
+                                      templateId: contract.templateId || "",
+                                      categoryId: contract.categoryId || ""
+                                    }));
+                                    setIsContractWizardOpen(true);
+                                  }}
+                                  title={t.contractsModule.signers}
+                                  data-testid={`button-manage-signers-${contract.id}`}
+                                >
+                                  <Users className="h-4 w-4" />
+                                </Button>
+                              )}
                               {contract.status === "draft" && (
                                 <Button 
                                   size="icon" 

@@ -20577,7 +20577,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         verificationMethod: method
       });
 
-      await sendOtpByMethod(
+      const sent = await sendOtpByMethod(
         contract, 
         signatureRequest.signerName, 
         signatureRequest.signerEmail, 
@@ -20585,6 +20585,13 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         otpCode, 
         method
       );
+
+      if (!sent) {
+        const failReason = method === "email_otp" 
+          ? "Failed to send OTP via email. Check MS365 connection or email configuration."
+          : "Failed to send OTP via SMS. Check BulkGate configuration or phone number.";
+        return res.status(500).json({ error: failReason });
+      }
 
       await storage.createContractAuditLog({
         contractId: contract.id,
