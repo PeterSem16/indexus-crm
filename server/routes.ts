@@ -20464,7 +20464,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       const lang = locale || 'sk';
       const t = signingI18n[lang];
       const baseUrl = getBaseUrl();
-      const signingLink = signingToken ? `${baseUrl}/sign/${signingToken}` : null;
+      const signingLink = signingToken ? `${baseUrl}/s/${signingToken}` : null;
       
       const emailSubject = t.emailSubject(contract.contractNumber);
       const emailHtml = `
@@ -20619,7 +20619,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       const t = signingI18n[lang];
 
       const baseUrl = getBaseUrl();
-      const signingLink = signingToken ? `${baseUrl}/sign/${signingToken}` : null;
+      const signingLink = signingToken ? `${baseUrl}/s/${signingToken}` : null;
 
       const smsText = signingLink 
         ? t.smsTextWithLink(contract.contractNumber, otpCode, signingLink)
@@ -20627,10 +20627,13 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
 
       const { sendTransactionalSms, isBulkGateConfigured } = await import("./lib/bulkgate");
       if (isBulkGateConfigured()) {
+        const hasUnicode = /[^\x00-\x7F]/.test(smsText);
+        console.log(`[ContractOTP] SMS text (${smsText.length} chars, unicode=${hasUnicode}): ${smsText}`);
         const result = await sendTransactionalSms({
           number: signerPhone,
           text: smsText,
           country: countryCode || undefined,
+          unicode: hasUnicode,
         });
         if (result.success) {
           console.log(`[ContractOTP] Sent OTP SMS via BulkGate to ${signerPhone} (lang=${lang})`);
@@ -20730,7 +20733,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
           : signer.email ? "email_otp" : "sms_otp";
         
         const cryptoMod = await import("crypto");
-        const signingToken = cryptoMod.randomBytes(32).toString('hex');
+        const signingToken = cryptoMod.randomBytes(16).toString('hex');
         console.log(`[ContractOTP] Generated signingToken for ${signer.fullName}: ${signingToken.substring(0, 8)}...`);
         const signatureRequest = await storage.createContractSignatureRequest({
           contractId: contract.id,
@@ -21129,7 +21132,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       let currentSigningToken = signatureRequest.signingToken;
       if (!currentSigningToken) {
         const cryptoMod = await import("crypto");
-        currentSigningToken = cryptoMod.randomBytes(32).toString('hex');
+        currentSigningToken = cryptoMod.randomBytes(16).toString('hex');
         console.log(`[ContractOTP] Generated missing signingToken on resend for ${signatureRequest.signerName}: ${currentSigningToken.substring(0, 8)}...`);
       }
 

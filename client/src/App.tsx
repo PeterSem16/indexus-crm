@@ -105,10 +105,11 @@ function AppRouter() {
   const { user, isLoading } = useAuth();
   const [location] = useLocation();
 
-  if (location.startsWith("/sign/")) {
+  if (location.startsWith("/sign/") || location.startsWith("/s/")) {
     return (
       <Switch>
         <Route path="/sign/:token" component={PublicSigningPage} />
+        <Route path="/s/:token" component={PublicSigningPage} />
       </Switch>
     );
   }
