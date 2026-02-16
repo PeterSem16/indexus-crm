@@ -24,6 +24,7 @@ import { ChatContainer } from "@/components/chat-container";
 import { useSessionHeartbeat } from "@/hooks/use-session-heartbeat";
 import { NotificationBell, NotificationCenterPage } from "@/components/notification-center";
 import { NexusButton } from "@/components/nexus/nexus-button";
+import PublicSigningPage from "@/pages/public-signing";
 import Dashboard from "@/pages/dashboard";
 import UsersPage from "@/pages/users";
 import CustomersPage from "@/pages/customers";
@@ -102,6 +103,15 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
 
 function AppRouter() {
   const { user, isLoading } = useAuth();
+  const [location] = useLocation();
+
+  if (location.startsWith("/sign/")) {
+    return (
+      <Switch>
+        <Route path="/sign/:token" component={PublicSigningPage} />
+      </Switch>
+    );
+  }
 
   if (isLoading) {
     return (

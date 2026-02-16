@@ -20730,6 +20730,181 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
     }
   });
 
+  // ============ PUBLIC SIGNING ENDPOINTS (no auth required) ============
+
+  app.get("/api/public/sign/:token", async (req, res) => {
+    try {
+      const signatureRequest = await storage.getContractSignatureRequestByToken(req.params.token);
+      if (!signatureRequest) {
+        return res.status(404).json({ error: "Signing link not found or expired" });
+      }
+      if (signatureRequest.status === "signed") {
+        return res.status(400).json({ error: "Contract already signed", alreadySigned: true });
+      }
+      if (signatureRequest.status === "cancelled" || signatureRequest.status === "expired") {
+        return res.status(400).json({ error: "This signing link is no longer valid" });
+      }
+      if (signatureRequest.expiresAt && new Date() > signatureRequest.expiresAt) {
+        return res.status(400).json({ error: "This signing link has expired" });
+      }
+
+      const contract = await storage.getContractInstance(signatureRequest.contractId);
+      if (!contract) {
+        return res.status(404).json({ error: "Contract not found" });
+      }
+
+      res.json({
+        contractNumber: contract.contractNumber,
+        signerName: signatureRequest.signerName,
+        status: signatureRequest.status,
+        verificationMethod: signatureRequest.verificationMethod,
+        otpVerified: signatureRequest.status === "otp_verified",
+        signatureRequestId: signatureRequest.id
+      });
+    } catch (error) {
+      console.error("Error fetching public signing info:", error);
+      res.status(500).json({ error: "Failed to load signing information" });
+    }
+  });
+
+  app.post("/api/public/sign/:token/verify-otp", async (req, res) => {
+    try {
+      const { otpCode } = req.body;
+      if (!otpCode) {
+        return res.status(400).json({ error: "OTP code is required" });
+      }
+
+      const signatureRequest = await storage.getContractSignatureRequestByToken(req.params.token);
+      if (!signatureRequest) {
+        return res.status(404).json({ error: "Signing link not found" });
+      }
+      if (signatureRequest.status === "signed") {
+        return res.status(400).json({ error: "Contract already signed" });
+      }
+      if (signatureRequest.status === "cancelled" || signatureRequest.status === "expired") {
+        return res.status(400).json({ error: "This signing link is no longer valid" });
+      }
+
+      if (signatureRequest.expiresAt && new Date() > signatureRequest.expiresAt) {
+        return res.status(400).json({ error: "This signing link has expired" });
+      }
+
+      if (signatureRequest.otpAttempts >= 5) {
+        return res.status(429).json({ error: "Too many attempts. Please request a new OTP code." });
+      }
+
+      if (signatureRequest.otpCode !== otpCode) {
+        await storage.updateContractSignatureRequest(signatureRequest.id, {
+          otpAttempts: signatureRequest.otpAttempts + 1
+        });
+        return res.status(400).json({ error: "Invalid verification code" });
+      }
+
+      if (signatureRequest.otpExpiresAt && new Date() > signatureRequest.otpExpiresAt) {
+        return res.status(400).json({ error: "Verification code has expired. Please request a new one." });
+      }
+
+      await storage.updateContractSignatureRequest(signatureRequest.id, {
+        status: "otp_verified",
+        otpVerifiedAt: new Date()
+      });
+
+      await storage.createContractAuditLog({
+        contractId: signatureRequest.contractId,
+        action: "otp_verified",
+        actorType: "customer",
+        actorName: signatureRequest.signerName,
+        actorEmail: signatureRequest.signerEmail,
+        ipAddress: req.ip,
+        userAgent: req.get("User-Agent"),
+        details: "OTP verified via public signing link"
+      });
+
+      res.json({ success: true, verified: true });
+    } catch (error) {
+      console.error("Error verifying public OTP:", error);
+      res.status(500).json({ error: "Failed to verify code" });
+    }
+  });
+
+  app.post("/api/public/sign/:token/submit", async (req, res) => {
+    try {
+      const { typedName } = req.body;
+      if (!typedName || typedName.trim().length < 2) {
+        return res.status(400).json({ error: "Please type your full name to sign" });
+      }
+
+      const signatureRequest = await storage.getContractSignatureRequestByToken(req.params.token);
+      if (!signatureRequest) {
+        return res.status(404).json({ error: "Signing link not found" });
+      }
+      if (signatureRequest.status === "signed") {
+        return res.status(400).json({ error: "Contract already signed" });
+      }
+      if (signatureRequest.status !== "otp_verified") {
+        return res.status(400).json({ error: "Please verify your identity first" });
+      }
+      if (signatureRequest.expiresAt && new Date() > signatureRequest.expiresAt) {
+        return res.status(400).json({ error: "This signing link has expired" });
+      }
+
+      const crypto = await import("crypto");
+      const signatureHash = crypto.createHash("sha256")
+        .update(`${typedName.trim()}|${signatureRequest.id}|${new Date().toISOString()}`)
+        .digest("hex");
+
+      await storage.updateContractSignatureRequest(signatureRequest.id, {
+        status: "signed",
+        signatureType: "typed",
+        signatureData: typedName.trim(),
+        signatureHash,
+        signedAt: new Date(),
+        signerIpAddress: req.ip,
+        signerUserAgent: req.get("User-Agent")
+      });
+
+      await storage.createContractAuditLog({
+        contractId: signatureRequest.contractId,
+        action: "signed",
+        actorType: "customer",
+        actorName: signatureRequest.signerName,
+        actorEmail: signatureRequest.signerEmail,
+        ipAddress: req.ip,
+        userAgent: req.get("User-Agent"),
+        details: `Contract signed with typed name: "${typedName.trim()}" via public signing link. Signature hash: ${signatureHash}`
+      });
+
+      const allRequests = await storage.getContractSignatureRequests(signatureRequest.contractId);
+      const allSigned = allRequests.every(r => r.status === "signed");
+
+      if (allSigned) {
+        await storage.updateContractInstance(signatureRequest.contractId, {
+          status: "signed",
+          signedAt: new Date()
+        });
+
+        await storage.createContractAuditLog({
+          contractId: signatureRequest.contractId,
+          action: "status_changed",
+          actorType: "system",
+          actorName: "System",
+          details: "All signatures collected. Contract status changed to signed."
+        });
+      }
+
+      res.json({ 
+        success: true, 
+        allSigned,
+        message: allSigned 
+          ? "Contract fully signed by all parties" 
+          : "Your signature has been recorded successfully"
+      });
+    } catch (error) {
+      console.error("Error submitting public signature:", error);
+      res.status(500).json({ error: "Failed to submit signature" });
+    }
+  });
+
   // Resend OTP for signature request
   app.post("/api/contracts/:id/resend-otp", requireAuth, async (req, res) => {
     try {
