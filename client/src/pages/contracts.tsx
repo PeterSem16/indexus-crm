@@ -3586,37 +3586,83 @@ export default function ContractsPage() {
           setSendMethod("email_otp");
         }
       }}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{t.contractsModule.sendForSignature}</DialogTitle>
-            <DialogDescription>{t.contractsModule.verificationMethod}</DialogDescription>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="flex items-center justify-center h-8 w-8 rounded-md bg-primary/10">
+                <Send className="h-4 w-4 text-primary" />
+              </div>
+              {t.contractsModule.sendForSignature}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedContract?.contractNumber && (
+                <span className="font-medium">{selectedContract.contractNumber}</span>
+              )}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            <Label>{t.contractsModule.verificationMethod}</Label>
-            <div className="flex gap-2">
-              <Button
-                variant={sendMethod === "email_otp" ? "default" : "outline"}
-                className="flex-1"
+            <Label className="text-xs uppercase tracking-wider text-muted-foreground">{t.contractsModule.verificationMethod}</Label>
+            <div className="grid gap-2">
+              <div
+                className={`relative flex items-center gap-3 p-3 rounded-md border cursor-pointer transition-colors ${
+                  sendMethod === "email_otp" 
+                    ? "border-primary bg-primary/5" 
+                    : "border-border hover-elevate"
+                }`}
                 onClick={() => setSendMethod("email_otp")}
                 data-testid="button-send-method-email"
               >
-                <Mail className="h-4 w-4 mr-2" />
-                {t.contractsModule.sendViaEmail}
-              </Button>
-              <Button
-                variant={sendMethod === "sms_otp" ? "default" : "outline"}
-                className="flex-1"
+                <div className={`flex items-center justify-center h-9 w-9 rounded-md ${
+                  sendMethod === "email_otp" ? "bg-primary text-primary-foreground" : "bg-muted"
+                }`}>
+                  <Mail className="h-4 w-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium">{t.contractsModule.sendViaEmail}</div>
+                  <div className="text-xs text-muted-foreground truncate">
+                    {contractDetail?.participants?.[0]?.email || "OTP → Email"}
+                  </div>
+                </div>
+                <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center ${
+                  sendMethod === "email_otp" ? "border-primary" : "border-muted-foreground/30"
+                }`}>
+                  {sendMethod === "email_otp" && (
+                    <div className="h-2 w-2 rounded-full bg-primary" />
+                  )}
+                </div>
+              </div>
+              <div
+                className={`relative flex items-center gap-3 p-3 rounded-md border cursor-pointer transition-colors ${
+                  sendMethod === "sms_otp" 
+                    ? "border-primary bg-primary/5" 
+                    : "border-border hover-elevate"
+                }`}
                 onClick={() => setSendMethod("sms_otp")}
                 data-testid="button-send-method-sms"
               >
-                <Phone className="h-4 w-4 mr-2" />
-                {t.contractsModule.sendViaSms}
-              </Button>
+                <div className={`flex items-center justify-center h-9 w-9 rounded-md ${
+                  sendMethod === "sms_otp" ? "bg-primary text-primary-foreground" : "bg-muted"
+                }`}>
+                  <Phone className="h-4 w-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium">{t.contractsModule.sendViaSms}</div>
+                  <div className="text-xs text-muted-foreground truncate">
+                    {contractDetail?.participants?.[0]?.phone || "OTP → SMS"}
+                  </div>
+                </div>
+                <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center ${
+                  sendMethod === "sms_otp" ? "border-primary" : "border-muted-foreground/30"
+                }`}>
+                  {sendMethod === "sms_otp" && (
+                    <div className="h-2 w-2 rounded-full bg-primary" />
+                  )}
+                </div>
+              </div>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setIsSendConfirmOpen(false)}>
-              <X className="h-4 w-4 mr-2" />
               {t.common.cancel}
             </Button>
             <Button 

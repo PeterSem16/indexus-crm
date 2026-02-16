@@ -20792,6 +20792,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       await storage.updateContractInstance(contract.id, {
         status: "sent",
         sentAt: new Date(),
+        sentContractDate: new Date(),
         sentBy: req.session.user!.id
       });
       
@@ -21001,6 +21002,10 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         otpVerifiedAt: new Date()
       });
 
+      await storage.updateContractInstance(signatureRequest.contractId, {
+        verifiedDate: new Date()
+      });
+
       await storage.createContractAuditLog({
         contractId: signatureRequest.contractId,
         action: "otp_verified",
@@ -21009,7 +21014,11 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         actorEmail: signatureRequest.signerEmail,
         ipAddress: req.ip,
         userAgent: req.get("User-Agent"),
-        details: "OTP verified via public signing link"
+        details: JSON.stringify({
+          verifiedAt: new Date().toISOString(),
+          method: signatureRequest.verificationMethod,
+          signerName: signatureRequest.signerName
+        })
       });
 
       res.json({ success: true, verified: true });
@@ -21072,7 +21081,8 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       if (allSigned) {
         await storage.updateContractInstance(signatureRequest.contractId, {
           status: "signed",
-          signedAt: new Date()
+          signedAt: new Date(),
+          executedDate: new Date()
         });
 
         await storage.createContractAuditLog({
@@ -21080,7 +21090,11 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
           action: "status_changed",
           actorType: "system",
           actorName: "System",
-          details: "All signatures collected. Contract status changed to signed."
+          details: JSON.stringify({
+            statusChangedTo: "signed",
+            signedAt: new Date().toISOString(),
+            message: "All signatures collected. Contract status changed to signed."
+          })
         });
       }
 
@@ -21248,7 +21262,8 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       if (allSigned) {
         await storage.updateContractInstance(signatureRequest.contractId, {
           status: "signed",
-          signedAt: new Date()
+          signedAt: new Date(),
+          executedDate: new Date()
         });
       } else {
         await storage.updateContractInstance(signatureRequest.contractId, {
