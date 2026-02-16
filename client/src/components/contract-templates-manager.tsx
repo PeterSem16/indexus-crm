@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useI18n } from "@/i18n";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,7 +20,8 @@ import { sk } from "date-fns/locale";
 import {
   FileText, Plus, Edit2, Trash2, Eye, Check, X,
   CheckCircle, Loader2, Edit, GripVertical, Globe,
-  Sparkles, Settings, RefreshCw, Download
+  Sparkles, Settings, RefreshCw, Download,
+  ArrowUpDown, ChevronUp, ChevronDown, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -320,6 +321,24 @@ export function ContractTemplatesManager() {
   const selectedCountry = selectedCountries.length === 1 ? selectedCountries[0] : null;
 
   const [templateSubTab, setTemplateSubTab] = useState<TemplateSubTab>("list");
+
+  const [filterCountry, setFilterCountry] = useState<string>("all");
+  const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [sortField, setSortField] = useState<string>("name");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 15;
+
+  const COUNTRIES_LIST = [
+    { code: "SK", name: "Slovensko" },
+    { code: "CZ", name: "Česko" },
+    { code: "HU", name: "Maďarsko" },
+    { code: "RO", name: "Rumunsko" },
+    { code: "IT", name: "Taliansko" },
+    { code: "DE", name: "Nemecko" },
+    { code: "US", name: "USA" },
+  ];
 
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
@@ -953,9 +972,62 @@ export function ContractTemplatesManager() {
     }
   };
 
-  const filteredTemplates = templates.filter(t =>
-    !selectedCountry || t.countryCode === selectedCountry
-  );
+  const filteredTemplates = useMemo(() => {
+    let result = [...templates];
+    if (filterCountry !== "all") {
+      result = result.filter(t => t.countryCode === filterCountry);
+    } else if (selectedCountry) {
+      result = result.filter(t => t.countryCode === selectedCountry);
+    }
+    if (filterCategory !== "all") {
+      result = result.filter(t => t.category === filterCategory);
+    }
+    if (filterStatus !== "all") {
+      result = result.filter(t => filterStatus === "published" ? t.status === "published" : t.status !== "published");
+    }
+    result.sort((a, b) => {
+      let valA: string | number = "";
+      let valB: string | number = "";
+      switch (sortField) {
+        case "name": valA = (a.name || "").toLowerCase(); valB = (b.name || "").toLowerCase(); break;
+        case "country": valA = a.countryCode || ""; valB = b.countryCode || ""; break;
+        case "category": valA = a.category || ""; valB = b.category || ""; break;
+        case "status": valA = a.status === "published" ? 1 : 0; valB = b.status === "published" ? 1 : 0; break;
+        case "date": valA = new Date(a.createdAt || 0).getTime(); valB = new Date(b.createdAt || 0).getTime(); break;
+        default: valA = (a.name || "").toLowerCase(); valB = (b.name || "").toLowerCase();
+      }
+      if (valA < valB) return sortDir === "asc" ? -1 : 1;
+      if (valA > valB) return sortDir === "asc" ? 1 : -1;
+      return 0;
+    });
+    return result;
+  }, [templates, filterCountry, filterCategory, filterStatus, sortField, sortDir, selectedCountry]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredTemplates.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedTemplates = filteredTemplates.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDir(d => d === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDir("asc");
+    }
+    setCurrentPage(1);
+  };
+
+  const SortIcon = ({ field }: { field: string }) => {
+    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1 opacity-30" />;
+    return sortDir === "asc"
+      ? <ChevronUp className="h-3 w-3 ml-1" />
+      : <ChevronDown className="h-3 w-3 ml-1" />;
+  };
+
+  const uniqueCategories = useMemo(() => {
+    const cats = new Set(templates.map(t => t.category).filter(Boolean));
+    return Array.from(cats);
+  }, [templates]);
 
   const getCategoryLabel = (category: ContractCategory, countryCode?: string): string => {
     if (!countryCode) return category.label;
@@ -1059,77 +1131,181 @@ export function ContractTemplatesManager() {
         </TabsList>
 
         <TabsContent value="list" className="mt-0">
+          <div className="flex items-center gap-3 mb-4 flex-wrap">
+            <Select value={filterCountry} onValueChange={(v) => { setFilterCountry(v); setCurrentPage(1); }}>
+              <SelectTrigger className="w-[180px]" data-testid="select-filter-country">
+                <SelectValue placeholder={t.contractsModule.templateCountry} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t.common?.allCountries || "Všetky krajiny"}</SelectItem>
+                {COUNTRIES_LIST.map(c => (
+                  <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={filterCategory} onValueChange={(v) => { setFilterCategory(v); setCurrentPage(1); }}>
+              <SelectTrigger className="w-[200px]" data-testid="select-filter-category">
+                <SelectValue placeholder={t.contractsModule.templateType} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t.common?.all || "Všetky kategórie"}</SelectItem>
+                {uniqueCategories.map(cat => (
+                  <SelectItem key={cat} value={cat}>{getCategoryLabelByValue(cat)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={filterStatus} onValueChange={(v) => { setFilterStatus(v); setCurrentPage(1); }}>
+              <SelectTrigger className="w-[140px]" data-testid="select-filter-status">
+                <SelectValue placeholder={t.contractsModule.templateStatus} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t.common?.all || "Všetky"}</SelectItem>
+                <SelectItem value="published">{t.contractsModule.templateActive}</SelectItem>
+                <SelectItem value="draft">{t.contractsModule.statusDraft}</SelectItem>
+              </SelectContent>
+            </Select>
+            <span className="text-xs text-muted-foreground ml-auto">
+              {filteredTemplates.length} {filteredTemplates.length === 1 ? "šablóna" : "šablón"}
+            </span>
+          </div>
+
           <Card>
             <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t.contractsModule.templateName}</TableHead>
-                    <TableHead>{t.contractsModule.templateType}</TableHead>
-                    <TableHead>{t.contractsModule.templateCountry}</TableHead>
-                    <TableHead>{t.contractsModule.templateStatus}</TableHead>
-                    <TableHead>{t.contractsModule.created}</TableHead>
-                    <TableHead className="text-right">{t.contractsModule.actions}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {templatesLoading ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                        {t.contractsModule.loading}
-                      </TableCell>
-                    </TableRow>
-                  ) : filteredTemplates.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                        {t.contractsModule.noTemplates}
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredTemplates.map(template => (
-                      <TableRow key={template.id} data-testid={`row-template-${template.id}`}>
-                        <TableCell className="font-medium">{template.name}</TableCell>
-                        <TableCell>
-                          {getCategoryLabelByValue(template.category, template.countryCode)}
-                        </TableCell>
-                        <TableCell>{template.countryCode}</TableCell>
-                        <TableCell>
-                          <Badge variant={template.status === "published" ? "default" : "secondary"}>
-                            {template.status === "published" ? t.contractsModule.templateActive : t.contractsModule.statusDraft}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {template.createdAt && format(new Date(template.createdAt), "d.M.yyyy", { locale: sk })}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-1">
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => handleEditTemplate(template)}
-                              data-testid={`button-edit-template-${template.id}`}
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              onClick={() => {
-                                if (confirm(t.contractsModule.deleteTemplate + "?")) {
-                                  deleteTemplateMutation.mutate(template.id);
-                                }
-                              }}
-                              data-testid={`button-delete-template-${template.id}`}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
+              {filteredTemplates.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  {templates.length === 0
+                    ? t.contractsModule.noTemplates
+                    : "Žiadne šablóny nezodpovedajú zvoleným filtrom."}
+                </div>
+              ) : (
+                <>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="cursor-pointer select-none" onClick={() => handleSort("name")} data-testid="sort-name">
+                          <span className="flex items-center">{t.contractsModule.templateName}<SortIcon field="name" /></span>
+                        </TableHead>
+                        <TableHead className="cursor-pointer select-none" onClick={() => handleSort("category")} data-testid="sort-category">
+                          <span className="flex items-center">{t.contractsModule.templateType}<SortIcon field="category" /></span>
+                        </TableHead>
+                        <TableHead className="cursor-pointer select-none" onClick={() => handleSort("country")} data-testid="sort-country">
+                          <span className="flex items-center">{t.contractsModule.templateCountry}<SortIcon field="country" /></span>
+                        </TableHead>
+                        <TableHead className="cursor-pointer select-none" onClick={() => handleSort("status")} data-testid="sort-status">
+                          <span className="flex items-center">{t.contractsModule.templateStatus}<SortIcon field="status" /></span>
+                        </TableHead>
+                        <TableHead className="cursor-pointer select-none" onClick={() => handleSort("date")} data-testid="sort-date">
+                          <span className="flex items-center">{t.contractsModule.created}<SortIcon field="date" /></span>
+                        </TableHead>
+                        <TableHead className="text-right">{t.contractsModule.actions}</TableHead>
                       </TableRow>
-                    ))
+                    </TableHeader>
+                    <TableBody>
+                      {templatesLoading ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                            {t.contractsModule.loading}
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        paginatedTemplates.map(template => (
+                          <TableRow key={template.id} data-testid={`row-template-${template.id}`}>
+                            <TableCell className="font-medium">{template.name}</TableCell>
+                            <TableCell>
+                              {getCategoryLabelByValue(template.category, template.countryCode)}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{template.countryCode}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={template.status === "published" ? "default" : "secondary"}>
+                                {template.status === "published" ? t.contractsModule.templateActive : t.contractsModule.statusDraft}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {template.createdAt && format(new Date(template.createdAt), "d.M.yyyy", { locale: sk })}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-1">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => handleEditTemplate(template)}
+                                  data-testid={`button-edit-template-${template.id}`}
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    if (confirm(t.contractsModule.deleteTemplate + "?")) {
+                                      deleteTemplateMutation.mutate(template.id);
+                                    }
+                                  }}
+                                  data-testid={`button-delete-template-${template.id}`}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between p-4 border-t">
+                      <span className="text-sm text-muted-foreground">
+                        {t.common?.page || "Strana"} {safePage} / {totalPages} ({filteredTemplates.length} {t.common?.results || "výsledkov"})
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={safePage <= 1}
+                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                          data-testid="btn-prev-page"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                          let page: number;
+                          if (totalPages <= 5) {
+                            page = i + 1;
+                          } else if (safePage <= 3) {
+                            page = i + 1;
+                          } else if (safePage >= totalPages - 2) {
+                            page = totalPages - 4 + i;
+                          } else {
+                            page = safePage - 2 + i;
+                          }
+                          return (
+                            <Button
+                              key={page}
+                              variant={page === safePage ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setCurrentPage(page)}
+                              data-testid={`btn-page-${page}`}
+                            >
+                              {page}
+                            </Button>
+                          );
+                        })}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={safePage >= totalPages}
+                          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                          data-testid="btn-next-page"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
                   )}
-                </TableBody>
-              </Table>
+                </>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
