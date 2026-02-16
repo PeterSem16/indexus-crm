@@ -680,7 +680,10 @@ export default function ContractsPage() {
   const sendContractMutation = useMutation({
     mutationFn: async (id: string) => {
       const response = await apiRequest("POST", `/api/contracts/${id}/send`);
-      const data = await response.json() as { success: boolean; signersCount: number; signatureRequests: Array<{ id: string; signerName: string; signerEmail: string | null; status: string }> };
+      const data = await response.json() as { success: boolean; signersCount: number; signatureRequests: Array<{ id: string; signerName: string; signerEmail: string | null; status: string }>; error?: string };
+      if (!data.success && data.error) {
+        throw new Error(data.error);
+      }
       return { ...data, contractId: id };
     },
     onSuccess: (data) => {
@@ -688,7 +691,10 @@ export default function ContractsPage() {
       if (data.signatureRequests && data.signatureRequests.length > 0) {
         setSignatureForm(prev => ({ ...prev, signatureRequestId: data.signatureRequests[0].id }));
       }
-      toast({ title: t.contractsModule.sendForSignature });
+      toast({ title: t.contractsModule.sendForSignature, description: t.contractsModule.otpSentMessage });
+    },
+    onError: (error: Error) => {
+      toast({ title: t.contractsModule.saveError, description: error.message, variant: "destructive" });
     }
   });
 

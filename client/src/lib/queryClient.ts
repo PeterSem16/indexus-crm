@@ -6,6 +6,16 @@ async function throwIfResNotOk(res: Response) {
     if (res.status === 401) {
       throw new Error(`Session expired. Please refresh the page and log in again.`);
     }
+    try {
+      const json = JSON.parse(text);
+      if (json.error) {
+        throw new Error(json.error);
+      }
+    } catch (e) {
+      if (e instanceof Error && !e.message.startsWith("{")) {
+        throw e;
+      }
+    }
     throw new Error(`${res.status}: ${text}`);
   }
 }

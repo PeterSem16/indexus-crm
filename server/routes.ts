@@ -20202,7 +20202,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
 
   // Helper: Send OTP email via system MS365 email for country or fallback to SendGrid
   async function sendContractOtpEmail(
-    contract: { contractNumber: string; templateId: string },
+    contract: { contractNumber: string; templateId: string | null; customerId?: string | null },
     signerName: string,
     signerEmail: string,
     otpCode: string
@@ -20212,8 +20212,27 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       return false;
     }
     try {
-      const template = await storage.getContractTemplate(contract.templateId);
-      const countryCode = template?.countryCode;
+      let countryCode: string | null | undefined = null;
+      
+      if (contract.templateId) {
+        const template = await storage.getContractTemplate(contract.templateId);
+        countryCode = template?.countryCode;
+        if (!countryCode) {
+          console.warn(`[ContractOTP] Template ${contract.templateId} not found or has no countryCode`);
+        }
+      }
+      
+      if (!countryCode && contract.customerId) {
+        try {
+          const customer = await storage.getCustomer(contract.customerId);
+          countryCode = customer?.country || null;
+          if (countryCode) {
+            console.log(`[ContractOTP] Got countryCode '${countryCode}' from customer ${contract.customerId}`);
+          }
+        } catch (e) {
+          console.warn(`[ContractOTP] Failed to get customer ${contract.customerId} for country lookup`);
+        }
+      }
 
       if (countryCode) {
         // Try to use system MS365 email for this country
