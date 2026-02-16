@@ -55,9 +55,26 @@ const formatDateTime = (date: string | Date | null | undefined) => {
 function getStatusBadgeVariant(status: string): "secondary" | "default" | "destructive" {
   switch (status) {
     case "draft": return "secondary";
-    case "completed": case "executed": case "verified": return "default";
+    case "signed": case "completed": case "executed": case "verified": return "default";
     case "cancelled": case "terminated": return "destructive";
     default: return "secondary";
+  }
+}
+
+function getStatusColor(status: string): string {
+  switch (status) {
+    case "draft": return "bg-muted text-muted-foreground border-muted";
+    case "created": return "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800";
+    case "sent": return "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800";
+    case "received": return "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-800";
+    case "returned": return "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800";
+    case "signed": return "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-700";
+    case "verified": return "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950 dark:text-teal-300 dark:border-teal-800";
+    case "executed": return "bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800";
+    case "completed": return "bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 dark:border-green-800";
+    case "terminated": return "bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800";
+    case "cancelled": return "bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800";
+    default: return "bg-muted text-muted-foreground border-muted";
   }
 }
 
@@ -73,6 +90,7 @@ export default function ContractDetailPage() {
     { value: "sent", label: t.contractsModule.statusSent },
     { value: "received", label: t.contractsModule.statusReceived },
     { value: "returned", label: t.contractsModule.statusReturned },
+    { value: "signed", label: t.contractsModule.statusSigned },
     { value: "verified", label: t.contractsModule.statusVerified },
     { value: "executed", label: t.contractsModule.statusExecuted },
     { value: "completed", label: t.contractsModule.statusCompleted },
@@ -96,7 +114,6 @@ export default function ContractDetailPage() {
   const [activeTab, setActiveTab] = useState("basic");
   const [formState, setFormState] = useState<Record<string, any>>({});
   const [formInitialized, setFormInitialized] = useState(false);
-  const [exportEmail, setExportEmail] = useState("");
   const [sendingAuditEmail, setSendingAuditEmail] = useState(false);
   const [lastTimelineUrl, setLastTimelineUrl] = useState<string | null>(null);
 
@@ -266,10 +283,22 @@ export default function ContractDetailPage() {
         </Button>
       </Link>
 
-      <PageHeader
-        title={`${t.contractsModule.title} ${contract.contractNumber}`}
-        description={customer ? `${customer.firstName} ${customer.lastName}` : undefined}
-      />
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3 flex-wrap">
+          <h1 className="text-2xl font-semibold tracking-tight" data-testid="page-title">
+            {t.contractsModule.title} {contract.contractNumber}
+          </h1>
+          <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-md border text-sm font-semibold ${getStatusColor(contract.status)}`} data-testid="badge-contract-status-main">
+            {contract.status === "signed" && (
+              <CheckCircle className="h-4 w-4" />
+            )}
+            {CONTRACT_STATUS_OPTIONS.find((s) => s.value === contract.status)?.label || contract.status}
+          </div>
+        </div>
+        {customer && (
+          <p className="text-muted-foreground">{customer.firstName} {customer.lastName}</p>
+        )}
+      </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="flex-wrap" data-testid="tabs-list">
@@ -1126,41 +1155,39 @@ export default function ContractDetailPage() {
                 <History className="h-5 w-5" />
                 {t.contractsModule.auditLog}
               </CardTitle>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="email"
-                  placeholder="email@example.com"
-                  value={exportEmail}
-                  onChange={(e) => setExportEmail(e.target.value)}
-                  className="w-48"
-                  data-testid="input-export-email"
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!exportEmail || sendingAuditEmail}
-                  onClick={async () => {
-                    setSendingAuditEmail(true);
-                    try {
-                      const res = await apiRequest("POST", `/api/contracts/${contractId}/export-audit`, { email: exportEmail });
-                      const data = await res.json();
-                      toast({ title: t.contractsModule.auditTimelineSent, description: data.timelineUrl ? t.contractsModule.auditTimelineSentDesc : undefined });
-                      setExportEmail("");
-                      if (data.timelineUrl) {
-                        setLastTimelineUrl(data.timelineUrl);
-                      }
-                    } catch {
-                      toast({ title: t.contractsModule.saveError, variant: "destructive" });
-                    } finally {
-                      setSendingAuditEmail(false);
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!customer?.email || sendingAuditEmail}
+                title={customer?.email ? `${t.contractsModule.sendAuditTimeline}: ${customer.email}` : t.contractsModule.noCustomerEmail}
+                onClick={async () => {
+                  if (!customer?.email) return;
+                  setSendingAuditEmail(true);
+                  try {
+                    const res = await apiRequest("POST", `/api/contracts/${contractId}/export-audit`, { email: customer.email });
+                    const data = await res.json();
+                    if (data.emailSent) {
+                      toast({ title: t.contractsModule.auditTimelineSent, description: t.contractsModule.auditTimelineSentDesc });
+                    } else {
+                      toast({ title: t.contractsModule.auditTimelineSent, description: "MS365 not connected - link generated but email was not sent", variant: "destructive" });
                     }
-                  }}
-                  data-testid="button-export-audit-send"
-                >
-                  {sendingAuditEmail ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
-                  {t.contractsModule.sendAuditTimeline}
-                </Button>
-              </div>
+                    if (data.timelineUrl) {
+                      setLastTimelineUrl(data.timelineUrl);
+                    }
+                  } catch {
+                    toast({ title: t.contractsModule.saveError, variant: "destructive" });
+                  } finally {
+                    setSendingAuditEmail(false);
+                  }
+                }}
+                data-testid="button-export-audit-send"
+              >
+                {sendingAuditEmail ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Mail className="h-4 w-4 mr-2" />}
+                {t.contractsModule.sendToCustomerEmail}
+                {customer?.email && (
+                  <span className="ml-1 text-xs text-muted-foreground">({customer.email})</span>
+                )}
+              </Button>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">{t.contractsModule.auditLogDescription}</p>
@@ -1193,12 +1220,14 @@ export default function ContractDetailPage() {
                       switch (action) {
                         case "created": return <FileText className="h-4 w-4" />;
                         case "sent": case "otp_sent": return <Send className="h-4 w-4" />;
-                        case "viewed": return <Eye className="h-4 w-4" />;
-                        case "otp_verified": return <Shield className="h-4 w-4" />;
-                        case "signed": return <CheckCircle className="h-4 w-4" />;
-                        case "completed": return <CheckCircle className="h-4 w-4" />;
-                        case "cancelled": return <X className="h-4 w-4" />;
-                        case "updated": return <Edit className="h-4 w-4" />;
+                        case "viewed": case "signing_page_viewed": return <Eye className="h-4 w-4" />;
+                        case "otp_verified": case "verified": return <Shield className="h-4 w-4" />;
+                        case "signed": case "completed": case "executed": return <CheckCircle className="h-4 w-4" />;
+                        case "cancelled": case "terminated": return <X className="h-4 w-4" />;
+                        case "updated": case "status_changed": return <Edit className="h-4 w-4" />;
+                        case "audit_exported": return <ExternalLink className="h-4 w-4" />;
+                        case "received": return <Download className="h-4 w-4" />;
+                        case "returned": return <ArrowLeft className="h-4 w-4" />;
                         default: return <Clock className="h-4 w-4" />;
                       }
                     };
@@ -1213,6 +1242,13 @@ export default function ContractDetailPage() {
                         completed: t.contractsModule.auditEventCompleted,
                         cancelled: t.contractsModule.auditEventCancelled,
                         updated: t.contractsModule.auditEventUpdated,
+                        status_changed: t.contractsModule.auditEventStatusChanged,
+                        audit_exported: t.contractsModule.auditEventAuditExported,
+                        signing_page_viewed: t.contractsModule.auditEventSigningPageViewed,
+                        received: t.contractsModule.auditEventReceived,
+                        returned: t.contractsModule.auditEventReturned,
+                        verified: t.contractsModule.auditEventVerified,
+                        terminated: t.contractsModule.auditEventTerminated,
                       };
                       return map[action] || action;
                     };
@@ -1220,9 +1256,14 @@ export default function ContractDetailPage() {
                       switch (action) {
                         case "created": return "text-blue-500";
                         case "sent": case "otp_sent": return "text-orange-500";
-                        case "otp_verified": return "text-emerald-500";
-                        case "signed": case "completed": return "text-green-600";
-                        case "cancelled": return "text-destructive";
+                        case "otp_verified": case "verified": return "text-emerald-500";
+                        case "signed": case "completed": case "executed": return "text-green-600";
+                        case "cancelled": case "terminated": return "text-destructive";
+                        case "status_changed": return "text-purple-500";
+                        case "audit_exported": return "text-muted-foreground";
+                        case "signing_page_viewed": case "viewed": return "text-indigo-500";
+                        case "received": return "text-purple-500";
+                        case "returned": return "text-orange-500";
                         default: return "text-muted-foreground";
                       }
                     };

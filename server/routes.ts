@@ -21404,35 +21404,57 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       const protocol = req.headers["x-forwarded-proto"] || "https";
       const timelineUrl = `${protocol}://${host}/audit-timeline/${token}`;
 
+      let emailSent = false;
       try {
-        const ms365Session = (req.session as any)?.ms365;
-        if (ms365Session?.accessToken) {
-          const { sendEmail: ms365SendEmail } = await import("./lib/ms365");
-          const decryptTokenSafe = (t: string) => {
-            try {
-              const { decryptToken } = require("./lib/ms365");
-              return decryptToken(t);
-            } catch { return t; }
-          };
-          const accessToken = decryptTokenSafe(ms365Session.accessToken);
+        const userId = req.session.user!.id;
+        const ms365Connection = await storage.getUserMs365Connection(userId);
+        
+        if (ms365Connection?.isConnected && ms365Connection.accessToken) {
+          const { decryptTokenSafe } = await import("./lib/token-crypto");
+          const { sendEmail: ms365SendEmail, getValidAccessToken } = await import("./lib/ms365");
           
-          const emailHtml = `
-            <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f8f9fa; padding: 20px;">
-              <div style="background: #6B1C3B; padding: 24px; border-radius: 12px 12px 0 0; text-align: center;">
-                <h1 style="color: white; margin: 0; font-size: 22px;">INDEXUS</h1>
-                <p style="color: rgba(255,255,255,0.8); margin: 4px 0 0; font-size: 14px;">Contract Audit Timeline</p>
-              </div>
-              <div style="background: white; padding: 24px; border-radius: 0 0 12px 12px; border: 1px solid #e5e7eb; border-top: 0;">
-                <p style="color: #374151; font-size: 15px;">A detailed timeline of all actions related to your contract <strong>${contract.contractNumber}</strong> is available for review.</p>
-                <p style="color: #6b7280; font-size: 14px;">Click the button below to view the complete audit trail, including contract creation, signatures, and all status changes.</p>
-                <div style="text-align: center; margin: 24px 0;">
-                  <a href="${timelineUrl}" style="display: inline-block; background: #6B1C3B; color: white; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">View Audit Timeline</a>
+          const decryptedAccessToken = decryptTokenSafe(ms365Connection.accessToken);
+          const decryptedRefreshToken = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
+          
+          const tokenResult = await getValidAccessToken(
+            decryptedAccessToken,
+            ms365Connection.tokenExpiresAt,
+            decryptedRefreshToken
+          );
+          
+          if (tokenResult) {
+            if (tokenResult.refreshed) {
+              const { encryptTokenWithMarker } = await import("./lib/token-crypto");
+              const updateData: any = {
+                accessToken: encryptTokenWithMarker(tokenResult.accessToken),
+                tokenExpiresAt: tokenResult.expiresOn,
+                lastSyncAt: new Date(),
+              };
+              if (tokenResult.refreshToken) {
+                updateData.refreshToken = encryptTokenWithMarker(tokenResult.refreshToken);
+              }
+              await storage.updateUserMs365Connection(userId, updateData);
+            }
+            
+            const emailHtml = `
+              <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f8f9fa; padding: 20px;">
+                <div style="background: #6B1C3B; padding: 24px; border-radius: 12px 12px 0 0; text-align: center;">
+                  <h1 style="color: white; margin: 0; font-size: 22px;">INDEXUS</h1>
+                  <p style="color: rgba(255,255,255,0.8); margin: 4px 0 0; font-size: 14px;">Contract Audit Timeline</p>
                 </div>
-                <p style="color: #9ca3af; font-size: 12px; text-align: center;">This link expires in 30 days.</p>
-              </div>
-            </div>`;
+                <div style="background: white; padding: 24px; border-radius: 0 0 12px 12px; border: 1px solid #e5e7eb; border-top: 0;">
+                  <p style="color: #374151; font-size: 15px;">A detailed timeline of all actions related to your contract <strong>${contract.contractNumber}</strong> is available for review.</p>
+                  <p style="color: #6b7280; font-size: 14px;">Click the button below to view the complete audit trail, including contract creation, signatures, and all status changes.</p>
+                  <div style="text-align: center; margin: 24px 0;">
+                    <a href="${timelineUrl}" style="display: inline-block; background: #6B1C3B; color: white; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">View Audit Timeline</a>
+                  </div>
+                  <p style="color: #9ca3af; font-size: 12px; text-align: center;">This link expires in 30 days.</p>
+                </div>
+              </div>`;
 
-          await ms365SendEmail(accessToken, [email], `Contract Audit Timeline - ${contract.contractNumber}`, emailHtml, true);
+            await ms365SendEmail(tokenResult.accessToken, [email], `Contract Audit Timeline - ${contract.contractNumber}`, emailHtml, true);
+            emailSent = true;
+          }
         }
       } catch (emailErr) {
         console.error("Failed to send audit email via MS365:", emailErr);
@@ -21450,7 +21472,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         details: JSON.stringify({ exportedTo: email, timelineUrl })
       });
       
-      res.json({ success: true, timelineUrl, message: "Audit timeline link sent" });
+      res.json({ success: true, timelineUrl, emailSent, message: emailSent ? "Audit timeline link sent via email" : "Audit timeline link generated (email not sent - MS365 not connected)" });
     } catch (error) {
       console.error("Error exporting contract audit log:", error);
       res.status(500).json({ error: "Failed to export audit log" });
