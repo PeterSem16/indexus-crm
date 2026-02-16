@@ -19309,7 +19309,9 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         currency: currency || "EUR",
         notes: notes || null,
         contractNumber,
-        createdBy: req.session.user!.id
+        createdBy: req.session.user!.id,
+        contactDate: new Date(),
+        createdContractDate: new Date()
       });
       
       const contract = await storage.createContractInstance(data);
@@ -21366,6 +21368,63 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
     } catch (error) {
       console.error("Error fetching contract audit log:", error);
       res.status(500).json({ error: "Failed to fetch audit log" });
+    }
+  });
+
+  // Export contract audit log via email
+  app.post("/api/contracts/:id/export-audit", requireAuth, async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email) {
+        return res.status(400).json({ error: "Email is required" });
+      }
+      
+      const contract = await storage.getContractInstance(req.params.id);
+      if (!contract) {
+        return res.status(404).json({ error: "Contract not found" });
+      }
+      
+      const auditLog = await storage.getContractAuditLog(req.params.id);
+      const participants = await storage.getContractParticipants(req.params.id);
+      
+      let htmlContent = `<h2>Audit Log - ${contract.contractNumber}</h2>`;
+      htmlContent += `<p><strong>Contract:</strong> ${contract.contractNumber}</p>`;
+      htmlContent += `<p><strong>Status:</strong> ${contract.status}</p>`;
+      htmlContent += `<p><strong>Created:</strong> ${contract.createdAt ? new Date(contract.createdAt).toLocaleString() : "-"}</p>`;
+      htmlContent += `<hr/>`;
+      
+      htmlContent += `<h3>Participants</h3><table border="1" cellpadding="5" cellspacing="0">`;
+      htmlContent += `<tr><th>Name</th><th>Type</th><th>Email</th><th>Phone</th><th>Signed</th></tr>`;
+      for (const p of participants) {
+        htmlContent += `<tr><td>${p.fullName}</td><td>${p.participantType}</td><td>${p.email || "-"}</td><td>${p.phone || "-"}</td><td>${p.signedAt ? new Date(p.signedAt).toLocaleString() : "-"}</td></tr>`;
+      }
+      htmlContent += `</table>`;
+      
+      htmlContent += `<h3>Events</h3><table border="1" cellpadding="5" cellspacing="0">`;
+      htmlContent += `<tr><th>Date</th><th>Action</th><th>Actor</th><th>IP</th><th>Details</th></tr>`;
+      for (const entry of auditLog) {
+        let details = "";
+        try { details = entry.details ? JSON.stringify(JSON.parse(entry.details), null, 0) : ""; } catch { details = entry.details || ""; }
+        htmlContent += `<tr><td>${entry.createdAt ? new Date(entry.createdAt).toLocaleString() : "-"}</td><td>${entry.action}</td><td>${entry.actorName || entry.actorEmail || entry.actorType}</td><td>${entry.ipAddress || "-"}</td><td>${details}</td></tr>`;
+      }
+      htmlContent += `</table>`;
+      
+      await storage.createContractAuditLog({
+        contractId: req.params.id,
+        action: "audit_exported",
+        actorId: req.session.user!.id,
+        actorType: "user",
+        actorName: req.session.user!.fullName,
+        actorEmail: req.session.user!.email,
+        ipAddress: req.ip,
+        userAgent: req.headers["user-agent"] || null,
+        details: JSON.stringify({ exportedTo: email })
+      });
+      
+      res.json({ success: true, message: "Audit log export prepared" });
+    } catch (error) {
+      console.error("Error exporting contract audit log:", error);
+      res.status(500).json({ error: "Failed to export audit log" });
     }
   });
 

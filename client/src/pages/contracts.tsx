@@ -1517,7 +1517,7 @@ export default function ContractsPage() {
   );
 
   const [contractSearchTerm, setContractSearchTerm] = useState("");
-  const [contractStatusFilter, setContractStatusFilter] = useState<string>("all");
+  const [contractStatusFilter, setContractStatusFilter] = useState<string | string[]>("all");
 
   const filteredContracts = contracts.filter(c => {
     const customer = customers.find(cust => cust.id === c.customerId);
@@ -1525,7 +1525,8 @@ export default function ContractsPage() {
     const matchesSearch = !contractSearchTerm || 
       c.contractNumber?.toLowerCase().includes(contractSearchTerm.toLowerCase()) ||
       (customer && `${customer.firstName} ${customer.lastName}`.toLowerCase().includes(contractSearchTerm.toLowerCase()));
-    const matchesStatus = contractStatusFilter === "all" || c.status === contractStatusFilter;
+    const matchesStatus = contractStatusFilter === "all" || 
+      (Array.isArray(contractStatusFilter) ? contractStatusFilter.includes(c.status) : c.status === contractStatusFilter);
     return matchesCountry && matchesSearch && matchesStatus;
   });
 
@@ -1819,6 +1820,55 @@ export default function ContractsPage() {
           </TabsContent>
 
           <TabsContent value="contracts" className="mt-0 min-w-0">
+            {/* Contract Dashboard Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+              {(() => {
+                const countryContracts = contracts.filter(c => {
+                  if (!selectedCountry) return true;
+                  const customer = customers.find(cust => cust.id === c.customerId);
+                  return customer?.country === selectedCountry;
+                });
+                const total = countryContracts.length;
+                const signed = countryContracts.filter(c => c.status === "signed" || c.status === "executed" || c.status === "completed").length;
+                const pending = countryContracts.filter(c => c.status === "sent" || c.status === "pending_signature").length;
+                const drafts = countryContracts.filter(c => c.status === "draft" || c.status === "created").length;
+                const cancelled = countryContracts.filter(c => c.status === "cancelled" || c.status === "terminated").length;
+                return (
+                  <>
+                    <Card className="cursor-pointer hover-elevate" onClick={() => setContractStatusFilter("all")} data-testid="stat-total-contracts">
+                      <CardContent className="p-3">
+                        <div className="text-xs text-muted-foreground">{t.contractsModule.totalContracts}</div>
+                        <div className="text-2xl font-bold mt-1">{total}</div>
+                      </CardContent>
+                    </Card>
+                    <Card className="cursor-pointer hover-elevate" onClick={() => setContractStatusFilter(["signed", "executed", "completed"])} data-testid="stat-signed-contracts">
+                      <CardContent className="p-3">
+                        <div className="text-xs text-muted-foreground">{t.contractsModule.signedContracts}</div>
+                        <div className="text-2xl font-bold mt-1 text-green-600">{signed}</div>
+                      </CardContent>
+                    </Card>
+                    <Card className="cursor-pointer hover-elevate" onClick={() => setContractStatusFilter(["sent", "pending_signature"])} data-testid="stat-pending-contracts">
+                      <CardContent className="p-3">
+                        <div className="text-xs text-muted-foreground">{t.contractsModule.pendingContracts}</div>
+                        <div className="text-2xl font-bold mt-1 text-orange-500">{pending}</div>
+                      </CardContent>
+                    </Card>
+                    <Card className="cursor-pointer hover-elevate" onClick={() => setContractStatusFilter(["draft", "created"])} data-testid="stat-draft-contracts">
+                      <CardContent className="p-3">
+                        <div className="text-xs text-muted-foreground">{t.contractsModule.draftContracts}</div>
+                        <div className="text-2xl font-bold mt-1">{drafts}</div>
+                      </CardContent>
+                    </Card>
+                    <Card className="cursor-pointer hover-elevate" onClick={() => setContractStatusFilter(["cancelled", "terminated"])} data-testid="stat-cancelled-contracts">
+                      <CardContent className="p-3">
+                        <div className="text-xs text-muted-foreground">{t.contractsModule.cancelledContracts}</div>
+                        <div className="text-2xl font-bold mt-1 text-destructive">{cancelled}</div>
+                      </CardContent>
+                    </Card>
+                  </>
+                );
+              })()}
+            </div>
             <div className="flex items-center gap-4 mb-4 flex-wrap">
               <div className="flex-1 min-w-[200px] max-w-sm">
                 <Input
@@ -1828,7 +1878,7 @@ export default function ContractsPage() {
                   data-testid="input-contract-search"
                 />
               </div>
-              <Select value={contractStatusFilter} onValueChange={setContractStatusFilter}>
+              <Select value={Array.isArray(contractStatusFilter) ? "custom" : contractStatusFilter} onValueChange={(val) => setContractStatusFilter(val)}>
                 <SelectTrigger className="w-[180px]" data-testid="select-contract-status-filter">
                   <SelectValue placeholder={t.contractsModule.allStatuses} />
                 </SelectTrigger>
@@ -1849,7 +1899,7 @@ export default function ContractsPage() {
                   <SelectItem value="expired">{t.contractsModule.statusExpired}</SelectItem>
                 </SelectContent>
               </Select>
-              {(contractSearchTerm || contractStatusFilter !== "all") && (
+              {(contractSearchTerm || contractStatusFilter !== "all" && !(Array.isArray(contractStatusFilter) && contractStatusFilter.length === 0)) && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1895,11 +1945,16 @@ export default function ContractsPage() {
                       </TableRow>
                     ) : (
                       filteredContracts.map(contract => (
-                        <TableRow key={contract.id} data-testid={`row-contract-${contract.id}`}>
+                        <TableRow key={contract.id} className={contract.status === "signed" || contract.status === "executed" || contract.status === "completed" ? "bg-green-50/50 dark:bg-green-950/10" : ""} data-testid={`row-contract-${contract.id}`}>
                           <TableCell className="font-medium">
-                            <Link href={`/contracts/${contract.id}`} className="text-primary hover:underline" data-testid={`link-contract-${contract.id}`}>
-                              {contract.contractNumber}
-                            </Link>
+                            <div className="flex items-center gap-1.5">
+                              {(contract.status === "signed" || contract.status === "executed" || contract.status === "completed") && (
+                                <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
+                              )}
+                              <Link href={`/contracts/${contract.id}`} className="text-primary hover:underline" data-testid={`link-contract-${contract.id}`}>
+                                {contract.contractNumber}
+                              </Link>
+                            </div>
                           </TableCell>
                           <TableCell>{getCustomerName(contract.customerId)}</TableCell>
                           <TableCell>{getStatusBadge(contract.status)}</TableCell>

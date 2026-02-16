@@ -17,7 +17,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { PageHeader } from "@/components/page-header";
 import { useI18n } from "@/i18n";
 import { format } from "date-fns";
-import { ArrowLeft, Save, FileText, Users, Package, Beaker, Receipt, Loader2, Download, ExternalLink } from "lucide-react";
+import { ArrowLeft, Save, FileText, Users, Package, Beaker, Receipt, Loader2, Download, ExternalLink, Shield, Clock, Mail, CheckCircle, Send, Eye, AlertCircle, X, Edit, History } from "lucide-react";
 import type { ContractInstance, Customer, Hospital, Collection, Product, CustomerProduct } from "@shared/schema";
 
 const SALES_CHANNEL_OPTIONS = ["CCP", "CCP+D", "CCAI", "CCAI+D", "CCAE", "CCAE+D", "I"];
@@ -96,6 +96,11 @@ export default function ContractDetailPage() {
   const [activeTab, setActiveTab] = useState("basic");
   const [formState, setFormState] = useState<Record<string, any>>({});
   const [formInitialized, setFormInitialized] = useState(false);
+  const auditExportKey = `audit_export_used_${contractId}`;
+  const [auditExportUsed, setAuditExportUsed] = useState(() => {
+    try { return localStorage.getItem(auditExportKey) === "true"; } catch { return false; }
+  });
+  const [exportEmail, setExportEmail] = useState("");
 
   const { data: contractDetail, isLoading } = useQuery<any>({
     queryKey: ["/api/contracts", contractId],
@@ -293,6 +298,10 @@ export default function ContractDetailPage() {
           <TabsTrigger value="invoices" data-testid="tab-invoices">
             <Receipt className="h-4 w-4 mr-1" />
             {t.contractsModule.tabInvoices}
+          </TabsTrigger>
+          <TabsTrigger value="audit" data-testid="tab-audit">
+            <History className="h-4 w-4 mr-1" />
+            {t.contractsModule.auditLog}
           </TabsTrigger>
         </TabsList>
 
@@ -902,16 +911,30 @@ export default function ContractDetailPage() {
                     <TableCell>{formatDateTime(contract.createdAt)}</TableCell>
                     <TableCell>
                       {contract.pdfPath ? (
-                        <a
-                          href={`/api/documents/contract-${contract.id}/download`}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={async () => {
+                            try {
+                              const response = await fetch(`/api/contracts/${contract.id}/pdf`, { credentials: "include" });
+                              if (!response.ok) throw new Error("Download failed");
+                              const blob = await response.blob();
+                              const url = window.URL.createObjectURL(blob);
+                              const link = document.createElement("a");
+                              link.href = url;
+                              link.download = `zmluva-${contract.contractNumber}.pdf`;
+                              document.body.appendChild(link);
+                              link.click();
+                              document.body.removeChild(link);
+                              window.URL.revokeObjectURL(url);
+                            } catch {
+                              toast({ title: t.contractsModule.saveError, variant: "destructive" });
+                            }
+                          }}
                           data-testid="link-download-pdf"
                         >
-                          <Button variant="ghost" size="icon">
-                            <Download className="h-4 w-4" />
-                          </Button>
-                        </a>
+                          <Download className="h-4 w-4" />
+                        </Button>
                       ) : (
                         <span className="text-muted-foreground text-sm">{t.contractsModule.noDocuments}</span>
                       )}
@@ -1093,6 +1116,148 @@ export default function ContractDetailPage() {
                 </Table>
               ) : (
                 <p className="text-muted-foreground">{t.contractsModule.noInvoices}</p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="audit" className="space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-2">
+              <CardTitle className="flex items-center gap-2">
+                <History className="h-5 w-5" />
+                {t.contractsModule.auditLog}
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                {!auditExportUsed ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setAuditExportUsed(true);
+                      try { localStorage.setItem(auditExportKey, "true"); } catch {}
+                      toast({ title: t.contractsModule.firstFreeExport, description: t.contractsModule.exportAuditLogFree });
+                    }}
+                    data-testid="button-export-audit-free"
+                  >
+                    <Mail className="h-4 w-4 mr-2" />
+                    {t.contractsModule.firstFreeExport}
+                  </Button>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="email"
+                      placeholder="email@example.com"
+                      value={exportEmail}
+                      onChange={(e) => setExportEmail(e.target.value)}
+                      className="w-48"
+                      data-testid="input-export-email"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!exportEmail}
+                      onClick={async () => {
+                        try {
+                          await apiRequest("POST", `/api/contracts/${contractId}/export-audit`, { email: exportEmail });
+                          toast({ title: t.contractsModule.exportAuditLog });
+                          setExportEmail("");
+                        } catch {
+                          toast({ title: t.contractsModule.saveError, variant: "destructive" });
+                        }
+                      }}
+                      data-testid="button-export-audit-send"
+                    >
+                      <Send className="h-4 w-4 mr-2" />
+                      {t.contractsModule.exportAuditLog}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">{t.contractsModule.auditLogDescription}</p>
+              {auditLog.length > 0 ? (
+                <div className="space-y-3">
+                  {auditLog.map((entry: any, index: number) => {
+                    const getActionIcon = (action: string) => {
+                      switch (action) {
+                        case "created": return <FileText className="h-4 w-4" />;
+                        case "sent": case "otp_sent": return <Send className="h-4 w-4" />;
+                        case "viewed": return <Eye className="h-4 w-4" />;
+                        case "otp_verified": return <Shield className="h-4 w-4" />;
+                        case "signed": return <CheckCircle className="h-4 w-4" />;
+                        case "completed": return <CheckCircle className="h-4 w-4" />;
+                        case "cancelled": return <X className="h-4 w-4" />;
+                        case "updated": return <Edit className="h-4 w-4" />;
+                        default: return <Clock className="h-4 w-4" />;
+                      }
+                    };
+                    const getActionLabel = (action: string) => {
+                      const map: Record<string, string> = {
+                        created: t.contractsModule.auditEventCreated,
+                        sent: t.contractsModule.auditEventSent,
+                        viewed: t.contractsModule.auditEventViewed,
+                        otp_sent: t.contractsModule.auditEventOtpSent,
+                        otp_verified: t.contractsModule.auditEventOtpVerified,
+                        signed: t.contractsModule.auditEventSigned,
+                        completed: t.contractsModule.auditEventCompleted,
+                        cancelled: t.contractsModule.auditEventCancelled,
+                        updated: t.contractsModule.auditEventUpdated,
+                      };
+                      return map[action] || action;
+                    };
+                    const getActionColor = (action: string) => {
+                      switch (action) {
+                        case "created": return "text-blue-500";
+                        case "sent": case "otp_sent": return "text-orange-500";
+                        case "otp_verified": return "text-emerald-500";
+                        case "signed": case "completed": return "text-green-600";
+                        case "cancelled": return "text-destructive";
+                        default: return "text-muted-foreground";
+                      }
+                    };
+                    let details: Record<string, any> = {};
+                    try { details = entry.details ? JSON.parse(entry.details) : {}; } catch { details = {}; }
+
+                    return (
+                      <div key={entry.id || index} className="flex gap-3 items-start" data-testid={`row-audit-${index}`}>
+                        <div className={`mt-0.5 flex-shrink-0 ${getActionColor(entry.action)}`}>
+                          {getActionIcon(entry.action)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium text-sm">{getActionLabel(entry.action)}</span>
+                            <Badge variant="secondary" className="text-xs">
+                              {entry.actorType === "user" ? entry.actorName || entry.actorEmail : entry.actorType === "customer" ? entry.actorName || "Customer" : "System"}
+                            </Badge>
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
+                            <span>{entry.createdAt ? format(new Date(entry.createdAt), "d.M.yyyy HH:mm:ss") : "-"}</span>
+                            {entry.ipAddress && (
+                              <span className="flex items-center gap-1">
+                                <Shield className="h-3 w-3" />
+                                {entry.ipAddress}
+                              </span>
+                            )}
+                          </div>
+                          {Object.keys(details).length > 0 && (
+                            <div className="text-xs text-muted-foreground mt-1 bg-muted/50 p-2 rounded-md">
+                              {Object.entries(details).map(([key, value]) => (
+                                <div key={key} className="flex gap-1">
+                                  <span className="font-medium">{key}:</span>
+                                  <span>{String(value)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-sm">{t.contractsModule.noData}</p>
               )}
             </CardContent>
           </Card>
