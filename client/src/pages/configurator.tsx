@@ -7537,6 +7537,26 @@ interface VariableGroup {
   variables: { key: string; description: string }[];
 }
 
+function ContractTemplatesRedirect() {
+  const { t } = useI18n();
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h3 className="text-lg font-semibold">{t.konfigurator.contractTemplates || "Šablóny zmlúv"}</h3>
+          <p className="text-sm text-muted-foreground">{t.konfigurator.contractTemplatesDesc || "Správa šablón zmlúv, kategórií a premenných"}</p>
+        </div>
+        <a href="/contracts?tab=templates">
+          <Button data-testid="button-open-contract-templates">
+            <FileText className="h-4 w-4 mr-2" />
+            {t.konfigurator.openContractTemplates || "Otvoriť šablóny zmlúv"}
+          </Button>
+        </a>
+      </div>
+    </div>
+  );
+}
+
 function DocxTemplatesTab() {
   const { t } = useI18n();
   const { toast } = useToast();
@@ -17076,6 +17096,10 @@ export default function ConfiguratorPage() {
                     <FileText className="h-4 w-4 mr-2" />
                     {t.konfigurator.invoiceTemplates || "Šablóny faktúr"}
                   </TabsTrigger>
+                  <TabsTrigger value="contract-templates" data-testid="subtab-contract-templates">
+                    <FileText className="h-4 w-4 mr-2" />
+                    {t.konfigurator.contractTemplates || "Šablóny zmlúv"}
+                  </TabsTrigger>
                   <TabsTrigger value="system-settings" data-testid="subtab-system-settings">
                     <Settings className="h-4 w-4 mr-2" />
                     Systémové nastavenia
@@ -17089,6 +17113,9 @@ export default function ConfiguratorPage() {
                 </TabsContent>
                 <TabsContent value="invoice-templates">
                   <DocxTemplatesTab />
+                </TabsContent>
+                <TabsContent value="contract-templates">
+                  <ContractTemplatesRedirect />
                 </TabsContent>
                 <TabsContent value="system-settings">
                   <CountrySystemSettingsTab />

@@ -24,7 +24,7 @@ import {
   FileSignature, Download, Copy, RefreshCw, AlertCircle, Filter,
   ChevronRight, Settings, PenTool, Mail, Phone, Shield, Users,
   CheckCircle, Loader2, Edit, Pencil, GripVertical, Globe, ExternalLink,
-  Sparkles, ArrowRight, Maximize2, Minimize2
+  Sparkles, ArrowRight, Maximize2, Minimize2, ArrowUpDown, ChevronLeft
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -361,7 +361,8 @@ export default function ContractsPage() {
   const urlParams = new URLSearchParams(searchString);
   const urlCustomerId = urlParams.get("customerId");
   
-  const [activeTab, setActiveTab] = useState<TabType>("contracts");
+  const urlTab = urlParams.get("tab");
+  const [activeTab, setActiveTab] = useState<TabType>(urlTab === "templates" ? "templates" : "contracts");
   const [templateSubTab, setTemplateSubTab] = useState<TemplateSubTab>("list");
   
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
@@ -1519,6 +1520,9 @@ export default function ContractsPage() {
 
   const [contractSearchTerm, setContractSearchTerm] = useState("");
   const [contractStatusFilter, setContractStatusFilter] = useState<string | string[]>("all");
+  const [contractSortOrder, setContractSortOrder] = useState<"asc" | "desc">("desc");
+  const [contractPage, setContractPage] = useState(1);
+  const CONTRACTS_PER_PAGE = 15;
 
   const filteredContracts = contracts.filter(c => {
     const customer = customers.find(cust => cust.id === c.customerId);
@@ -1529,7 +1533,19 @@ export default function ContractsPage() {
     const matchesStatus = contractStatusFilter === "all" || 
       (Array.isArray(contractStatusFilter) ? contractStatusFilter.includes(c.status) : c.status === contractStatusFilter);
     return matchesCountry && matchesSearch && matchesStatus;
+  }).sort((a, b) => {
+    const dateA = new Date(a.createdAt || 0).getTime();
+    const dateB = new Date(b.createdAt || 0).getTime();
+    return contractSortOrder === "asc" ? dateA - dateB : dateB - dateA;
   });
+
+  const totalContractPages = Math.ceil(filteredContracts.length / CONTRACTS_PER_PAGE);
+  const paginatedContracts = filteredContracts.slice(
+    (contractPage - 1) * CONTRACTS_PER_PAGE,
+    contractPage * CONTRACTS_PER_PAGE
+  );
+
+  useEffect(() => { setContractPage(1); }, [contractSearchTerm, contractStatusFilter, contractSortOrder, selectedCountry]);
 
   const getCustomerName = (customerId: string) => {
     const customer = customers.find(c => c.id === customerId);
@@ -1628,16 +1644,14 @@ export default function ContractsPage() {
       <div className="flex-1 overflow-auto p-6 min-w-0">
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabType)}>
           <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
-            <TabsList>
-              <TabsTrigger value="contracts" className="gap-2" data-testid="tab-contracts">
-                <FileSignature className="h-4 w-4" />
-                {t.contractsModule.tabContracts}
-              </TabsTrigger>
-              <TabsTrigger value="templates" className="gap-2" data-testid="tab-templates">
-                <FileText className="h-4 w-4" />
-                {t.contractsModule.tabTemplates}
-              </TabsTrigger>
-            </TabsList>
+            {activeTab === "templates" ? (
+              <TabsList>
+                <TabsTrigger value="templates" className="gap-2" data-testid="tab-templates">
+                  <FileText className="h-4 w-4" />
+                  {t.contractsModule.tabTemplates}
+                </TabsTrigger>
+              </TabsList>
+            ) : null}
             
             <div className="flex gap-2 flex-wrap">
               {activeTab === "templates" && templateSubTab === "list" && (
@@ -1900,6 +1914,15 @@ export default function ContractsPage() {
                   <SelectItem value="expired">{t.contractsModule.statusExpired}</SelectItem>
                 </SelectContent>
               </Select>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setContractSortOrder(prev => prev === "desc" ? "asc" : "desc")}
+                data-testid="button-contract-sort-order"
+              >
+                <ArrowUpDown className="h-4 w-4 mr-1" />
+                {contractSortOrder === "desc" ? (t.common.newest || "Najnovšie") : (t.common.oldest || "Najstaršie")}
+              </Button>
               {(contractSearchTerm || contractStatusFilter !== "all" && !(Array.isArray(contractStatusFilter) && contractStatusFilter.length === 0)) && (
                 <Button
                   variant="ghost"
@@ -1938,14 +1961,14 @@ export default function ContractsPage() {
                           {t.contractsModule.loading}
                         </TableCell>
                       </TableRow>
-                    ) : filteredContracts.length === 0 ? (
+                    ) : paginatedContracts.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                           {t.contractsModule.noData}
                         </TableCell>
                       </TableRow>
                     ) : (
-                      filteredContracts.map(contract => (
+                      paginatedContracts.map(contract => (
                         <TableRow key={contract.id} className={contract.status === "signed" || contract.status === "executed" || contract.status === "completed" ? "bg-green-50/50 dark:bg-green-950/10" : ""} data-testid={`row-contract-${contract.id}`}>
                           <TableCell className="font-medium">
                             <div className="flex items-center gap-1.5">
@@ -2061,6 +2084,55 @@ export default function ContractsPage() {
                   </TableBody>
                 </Table>
               </CardContent>
+              {totalContractPages > 1 && (
+                <div className="flex items-center justify-between gap-4 px-4 py-3 border-t flex-wrap">
+                  <span className="text-sm text-muted-foreground">
+                    {(contractPage - 1) * CONTRACTS_PER_PAGE + 1}-{Math.min(contractPage * CONTRACTS_PER_PAGE, filteredContracts.length)} / {filteredContracts.length}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      disabled={contractPage <= 1}
+                      onClick={() => setContractPage(p => p - 1)}
+                      data-testid="button-contract-prev-page"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    {Array.from({ length: totalContractPages }, (_, i) => i + 1)
+                      .filter(p => p === 1 || p === totalContractPages || Math.abs(p - contractPage) <= 2)
+                      .reduce<(number | "...")[]>((acc, p, idx, arr) => {
+                        if (idx > 0 && p - (arr[idx - 1]) > 1) acc.push("...");
+                        acc.push(p);
+                        return acc;
+                      }, [])
+                      .map((p, idx) =>
+                        p === "..." ? (
+                          <span key={`dots-${idx}`} className="px-1 text-muted-foreground text-sm">...</span>
+                        ) : (
+                          <Button
+                            key={p}
+                            variant={contractPage === p ? "default" : "outline"}
+                            size="icon"
+                            onClick={() => setContractPage(p as number)}
+                            data-testid={`button-contract-page-${p}`}
+                          >
+                            {p}
+                          </Button>
+                        )
+                      )}
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      disabled={contractPage >= totalContractPages}
+                      onClick={() => setContractPage(p => p + 1)}
+                      data-testid="button-contract-next-page"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </Card>
           </TabsContent>
         </Tabs>

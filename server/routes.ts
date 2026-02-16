@@ -21498,14 +21498,22 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       }
       const auditLog = await storage.getContractAuditLog(shareToken.contractId);
       const participants = await storage.getContractParticipants(shareToken.contractId);
+      
+      let customerCountry = "SK";
+      try {
+        const customer = await storage.getCustomer(contract.customerId);
+        if (customer?.country) customerCountry = customer.country;
+      } catch {}
 
       res.json({
+        customerCountry,
         contract: {
           contractNumber: contract.contractNumber,
           status: contract.status,
           createdAt: contract.createdAt,
           signedAt: contract.signedAt,
           contactDate: contract.contactDate,
+          hasPdf: !!contract.pdfPath,
         },
         participants: participants.map(p => ({
           fullName: p.fullName,
@@ -21525,6 +21533,34 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
     } catch (error) {
       console.error("Error fetching public audit timeline:", error);
       res.status(500).json({ error: "Failed to load timeline" });
+    }
+  });
+
+  app.get("/api/public/audit-timeline/:token/download-contract", async (req, res) => {
+    try {
+      const shareToken = await storage.getAuditShareTokenByToken(req.params.token);
+      if (!shareToken) {
+        return res.status(404).json({ error: "Not found" });
+      }
+      if (shareToken.expiresAt && new Date(shareToken.expiresAt) < new Date()) {
+        return res.status(410).json({ error: "Link expired" });
+      }
+      const contract = await storage.getContractInstance(shareToken.contractId);
+      if (!contract || !contract.pdfPath) {
+        return res.status(404).json({ error: "PDF not available" });
+      }
+      const fs = await import("fs");
+      const path = await import("path");
+      const pdfFullPath = path.default.resolve(contract.pdfPath);
+      if (!fs.default.existsSync(pdfFullPath)) {
+        return res.status(404).json({ error: "PDF file not found" });
+      }
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="contract-${contract.contractNumber}.pdf"`);
+      fs.default.createReadStream(pdfFullPath).pipe(res);
+    } catch (error) {
+      console.error("Error downloading contract PDF:", error);
+      res.status(500).json({ error: "Failed to download" });
     }
   });
 
