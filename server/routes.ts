@@ -20565,8 +20565,11 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
       
-      const method: "email_otp" | "sms_otp" = verificationMethod === "sms_otp" ? "sms_otp" : 
-        (signatureRequest.verificationMethod === "sms_otp" ? "sms_otp" : "email_otp");
+      const method: "email_otp" | "sms_otp" = verificationMethod === "email_otp" ? "email_otp" 
+        : verificationMethod === "sms_otp" ? "sms_otp" 
+        : (signatureRequest.verificationMethod as "email_otp" | "sms_otp") || "email_otp";
+
+      console.log(`[ContractOTP] Resend OTP: requested=${verificationMethod}, stored=${signatureRequest.verificationMethod}, resolved=${method}, email=${signatureRequest.signerEmail}, phone=${signatureRequest.signerPhone}`);
 
       await storage.updateContractSignatureRequest(signatureRequest.id, {
         otpCode,

@@ -894,7 +894,7 @@ export default function ContractsPage() {
 
   const { data: contractDetail } = useQuery<ContractDetail>({
     queryKey: ["/api/contracts", selectedContract?.id],
-    enabled: (isPreviewOpen || isContractWizardOpen) && !!selectedContract?.id
+    enabled: isPreviewOpen && !!selectedContract?.id
   });
 
   type ProductWithSets = {
@@ -1864,9 +1864,9 @@ export default function ContractsPage() {
                 </Button>
               )}
             </div>
-            <Card>
+            <Card className="overflow-hidden">
               <CardContent className="p-0 overflow-x-auto">
-                <Table>
+                <Table className="min-w-[900px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead>{t.contractsModule.contractNumber}</TableHead>
@@ -1943,14 +1943,7 @@ export default function ContractsPage() {
                                     setSelectedContract(contract);
                                     setIsAddingParticipant(false);
                                     setEditingParticipantId(null);
-                                    setWizardStep(3);
-                                    setContractForm(prev => ({
-                                      ...prev,
-                                      customerId: contract.customerId || "",
-                                      templateId: contract.templateId || "",
-                                      categoryId: contract.categoryId || ""
-                                    }));
-                                    setIsContractWizardOpen(true);
+                                    setIsPreviewOpen(true);
                                   }}
                                   title={t.contractsModule.signers}
                                   data-testid={`button-manage-signers-${contract.id}`}
