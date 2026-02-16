@@ -20295,6 +20295,157 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
     }
   });
 
+  // Contract signing localization
+  type SigningLocale = 'sk' | 'cs' | 'hu' | 'ro' | 'it' | 'de' | 'en';
+  const COUNTRY_TO_SIGNING_LOCALE: Record<string, SigningLocale> = {
+    SK: 'sk', CZ: 'cs', HU: 'hu', RO: 'ro', IT: 'it', DE: 'de', US: 'en'
+  };
+  const signingI18n: Record<SigningLocale, {
+    greeting: string; otpIntro: string; codeValid: string;
+    signButton: string; signLinkIntro: string; copyLink: string;
+    fallbackInstruction: string; attachmentNote: string; closing: string;
+    emailSubject: (cn: string) => string;
+    smsText: (cn: string, otp: string) => string;
+    smsTextWithLink: (cn: string, otp: string, link: string) => string;
+    contract: string;
+  }> = {
+    sk: {
+      greeting: 'Dobrý deň',
+      otpIntro: 'Váš overovací kód pre zmluvu č.',
+      codeValid: 'Kód je platný 24 hodín.',
+      signButton: 'Podpísať zmluvu',
+      signLinkIntro: 'Pre podpísanie zmluvy kliknite na nasledujúci odkaz:',
+      copyLink: 'Alebo skopírujte tento odkaz do prehliadača:',
+      fallbackInstruction: 'Pre podpísanie zmluvy prosím použite tento kód v systéme INDEXUS.',
+      attachmentNote: 'V prílohe nájdete zmluvu na stiahnutie.',
+      closing: 'S pozdravom',
+      emailSubject: (cn) => `Zmluva č. ${cn} - Overovací kód`,
+      smsText: (cn, otp) => `INDEXUS: Váš overovací kód pre zmluvu ${cn} je: ${otp}. Kód je platný 24 hodín.`,
+      smsTextWithLink: (cn, otp, link) => `INDEXUS: Kód pre zmluvu ${cn}: ${otp}. Podpíšte tu: ${link}`,
+      contract: 'zmluvu',
+    },
+    cs: {
+      greeting: 'Dobrý den',
+      otpIntro: 'Váš ověřovací kód pro smlouvu č.',
+      codeValid: 'Kód je platný 24 hodin.',
+      signButton: 'Podepsat smlouvu',
+      signLinkIntro: 'Pro podepsání smlouvy klikněte na následující odkaz:',
+      copyLink: 'Nebo zkopírujte tento odkaz do prohlížeče:',
+      fallbackInstruction: 'Pro podepsání smlouvy použijte tento kód v systému INDEXUS.',
+      attachmentNote: 'V příloze naleznete smlouvu ke stažení.',
+      closing: 'S pozdravem',
+      emailSubject: (cn) => `Smlouva č. ${cn} - Ověřovací kód`,
+      smsText: (cn, otp) => `INDEXUS: Váš ověřovací kód pro smlouvu ${cn} je: ${otp}. Kód je platný 24 hodin.`,
+      smsTextWithLink: (cn, otp, link) => `INDEXUS: Kód pro smlouvu ${cn}: ${otp}. Podepište zde: ${link}`,
+      contract: 'smlouvu',
+    },
+    hu: {
+      greeting: 'Tisztelt',
+      otpIntro: 'Az Ön hitelesítő kódja a(z)',
+      codeValid: 'A kód 24 órán át érvényes.',
+      signButton: 'Szerződés aláírása',
+      signLinkIntro: 'A szerződés aláírásához kattintson az alábbi linkre:',
+      copyLink: 'Vagy másolja be ezt a linket a böngészőbe:',
+      fallbackInstruction: 'A szerződés aláírásához használja ezt a kódot az INDEXUS rendszerben.',
+      attachmentNote: 'A mellékletben megtalálja a szerződést.',
+      closing: 'Üdvözlettel',
+      emailSubject: (cn) => `Szerződés ${cn} - Hitelesítő kód`,
+      smsText: (cn, otp) => `INDEXUS: Hitelesítő kód a(z) ${cn} szerződéshez: ${otp}. 24 órán át érvényes.`,
+      smsTextWithLink: (cn, otp, link) => `INDEXUS: Kód a(z) ${cn} szerz.: ${otp}. Aláírás: ${link}`,
+      contract: 'szerződéshez',
+    },
+    ro: {
+      greeting: 'Bună ziua',
+      otpIntro: 'Codul dvs. de verificare pentru contractul nr.',
+      codeValid: 'Codul este valabil 24 de ore.',
+      signButton: 'Semnează contractul',
+      signLinkIntro: 'Pentru a semna contractul, faceți clic pe linkul de mai jos:',
+      copyLink: 'Sau copiați acest link în browser:',
+      fallbackInstruction: 'Pentru a semna contractul, utilizați acest cod în sistemul INDEXUS.',
+      attachmentNote: 'Veți găsi contractul atașat.',
+      closing: 'Cu stimă',
+      emailSubject: (cn) => `Contract nr. ${cn} - Cod de verificare`,
+      smsText: (cn, otp) => `INDEXUS: Codul de verificare pentru contractul ${cn}: ${otp}. Valabil 24 ore.`,
+      smsTextWithLink: (cn, otp, link) => `INDEXUS: Cod contract ${cn}: ${otp}. Semnați: ${link}`,
+      contract: 'contractul',
+    },
+    it: {
+      greeting: 'Gentile',
+      otpIntro: 'Il suo codice di verifica per il contratto n.',
+      codeValid: 'Il codice è valido per 24 ore.',
+      signButton: 'Firma il contratto',
+      signLinkIntro: 'Per firmare il contratto, clicca sul seguente link:',
+      copyLink: 'Oppure copia questo link nel browser:',
+      fallbackInstruction: 'Per firmare il contratto, utilizza questo codice nel sistema INDEXUS.',
+      attachmentNote: 'In allegato troverà il contratto.',
+      closing: 'Cordiali saluti',
+      emailSubject: (cn) => `Contratto n. ${cn} - Codice di verifica`,
+      smsText: (cn, otp) => `INDEXUS: Codice di verifica per contratto ${cn}: ${otp}. Valido 24 ore.`,
+      smsTextWithLink: (cn, otp, link) => `INDEXUS: Codice contratto ${cn}: ${otp}. Firma: ${link}`,
+      contract: 'il contratto',
+    },
+    de: {
+      greeting: 'Guten Tag',
+      otpIntro: 'Ihr Verifizierungscode für Vertrag Nr.',
+      codeValid: 'Der Code ist 24 Stunden gültig.',
+      signButton: 'Vertrag unterschreiben',
+      signLinkIntro: 'Um den Vertrag zu unterschreiben, klicken Sie auf den folgenden Link:',
+      copyLink: 'Oder kopieren Sie diesen Link in Ihren Browser:',
+      fallbackInstruction: 'Um den Vertrag zu unterschreiben, verwenden Sie diesen Code im INDEXUS-System.',
+      attachmentNote: 'Im Anhang finden Sie den Vertrag.',
+      closing: 'Mit freundlichen Grüßen',
+      emailSubject: (cn) => `Vertrag Nr. ${cn} - Verifizierungscode`,
+      smsText: (cn, otp) => `INDEXUS: Verifizierungscode für Vertrag ${cn}: ${otp}. Gültig 24 Std.`,
+      smsTextWithLink: (cn, otp, link) => `INDEXUS: Code Vertrag ${cn}: ${otp}. Unterschrift: ${link}`,
+      contract: 'den Vertrag',
+    },
+    en: {
+      greeting: 'Dear',
+      otpIntro: 'Your verification code for contract no.',
+      codeValid: 'The code is valid for 24 hours.',
+      signButton: 'Sign Contract',
+      signLinkIntro: 'To sign the contract, click the following link:',
+      copyLink: 'Or copy this link into your browser:',
+      fallbackInstruction: 'To sign the contract, please use this code in the INDEXUS system.',
+      attachmentNote: 'You will find the contract attached.',
+      closing: 'Best regards',
+      emailSubject: (cn) => `Contract No. ${cn} - Verification Code`,
+      smsText: (cn, otp) => `INDEXUS: Your verification code for contract ${cn}: ${otp}. Valid for 24 hours.`,
+      smsTextWithLink: (cn, otp, link) => `INDEXUS: Code for contract ${cn}: ${otp}. Sign here: ${link}`,
+      contract: 'the contract',
+    },
+  };
+
+  async function resolveContractCountry(contract: { templateId: string | null; customerId?: string | null }): Promise<string | null> {
+    let countryCode: string | null = null;
+    if (contract.templateId) {
+      const template = await storage.getContractTemplate(contract.templateId);
+      countryCode = template?.countryCode || null;
+    }
+    if (!countryCode && contract.customerId) {
+      try {
+        const customer = await storage.getCustomer(contract.customerId);
+        countryCode = customer?.country || null;
+      } catch (e) {
+        console.warn(`[ContractOTP] Failed to get customer for country lookup`);
+      }
+    }
+    return countryCode;
+  }
+
+  function getSigningLocale(countryCode: string | null | undefined): SigningLocale {
+    if (!countryCode) return 'sk';
+    return COUNTRY_TO_SIGNING_LOCALE[countryCode.toUpperCase()] || 'en';
+  }
+
+  function getBaseUrl(): string {
+    return process.env.REPLIT_DEV_DOMAIN 
+      ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+      : process.env.REPL_SLUG 
+        ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
+        : 'https://indexus.replit.app';
+  }
+
   // Helper: Send OTP email via system MS365 email for country or fallback to SendGrid
   async function sendContractOtpEmail(
     contract: { contractNumber: string; templateId: string | null; customerId?: string | null; pdfPath?: string | null },
@@ -20302,36 +20453,35 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
     signerEmail: string,
     otpCode: string,
     userSession?: any,
-    signingToken?: string | null
+    signingToken?: string | null,
+    locale?: SigningLocale
   ) {
     if (!signerEmail) {
       console.warn("[ContractOTP] No signer email provided, skipping OTP email");
       return false;
     }
     try {
-      const baseUrl = process.env.REPLIT_DEV_DOMAIN 
-        ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-        : process.env.REPL_SLUG 
-          ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
-          : 'https://indexus.replit.app';
+      const lang = locale || 'sk';
+      const t = signingI18n[lang];
+      const baseUrl = getBaseUrl();
       const signingLink = signingToken ? `${baseUrl}/sign/${signingToken}` : null;
       
-      const emailSubject = `Zmluva č. ${contract.contractNumber} - Overovací kód`;
+      const emailSubject = t.emailSubject(contract.contractNumber);
       const emailHtml = `
-        <h2>Dobrý deň ${signerName},</h2>
-        <p>Váš overovací kód pre zmluvu č. <strong>${contract.contractNumber}</strong> je:</p>
+        <h2>${t.greeting} ${signerName},</h2>
+        <p>${t.otpIntro} <strong>${contract.contractNumber}</strong>:</p>
         <p style="font-size: 32px; font-weight: bold; text-align: center; padding: 20px; background: #f5f5f5; border-radius: 8px;">${otpCode}</p>
-        <p>Kód je platný 24 hodín.</p>
+        <p>${t.codeValid}</p>
         ${signingLink ? `
-        <p>Pre podpísanie zmluvy kliknite na nasledujúci odkaz:</p>
+        <p>${t.signLinkIntro}</p>
         <p style="text-align: center; padding: 15px;">
-          <a href="${signingLink}" style="display: inline-block; padding: 12px 30px; background-color: #6B1C3B; color: white; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold;">Podpísať zmluvu</a>
+          <a href="${signingLink}" style="display: inline-block; padding: 12px 30px; background-color: #6B1C3B; color: white; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold;">${t.signButton}</a>
         </p>
-        <p style="font-size: 12px; color: #666;">Alebo skopírujte tento odkaz do prehliadača: <a href="${signingLink}">${signingLink}</a></p>
-        ` : '<p>Pre podpísanie zmluvy prosím použite tento kód v systéme INDEXUS.</p>'}
-        ${contract.pdfPath ? '<p><strong>V prílohe nájdete zmluvu na stiahnutie.</strong></p>' : ''}
+        <p style="font-size: 12px; color: #666;">${t.copyLink} <a href="${signingLink}">${signingLink}</a></p>
+        ` : `<p>${t.fallbackInstruction}</p>`}
+        ${contract.pdfPath ? `<p><strong>${t.attachmentNote}</strong></p>` : ''}
         <br>
-        <p>S pozdravom,<br>INDEXUS CRM</p>
+        <p>${t.closing},<br>INDEXUS CRM</p>
       `;
 
       let attachments: Array<{ name: string; contentType: string; contentBase64: string }> | undefined;
@@ -20354,24 +20504,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         }
       }
 
-      let countryCode: string | null | undefined = null;
-      
-      if (contract.templateId) {
-        const template = await storage.getContractTemplate(contract.templateId);
-        console.log(`[ContractOTP] Template lookup for templateId=${contract.templateId}: found=${!!template}, countryCode=${template?.countryCode}`);
-        countryCode = template?.countryCode;
-      }
-      
-      if (!countryCode && contract.customerId) {
-        try {
-          const customer = await storage.getCustomer(contract.customerId);
-          console.log(`[ContractOTP] Customer lookup for customerId=${contract.customerId}: found=${!!customer}, country=${customer?.country}`);
-          countryCode = customer?.country || null;
-        } catch (e) {
-          console.warn(`[ContractOTP] Failed to get customer for country lookup`);
-        }
-      }
-
+      const countryCode = await resolveContractCountry(contract);
       console.log(`[ContractOTP] Resolved countryCode=${countryCode} for contract ${contract.contractNumber}`);
 
       const errors: string[] = [];
@@ -20472,36 +20605,35 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
     contract: { contractNumber: string; templateId: string | null; customerId?: string | null },
     signerName: string,
     signerPhone: string,
-    otpCode: string
+    otpCode: string,
+    signingToken?: string | null,
+    locale?: SigningLocale
   ) {
     if (!signerPhone) {
       console.warn("[ContractOTP] No signer phone provided, skipping OTP SMS");
       return false;
     }
     try {
-      let countryCode: string | null | undefined = null;
-      if (contract.templateId) {
-        const template = await storage.getContractTemplate(contract.templateId);
-        countryCode = template?.countryCode;
-      }
-      if (!countryCode && contract.customerId) {
-        try {
-          const customer = await storage.getCustomer(contract.customerId);
-          countryCode = customer?.country || null;
-        } catch (e) {
-          console.warn(`[ContractOTP] Failed to get customer for country lookup`);
-        }
-      }
+      const countryCode = await resolveContractCountry(contract);
+      const lang = locale || getSigningLocale(countryCode);
+      const t = signingI18n[lang];
+
+      const baseUrl = getBaseUrl();
+      const signingLink = signingToken ? `${baseUrl}/sign/${signingToken}` : null;
+
+      const smsText = signingLink 
+        ? t.smsTextWithLink(contract.contractNumber, otpCode, signingLink)
+        : t.smsText(contract.contractNumber, otpCode);
 
       const { sendTransactionalSms, isBulkGateConfigured } = await import("./lib/bulkgate");
       if (isBulkGateConfigured()) {
         const result = await sendTransactionalSms({
           number: signerPhone,
-          text: `INDEXUS: Vas overovaci kod pre zmluvu ${contract.contractNumber} je: ${otpCode}. Kod je platny 24 hodin.`,
+          text: smsText,
           country: countryCode || undefined,
         });
         if (result.success) {
-          console.log(`[ContractOTP] Sent OTP SMS via BulkGate to ${signerPhone}`);
+          console.log(`[ContractOTP] Sent OTP SMS via BulkGate to ${signerPhone} (lang=${lang})`);
           return true;
         } else {
           console.error(`[ContractOTP] BulkGate SMS failed:`, result.error);
@@ -20509,7 +20641,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       } else {
         console.log(`[ContractOTP SMS Simulation] BulkGate not configured`);
         console.log(`To: ${signerPhone}`);
-        console.log(`Message: INDEXUS: Vas overovaci kod pre zmluvu ${contract.contractNumber} je: ${otpCode}`);
+        console.log(`Message: ${smsText}`);
         return true;
       }
       return false;
@@ -20527,19 +20659,20 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
     otpCode: string,
     method: "email_otp" | "sms_otp",
     userSession?: any,
-    signingToken?: string | null
+    signingToken?: string | null,
+    locale?: SigningLocale
   ): Promise<boolean> {
     if (method === "sms_otp" && signerPhone) {
-      return sendContractOtpSms(contract, signerName, signerPhone, otpCode);
+      return sendContractOtpSms(contract, signerName, signerPhone, otpCode, signingToken, locale);
     }
     if (method === "email_otp" && signerEmail) {
-      return sendContractOtpEmail(contract, signerName, signerEmail, otpCode, userSession, signingToken);
+      return sendContractOtpEmail(contract, signerName, signerEmail, otpCode, userSession, signingToken, locale);
     }
     if (signerEmail) {
-      return sendContractOtpEmail(contract, signerName, signerEmail, otpCode, userSession, signingToken);
+      return sendContractOtpEmail(contract, signerName, signerEmail, otpCode, userSession, signingToken, locale);
     }
     if (signerPhone) {
-      return sendContractOtpSms(contract, signerName, signerPhone, otpCode);
+      return sendContractOtpSms(contract, signerName, signerPhone, otpCode, signingToken, locale);
     }
     console.warn("[ContractOTP] No email or phone for signer, cannot send OTP");
     return false;
@@ -20583,6 +20716,10 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       
       const method: "email_otp" | "sms_otp" = verificationMethod === "sms_otp" ? "sms_otp" : "email_otp";
       
+      const contractCountry = await resolveContractCountry(contract);
+      const locale = getSigningLocale(contractCountry);
+      console.log(`[ContractOTP] Contract ${contract.contractNumber} country=${contractCountry}, locale=${locale}`);
+
       const createdSignatureRequests = [];
       for (const signer of signers) {
         const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
@@ -20612,12 +20749,40 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         createdSignatureRequests.push(signatureRequest);
         
         try {
-          const sent = await sendOtpByMethod(contract, signer.fullName, signer.email, signer.phone, otpCode, actualMethod, req.session, signingToken);
-          if (!sent) {
+          const sent = await sendOtpByMethod(contract, signer.fullName, signer.email, signer.phone, otpCode, actualMethod, req.session, signingToken, locale);
+          if (sent) {
+            await storage.createContractAuditLog({
+              contractId: contract.id,
+              action: "otp_sent",
+              actorType: "system",
+              actorName: "System",
+              details: JSON.stringify({
+                signerName: signer.fullName,
+                method: actualMethod,
+                destination: actualMethod === "email_otp" ? signer.email : signer.phone,
+                signingToken: signingToken?.substring(0, 8) + '...',
+                locale,
+                sentAt: new Date().toISOString(),
+                hasSigningLink: !!signingToken
+              })
+            });
+          } else {
             console.error(`[ContractOTP] Failed to send OTP via ${actualMethod} to ${signer.fullName}`);
           }
         } catch (sendErr) {
           console.error(`[ContractOTP] Failed to send OTP via ${actualMethod} to ${signer.fullName}:`, (sendErr as Error).message);
+          await storage.createContractAuditLog({
+            contractId: contract.id,
+            action: "otp_send_failed",
+            actorType: "system",
+            actorName: "System",
+            details: JSON.stringify({
+              signerName: signer.fullName,
+              method: actualMethod,
+              error: (sendErr as Error).message,
+              failedAt: new Date().toISOString()
+            })
+          });
         }
       }
       
@@ -20639,12 +20804,15 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         details: JSON.stringify({ 
           signersCount: signers.length,
           verificationMethod: method,
+          locale,
+          countryCode: contractCountry,
           signers: createdSignatureRequests.map(sr => ({
             name: sr.signerName,
             email: sr.signerEmail,
             phone: sr.signerPhone,
             method: sr.verificationMethod,
-            requestId: sr.id
+            requestId: sr.id,
+            hasSigningToken: !!sr.signingToken
           })),
           pdfPath: contract.pdfPath || null,
           sentAt: new Date().toISOString()
@@ -20739,20 +20907,39 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       if (!signatureRequest) {
         return res.status(404).json({ error: "Signing link not found or expired" });
       }
-      if (signatureRequest.status === "signed") {
-        return res.status(400).json({ error: "Contract already signed", alreadySigned: true });
-      }
-      if (signatureRequest.status === "cancelled" || signatureRequest.status === "expired") {
-        return res.status(400).json({ error: "This signing link is no longer valid" });
-      }
-      if (signatureRequest.expiresAt && new Date() > signatureRequest.expiresAt) {
-        return res.status(400).json({ error: "This signing link has expired" });
+      const contract = signatureRequest ? await storage.getContractInstance(signatureRequest.contractId) : null;
+      let detectedLocale = "en";
+      if (contract) {
+        const contractCountry = await resolveContractCountry(contract);
+        detectedLocale = getSigningLocale(contractCountry);
       }
 
-      const contract = await storage.getContractInstance(signatureRequest.contractId);
-      if (!contract) {
-        return res.status(404).json({ error: "Contract not found" });
+      if (signatureRequest.status === "signed") {
+        return res.status(400).json({ error: "Contract already signed", alreadySigned: true, locale: detectedLocale });
       }
+      if (signatureRequest.status === "cancelled" || signatureRequest.status === "expired") {
+        return res.status(400).json({ error: "This signing link is no longer valid", locale: detectedLocale });
+      }
+      if (signatureRequest.expiresAt && new Date() > signatureRequest.expiresAt) {
+        return res.status(400).json({ error: "This signing link has expired", locale: detectedLocale });
+      }
+
+      if (!contract) {
+        return res.status(404).json({ error: "Contract not found", locale: detectedLocale });
+      }
+
+      const locale = detectedLocale;
+
+      await storage.createContractAuditLog({
+        contractId: signatureRequest.contractId,
+        action: "signing_page_viewed",
+        actorType: "customer",
+        actorName: signatureRequest.signerName,
+        actorEmail: signatureRequest.signerEmail,
+        ipAddress: req.ip,
+        userAgent: req.get("User-Agent"),
+        details: JSON.stringify({ viewedAt: new Date().toISOString(), locale })
+      });
 
       res.json({
         contractNumber: contract.contractNumber,
@@ -20760,7 +20947,8 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         status: signatureRequest.status,
         verificationMethod: signatureRequest.verificationMethod,
         otpVerified: signatureRequest.status === "otp_verified",
-        signatureRequestId: signatureRequest.id
+        signatureRequestId: signatureRequest.id,
+        locale
       });
     } catch (error) {
       console.error("Error fetching public signing info:", error);
@@ -20945,7 +21133,9 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         console.log(`[ContractOTP] Generated missing signingToken on resend for ${signatureRequest.signerName}: ${currentSigningToken.substring(0, 8)}...`);
       }
 
-      console.log(`[ContractOTP] Resend OTP: requested=${verificationMethod}, stored=${signatureRequest.verificationMethod}, resolved=${method}, email=${signatureRequest.signerEmail}, phone=${signatureRequest.signerPhone}`);
+      const contractCountry = await resolveContractCountry(contract);
+      const locale = getSigningLocale(contractCountry);
+      console.log(`[ContractOTP] Resend OTP: requested=${verificationMethod}, stored=${signatureRequest.verificationMethod}, resolved=${method}, locale=${locale}, email=${signatureRequest.signerEmail}, phone=${signatureRequest.signerPhone}`);
 
       await storage.updateContractSignatureRequest(signatureRequest.id, {
         otpCode,
@@ -20965,7 +21155,8 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         otpCode, 
         method,
         req.session,
-        currentSigningToken
+        currentSigningToken,
+        locale
       );
 
       if (!sent) {
@@ -20990,6 +21181,8 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
           signerName: signatureRequest.signerName,
           signerEmail: signatureRequest.signerEmail,
           signerPhone: signatureRequest.signerPhone,
+          locale,
+          hasSigningLink: !!currentSigningToken,
           resentAt: new Date().toISOString()
         })
       });
