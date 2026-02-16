@@ -20200,6 +20200,87 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
     }
   });
 
+  // Helper: Send OTP email via system MS365 email for country or fallback to SendGrid
+  async function sendContractOtpEmail(
+    contract: { contractNumber: string; templateId: string },
+    signerName: string,
+    signerEmail: string,
+    otpCode: string
+  ) {
+    if (!signerEmail) {
+      console.warn("[ContractOTP] No signer email provided, skipping OTP email");
+      return false;
+    }
+    try {
+      const template = await storage.getContractTemplate(contract.templateId);
+      const countryCode = template?.countryCode;
+
+      if (countryCode) {
+        // Try to use system MS365 email for this country
+        const systemConnection = await storage.getSystemMs365Connection(countryCode);
+        if (systemConnection && systemConnection.isConnected) {
+          try {
+            const { getValidAccessToken, sendEmail: sendMs365Email } = await import("./lib/ms365");
+            const tokenResult = await getValidAccessToken(
+              systemConnection.accessToken,
+              systemConnection.tokenExpiresAt,
+              systemConnection.refreshToken
+            );
+            if (tokenResult) {
+              if (tokenResult.refreshed) {
+                await storage.updateSystemMs365Connection(countryCode, {
+                  accessToken: tokenResult.accessToken,
+                  refreshToken: tokenResult.refreshToken || systemConnection.refreshToken,
+                  tokenExpiresAt: tokenResult.expiresOn
+                });
+              }
+              await sendMs365Email(
+                tokenResult.accessToken,
+                [signerEmail],
+                `Zmluva č. ${contract.contractNumber} - Overovací kód`,
+                `
+                  <h2>Dobrý deň ${signerName},</h2>
+                  <p>Váš overovací kód pre zmluvu č. <strong>${contract.contractNumber}</strong> je:</p>
+                  <p style="font-size: 32px; font-weight: bold; text-align: center; padding: 20px;">${otpCode}</p>
+                  <p>Kód je platný 24 hodín.</p>
+                  <p>Pre podpísanie zmluvy prosím použite tento kód v systéme INDEXUS.</p>
+                  <br>
+                  <p>S pozdravom,<br>INDEXUS CRM</p>
+                `,
+                true
+              );
+              console.log(`[ContractOTP] Sent OTP email via MS365 system email (${systemConnection.email}) for country ${countryCode} to ${signerEmail}`);
+              return true;
+            }
+          } catch (ms365Error) {
+            console.error(`[ContractOTP] MS365 system email failed for ${countryCode}, falling back to SendGrid:`, ms365Error);
+          }
+        }
+      }
+
+      // Fallback to SendGrid
+      const { sendEmail } = await import("./email");
+      await sendEmail({
+        to: signerEmail,
+        subject: `Zmluva č. ${contract.contractNumber} - Overovací kód`,
+        html: `
+          <h2>Dobrý deň ${signerName},</h2>
+          <p>Váš overovací kód pre zmluvu č. <strong>${contract.contractNumber}</strong> je:</p>
+          <p style="font-size: 32px; font-weight: bold; text-align: center; padding: 20px;">${otpCode}</p>
+          <p>Kód je platný 24 hodín.</p>
+          <p>Pre podpísanie zmluvy prosím použite tento kód v systéme INDEXUS.</p>
+          <br>
+          <p>S pozdravom,<br>INDEXUS CRM</p>
+        `
+      });
+      console.log(`[ContractOTP] Sent OTP email via SendGrid to ${signerEmail}`);
+      return true;
+    } catch (error) {
+      console.error("[ContractOTP] Failed to send OTP email:", error);
+      return false;
+    }
+  }
+
   // Send contract for signature
   app.post("/api/contracts/:id/send", requireAuth, async (req, res) => {
     try {
@@ -20236,20 +20317,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         createdSignatureRequests.push(signatureRequest);
         
         if (signer.email) {
-          const { sendEmail } = await import("./email");
-          await sendEmail({
-            to: signer.email,
-            subject: `Zmluva č. ${contract.contractNumber} - Žiadosť o podpis`,
-            html: `
-              <h2>Dobrý deň ${signer.fullName},</h2>
-              <p>Bola Vám odoslaná zmluva č. <strong>${contract.contractNumber}</strong> na podpis.</p>
-              <p>Váš overovací kód je: <strong style="font-size: 24px;">${otpCode}</strong></p>
-              <p>Kód je platný 24 hodín.</p>
-              <p>Pre podpísanie zmluvy prosím použite tento kód v systéme INDEXUS.</p>
-              <br>
-              <p>S pozdravom,<br>INDEXUS CRM</p>
-            `
-          });
+          await sendContractOtpEmail(contract, signer.fullName, signer.email, otpCode);
         }
       }
       
@@ -20384,23 +20452,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       });
 
       if (signatureRequest.signerEmail) {
-        try {
-          const { sendEmail } = await import("./email");
-          await sendEmail({
-            to: signatureRequest.signerEmail,
-            subject: `Zmluva č. ${contract.contractNumber} - Nový overovací kód`,
-            html: `
-              <h2>Dobrý deň ${signatureRequest.signerName},</h2>
-              <p>Váš nový overovací kód pre zmluvu č. <strong>${contract.contractNumber}</strong> je:</p>
-              <p style="font-size: 32px; font-weight: bold; text-align: center; padding: 20px;">${otpCode}</p>
-              <p>Kód je platný 24 hodín.</p>
-              <br>
-              <p>S pozdravom,<br>INDEXUS CRM</p>
-            `
-          });
-        } catch (emailError) {
-          console.error("Error sending OTP email:", emailError);
-        }
+        await sendContractOtpEmail(contract, signatureRequest.signerName, signatureRequest.signerEmail, otpCode);
       }
 
       await storage.createContractAuditLog({

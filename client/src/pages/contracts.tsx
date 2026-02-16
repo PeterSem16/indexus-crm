@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useI18n } from "@/i18n";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useSearch, Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -352,6 +353,7 @@ function DocxPreviewContent({
 }
 
 export default function ContractsPage() {
+  const { t } = useI18n();
   const { toast } = useToast();
   const { selectedCountries } = useCountryFilter();
   const selectedCountry = selectedCountries.length === 1 ? selectedCountries[0] : null;
@@ -581,10 +583,10 @@ export default function ContractsPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/contracts/templates"] });
       setIsTemplateDialogOpen(false);
       resetTemplateForm();
-      toast({ title: "Šablóna vytvorená", description: "Šablóna zmluvy bola úspešne vytvorená." });
+      toast({ title: t.contractsModule.templateCreated });
     },
     onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa vytvoriť šablónu.", variant: "destructive" });
+      toast({ title: t.contractsModule.saveError, variant: "destructive" });
     }
   });
 
@@ -597,7 +599,7 @@ export default function ContractsPage() {
       setIsTemplateDialogOpen(false);
       setSelectedTemplate(null);
       resetTemplateForm();
-      toast({ title: "Šablóna aktualizovaná", description: "Šablóna bola úspešne uložená." });
+      toast({ title: t.contractsModule.templateUpdated });
     }
   });
 
@@ -607,7 +609,7 @@ export default function ContractsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contracts/templates"] });
-      toast({ title: "Šablóna vymazaná" });
+      toast({ title: t.contractsModule.templateDeleted });
     }
   });
 
@@ -620,7 +622,7 @@ export default function ContractsPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/contracts/categories"] });
     },
     onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa vytvoriť kategóriu.", variant: "destructive" });
+      toast({ title: t.contractsModule.saveError, variant: "destructive" });
     }
   });
 
@@ -632,7 +634,7 @@ export default function ContractsPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/contracts/categories"] });
     },
     onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa aktualizovať kategóriu.", variant: "destructive" });
+      toast({ title: t.contractsModule.saveError, variant: "destructive" });
     }
   });
 
@@ -642,7 +644,7 @@ export default function ContractsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contracts/categories"] });
-      toast({ title: "Kategória vymazaná" });
+      toast({ title: t.contractsModule.categoryDeleted });
     }
   });
 
@@ -664,12 +666,12 @@ export default function ContractsPage() {
       setIsContractWizardOpen(false);
       setWizardStep(1);
       resetContractForm();
-      toast({ title: "Zmluva vytvorená", description: "Zmluva bola úspešne vytvorená." });
+      toast({ title: t.contractsModule.contractSigned, description: t.contractsModule.contractSignedMessage });
     },
     onError: (error: Error) => {
       toast({ 
-        title: "Chyba pri vytváraní zmluvy", 
-        description: error.message || "Nepodarilo sa vytvoriť zmluvu.",
+        title: t.contractsModule.saveError, 
+        description: error.message,
         variant: "destructive"
       });
     }
@@ -686,7 +688,7 @@ export default function ContractsPage() {
       if (data.signatureRequests && data.signatureRequests.length > 0) {
         setSignatureForm(prev => ({ ...prev, signatureRequestId: data.signatureRequests[0].id }));
       }
-      toast({ title: "Zmluva odoslaná", description: "Zmluva bola odoslaná na podpis." });
+      toast({ title: t.contractsModule.sendForSignature });
     }
   });
 
@@ -696,7 +698,7 @@ export default function ContractsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
-      toast({ title: "Zmluva zrušená" });
+      toast({ title: t.contractsModule.statusCancelled });
     }
   });
 
@@ -710,10 +712,10 @@ export default function ContractsPage() {
       if (data.signatureRequestId) {
         setSignatureForm(prev => ({ ...prev, signatureRequestId: data.signatureRequestId }));
       }
-      toast({ title: "OTP overené", description: "Kód bol úspešne overený. Teraz môžete podpísať zmluvu." });
+      toast({ title: t.contractsModule.otpVerified, description: t.contractsModule.otpVerifiedMessage });
     },
     onError: () => {
-      toast({ title: "Chyba", description: "Neplatný alebo expirovaný kód.", variant: "destructive" });
+      toast({ title: t.contractsModule.otpError, variant: "destructive" });
     }
   });
 
@@ -723,10 +725,10 @@ export default function ContractsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contracts", selectedContract?.id, "signature-requests"] });
-      toast({ title: "OTP odoslaný", description: "Nový overovací kód bol odoslaný na email klienta." });
+      toast({ title: t.contractsModule.otpResent, description: t.contractsModule.otpResentMessage });
     },
     onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa odoslať nový OTP kód.", variant: "destructive" });
+      toast({ title: t.contractsModule.saveError, variant: "destructive" });
     }
   });
 
@@ -744,10 +746,10 @@ export default function ContractsPage() {
       setOtpVerified(false);
       setSignatureForm({ otpCode: "", signatureRequestId: "" });
       setSignatureData("");
-      toast({ title: "Zmluva podpísaná", description: "Zmluva bola úspešne elektronicky podpísaná." });
+      toast({ title: t.contractsModule.contractSigned, description: t.contractsModule.contractSignedMessage });
     },
     onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa podpísať zmluvu.", variant: "destructive" });
+      toast({ title: t.contractsModule.saveError, variant: "destructive" });
     }
   });
 
@@ -758,7 +760,7 @@ export default function ContractsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contracts", selectedContract?.id] });
-      toast({ title: "Zmluva vygenerovaná" });
+      toast({ title: t.contractsModule.regenerate });
     }
   });
 
@@ -769,10 +771,10 @@ export default function ContractsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contracts", selectedContract?.id] });
-      toast({ title: "Zmluva regenerovaná", description: "Zmluva bola znovu vygenerovaná s aktuálnymi údajmi." });
+      toast({ title: t.contractsModule.regenerate });
     },
     onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa regenerovať zmluvu.", variant: "destructive" });
+      toast({ title: t.contractsModule.saveError, variant: "destructive" });
     }
   });
 
@@ -784,7 +786,7 @@ export default function ContractsPage() {
       const response = await fetch(`/api/contracts/${contractId}/pdf`, { credentials: "include" });
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Nepodarilo sa stiahnuť PDF");
+        throw new Error(errorData.error || t.contractsModule.saveError);
       }
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
@@ -795,10 +797,10 @@ export default function ContractsPage() {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      toast({ title: "PDF stiahnuté", description: "PDF zmluvy bolo úspešne stiahnuté." });
+      toast({ title: t.contractsModule.downloadPdf });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Nepodarilo sa stiahnuť PDF";
-      toast({ title: "Chyba", description: message, variant: "destructive" });
+      const message = error instanceof Error ? error.message : t.contractsModule.saveError;
+      toast({ title: t.contractsModule.saveError, description: message, variant: "destructive" });
     } finally {
       setIsDownloadingPdf(false);
     }
@@ -813,10 +815,10 @@ export default function ContractsPage() {
       setIsAddingParticipant(false);
       setEditingParticipantId(null);
       setParticipantForm({ fullName: "", email: "", phone: "", role: "signer", participantType: "customer", signatureRequired: true });
-      toast({ title: "Účastník pridaný" });
+      toast({ title: t.contractsModule.saveParticipant });
     },
     onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa pridať účastníka.", variant: "destructive" });
+      toast({ title: t.contractsModule.saveError, variant: "destructive" });
     }
   });
 
@@ -831,10 +833,10 @@ export default function ContractsPage() {
       setIsAddingParticipant(false);
       setEditingParticipantId(null);
       setParticipantForm({ fullName: "", email: "", phone: "", role: "signer", participantType: "customer", signatureRequired: true });
-      toast({ title: "Účastník upravený" });
+      toast({ title: t.contractsModule.saved });
     },
     onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa upraviť účastníka.", variant: "destructive" });
+      toast({ title: t.contractsModule.saveError, variant: "destructive" });
     }
   });
 
@@ -844,10 +846,10 @@ export default function ContractsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contracts", selectedContract?.id] });
-      toast({ title: "Účastník odstránený" });
+      toast({ title: t.contractsModule.saved });
     },
     onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa odstrániť účastníka.", variant: "destructive" });
+      toast({ title: t.contractsModule.saveError, variant: "destructive" });
     }
   });
 
@@ -1002,10 +1004,10 @@ export default function ContractsPage() {
       setIsAddingProduct(false);
       setSelectedProductSetId("");
       setSelectedProductId("");
-      toast({ title: "Produkt pridaný" });
+      toast({ title: t.contractsModule.saved });
     },
     onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa pridať produkt.", variant: "destructive" });
+      toast({ title: t.contractsModule.saveError, variant: "destructive" });
     }
   });
 
@@ -1015,7 +1017,7 @@ export default function ContractsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contracts", selectedContract?.id] });
-      toast({ title: "Produkt odstránený" });
+      toast({ title: t.contractsModule.saved });
     }
   });
 
@@ -1038,13 +1040,13 @@ export default function ContractsPage() {
   
   const handleLoadCategoryTemplate = async () => {
     if (!templateForm.category || !templateForm.countryCode) {
-      toast({ title: "Vyberte kategóriu a krajinu", variant: "destructive" });
+      toast({ title: t.contractsModule.saveError, variant: "destructive" });
       return;
     }
     
     const category = categories?.find((c: ContractCategory) => c.value === templateForm.category);
     if (!category) {
-      toast({ title: "Kategória nenájdená", variant: "destructive" });
+      toast({ title: t.contractsModule.saveError, variant: "destructive" });
       return;
     }
     
@@ -1104,10 +1106,10 @@ export default function ContractsPage() {
         console.error("Error loading HTML:", htmlError);
       }
       
-      toast({ title: "Šablóna načítaná", description: `Načítaná DOCX šablóna z kategórie "${category.label}"` });
+      toast({ title: t.contractsModule.loadTemplate });
     } catch (error) {
       console.error("Error loading category template:", error);
-      toast({ title: "Chyba pri načítaní šablóny", variant: "destructive" });
+      toast({ title: t.contractsModule.saveError, variant: "destructive" });
     } finally {
       setLoadingCategoryTemplate(false);
     }
@@ -1115,7 +1117,7 @@ export default function ContractsPage() {
   
   const handleAiMapping = async () => {
     if (templateForm.extractedFields.length === 0) {
-      toast({ title: "Žiadne premenné na mapovanie", description: "Najprv načítajte šablónu s premennými", variant: "destructive" });
+      toast({ title: t.contractsModule.saveError, variant: "destructive" });
       return;
     }
     
@@ -1147,7 +1149,7 @@ export default function ContractsPage() {
       });
     } catch (error) {
       console.error("AI mapping error:", error);
-      toast({ title: "Chyba pri AI mapovaní", variant: "destructive" });
+      toast({ title: t.contractsModule.saveError, variant: "destructive" });
     } finally {
       setAiMappingInProgress(false);
     }
@@ -1371,7 +1373,7 @@ export default function ContractsPage() {
       });
       
       if (response.ok) {
-        toast({ title: "Mapovanie uložené", description: `Uložených ${Object.keys(filteredMappings).length} mapovaní.` });
+        toast({ title: t.contractsModule.mappingsSaved });
         setIsTemplateEditorOpen(false);
         queryClient.invalidateQueries({ queryKey: ['/api/contracts/categories'] });
       } else {
@@ -1541,12 +1543,31 @@ export default function ContractsPage() {
     reorderCategoriesMutation.mutate(orderedIds);
   };
 
+  const getStatusLabel = (status: string): string => {
+    const map: Record<string, string> = {
+      draft: t.contractsModule.statusDraft,
+      created: t.contractsModule.statusCreated,
+      sent: t.contractsModule.statusSent,
+      received: t.contractsModule.statusReceived,
+      returned: t.contractsModule.statusReturned,
+      pending_signature: t.contractsModule.statusPendingSignature,
+      verified: t.contractsModule.statusVerified,
+      signed: t.contractsModule.statusSigned,
+      executed: t.contractsModule.statusExecuted,
+      completed: t.contractsModule.statusCompleted,
+      terminated: t.contractsModule.statusTerminated,
+      cancelled: t.contractsModule.statusCancelled,
+      expired: t.contractsModule.statusExpired,
+    };
+    return map[status] || status;
+  };
+
   const getStatusBadge = (status: string) => {
     const config = CONTRACT_STATUSES[status as keyof typeof CONTRACT_STATUSES] || CONTRACT_STATUSES.draft;
     return (
       <Badge variant={config.variant} className="gap-1">
         <config.icon className="h-3 w-3" />
-        {config.label}
+        {getStatusLabel(status)}
       </Badge>
     );
   };
@@ -1578,8 +1599,8 @@ export default function ContractsPage() {
   return (
     <div className="flex flex-col h-full">
       <PageHeader 
-        title="Zmluvy"
-        description="Správa zmlúv a šablón"
+        title={t.contractsModule.title}
+        description={t.contractsModule.description}
       />
       
       <div className="flex-1 overflow-auto p-6">
@@ -1588,11 +1609,11 @@ export default function ContractsPage() {
             <TabsList>
               <TabsTrigger value="contracts" className="gap-2" data-testid="tab-contracts">
                 <FileSignature className="h-4 w-4" />
-                Zmluvy
+                {t.contractsModule.tabContracts}
               </TabsTrigger>
               <TabsTrigger value="templates" className="gap-2" data-testid="tab-templates">
                 <FileText className="h-4 w-4" />
-                Šablóny
+                {t.contractsModule.tabTemplates}
               </TabsTrigger>
             </TabsList>
             
@@ -1607,7 +1628,7 @@ export default function ContractsPage() {
                   data-testid="button-add-template"
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  Nová šablóna
+                  {t.contractsModule.newTemplate}
                 </Button>
               )}
               {activeTab === "templates" && templateSubTab === "categories" && (
@@ -1620,13 +1641,13 @@ export default function ContractsPage() {
                   data-testid="button-add-category"
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  Nová kategória
+                  {t.contractsModule.newCategory}
                 </Button>
               )}
               {activeTab === "contracts" && (
                 <Button onClick={() => setIsContractWizardOpen(true)} data-testid="button-add-contract">
                   <Plus className="h-4 w-4 mr-2" />
-                  Nová zmluva
+                  {t.contractsModule.newContract}
                 </Button>
               )}
             </div>
@@ -1637,11 +1658,11 @@ export default function ContractsPage() {
               <TabsList className="mb-4">
                 <TabsTrigger value="list" className="gap-2" data-testid="subtab-template-list">
                   <FileText className="h-4 w-4" />
-                  Šablóny
+                  {t.contractsModule.subTabList}
                 </TabsTrigger>
                 <TabsTrigger value="categories" className="gap-2" data-testid="subtab-categories">
                   <Settings className="h-4 w-4" />
-                  Kategórie
+                  {t.contractsModule.subTabCategories}
                 </TabsTrigger>
               </TabsList>
 
@@ -1651,25 +1672,25 @@ export default function ContractsPage() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Názov</TableHead>
-                          <TableHead>Typ</TableHead>
-                          <TableHead>Krajina</TableHead>
-                          <TableHead>Stav</TableHead>
-                          <TableHead>Vytvorená</TableHead>
-                          <TableHead className="text-right">Akcie</TableHead>
+                          <TableHead>{t.contractsModule.templateName}</TableHead>
+                          <TableHead>{t.contractsModule.templateType}</TableHead>
+                          <TableHead>{t.contractsModule.templateCountry}</TableHead>
+                          <TableHead>{t.contractsModule.templateStatus}</TableHead>
+                          <TableHead>{t.contractsModule.created}</TableHead>
+                          <TableHead className="text-right">{t.contractsModule.actions}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {templatesLoading ? (
                           <TableRow>
                             <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                              Načítavam...
+                              {t.contractsModule.loading}
                             </TableCell>
                           </TableRow>
                         ) : filteredTemplates.length === 0 ? (
                           <TableRow>
                             <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                              Žiadne šablóny
+                              {t.contractsModule.noTemplates}
                             </TableCell>
                           </TableRow>
                         ) : (
@@ -1682,7 +1703,7 @@ export default function ContractsPage() {
                               <TableCell>{template.countryCode}</TableCell>
                               <TableCell>
                                 <Badge variant={template.status === "published" ? "default" : "secondary"}>
-                                  {template.status === "published" ? "Publikovaná" : "Koncept"}
+                                  {template.status === "published" ? t.contractsModule.templateActive : t.contractsModule.statusDraft}
                                 </Badge>
                               </TableCell>
                               <TableCell>
@@ -1702,7 +1723,7 @@ export default function ContractsPage() {
                                     size="icon" 
                                     variant="ghost"
                                     onClick={() => {
-                                      if (confirm("Naozaj chcete vymazať túto šablónu?")) {
+                                      if (confirm(t.contractsModule.deleteTemplate + "?")) {
                                         deleteTemplateMutation.mutate(template.id);
                                       }
                                     }}
@@ -1733,24 +1754,24 @@ export default function ContractsPage() {
                         <TableHeader>
                           <TableRow>
                             <TableHead className="w-10"></TableHead>
-                            <TableHead>Kód</TableHead>
-                            <TableHead>Názov</TableHead>
-                            <TableHead>Popis</TableHead>
-                            <TableHead>Poradie</TableHead>
-                            <TableHead className="text-right">Akcie</TableHead>
+                            <TableHead>{t.contractsModule.categoryCode}</TableHead>
+                            <TableHead>{t.contractsModule.categoryName}</TableHead>
+                            <TableHead>{t.contractsModule.categoryDescription}</TableHead>
+                            <TableHead>{t.contractsModule.categoryOrder}</TableHead>
+                            <TableHead className="text-right">{t.contractsModule.actions}</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {categoriesLoading ? (
                             <TableRow>
                               <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                                Načítavam...
+                                {t.contractsModule.loading}
                               </TableCell>
                             </TableRow>
                           ) : categories.length === 0 ? (
                             <TableRow>
                               <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                                Žiadne kategórie
+                                {t.contractsModule.noData}
                               </TableCell>
                             </TableRow>
                           ) : (
@@ -1781,7 +1802,7 @@ export default function ContractsPage() {
             <div className="flex items-center gap-4 mb-4 flex-wrap">
               <div className="flex-1 min-w-[200px] max-w-sm">
                 <Input
-                  placeholder="Hľadať podľa čísla alebo klienta..."
+                  placeholder={t.contractsModule.searchPlaceholder}
                   value={contractSearchTerm}
                   onChange={(e) => setContractSearchTerm(e.target.value)}
                   data-testid="input-contract-search"
@@ -1789,23 +1810,23 @@ export default function ContractsPage() {
               </div>
               <Select value={contractStatusFilter} onValueChange={setContractStatusFilter}>
                 <SelectTrigger className="w-[180px]" data-testid="select-contract-status-filter">
-                  <SelectValue placeholder="Všetky stavy" />
+                  <SelectValue placeholder={t.contractsModule.allStatuses} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Všetky stavy</SelectItem>
-                  <SelectItem value="draft">Koncept</SelectItem>
-                  <SelectItem value="created">Vytvorená</SelectItem>
-                  <SelectItem value="sent">Odoslaná</SelectItem>
-                  <SelectItem value="received">Prijatá</SelectItem>
-                  <SelectItem value="returned">Vrátená</SelectItem>
-                  <SelectItem value="pending_signature">Čaká na podpis</SelectItem>
-                  <SelectItem value="verified">Overená</SelectItem>
-                  <SelectItem value="signed">Podpísaná</SelectItem>
-                  <SelectItem value="executed">Vykonaná</SelectItem>
-                  <SelectItem value="completed">Dokončená</SelectItem>
-                  <SelectItem value="terminated">Ukončená</SelectItem>
-                  <SelectItem value="cancelled">Zrušená</SelectItem>
-                  <SelectItem value="expired">Expirovaná</SelectItem>
+                  <SelectItem value="all">{t.contractsModule.allStatuses}</SelectItem>
+                  <SelectItem value="draft">{t.contractsModule.statusDraft}</SelectItem>
+                  <SelectItem value="created">{t.contractsModule.statusCreated}</SelectItem>
+                  <SelectItem value="sent">{t.contractsModule.statusSent}</SelectItem>
+                  <SelectItem value="received">{t.contractsModule.statusReceived}</SelectItem>
+                  <SelectItem value="returned">{t.contractsModule.statusReturned}</SelectItem>
+                  <SelectItem value="pending_signature">{t.contractsModule.statusPendingSignature}</SelectItem>
+                  <SelectItem value="verified">{t.contractsModule.statusVerified}</SelectItem>
+                  <SelectItem value="signed">{t.contractsModule.statusSigned}</SelectItem>
+                  <SelectItem value="executed">{t.contractsModule.statusExecuted}</SelectItem>
+                  <SelectItem value="completed">{t.contractsModule.statusCompleted}</SelectItem>
+                  <SelectItem value="terminated">{t.contractsModule.statusTerminated}</SelectItem>
+                  <SelectItem value="cancelled">{t.contractsModule.statusCancelled}</SelectItem>
+                  <SelectItem value="expired">{t.contractsModule.statusExpired}</SelectItem>
                 </SelectContent>
               </Select>
               {(contractSearchTerm || contractStatusFilter !== "all") && (
@@ -1819,7 +1840,7 @@ export default function ContractsPage() {
                   data-testid="button-clear-contract-filters"
                 >
                   <X className="h-4 w-4 mr-1" />
-                  Zrušiť filtre
+                  {t.contractsModule.clearFilters}
                 </Button>
               )}
             </div>
@@ -1828,28 +1849,28 @@ export default function ContractsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Číslo zmluvy</TableHead>
-                      <TableHead>Klient</TableHead>
-                      <TableHead>Stav</TableHead>
-                      <TableHead>Dátum kontaktu</TableHead>
-                      <TableHead>Vytvorená</TableHead>
-                      <TableHead>Odoslaná</TableHead>
-                      <TableHead>Overená</TableHead>
-                      <TableHead>Dôvod ukončenia</TableHead>
-                      <TableHead className="text-right">Akcie</TableHead>
+                      <TableHead>{t.contractsModule.contractNumber}</TableHead>
+                      <TableHead>{t.contractsModule.client}</TableHead>
+                      <TableHead>{t.contractsModule.status}</TableHead>
+                      <TableHead>{t.contractsModule.contactDate}</TableHead>
+                      <TableHead>{t.contractsModule.created}</TableHead>
+                      <TableHead>{t.contractsModule.sentDate}</TableHead>
+                      <TableHead>{t.contractsModule.verifiedDate}</TableHead>
+                      <TableHead>{t.contractsModule.terminationReason}</TableHead>
+                      <TableHead className="text-right">{t.contractsModule.actions}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {contractsLoading ? (
                       <TableRow>
                         <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                          Načítavam...
+                          {t.contractsModule.loading}
                         </TableCell>
                       </TableRow>
                     ) : filteredContracts.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                          Žiadne zmluvy
+                          {t.contractsModule.noData}
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -1915,7 +1936,7 @@ export default function ContractsPage() {
                                     setSignatureData("");
                                     setIsSignatureModalOpen(true);
                                   }}
-                                  title="Podpísať zmluvu"
+                                  title={t.contractsModule.signContract}
                                   data-testid={`button-sign-contract-${contract.id}`}
                                 >
                                   <FileSignature className="h-4 w-4" />
@@ -1926,7 +1947,7 @@ export default function ContractsPage() {
                                   size="icon" 
                                   variant="ghost"
                                   onClick={() => {
-                                    const reason = prompt("Dôvod zrušenia:");
+                                    const reason = prompt(t.contractsModule.cancelReason + ":");
                                     if (reason) {
                                       cancelContractMutation.mutate({ id: contract.id, reason });
                                     }
@@ -1952,9 +1973,9 @@ export default function ContractsPage() {
       <Dialog open={isTemplateDialogOpen} onOpenChange={setIsTemplateDialogOpen}>
         <DialogContent className="w-[95vw] max-w-[95vw] h-[95vh] max-h-[95vh] overflow-hidden flex flex-col">
           <DialogHeader className="shrink-0">
-            <DialogTitle>{selectedTemplate ? "Upraviť šablónu" : "Nová šablóna zmluvy"}</DialogTitle>
+            <DialogTitle>{selectedTemplate ? t.contractsModule.editTemplate : t.contractsModule.newTemplate}</DialogTitle>
             <DialogDescription>
-              Vytvorte šablónu zmluvy načítaním vzoru z kategórie a namapovaním premenných.
+              {t.contractsModule.description}
             </DialogDescription>
           </DialogHeader>
           
@@ -1978,7 +1999,7 @@ export default function ContractsPage() {
                     onValueChange={(value) => setTemplateForm({ ...templateForm, category: value, loadedFromCategory: false })}
                   >
                     <SelectTrigger id="template-category" data-testid="select-template-category">
-                      <SelectValue placeholder="Vyberte kategóriu" />
+                      <SelectValue placeholder={t.contractsModule.templateCategory} />
                     </SelectTrigger>
                     <SelectContent>
                       {categories.length > 0 ? (
@@ -2004,7 +2025,7 @@ export default function ContractsPage() {
                     onValueChange={(value) => setTemplateForm({ ...templateForm, countryCode: value, loadedFromCategory: false })}
                   >
                     <SelectTrigger id="template-country" data-testid="select-template-country">
-                      <SelectValue placeholder="Vyberte krajinu" />
+                      <SelectValue placeholder={t.contractsModule.templateCountry} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="SK">Slovensko</SelectItem>
@@ -2056,7 +2077,7 @@ export default function ContractsPage() {
                 <div className="flex-1 flex items-center justify-center min-h-0">
                   <div className="text-center text-muted-foreground p-8">
                     <FileText className="h-16 w-16 mx-auto mb-4 opacity-30" />
-                    <p className="text-lg font-medium mb-2">Vyberte kategóriu a krajinu</p>
+                    <p className="text-lg font-medium mb-2">{t.contractsModule.templateCategory}</p>
                     <p className="text-sm">Potom kliknite na "Načítať vzor" pre načítanie DOCX šablóny</p>
                   </div>
                 </div>
@@ -2066,7 +2087,7 @@ export default function ContractsPage() {
                     categoryId={templateForm.loadedCategoryId!}
                     countryCode={templateForm.countryCode}
                     onSave={() => {
-                      toast({ title: "Zmeny uložené" });
+                      toast({ title: t.contractsModule.saved });
                     }}
                     onExtractedFieldsChange={(fields) => {
                       setTemplateForm(prev => ({ ...prev, extractedFields: fields }));
@@ -2087,7 +2108,7 @@ export default function ContractsPage() {
               disabled={!templateForm.name || !templateForm.loadedFromCategory || createTemplateMutation.isPending || updateTemplateMutation.isPending}
               data-testid="button-save-template"
             >
-              {createTemplateMutation.isPending || updateTemplateMutation.isPending ? "Ukladám..." : "Uložiť šablónu"}
+              {createTemplateMutation.isPending || updateTemplateMutation.isPending ? t.contractsModule.saving : t.contractsModule.save}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2104,16 +2125,16 @@ export default function ContractsPage() {
           <DialogHeader className="shrink-0">
             <DialogTitle>
               {categoryWizardStep === 0 
-                ? "Upraviť kategóriu" 
+                ? t.contractsModule.editCategory 
                 : selectedCategory 
-                  ? `Upraviť kategóriu - Krok ${categoryWizardStep}/2`
-                  : `Nová kategória zmluvy - Krok ${categoryWizardStep}/2`
+                  ? `${t.contractsModule.editCategory} - ${categoryWizardStep}/2`
+                  : `${t.contractsModule.newCategory} - ${categoryWizardStep}/2`
               }
             </DialogTitle>
             <DialogDescription>
-              {categoryWizardStep === 0 && "Upravte informácie a prezrite si konvertované šablóny"}
-              {categoryWizardStep === 1 && "Zadajte základné informácie a jazykové mutácie"}
-              {categoryWizardStep === 2 && "Nahrajte PDF šablóny pre jednotlivé krajiny (voliteľné)"}
+              {categoryWizardStep === 0 && t.contractsModule.editCategory}
+              {categoryWizardStep === 1 && t.contractsModule.categoryDescription}
+              {categoryWizardStep === 2 && t.contractsModule.categoryDescription}
             </DialogDescription>
           </DialogHeader>
           
@@ -2744,11 +2765,11 @@ export default function ContractsPage() {
                                           a.click();
                                           URL.revokeObjectURL(url);
                                         } catch (error) {
-                                          toast({ title: "Chyba pri sťahovaní", variant: "destructive" });
+                                          toast({ title: t.contractsModule.saveError, variant: "destructive" });
                                         }
                                       }}
                                       data-testid={`button-download-template-${country.code}`}
-                                      title="Stiahnuť šablónu"
+                                      title={t.contractsModule.downloadDocx}
                                     >
                                       <Download className="h-4 w-4" />
                                     </Button>
@@ -2772,14 +2793,14 @@ export default function ContractsPage() {
                                             ...prev,
                                             [country.code]: { file: null, uploading: false, uploaded: false }
                                           }));
-                                          toast({ title: "Šablóna vymazaná" });
+                                          toast({ title: t.contractsModule.templateDeleted });
                                           queryClient.invalidateQueries({ queryKey: ["/api/contracts/categories"] });
                                         } catch (error) {
-                                          toast({ title: "Chyba pri mazaní", variant: "destructive" });
+                                          toast({ title: t.contractsModule.saveError, variant: "destructive" });
                                         }
                                       }}
                                       data-testid={`button-delete-template-${country.code}`}
-                                      title="Vymazať šablónu"
+                                      title={t.contractsModule.deleteTemplate}
                                       className="text-destructive hover:text-destructive"
                                     >
                                       <Trash2 className="h-4 w-4" />
@@ -2815,7 +2836,7 @@ export default function ContractsPage() {
                 onClick={() => setCategoryWizardStep(2)}
                 disabled={!categoryForm.value || !categoryForm.label}
               >
-                Ďalej
+                {t.contractsModule.next}
               </Button>
             )}
             
@@ -2824,14 +2845,14 @@ export default function ContractsPage() {
                 onClick={async () => {
                   try {
                     await updateCategoryMutation.mutateAsync({ id: selectedCategory.id, data: categoryForm });
-                    toast({ title: "Kategória aktualizovaná" });
+                    toast({ title: t.contractsModule.categoryUpdated });
                     setIsCategoryDialogOpen(false);
                     resetCategoryForm();
                     setSelectedCategory(null);
                   } catch (error: any) {
                     toast({
-                      title: "Chyba pri ukladaní",
-                      description: error.message || "Nepodarilo sa uložiť zmeny",
+                      title: t.contractsModule.saveError,
+                      description: error.message,
                       variant: "destructive"
                     });
                   }
@@ -2839,7 +2860,7 @@ export default function ContractsPage() {
                 disabled={updateCategoryMutation.isPending || !categoryForm.value || !categoryForm.label}
                 data-testid="button-save-category-edit"
               >
-                {updateCategoryMutation.isPending ? "Ukladám..." : "Uložiť zmeny"}
+                {updateCategoryMutation.isPending ? t.contractsModule.saving : t.contractsModule.save}
               </Button>
             )}
             
@@ -2852,11 +2873,11 @@ export default function ContractsPage() {
                     if (selectedCategory) {
                       await updateCategoryMutation.mutateAsync({ id: selectedCategory.id, data: categoryForm });
                       categoryId = selectedCategory.id;
-                      toast({ title: "Kategória aktualizovaná" });
+                      toast({ title: t.contractsModule.categoryUpdated });
                     } else {
                       const newCategory = await createCategoryMutation.mutateAsync(categoryForm);
                       categoryId = newCategory.id;
-                      toast({ title: "Kategória vytvorená" });
+                      toast({ title: t.contractsModule.categoryCreated });
                     }
                     
                     const hasFilesToUpload = Object.values(categoryPdfUploads).some(u => u.file);
@@ -2882,8 +2903,8 @@ export default function ContractsPage() {
                     setSelectedCategory(null);
                   } catch (error: any) {
                     toast({
-                      title: "Chyba pri ukladaní kategórie",
-                      description: error.message || "Nepodarilo sa uložiť kategóriu",
+                      title: t.contractsModule.saveError,
+                      description: error.message,
                       variant: "destructive"
                     });
                   }
@@ -2891,7 +2912,7 @@ export default function ContractsPage() {
                 disabled={createCategoryMutation.isPending || updateCategoryMutation.isPending || Object.values(categoryPdfUploads).some(u => u.uploading)}
                 data-testid="button-save-category"
               >
-                {createCategoryMutation.isPending || updateCategoryMutation.isPending ? "Ukladám..." : "Uložiť a konvertovať"}
+                {createCategoryMutation.isPending || updateCategoryMutation.isPending ? t.contractsModule.saving : t.contractsModule.saveCategory}
               </Button>
             )}
           </DialogFooter>
@@ -2901,9 +2922,9 @@ export default function ContractsPage() {
       <Dialog open={isTemplatePreviewOpen} onOpenChange={setIsTemplatePreviewOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader className="shrink-0">
-            <DialogTitle>Náhľad šablóny - {templatePreviewCountry}</DialogTitle>
+            <DialogTitle>{t.contractsModule.previewTab} - {templatePreviewCountry}</DialogTitle>
             <DialogDescription>
-              DOCX šablóna s premennými
+              {t.contractsModule.docxEditor}
             </DialogDescription>
           </DialogHeader>
           
@@ -2927,7 +2948,7 @@ export default function ContractsPage() {
           
           <DialogFooter className="shrink-0 pt-4 border-t">
             <Button variant="outline" onClick={() => setIsTemplatePreviewOpen(false)}>
-              Zavrieť
+              {t.contractsModule.cancel}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2936,11 +2957,11 @@ export default function ContractsPage() {
       <Dialog open={isContractWizardOpen} onOpenChange={setIsContractWizardOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Nová zmluva - Krok {wizardStep}/3</DialogTitle>
+            <DialogTitle>{t.contractsModule.wizardTitle} - {wizardStep}/3</DialogTitle>
             <DialogDescription>
-              {wizardStep === 1 && "Vyberte typ zmluvy, verziu a klienta"}
-              {wizardStep === 2 && "Vyberte fakturačnú spoločnosť a menu"}
-              {wizardStep === 3 && "Zhrnutie a generovanie zmluvy"}
+              {wizardStep === 1 && t.contractsModule.wizardStep1}
+              {wizardStep === 2 && t.contractsModule.wizardStep2}
+              {wizardStep === 3 && t.contractsModule.wizardStep3}
             </DialogDescription>
           </DialogHeader>
           
@@ -2959,13 +2980,13 @@ export default function ContractsPage() {
             {wizardStep === 1 && (
               <div className="grid gap-4">
                 <div className="space-y-2">
-                  <Label>Typ zmluvy (kategória)</Label>
+                  <Label>{t.contractsModule.templateCategory}</Label>
                   <Select
                     value={contractForm.categoryId}
                     onValueChange={(value) => setContractForm({ ...contractForm, categoryId: value })}
                   >
                     <SelectTrigger data-testid="select-contract-category">
-                      <SelectValue placeholder="Vyberte typ zmluvy" />
+                      <SelectValue placeholder={t.contractsModule.selectTemplate} />
                     </SelectTrigger>
                     <SelectContent>
                       {categories.length === 0 ? (
@@ -2992,7 +3013,7 @@ export default function ContractsPage() {
                     onValueChange={(value) => setContractForm({ ...contractForm, customerId: value })}
                   >
                     <SelectTrigger data-testid="select-contract-customer">
-                      <SelectValue placeholder="Vyberte klienta" />
+                      <SelectValue placeholder={t.contractsModule.selectCustomer} />
                     </SelectTrigger>
                     <SelectContent>
                       {customers.map(customer => (
@@ -3009,13 +3030,13 @@ export default function ContractsPage() {
             {wizardStep === 2 && (
               <div className="grid gap-4">
                 <div className="space-y-2">
-                  <Label>Fakturačná spoločnosť</Label>
+                  <Label>{t.contractsModule.billingCompany}</Label>
                   <Select
                     value={contractForm.billingDetailsId}
                     onValueChange={(value) => setContractForm({ ...contractForm, billingDetailsId: value })}
                   >
                     <SelectTrigger data-testid="select-contract-billing">
-                      <SelectValue placeholder="Vyberte fakturačnú spoločnosť" />
+                      <SelectValue placeholder={t.contractsModule.selectBillingCompany} />
                     </SelectTrigger>
                     <SelectContent>
                       {billingDetails.map(bd => (
@@ -3062,31 +3083,31 @@ export default function ContractsPage() {
               <div className="space-y-4">
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Zhrnutie zmluvy</CardTitle>
+                    <CardTitle className="text-base">{t.contractsModule.preview}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Typ zmluvy:</span>
+                      <span className="text-muted-foreground">{t.contractsModule.templateCategory}:</span>
                       <span className="font-medium">{categories.find(c => String(c.id) === contractForm.categoryId)?.label}</span>
                     </div>
                     <Separator className="my-2" />
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Klient:</span>
+                      <span className="text-muted-foreground">{t.contractsModule.client}:</span>
                       <span className="font-medium">{getCustomerName(contractForm.customerId)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Fakturačná spoločnosť:</span>
+                      <span className="text-muted-foreground">{t.contractsModule.billingCompany}:</span>
                       <span>{billingDetails.find(b => b.id === contractForm.billingDetailsId)?.companyName}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Mena:</span>
+                      <span className="text-muted-foreground">{t.contractsModule.currency}:</span>
                       <span>{contractForm.currency}</span>
                     </div>
                     {contractForm.notes && (
                       <>
                         <Separator className="my-2" />
                         <div>
-                          <span className="text-muted-foreground">Poznámky:</span>
+                          <span className="text-muted-foreground">{t.contractsModule.notes}:</span>
                           <p className="mt-1 text-sm">{contractForm.notes}</p>
                         </div>
                       </>
@@ -3176,7 +3197,7 @@ export default function ContractsPage() {
                 setAiRecommendation({ loading: false, content: null, error: null });
               }
             }}>
-              {wizardStep > 1 ? "Späť" : "Zrušiť"}
+              {wizardStep > 1 ? t.contractsModule.back : t.contractsModule.cancel}
             </Button>
             {wizardStep < 3 ? (
               <Button 
@@ -3187,7 +3208,7 @@ export default function ContractsPage() {
                 }
                 data-testid="button-wizard-next"
               >
-                Ďalej
+                {t.contractsModule.next}
                 <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
             ) : (
@@ -3200,12 +3221,12 @@ export default function ContractsPage() {
                   {createContractMutation.isPending ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Vytváram...
+                      {t.contractsModule.saving}
                     </>
                   ) : (
                     <>
                       <FileSignature className="h-4 w-4 mr-2" />
-                      Vytvoriť a vygenerovať PDF
+                      {t.contractsModule.createAndGeneratePdf}
                     </>
                   )}
                 </Button>
@@ -3232,13 +3253,13 @@ export default function ContractsPage() {
                   <div className="mt-1">{getStatusBadge(selectedContract.status)}</div>
                 </div>
                 <div>
-                  <span className="text-sm text-muted-foreground">Klient:</span>
+                  <span className="text-sm text-muted-foreground">{t.contractsModule.client}:</span>
                   <div className="mt-1 font-medium">{getCustomerName(selectedContract.customerId)}</div>
                 </div>
                 <div>
-                  <span className="text-sm text-muted-foreground">Fakturačná spoločnosť:</span>
+                  <span className="text-sm text-muted-foreground">{t.contractsModule.billingCompany}:</span>
                   <div className="mt-1 font-medium">
-                    {billingDetails.find(b => b.id === selectedContract.billingDetailsId)?.companyName || "Nevybraná"}
+                    {billingDetails.find(b => b.id === selectedContract.billingDetailsId)?.companyName || "-"}
                   </div>
                 </div>
               </div>
@@ -3250,7 +3271,7 @@ export default function ContractsPage() {
                   <div className="flex items-center justify-between gap-2">
                     <h4 className="font-medium flex items-center gap-2">
                       <PenTool className="h-4 w-4" />
-                      Podpisovatelia
+                      {t.contractsModule.signers}
                     </h4>
                     {!isAddingParticipant && (
                       <Button 
@@ -3331,7 +3352,7 @@ export default function ContractsPage() {
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground py-2">
-                      Žiadni podpisovatelia. Pridajte aspoň jedného podpisovateľa pre odoslanie zmluvy.
+                      {t.contractsModule.noSignatureRequests}
                     </p>
                   )}
                   
@@ -3339,7 +3360,7 @@ export default function ContractsPage() {
                     <div className="p-3 border rounded-md space-y-3 bg-muted/30">
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <Label htmlFor="participantName">Meno a priezvisko</Label>
+                          <Label htmlFor="participantName">{t.contractsModule.signatureTypeName}</Label>
                           <Input
                             id="participantName"
                             value={participantForm.fullName}
@@ -3348,7 +3369,7 @@ export default function ContractsPage() {
                           />
                         </div>
                         <div>
-                          <Label>Typ účastníka</Label>
+                          <Label>{t.contractsModule.signers}</Label>
                           <Select 
                             value={participantForm.participantType} 
                             onValueChange={(v) => setParticipantForm({ ...participantForm, participantType: v })}
@@ -3445,7 +3466,7 @@ export default function ContractsPage() {
                           >
                             {(addParticipantMutation.isPending || updateParticipantMutation.isPending) 
                               ? <Loader2 className="h-4 w-4 animate-spin" /> 
-                              : editingParticipantId ? "Upraviť" : "Uložiť"}
+                              : editingParticipantId ? t.contractsModule.save : t.contractsModule.saveParticipant}
                           </Button>
                         </div>
                       </div>
@@ -3487,7 +3508,7 @@ export default function ContractsPage() {
           
           <DialogFooter className="flex-wrap gap-2">
             <Button variant="outline" onClick={() => setIsPreviewOpen(false)}>
-              Zavrieť
+              {t.contractsModule.cancel}
             </Button>
             {selectedContract && (selectedContract.renderedHtml || contractDetail?.renderedHtml) && (
               <Button 
@@ -3501,7 +3522,7 @@ export default function ContractsPage() {
                 ) : (
                   <RefreshCw className="h-4 w-4 mr-2" />
                 )}
-                Regenerovať
+                {t.contractsModule.regenerate}
               </Button>
             )}
             {selectedContract && (
@@ -3516,7 +3537,7 @@ export default function ContractsPage() {
                 ) : (
                   <Download className="h-4 w-4 mr-2" />
                 )}
-                Stiahnuť PDF
+                {t.contractsModule.downloadPdf}
               </Button>
             )}
             {selectedContract?.status === "draft" && (
@@ -3527,7 +3548,7 @@ export default function ContractsPage() {
                 }
               }}>
                 <Send className="h-4 w-4 mr-2" />
-                Odoslať na podpis
+                {t.contractsModule.sendForSignature}
               </Button>
             )}
             {(selectedContract?.status === "sent" || selectedContract?.status === "pending_signature") && (
@@ -3539,7 +3560,7 @@ export default function ContractsPage() {
                 setIsSignatureModalOpen(true);
               }}>
                 <Edit className="h-4 w-4 mr-2" />
-                Podpísať zmluvu
+                {t.contractsModule.signContract}
               </Button>
             )}
           </DialogFooter>
@@ -3557,7 +3578,7 @@ export default function ContractsPage() {
       }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Elektronický podpis zmluvy</DialogTitle>
+            <DialogTitle>{t.contractsModule.electronicSignature}</DialogTitle>
             <DialogDescription>
               {selectedContract?.contractNumber}
             </DialogDescription>
@@ -3568,25 +3589,24 @@ export default function ContractsPage() {
               {signatureRequests === undefined ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                  <span className="ml-2 text-muted-foreground">Načítavam podpisové požiadavky...</span>
+                  <span className="ml-2 text-muted-foreground">{t.contractsModule.loadingSignatureRequests}</span>
                 </div>
               ) : signatureRequests.length === 0 ? (
                 <div className="space-y-4">
                   <div className="p-4 bg-muted rounded-md">
                     <div className="flex items-center gap-2 mb-2">
                       <AlertCircle className="h-5 w-5 text-destructive" />
-                      <span className="font-medium">Žiadne podpisové požiadavky</span>
+                      <span className="font-medium">{t.contractsModule.noSignatureRequests}</span>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      Pre túto zmluvu neboli vytvorené žiadne podpisové požiadavky. 
-                      Najprv pridajte podpisovateľov a odošlite zmluvu na podpis.
+                      {t.contractsModule.noSignatureRequestsMessage}
                     </p>
                   </div>
                 </div>
               ) : !otpVerified ? (
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium">Podpisovatelia</Label>
+                    <Label className="text-sm font-medium">{t.contractsModule.signers}</Label>
                     {signatureRequests.map((sr) => (
                       <div 
                         key={sr.id}
@@ -3610,16 +3630,16 @@ export default function ContractsPage() {
                         <div className="flex items-center justify-between gap-2">
                           <div>
                             <div className="font-medium text-sm">{sr.signerName}</div>
-                            <div className="text-xs text-muted-foreground">{sr.signerEmail || "Bez emailu"}</div>
+                            <div className="text-xs text-muted-foreground">{sr.signerEmail || t.contractsModule.noEmail}</div>
                           </div>
                           <Badge variant={
                             sr.status === "signed" ? "default" : 
                             sr.status === "otp_verified" ? "default" : 
                             "secondary"
                           } className="text-xs">
-                            {sr.status === "signed" ? "Podpísané" : 
-                             sr.status === "otp_verified" ? "OTP overené" : 
-                             "Čaká na OTP"}
+                            {sr.status === "signed" ? t.contractsModule.statusSignedLabel : 
+                             sr.status === "otp_verified" ? t.contractsModule.statusOtpVerified : 
+                             t.contractsModule.statusWaitingOtp}
                           </Badge>
                         </div>
                       </div>
@@ -3632,16 +3652,15 @@ export default function ContractsPage() {
                       <div className="p-4 bg-muted rounded-md">
                         <div className="flex items-center gap-2 mb-2">
                           <Shield className="h-5 w-5 text-primary" />
-                          <span className="font-medium">Overenie identity</span>
+                          <span className="font-medium">{t.contractsModule.identityVerification}</span>
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          Na email/telefón klienta bol odoslaný 6-miestny overovací kód. 
-                          Zadajte ho pre pokračovanie v podpise.
+                          {t.contractsModule.otpSentMessage}
                         </p>
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="otpCode">Overovací kód (OTP)</Label>
+                        <Label htmlFor="otpCode">{t.contractsModule.otpCode}</Label>
                         <Input
                           id="otpCode"
                           placeholder="123456"
@@ -3674,7 +3693,7 @@ export default function ContractsPage() {
                           ) : (
                             <CheckCircle className="h-4 w-4 mr-2" />
                           )}
-                          Overiť kód
+                          {t.contractsModule.verifyCode}
                         </Button>
                         <Button
                           variant="outline"
@@ -3692,7 +3711,7 @@ export default function ContractsPage() {
                           ) : (
                             <RefreshCw className="h-4 w-4 mr-2" />
                           )}
-                          Znova odoslať
+                          {t.contractsModule.resendOtp}
                         </Button>
                       </div>
                     </>
@@ -3704,30 +3723,30 @@ export default function ContractsPage() {
                     <div className="flex items-center gap-2">
                       <CheckCircle className="h-5 w-5 text-green-600" />
                       <span className="font-medium text-green-700 dark:text-green-400">
-                        Identita overená
+                        {t.contractsModule.otpVerified}
                       </span>
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="signatureData">Podpis (napíšte svoje meno)</Label>
+                    <Label htmlFor="signatureData">{t.contractsModule.signatureTypeName}</Label>
                     <Input
                       id="signatureData"
-                      placeholder="Meno a priezvisko"
+                      placeholder={t.contractsModule.signatureTypeName}
                       value={signatureData}
                       onChange={(e) => setSignatureData(e.target.value)}
                       className="italic"
                       data-testid="input-signature"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Napísaním svojho mena potvrdzujete, že ste si prečítali a súhlasíte s obsahom zmluvy.
+                      {t.contractsModule.signatureConfirmation}
                     </p>
                   </div>
 
                   <div className="p-3 border rounded-md bg-muted/50">
-                    <div className="text-sm text-muted-foreground mb-1">Náhľad podpisu:</div>
+                    <div className="text-sm text-muted-foreground mb-1">{t.contractsModule.signaturePreview}:</div>
                     <div className="text-xl italic font-serif text-center py-2 border-b-2 border-foreground/30">
-                      {signatureData || "Váš podpis"}
+                      {signatureData || t.contractsModule.yourSignature}
                     </div>
                   </div>
                 </div>
@@ -3740,7 +3759,7 @@ export default function ContractsPage() {
               variant="outline" 
               onClick={() => setIsSignatureModalOpen(false)}
             >
-              Zrušiť
+              {t.contractsModule.cancel}
             </Button>
             {otpVerified && (
               <Button
@@ -3753,7 +3772,7 @@ export default function ContractsPage() {
                       signatureData: signatureData
                     });
                   } else {
-                    toast({ title: "Chyba", description: "Neplatná žiadosť o podpis.", variant: "destructive" });
+                    toast({ title: t.contractsModule.otpError, description: t.contractsModule.otpError, variant: "destructive" });
                   }
                 }}
                 data-testid="button-sign-contract"
@@ -3763,7 +3782,7 @@ export default function ContractsPage() {
                 ) : (
                   <Edit className="h-4 w-4 mr-2" />
                 )}
-                Podpísať zmluvu
+                {t.contractsModule.signContract}
               </Button>
             )}
           </DialogFooter>
@@ -3775,10 +3794,10 @@ export default function ContractsPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Edit className="h-5 w-5" />
-              Upraviť šablónu - {editingTemplateCountry}
+              {t.contractsModule.editTemplate} - {editingTemplateCountry}
             </DialogTitle>
             <DialogDescription>
-              Priraďte polia šablóny k údajom zákazníka. Pri generovaní zmluvy sa tieto hodnoty automaticky vyplnia.
+              {t.contractsModule.fieldMapping}
             </DialogDescription>
           </DialogHeader>
           
@@ -3793,15 +3812,15 @@ export default function ContractsPage() {
                 <TabsList className="grid w-full grid-cols-3 mb-4">
                   <TabsTrigger value="editor" data-testid="tab-template-editor">
                     <FileText className="h-4 w-4 mr-2" />
-                    DOCX Editor
+                    {t.contractsModule.docxEditor}
                   </TabsTrigger>
                   <TabsTrigger value="mapping" data-testid="tab-template-mapping">
                     <Settings className="h-4 w-4 mr-2" />
-                    Mapovanie polí
+                    {t.contractsModule.fieldMapping}
                   </TabsTrigger>
                   <TabsTrigger value="preview" data-testid="tab-template-preview">
                     <Eye className="h-4 w-4 mr-2" />
-                    Náhľad
+                    {t.contractsModule.previewTab}
                   </TabsTrigger>
                 </TabsList>
                 
@@ -3818,7 +3837,7 @@ export default function ContractsPage() {
                   ) : (
                     <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                       <FileText className="h-12 w-12 mb-4 opacity-50" />
-                      <p>DOCX editor je dostupný len pre DOCX šablóny</p>
+                      <p>{t.contractsModule.docxEditor}</p>
                     </div>
                   )}
                 </TabsContent>
@@ -3837,8 +3856,8 @@ export default function ContractsPage() {
                     <div className="space-y-3">
                       <div className="flex items-center justify-between gap-4 p-2 bg-muted rounded-md">
                         <div className="grid grid-cols-2 gap-4 flex-1 font-medium text-sm">
-                          <div>Pole v šablóne</div>
-                          <div>Údaj zákazníka</div>
+                          <div>{t.contractsModule.templateField}</div>
+                          <div>{t.contractsModule.customerData}</div>
                         </div>
                         <Button
                           size="sm"
@@ -4110,7 +4129,7 @@ export default function ContractsPage() {
                                 data-testid="button-download-docx"
                               >
                                 <Download className="h-4 w-4 mr-2" />
-                                Stiahnuť DOCX a upraviť v Worde
+                                {t.contractsModule.downloadDocx}
                               </Button>
                             </>
                           )}
@@ -4128,7 +4147,7 @@ export default function ContractsPage() {
                   <div className="flex items-center justify-between gap-4 p-3 bg-muted/50 rounded-md flex-wrap">
                     <div className="flex items-center gap-4 flex-wrap">
                       <Badge variant={editingTemplateData.templateType === "docx" ? "default" : "secondary"}>
-                        DOCX náhľad
+                        {t.contractsModule.previewTab}
                       </Badge>
                       <span className="text-sm text-muted-foreground">
                         {editingTemplateData.extractedFields.length} premenných
@@ -4142,7 +4161,7 @@ export default function ContractsPage() {
                           onClick={() => setPreviewShowSampleData(false)}
                           data-testid="button-preview-placeholders"
                         >
-                          Premenné
+                          {t.contractsModule.templateField}
                         </Button>
                         <Button
                           variant={previewShowSampleData ? "default" : "ghost"}
@@ -4150,7 +4169,7 @@ export default function ContractsPage() {
                           onClick={() => setPreviewShowSampleData(true)}
                           data-testid="button-preview-sample"
                         >
-                          Vzorové dáta
+                          {t.contractsModule.customerData}
                         </Button>
                       </div>
                       {editingTemplateData.categoryId && editingTemplateData.countryCode && (
@@ -4163,7 +4182,7 @@ export default function ContractsPage() {
                           data-testid="button-download-docx-preview"
                         >
                           <Download className="h-4 w-4 mr-1" />
-                          Stiahnuť DOCX
+                          {t.contractsModule.downloadDocx}
                         </Button>
                       )}
                     </div>
@@ -4172,7 +4191,7 @@ export default function ContractsPage() {
                   <div className="border rounded-md">
                     <div className="p-3 border-b bg-muted/30 flex items-center justify-between gap-2 flex-wrap">
                       <h4 className="font-medium text-sm">
-                        {previewShowSampleData ? "Náhľad so vzorovými dátami" : "Text dokumentu s premennými"}
+                        {previewShowSampleData ? t.contractsModule.previewTab : t.contractsModule.templateField}
                       </h4>
                       <div className="flex items-center gap-2">
                         {previewShowSampleData ? (
@@ -4237,10 +4256,10 @@ export default function ContractsPage() {
               {savingMappings ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Ukladám...
+                  {t.contractsModule.saving}
                 </>
               ) : (
-                "Uložiť mapovanie"
+                t.contractsModule.saveMappings
               )}
             </Button>
           </DialogFooter>

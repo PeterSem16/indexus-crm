@@ -15,37 +15,12 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { PageHeader } from "@/components/page-header";
+import { useI18n } from "@/i18n";
 import { format } from "date-fns";
 import { ArrowLeft, Save, FileText, Users, Package, Beaker, Receipt, Loader2, Download, ExternalLink } from "lucide-react";
 import type { ContractInstance, Customer, Hospital, Collection, Product, CustomerProduct } from "@shared/schema";
 
-const CONTRACT_STATUS_OPTIONS = [
-  { value: "draft", label: "Koncept" },
-  { value: "created", label: "Vytvorena" },
-  { value: "sent", label: "Odoslana" },
-  { value: "received", label: "Prijata" },
-  { value: "returned", label: "Vratena" },
-  { value: "verified", label: "Overena" },
-  { value: "executed", label: "Vykonana" },
-  { value: "completed", label: "Dokoncena" },
-  { value: "terminated", label: "Ukoncena" },
-  { value: "cancelled", label: "Zrusena" },
-];
-
 const SALES_CHANNEL_OPTIONS = ["CCP", "CCP+D", "CCAI", "CCAI+D", "CCAE", "CCAE+D", "I"];
-
-const INFO_SOURCE_OPTIONS = [
-  { value: "internet", label: "Internet" },
-  { value: "friends", label: "Priatelia" },
-  { value: "doctor", label: "Lekar" },
-  { value: "positive_experience", label: "Pozitivna skusenost" },
-  { value: "conference", label: "Konferencia" },
-  { value: "tv", label: "TV" },
-  { value: "radio", label: "Radio" },
-  { value: "prenatal_course", label: "Predporodny kurz" },
-  { value: "hospital_doctor", label: "Nemocnicny lekar" },
-  { value: "other", label: "Ine" },
-];
 
 const formatDateTimeForInput = (date: string | Date | null | undefined) => {
   if (!date) return "";
@@ -88,8 +63,35 @@ function getStatusBadgeVariant(status: string): "secondary" | "default" | "destr
 
 export default function ContractDetailPage() {
   const { toast } = useToast();
+  const { t } = useI18n();
   const params = useParams<{ id: string }>();
   const contractId = params.id;
+
+  const CONTRACT_STATUS_OPTIONS = [
+    { value: "draft", label: t.contractsModule.statusDraft },
+    { value: "created", label: t.contractsModule.statusCreated },
+    { value: "sent", label: t.contractsModule.statusSent },
+    { value: "received", label: t.contractsModule.statusReceived },
+    { value: "returned", label: t.contractsModule.statusReturned },
+    { value: "verified", label: t.contractsModule.statusVerified },
+    { value: "executed", label: t.contractsModule.statusExecuted },
+    { value: "completed", label: t.contractsModule.statusCompleted },
+    { value: "terminated", label: t.contractsModule.statusTerminated },
+    { value: "cancelled", label: t.contractsModule.statusCancelled },
+  ];
+
+  const INFO_SOURCE_OPTIONS = [
+    { value: "internet", label: t.contractsModule.infoSourceInternet },
+    { value: "friends", label: t.contractsModule.infoSourceFriends },
+    { value: "doctor", label: t.contractsModule.infoSourceDoctor },
+    { value: "positive_experience", label: t.contractsModule.infoSourcePositiveExperience },
+    { value: "conference", label: t.contractsModule.infoSourceConference },
+    { value: "tv", label: t.contractsModule.infoSourceTV },
+    { value: "radio", label: t.contractsModule.infoSourceRadio },
+    { value: "prenatal_course", label: t.contractsModule.infoSourcePrenatalCourse },
+    { value: "hospital_doctor", label: t.contractsModule.infoSourceHospitalDoctor },
+    { value: "other", label: t.contractsModule.infoSourceOther },
+  ];
 
   const [activeTab, setActiveTab] = useState("basic");
   const [formState, setFormState] = useState<Record<string, any>>({});
@@ -219,10 +221,10 @@ export default function ContractDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contracts", contractId] });
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
-      toast({ title: "Ulozene", description: "Zmluva bola uspesne ulozena." });
+      toast({ title: t.contractsModule.saved, description: t.contractsModule.saved });
     },
     onError: () => {
-      toast({ title: "Chyba", description: "Nepodarilo sa ulozit zmluvu.", variant: "destructive" });
+      toast({ title: t.contractsModule.saveError, description: t.contractsModule.saveError, variant: "destructive" });
     },
   });
 
@@ -240,12 +242,12 @@ export default function ContractDetailPage() {
         <Link href="/contracts">
           <Button variant="ghost" data-testid="button-back-contracts">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Spat na zmluvy
+            {t.contractsModule.backToContracts}
           </Button>
         </Link>
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
-            Zmluva nebola najdena.
+            {t.contractsModule.contractNotFound}
           </CardContent>
         </Card>
       </div>
@@ -257,12 +259,12 @@ export default function ContractDetailPage() {
       <Link href="/contracts">
         <Button variant="ghost" data-testid="button-back-contracts">
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Spat na zmluvy
+          {t.contractsModule.backToContracts}
         </Button>
       </Link>
 
       <PageHeader
-        title={`Zmluva ${contract.contractNumber}`}
+        title={`${t.contractsModule.title} ${contract.contractNumber}`}
         description={customer ? `${customer.firstName} ${customer.lastName}` : undefined}
       />
 
@@ -270,39 +272,39 @@ export default function ContractDetailPage() {
         <TabsList className="flex-wrap" data-testid="tabs-list">
           <TabsTrigger value="basic" data-testid="tab-basic">
             <FileText className="h-4 w-4 mr-1" />
-            Zakladne udaje
+            {t.contractsModule.tabBasicData}
           </TabsTrigger>
           <TabsTrigger value="persons" data-testid="tab-persons">
             <Users className="h-4 w-4 mr-1" />
-            Osoby
+            {t.contractsModule.tabPersons}
           </TabsTrigger>
           <TabsTrigger value="documents" data-testid="tab-documents">
             <FileText className="h-4 w-4 mr-1" />
-            Dokumenty
+            {t.contractsModule.tabDocuments}
           </TabsTrigger>
           <TabsTrigger value="products" data-testid="tab-products">
             <Package className="h-4 w-4 mr-1" />
-            Produkty
+            {t.contractsModule.tabProducts}
           </TabsTrigger>
           <TabsTrigger value="collections" data-testid="tab-collections">
             <Beaker className="h-4 w-4 mr-1" />
-            Odbery
+            {t.contractsModule.tabCollections}
           </TabsTrigger>
           <TabsTrigger value="invoices" data-testid="tab-invoices">
             <Receipt className="h-4 w-4 mr-1" />
-            Faktury
+            {t.contractsModule.tabInvoices}
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="basic" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Identifikacia</CardTitle>
+              <CardTitle>{t.contractsModule.sectionIdentification}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="internalId">Legacy ID</Label>
+                  <Label htmlFor="internalId">{t.contractsModule.fieldLegacyId}</Label>
                   <Input
                     id="internalId"
                     value={formState.internalId || ""}
@@ -311,7 +313,7 @@ export default function ContractDetailPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="contractNumber">Cislo zmluvy</Label>
+                  <Label htmlFor="contractNumber">{t.contractsModule.fieldContractNumber}</Label>
                   <Input
                     id="contractNumber"
                     value={contract.contractNumber}
@@ -321,7 +323,7 @@ export default function ContractDetailPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="status">Stav</Label>
+                  <Label htmlFor="status">{t.contractsModule.fieldStatus}</Label>
                   <Select
                     value={formState.status || "draft"}
                     onValueChange={(v) => updateField("status", v)}
@@ -344,12 +346,12 @@ export default function ContractDetailPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Datumy zivotneho cyklu</CardTitle>
+              <CardTitle>{t.contractsModule.sectionLifecycleDates}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="contactDate">Datum kontaktu</Label>
+                  <Label htmlFor="contactDate">{t.contractsModule.fieldContactDate}</Label>
                   <Input
                     id="contactDate"
                     type="datetime-local"
@@ -359,7 +361,7 @@ export default function ContractDetailPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="filledDate">Vyplnena zmluva dna</Label>
+                  <Label htmlFor="filledDate">{t.contractsModule.fieldFilledDate}</Label>
                   <Input
                     id="filledDate"
                     type="datetime-local"
@@ -369,7 +371,7 @@ export default function ContractDetailPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="createdContractDate">Vytvorena zmluva dna</Label>
+                  <Label htmlFor="createdContractDate">{t.contractsModule.fieldCreatedContractDate}</Label>
                   <Input
                     id="createdContractDate"
                     type="datetime-local"
@@ -379,7 +381,7 @@ export default function ContractDetailPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="sentContractDate">Poslana zmluva dna</Label>
+                  <Label htmlFor="sentContractDate">{t.contractsModule.fieldSentDate}</Label>
                   <Input
                     id="sentContractDate"
                     type="datetime-local"
@@ -389,7 +391,7 @@ export default function ContractDetailPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="receivedByClientDate">Prijata klientom</Label>
+                  <Label htmlFor="receivedByClientDate">{t.contractsModule.fieldReceivedDate}</Label>
                   <Input
                     id="receivedByClientDate"
                     type="datetime-local"
@@ -399,7 +401,7 @@ export default function ContractDetailPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="returnedDate">Vratena</Label>
+                  <Label htmlFor="returnedDate">{t.contractsModule.fieldReturnedDate}</Label>
                   <Input
                     id="returnedDate"
                     type="datetime-local"
@@ -409,7 +411,7 @@ export default function ContractDetailPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="verifiedDate">Overena</Label>
+                  <Label htmlFor="verifiedDate">{t.contractsModule.fieldVerifiedDate}</Label>
                   <Input
                     id="verifiedDate"
                     type="datetime-local"
@@ -419,7 +421,7 @@ export default function ContractDetailPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="executedDate">Vykonana zmluva</Label>
+                  <Label htmlFor="executedDate">{t.contractsModule.fieldExecutedDate}</Label>
                   <Input
                     id="executedDate"
                     type="datetime-local"
@@ -429,7 +431,7 @@ export default function ContractDetailPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="terminatedDate">Ukoncena zmluva</Label>
+                  <Label htmlFor="terminatedDate">{t.contractsModule.fieldTerminatedDate}</Label>
                   <Input
                     id="terminatedDate"
                     type="datetime-local"
@@ -439,7 +441,7 @@ export default function ContractDetailPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="cancelledAt">Zrusena zmluva</Label>
+                  <Label htmlFor="cancelledAt">{t.contractsModule.fieldCancelledAt}</Label>
                   <Input
                     id="cancelledAt"
                     type="datetime-local"
@@ -449,7 +451,7 @@ export default function ContractDetailPage() {
                   />
                 </div>
                 <div className="space-y-2 md:col-span-2 lg:col-span-3">
-                  <Label htmlFor="terminationReason">Dovod ukoncenia</Label>
+                  <Label htmlFor="terminationReason">{t.contractsModule.fieldTerminationReason}</Label>
                   <Textarea
                     id="terminationReason"
                     value={formState.terminationReason || ""}
@@ -463,12 +465,12 @@ export default function ContractDetailPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Medicinske udaje</CardTitle>
+              <CardTitle>{t.contractsModule.sectionMedical}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="ambulantDoctor">Ambulantny lekar</Label>
+                  <Label htmlFor="ambulantDoctor">{t.contractsModule.fieldAmbulantDoctor}</Label>
                   <Input
                     id="ambulantDoctor"
                     value={formState.ambulantDoctor || ""}
@@ -477,7 +479,7 @@ export default function ContractDetailPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="expectedDeliveryDate">Predpokladany datum porodu</Label>
+                  <Label htmlFor="expectedDeliveryDate">{t.contractsModule.fieldExpectedDeliveryDate}</Label>
                   <Input
                     id="expectedDeliveryDate"
                     type="date"
@@ -487,13 +489,13 @@ export default function ContractDetailPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="hospitalId">Nemocnica</Label>
+                  <Label htmlFor="hospitalId">{t.contractsModule.fieldHospital}</Label>
                   <Select
                     value={formState.hospitalId || ""}
                     onValueChange={(v) => updateField("hospitalId", v)}
                   >
                     <SelectTrigger data-testid="select-hospitalId">
-                      <SelectValue placeholder="Vyberte nemocnicu" />
+                      <SelectValue placeholder={t.contractsModule.fieldHospital} />
                     </SelectTrigger>
                     <SelectContent>
                       {hospitals.map((h: Hospital) => (
@@ -505,7 +507,7 @@ export default function ContractDetailPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="obstetrician">Porodnik</Label>
+                  <Label htmlFor="obstetrician">{t.contractsModule.fieldObstetrician}</Label>
                   <Input
                     id="obstetrician"
                     value={formState.obstetrician || ""}
@@ -520,7 +522,7 @@ export default function ContractDetailPage() {
                     onCheckedChange={(v) => updateField("multiplePregnancy", !!v)}
                     data-testid="checkbox-multiplePregnancy"
                   />
-                  <Label htmlFor="multiplePregnancy">Viacnasobne tehotenstvo</Label>
+                  <Label htmlFor="multiplePregnancy">{t.contractsModule.fieldMultiplePregnancy}</Label>
                 </div>
               </div>
             </CardContent>
@@ -528,18 +530,18 @@ export default function ContractDetailPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Predaj a marketing</CardTitle>
+              <CardTitle>{t.contractsModule.sectionSalesMarketing}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="salesChannel">Predajny kanal</Label>
+                  <Label htmlFor="salesChannel">{t.contractsModule.fieldChannel}</Label>
                   <Select
                     value={formState.salesChannel || ""}
                     onValueChange={(v) => updateField("salesChannel", v)}
                   >
                     <SelectTrigger data-testid="select-salesChannel">
-                      <SelectValue placeholder="Vyberte kanal" />
+                      <SelectValue placeholder={t.contractsModule.fieldChannel} />
                     </SelectTrigger>
                     <SelectContent>
                       {SALES_CHANNEL_OPTIONS.map((ch) => (
@@ -551,13 +553,13 @@ export default function ContractDetailPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="infoSource">Zdroj informacii</Label>
+                  <Label htmlFor="infoSource">{t.contractsModule.fieldInfoSource}</Label>
                   <Select
                     value={formState.infoSource || ""}
                     onValueChange={(v) => updateField("infoSource", v)}
                   >
                     <SelectTrigger data-testid="select-infoSource">
-                      <SelectValue placeholder="Vyberte zdroj" />
+                      <SelectValue placeholder={t.contractsModule.fieldInfoSource} />
                     </SelectTrigger>
                     <SelectContent>
                       {INFO_SOURCE_OPTIONS.map((opt) => (
@@ -569,7 +571,7 @@ export default function ContractDetailPage() {
                   </Select>
                 </div>
                 <div className="space-y-2 md:col-span-2 lg:col-span-1">
-                  <Label htmlFor="selectionReason">Dovod vyberu</Label>
+                  <Label htmlFor="selectionReason">{t.contractsModule.fieldSelectionReason}</Label>
                   <Textarea
                     id="selectionReason"
                     value={formState.selectionReason || ""}
@@ -578,7 +580,7 @@ export default function ContractDetailPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="marketingAction">Marketingova akcia</Label>
+                  <Label htmlFor="marketingAction">{t.contractsModule.fieldMarketingAction}</Label>
                   <Input
                     id="marketingAction"
                     value={formState.marketingAction || ""}
@@ -587,7 +589,7 @@ export default function ContractDetailPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="marketingCode">Marketingovy kod</Label>
+                  <Label htmlFor="marketingCode">{t.contractsModule.fieldMarketingCode}</Label>
                   <Input
                     id="marketingCode"
                     value={formState.marketingCode || ""}
@@ -601,12 +603,12 @@ export default function ContractDetailPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Financne</CardTitle>
+              <CardTitle>{t.contractsModule.sectionFinancial}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="refinancing">Prefinancovanie</Label>
+                  <Label htmlFor="refinancing">{t.contractsModule.fieldRefinancing}</Label>
                   <Input
                     id="refinancing"
                     value={formState.refinancing || ""}
@@ -615,7 +617,7 @@ export default function ContractDetailPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="refinancingId">Prefinancovanie ID</Label>
+                  <Label htmlFor="refinancingId">{t.contractsModule.fieldRefinancing} ID</Label>
                   <Input
                     id="refinancingId"
                     value={formState.refinancingId || ""}
@@ -624,7 +626,7 @@ export default function ContractDetailPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="giftVoucher">Darcekovova poukazka</Label>
+                  <Label htmlFor="giftVoucher">{t.contractsModule.fieldGiftVoucher}</Label>
                   <Input
                     id="giftVoucher"
                     value={formState.giftVoucher || ""}
@@ -638,12 +640,12 @@ export default function ContractDetailPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Odberova sada</CardTitle>
+              <CardTitle>{t.contractsModule.sectionCollectionKit}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="collectionKit">Odberova sada</Label>
+                  <Label htmlFor="collectionKit">{t.contractsModule.fieldCollectionKit}</Label>
                   <Input
                     id="collectionKit"
                     value={formState.collectionKit || ""}
@@ -652,7 +654,7 @@ export default function ContractDetailPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="collectionKitSentDate">Poslana</Label>
+                  <Label htmlFor="collectionKitSentDate">{t.contractsModule.fieldCollectionKitSentDate}</Label>
                   <Input
                     id="collectionKitSentDate"
                     type="datetime-local"
@@ -667,12 +669,12 @@ export default function ContractDetailPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Ostatne</CardTitle>
+              <CardTitle>{t.contractsModule.sectionOther}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="space-y-2 md:col-span-2 lg:col-span-3">
-                  <Label htmlFor="clientNote">Poznamka klientky</Label>
+                  <Label htmlFor="clientNote">{t.contractsModule.fieldClientNote}</Label>
                   <Textarea
                     id="clientNote"
                     value={formState.clientNote || ""}
@@ -681,7 +683,7 @@ export default function ContractDetailPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="representativeId">Reprezentant</Label>
+                  <Label htmlFor="representativeId">{t.contractsModule.fieldRepresentative}</Label>
                   <Input
                     id="representativeId"
                     value={formState.representativeId || ""}
@@ -696,16 +698,16 @@ export default function ContractDetailPage() {
                     onCheckedChange={(v) => updateField("indicatedContract", !!v)}
                     data-testid="checkbox-indicatedContract"
                   />
-                  <Label htmlFor="indicatedContract">Indikovana zmluva</Label>
+                  <Label htmlFor="indicatedContract">{t.contractsModule.fieldIndicatedContract}</Label>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="initialProductId">Inicializacny produkt</Label>
+                  <Label htmlFor="initialProductId">{t.contractsModule.productName}</Label>
                   <Select
                     value={formState.initialProductId || ""}
                     onValueChange={(v) => updateField("initialProductId", v)}
                   >
                     <SelectTrigger data-testid="select-initialProductId">
-                      <SelectValue placeholder="Vyberte produkt" />
+                      <SelectValue placeholder={t.contractsModule.selectProductSet} />
                     </SelectTrigger>
                     <SelectContent>
                       {products.map((p: Product) => (
@@ -717,13 +719,13 @@ export default function ContractDetailPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="recruitedToProductId">Regrutoval na</Label>
+                  <Label htmlFor="recruitedToProductId">{t.contractsModule.selectProductSet}</Label>
                   <Select
                     value={formState.recruitedToProductId || ""}
                     onValueChange={(v) => updateField("recruitedToProductId", v)}
                   >
                     <SelectTrigger data-testid="select-recruitedToProductId">
-                      <SelectValue placeholder="Vyberte produkt" />
+                      <SelectValue placeholder={t.contractsModule.selectProductSet} />
                     </SelectTrigger>
                     <SelectContent>
                       {products.map((p: Product) => (
@@ -735,7 +737,7 @@ export default function ContractDetailPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="recruitedDate">Regrutoval dna</Label>
+                  <Label htmlFor="recruitedDate">{t.contractsModule.created}</Label>
                   <Input
                     id="recruitedDate"
                     type="datetime-local"
@@ -759,7 +761,7 @@ export default function ContractDetailPage() {
               ) : (
                 <Save className="h-4 w-4 mr-2" />
               )}
-              Ulozit
+              {saveMutation.isPending ? t.contractsModule.saving : t.contractsModule.save}
             </Button>
           </div>
         </TabsContent>
@@ -767,68 +769,68 @@ export default function ContractDetailPage() {
         <TabsContent value="persons" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Klientka</CardTitle>
+              <CardTitle>{t.contractsModule.client}</CardTitle>
             </CardHeader>
             <CardContent>
               {customer ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div>
-                    <Label className="text-muted-foreground text-xs">Meno</Label>
+                    <Label className="text-muted-foreground text-xs">{t.contractsModule.participantName}</Label>
                     <p className="font-medium" data-testid="text-customer-name">
                       {customer.titleBefore ? `${customer.titleBefore} ` : ""}{customer.firstName} {customer.lastName}{customer.titleAfter ? `, ${customer.titleAfter}` : ""}
                     </p>
                   </div>
                   <div>
-                    <Label className="text-muted-foreground text-xs">Email</Label>
+                    <Label className="text-muted-foreground text-xs">{t.contractsModule.participantEmail}</Label>
                     <p data-testid="text-customer-email">{customer.email || "-"}</p>
                   </div>
                   <div>
-                    <Label className="text-muted-foreground text-xs">Telefon</Label>
+                    <Label className="text-muted-foreground text-xs">{t.contractsModule.participantPhone}</Label>
                     <p data-testid="text-customer-phone">{customer.phone || customer.mobile || "-"}</p>
                   </div>
                   <div>
-                    <Label className="text-muted-foreground text-xs">Adresa</Label>
+                    <Label className="text-muted-foreground text-xs">{t.contractsModule.fatherStreet}</Label>
                     <p data-testid="text-customer-address">
                       {[customer.address, customer.city, customer.postalCode].filter(Boolean).join(", ") || "-"}
                     </p>
                   </div>
                 </div>
               ) : (
-                <p className="text-muted-foreground">Zakaznik nebol najdeny.</p>
+                <p className="text-muted-foreground">{t.contractsModule.noData}</p>
               )}
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Otec dietata</CardTitle>
+              <CardTitle>{t.contractsModule.fatherOfChild}</CardTitle>
             </CardHeader>
             <CardContent>
               {potentialCase?.fatherFirstName || potentialCase?.fatherLastName ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div>
-                    <Label className="text-muted-foreground text-xs">Meno</Label>
+                    <Label className="text-muted-foreground text-xs">{t.contractsModule.participantName}</Label>
                     <p className="font-medium" data-testid="text-father-name">
                       {potentialCase.fatherFirstName || ""} {potentialCase.fatherLastName || ""}
                     </p>
                   </div>
                   <div>
-                    <Label className="text-muted-foreground text-xs">Email</Label>
+                    <Label className="text-muted-foreground text-xs">{t.contractsModule.participantEmail}</Label>
                     <p data-testid="text-father-email">{potentialCase.fatherEmail || "-"}</p>
                   </div>
                   <div>
-                    <Label className="text-muted-foreground text-xs">Telefon</Label>
+                    <Label className="text-muted-foreground text-xs">{t.contractsModule.participantPhone}</Label>
                     <p data-testid="text-father-phone">{potentialCase.fatherPhone || "-"}</p>
                   </div>
                   <div>
-                    <Label className="text-muted-foreground text-xs">Adresa</Label>
+                    <Label className="text-muted-foreground text-xs">{t.contractsModule.fatherStreet}</Label>
                     <p data-testid="text-father-address">
                       {[potentialCase.fatherAddress, potentialCase.fatherCity, potentialCase.fatherPostalCode].filter(Boolean).join(", ") || "-"}
                     </p>
                   </div>
                 </div>
               ) : (
-                <p className="text-muted-foreground">Udaje o otcovi nie su k dispozicii.</p>
+                <p className="text-muted-foreground">{t.contractsModule.noData}</p>
               )}
             </CardContent>
           </Card>
@@ -836,17 +838,17 @@ export default function ContractDetailPage() {
           {contractParticipants.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Ucastnici zmluvy</CardTitle>
+                <CardTitle>{t.contractsModule.participants}</CardTitle>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Meno</TableHead>
-                      <TableHead>Typ</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Telefon</TableHead>
-                      <TableHead>Podpis</TableHead>
+                      <TableHead>{t.contractsModule.participantName}</TableHead>
+                      <TableHead>{t.contractsModule.participantType}</TableHead>
+                      <TableHead>{t.contractsModule.participantEmail}</TableHead>
+                      <TableHead>{t.contractsModule.participantPhone}</TableHead>
+                      <TableHead>{t.contractsModule.signatureRequired}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -858,9 +860,9 @@ export default function ContractDetailPage() {
                         <TableCell>{p.phone || "-"}</TableCell>
                         <TableCell>
                           {p.signedAt ? (
-                            <Badge variant="default" data-testid={`badge-signed-${p.id}`}>Podpisane</Badge>
+                            <Badge variant="default" data-testid={`badge-signed-${p.id}`}>{t.contractsModule.statusSignedLabel}</Badge>
                           ) : p.signatureRequired ? (
-                            <Badge variant="secondary" data-testid={`badge-pending-${p.id}`}>Caka na podpis</Badge>
+                            <Badge variant="secondary" data-testid={`badge-pending-${p.id}`}>{t.contractsModule.statusWaitingOtp}</Badge>
                           ) : (
                             <span className="text-muted-foreground">-</span>
                           )}
@@ -877,16 +879,16 @@ export default function ContractDetailPage() {
         <TabsContent value="documents" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Dokumenty zmluvy</CardTitle>
+              <CardTitle>{t.contractsModule.tabDocuments}</CardTitle>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Cislo zmluvy</TableHead>
-                    <TableHead>Stav</TableHead>
-                    <TableHead>Datum vytvorenia</TableHead>
-                    <TableHead>Akcie</TableHead>
+                    <TableHead>{t.contractsModule.fieldContractNumber}</TableHead>
+                    <TableHead>{t.contractsModule.fieldStatus}</TableHead>
+                    <TableHead>{t.contractsModule.created}</TableHead>
+                    <TableHead>{t.contractsModule.actions}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -911,7 +913,7 @@ export default function ContractDetailPage() {
                           </Button>
                         </a>
                       ) : (
-                        <span className="text-muted-foreground text-sm">Nie je k dispozicii</span>
+                        <span className="text-muted-foreground text-sm">{t.contractsModule.noDocuments}</span>
                       )}
                     </TableCell>
                   </TableRow>
@@ -924,17 +926,17 @@ export default function ContractDetailPage() {
         <TabsContent value="products" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Produkty zmluvy</CardTitle>
+              <CardTitle>{t.contractsModule.tabProducts}</CardTitle>
             </CardHeader>
             <CardContent>
               {contractProducts.length > 0 ? (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Produkt</TableHead>
-                      <TableHead>Mnozstvo</TableHead>
-                      <TableHead>Jednotkova cena</TableHead>
-                      <TableHead>Celkom</TableHead>
+                      <TableHead>{t.contractsModule.productName}</TableHead>
+                      <TableHead>{t.common.selected}</TableHead>
+                      <TableHead>{t.contractsModule.productPrice}</TableHead>
+                      <TableHead>{t.contractsModule.productCurrency}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -958,7 +960,7 @@ export default function ContractDetailPage() {
                   </TableBody>
                 </Table>
               ) : (
-                <p className="text-muted-foreground">Ziadne produkty na zmluve.</p>
+                <p className="text-muted-foreground">{t.contractsModule.noProducts}</p>
               )}
             </CardContent>
           </Card>
@@ -966,16 +968,16 @@ export default function ContractDetailPage() {
           {customerProducts.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Produkty zakaznika</CardTitle>
+                <CardTitle>{t.contractsModule.client} - {t.contractsModule.tabProducts}</CardTitle>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Produkt</TableHead>
-                      <TableHead>Mnozstvo</TableHead>
-                      <TableHead>Cena</TableHead>
-                      <TableHead>Poznamka</TableHead>
+                      <TableHead>{t.contractsModule.productName}</TableHead>
+                      <TableHead>{t.common.selected}</TableHead>
+                      <TableHead>{t.contractsModule.productPrice}</TableHead>
+                      <TableHead>{t.contractsModule.fieldClientNote}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1000,18 +1002,18 @@ export default function ContractDetailPage() {
         <TabsContent value="collections" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Odbery</CardTitle>
+              <CardTitle>{t.contractsModule.tabCollections}</CardTitle>
             </CardHeader>
             <CardContent>
               {customerCollections.length > 0 ? (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>CBU cislo</TableHead>
-                      <TableHead>Datum odberu</TableHead>
-                      <TableHead>Nemocnica</TableHead>
-                      <TableHead>Meno dietata</TableHead>
-                      <TableHead>Stav</TableHead>
+                      <TableHead>CBU</TableHead>
+                      <TableHead>{t.contractsModule.collectionDate}</TableHead>
+                      <TableHead>{t.contractsModule.fieldHospital}</TableHead>
+                      <TableHead>{t.contractsModule.participantName}</TableHead>
+                      <TableHead>{t.contractsModule.collectionStatus}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1032,7 +1034,7 @@ export default function ContractDetailPage() {
                   </TableBody>
                 </Table>
               ) : (
-                <p className="text-muted-foreground">Ziadne odbery pre tohto zakaznika.</p>
+                <p className="text-muted-foreground">{t.contractsModule.noCollections}</p>
               )}
             </CardContent>
           </Card>
@@ -1041,18 +1043,18 @@ export default function ContractDetailPage() {
         <TabsContent value="invoices" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Faktury</CardTitle>
+              <CardTitle>{t.contractsModule.tabInvoices}</CardTitle>
             </CardHeader>
             <CardContent>
               {invoices.length > 0 ? (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Cislo faktury</TableHead>
-                      <TableHead>Datum</TableHead>
-                      <TableHead>Suma</TableHead>
-                      <TableHead>Stav</TableHead>
-                      <TableHead>Akcie</TableHead>
+                      <TableHead>{t.contractsModule.invoiceNumber}</TableHead>
+                      <TableHead>{t.contractsModule.created}</TableHead>
+                      <TableHead>{t.contractsModule.invoiceAmount}</TableHead>
+                      <TableHead>{t.contractsModule.invoiceStatus}</TableHead>
+                      <TableHead>{t.contractsModule.actions}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1090,7 +1092,7 @@ export default function ContractDetailPage() {
                   </TableBody>
                 </Table>
               ) : (
-                <p className="text-muted-foreground">Ziadne faktury pre tohto zakaznika.</p>
+                <p className="text-muted-foreground">{t.contractsModule.noInvoices}</p>
               )}
             </CardContent>
           </Card>
