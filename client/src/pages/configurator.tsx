@@ -28,6 +28,7 @@ import { z } from "zod";
 import { Plus, Pencil, Trash2, FileText, Settings, Layout, Loader2, Palette, Package, Search, Shield, Copy, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Unlock, Check, Hash, Info, X, DollarSign, Percent, Calculator, CreditCard, TrendingUp, Bell, CheckCircle2, XCircle, Key, AlertTriangle, Upload, FileDown, Edit, Save, Download, ArrowUpDown } from "lucide-react";
 import { COUNTRIES, CURRENCIES, getCurrencySymbol } from "@shared/schema";
 import { InvoiceDesigner, InvoiceDesignerConfig } from "@/components/invoice-designer";
+import { ContractTemplatesManager } from "@/components/contract-templates-manager";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -7537,24 +7538,8 @@ interface VariableGroup {
   variables: { key: string; description: string }[];
 }
 
-function ContractTemplatesRedirect() {
-  const { t } = useI18n();
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h3 className="text-lg font-semibold">{t.konfigurator.contractTemplates || "Šablóny zmlúv"}</h3>
-          <p className="text-sm text-muted-foreground">{t.konfigurator.contractTemplatesDesc || "Správa šablón zmlúv, kategórií a premenných"}</p>
-        </div>
-        <a href="/contracts?tab=templates">
-          <Button data-testid="button-open-contract-templates">
-            <FileText className="h-4 w-4 mr-2" />
-            {t.konfigurator.openContractTemplates || "Otvoriť šablóny zmlúv"}
-          </Button>
-        </a>
-      </div>
-    </div>
-  );
+function ContractTemplatesSection() {
+  return <ContractTemplatesManager />;
 }
 
 function DocxTemplatesTab() {
@@ -17115,7 +17100,7 @@ export default function ConfiguratorPage() {
                   <DocxTemplatesTab />
                 </TabsContent>
                 <TabsContent value="contract-templates">
-                  <ContractTemplatesRedirect />
+                  <ContractTemplatesSection />
                 </TabsContent>
                 <TabsContent value="system-settings">
                   <CountrySystemSettingsTab />
