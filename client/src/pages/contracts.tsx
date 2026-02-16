@@ -3306,34 +3306,6 @@ export default function ContractsPage() {
               
               <Separator />
 
-              {selectedContract.pdfPath && (
-                <div className="flex items-center justify-between gap-2 p-3 bg-muted rounded-md">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-primary" />
-                    <div>
-                      <p className="text-sm font-medium">{t.contractsModule.pdfContract || "PDF zmluva"}</p>
-                      {(selectedContract as any).pdfGeneratedAt && (
-                        <p className="text-xs text-muted-foreground">
-                          {t.contractsModule.generated || "Vygenerované"}: {new Date((selectedContract as any).pdfGeneratedAt).toLocaleString()}
-                          {(selectedContract as any).pdfFileSize && ` (${Math.round((selectedContract as any).pdfFileSize / 1024)} KB)`}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      window.open(`/api/contracts/${selectedContract.id}/pdf`, "_blank");
-                    }}
-                    data-testid="button-download-pdf"
-                  >
-                    <Download className="h-4 w-4 mr-1" />
-                    {t.contractsModule.downloadPdf || "Stiahnuť PDF"}
-                  </Button>
-                </div>
-              )}
-              
               {selectedContract.status === "draft" && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between gap-2">
@@ -3544,33 +3516,6 @@ export default function ContractsPage() {
                 </div>
               )}
               
-              <Separator />
-              
-              {selectedContract.renderedHtml || contractDetail?.renderedHtml ? (
-                <div 
-                  className="prose prose-sm max-w-none dark:prose-invert p-4 border rounded-md bg-white dark:bg-gray-900"
-                  dangerouslySetInnerHTML={{ __html: selectedContract.renderedHtml || contractDetail?.renderedHtml || "" }}
-                />
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>Zmluva ešte nebola vygenerovaná</p>
-                  <Button 
-                    variant="outline" 
-                    className="mt-2"
-                    disabled={renderContractMutation.isPending}
-                    onClick={() => renderContractMutation.mutate(selectedContract.id)}
-                    data-testid="button-render-preview"
-                  >
-                    {renderContractMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                    )}
-                    Vygenerovať náhľad
-                  </Button>
-                </div>
-              )}
             </div>
           )}
           
@@ -3578,36 +3523,6 @@ export default function ContractsPage() {
             <Button variant="outline" onClick={() => setIsPreviewOpen(false)}>
               {t.contractsModule.cancel}
             </Button>
-            {selectedContract && (selectedContract.renderedHtml || contractDetail?.renderedHtml) && (
-              <Button 
-                variant="outline"
-                disabled={regenerateContractMutation.isPending}
-                onClick={() => regenerateContractMutation.mutate(selectedContract.id)}
-                data-testid="button-regenerate-contract"
-              >
-                {regenerateContractMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                )}
-                {t.contractsModule.regenerate}
-              </Button>
-            )}
-            {selectedContract && (
-              <Button 
-                variant="outline"
-                disabled={isDownloadingPdf}
-                onClick={() => downloadContractPdf(selectedContract.id, selectedContract.contractNumber)}
-                data-testid="button-download-pdf"
-              >
-                {isDownloadingPdf ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4 mr-2" />
-                )}
-                {t.contractsModule.downloadPdf}
-              </Button>
-            )}
             {selectedContract?.status === "draft" && (
               <Button onClick={() => {
                 if (selectedContract) {
@@ -3808,28 +3723,30 @@ export default function ContractsPage() {
                         />
                       </div>
 
+                      <Button
+                        className="w-full"
+                        disabled={signatureForm.otpCode.length !== 6 || verifyOtpMutation.isPending}
+                        onClick={() => {
+                          verifyOtpMutation.mutate({
+                            contractId: selectedContract.id,
+                            otpCode: signatureForm.otpCode,
+                            signatureRequestId: signatureForm.signatureRequestId
+                          });
+                        }}
+                        data-testid="button-verify-otp"
+                      >
+                        {verifyOtpMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                        )}
+                        {t.contractsModule.verifyCode}
+                      </Button>
                       <div className="flex gap-2">
                         <Button
-                          className="flex-1"
-                          disabled={signatureForm.otpCode.length !== 6 || verifyOtpMutation.isPending}
-                          onClick={() => {
-                            verifyOtpMutation.mutate({
-                              contractId: selectedContract.id,
-                              otpCode: signatureForm.otpCode,
-                              signatureRequestId: signatureForm.signatureRequestId
-                            });
-                          }}
-                          data-testid="button-verify-otp"
-                        >
-                          {verifyOtpMutation.isPending ? (
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          ) : (
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                          )}
-                          {t.contractsModule.verifyCode}
-                        </Button>
-                        <Button
                           variant="outline"
+                          size="sm"
+                          className="flex-1"
                           disabled={resendOtpMutation.isPending}
                           onClick={() => {
                             resendOtpMutation.mutate({
@@ -3850,6 +3767,8 @@ export default function ContractsPage() {
                         </Button>
                         <Button
                           variant="outline"
+                          size="sm"
+                          className="flex-1"
                           disabled={resendOtpMutation.isPending}
                           onClick={() => {
                             resendOtpMutation.mutate({
