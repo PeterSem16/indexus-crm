@@ -2713,6 +2713,20 @@ export default function AgentWorkspacePage() {
 
   const handleStartSession = async () => {
     try {
+      if (callContext.callState !== "idle") {
+        callContext.forceResetCallFn.current?.();
+      } else {
+        callContext.resetCallTiming();
+        callContext.setCallInfo(null);
+      }
+      callWasActiveRef.current = false;
+      prevCallStateRef.current = "idle";
+      setDispositionModalOpen(false);
+      setMandatoryDisposition(false);
+      setCallEndTimestamp(null);
+      setRingDuration(0);
+      setCallNotes("");
+
       await agentSession.startSession(selectedCampaignId);
       setSessionLoginOpen(false);
       toast({ title: t.agentSession.shiftStarted, description: t.agentSession.shiftStartedDesc });
