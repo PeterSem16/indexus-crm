@@ -1485,7 +1485,8 @@ export default function CampaignDetailPage() {
 
   const generateContactsMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("POST", `/api/campaigns/${campaignId}/generate-contacts`);
+      const res = await apiRequest("POST", `/api/campaigns/${campaignId}/generate-contacts`);
+      return await res.json();
     },
     onSuccess: (data: any) => {
       toast({
@@ -1505,7 +1506,8 @@ export default function CampaignDetailPage() {
 
   const deleteImportMutation = useMutation({
     mutationFn: async (contactIds: string[]) => {
-      return apiRequest("POST", `/api/campaigns/${campaignId}/contacts/delete-batch`, { contactIds });
+      const res = await apiRequest("POST", `/api/campaigns/${campaignId}/contacts/delete-batch`, { contactIds });
+      return await res.json();
     },
     onSuccess: (data: any) => {
       setImportResult(null);
@@ -1641,7 +1643,8 @@ export default function CampaignDetailPage() {
 
   const bulkUpdateContactsMutation = useMutation({
     mutationFn: async ({ contactIds, data }: { contactIds: string[]; data: any }) => {
-      return apiRequest("POST", `/api/campaigns/${campaignId}/contacts/bulk-update`, { contactIds, ...data });
+      const res = await apiRequest("POST", `/api/campaigns/${campaignId}/contacts/bulk-update`, { contactIds, ...data });
+      return await res.json();
     },
     onSuccess: (data: any) => {
       toast({ title: t.campaigns.detail.contactUpdated, description: `${data.count || selectedContacts.size}` });
