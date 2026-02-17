@@ -2719,6 +2719,22 @@ export default function AgentWorkspacePage() {
 
   const handleEndSession = async () => {
     try {
+      if (callContext.callState !== "idle") {
+        callContext.endCallFn.current?.();
+      }
+      callContext.setCallState("idle");
+      callContext.setCallDuration(0);
+      callContext.setCallInfo(null);
+      callContext.resetCallTiming();
+      callContext.setIsMuted(false);
+      callContext.setIsOnHold(false);
+
+      setDispositionModalOpen(false);
+      setMandatoryDisposition(false);
+      setCallEndTimestamp(null);
+      setRingDuration(0);
+      setCallNotes("");
+
       await agentSession.endSession();
       setSidebarOpen(prevSidebarOpenRef.current);
       setSessionLoginOpen(true);
@@ -2727,6 +2743,14 @@ export default function AgentWorkspacePage() {
       setTasks([]);
       setActiveTaskId(null);
       setTimeline([]);
+      setStats({ calls: 0, emails: 0, sms: 0 });
+      setIsAutoMode(false);
+      if (autoTimerRef.current) {
+        clearTimeout(autoTimerRef.current);
+        autoTimerRef.current = null;
+      }
+      setAutoCountdown(null);
+      callWasActiveRef.current = false;
       toast({ title: t.agentSession.shiftEnded, description: t.agentSession.shiftEndedDesc });
     } catch (error) {
       toast({ title: t.agentSession.shiftError, description: t.agentSession.shiftEndError, variant: "destructive" });
