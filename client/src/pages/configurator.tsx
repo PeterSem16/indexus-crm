@@ -15315,8 +15315,8 @@ function CountrySystemSettingsTab() {
     if (ms365Connected === 'true') {
       setMs365JustConnected(true);
       toast({ 
-        title: "Úspech", 
-        description: "MS365 účet bol úspešne pripojený",
+        title: t.common.success, 
+        description: t.konfigurator.ms365ConnectedSuccess,
       });
       // Clean URL
       const newUrl = new URL(window.location.href);
@@ -15326,7 +15326,7 @@ function CountrySystemSettingsTab() {
     
     if (ms365Error) {
       toast({ 
-        title: "Chyba", 
+        title: t.common.error, 
         description: decodeURIComponent(ms365Error),
         variant: "destructive",
       });
@@ -15396,7 +15396,7 @@ function CountrySystemSettingsTab() {
       }
     },
     onError: () => {
-      toast({ title: t.common.error, description: "Nepodarilo sa iniciovať MS365 autentifikáciu", variant: "destructive" });
+      toast({ title: t.common.error, description: t.konfigurator.ms365AuthFailed, variant: "destructive" });
     },
   });
 
@@ -15412,10 +15412,10 @@ function CountrySystemSettingsTab() {
     onSuccess: () => {
       refetchMs365();
       queryClient.invalidateQueries({ queryKey: ["/api/config/system-ms365-connections"] });
-      toast({ title: t.common.success, description: "MS365 účet odpojený" });
+      toast({ title: t.common.success, description: t.konfigurator.ms365DisconnectedSuccess });
     },
     onError: () => {
-      toast({ title: t.common.error, description: "Nepodarilo sa odpojiť MS365", variant: "destructive" });
+      toast({ title: t.common.error, description: t.konfigurator.ms365DisconnectFailed, variant: "destructive" });
     },
   });
 
@@ -15472,16 +15472,16 @@ function CountrySystemSettingsTab() {
     mutationFn: (data: any) => apiRequest("POST", "/api/config/country-system-settings", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/config/country-system-settings"] });
-      toast({ title: t.common.success, description: "Systémové nastavenia uložené" });
+      toast({ title: t.common.success, description: t.konfigurator.systemSettingsSaved });
     },
     onError: () => {
-      toast({ title: t.common.error, description: "Nepodarilo sa uložiť nastavenia", variant: "destructive" });
+      toast({ title: t.common.error, description: t.konfigurator.systemSettingsSaveError, variant: "destructive" });
     },
   });
 
   const handleSave = () => {
     if (!selectedCountry) {
-      toast({ title: t.common.error, description: "Vyberte krajinu", variant: "destructive" });
+      toast({ title: t.common.error, description: t.konfigurator.selectCountryRequired, variant: "destructive" });
       return;
     }
     // Use MS365 connection email if available
@@ -15494,13 +15494,13 @@ function CountrySystemSettingsTab() {
   };
 
   const senderTypes = [
-    { value: "gSystem", label: "Systémové číslo", needsValue: false },
-    { value: "gShort", label: "Short Code", needsValue: false },
-    { value: "gText", label: "Textový odosielateľ", needsValue: true },
-    { value: "gMobile", label: "Mobile Connect", needsValue: true },
-    { value: "gPush", label: "Mobile Connect Push", needsValue: false },
-    { value: "gOwn", label: "Vlastné číslo", needsValue: true },
-    { value: "gProfile", label: "BulkGate Profil ID", needsValue: true },
+    { value: "gSystem", label: t.konfigurator.senderSystemNumber, needsValue: false },
+    { value: "gShort", label: t.konfigurator.senderShortCode, needsValue: false },
+    { value: "gText", label: t.konfigurator.senderText, needsValue: true },
+    { value: "gMobile", label: t.konfigurator.senderMobileConnect, needsValue: true },
+    { value: "gPush", label: t.konfigurator.senderMobileConnectPush, needsValue: false },
+    { value: "gOwn", label: t.konfigurator.senderOwnNumber, needsValue: true },
+    { value: "gProfile", label: t.konfigurator.senderProfileId, needsValue: true },
   ];
 
   const selectedSenderType = senderTypes.find(t => t.value === formData.systemSmsSenderType);
@@ -15509,10 +15509,10 @@ function CountrySystemSettingsTab() {
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <div className="flex-1">
-          <Label>Vyberte krajinu</Label>
+          <Label>{t.konfigurator.selectCountryRequired}</Label>
           <Select value={selectedCountry} onValueChange={setSelectedCountry}>
             <SelectTrigger className="w-[300px]" data-testid="select-system-settings-country">
-              <SelectValue placeholder="Vyberte krajinu..." />
+              <SelectValue placeholder={t.konfigurator.selectCountryRequired + "..."} />
             </SelectTrigger>
             <SelectContent>
               {availableCountries.map((country) => (
@@ -15531,15 +15531,15 @@ function CountrySystemSettingsTab() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Mail className="h-5 w-5" />
-                Systémový Email
+                {t.konfigurator.systemEmail}
               </CardTitle>
               <CardDescription>
-                MS365 email účet pre odosielanie systémových upozornení a alertov
+                {t.konfigurator.systemEmailDescription}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
-                <Label htmlFor="emailEnabled">Povoliť systémový email</Label>
+                <Label htmlFor="emailEnabled">{t.konfigurator.enableSystemEmail}</Label>
                 <Switch
                   id="emailEnabled"
                   checked={formData.systemEmailEnabled}
@@ -15560,7 +15560,7 @@ function CountrySystemSettingsTab() {
                         <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
                         <div className="flex-1">
                           <p className="text-sm font-medium text-green-700 dark:text-green-300">
-                            MS365 pripojený
+                            {t.konfigurator.ms365Connected}
                           </p>
                           <p className="text-xs text-green-600 dark:text-green-400">
                             {ms365Connection.email}
@@ -15580,12 +15580,12 @@ function CountrySystemSettingsTab() {
                           ) : (
                             <XCircle className="h-4 w-4 mr-1" />
                           )}
-                          Odpojiť
+                          {t.konfigurator.disconnectMs365}
                         </Button>
                       </div>
                       
                       <div className="space-y-2">
-                        <Label>Zobrazované meno odosielateľa</Label>
+                        <Label>{t.konfigurator.senderDisplayName}</Label>
                         <Input
                           value={formData.systemEmailDisplayName}
                           onChange={(e) => setFormData({...formData, systemEmailDisplayName: e.target.value})}
@@ -15597,7 +15597,7 @@ function CountrySystemSettingsTab() {
                   ) : (
                     <div className="space-y-3">
                       <p className="text-sm text-muted-foreground">
-                        Pre odosielanie systémových emailov je potrebné pripojiť MS365 účet.
+                        {t.konfigurator.ms365ConnectRequired}
                       </p>
                       <Button
                         type="button"
@@ -15610,7 +15610,7 @@ function CountrySystemSettingsTab() {
                         ) : (
                           <Mail className="h-4 w-4 mr-2" />
                         )}
-                        Pripojiť Microsoft 365
+                        {t.konfigurator.connectMs365}
                       </Button>
                     </div>
                   )}
@@ -15623,15 +15623,15 @@ function CountrySystemSettingsTab() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Smartphone className="h-5 w-5" />
-                Systémový SMS odosielateľ
+                {t.konfigurator.systemSms}
               </CardTitle>
               <CardDescription>
-                BulkGate konfigurácia pre odosielanie systémových SMS upozornení
+                {t.konfigurator.systemSmsDescription}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
-                <Label htmlFor="smsEnabled">Povoliť systémové SMS</Label>
+                <Label htmlFor="smsEnabled">{t.konfigurator.enableSystemSms}</Label>
                 <Switch
                   id="smsEnabled"
                   checked={formData.systemSmsEnabled}
@@ -15643,7 +15643,7 @@ function CountrySystemSettingsTab() {
               {formData.systemSmsEnabled && (
                 <>
                   <div className="space-y-2">
-                    <Label>Typ odosielateľa</Label>
+                    <Label>{t.konfigurator.senderType}</Label>
                     <Select 
                       value={formData.systemSmsSenderType} 
                       onValueChange={(v) => setFormData({...formData, systemSmsSenderType: v, systemSmsSenderValue: ""})}
@@ -15664,10 +15664,10 @@ function CountrySystemSettingsTab() {
                   {selectedSenderType?.needsValue && (
                     <div className="space-y-2">
                       <Label>
-                        {formData.systemSmsSenderType === "gText" ? "Text odosielateľa (max 11 znakov)" : 
-                         formData.systemSmsSenderType === "gOwn" ? "Telefónne číslo" :
-                         formData.systemSmsSenderType === "gProfile" ? "BulkGate Profil ID" :
-                         "Hodnota"}
+                        {formData.systemSmsSenderType === "gText" ? t.konfigurator.senderTextLabel : 
+                         formData.systemSmsSenderType === "gOwn" ? t.konfigurator.senderPhoneLabel :
+                         formData.systemSmsSenderType === "gProfile" ? t.konfigurator.senderProfileIdLabel :
+                         t.konfigurator.senderValueLabel}
                       </Label>
                       <Input
                         value={formData.systemSmsSenderValue}
@@ -15687,7 +15687,7 @@ function CountrySystemSettingsTab() {
                   {currentGsmConfig && (
                     <div className="p-3 bg-muted rounded-md">
                       <p className="text-xs text-muted-foreground">
-                        Aktuálna GSM konfigurácia pre {selectedCountry}: {currentGsmConfig.senderIdType}
+                        {t.konfigurator.currentGsmConfig} {selectedCountry}: {currentGsmConfig.senderIdType}
                         {currentGsmConfig.senderIdValue && ` (${currentGsmConfig.senderIdValue})`}
                       </p>
                     </div>
@@ -15701,17 +15701,17 @@ function CountrySystemSettingsTab() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5" />
-                Branding a podpisy
+                {t.konfigurator.brandingAndSignatures}
               </CardTitle>
               <CardDescription>
-                Systémový názov a podpisy pre emaily a SMS odosielané automaticky (zmluvy, faktúry, upozornenia)
+                {t.konfigurator.brandingDescription}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="systemBrandName">Systémový názov</Label>
+                <Label htmlFor="systemBrandName">{t.konfigurator.systemBrandName}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Nahradí "INDEXUS" v systémových emailoch a SMS pre túto krajinu
+                  {t.konfigurator.systemBrandNameHint}
                 </p>
                 <Input
                   id="systemBrandName"
@@ -15724,23 +15724,23 @@ function CountrySystemSettingsTab() {
               <Separator />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label htmlFor="systemEmailSignature">Podpis pre systémové emaily</Label>
+                  <Label htmlFor="systemEmailSignature">{t.konfigurator.emailSignature}</Label>
                   <p className="text-xs text-muted-foreground">
-                    Pripojí sa na koniec systémových emailov (zmluvy, faktúry, timeline)
+                    {t.konfigurator.emailSignatureHint}
                   </p>
                   <Textarea
                     id="systemEmailSignature"
                     value={formData.systemEmailSignature}
                     onChange={(e) => setFormData({...formData, systemEmailSignature: e.target.value})}
-                    placeholder={"S pozdravom,\nINDEXUS tím\nwww.indexus.sk"}
+                    placeholder={"Best regards,\nINDEXUS team"}
                     rows={5}
                     data-testid="input-system-email-signature"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="systemSmsSignature">Podpis pre systémové SMS</Label>
+                  <Label htmlFor="systemSmsSignature">{t.konfigurator.smsSignature}</Label>
                   <p className="text-xs text-muted-foreground">
-                    Pripojí sa na koniec systémových SMS (max 160 znakov)
+                    {t.konfigurator.smsSignatureHint}
                   </p>
                   <Textarea
                     id="systemSmsSignature"
@@ -15763,14 +15763,14 @@ function CountrySystemSettingsTab() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Settings className="h-5 w-5" />
-                Dodatočné nastavenia
+                {t.konfigurator.additionalSettings}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <Label>Alerty</Label>
-                  <p className="text-sm text-muted-foreground">Povoliť automatické alerty pre túto krajinu</p>
+                  <Label>{t.konfigurator.alerts}</Label>
+                  <p className="text-sm text-muted-foreground">{t.konfigurator.alertsDescription}</p>
                 </div>
                 <Switch
                   checked={formData.alertsEnabled}
@@ -15781,8 +15781,8 @@ function CountrySystemSettingsTab() {
               <Separator />
               <div className="flex items-center justify-between">
                 <div>
-                  <Label>Notifikácie</Label>
-                  <p className="text-sm text-muted-foreground">Povoliť automatické notifikácie pre túto krajinu</p>
+                  <Label>{t.konfigurator.notifications}</Label>
+                  <p className="text-sm text-muted-foreground">{t.konfigurator.notificationsDescription}</p>
                 </div>
                 <Switch
                   checked={formData.notificationsEnabled}
@@ -15799,14 +15799,14 @@ function CountrySystemSettingsTab() {
         <div className="flex justify-end">
           <Button onClick={handleSave} disabled={saveMutation.isPending} data-testid="button-save-system-settings">
             {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Uložiť nastavenia
+            {t.konfigurator.saveSettings}
           </Button>
         </div>
       )}
 
       {!selectedCountry && (
         <div className="flex items-center justify-center py-12 text-muted-foreground">
-          Vyberte krajinu pre zobrazenie systémových nastavení
+          {t.konfigurator.selectCountryForSettings}
         </div>
       )}
     </div>
@@ -17153,7 +17153,7 @@ export default function ConfiguratorPage() {
                 <TabsList>
                   <TabsTrigger value="companies" data-testid="subtab-billing-companies">
                     <Building2 className="h-4 w-4 mr-2" />
-                    Fakturačné spoločnosti
+                    {t.konfigurator.billingCompanies}
                   </TabsTrigger>
                   <TabsTrigger value="number-ranges" data-testid="subtab-number-ranges">
                     <Hash className="h-4 w-4 mr-2" />
@@ -17165,11 +17165,11 @@ export default function ConfiguratorPage() {
                   </TabsTrigger>
                   <TabsTrigger value="contract-templates" data-testid="subtab-contract-templates">
                     <FileText className="h-4 w-4 mr-2" />
-                    {t.konfigurator.contractTemplates || "Šablóny zmlúv"}
+                    {t.konfigurator.contractTemplates}
                   </TabsTrigger>
                   <TabsTrigger value="system-settings" data-testid="subtab-system-settings">
                     <Settings className="h-4 w-4 mr-2" />
-                    Systémové nastavenia
+                    {t.konfigurator.systemSettings}
                   </TabsTrigger>
                 </TabsList>
                 <TabsContent value="companies">
