@@ -18,6 +18,7 @@ import { PageHeader } from "@/components/page-header";
 import { useI18n } from "@/i18n";
 import { format } from "date-fns";
 import { sk, cs, hu, ro, it, de, enUS, type Locale } from "date-fns/locale";
+import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { ArrowLeft, Save, FileText, Users, Package, Beaker, Receipt, Loader2, Download, ExternalLink, Shield, Clock, Mail, CheckCircle, Send, Eye, AlertCircle, X, Edit, History, Phone } from "lucide-react";
 import type { ContractInstance, Customer, Hospital, Collection, Product, CustomerProduct } from "@shared/schema";
 
@@ -425,26 +426,12 @@ export default function ContractDetailPage() {
                       <Icon className="h-3.5 w-3.5" />
                       {label}
                     </Label>
-                    <div className="flex gap-1">
-                      <Input
-                        id={id}
-                        type="datetime-local"
-                        value={formState[id] || ""}
-                        onChange={(e) => updateField(id, e.target.value)}
-                        className="text-sm"
-                        data-testid={`input-${id}`}
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        type="button"
-                        onClick={() => updateField(id, new Date().toISOString().slice(0, 16))}
-                        title="Now"
-                        data-testid={`button-now-${id}`}
-                      >
-                        <Clock className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
+                    <DateTimePicker
+                      value={formState[id] || ""}
+                      onChange={(v) => updateField(id, v)}
+                      countryCode={contractCountryCode}
+                      data-testid={`input-${id}`}
+                    />
                   </div>
                 ))}
               </div>
@@ -475,26 +462,12 @@ export default function ContractDetailPage() {
                     <div className="pl-8 space-y-3 border-l-2 border-destructive/20 ml-1.5">
                       <div className="space-y-1.5">
                         <Label htmlFor="terminatedDate" className="text-xs text-muted-foreground">{t.contractsModule.fieldTerminatedDate}</Label>
-                        <div className="flex gap-1">
-                          <Input
-                            id="terminatedDate"
-                            type="datetime-local"
-                            value={formState.terminatedDate || ""}
-                            onChange={(e) => updateField("terminatedDate", e.target.value)}
-                            className="text-sm"
-                            data-testid="input-terminatedDate"
-                          />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            type="button"
-                            onClick={() => updateField("terminatedDate", new Date().toISOString().slice(0, 16))}
-                            title="Now"
-                            data-testid="button-now-terminatedDate"
-                          >
-                            <Clock className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
+                        <DateTimePicker
+                          value={formState.terminatedDate || ""}
+                          onChange={(v) => updateField("terminatedDate", v)}
+                          countryCode={contractCountryCode}
+                          data-testid="input-terminatedDate"
+                        />
                       </div>
                       <div className="space-y-1.5">
                         <Label htmlFor="terminationReason" className="text-xs text-muted-foreground">{t.contractsModule.fieldTerminationReason}</Label>
@@ -534,26 +507,12 @@ export default function ContractDetailPage() {
                     <div className="pl-8 space-y-3 border-l-2 border-destructive/20 ml-1.5">
                       <div className="space-y-1.5">
                         <Label htmlFor="cancelledAt" className="text-xs text-muted-foreground">{t.contractsModule.fieldCancelledAt}</Label>
-                        <div className="flex gap-1">
-                          <Input
-                            id="cancelledAt"
-                            type="datetime-local"
-                            value={formState.cancelledAt || ""}
-                            onChange={(e) => updateField("cancelledAt", e.target.value)}
-                            className="text-sm"
-                            data-testid="input-cancelledAt"
-                          />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            type="button"
-                            onClick={() => updateField("cancelledAt", new Date().toISOString().slice(0, 16))}
-                            title="Now"
-                            data-testid="button-now-cancelledAt"
-                          >
-                            <Clock className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
+                        <DateTimePicker
+                          value={formState.cancelledAt || ""}
+                          onChange={(v) => updateField("cancelledAt", v)}
+                          countryCode={contractCountryCode}
+                          data-testid="input-cancelledAt"
+                        />
                       </div>
                       <div className="space-y-1.5">
                         <Label htmlFor="cancellationReason" className="text-xs text-muted-foreground">{t.contractsModule.fieldCancellationReason}</Label>
@@ -765,11 +724,10 @@ export default function ContractDetailPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="collectionKitSentDate">{t.contractsModule.fieldCollectionKitSentDate}</Label>
-                  <Input
-                    id="collectionKitSentDate"
-                    type="datetime-local"
+                  <DateTimePicker
                     value={formState.collectionKitSentDate || ""}
-                    onChange={(e) => updateField("collectionKitSentDate", e.target.value)}
+                    onChange={(v) => updateField("collectionKitSentDate", v)}
+                    countryCode={contractCountryCode}
                     data-testid="input-collectionKitSentDate"
                   />
                 </div>
@@ -848,11 +806,10 @@ export default function ContractDetailPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="recruitedDate">{t.contractsModule.created}</Label>
-                  <Input
-                    id="recruitedDate"
-                    type="datetime-local"
+                  <DateTimePicker
                     value={formState.recruitedDate || ""}
-                    onChange={(e) => updateField("recruitedDate", e.target.value)}
+                    onChange={(v) => updateField("recruitedDate", v)}
+                    countryCode={contractCountryCode}
                     data-testid="input-recruitedDate"
                   />
                 </div>
