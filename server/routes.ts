@@ -20464,15 +20464,21 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
     return COUNTRY_TO_SIGNING_LOCALE[countryCode.toUpperCase()] || 'en';
   }
 
-  function getBaseUrl(): string {
+  function getBaseUrl(req?: any): string {
     if (process.env.APP_BASE_URL) {
       return process.env.APP_BASE_URL.replace(/\/$/, '');
     }
-    return process.env.REPLIT_DEV_DOMAIN 
-      ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-      : process.env.REPL_SLUG 
-        ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
-        : 'https://indexus.replit.app';
+    if (req?.headers?.host) {
+      const proto = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+      return `${proto}://${req.headers.host}`;
+    }
+    if (process.env.REPLIT_DEV_DOMAIN) {
+      return `https://${process.env.REPLIT_DEV_DOMAIN}`;
+    }
+    if (process.env.REPL_SLUG) {
+      return `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
+    }
+    return 'https://indexus.cordbloodcenter.com';
   }
 
   // Helper: Send OTP email via system MS365 email for country or fallback to SendGrid

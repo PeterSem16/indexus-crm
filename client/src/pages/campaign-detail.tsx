@@ -531,7 +531,7 @@ function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
               icon={Users}
               label={t.campaigns.detail.kpiTotalContacts}
               description={t.campaigns.detail.kpiTotalContactsDesc}
-              hint=""
+              hint={t.campaigns.detail.kpiTotalContactsHint}
               value={targets.campaignTotalContactsTarget}
               onChange={(v) => updateTarget("campaignTotalContactsTarget", v)}
               unit=""
@@ -542,7 +542,7 @@ function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
               icon={CheckCircle}
               label={t.campaigns.detail.completionRate}
               description={t.campaigns.detail.completionRateDesc}
-              hint=""
+              hint={t.campaigns.detail.kpiCompletionRateHint}
               value={targets.campaignCompletionTarget}
               onChange={(v) => updateTarget("campaignCompletionTarget", v)}
               unit="%"
@@ -553,7 +553,7 @@ function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
               icon={Target}
               label={t.campaigns.detail.kpiMinConversionRate}
               description={t.campaigns.detail.kpiMinConversionRateDesc}
-              hint=""
+              hint={t.campaigns.detail.kpiConversionRateHint}
               value={targets.campaignConversionTarget}
               onChange={(v) => updateTarget("campaignConversionTarget", v)}
               unit="%"
@@ -564,7 +564,7 @@ function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
               icon={Flag}
               label={t.campaigns.detail.kpiTargetRevenue}
               description={t.campaigns.detail.kpiTargetRevenueDesc}
-              hint=""
+              hint={t.campaigns.detail.kpiRevenueHint}
               value={targets.campaignRevenueTarget}
               onChange={(v) => updateTarget("campaignRevenueTarget", v)}
               unit="EUR"
@@ -602,7 +602,7 @@ function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
               icon={Phone}
               label={t.campaigns.detail.kpiDailyCallTarget}
               description={t.campaigns.detail.kpiDailyCallTargetDesc}
-              hint=""
+              hint={t.campaigns.detail.kpiDailyCallTargetHint}
               value={targets.agentDailyCallsTarget}
               onChange={(v) => updateTarget("agentDailyCallsTarget", v)}
               unit=""
@@ -613,7 +613,7 @@ function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
               icon={UserCheck}
               label={t.campaigns.detail.kpiDailyContactTarget}
               description={t.campaigns.detail.kpiDailyContactTargetDesc}
-              hint=""
+              hint={t.campaigns.detail.kpiDailyContactTargetHint}
               value={targets.agentDailyContactsTarget}
               onChange={(v) => updateTarget("agentDailyContactsTarget", v)}
               unit=""
@@ -624,7 +624,7 @@ function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
               icon={Star}
               label={t.campaigns.detail.kpiDailyConversionTarget}
               description={t.campaigns.detail.kpiDailyConversionTargetDesc}
-              hint=""
+              hint={t.campaigns.detail.kpiDailyConversionTargetHint}
               value={targets.agentDailySuccessTarget}
               onChange={(v) => updateTarget("agentDailySuccessTarget", v)}
               unit=""
@@ -635,7 +635,7 @@ function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
               icon={Target}
               label={t.campaigns.detail.kpiMinConversionRate}
               description={t.campaigns.detail.kpiMinConversionRateDesc}
-              hint=""
+              hint={t.campaigns.detail.kpiAgentConversionRateHint}
               value={targets.agentConversionRateTarget}
               onChange={(v) => updateTarget("agentConversionRateTarget", v)}
               unit="%"
@@ -646,7 +646,7 @@ function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
               icon={Clock}
               label={t.campaigns.detail.kpiAvgCallDuration}
               description={t.campaigns.detail.kpiAvgCallDurationDesc}
-              hint=""
+              hint={t.campaigns.detail.kpiAvgCallDurationHint}
               value={targets.agentAvgCallDurationTarget}
               onChange={(v) => updateTarget("agentAvgCallDurationTarget", v)}
               unit=""
@@ -668,7 +668,7 @@ function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
               icon={CalendarPlus}
               label={t.campaigns.detail.callbackScheduled}
               description={t.campaigns.detail.callbackScheduledDesc}
-              hint=""
+              hint={t.campaigns.detail.kpiCallbackComplianceHint}
               value={targets.agentCallbackComplianceTarget}
               onChange={(v) => updateTarget("agentCallbackComplianceTarget", v)}
               unit="%"
