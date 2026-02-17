@@ -12,6 +12,7 @@ interface TimelineEvent {
 
 interface TimelineData {
   customerCountry: string;
+  brandName?: string;
   contract: {
     contractNumber: string;
     status: string;
@@ -396,7 +397,7 @@ export default function AuditTimelinePublic() {
             </svg>
             <h1 style={{ margin: 0, fontSize: 22, fontWeight: 600 }}>{lang.title}</h1>
           </div>
-          <p style={{ margin: 0, opacity: 0.8, fontSize: 14 }}>{lang.subtitle}</p>
+          <p style={{ margin: 0, opacity: 0.8, fontSize: 14 }}>{data.brandName || lang.subtitle}</p>
         </div>
       </header>
 
@@ -577,7 +578,7 @@ export default function AuditTimelinePublic() {
         </div>
 
         <div style={{ textAlign: "center", marginTop: 32, padding: "16px 0", borderTop: "1px solid #E5E7EB" }}>
-          <p style={{ color: "#9CA3AF", fontSize: 12, margin: 0 }}>INDEXUS CRM &bull; {lang.footer}</p>
+          <p style={{ color: "#9CA3AF", fontSize: 12, margin: 0 }}>{data.brandName || "INDEXUS CRM"} &bull; {lang.footer}</p>
           <p style={{ color: "#D1D5DB", fontSize: 11, margin: "4px 0 0" }}>{lang.footerSecure}</p>
         </div>
       </main>

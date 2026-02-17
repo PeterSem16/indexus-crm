@@ -16,6 +16,7 @@ interface SigningInfo {
   otpVerified: boolean;
   signatureRequestId: string;
   locale?: SigningLocale;
+  brandName?: string;
 }
 
 const signingPageI18n: Record<SigningLocale, {
@@ -345,7 +346,7 @@ export default function PublicSigningPage() {
     <div className="min-h-screen flex items-center justify-center p-4" style={{ background: "linear-gradient(135deg, #6B1C3B 0%, #4a1329 50%, #2d0b19 100%)" }}>
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-white" data-testid="text-signing-title">INDEXUS</h1>
+          <h1 className="text-2xl font-bold text-white" data-testid="text-signing-title">{signingInfo?.brandName || "INDEXUS"}</h1>
           <p className="text-white/70 text-sm mt-1">{t.portalTitle}</p>
         </div>
 
@@ -502,7 +503,9 @@ export default function PublicSigningPage() {
         )}
 
         <p className="text-center text-white/40 text-xs mt-6">
-          {t.securedBy}
+          {signingInfo?.brandName 
+            ? t.securedBy.replace(/INDEXUS CRM/g, signingInfo.brandName).replace(/INDEXUS/g, signingInfo.brandName)
+            : t.securedBy}
         </p>
       </div>
     </div>

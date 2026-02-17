@@ -20665,18 +20665,19 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       const { sendTransactionalSms, isBulkGateConfigured } = await import("./lib/bulkgate");
       if (isBulkGateConfigured()) {
         const hasUnicode = /[^\x00-\x7F]/.test(smsText);
-        console.log(`[ContractOTP] SMS text (${smsText.length} chars, unicode=${hasUnicode}): ${smsText}`);
+        const cleanPhone = signerPhone.replace(/\s+/g, "");
+        console.log(`[ContractOTP] SMS to ${cleanPhone} (${smsText.length} chars, unicode=${hasUnicode}, country=${countryCode}): ${smsText}`);
         const result = await sendTransactionalSms({
-          number: signerPhone,
+          number: cleanPhone,
           text: smsText,
           country: countryCode || undefined,
           unicode: hasUnicode,
         });
         if (result.success) {
-          console.log(`[ContractOTP] Sent OTP SMS via BulkGate to ${signerPhone} (lang=${lang})`);
+          console.log(`[ContractOTP] Sent OTP SMS via BulkGate to ${cleanPhone} (lang=${lang})`);
           return true;
         } else {
-          console.error(`[ContractOTP] BulkGate SMS failed:`, result.error);
+          console.error(`[ContractOTP] BulkGate SMS failed to ${cleanPhone}:`, result.error, `errorCode=${result.errorCode}`);
         }
       } else {
         console.log(`[ContractOTP SMS Simulation] BulkGate not configured`);
@@ -20761,6 +20762,8 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       console.log(`[ContractOTP] Contract ${contract.contractNumber} country=${contractCountry}, locale=${locale}`);
 
       const createdSignatureRequests = [];
+      let allOtpsSent = true;
+      let otpFailureReason = "";
       for (const signer of signers) {
         const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
         const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -20807,9 +20810,28 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
               })
             });
           } else {
-            console.error(`[ContractOTP] Failed to send OTP via ${actualMethod} to ${signer.fullName}`);
+            allOtpsSent = false;
+            otpFailureReason = actualMethod === "sms_otp" 
+              ? `SMS OTP failed for ${signer.fullName}. Check BulkGate config or phone number ${signer.phone}.`
+              : `Email OTP failed for ${signer.fullName}. Check MS365 connection.`;
+            console.error(`[ContractOTP] Failed to send OTP via ${actualMethod} to ${signer.fullName} (${actualMethod === "sms_otp" ? signer.phone : signer.email})`);
+            await storage.createContractAuditLog({
+              contractId: contract.id,
+              action: "otp_send_failed",
+              actorType: "system",
+              actorName: "System",
+              details: JSON.stringify({
+                signerName: signer.fullName,
+                method: actualMethod,
+                destination: actualMethod === "email_otp" ? signer.email : signer.phone,
+                error: otpFailureReason,
+                failedAt: new Date().toISOString()
+              })
+            });
           }
         } catch (sendErr) {
+          allOtpsSent = false;
+          otpFailureReason = (sendErr as Error).message;
           console.error(`[ContractOTP] Failed to send OTP via ${actualMethod} to ${signer.fullName}:`, (sendErr as Error).message);
           await storage.createContractAuditLog({
             contractId: contract.id,
@@ -20826,6 +20848,18 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         }
       }
       
+      if (!allOtpsSent) {
+        for (const sr of createdSignatureRequests) {
+          try { await storage.updateContractSignatureRequest(sr.id, { status: "expired" }); } catch {}
+        }
+        return res.status(500).json({ 
+          error: otpFailureReason || "Failed to send OTP verification code",
+          success: false,
+          signersCount: signers.length,
+          verificationMethod: method
+        });
+      }
+
       await storage.updateContractInstance(contract.id, {
         status: "sent",
         sentAt: new Date(),
@@ -20859,7 +20893,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
           sentAt: new Date().toISOString()
         })
       });
-      
+
       res.json({ 
         success: true, 
         signersCount: signers.length,
@@ -20970,6 +21004,12 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       }
 
       const locale = detectedLocale;
+      const contractCountryForBrand = await resolveContractCountry(contract);
+      let brandName = "INDEXUS";
+      try {
+        const countrySettings = contractCountryForBrand ? await storage.getCountrySystemSettingsByCountry(contractCountryForBrand) : null;
+        if (countrySettings?.systemBrandName) brandName = countrySettings.systemBrandName;
+      } catch {}
 
       await storage.createContractAuditLog({
         contractId: signatureRequest.contractId,
@@ -20989,7 +21029,8 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         verificationMethod: signatureRequest.verificationMethod,
         otpVerified: signatureRequest.status === "otp_verified",
         signatureRequestId: signatureRequest.id,
-        locale
+        locale,
+        brandName
       });
     } catch (error) {
       console.error("Error fetching public signing info:", error);
@@ -21548,8 +21589,15 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         if (customer?.country) customerCountry = customer.country;
       } catch {}
 
+      let brandName = "INDEXUS";
+      try {
+        const countrySettings = await storage.getCountrySystemSettingsByCountry(customerCountry);
+        if (countrySettings?.systemBrandName) brandName = countrySettings.systemBrandName;
+      } catch {}
+
       res.json({
         customerCountry,
+        brandName,
         contract: {
           contractNumber: contract.contractNumber,
           status: contract.status,
