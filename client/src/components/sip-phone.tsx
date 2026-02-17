@@ -205,6 +205,14 @@ export function SipPhone({
   }, [initialNumber]);
 
   useEffect(() => {
+    if (callContext.callState === "idle" && callState !== "idle") {
+      setCallStateLocal("idle");
+      setCallDuration(0);
+      sessionRef.current = null;
+    }
+  }, [callContext.callState]);
+
+  useEffect(() => {
     return () => {
       cleanup();
     };
