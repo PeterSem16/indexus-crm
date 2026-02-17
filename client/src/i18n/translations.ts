@@ -2761,6 +2761,8 @@ export interface Translations {
     auditEventSent: string;
     auditEventViewed: string;
     auditEventOtpSent: string;
+    auditEventOtpResent: string;
+    auditEventOtpSendFailed: string;
     auditEventOtpVerified: string;
     auditEventSigned: string;
     auditEventCompleted: string;
@@ -5885,6 +5887,8 @@ export const translations: Record<Locale, Translations> = {
       auditEventSent: 'Sent for Signature',
       auditEventViewed: 'Contract Viewed',
       auditEventOtpSent: 'OTP Code Sent',
+      auditEventOtpResent: 'Verification Code Resent',
+      auditEventOtpSendFailed: 'Verification Code Delivery Failed',
       auditEventOtpVerified: 'OTP Verified',
       auditEventSigned: 'Contract Signed',
       auditEventCompleted: 'Contract Completed',
@@ -8946,6 +8950,8 @@ export const translations: Record<Locale, Translations> = {
       auditEventSent: 'Odoslaná na podpis',
       auditEventViewed: 'Zmluva zobrazená',
       auditEventOtpSent: 'OTP kód odoslaný',
+      auditEventOtpResent: 'Overovací kód opätovne odoslaný',
+      auditEventOtpSendFailed: 'Odoslanie overovacieho kódu zlyhalo',
       auditEventOtpVerified: 'OTP overený',
       auditEventSigned: 'Zmluva podpísaná',
       auditEventCompleted: 'Zmluva dokončená',
@@ -11939,6 +11945,8 @@ export const translations: Record<Locale, Translations> = {
       auditEventSent: 'Odeslána k podpisu',
       auditEventViewed: 'Smlouva zobrazena',
       auditEventOtpSent: 'OTP kód odeslán',
+      auditEventOtpResent: 'Ověřovací kód znovu odeslán',
+      auditEventOtpSendFailed: 'Odeslání ověřovacího kódu selhalo',
       auditEventOtpVerified: 'OTP ověřen',
       auditEventSigned: 'Smlouva podepsána',
       auditEventCompleted: 'Smlouva dokončena',
@@ -14932,6 +14940,8 @@ export const translations: Record<Locale, Translations> = {
       auditEventSent: 'Aláírásra elküldve',
       auditEventViewed: 'Szerződés megtekintve',
       auditEventOtpSent: 'OTP kód elküldve',
+      auditEventOtpResent: 'Ellenőrző kód újraküldve',
+      auditEventOtpSendFailed: 'Ellenőrző kód küldése sikertelen',
       auditEventOtpVerified: 'OTP ellenőrizve',
       auditEventSigned: 'Szerződés aláírva',
       auditEventCompleted: 'Szerződés befejezve',
@@ -17924,6 +17934,8 @@ export const translations: Record<Locale, Translations> = {
       auditEventSent: 'Trimis pentru semnare',
       auditEventViewed: 'Contract vizualizat',
       auditEventOtpSent: 'Cod OTP trimis',
+      auditEventOtpResent: 'Cod de verificare retrimis',
+      auditEventOtpSendFailed: 'Trimiterea codului de verificare a eșuat',
       auditEventOtpVerified: 'OTP verificat',
       auditEventSigned: 'Contract semnat',
       auditEventCompleted: 'Contract finalizat',
@@ -20917,6 +20929,8 @@ export const translations: Record<Locale, Translations> = {
       auditEventSent: 'Inviato per la firma',
       auditEventViewed: 'Contratto visualizzato',
       auditEventOtpSent: 'Codice OTP inviato',
+      auditEventOtpResent: 'Codice di verifica reinviato',
+      auditEventOtpSendFailed: 'Invio del codice di verifica fallito',
       auditEventOtpVerified: 'OTP verificato',
       auditEventSigned: 'Contratto firmato',
       auditEventCompleted: 'Contratto completato',
@@ -23910,6 +23924,8 @@ export const translations: Record<Locale, Translations> = {
       auditEventSent: 'Zur Unterschrift gesendet',
       auditEventViewed: 'Vertrag angezeigt',
       auditEventOtpSent: 'OTP-Code gesendet',
+      auditEventOtpResent: 'Verifizierungscode erneut gesendet',
+      auditEventOtpSendFailed: 'Senden des Verifizierungscodes fehlgeschlagen',
       auditEventOtpVerified: 'OTP verifiziert',
       auditEventSigned: 'Vertrag unterschrieben',
       auditEventCompleted: 'Vertrag abgeschlossen',

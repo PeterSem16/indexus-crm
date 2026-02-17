@@ -19,7 +19,7 @@ import { useI18n } from "@/i18n";
 import { format } from "date-fns";
 import { sk, cs, hu, ro, it, de, enUS, type Locale } from "date-fns/locale";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
-import { ArrowLeft, Save, FileText, Users, Package, Beaker, Receipt, Loader2, Download, ExternalLink, Shield, Clock, Mail, CheckCircle, Send, Eye, AlertCircle, X, Edit, History, Phone } from "lucide-react";
+import { ArrowLeft, Save, FileText, Users, Package, Beaker, Receipt, Loader2, Download, ExternalLink, Shield, Clock, Mail, CheckCircle, Send, Eye, AlertCircle, X, Edit, History, Phone, RefreshCw } from "lucide-react";
 import type { ContractInstance, Customer, Hospital, Collection, Product, CustomerProduct } from "@shared/schema";
 
 const COUNTRY_LOCALE_MAP: Record<string, Locale> = {
@@ -1363,6 +1363,8 @@ export default function ContractDetailPage() {
                       switch (action) {
                         case "created": return <FileText className="h-4 w-4" />;
                         case "sent": case "otp_sent": return <Send className="h-4 w-4" />;
+                        case "otp_resent": return <RefreshCw className="h-4 w-4" />;
+                        case "otp_send_failed": return <AlertCircle className="h-4 w-4" />;
                         case "viewed": case "signing_page_viewed": return <Eye className="h-4 w-4" />;
                         case "otp_verified": case "verified": return <Shield className="h-4 w-4" />;
                         case "signed": case "completed": case "executed": return <CheckCircle className="h-4 w-4" />;
@@ -1381,6 +1383,8 @@ export default function ContractDetailPage() {
                         sent: t.contractsModule.auditEventSent,
                         viewed: t.contractsModule.auditEventViewed,
                         otp_sent: t.contractsModule.auditEventOtpSent,
+                        otp_resent: t.contractsModule.auditEventOtpResent,
+                        otp_send_failed: t.contractsModule.auditEventOtpSendFailed,
                         otp_verified: t.contractsModule.auditEventOtpVerified,
                         signed: t.contractsModule.auditEventSigned,
                         completed: t.contractsModule.auditEventCompleted,
@@ -1402,6 +1406,8 @@ export default function ContractDetailPage() {
                       switch (action) {
                         case "created": return "text-blue-500";
                         case "sent": case "otp_sent": return "text-orange-500";
+                        case "otp_resent": return "text-amber-500";
+                        case "otp_send_failed": return "text-destructive";
                         case "otp_verified": case "verified": return "text-emerald-500";
                         case "signed": case "completed": case "executed": return "text-green-600";
                         case "cancelled": case "terminated": return "text-destructive";

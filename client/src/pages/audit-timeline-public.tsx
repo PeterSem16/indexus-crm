@@ -74,7 +74,7 @@ const TRANSLATIONS: Record<string, LangStrings> = {
     actions: {
       created: "Contract Created", updated: "Contract Updated", sent: "Sent for Signature",
       viewed: "Contract Viewed", signing_page_viewed: "Signing Page Viewed",
-      otp_sent: "Verification Code Sent", otp_verified: "Identity Verified",
+      otp_sent: "Verification Code Sent", otp_resent: "Verification Code Resent", otp_send_failed: "Verification Code Delivery Failed", otp_verified: "Identity Verified",
       signed: "Contract Signed", completed: "Contract Completed", executed: "Contract Executed",
       cancelled: "Contract Cancelled", terminated: "Contract Terminated",
       audit_exported: "Audit Timeline Exported", status_changed: "Status Changed",
@@ -106,7 +106,7 @@ const TRANSLATIONS: Record<string, LangStrings> = {
     actions: {
       created: "Zmluva vytvorená", updated: "Zmluva aktualizovaná", sent: "Odoslaná na podpis",
       viewed: "Zmluva zobrazená", signing_page_viewed: "Podpisová stránka zobrazená",
-      otp_sent: "OTP kód odoslaný", otp_verified: "OTP overený",
+      otp_sent: "OTP kód odoslaný", otp_resent: "Overovací kód opätovne odoslaný", otp_send_failed: "Odoslanie overovacieho kódu zlyhalo", otp_verified: "OTP overený",
       signed: "Zmluva podpísaná", completed: "Zmluva dokončená", executed: "Zmluva vykonaná",
       cancelled: "Zmluva zrušená", terminated: "Zmluva ukončená",
       audit_exported: "Audit timeline exportovaný", status_changed: "Zmena stavu",
@@ -138,7 +138,7 @@ const TRANSLATIONS: Record<string, LangStrings> = {
     actions: {
       created: "Smlouva vytvořena", updated: "Smlouva aktualizována", sent: "Odeslána k podpisu",
       viewed: "Smlouva zobrazena", signing_page_viewed: "Podpisová stránka zobrazena",
-      otp_sent: "OTP kód odeslán", otp_verified: "OTP ověřen",
+      otp_sent: "OTP kód odeslán", otp_resent: "Ověřovací kód znovu odeslán", otp_send_failed: "Odeslání ověřovacího kódu selhalo", otp_verified: "OTP ověřen",
       signed: "Smlouva podepsána", completed: "Smlouva dokončena", executed: "Smlouva provedena",
       cancelled: "Smlouva zrušena", terminated: "Smlouva ukončena",
       audit_exported: "Audit timeline exportován", status_changed: "Změna stavu",
@@ -170,7 +170,7 @@ const TRANSLATIONS: Record<string, LangStrings> = {
     actions: {
       created: "Szerződés létrehozva", updated: "Szerződés frissítve", sent: "Aláírásra elküldve",
       viewed: "Szerződés megtekintve", signing_page_viewed: "Aláírási oldal megtekintve",
-      otp_sent: "OTP kód elküldve", otp_verified: "OTP ellenőrizve",
+      otp_sent: "OTP kód elküldve", otp_resent: "Ellenőrző kód újraküldve", otp_send_failed: "Ellenőrző kód küldése sikertelen", otp_verified: "OTP ellenőrizve",
       signed: "Szerződés aláírva", completed: "Szerződés befejezve", executed: "Szerződés végrehajtva",
       cancelled: "Szerződés törölve", terminated: "Szerződés megszüntetve",
       audit_exported: "Audit idővonal exportálva", status_changed: "Állapot megváltoztatva",
@@ -202,7 +202,7 @@ const TRANSLATIONS: Record<string, LangStrings> = {
     actions: {
       created: "Contract creat", updated: "Contract actualizat", sent: "Trimis pentru semnare",
       viewed: "Contract vizualizat", signing_page_viewed: "Pagina de semnare vizualizată",
-      otp_sent: "Cod OTP trimis", otp_verified: "OTP verificat",
+      otp_sent: "Cod OTP trimis", otp_resent: "Cod de verificare retrimis", otp_send_failed: "Trimiterea codului de verificare a eșuat", otp_verified: "OTP verificat",
       signed: "Contract semnat", completed: "Contract finalizat", executed: "Contract executat",
       cancelled: "Contract anulat", terminated: "Contract reziliat",
       audit_exported: "Cronologie audit exportată", status_changed: "Stare modificată",
@@ -234,7 +234,7 @@ const TRANSLATIONS: Record<string, LangStrings> = {
     actions: {
       created: "Contratto creato", updated: "Contratto aggiornato", sent: "Inviato per la firma",
       viewed: "Contratto visualizzato", signing_page_viewed: "Pagina di firma visualizzata",
-      otp_sent: "Codice OTP inviato", otp_verified: "OTP verificato",
+      otp_sent: "Codice OTP inviato", otp_resent: "Codice di verifica reinviato", otp_send_failed: "Invio del codice di verifica fallito", otp_verified: "OTP verificato",
       signed: "Contratto firmato", completed: "Contratto completato", executed: "Contratto eseguito",
       cancelled: "Contratto annullato", terminated: "Contratto risolto",
       audit_exported: "Cronologia audit esportata", status_changed: "Stato modificato",
@@ -266,7 +266,7 @@ const TRANSLATIONS: Record<string, LangStrings> = {
     actions: {
       created: "Vertrag erstellt", updated: "Vertrag aktualisiert", sent: "Zur Unterschrift gesendet",
       viewed: "Vertrag angezeigt", signing_page_viewed: "Unterschriftsseite angezeigt",
-      otp_sent: "OTP-Code gesendet", otp_verified: "OTP verifiziert",
+      otp_sent: "OTP-Code gesendet", otp_resent: "Verifizierungscode erneut gesendet", otp_send_failed: "Senden des Verifizierungscodes fehlgeschlagen", otp_verified: "OTP verifiziert",
       signed: "Vertrag unterschrieben", completed: "Vertrag abgeschlossen", executed: "Vertrag ausgeführt",
       cancelled: "Vertrag storniert", terminated: "Vertrag beendet",
       audit_exported: "Audit-Zeitleiste exportiert", status_changed: "Status geändert",
@@ -289,6 +289,8 @@ const ACTION_COLORS: Record<string, { color: string; bgColor: string }> = {
   viewed: { color: "#6366F1", bgColor: "#EEF2FF" },
   signing_page_viewed: { color: "#6366F1", bgColor: "#EEF2FF" },
   otp_sent: { color: "#F97316", bgColor: "#FFF7ED" },
+  otp_resent: { color: "#D97706", bgColor: "#FFFBEB" },
+  otp_send_failed: { color: "#EF4444", bgColor: "#FEF2F2" },
   otp_verified: { color: "#10B981", bgColor: "#ECFDF5" },
   signed: { color: "#059669", bgColor: "#ECFDF5" },
   completed: { color: "#059669", bgColor: "#ECFDF5" },

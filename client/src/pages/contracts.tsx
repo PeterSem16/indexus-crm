@@ -2319,7 +2319,7 @@ export default function ContractsPage() {
                       </TableRow>
                     ) : (
                       paginatedContracts.map(contract => (
-                        <TableRow key={contract.id} className={contract.status === "signed" || contract.status === "executed" || contract.status === "completed" ? "bg-green-50/50 dark:bg-green-950/10" : ""} data-testid={`row-contract-${contract.id}`}>
+                        <TableRow key={contract.id} className={contract.status === "signed" || contract.status === "executed" || contract.status === "completed" ? "bg-green-50/50 dark:bg-green-950/10" : contract.status === "cancelled" || contract.status === "terminated" ? "bg-red-50/60 dark:bg-red-950/20" : ""} data-testid={`row-contract-${contract.id}`}>
                           <TableCell className="font-medium">
                             <div className="flex items-center gap-1.5">
                               {(contract.status === "signed" || contract.status === "executed" || contract.status === "completed") && (
