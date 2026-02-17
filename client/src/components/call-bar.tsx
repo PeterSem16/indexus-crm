@@ -153,7 +153,7 @@ export function CallBar() {
   };
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-[9999] bg-card border-b shadow-lg pointer-events-auto" style={{ isolation: 'isolate' }} data-testid="call-bar">
+    <div className="shrink-0 bg-card border-b shadow-sm z-50" data-testid="call-bar">
       <div className="flex items-center justify-between px-4 py-2 max-w-screen-2xl mx-auto gap-4">
         <div className="flex items-center gap-3 min-w-0 flex-shrink">
           <div className={`w-3 h-3 rounded-full animate-pulse flex-shrink-0 ${getStatusColor()}`} />
