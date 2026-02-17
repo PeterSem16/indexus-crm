@@ -66,21 +66,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { OperatorScript, ScriptStep, ScriptElement, ScriptElementType } from "@shared/schema";
-
-const elementTypeConfig: Record<ScriptElementType, { icon: typeof Type; label: string; description: string }> = {
-  heading: { icon: Type, label: "Nadpis", description: "Veľký text pre sekciu" },
-  paragraph: { icon: AlignLeft, label: "Odsek", description: "Bežný text s inštrukciami" },
-  select: { icon: ListOrdered, label: "Výber", description: "Rozbaľovací zoznam možností" },
-  multiselect: { icon: ListOrdered, label: "Viacnásobný výber", description: "Výber viacerých možností" },
-  checkbox: { icon: CheckSquare, label: "Zaškrtávacie pole", description: "Áno/Nie možnosť" },
-  checkboxGroup: { icon: CheckSquare, label: "Skupina zaškrtávacích polí", description: "Viacero zaškrtávacích polí" },
-  radio: { icon: CircleDot, label: "Prepínač", description: "Výber jednej možnosti" },
-  textInput: { icon: TextCursor, label: "Textové pole", description: "Krátky textový vstup" },
-  textarea: { icon: FileText, label: "Textová oblasť", description: "Dlhší textový vstup" },
-  divider: { icon: Minus, label: "Oddeľovač", description: "Vizuálne oddelenie" },
-  note: { icon: AlertCircle, label: "Poznámka", description: "Zvýraznená poznámka" },
-  outcome: { icon: Target, label: "Výsledok hovoru", description: "Záverečný stav hovoru" },
-};
+import { useI18n } from "@/i18n";
 
 interface SortableStepProps {
   step: ScriptStep;
@@ -88,9 +74,10 @@ interface SortableStepProps {
   onSelect: () => void;
   onDelete: () => void;
   onDuplicate: () => void;
+  labels: { untitled: string; element: string; elements: string; endStep: string };
 }
 
-function SortableStep({ step, isSelected, onSelect, onDelete, onDuplicate }: SortableStepProps) {
+function SortableStep({ step, isSelected, onSelect, onDelete, onDuplicate, labels }: SortableStepProps) {
   const {
     attributes,
     listeners,
@@ -120,14 +107,14 @@ function SortableStep({ step, isSelected, onSelect, onDelete, onDuplicate }: Sor
         <GripVertical className="h-4 w-4 text-muted-foreground" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="font-medium truncate">{step.title || "Bez názvu"}</p>
+        <p className="font-medium truncate">{step.title || labels.untitled}</p>
         <p className="text-xs text-muted-foreground truncate">
-          {step.elements.length} {step.elements.length === 1 ? "prvok" : "prvkov"}
+          {step.elements.length} {step.elements.length === 1 ? labels.element : labels.elements}
         </p>
       </div>
       <div className="flex items-center gap-1">
         {step.isEndStep && (
-          <Badge variant="outline" className="text-xs">Koniec</Badge>
+          <Badge variant="outline" className="text-xs">{labels.endStep}</Badge>
         )}
         <Button
           size="icon"
@@ -159,6 +146,8 @@ interface SortableElementProps {
   onMoveDown: () => void;
   canMoveUp: boolean;
   canMoveDown: boolean;
+  labels: { required: string };
+  elementTypeConfig: Record<ScriptElementType, { icon: typeof Type; label: string; description: string }>;
 }
 
 function SortableElement({ 
@@ -169,7 +158,9 @@ function SortableElement({
   onMoveUp,
   onMoveDown,
   canMoveUp,
-  canMoveDown 
+  canMoveDown,
+  labels,
+  elementTypeConfig,
 }: SortableElementProps) {
   const config = elementTypeConfig[element.type];
   const Icon = config.icon;
@@ -191,7 +182,7 @@ function SortableElement({
       </div>
       <div className="flex items-center gap-1">
         {element.required && (
-          <Badge variant="secondary" className="text-xs">Povinné</Badge>
+          <Badge variant="secondary" className="text-xs">{labels.required}</Badge>
         )}
         <Button
           size="icon"
@@ -233,9 +224,27 @@ interface ScriptBuilderProps {
 }
 
 export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }: ScriptBuilderProps) {
+  const { t } = useI18n();
+  const sb = t.campaigns.detail.scriptBuilderUI;
+
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [isAddElementOpen, setIsAddElementOpen] = useState(false);
+
+  const elementTypeConfig: Record<ScriptElementType, { icon: typeof Type; label: string; description: string }> = {
+    heading: { icon: Type, label: sb.heading, description: sb.headingDesc },
+    paragraph: { icon: AlignLeft, label: sb.paragraph, description: sb.paragraphDesc },
+    select: { icon: ListOrdered, label: sb.selectEl, description: sb.selectDesc },
+    multiselect: { icon: ListOrdered, label: sb.multiselect, description: sb.multiselectDesc },
+    checkbox: { icon: CheckSquare, label: sb.checkbox, description: sb.checkboxDesc },
+    checkboxGroup: { icon: CheckSquare, label: sb.checkboxGroup, description: sb.checkboxGroupDesc },
+    radio: { icon: CircleDot, label: sb.radio, description: sb.radioDesc },
+    textInput: { icon: TextCursor, label: sb.textInput, description: sb.textInputDesc },
+    textarea: { icon: FileText, label: sb.textarea, description: sb.textareaDesc },
+    divider: { icon: Minus, label: sb.divider, description: sb.dividerDesc },
+    note: { icon: AlertCircle, label: sb.note, description: sb.noteDesc },
+    outcome: { icon: Target, label: sb.outcome, description: sb.outcomeDesc },
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -261,14 +270,14 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
   const addStep = useCallback(() => {
     const newStep: ScriptStep = {
       id: generateId(),
-      title: `Krok ${currentScript.steps.length + 1}`,
+      title: `${sb.addStep} ${currentScript.steps.length + 1}`,
       elements: [],
       isEndStep: false,
     };
     updateScript({ steps: [...currentScript.steps, newStep] });
     setSelectedStepId(newStep.id);
     setSelectedElementId(null);
-  }, [currentScript.steps, updateScript]);
+  }, [currentScript.steps, updateScript, sb.addStep]);
 
   const updateStep = useCallback((stepId: string, updates: Partial<ScriptStep>) => {
     updateScript({
@@ -314,7 +323,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
       required: false,
       content: type === "paragraph" || type === "heading" || type === "note" ? "" : undefined,
       options: ["select", "multiselect", "radio", "checkboxGroup", "outcome"].includes(type)
-        ? [{ value: "option1", label: "Možnosť 1" }]
+        ? [{ value: "option1", label: `${sb.options} 1` }]
         : undefined,
     };
     updateStep(selectedStepId, {
@@ -322,7 +331,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
     });
     setSelectedElementId(newElement.id);
     setIsAddElementOpen(false);
-  }, [selectedStepId, selectedStep, updateStep]);
+  }, [selectedStepId, selectedStep, updateStep, sb.options]);
 
   const updateElement = useCallback((elementId: string, updates: Partial<ScriptElement>) => {
     if (!selectedStepId || !selectedStep) return;
@@ -370,10 +379,10 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
     if (!selectedElement || !selectedElement.options) return;
     const newOptions = [
       ...selectedElement.options,
-      { value: `option${selectedElement.options.length + 1}`, label: `Možnosť ${selectedElement.options.length + 1}` }
+      { value: `option${selectedElement.options.length + 1}`, label: `${sb.options} ${selectedElement.options.length + 1}` }
     ];
     updateElement(selectedElement.id, { options: newOptions });
-  }, [selectedElement, updateElement]);
+  }, [selectedElement, updateElement, sb.options]);
 
   const updateOption = useCallback((index: number, updates: { value?: string; label?: string; nextStepId?: string }) => {
     if (!selectedElement || !selectedElement.options) return;
@@ -389,12 +398,15 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
     updateElement(selectedElement.id, { options: newOptions });
   }, [selectedElement, updateElement]);
 
+  const stepLabels = { untitled: sb.untitled, element: sb.element, elements: sb.elements, endStep: sb.endStep };
+  const elementLabels = { required: sb.required };
+
   return (
     <div className="flex h-full gap-4" data-testid="script-builder">
       <Card className="w-64 flex-shrink-0">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between gap-2">
-            <CardTitle className="text-sm">Kroky skriptu</CardTitle>
+            <CardTitle className="text-sm">{sb.steps}</CardTitle>
             <Button size="icon" variant="ghost" onClick={addStep} data-testid="button-add-step">
               <Plus className="h-4 w-4" />
             </Button>
@@ -420,6 +432,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
                       onSelect={() => { setSelectedStepId(step.id); setSelectedElementId(null); }}
                       onDelete={() => deleteStep(step.id)}
                       onDuplicate={() => duplicateStep(step.id)}
+                      labels={stepLabels}
                     />
                   ))}
                 </div>
@@ -427,9 +440,9 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
             </DndContext>
             {currentScript.steps.length === 0 && (
               <div className="text-center py-8 text-muted-foreground">
-                <p className="text-sm">Žiadne kroky</p>
+                <p className="text-sm">{sb.selectStepOrCreate}</p>
                 <Button variant="ghost" onClick={addStep} className="mt-2">
-                  Pridať prvý krok
+                  {sb.addStep}
                 </Button>
               </div>
             )}
@@ -441,22 +454,22 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between gap-2">
             <CardTitle className="text-sm">
-              {selectedStep ? selectedStep.title : "Vyberte krok"}
+              {selectedStep ? selectedStep.title : sb.selectStep}
             </CardTitle>
             <div className="flex items-center gap-2">
               {selectedStep && (
                 <Button size="sm" variant="outline" onClick={() => setIsAddElementOpen(true)} data-testid="button-add-element">
-                  <Plus className="h-4 w-4 mr-1" /> Prvok
+                  <Plus className="h-4 w-4 mr-1" /> {sb.addElement}
                 </Button>
               )}
               {onPreview && (
                 <Button size="sm" variant="outline" onClick={() => onPreview(currentScript)} data-testid="button-preview-script">
-                  <Eye className="h-4 w-4 mr-1" /> Náhľad
+                  <Eye className="h-4 w-4 mr-1" /> {sb.preview}
                 </Button>
               )}
               {onSave && (
                 <Button size="sm" onClick={() => onSave(currentScript)} disabled={isSaving} data-testid="button-save-script">
-                  <Save className="h-4 w-4 mr-1" /> Uložiť
+                  <Save className="h-4 w-4 mr-1" /> {sb.save}
                 </Button>
               )}
             </div>
@@ -467,7 +480,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="step-title">Názov kroku</Label>
+                  <Label htmlFor="step-title">{sb.stepTitle}</Label>
                   <Input
                     id="step-title"
                     value={selectedStep.title}
@@ -476,16 +489,16 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="step-next">Nasledujúci krok</Label>
+                  <Label htmlFor="step-next">{sb.nextStep}</Label>
                   <Select
                     value={selectedStep.nextStepId || "_auto_"}
                     onValueChange={(v) => updateStep(selectedStep.id, { nextStepId: v === "_auto_" ? undefined : v })}
                   >
                     <SelectTrigger id="step-next" data-testid="select-next-step">
-                      <SelectValue placeholder="Automaticky ďalší" />
+                      <SelectValue placeholder={sb.autoNext} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="_auto_">Automaticky ďalší</SelectItem>
+                      <SelectItem value="_auto_">{sb.autoNext}</SelectItem>
                       {currentScript.steps
                         .filter(s => s.id !== selectedStep.id)
                         .map(s => (
@@ -496,12 +509,12 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="step-description">Popis kroku</Label>
+                <Label htmlFor="step-description">{sb.stepDescription}</Label>
                 <Textarea
                   id="step-description"
                   value={selectedStep.description || ""}
                   onChange={(e) => updateStep(selectedStep.id, { description: e.target.value })}
-                  placeholder="Voliteľný popis pre operátora..."
+                  placeholder={sb.descriptionPlaceholder}
                   rows={2}
                   data-testid="textarea-step-description"
                 />
@@ -513,13 +526,13 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
                   onCheckedChange={(c) => updateStep(selectedStep.id, { isEndStep: c })}
                   data-testid="switch-end-step"
                 />
-                <Label htmlFor="step-end">Záverečný krok</Label>
+                <Label htmlFor="step-end">{sb.finalStep}</Label>
               </div>
               
               <Separator />
               
               <div className="space-y-2">
-                <Label>Prvky kroku</Label>
+                <Label>{sb.stepElements}</Label>
                 <ScrollArea className="h-[200px]">
                   <div className="space-y-2">
                     {selectedStep.elements.map((element, index) => (
@@ -533,11 +546,13 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
                         onMoveDown={() => moveElement(element.id, "down")}
                         canMoveUp={index > 0}
                         canMoveDown={index < selectedStep.elements.length - 1}
+                        labels={elementLabels}
+                        elementTypeConfig={elementTypeConfig}
                       />
                     ))}
                     {selectedStep.elements.length === 0 && (
                       <div className="text-center py-4 text-muted-foreground text-sm">
-                        Pridajte prvky do tohto kroku
+                        {sb.addElementsToStep}
                       </div>
                     )}
                   </div>
@@ -546,7 +561,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
             </div>
           ) : (
             <div className="text-center py-12 text-muted-foreground">
-              <p>Vyberte krok zo zoznamu alebo vytvorte nový</p>
+              <p>{sb.selectStepOrCreate}</p>
             </div>
           )}
         </CardContent>
@@ -555,7 +570,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
       <Card className="w-80 flex-shrink-0">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">
-            {selectedElement ? `Upraviť: ${elementTypeConfig[selectedElement.type].label}` : "Vlastnosti prvku"}
+            {selectedElement ? `${sb.editElement}: ${elementTypeConfig[selectedElement.type].label}` : sb.elementProperties}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -563,7 +578,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
             <ScrollArea className="h-[450px]">
               <div className="space-y-4 pr-4">
                 <div className="space-y-2">
-                  <Label htmlFor="element-label">Popisok</Label>
+                  <Label htmlFor="element-label">{sb.label}</Label>
                   <Input
                     id="element-label"
                     value={selectedElement.label || ""}
@@ -574,7 +589,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
 
                 {["paragraph", "heading", "note"].includes(selectedElement.type) && (
                   <div className="space-y-2">
-                    <Label htmlFor="element-content">Obsah</Label>
+                    <Label htmlFor="element-content">{sb.content}</Label>
                     <Textarea
                       id="element-content"
                       value={selectedElement.content || ""}
@@ -587,7 +602,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
 
                 {["textInput", "textarea"].includes(selectedElement.type) && (
                   <div className="space-y-2">
-                    <Label htmlFor="element-placeholder">Placeholder</Label>
+                    <Label htmlFor="element-placeholder">{sb.placeholder}</Label>
                     <Input
                       id="element-placeholder"
                       value={selectedElement.placeholder || ""}
@@ -600,9 +615,9 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
                 {["select", "multiselect", "radio", "checkboxGroup", "outcome"].includes(selectedElement.type) && (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label>Možnosti</Label>
+                      <Label>{sb.options}</Label>
                       <Button size="sm" variant="ghost" onClick={addOption} data-testid="button-add-option">
-                        <Plus className="h-3 w-3 mr-1" /> Pridať
+                        <Plus className="h-3 w-3 mr-1" /> {sb.add}
                       </Button>
                     </div>
                     <div className="space-y-2">
@@ -611,7 +626,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
                           <Input
                             value={option.label}
                             onChange={(e) => updateOption(index, { label: e.target.value, value: e.target.value.toLowerCase().replace(/\s+/g, "_") })}
-                            placeholder="Názov možnosti"
+                            placeholder={sb.optionName}
                             className="flex-1"
                             data-testid={`input-option-${index}`}
                           />
@@ -632,7 +647,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
 
                 {selectedElement.type === "note" && (
                   <div className="space-y-2">
-                    <Label htmlFor="element-style">Štýl poznámky</Label>
+                    <Label htmlFor="element-style">{sb.noteStyle}</Label>
                     <Select
                       value={selectedElement.style || "default"}
                       onValueChange={(v) => updateElement(selectedElement.id, { style: v as any })}
@@ -641,11 +656,11 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="default">Štandardný</SelectItem>
-                        <SelectItem value="info">Informácia</SelectItem>
-                        <SelectItem value="warning">Upozornenie</SelectItem>
-                        <SelectItem value="success">Úspech</SelectItem>
-                        <SelectItem value="error">Chyba</SelectItem>
+                        <SelectItem value="default">{sb.styleDefault}</SelectItem>
+                        <SelectItem value="info">{sb.styleInfo}</SelectItem>
+                        <SelectItem value="warning">{sb.styleWarning}</SelectItem>
+                        <SelectItem value="success">{sb.styleSuccess}</SelectItem>
+                        <SelectItem value="error">{sb.styleError}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -653,7 +668,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
 
                 {selectedElement.type === "heading" && (
                   <div className="space-y-2">
-                    <Label htmlFor="element-size">Veľkosť</Label>
+                    <Label htmlFor="element-size">{sb.headingSize}</Label>
                     <Select
                       value={selectedElement.size || "md"}
                       onValueChange={(v) => updateElement(selectedElement.id, { size: v as any })}
@@ -662,9 +677,9 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="sm">Malý</SelectItem>
-                        <SelectItem value="md">Stredný</SelectItem>
-                        <SelectItem value="lg">Veľký</SelectItem>
+                        <SelectItem value="sm">{sb.sizeSmall}</SelectItem>
+                        <SelectItem value="md">{sb.sizeMedium}</SelectItem>
+                        <SelectItem value="lg">{sb.sizeLarge}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -678,14 +693,14 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
                       onCheckedChange={(c) => updateElement(selectedElement.id, { required: c })}
                       data-testid="switch-element-required"
                     />
-                    <Label htmlFor="element-required">Povinné pole</Label>
+                    <Label htmlFor="element-required">{sb.requiredField}</Label>
                   </div>
                 )}
               </div>
             </ScrollArea>
           ) : (
             <div className="text-center py-12 text-muted-foreground">
-              <p className="text-sm">Vyberte prvok pre úpravu</p>
+              <p className="text-sm">{sb.selectElementToEdit}</p>
             </div>
           )}
         </CardContent>
@@ -694,7 +709,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
       <Dialog open={isAddElementOpen} onOpenChange={setIsAddElementOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Pridať prvok</DialogTitle>
+            <DialogTitle>{sb.addElementTitle}</DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-3 gap-3 py-4">
             {(Object.keys(elementTypeConfig) as ScriptElementType[]).map((type) => {
@@ -719,7 +734,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddElementOpen(false)}>
-              Zrušiť
+              {sb.cancel}
             </Button>
           </DialogFooter>
         </DialogContent>

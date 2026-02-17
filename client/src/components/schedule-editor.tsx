@@ -6,16 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-
-const DAYS_OF_WEEK = [
-  { value: 1, label: "Pondelok", short: "Po" },
-  { value: 2, label: "Utorok", short: "Ut" },
-  { value: 3, label: "Streda", short: "St" },
-  { value: 4, label: "Štvrtok", short: "Št" },
-  { value: 5, label: "Piatok", short: "Pi" },
-  { value: 6, label: "Sobota", short: "So" },
-  { value: 0, label: "Nedeľa", short: "Ne" },
-];
+import { useI18n } from "@/i18n";
 
 export interface TimeSlot {
   startTime: string;
@@ -35,6 +26,12 @@ export interface ScheduleConfig {
   maxAttemptsPerContact: number;
   minHoursBetweenAttempts: number;
   weeklySchedule: WeeklySchedule;
+}
+
+interface DayOfWeek {
+  value: number;
+  label: string;
+  short: string;
 }
 
 interface ScheduleEditorProps {
@@ -70,14 +67,22 @@ function DayRow({
   onRemoveSlot,
   onUpdateSlot,
   readonly,
+  noTimeSlotsLabel,
+  timeToLabel,
+  closedDayLabel,
+  addSlotLabel,
 }: {
-  day: typeof DAYS_OF_WEEK[number];
+  day: DayOfWeek;
   schedule: DaySchedule;
   onToggle: () => void;
   onAddSlot: () => void;
   onRemoveSlot: (index: number) => void;
   onUpdateSlot: (index: number, slot: TimeSlot) => void;
   readonly?: boolean;
+  noTimeSlotsLabel: string;
+  timeToLabel: string;
+  closedDayLabel: string;
+  addSlotLabel: string;
 }) {
   return (
     <div className="flex items-start gap-4 py-3 border-b last:border-0">
@@ -94,7 +99,7 @@ function DayRow({
       <div className="flex-1 space-y-2">
         {schedule.enabled ? (
           schedule.slots.length === 0 ? (
-            <p className="text-sm text-muted-foreground italic">Žiadne časové sloty</p>
+            <p className="text-sm text-muted-foreground italic">{noTimeSlotsLabel}</p>
           ) : (
             schedule.slots.map((slot, index) => (
               <div key={index} className="flex items-center gap-2">
@@ -106,7 +111,7 @@ function DayRow({
                   disabled={readonly}
                   data-testid={`input-start-time-${day.value}-${index}`}
                 />
-                <span className="text-muted-foreground">do</span>
+                <span className="text-muted-foreground">{timeToLabel}</span>
                 <Input
                   type="time"
                   value={slot.endTime}
@@ -129,7 +134,7 @@ function DayRow({
             ))
           )
         ) : (
-          <Badge variant="secondary">Zatvorené</Badge>
+          <Badge variant="secondary">{closedDayLabel}</Badge>
         )}
         
         {!readonly && schedule.enabled && (
@@ -140,7 +145,7 @@ function DayRow({
             data-testid={`button-add-slot-${day.value}`}
           >
             <Plus className="w-4 h-4 mr-1" />
-            Pridať slot
+            {addSlotLabel}
           </Button>
         )}
       </div>
@@ -149,6 +154,18 @@ function DayRow({
 }
 
 export function ScheduleEditor({ schedule, onChange, readonly }: ScheduleEditorProps) {
+  const { t } = useI18n();
+
+  const DAYS_OF_WEEK: DayOfWeek[] = [
+    { value: 1, label: t.campaigns.detail.weekdays.monLong, short: t.campaigns.detail.weekdays.mon },
+    { value: 2, label: t.campaigns.detail.weekdays.tueLong, short: t.campaigns.detail.weekdays.tue },
+    { value: 3, label: t.campaigns.detail.weekdays.wedLong, short: t.campaigns.detail.weekdays.wed },
+    { value: 4, label: t.campaigns.detail.weekdays.thuLong, short: t.campaigns.detail.weekdays.thu },
+    { value: 5, label: t.campaigns.detail.weekdays.friLong, short: t.campaigns.detail.weekdays.fri },
+    { value: 6, label: t.campaigns.detail.weekdays.satLong, short: t.campaigns.detail.weekdays.sat },
+    { value: 0, label: t.campaigns.detail.weekdays.sunLong, short: t.campaigns.detail.weekdays.sun },
+  ];
+
   const handleDayToggle = (day: number) => {
     const daySchedule = schedule.weeklySchedule[day] || { enabled: false, slots: [] };
     const newSlots = !daySchedule.enabled ? [{ startTime: "09:00", endTime: "17:00" }] : [];
@@ -230,7 +247,7 @@ export function ScheduleEditor({ schedule, onChange, readonly }: ScheduleEditorP
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="maxAttempts">Max. počet pokusov na kontakt</Label>
+          <Label htmlFor="maxAttempts">{t.campaigns.detail.maxAttempts}</Label>
           <Input
             id="maxAttempts"
             type="number"
@@ -242,12 +259,12 @@ export function ScheduleEditor({ schedule, onChange, readonly }: ScheduleEditorP
             data-testid="input-max-attempts"
           />
           <p className="text-xs text-muted-foreground">
-            Prestať kontaktovať po tomto počte pokusov
+            {t.campaigns.detail.stopContactingAfter}
           </p>
         </div>
         
         <div className="space-y-2">
-          <Label htmlFor="minHours">Min. hodín medzi pokusmi</Label>
+          <Label htmlFor="minHours">{t.campaigns.detail.minHoursBetween}</Label>
           <Input
             id="minHours"
             type="number"
@@ -259,7 +276,7 @@ export function ScheduleEditor({ schedule, onChange, readonly }: ScheduleEditorP
             data-testid="input-min-hours"
           />
           <p className="text-xs text-muted-foreground">
-            Čakať aspoň toľko hodín pred ďalším pokusom
+            {t.campaigns.detail.waitAtLeastHours}
           </p>
         </div>
       </div>
@@ -269,15 +286,15 @@ export function ScheduleEditor({ schedule, onChange, readonly }: ScheduleEditorP
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-2">
               <Clock className="w-5 h-5 text-muted-foreground" />
-              <CardTitle className="text-base">Pracovné hodiny</CardTitle>
+              <CardTitle className="text-base">{t.campaigns.detail.workingHours}</CardTitle>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="secondary">{activeDays} dní aktívnych</Badge>
-              <Badge variant="outline">{totalHours.toFixed(1)} hod/týždeň</Badge>
+              <Badge variant="secondary">{activeDays} {t.campaigns.detail.daysActive}</Badge>
+              <Badge variant="outline">{totalHours.toFixed(1)} {t.campaigns.detail.hoursPerWeek}</Badge>
             </div>
           </div>
           <CardDescription>
-            Nastavte kedy môžu operátori volať v tejto kampani
+            {t.campaigns.detail.setWhenOperatorsCanCall}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -291,6 +308,10 @@ export function ScheduleEditor({ schedule, onChange, readonly }: ScheduleEditorP
               onRemoveSlot={(index) => handleRemoveSlot(day.value, index)}
               onUpdateSlot={(index, slot) => handleUpdateSlot(day.value, index, slot)}
               readonly={readonly}
+              noTimeSlotsLabel={t.campaigns.detail.noTimeSlots}
+              timeToLabel={t.campaigns.detail.timeTo}
+              closedDayLabel={t.campaigns.detail.closedDay}
+              addSlotLabel={t.campaigns.detail.addSlot}
             />
           ))}
         </CardContent>

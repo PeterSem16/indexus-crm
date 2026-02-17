@@ -698,6 +698,14 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
   const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
   const [newDisp, setNewDisp] = useState({ name: "", code: "", icon: "", color: "#6b7280", actionType: "none" });
 
+  const actionLabels: Record<string, string> = {
+    none: t.campaigns.detail.dispActionNone,
+    callback: t.campaigns.detail.dispActionCallback,
+    dnd: t.campaigns.detail.dispActionDnd,
+    complete: t.campaigns.detail.dispActionComplete,
+    convert: t.campaigns.detail.dispActionConvert,
+  };
+
   const { data: dispositions = [], isLoading } = useQuery<CampaignDisposition[]>({
     queryKey: ["/api/campaigns", campaignId, "dispositions"],
     enabled: !!campaignId,
@@ -852,18 +860,9 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {DISPOSITION_ACTION_TYPES.map(at => {
-              const actionLabels: Record<string, string> = {
-                none: t.campaigns.detail.dispActionNone,
-                callback: t.campaigns.detail.dispActionCallback,
-                dnd: t.campaigns.detail.dispActionDnd,
-                complete: t.campaigns.detail.dispActionComplete,
-                convert: t.campaigns.detail.dispActionConvert,
-              };
-              return (
-                <SelectItem key={at} value={at}>{actionLabels[at] || at}</SelectItem>
-              );
-            })}
+            {DISPOSITION_ACTION_TYPES.map(at => (
+              <SelectItem key={at} value={at}>{actionLabels[at] || at}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -950,7 +949,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
                       <span className="ml-2 text-xs text-muted-foreground">{parent.code}</span>
                     </div>
                     <Badge className={ACTION_TYPE_COLORS[parent.actionType] || ACTION_TYPE_COLORS.none} data-testid={`badge-action-${parent.id}`}>
-                      {parent.actionType}
+                      {actionLabels[parent.actionType] || parent.actionType}
                     </Badge>
                     <Switch
                       checked={parent.isActive}
@@ -998,7 +997,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
                           </div>
                           {child.actionType !== "none" && (
                             <Badge className={ACTION_TYPE_COLORS[child.actionType] || ACTION_TYPE_COLORS.none}>
-                              {child.actionType}
+                              {actionLabels[child.actionType] || child.actionType}
                             </Badge>
                           )}
                           <Switch
