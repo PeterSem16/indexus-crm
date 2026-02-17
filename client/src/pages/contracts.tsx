@@ -3473,7 +3473,7 @@ export default function ContractsPage() {
       </Dialog>
 
       <Dialog open={isContractWizardOpen} onOpenChange={setIsContractWizardOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>{t.contractsModule.wizardTitle} - {wizardStep}/3</DialogTitle>
             <DialogDescription>
@@ -3496,7 +3496,7 @@ export default function ContractsPage() {
             </div>
             
             {wizardStep === 1 && (
-              <div className="grid gap-4">
+              <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label>{t.contractsModule.templateCategory}</Label>
                   <Select
@@ -3522,8 +3522,6 @@ export default function ContractsPage() {
                   </Select>
                 </div>
                 
-                <Separator className="my-2" />
-                
                 <div className="space-y-2">
                   <Label>Klient</Label>
                   <Select
@@ -3546,89 +3544,91 @@ export default function ContractsPage() {
             )}
             
             {wizardStep === 2 && (
-              <div className="grid gap-4">
-                <div className="space-y-2">
-                  <Label>{t.contractsModule.billingCompany}</Label>
-                  <Select
-                    value={contractForm.billingDetailsId}
-                    onValueChange={(value) => setContractForm({ ...contractForm, billingDetailsId: value })}
-                  >
-                    <SelectTrigger data-testid="select-contract-billing">
-                      <SelectValue placeholder={t.contractsModule.selectBillingCompany} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {billingDetails.map(bd => (
-                        <SelectItem key={bd.id} value={bd.id}>
-                          {bd.companyName} ({bd.countryCode})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>Mena</Label>
-                  <Select
-                    value={contractForm.currency}
-                    onValueChange={(value) => setContractForm({ ...contractForm, currency: value })}
-                  >
-                    <SelectTrigger data-testid="select-contract-currency">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="EUR">EUR</SelectItem>
-                      <SelectItem value="CZK">CZK</SelectItem>
-                      <SelectItem value="HUF">HUF</SelectItem>
-                      <SelectItem value="RON">RON</SelectItem>
-                      <SelectItem value="USD">USD</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>Poznámky (voliteľné)</Label>
-                  <Textarea
-                    value={contractForm.notes}
-                    onChange={(e) => setContractForm({ ...contractForm, notes: e.target.value })}
-                    placeholder="Interné poznámky k zmluve..."
-                    data-testid="textarea-contract-notes"
-                  />
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label>{t.contractsModule.billingCompany}</Label>
+                    <Select
+                      value={contractForm.billingDetailsId}
+                      onValueChange={(value) => setContractForm({ ...contractForm, billingDetailsId: value })}
+                    >
+                      <SelectTrigger data-testid="select-contract-billing">
+                        <SelectValue placeholder={t.contractsModule.selectBillingCompany} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {billingDetails.map(bd => (
+                          <SelectItem key={bd.id} value={bd.id}>
+                            {bd.companyName} ({bd.countryCode})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>Mena</Label>
+                    <Select
+                      value={contractForm.currency}
+                      onValueChange={(value) => setContractForm({ ...contractForm, currency: value })}
+                    >
+                      <SelectTrigger data-testid="select-contract-currency">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="EUR">EUR</SelectItem>
+                        <SelectItem value="CZK">CZK</SelectItem>
+                        <SelectItem value="HUF">HUF</SelectItem>
+                        <SelectItem value="RON">RON</SelectItem>
+                        <SelectItem value="USD">USD</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
-                <Separator className="my-2" />
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label>{t.contractsModule.selectNumberRange || "Číselník zmluvy"}</Label>
+                    <Select
+                      value={contractForm.numberRangeId}
+                      onValueChange={(value) => setContractForm({ ...contractForm, numberRangeId: value })}
+                    >
+                      <SelectTrigger data-testid="select-contract-number-range">
+                        <SelectValue placeholder={t.contractsModule.selectNumberRangePlaceholder || "Vyberte číselník"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {activeContractNumberRanges.length === 0 ? (
+                          <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+                            {t.contractsModule.noContractNumberRanges || "Žiadne číselníky zmlúv pre túto krajinu"}
+                          </div>
+                        ) : (
+                          activeContractNumberRanges.map((range) => {
+                            const nextNumber = (range.lastNumberUsed || 0) + 1;
+                            const formattedNumber = `${range.prefix || ""}${String(nextNumber).padStart(range.digitsToGenerate || 6, "0")}${range.suffix || ""}`;
+                            return (
+                              <SelectItem key={range.id} value={range.id}>
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{range.name}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {t.contractsModule.nextNumber || "Ďalšie"}: {formattedNumber}
+                                  </span>
+                                </div>
+                              </SelectItem>
+                            );
+                          })
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                <div className="space-y-2">
-                  <Label>{t.contractsModule.selectNumberRange || "Číselník zmluvy"}</Label>
-                  <Select
-                    value={contractForm.numberRangeId}
-                    onValueChange={(value) => setContractForm({ ...contractForm, numberRangeId: value })}
-                  >
-                    <SelectTrigger data-testid="select-contract-number-range">
-                      <SelectValue placeholder={t.contractsModule.selectNumberRangePlaceholder || "Vyberte číselník"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {activeContractNumberRanges.length === 0 ? (
-                        <div className="px-2 py-4 text-center text-sm text-muted-foreground">
-                          {t.contractsModule.noContractNumberRanges || "Žiadne číselníky zmlúv pre túto krajinu"}
-                        </div>
-                      ) : (
-                        activeContractNumberRanges.map((range) => {
-                          const nextNumber = (range.lastNumberUsed || 0) + 1;
-                          const formattedNumber = `${range.prefix || ""}${String(nextNumber).padStart(range.digitsToGenerate || 6, "0")}${range.suffix || ""}`;
-                          return (
-                            <SelectItem key={range.id} value={range.id}>
-                              <div className="flex flex-col">
-                                <span className="font-medium">{range.name}</span>
-                                <span className="text-xs text-muted-foreground">
-                                  {t.contractsModule.nextNumber || "Ďalšie"}: {formattedNumber}
-                                </span>
-                              </div>
-                            </SelectItem>
-                          );
-                        })
-                      )}
-                    </SelectContent>
-                  </Select>
+                  <div className="space-y-2">
+                    <Label>Poznámky (voliteľné)</Label>
+                    <Textarea
+                      value={contractForm.notes}
+                      onChange={(e) => setContractForm({ ...contractForm, notes: e.target.value })}
+                      placeholder="Interné poznámky k zmluve..."
+                      data-testid="textarea-contract-notes"
+                    />
+                  </div>
                 </div>
 
                 {selectedContractNumberRange && previewContractNumber && (
@@ -3651,54 +3651,63 @@ export default function ContractsPage() {
             )}
             
             {wizardStep === 3 && (
-              <div className="space-y-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">{t.contractsModule.preview}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">{t.contractsModule.templateCategory}:</span>
-                      <span className="font-medium">{categories.find(c => String(c.id) === contractForm.categoryId)?.label}</span>
-                    </div>
-                    <Separator className="my-2" />
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">{t.contractsModule.client}:</span>
-                      <span className="font-medium">{getCustomerName(contractForm.customerId)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">{t.contractsModule.billingCompany}:</span>
-                      <span>{billingDetails.find(b => b.id === contractForm.billingDetailsId)?.companyName}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">{t.contractsModule.currency}:</span>
-                      <span>{contractForm.currency}</span>
-                    </div>
-                    {selectedContractNumberRange && previewContractNumber && (
-                      <>
-                        <Separator className="my-2" />
-                        <div className="flex justify-between gap-2 flex-wrap">
-                          <span className="text-muted-foreground">{t.contractsModule.selectNumberRange || "Číselník zmluvy"}:</span>
-                          <span className="font-medium">{selectedContractNumberRange.name}</span>
-                        </div>
-                        <div className="flex justify-between gap-2 flex-wrap">
-                          <span className="text-muted-foreground">{t.contractsModule.nextContractNumber || "Číslo zmluvy"}:</span>
-                          <span className="font-bold">{previewContractNumber}</span>
-                        </div>
-                      </>
-                    )}
-                    {contractForm.notes && (
-                      <>
-                        <Separator className="my-2" />
-                        <div>
-                          <span className="text-muted-foreground">{t.contractsModule.notes}:</span>
-                          <p className="mt-1 text-sm">{contractForm.notes}</p>
-                        </div>
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-                
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base">{t.contractsModule.preview}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2 text-sm">
+                      <div className="flex justify-between gap-2 flex-wrap">
+                        <span className="text-muted-foreground">{t.contractsModule.templateCategory}:</span>
+                        <span className="font-medium">{categories.find(c => String(c.id) === contractForm.categoryId)?.label}</span>
+                      </div>
+                      <Separator className="my-2" />
+                      <div className="flex justify-between gap-2 flex-wrap">
+                        <span className="text-muted-foreground">{t.contractsModule.client}:</span>
+                        <span className="font-medium">{getCustomerName(contractForm.customerId)}</span>
+                      </div>
+                      <div className="flex justify-between gap-2 flex-wrap">
+                        <span className="text-muted-foreground">{t.contractsModule.billingCompany}:</span>
+                        <span>{billingDetails.find(b => b.id === contractForm.billingDetailsId)?.companyName}</span>
+                      </div>
+                      <div className="flex justify-between gap-2 flex-wrap">
+                        <span className="text-muted-foreground">{t.contractsModule.currency}:</span>
+                        <span>{contractForm.currency}</span>
+                      </div>
+                      {selectedContractNumberRange && previewContractNumber && (
+                        <>
+                          <Separator className="my-2" />
+                          <div className="flex justify-between gap-2 flex-wrap">
+                            <span className="text-muted-foreground">{t.contractsModule.selectNumberRange || "Číselník zmluvy"}:</span>
+                            <span className="font-medium">{selectedContractNumberRange.name}</span>
+                          </div>
+                          <div className="flex justify-between gap-2 flex-wrap">
+                            <span className="text-muted-foreground">{t.contractsModule.nextContractNumber || "Číslo zmluvy"}:</span>
+                            <span className="font-bold">{previewContractNumber}</span>
+                          </div>
+                        </>
+                      )}
+                      {contractForm.notes && (
+                        <>
+                          <Separator className="my-2" />
+                          <div>
+                            <span className="text-muted-foreground">{t.contractsModule.notes}:</span>
+                            <p className="mt-1 text-sm">{contractForm.notes}</p>
+                          </div>
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
+                  
+                  <div className="flex items-center gap-2 p-3 bg-muted rounded-md">
+                    <Shield className="h-5 w-5 text-primary shrink-0" />
+                    <p className="text-sm">
+                      Po vytvorení zmluvy budete môcť vygenerovať PDF a odoslať ju klientovi na podpis.
+                    </p>
+                  </div>
+                </div>
+
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base flex items-center gap-2">
@@ -3762,13 +3771,6 @@ export default function ContractsPage() {
                     )}
                   </CardContent>
                 </Card>
-                
-                <div className="flex items-center gap-2 p-3 bg-muted rounded-md">
-                  <Shield className="h-5 w-5 text-primary" />
-                  <p className="text-sm">
-                    Po vytvorení zmluvy budete môcť vygenerovať PDF a odoslať ju klientovi na podpis.
-                  </p>
-                </div>
               </div>
             )}
           </div>
