@@ -2,7 +2,7 @@ import express, { type Express, type Request, type Response, type NextFunction }
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { startOfDay, endOfDay, subDays } from "date-fns";
-import { eq, desc, and, gte, lte } from "drizzle-orm";
+import { eq, desc, and, gte, lte, inArray } from "drizzle-orm";
 import { db, pool } from "./db";
 import { storage } from "./storage";
 import { 
@@ -13979,9 +13979,6 @@ export async function registerRoutes(
 
   app.get("/api/campaigns/:id/export", requireAuth, async (req, res) => {
     try {
-      if (req.session.user?.role !== "admin" && req.session.user?.role !== "manager") {
-        return res.status(403).json({ error: "Insufficient permissions" });
-      }
       const campaign = await storage.getCampaign(req.params.id);
       if (!campaign) {
         return res.status(404).json({ error: "Campaign not found" });
@@ -13990,8 +13987,11 @@ export async function registerRoutes(
         .where(eq(campaignContacts.campaignId, req.params.id));
       const dispositions = await db.select().from(campaignDispositions)
         .where(eq(campaignDispositions.campaignId, req.params.id));
-      const history = await db.select().from(campaignContactHistory)
-        .where(eq(campaignContactHistory.campaignId, req.params.id));
+      const contactIds = contacts.map(c => c.id);
+      const history = contactIds.length > 0
+        ? await db.select().from(campaignContactHistory)
+            .where(inArray(campaignContactHistory.campaignContactId, contactIds))
+        : [];
       const exportData = {
         campaign,
         contacts,
