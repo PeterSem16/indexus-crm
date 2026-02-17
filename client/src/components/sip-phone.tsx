@@ -328,6 +328,7 @@ export function SipPhone({
 
     try {
       setCallState("connecting");
+      callContext.resetCallTiming();
       
       const callLogData = await createCallLogMutation.mutateAsync({
         phoneNumber,
@@ -363,6 +364,7 @@ export function SipPhone({
         switch (state) {
           case SessionState.Establishing:
             setCallState("ringing");
+            callContext.setCallTiming({ ringStartTime: Date.now() });
             updateCallLogMutation.mutate({
               id: callLogId,
               data: { status: "ringing" },
@@ -373,6 +375,12 @@ export function SipPhone({
             setCallState("active");
             setIsOnHold(false);
             callStartTimeRef.current = Date.now();
+            const ringEnd = Date.now();
+            const ringStart = callContext.callTiming.ringStartTime;
+            callContext.setCallTiming({
+              callStartTime: ringEnd,
+              ringDurationSeconds: ringStart ? Math.round((ringEnd - ringStart) / 1000) : null,
+            });
             callTimerRef.current = setInterval(() => {
               setCallDuration(Math.floor((Date.now() - callStartTimeRef.current) / 1000));
             }, 1000);
@@ -394,6 +402,11 @@ export function SipPhone({
             }
             const hungUpBy = userHungUpRef.current ? "user" : "customer";
             userHungUpRef.current = false;
+            callContext.setCallTiming({
+              callEndTime: Date.now(),
+              talkDurationSeconds: duration > 0 ? duration : null,
+              hungUpBy,
+            });
             updateCallLogMutation.mutate({
               id: callLogId,
               data: { 

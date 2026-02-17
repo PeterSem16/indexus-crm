@@ -13,6 +13,15 @@ interface CallInfo {
   clientStatus?: string;
 }
 
+export interface CallTimingMeta {
+  ringStartTime: number | null;
+  callStartTime: number | null;
+  callEndTime: number | null;
+  ringDurationSeconds: number | null;
+  talkDurationSeconds: number | null;
+  hungUpBy: "user" | "customer" | null;
+}
+
 interface CallContextType {
   callState: CallState;
   callInfo: CallInfo | null;
@@ -21,6 +30,7 @@ interface CallContextType {
   isOnHold: boolean;
   volume: number;
   micVolume: number;
+  callTiming: CallTimingMeta;
   setCallState: (state: CallState) => void;
   setCallInfo: (info: CallInfo | null) => void;
   setCallDuration: (duration: number) => void;
@@ -28,6 +38,8 @@ interface CallContextType {
   setIsOnHold: (hold: boolean) => void;
   setVolume: (vol: number) => void;
   setMicVolume: (vol: number) => void;
+  setCallTiming: (timing: Partial<CallTimingMeta>) => void;
+  resetCallTiming: () => void;
   endCallFn: React.MutableRefObject<(() => void) | null>;
   toggleMuteFn: React.MutableRefObject<(() => void) | null>;
   toggleHoldFn: React.MutableRefObject<(() => void) | null>;
@@ -36,6 +48,15 @@ interface CallContextType {
   onMicVolumeChangeFn: React.MutableRefObject<((vol: number) => void) | null>;
   sendDtmfFn: React.MutableRefObject<((digit: string) => void) | null>;
 }
+
+const defaultTiming: CallTimingMeta = {
+  ringStartTime: null,
+  callStartTime: null,
+  callEndTime: null,
+  ringDurationSeconds: null,
+  talkDurationSeconds: null,
+  hungUpBy: null,
+};
 
 const CallContext = createContext<CallContextType | undefined>(undefined);
 
@@ -47,6 +68,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const [isOnHold, setIsOnHold] = useState(false);
   const [volume, setVolume] = useState(80);
   const [micVolume, setMicVolume] = useState(100);
+  const [callTiming, setCallTimingState] = useState<CallTimingMeta>({ ...defaultTiming });
   
   const endCallFn = useRef<(() => void) | null>(null);
   const toggleMuteFn = useRef<(() => void) | null>(null);
@@ -55,6 +77,14 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const onVolumeChangeFn = useRef<((vol: number) => void) | null>(null);
   const onMicVolumeChangeFn = useRef<((vol: number) => void) | null>(null);
   const sendDtmfFn = useRef<((digit: string) => void) | null>(null);
+
+  const setCallTiming = useCallback((partial: Partial<CallTimingMeta>) => {
+    setCallTimingState(prev => ({ ...prev, ...partial }));
+  }, []);
+
+  const resetCallTiming = useCallback(() => {
+    setCallTimingState({ ...defaultTiming });
+  }, []);
 
   return (
     <CallContext.Provider value={{
@@ -65,6 +95,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       isOnHold,
       volume,
       micVolume,
+      callTiming,
       setCallState,
       setCallInfo,
       setCallDuration,
@@ -72,6 +103,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
       setIsOnHold,
       setVolume,
       setMicVolume,
+      setCallTiming,
+      resetCallTiming,
       endCallFn,
       toggleMuteFn,
       toggleHoldFn,

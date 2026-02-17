@@ -235,7 +235,10 @@ function TopBar({
   isSessionActive,
   callState,
   callDuration,
+  ringDuration,
+  hungUpBy,
   onEndCall,
+  onOpenDisposition,
   t,
 }: {
   status: AgentStatus;
@@ -252,7 +255,10 @@ function TopBar({
   isSessionActive: boolean;
   callState: string;
   callDuration: number;
+  ringDuration: number;
+  hungUpBy: "user" | "customer" | null;
   onEndCall: () => void;
+  onOpenDisposition: () => void;
   t: any;
 }) {
   const STATUS_CONFIG = getStatusConfig(t);
@@ -329,16 +335,43 @@ function TopBar({
           </div>
         )}
 
-        {(callState === "connecting" || callState === "ringing" || callState === "active" || callState === "on_hold") && (
+        {(callState === "connecting" || callState === "ringing") && (
           <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="gap-1.5 text-green-700 dark:text-green-300 animate-pulse" data-testid="badge-call-active">
+            <Badge variant="secondary" className="gap-1.5 text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-900/40 animate-pulse" data-testid="badge-call-ringing">
               <PhoneCall className="h-3 w-3" />
-              {callState === "connecting" ? "Pripájanie..." : callState === "ringing" ? "Zvoní..." : callState === "on_hold" ? "Podržané" : "Aktívny hovor"}
+              {callState === "connecting" ? "Pripájanie..." : "Zvoní..."}
+              <span className="font-mono text-xs">{Math.floor(ringDuration / 60)}:{(ringDuration % 60).toString().padStart(2, "0")}</span>
+            </Badge>
+            <Button variant="destructive" size="sm" onClick={onEndCall} data-testid="button-end-call-topbar">
+              <PhoneOff className="h-3.5 w-3.5 mr-1" />
+              Ukončiť hovor
+            </Button>
+          </div>
+        )}
+
+        {(callState === "active" || callState === "on_hold") && (
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="gap-1.5 text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/40" data-testid="badge-call-active">
+              <PhoneCall className="h-3 w-3" />
+              {callState === "on_hold" ? "Podržané" : "Aktívny hovor"}
               <span className="font-mono text-xs">{Math.floor(callDuration / 60)}:{(callDuration % 60).toString().padStart(2, "0")}</span>
             </Badge>
-            <Button variant="destructive" size="sm" onClick={onEndCall} disabled={callState === "ended"} data-testid="button-end-call-topbar">
+            <Button variant="destructive" size="sm" onClick={onEndCall} data-testid="button-end-call-topbar">
               <PhoneOff className="h-3.5 w-3.5 mr-1" />
-              Ukončiť
+              Ukončiť hovor
+            </Button>
+          </div>
+        )}
+
+        {callState === "ended" && hungUpBy && (
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className={`gap-1.5 ${hungUpBy === "customer" ? "text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/40 animate-pulse" : "text-orange-700 dark:text-orange-300 bg-orange-100 dark:bg-orange-900/40"}`} data-testid="badge-call-ended">
+              <PhoneOff className="h-3 w-3" />
+              {hungUpBy === "customer" ? "Zákazník položil" : "Hovor ukončený"}
+            </Badge>
+            <Button size="sm" onClick={onOpenDisposition} className="bg-primary" data-testid="button-open-disposition-topbar">
+              <FileText className="h-3.5 w-3.5 mr-1" />
+              Zadať dispozíciu
             </Button>
           </div>
         )}
@@ -1971,6 +2004,8 @@ export default function AgentWorkspacePage() {
   const [callEndTimestamp, setCallEndTimestamp] = useState<number | null>(null);
   const prevCallStateRef = useRef(callContext.callState);
   const callWasActiveRef = useRef(false);
+  const [ringDuration, setRingDuration] = useState(0);
+  const ringTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [modalFilter, setModalFilter] = useState<"all" | "my_callbacks" | "team_callbacks" | "pending" | "due">("all");
   const [modalSort, setModalSort] = useState<"callback_asc" | "name_asc" | "attempts_desc">("callback_asc");
   const [modalSearch, setModalSearch] = useState("");
@@ -2015,20 +2050,47 @@ export default function AgentWorkspacePage() {
     return () => {
       setSidebarOpen(prevSidebarOpenRef.current);
       document.documentElement.removeAttribute('data-agent-fullscreen');
+      if (ringTimerRef.current) {
+        clearInterval(ringTimerRef.current);
+        ringTimerRef.current = null;
+      }
     };
   }, []);
 
   useEffect(() => {
     const curr = callContext.callState;
-    if (curr === "active" || curr === "on_hold" || curr === "connecting" || curr === "ringing") {
+    if (curr === "connecting" || curr === "ringing") {
       callWasActiveRef.current = true;
+      if (!ringTimerRef.current) {
+        const startTime = Date.now();
+        setRingDuration(0);
+        ringTimerRef.current = setInterval(() => {
+          setRingDuration(Math.floor((Date.now() - startTime) / 1000));
+        }, 1000);
+      }
+    }
+    if (curr === "active" || curr === "on_hold") {
+      callWasActiveRef.current = true;
+      if (ringTimerRef.current) {
+        clearInterval(ringTimerRef.current);
+        ringTimerRef.current = null;
+      }
     }
     if (callWasActiveRef.current && (curr === "ended" || curr === "idle")) {
-      callWasActiveRef.current = false;
-      if (currentContact && currentCampaignContactId) {
-        setCallEndTimestamp(Date.now());
-        setMandatoryDisposition(true);
-        setDispositionModalOpen(true);
+      if (ringTimerRef.current) {
+        clearInterval(ringTimerRef.current);
+        ringTimerRef.current = null;
+      }
+      if (curr === "ended") {
+        callWasActiveRef.current = false;
+        if (currentContact && currentCampaignContactId) {
+          setCallEndTimestamp(Date.now());
+          setMandatoryDisposition(true);
+        }
+      }
+      if (curr === "idle") {
+        callWasActiveRef.current = false;
+        setRingDuration(0);
       }
     }
     prevCallStateRef.current = curr;
@@ -2202,7 +2264,7 @@ export default function AgentWorkspacePage() {
   }, [selectedCampaignId]);
 
   const dispositionMutation = useMutation({
-    mutationFn: async (data: { contactId: string; campaignId: string; disposition: string; notes: string; callbackDateTime?: string; parentCode?: string; callbackAssignedTo?: string | null }) => {
+    mutationFn: async (data: { contactId: string; campaignId: string; disposition: string; notes: string; callbackDateTime?: string; parentCode?: string; callbackAssignedTo?: string | null; callMeta?: Record<string, any> }) => {
       const disp = campaignDispositions.find(d => d.code === data.disposition) 
         || campaignDispositions.find(d => d.code === data.parentCode);
       
@@ -2222,6 +2284,7 @@ export default function AgentWorkspacePage() {
         dispositionCode: data.disposition,
         incrementAttempt: true,
         assignedTo: user?.id || null,
+        callMeta: data.callMeta || undefined,
       };
       
       if (data.callbackDateTime && disp?.actionType === "callback") {
@@ -2258,6 +2321,16 @@ export default function AgentWorkspacePage() {
 
     const assignLabel = callbackAssignedTo ? "osobný" : "pre všetkých";
     const dispositionElapsed = callEndTimestamp ? Math.round((Date.now() - callEndTimestamp) / 1000) : undefined;
+    const timing = callContext.callTiming;
+    const callMeta = {
+      ringDurationSeconds: timing.ringDurationSeconds,
+      talkDurationSeconds: timing.talkDurationSeconds,
+      dispositionDurationSeconds: dispositionElapsed || null,
+      hungUpBy: timing.hungUpBy,
+      ringStartTime: timing.ringStartTime ? new Date(timing.ringStartTime).toISOString() : null,
+      callStartTime: timing.callStartTime ? new Date(timing.callStartTime).toISOString() : null,
+      callEndTime: timing.callEndTime ? new Date(timing.callEndTime).toISOString() : null,
+    };
 
     setTimeline((prev) => [
       ...prev,
@@ -2266,7 +2339,7 @@ export default function AgentWorkspacePage() {
         type: "system",
         timestamp: new Date(),
         content: `Výsledok: ${disp?.name || value}`,
-        details: `Kontakt ukončený - ${disp?.name || value}${callbackDateTime ? ` (callback ${assignLabel}: ${callbackDateTime})` : ""}${dispositionElapsed !== undefined ? ` (čas dispozície: ${dispositionElapsed}s)` : ""}`,
+        details: `Kontakt ukončený - ${disp?.name || value}${callbackDateTime ? ` (callback ${assignLabel}: ${callbackDateTime})` : ""}${timing.ringDurationSeconds ? ` | Ring: ${timing.ringDurationSeconds}s` : ""}${timing.talkDurationSeconds ? ` | Hovor: ${timing.talkDurationSeconds}s` : ""}${dispositionElapsed !== undefined ? ` | Dispozícia: ${dispositionElapsed}s` : ""}${timing.hungUpBy ? ` | Ukončil: ${timing.hungUpBy}` : ""}`,
       },
     ]);
 
@@ -2279,6 +2352,7 @@ export default function AgentWorkspacePage() {
         callbackDateTime,
         parentCode,
         callbackAssignedTo,
+        callMeta,
       });
     }
 
@@ -2287,9 +2361,13 @@ export default function AgentWorkspacePage() {
       description: `Výsledok: ${disp?.name || value}`,
     });
 
+    setDispositionModalOpen(false);
+    setModalSelectedParent(null);
     const wasMandatory = mandatoryDisposition;
     setMandatoryDisposition(false);
     setCallEndTimestamp(null);
+    setRingDuration(0);
+    callContext.resetCallTiming();
     setAgentStatus("wrap_up");
 
     if (activeTaskId) {
@@ -2701,7 +2779,10 @@ export default function AgentWorkspacePage() {
         isSessionActive={agentSession.isSessionActive}
         callState={callContext.callState}
         callDuration={callContext.callDuration}
+        ringDuration={ringDuration}
+        hungUpBy={callContext.callTiming.hungUpBy}
         onEndCall={() => callContext.endCallFn.current?.()}
+        onOpenDisposition={() => setDispositionModalOpen(true)}
         t={t}
       />
 
@@ -3068,7 +3149,7 @@ export default function AgentWorkspacePage() {
                           const IconComp = DISPOSITION_ICON_MAP[child.icon || ""] || CircleDot;
                           const colorClass = DISPOSITION_COLOR_MAP[child.color || "gray"] || DISPOSITION_COLOR_MAP.gray;
                           return (
-                            <Button key={child.id} variant="outline" className={`gap-2 justify-start py-3 ${colorClass}`} onClick={() => { handleDisposition(child.code, parent?.code, parent?.actionType === "callback" && modalCallbackDate && modalCallbackTime ? `${modalCallbackDate}T${modalCallbackTime}` : undefined, parent?.actionType === "callback" ? cbAssignTo : undefined); setDispositionModalOpen(false); setModalSelectedParent(null); }} data-testid={`modal-disposition-${child.code}`}>
+                            <Button key={child.id} variant="outline" className={`gap-2 justify-start py-3 ${colorClass}`} onClick={() => { handleDisposition(child.code, parent?.code, parent?.actionType === "callback" && modalCallbackDate && modalCallbackTime ? `${modalCallbackDate}T${modalCallbackTime}` : undefined, parent?.actionType === "callback" ? cbAssignTo : undefined); }} data-testid={`modal-disposition-${child.code}`}>
                               <IconComp className="h-4 w-4" />
                               <span className="text-sm font-medium">{child.name}</span>
                             </Button>
@@ -3077,7 +3158,7 @@ export default function AgentWorkspacePage() {
                       </div>
                     )}
                     {parent?.actionType === "callback" && (
-                      <Button className="w-full" disabled={!modalCallbackDate} onClick={() => { handleDisposition(parent!.code, undefined, modalCallbackDate && modalCallbackTime ? `${modalCallbackDate}T${modalCallbackTime}` : undefined, cbAssignTo); setDispositionModalOpen(false); setModalSelectedParent(null); }} data-testid="btn-modal-disposition-confirm-callback">
+                      <Button className="w-full" disabled={!modalCallbackDate} onClick={() => { handleDisposition(parent!.code, undefined, modalCallbackDate && modalCallbackTime ? `${modalCallbackDate}T${modalCallbackTime}` : undefined, cbAssignTo); }} data-testid="btn-modal-disposition-confirm-callback">
                         <CalendarPlus className="h-4 w-4 mr-1" />
                         Potvrdiť preplánovanie
                       </Button>
@@ -3103,7 +3184,6 @@ export default function AgentWorkspacePage() {
                           }
                         } else {
                           handleDisposition(disp.code);
-                          setDispositionModalOpen(false);
                         }
                       }} data-testid={`modal-disposition-${disp.code}`}>
                         <IconComp className="h-5 w-5" />

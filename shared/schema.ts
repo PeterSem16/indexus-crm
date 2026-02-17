@@ -2754,6 +2754,7 @@ export const campaignContactHistory = pgTable("campaign_contact_history", {
   previousStatus: text("previous_status"),
   newStatus: text("new_status"),
   notes: text("notes"),
+  metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 

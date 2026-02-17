@@ -14402,7 +14402,7 @@ export async function registerRoutes(
       
       const previousStatus = existingContact.status;
       
-      const { incrementAttempt, lastContactedAt, result, ...cleanBody } = req.body;
+      const { incrementAttempt, lastContactedAt, result, callMeta, ...cleanBody } = req.body;
       
       const updatePayload: Record<string, any> = { ...cleanBody };
       
@@ -14437,9 +14437,9 @@ export async function registerRoutes(
           previousStatus,
           newStatus: updatePayload.status,
           notes: updatePayload.notes || updatePayload.dispositionCode || null,
+          metadata: callMeta || undefined,
         });
         
-        // Log to customer activity
         if (customer) {
           await logActivity(
             req.session.user!.id,
@@ -14453,7 +14453,8 @@ export async function registerRoutes(
               previousStatus,
               newStatus: updatePayload.status,
               dispositionCode: updatePayload.dispositionCode || null,
-              notes: updatePayload.notes || null
+              notes: updatePayload.notes || null,
+              ...(callMeta || {}),
             },
             req.ip
           );
