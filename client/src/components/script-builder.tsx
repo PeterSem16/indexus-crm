@@ -304,7 +304,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
     const newStep: ScriptStep = {
       ...step,
       id: generateId(),
-      title: `${step.title} (kópia)`,
+      title: `${step.title} (${sb.copy})`,
       elements: step.elements.map(e => ({ ...e, id: generateId() })),
     };
     const index = currentScript.steps.findIndex(s => s.id === stepId);

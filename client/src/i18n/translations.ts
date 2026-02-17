@@ -1340,6 +1340,7 @@ export interface Translations {
         cancel: string;
         steps: string;
         addStep: string;
+        copy: string;
       };
       scriptGuideTitle: string;
       scriptGuideSteps: string;
@@ -4602,6 +4603,7 @@ export const translations: Record<Locale, Translations> = {
           cancel: 'Cancel',
           steps: 'Steps',
           addStep: 'Step',
+          copy: 'copy',
         },
         scriptGuideTitle: 'Script building guide',
         scriptGuideSteps: 'Steps: Divide the script into logical steps (e.g. Greeting, Verification, Offer, Closing)',
@@ -7849,6 +7851,7 @@ export const translations: Record<Locale, Translations> = {
           cancel: 'Zrušiť',
           steps: 'Kroky',
           addStep: 'Krok',
+          copy: 'kópia',
         },
         scriptGuideTitle: 'Príručka tvorby skriptov',
         scriptGuideSteps: 'Kroky: Rozdeľte skript na logické kroky (napr. Pozdrav, Overenie, Ponuka, Záver)',
@@ -11027,6 +11030,7 @@ export const translations: Record<Locale, Translations> = {
           cancel: 'Zrušit',
           steps: 'Kroky',
           addStep: 'Krok',
+          copy: 'kopie',
         },
         scriptGuideTitle: 'Příručka tvorby skriptů',
         scriptGuideSteps: 'Kroky: Rozdělte skript na logické kroky (např. Pozdrav, Ověření, Nabídka, Závěr)',
@@ -14168,6 +14172,7 @@ export const translations: Record<Locale, Translations> = {
           cancel: 'Mégse',
           steps: 'Lépések',
           addStep: 'Lépés',
+          copy: 'másolat',
         },
         scriptGuideTitle: 'Szkript készítési útmutató',
         scriptGuideSteps: 'Lépések: Ossza fel a szkriptet logikai lépésekre (pl. Üdvözlés, Ellenőrzés, Ajánlat, Zárás)',
@@ -17308,6 +17313,7 @@ export const translations: Record<Locale, Translations> = {
           cancel: 'Anulare',
           steps: 'Pași',
           addStep: 'Pas',
+          copy: 'copie',
         },
         scriptGuideTitle: 'Ghid de creare scripturi',
         scriptGuideSteps: 'Pași: Împărțiți scriptul în pași logici (de ex. Salut, Verificare, Ofertă, Încheiere)',
@@ -20449,6 +20455,7 @@ export const translations: Record<Locale, Translations> = {
           cancel: 'Annulla',
           steps: 'Passi',
           addStep: 'Passo',
+          copy: 'copia',
         },
         scriptGuideTitle: 'Guida alla creazione degli script',
         scriptGuideSteps: 'Passi: Dividi lo script in passaggi logici (es. Saluto, Verifica, Offerta, Chiusura)',
@@ -23590,6 +23597,7 @@ export const translations: Record<Locale, Translations> = {
           cancel: 'Abbrechen',
           steps: 'Schritte',
           addStep: 'Schritt',
+          copy: 'Kopie',
         },
         scriptGuideTitle: 'Anleitung zur Skripterstellung',
         scriptGuideSteps: 'Schritte: Teilen Sie das Skript in logische Schritte auf (z.B. Begrüßung, Verifizierung, Angebot, Abschluss)',
