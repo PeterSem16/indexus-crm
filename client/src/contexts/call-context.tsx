@@ -41,6 +41,7 @@ interface CallContextType {
   setCallTiming: (timing: Partial<CallTimingMeta>) => void;
   resetCallTiming: () => void;
   endCallFn: React.MutableRefObject<(() => void) | null>;
+  forceResetCallFn: React.MutableRefObject<(() => void) | null>;
   toggleMuteFn: React.MutableRefObject<(() => void) | null>;
   toggleHoldFn: React.MutableRefObject<(() => void) | null>;
   openDialpadFn: React.MutableRefObject<(() => void) | null>;
@@ -71,6 +72,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const [callTiming, setCallTimingState] = useState<CallTimingMeta>({ ...defaultTiming });
   
   const endCallFn = useRef<(() => void) | null>(null);
+  const forceResetCallFn = useRef<(() => void) | null>(null);
   const toggleMuteFn = useRef<(() => void) | null>(null);
   const toggleHoldFn = useRef<(() => void) | null>(null);
   const openDialpadFn = useRef<(() => void) | null>(null);
@@ -106,6 +108,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       setCallTiming,
       resetCallTiming,
       endCallFn,
+      forceResetCallFn,
       toggleMuteFn,
       toggleHoldFn,
       openDialpadFn,

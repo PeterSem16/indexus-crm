@@ -126,6 +126,7 @@ export function SipPhone({
   const micGainNodeRef = useRef<GainNode | null>(null);
   const userHungUpRef = useRef<boolean>(false);
   const pendingCallProcessedRef = useRef<boolean>(false);
+  const forceIdleRef = useRef<boolean>(false);
 
   const { data: globalSipSettings, isLoading: sipSettingsLoading } = useQuery<SipSettings | null>({
     queryKey: ["/api/sip-settings"],
@@ -401,6 +402,10 @@ export function SipPhone({
             setupAudio(inviter);
             break;
           case SessionState.Terminated:
+            if (forceIdleRef.current) {
+              forceIdleRef.current = false;
+              break;
+            }
             const duration = callStartTimeRef.current 
               ? Math.floor((Date.now() - callStartTimeRef.current) / 1000) 
               : 0;
@@ -584,7 +589,6 @@ export function SipPhone({
       }
     }
     
-    // Clean up audio processing resources
     if (audioContextRef.current) {
       try {
         audioContextRef.current.close();
@@ -599,6 +603,62 @@ export function SipPhone({
       clearInterval(callTimerRef.current);
     }
   }, [currentCallLogId, updateCallLogMutation]);
+
+  const forceResetCall = useCallback(() => {
+    forceIdleRef.current = true;
+
+    if (currentCallLogId) {
+      const duration = callStartTimeRef.current 
+        ? Math.floor((Date.now() - callStartTimeRef.current) / 1000) 
+        : 0;
+      updateCallLogMutation.mutate({
+        id: currentCallLogId,
+        data: { 
+          status: duration > 0 ? "completed" : "cancelled",
+          endedAt: new Date().toISOString(),
+          durationSeconds: duration,
+          hungUpBy: "user"
+        },
+        customerId: localCustomerId
+      });
+    }
+
+    if (sessionRef.current) {
+      try {
+        if (sessionRef.current.state === SessionState.Established) {
+          sessionRef.current.bye();
+        } else {
+          (sessionRef.current as Inviter).cancel?.();
+        }
+      } catch (e) {
+        console.error("Error force-ending call:", e);
+      }
+    }
+    if (audioContextRef.current) {
+      try {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+        micGainNodeRef.current = null;
+      } catch (e) {}
+    }
+    if (callTimerRef.current) {
+      clearInterval(callTimerRef.current);
+    }
+    sessionRef.current = null;
+    callStartTimeRef.current = 0;
+    userHungUpRef.current = false;
+    setCallStateLocal("idle");
+    setCallDuration(0);
+    setIsMuted(false);
+    setIsOnHold(false);
+    setCurrentCallLogId(null);
+    callContext.setCallState("idle");
+    callContext.setCallDuration(0);
+    callContext.setCallInfo(null);
+    callContext.resetCallTiming();
+    callContext.setIsMuted(false);
+    callContext.setIsOnHold(false);
+  }, [callContext, currentCallLogId, updateCallLogMutation, localCustomerId]);
 
   const toggleMute = useCallback(() => {
     if (!sessionRef.current) return;
@@ -644,9 +704,10 @@ export function SipPhone({
 
   useEffect(() => {
     callContext.endCallFn.current = endCall;
+    callContext.forceResetCallFn.current = forceResetCall;
     callContext.toggleMuteFn.current = toggleMute;
     callContext.toggleHoldFn.current = toggleHold;
-  }, [endCall, toggleMute, toggleHold, callContext]);
+  }, [endCall, forceResetCall, toggleMute, toggleHold, callContext]);
 
   useEffect(() => {
     callContext.onVolumeChangeFn.current = (vol: number) => {
