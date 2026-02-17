@@ -2512,11 +2512,12 @@ export default function AgentWorkspacePage() {
 
     setDispositionModalOpen(false);
     setModalSelectedParent(null);
-    const wasMandatory = mandatoryDisposition;
     setMandatoryDisposition(false);
     setCallEndTimestamp(null);
     setRingDuration(0);
     callContext.resetCallTiming();
+    callContext.setCallState("idle");
+    callContext.setCallDuration(0);
     setAgentStatus("wrap_up");
 
     if (activeTaskId) {

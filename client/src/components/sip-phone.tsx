@@ -419,10 +419,6 @@ export function SipPhone({
             });
             onCallEnd?.(duration, duration > 0 ? "completed" : "failed", callLogId);
             setCurrentCallLogId(null);
-            setTimeout(() => {
-              setCallState("idle");
-              setCallDuration(0);
-            }, 2000);
             break;
         }
       });
@@ -591,8 +587,6 @@ export function SipPhone({
       }
     }
     
-    setCallState("idle");
-    setCallDuration(0);
     if (callTimerRef.current) {
       clearInterval(callTimerRef.current);
     }
