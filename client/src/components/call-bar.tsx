@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { useCall } from "@/contexts/call-context";
 import { useI18n } from "@/i18n";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,11 @@ export function CallBar() {
   } = useCall();
   
   const [dialpadOpen, setDialpadOpen] = useState(false);
+  const [location] = useLocation();
+
+  if (location === "/agent-workspace") {
+    return null;
+  }
 
   if (callState === "idle" || callState === "ended") {
     return null;
