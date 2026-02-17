@@ -946,6 +946,7 @@ function CommunicationCanvas({
   onOpenScriptModal,
   onUpdateContact,
   isUpdatingContact,
+  externalPhoneSubTab,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
@@ -961,12 +962,19 @@ function CommunicationCanvas({
   onOpenScriptModal: () => void;
   onUpdateContact?: (data: CustomerFormData) => void;
   isUpdatingContact?: boolean;
+  externalPhoneSubTab?: "card" | "details" | "history" | null;
 }) {
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
   const [smsMessage, setSmsMessage] = useState("");
   const [emailAttachments, setEmailAttachments] = useState<File[]>([]);
-  const [phoneSubTab, setPhoneSubTab] = useState<"card" | "details" | "history">("card");
+  const [phoneSubTab, setPhoneSubTab] = useState<"card" | "details" | "history">(externalPhoneSubTab || "card");
+  
+  useEffect(() => {
+    if (externalPhoneSubTab) {
+      setPhoneSubTab(externalPhoneSubTab);
+    }
+  }, [externalPhoneSubTab]);
 
   useEffect(() => {
     setPhoneSubTab("card");
@@ -1639,6 +1647,8 @@ function CustomerInfoPanel({
   onVolumeChange,
   onMicVolumeChange,
   callerNumber,
+  onEditCustomer,
+  onViewCustomer,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
@@ -1668,6 +1678,8 @@ function CustomerInfoPanel({
   onVolumeChange: (vol: number) => void;
   onMicVolumeChange: (vol: number) => void;
   callerNumber: string;
+  onEditCustomer: () => void;
+  onViewCustomer: () => void;
 }) {
   const [newNote, setNewNote] = useState("");
   const [showDialpad, setShowDialpad] = useState(false);
@@ -1706,10 +1718,32 @@ function CustomerInfoPanel({
               {contact.firstName?.[0]}{contact.lastName?.[0]}
             </AvatarFallback>
           </Avatar>
-          <div className="min-w-0">
-            <h2 className="font-bold text-sm truncate" data-testid="text-contact-name">
-              {contact.firstName} {contact.lastName}
-            </h2>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1">
+              <h2 className="font-bold text-sm truncate flex-1" data-testid="text-contact-name">
+                {contact.firstName} {contact.lastName}
+              </h2>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7 shrink-0"
+                onClick={onEditCustomer}
+                title="Upraviť zákazníka"
+                data-testid="button-edit-customer"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7 shrink-0"
+                onClick={onViewCustomer}
+                title="Detail zákazníka"
+                data-testid="button-view-customer"
+              >
+                <Eye className="h-3.5 w-3.5" />
+              </Button>
+            </div>
             <div className="flex items-center gap-1.5 mt-1">
               <Badge variant="secondary" className="text-[10px]">
                 {contact.status || "Nový"}
@@ -2125,6 +2159,7 @@ export default function AgentWorkspacePage() {
   const [currentCampaignContactId, setCurrentCampaignContactId] = useState<string | null>(null);
   const [sessionLoginOpen, setSessionLoginOpen] = useState(true);
   const [activeChannel, setActiveChannel] = useState("phone");
+  const [phoneSubTabOverride, setPhoneSubTabOverride] = useState<"card" | "details" | "history" | null>(null);
   const [rightTab, setRightTab] = useState("actions");
   const [callNotes, setCallNotes] = useState("");
   const [channelFilter, setChannelFilter] = useState("all");
@@ -3013,6 +3048,7 @@ export default function AgentWorkspacePage() {
           onOpenScriptModal={() => setScriptModalOpen(true)}
           onUpdateContact={(data) => updateContactMutation.mutate(data)}
           isUpdatingContact={updateContactMutation.isPending}
+          externalPhoneSubTab={phoneSubTabOverride}
         />
 
         <CustomerInfoPanel
@@ -3044,6 +3080,8 @@ export default function AgentWorkspacePage() {
           onVolumeChange={(vol) => callContext.onVolumeChangeFn.current?.(vol)}
           onMicVolumeChange={(vol) => callContext.onMicVolumeChangeFn.current?.(vol)}
           callerNumber={callContext.callInfo?.phoneNumber || ""}
+          onEditCustomer={() => { setActiveChannel("phone"); setPhoneSubTabOverride("card"); setTimeout(() => setPhoneSubTabOverride(null), 100); }}
+          onViewCustomer={() => { setActiveChannel("phone"); setPhoneSubTabOverride("details"); setTimeout(() => setPhoneSubTabOverride(null), 100); }}
         />
       </div>
 
