@@ -17,8 +17,23 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { PageHeader } from "@/components/page-header";
 import { useI18n } from "@/i18n";
 import { format } from "date-fns";
-import { ArrowLeft, Save, FileText, Users, Package, Beaker, Receipt, Loader2, Download, ExternalLink, Shield, Clock, Mail, CheckCircle, Send, Eye, AlertCircle, X, Edit, History } from "lucide-react";
+import { sk, cs, hu, ro, it, de, enUS, type Locale } from "date-fns/locale";
+import { ArrowLeft, Save, FileText, Users, Package, Beaker, Receipt, Loader2, Download, ExternalLink, Shield, Clock, Mail, CheckCircle, Send, Eye, AlertCircle, X, Edit, History, Phone } from "lucide-react";
 import type { ContractInstance, Customer, Hospital, Collection, Product, CustomerProduct } from "@shared/schema";
+
+const COUNTRY_LOCALE_MAP: Record<string, Locale> = {
+  SK: sk, CZ: cs, HU: hu, RO: ro, IT: it, DE: de, US: enUS
+};
+
+const COUNTRY_DATE_FORMAT: Record<string, string> = {
+  SK: "dd.MM.yyyy HH:mm", CZ: "dd.MM.yyyy HH:mm", HU: "yyyy.MM.dd HH:mm",
+  RO: "dd.MM.yyyy HH:mm", IT: "dd/MM/yyyy HH:mm", DE: "dd.MM.yyyy HH:mm", US: "MM/dd/yyyy hh:mm a"
+};
+
+const COUNTRY_DATE_ONLY_FORMAT: Record<string, string> = {
+  SK: "dd.MM.yyyy", CZ: "dd.MM.yyyy", HU: "yyyy.MM.dd",
+  RO: "dd.MM.yyyy", IT: "dd/MM/yyyy", DE: "dd.MM.yyyy", US: "MM/dd/yyyy"
+};
 
 const SALES_CHANNEL_OPTIONS = ["CCP", "CCP+D", "CCAI", "CCAI+D", "CCAE", "CCAE+D", "I"];
 
@@ -34,19 +49,21 @@ const formatDateForInput = (date: string | Date | null | undefined) => {
   return d.toISOString().slice(0, 10);
 };
 
-const formatDate = (date: string | Date | null | undefined) => {
+const formatDate = (date: string | Date | null | undefined, countryCode?: string) => {
   if (!date) return "-";
   try {
-    return format(new Date(date), "dd.MM.yyyy");
+    const cc = countryCode || "SK";
+    return format(new Date(date), COUNTRY_DATE_ONLY_FORMAT[cc] || "dd.MM.yyyy", { locale: COUNTRY_LOCALE_MAP[cc] || sk });
   } catch {
     return "-";
   }
 };
 
-const formatDateTime = (date: string | Date | null | undefined) => {
+const formatDateTime = (date: string | Date | null | undefined, countryCode?: string) => {
   if (!date) return "-";
   try {
-    return format(new Date(date), "dd.MM.yyyy HH:mm");
+    const cc = countryCode || "SK";
+    return format(new Date(date), COUNTRY_DATE_FORMAT[cc] || "dd.MM.yyyy HH:mm", { locale: COUNTRY_LOCALE_MAP[cc] || sk });
   } catch {
     return "-";
   }
@@ -142,6 +159,7 @@ export default function ContractDetailPage() {
 
   const customerId = contract?.customerId;
   const customer = customers.find((c: Customer) => c.id === customerId);
+  const contractCountryCode = customer?.country || "SK";
 
   const { data: potentialCase } = useQuery<any>({
     queryKey: ["/api/customers", customerId, "potential-case"],
@@ -183,6 +201,7 @@ export default function ContractDetailPage() {
         terminatedDate: formatDateTimeForInput(contract.terminatedDate),
         cancelledAt: formatDateTimeForInput(contract.cancelledAt),
         terminationReason: contract.terminationReason || "",
+        cancellationReason: contract.cancellationReason || "",
         ambulantDoctor: contract.ambulantDoctor || "",
         expectedDeliveryDate: formatDateForInput(contract.expectedDeliveryDate),
         hospitalId: contract.hospitalId ? String(contract.hospitalId) : "",
@@ -236,6 +255,8 @@ export default function ContractDetailPage() {
       } else if (payload.hospitalId) {
         payload.hospitalId = parseInt(payload.hospitalId, 10);
       }
+      delete payload.showTermination;
+      delete payload.showCancellation;
       return apiRequest("PATCH", `/api/contracts/${contractId}`, payload);
     },
     onSuccess: () => {
@@ -381,119 +402,172 @@ export default function ContractDetailPage() {
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle>{t.contractsModule.sectionLifecycleDates}</CardTitle>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-primary" />
+                {t.contractsModule.sectionLifecycleDates}
+              </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="contactDate">{t.contractsModule.fieldContactDate}</Label>
-                  <Input
-                    id="contactDate"
-                    type="datetime-local"
-                    value={formState.contactDate || ""}
-                    onChange={(e) => updateField("contactDate", e.target.value)}
-                    data-testid="input-contactDate"
-                  />
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {[
+                  { id: "contactDate", label: t.contractsModule.fieldContactDate, icon: Phone },
+                  { id: "filledDate", label: t.contractsModule.fieldFilledDate, icon: Edit },
+                  { id: "createdContractDate", label: t.contractsModule.fieldCreatedContractDate, icon: FileText },
+                  { id: "sentContractDate", label: t.contractsModule.fieldSentDate, icon: Send },
+                  { id: "receivedByClientDate", label: t.contractsModule.fieldReceivedDate, icon: Download },
+                  { id: "returnedDate", label: t.contractsModule.fieldReturnedDate, icon: ArrowLeft },
+                  { id: "verifiedDate", label: t.contractsModule.fieldVerifiedDate, icon: Shield },
+                  { id: "executedDate", label: t.contractsModule.fieldExecutedDate, icon: CheckCircle },
+                ].map(({ id, label, icon: Icon }) => (
+                  <div key={id} className="space-y-1.5">
+                    <Label htmlFor={id} className="text-xs text-muted-foreground flex items-center gap-1.5">
+                      <Icon className="h-3.5 w-3.5" />
+                      {label}
+                    </Label>
+                    <div className="flex gap-1">
+                      <Input
+                        id={id}
+                        type="datetime-local"
+                        value={formState[id] || ""}
+                        onChange={(e) => updateField(id, e.target.value)}
+                        className="text-sm"
+                        data-testid={`input-${id}`}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        type="button"
+                        onClick={() => updateField(id, new Date().toISOString().slice(0, 16))}
+                        title="Now"
+                        data-testid={`button-now-${id}`}
+                      >
+                        <Clock className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <Separator />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-3">
+                    <Checkbox
+                      id="enableTermination"
+                      checked={!!(formState.terminatedDate || formState.showTermination)}
+                      onCheckedChange={(v) => {
+                        if (!v) {
+                          updateField("terminatedDate", "");
+                          updateField("terminationReason", "");
+                        }
+                        updateField("showTermination", !!v);
+                      }}
+                      data-testid="checkbox-enable-termination"
+                    />
+                    <Label htmlFor="enableTermination" className="font-medium flex items-center gap-2 cursor-pointer">
+                      <X className="h-4 w-4 text-destructive" />
+                      {t.contractsModule.statusTerminated}
+                    </Label>
+                  </div>
+                  {(formState.terminatedDate || formState.showTermination) && (
+                    <div className="pl-8 space-y-3 border-l-2 border-destructive/20 ml-1.5">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="terminatedDate" className="text-xs text-muted-foreground">{t.contractsModule.fieldTerminatedDate}</Label>
+                        <div className="flex gap-1">
+                          <Input
+                            id="terminatedDate"
+                            type="datetime-local"
+                            value={formState.terminatedDate || ""}
+                            onChange={(e) => updateField("terminatedDate", e.target.value)}
+                            className="text-sm"
+                            data-testid="input-terminatedDate"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            type="button"
+                            onClick={() => updateField("terminatedDate", new Date().toISOString().slice(0, 16))}
+                            title="Now"
+                            data-testid="button-now-terminatedDate"
+                          >
+                            <Clock className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="terminationReason" className="text-xs text-muted-foreground">{t.contractsModule.fieldTerminationReason}</Label>
+                        <Textarea
+                          id="terminationReason"
+                          value={formState.terminationReason || ""}
+                          onChange={(e) => updateField("terminationReason", e.target.value)}
+                          className="text-sm"
+                          rows={2}
+                          data-testid="input-terminationReason"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="filledDate">{t.contractsModule.fieldFilledDate}</Label>
-                  <Input
-                    id="filledDate"
-                    type="datetime-local"
-                    value={formState.filledDate || ""}
-                    onChange={(e) => updateField("filledDate", e.target.value)}
-                    data-testid="input-filledDate"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="createdContractDate">{t.contractsModule.fieldCreatedContractDate}</Label>
-                  <Input
-                    id="createdContractDate"
-                    type="datetime-local"
-                    value={formState.createdContractDate || ""}
-                    onChange={(e) => updateField("createdContractDate", e.target.value)}
-                    data-testid="input-createdContractDate"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="sentContractDate">{t.contractsModule.fieldSentDate}</Label>
-                  <Input
-                    id="sentContractDate"
-                    type="datetime-local"
-                    value={formState.sentContractDate || ""}
-                    onChange={(e) => updateField("sentContractDate", e.target.value)}
-                    data-testid="input-sentContractDate"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="receivedByClientDate">{t.contractsModule.fieldReceivedDate}</Label>
-                  <Input
-                    id="receivedByClientDate"
-                    type="datetime-local"
-                    value={formState.receivedByClientDate || ""}
-                    onChange={(e) => updateField("receivedByClientDate", e.target.value)}
-                    data-testid="input-receivedByClientDate"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="returnedDate">{t.contractsModule.fieldReturnedDate}</Label>
-                  <Input
-                    id="returnedDate"
-                    type="datetime-local"
-                    value={formState.returnedDate || ""}
-                    onChange={(e) => updateField("returnedDate", e.target.value)}
-                    data-testid="input-returnedDate"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="verifiedDate">{t.contractsModule.fieldVerifiedDate}</Label>
-                  <Input
-                    id="verifiedDate"
-                    type="datetime-local"
-                    value={formState.verifiedDate || ""}
-                    onChange={(e) => updateField("verifiedDate", e.target.value)}
-                    data-testid="input-verifiedDate"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="executedDate">{t.contractsModule.fieldExecutedDate}</Label>
-                  <Input
-                    id="executedDate"
-                    type="datetime-local"
-                    value={formState.executedDate || ""}
-                    onChange={(e) => updateField("executedDate", e.target.value)}
-                    data-testid="input-executedDate"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="terminatedDate">{t.contractsModule.fieldTerminatedDate}</Label>
-                  <Input
-                    id="terminatedDate"
-                    type="datetime-local"
-                    value={formState.terminatedDate || ""}
-                    onChange={(e) => updateField("terminatedDate", e.target.value)}
-                    data-testid="input-terminatedDate"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="cancelledAt">{t.contractsModule.fieldCancelledAt}</Label>
-                  <Input
-                    id="cancelledAt"
-                    type="datetime-local"
-                    value={formState.cancelledAt || ""}
-                    onChange={(e) => updateField("cancelledAt", e.target.value)}
-                    data-testid="input-cancelledAt"
-                  />
-                </div>
-                <div className="space-y-2 md:col-span-2 lg:col-span-3">
-                  <Label htmlFor="terminationReason">{t.contractsModule.fieldTerminationReason}</Label>
-                  <Textarea
-                    id="terminationReason"
-                    value={formState.terminationReason || ""}
-                    onChange={(e) => updateField("terminationReason", e.target.value)}
-                    data-testid="input-terminationReason"
-                  />
+
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-3">
+                    <Checkbox
+                      id="enableCancellation"
+                      checked={!!(formState.cancelledAt || formState.showCancellation)}
+                      onCheckedChange={(v) => {
+                        if (!v) {
+                          updateField("cancelledAt", "");
+                          updateField("cancellationReason", "");
+                        }
+                        updateField("showCancellation", !!v);
+                      }}
+                      data-testid="checkbox-enable-cancellation"
+                    />
+                    <Label htmlFor="enableCancellation" className="font-medium flex items-center gap-2 cursor-pointer">
+                      <AlertCircle className="h-4 w-4 text-destructive" />
+                      {t.contractsModule.statusCancelled}
+                    </Label>
+                  </div>
+                  {(formState.cancelledAt || formState.showCancellation) && (
+                    <div className="pl-8 space-y-3 border-l-2 border-destructive/20 ml-1.5">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="cancelledAt" className="text-xs text-muted-foreground">{t.contractsModule.fieldCancelledAt}</Label>
+                        <div className="flex gap-1">
+                          <Input
+                            id="cancelledAt"
+                            type="datetime-local"
+                            value={formState.cancelledAt || ""}
+                            onChange={(e) => updateField("cancelledAt", e.target.value)}
+                            className="text-sm"
+                            data-testid="input-cancelledAt"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            type="button"
+                            onClick={() => updateField("cancelledAt", new Date().toISOString().slice(0, 16))}
+                            title="Now"
+                            data-testid="button-now-cancelledAt"
+                          >
+                            <Clock className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="cancellationReason" className="text-xs text-muted-foreground">{t.contractsModule.fieldCancellationReason}</Label>
+                        <Textarea
+                          id="cancellationReason"
+                          value={formState.cancellationReason || ""}
+                          onChange={(e) => updateField("cancellationReason", e.target.value)}
+                          className="text-sm"
+                          rows={2}
+                          data-testid="input-cancellationReason"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -935,7 +1009,7 @@ export default function ContractDetailPage() {
                         {CONTRACT_STATUS_OPTIONS.find((s) => s.value === contract.status)?.label || contract.status}
                       </Badge>
                     </TableCell>
-                    <TableCell>{formatDateTime(contract.createdAt)}</TableCell>
+                    <TableCell>{formatDateTime(contract.createdAt, contractCountryCode)}</TableCell>
                     <TableCell>
                       {contract.pdfPath ? (
                         <Button
@@ -1072,7 +1146,7 @@ export default function ContractDetailPage() {
                       return (
                         <TableRow key={col.id} data-testid={`row-collection-${col.id}`}>
                           <TableCell className="font-medium">{col.cbuNumber || "-"}</TableCell>
-                          <TableCell>{formatDateTime(col.collectionDate)}</TableCell>
+                          <TableCell>{formatDateTime(col.collectionDate, contractCountryCode)}</TableCell>
                           <TableCell>{hospital?.name || "-"}</TableCell>
                           <TableCell>
                             {[col.childFirstName, col.childLastName].filter(Boolean).join(" ") || "-"}
@@ -1111,7 +1185,7 @@ export default function ContractDetailPage() {
                     {invoices.map((inv: any) => (
                       <TableRow key={inv.id} data-testid={`row-invoice-${inv.id}`}>
                         <TableCell className="font-medium">{inv.invoiceNumber}</TableCell>
-                        <TableCell>{formatDate(inv.issueDate || inv.generatedAt)}</TableCell>
+                        <TableCell>{formatDate(inv.issueDate || inv.generatedAt, contractCountryCode)}</TableCell>
                         <TableCell>{inv.totalAmount ? `${inv.totalAmount} ${inv.currency || "EUR"}` : "-"}</TableCell>
                         <TableCell>
                           <Badge
@@ -1122,20 +1196,41 @@ export default function ContractDetailPage() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          {inv.pdfPath ? (
-                            <a
-                              href={inv.pdfPath}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              data-testid={`link-invoice-download-${inv.id}`}
-                            >
-                              <Button variant="ghost" size="icon">
+                          <div className="flex items-center gap-1">
+                            {inv.pdfPath ? (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={async () => {
+                                  try {
+                                    const response = await fetch(`/api/invoices/${inv.id}/pdf`, { credentials: "include" });
+                                    if (!response.ok) throw new Error("Download failed");
+                                    const blob = await response.blob();
+                                    const url = window.URL.createObjectURL(blob);
+                                    const link = document.createElement("a");
+                                    link.href = url;
+                                    link.download = `faktura-${inv.invoiceNumber}.pdf`;
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    document.body.removeChild(link);
+                                    window.URL.revokeObjectURL(url);
+                                  } catch {
+                                    toast({ title: t.contractsModule.saveError, variant: "destructive" });
+                                  }
+                                }}
+                                data-testid={`button-invoice-download-${inv.id}`}
+                              >
                                 <Download className="h-4 w-4" />
                               </Button>
-                            </a>
-                          ) : (
-                            <span className="text-muted-foreground text-sm">-</span>
-                          )}
+                            ) : (
+                              <span className="text-muted-foreground text-sm">-</span>
+                            )}
+                            <Link href={`/invoices`}>
+                              <Button variant="ghost" size="icon" data-testid={`button-invoice-view-${inv.id}`}>
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </Link>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -1228,6 +1323,7 @@ export default function ContractDetailPage() {
                         case "audit_exported": return <ExternalLink className="h-4 w-4" />;
                         case "received": return <Download className="h-4 w-4" />;
                         case "returned": return <ArrowLeft className="h-4 w-4" />;
+                        case "pdf_generated": return <Download className="h-4 w-4" />;
                         default: return <Clock className="h-4 w-4" />;
                       }
                     };
@@ -1249,6 +1345,8 @@ export default function ContractDetailPage() {
                         returned: t.contractsModule.auditEventReturned,
                         verified: t.contractsModule.auditEventVerified,
                         terminated: t.contractsModule.auditEventTerminated,
+                        pdf_generated: t.contractsModule.auditEventPdfGenerated,
+                        executed: t.contractsModule.auditEventExecuted,
                       };
                       return map[action] || action;
                     };
@@ -1264,6 +1362,7 @@ export default function ContractDetailPage() {
                         case "signing_page_viewed": case "viewed": return "text-indigo-500";
                         case "received": return "text-purple-500";
                         case "returned": return "text-orange-500";
+                        case "pdf_generated": return "text-blue-500";
                         default: return "text-muted-foreground";
                       }
                     };
@@ -1283,7 +1382,7 @@ export default function ContractDetailPage() {
                             </Badge>
                           </div>
                           <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
-                            <span>{entry.createdAt ? format(new Date(entry.createdAt), "d.M.yyyy HH:mm:ss") : "-"}</span>
+                            <span>{entry.createdAt ? formatDateTime(entry.createdAt, contractCountryCode) : "-"}</span>
                             {entry.ipAddress && (
                               <span className="flex items-center gap-1">
                                 <Shield className="h-3 w-3" />
@@ -1293,12 +1392,22 @@ export default function ContractDetailPage() {
                           </div>
                           {Object.keys(details).length > 0 && (
                             <div className="text-xs text-muted-foreground mt-1 bg-muted/50 p-2 rounded-md">
-                              {Object.entries(details).map(([key, value]) => (
-                                <div key={key} className="flex gap-1">
-                                  <span className="font-medium">{key}:</span>
-                                  <span>{String(value)}</span>
-                                </div>
-                              ))}
+                              {Object.entries(details).map(([key, value]) => {
+                                const readableKey = key
+                                  .replace(/_/g, ' ')
+                                  .replace(/([A-Z])/g, ' $1')
+                                  .replace(/^./, s => s.toUpperCase())
+                                  .trim();
+                                const readableValue = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value)
+                                  ? formatDateTime(value, contractCountryCode)
+                                  : String(value);
+                                return (
+                                  <div key={key} className="flex gap-1">
+                                    <span className="font-medium">{readableKey}:</span>
+                                    <span>{readableValue}</span>
+                                  </div>
+                                );
+                              })}
                             </div>
                           )}
                         </div>

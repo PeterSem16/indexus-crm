@@ -2773,6 +2773,8 @@ export interface Translations {
     auditEventReturned: string;
     auditEventVerified: string;
     auditEventTerminated: string;
+    auditEventPdfGenerated: string;
+    auditEventExecuted: string;
     sendToCustomerEmail: string;
     noCustomerEmail: string;
     auditActor: string;
@@ -5895,6 +5897,8 @@ export const translations: Record<Locale, Translations> = {
       auditEventReturned: 'Contract Returned',
       auditEventVerified: 'Contract Verified',
       auditEventTerminated: 'Contract Terminated',
+      auditEventPdfGenerated: 'PDF Generated',
+      auditEventExecuted: 'Contract Executed',
       sendToCustomerEmail: 'Send to Customer',
       noCustomerEmail: 'Customer has no email address',
       auditActor: 'Performed By',
@@ -8954,6 +8958,8 @@ export const translations: Record<Locale, Translations> = {
       auditEventReturned: 'Zmluva vrátená',
       auditEventVerified: 'Zmluva overená',
       auditEventTerminated: 'Zmluva ukončená',
+      auditEventPdfGenerated: 'PDF vygenerované',
+      auditEventExecuted: 'Zmluva exekuovaná',
       sendToCustomerEmail: 'Odoslať zákazníkovi',
       noCustomerEmail: 'Zákazník nemá emailovú adresu',
       auditActor: 'Vykonal',
@@ -11945,6 +11951,8 @@ export const translations: Record<Locale, Translations> = {
       auditEventReturned: 'Smlouva vrácena',
       auditEventVerified: 'Smlouva ověřena',
       auditEventTerminated: 'Smlouva ukončena',
+      auditEventPdfGenerated: 'PDF vygenerováno',
+      auditEventExecuted: 'Smlouva provedena',
       sendToCustomerEmail: 'Odeslat zákazníkovi',
       noCustomerEmail: 'Zákazník nemá emailovou adresu',
       auditActor: 'Provedl',
@@ -14936,6 +14944,8 @@ export const translations: Record<Locale, Translations> = {
       auditEventReturned: 'Szerződés visszaküldve',
       auditEventVerified: 'Szerződés ellenőrizve',
       auditEventTerminated: 'Szerződés megszüntetve',
+      auditEventPdfGenerated: 'PDF generálva',
+      auditEventExecuted: 'Szerződés végrehajtva',
       sendToCustomerEmail: 'Küldés ügyfélnek',
       noCustomerEmail: 'Az ügyfélnek nincs email címe',
       auditActor: 'Végrehajtotta',
@@ -17926,6 +17936,8 @@ export const translations: Record<Locale, Translations> = {
       auditEventReturned: 'Contract returnat',
       auditEventVerified: 'Contract verificat',
       auditEventTerminated: 'Contract reziliat',
+      auditEventPdfGenerated: 'PDF generat',
+      auditEventExecuted: 'Contract executat',
       sendToCustomerEmail: 'Trimite clientului',
       noCustomerEmail: 'Clientul nu are adresă de email',
       auditActor: 'Efectuat de',
@@ -20917,6 +20929,8 @@ export const translations: Record<Locale, Translations> = {
       auditEventReturned: 'Contratto restituito',
       auditEventVerified: 'Contratto verificato',
       auditEventTerminated: 'Contratto risolto',
+      auditEventPdfGenerated: 'PDF generato',
+      auditEventExecuted: 'Contratto eseguito',
       sendToCustomerEmail: 'Invia al cliente',
       noCustomerEmail: 'Il cliente non ha un indirizzo email',
       auditActor: 'Eseguito da',
@@ -23908,6 +23922,8 @@ export const translations: Record<Locale, Translations> = {
       auditEventReturned: 'Vertrag zurückgesandt',
       auditEventVerified: 'Vertrag verifiziert',
       auditEventTerminated: 'Vertrag beendet',
+      auditEventPdfGenerated: 'PDF generiert',
+      auditEventExecuted: 'Vertrag ausgeführt',
       sendToCustomerEmail: 'An Kunden senden',
       noCustomerEmail: 'Kunde hat keine E-Mail-Adresse',
       auditActor: 'Durchgeführt von',
