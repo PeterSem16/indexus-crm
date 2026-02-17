@@ -565,6 +565,15 @@ export default function ContractsPage() {
   });
 
   useEffect(() => {
+    if (selectedContract && contracts.length > 0) {
+      const updated = contracts.find(c => c.id === selectedContract.id);
+      if (updated && JSON.stringify(updated) !== JSON.stringify(selectedContract)) {
+        setSelectedContract(updated);
+      }
+    }
+  }, [contracts]);
+
+  useEffect(() => {
     if (urlCustomerId && customers.length > 0 && !urlCustomerProcessed) {
       const customerExists = customers.some(c => c.id === urlCustomerId);
       if (customerExists) {
