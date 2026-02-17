@@ -476,7 +476,8 @@ export default function ContractsPage() {
     customerId: "",
     billingDetailsId: "",
     currency: "EUR",
-    notes: ""
+    notes: "",
+    numberRangeId: ""
   });
   
   const [aiRecommendation, setAiRecommendation] = useState<{
@@ -580,6 +581,66 @@ export default function ContractsPage() {
   const { data: billingDetails = [] } = useQuery<BillingDetails[]>({
     queryKey: ["/api/billing-details"],
   });
+
+  const contractCustomerCountry = (() => {
+    if (!contractForm.customerId) return selectedCountry || "SK";
+    const customer = customers.find(c => c.id === contractForm.customerId);
+    return customer?.country || selectedCountry || "SK";
+  })();
+
+  const { data: contractNumberRanges = [] } = useQuery<Array<{
+    id: string;
+    name: string;
+    countryCode: string;
+    type: string;
+    prefix: string | null;
+    suffix: string | null;
+    digitsToGenerate: number;
+    startNumber: number;
+    endNumber: number;
+    lastNumberUsed: number | null;
+    isActive: boolean;
+    year: number;
+    billingDetailsId: string | null;
+    description: string | null;
+  }>>({
+    queryKey: ["/api/configurator/number-ranges", contractCustomerCountry],
+    queryFn: async () => {
+      const params = contractCustomerCountry ? `?countries=${contractCustomerCountry}` : "";
+      const response = await fetch(`/api/configurator/number-ranges${params}`, {
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to fetch number ranges");
+      return response.json();
+    },
+    enabled: isContractWizardOpen,
+  });
+
+  const activeContractNumberRanges = contractNumberRanges.filter(nr =>
+    nr.isActive &&
+    nr.type === "contract" &&
+    (nr.countryCode === contractCustomerCountry || !nr.countryCode)
+  );
+
+  useEffect(() => {
+    if (activeContractNumberRanges.length === 1 && !contractForm.numberRangeId) {
+      setContractForm(prev => ({ ...prev, numberRangeId: activeContractNumberRanges[0].id }));
+    }
+    if (activeContractNumberRanges.length > 0 && contractForm.numberRangeId) {
+      const stillValid = activeContractNumberRanges.some(r => r.id === contractForm.numberRangeId);
+      if (!stillValid) {
+        setContractForm(prev => ({ ...prev, numberRangeId: activeContractNumberRanges.length === 1 ? activeContractNumberRanges[0].id : "" }));
+      }
+    }
+  }, [activeContractNumberRanges, contractForm.numberRangeId]);
+
+  const selectedContractNumberRange = activeContractNumberRanges.find(
+    r => r.id === contractForm.numberRangeId
+  );
+
+  const previewContractNumber = selectedContractNumberRange
+    ? `${selectedContractNumberRange.prefix || ""}${String((selectedContractNumberRange.lastNumberUsed || 0) + 1).padStart(selectedContractNumberRange.digitsToGenerate || 6, "0")}${selectedContractNumberRange.suffix || ""}`
+    : null;
 
   const createTemplateMutation = useMutation({
     mutationFn: async (data: typeof templateForm) => {
@@ -1183,7 +1244,8 @@ export default function ContractsPage() {
       customerId: "",
       billingDetailsId: "",
       currency: "EUR",
-      notes: ""
+      notes: "",
+      numberRangeId: ""
     });
     setAiRecommendation({ loading: false, content: null, error: null });
   };
@@ -3244,6 +3306,59 @@ export default function ContractsPage() {
                     data-testid="textarea-contract-notes"
                   />
                 </div>
+
+                <Separator className="my-2" />
+
+                <div className="space-y-2">
+                  <Label>{t.contractsModule.selectNumberRange || "Číselník zmluvy"}</Label>
+                  <Select
+                    value={contractForm.numberRangeId}
+                    onValueChange={(value) => setContractForm({ ...contractForm, numberRangeId: value })}
+                  >
+                    <SelectTrigger data-testid="select-contract-number-range">
+                      <SelectValue placeholder={t.contractsModule.selectNumberRangePlaceholder || "Vyberte číselník"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {activeContractNumberRanges.length === 0 ? (
+                        <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+                          {t.contractsModule.noContractNumberRanges || "Žiadne číselníky zmlúv pre túto krajinu"}
+                        </div>
+                      ) : (
+                        activeContractNumberRanges.map((range) => {
+                          const nextNumber = (range.lastNumberUsed || 0) + 1;
+                          const formattedNumber = `${range.prefix || ""}${String(nextNumber).padStart(range.digitsToGenerate || 6, "0")}${range.suffix || ""}`;
+                          return (
+                            <SelectItem key={range.id} value={range.id}>
+                              <div className="flex flex-col">
+                                <span className="font-medium">{range.name}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {t.contractsModule.nextNumber || "Ďalšie"}: {formattedNumber}
+                                </span>
+                              </div>
+                            </SelectItem>
+                          );
+                        })
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {selectedContractNumberRange && previewContractNumber && (
+                  <Card>
+                    <CardContent className="pt-4">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div>
+                          <Label className="text-muted-foreground">{t.contractsModule.nextContractNumber || "Ďalšie číslo zmluvy"}</Label>
+                          <p className="text-2xl font-bold text-muted-foreground" data-testid="text-preview-contract-number">{previewContractNumber}</p>
+                        </div>
+                        <Badge variant="outline">{t.contractsModule.previewLabel || "Náhľad"}</Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {t.contractsModule.previewNote || "Finálne číslo bude vygenerované pri vytvorení zmluvy"}
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             )}
             
@@ -3271,6 +3386,19 @@ export default function ContractsPage() {
                       <span className="text-muted-foreground">{t.contractsModule.currency}:</span>
                       <span>{contractForm.currency}</span>
                     </div>
+                    {selectedContractNumberRange && previewContractNumber && (
+                      <>
+                        <Separator className="my-2" />
+                        <div className="flex justify-between gap-2 flex-wrap">
+                          <span className="text-muted-foreground">{t.contractsModule.selectNumberRange || "Číselník zmluvy"}:</span>
+                          <span className="font-medium">{selectedContractNumberRange.name}</span>
+                        </div>
+                        <div className="flex justify-between gap-2 flex-wrap">
+                          <span className="text-muted-foreground">{t.contractsModule.nextContractNumber || "Číslo zmluvy"}:</span>
+                          <span className="font-bold">{previewContractNumber}</span>
+                        </div>
+                      </>
+                    )}
                     {contractForm.notes && (
                       <>
                         <Separator className="my-2" />
@@ -3372,7 +3500,7 @@ export default function ContractsPage() {
                 onClick={() => setWizardStep(wizardStep + 1)}
                 disabled={
                   (wizardStep === 1 && (!contractForm.categoryId || !contractForm.customerId)) ||
-                  (wizardStep === 2 && !contractForm.billingDetailsId)
+                  (wizardStep === 2 && (!contractForm.billingDetailsId || (activeContractNumberRanges.length > 0 && !contractForm.numberRangeId)))
                 }
                 data-testid="button-wizard-next"
               >

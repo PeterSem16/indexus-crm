@@ -19263,7 +19263,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
 
   app.post("/api/contracts", requireAuth, async (req, res) => {
     try {
-      const { categoryId, customerId, billingDetailsId, currency, notes, templateVersionId } = req.body;
+      const { categoryId, customerId, billingDetailsId, currency, notes, templateVersionId, numberRangeId } = req.body;
       
       if (!categoryId) {
         return res.status(400).json({ error: "Vyberte typ zmluvy (kategóriu)" });
@@ -19299,7 +19299,31 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       // Use the category default template ID as the template reference
       const templateId = String(categoryDefaultTemplate.id);
       
-      const contractNumber = await storage.getNextContractNumber(req.body.prefix || "ZML");
+      // Generate contract number from number range if provided, otherwise use legacy method
+      let contractNumber: string;
+      if (numberRangeId) {
+        const range = await storage.getNumberRange(numberRangeId);
+        if (!range) {
+          return res.status(404).json({ error: "Číselník nebol nájdený" });
+        }
+        if (!range.isActive) {
+          return res.status(400).json({ error: "Číselník nie je aktívny" });
+        }
+        if (range.type !== "contract") {
+          return res.status(400).json({ error: "Vybraný číselník nie je typu zmluva" });
+        }
+        if (range.countryCode && range.countryCode !== countryCode) {
+          return res.status(400).json({ error: "Vybraný číselník nie je pre krajinu zákazníka" });
+        }
+        const result = await storage.generateNextNumber(numberRangeId);
+        if (!result) {
+          return res.status(409).json({ error: "Číselník je vyčerpaný alebo nastala chyba, skúste to znova" });
+        }
+        contractNumber = result.invoiceNumber;
+        console.log(`[Contract] Generated number from range ${numberRangeId}: ${contractNumber}`);
+      } else {
+        contractNumber = await storage.getNextContractNumber(req.body.prefix || "ZML");
+      }
       
       const data = insertContractInstanceSchema.parse({
         templateId,

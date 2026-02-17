@@ -2789,6 +2789,13 @@ export interface Translations {
     linkCopied: string;
     copyLink: string;
     signedBadge: string;
+    selectNumberRange: string;
+    selectNumberRangePlaceholder: string;
+    noContractNumberRanges: string;
+    nextContractNumber: string;
+    nextNumber: string;
+    previewLabel: string;
+    previewNote: string;
   };
 }
 
@@ -5885,6 +5892,13 @@ export const translations: Record<Locale, Translations> = {
       linkCopied: 'Link Copied',
       copyLink: 'Copy Link',
       signedBadge: 'Signed',
+      selectNumberRange: 'Contract Number Range',
+      selectNumberRangePlaceholder: 'Select number range',
+      noContractNumberRanges: 'No contract number ranges for this country',
+      nextContractNumber: 'Next Contract Number',
+      nextNumber: 'Next',
+      previewLabel: 'Preview',
+      previewNote: 'Final number will be generated when contract is created',
     },
   },
   sk: {
@@ -8918,6 +8932,13 @@ export const translations: Record<Locale, Translations> = {
       linkCopied: 'Odkaz skopírovaný',
       copyLink: 'Kopírovať odkaz',
       signedBadge: 'Podpísané',
+      selectNumberRange: 'Číselník zmluvy',
+      selectNumberRangePlaceholder: 'Vyberte číselník',
+      noContractNumberRanges: 'Žiadne číselníky zmlúv pre túto krajinu',
+      nextContractNumber: 'Ďalšie číslo zmluvy',
+      nextNumber: 'Ďalšie',
+      previewLabel: 'Náhľad',
+      previewNote: 'Finálne číslo bude vygenerované pri vytvorení zmluvy',
     },
   },
   cs: {
@@ -11883,6 +11904,13 @@ export const translations: Record<Locale, Translations> = {
       linkCopied: 'Odkaz zkopírován',
       copyLink: 'Kopírovat odkaz',
       signedBadge: 'Podepsáno',
+      selectNumberRange: 'Číselník smlouvy',
+      selectNumberRangePlaceholder: 'Vyberte číselník',
+      noContractNumberRanges: 'Žádné číselníky smluv pro tuto zemi',
+      nextContractNumber: 'Další číslo smlouvy',
+      nextNumber: 'Další',
+      previewLabel: 'Náhled',
+      previewNote: 'Konečné číslo bude vygenerováno při vytvoření smlouvy',
     },
   },
   hu: {
@@ -14848,6 +14876,13 @@ export const translations: Record<Locale, Translations> = {
       linkCopied: 'Link másolva',
       copyLink: 'Link másolása',
       signedBadge: 'Aláírva',
+      selectNumberRange: 'Szerződés számtartomány',
+      selectNumberRangePlaceholder: 'Válasszon számtartományt',
+      noContractNumberRanges: 'Nincs szerződés számtartomány ehhez az országhoz',
+      nextContractNumber: 'Következő szerződésszám',
+      nextNumber: 'Következő',
+      previewLabel: 'Előnézet',
+      previewNote: 'A végleges szám a szerződés létrehozásakor kerül generálásra',
     },
   },
   ro: {
@@ -17812,6 +17847,13 @@ export const translations: Record<Locale, Translations> = {
       linkCopied: 'Link copiat',
       copyLink: 'Copiază linkul',
       signedBadge: 'Semnat',
+      selectNumberRange: 'Interval numere contract',
+      selectNumberRangePlaceholder: 'Selectați intervalul de numere',
+      noContractNumberRanges: 'Nu există intervale de numere contract pentru această țară',
+      nextContractNumber: 'Următorul număr de contract',
+      nextNumber: 'Următorul',
+      previewLabel: 'Previzualizare',
+      previewNote: 'Numărul final va fi generat la crearea contractului',
     },
   },
   it: {
@@ -20777,6 +20819,13 @@ export const translations: Record<Locale, Translations> = {
       linkCopied: 'Link copiato',
       copyLink: 'Copia link',
       signedBadge: 'Firmato',
+      selectNumberRange: 'Intervallo numeri contratto',
+      selectNumberRangePlaceholder: 'Seleziona intervallo numeri',
+      noContractNumberRanges: 'Nessun intervallo numeri contratto per questo paese',
+      nextContractNumber: 'Prossimo numero di contratto',
+      nextNumber: 'Prossimo',
+      previewLabel: 'Anteprima',
+      previewNote: 'Il numero finale verrà generato alla creazione del contratto',
     },
   },
   de: {
@@ -23742,6 +23791,13 @@ export const translations: Record<Locale, Translations> = {
       linkCopied: 'Link kopiert',
       copyLink: 'Link kopieren',
       signedBadge: 'Unterschrieben',
+      selectNumberRange: 'Vertragsnummernkreis',
+      selectNumberRangePlaceholder: 'Nummernkreis auswählen',
+      noContractNumberRanges: 'Keine Vertragsnummernkreise für dieses Land',
+      nextContractNumber: 'Nächste Vertragsnummer',
+      nextNumber: 'Nächste',
+      previewLabel: 'Vorschau',
+      previewNote: 'Die endgültige Nummer wird bei Erstellung des Vertrags generiert',
     },
   },
 };
