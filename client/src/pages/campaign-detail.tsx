@@ -1311,7 +1311,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
 export default function CampaignDetailPage() {
   const [, params] = useRoute("/campaigns/:id");
   const campaignId = params?.id || "";
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("overview");
   const [settingsSubTab, setSettingsSubTab] = useState("general");

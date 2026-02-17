@@ -2276,8 +2276,16 @@ export default function AgentWorkspacePage() {
     enabled: !!selectedCampaignId,
   });
 
+  const userLocale = useMemo(() => {
+    const countryToLang: Record<string, string> = { SK: 'sk', CZ: 'cs', HU: 'hu', RO: 'ro', IT: 'it', DE: 'de', US: 'en' };
+    if (user?.countries?.length) {
+      return countryToLang[user.countries[0]] || locale;
+    }
+    return locale;
+  }, [user?.countries, locale]);
+
   const getDispName = (disp: { code: string; name: string }) => {
-    return DISPOSITION_NAME_TRANSLATIONS[disp.code]?.[locale] || disp.name;
+    return DISPOSITION_NAME_TRANSLATIONS[disp.code]?.[userLocale] || disp.name;
   };
 
   const { data: rawCampaignContacts = [] } = useQuery<EnrichedCampaignContact[]>({

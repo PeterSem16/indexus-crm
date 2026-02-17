@@ -1058,7 +1058,7 @@ export default function CampaignsPage() {
           <Button
             size="icon"
             variant="ghost"
-            onClick={() => setAgentsDialogCampaign(campaign)}
+            onClick={(e) => { e.stopPropagation(); setAgentsDialogCampaign(campaign); }}
             title="Priradiť agentov"
             data-testid={`button-assign-agents-${campaign.id}`}
           >
@@ -1067,7 +1067,8 @@ export default function CampaignsPage() {
           <Button
             size="icon"
             variant="ghost"
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation();
               setEditingCampaign(campaign);
               setIsDialogOpen(true);
             }}
@@ -1078,7 +1079,7 @@ export default function CampaignsPage() {
           <Button
             size="icon"
             variant="ghost"
-            onClick={() => setDeletingCampaign(campaign)}
+            onClick={(e) => { e.stopPropagation(); setDeletingCampaign(campaign); }}
             data-testid={`button-delete-campaign-${campaign.id}`}
           >
             <Trash2 className="h-4 w-4" />
