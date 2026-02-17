@@ -12,7 +12,7 @@ import {
   Plus, ChevronDown, ChevronLeft, ChevronRight, ListChecks, Upload, FileUp, AlertTriangle,
   ThumbsUp, ThumbsDown, CalendarPlus, PhoneOff, AlertCircle, XCircle, Zap, Star,
   CircleDot, Info, Heart, Ban, Bell, Send, Target, Flag, Eye, EyeOff,
-  Volume2, VolumeX, UserCheck, UserX, Briefcase, Gift, Home, MapPin, Globe,
+  Volume2, VolumeX, UserCheck, UserX, Briefcase, Gift, Home, MapPin, Globe, Wand2,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -436,6 +436,24 @@ function KpiTargetField({
   );
 }
 
+const RECOMMENDED_CAMPAIGN_TARGETS = {
+  campaignTotalContactsTarget: 500,
+  campaignCompletionTarget: 80,
+  campaignConversionTarget: 15,
+  campaignRevenueTarget: 50000,
+  campaignDurationDays: 30,
+};
+
+const RECOMMENDED_OPERATOR_TARGETS = {
+  agentDailyCallsTarget: 80,
+  agentDailyContactsTarget: 40,
+  agentDailySuccessTarget: 8,
+  agentConversionRateTarget: 20,
+  agentAvgCallDurationTarget: 180,
+  agentMaxIdleMinutes: 5,
+  agentCallbackComplianceTarget: 95,
+};
+
 function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
   const { t } = useI18n();
   const { toast } = useToast();
@@ -492,6 +510,16 @@ function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
     setHasChanges(true);
   };
 
+  const loadRecommendedCampaignTargets = () => {
+    setTargets(prev => ({ ...prev, ...RECOMMENDED_CAMPAIGN_TARGETS }));
+    setHasChanges(true);
+  };
+
+  const loadRecommendedOperatorTargets = () => {
+    setTargets(prev => ({ ...prev, ...RECOMMENDED_OPERATOR_TARGETS }));
+    setHasChanges(true);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -524,6 +552,10 @@ function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
           <CardDescription>
             {t.campaigns.detail.kpiTotalContactsDesc}
           </CardDescription>
+          <Button variant="outline" size="sm" className="mt-2" onClick={loadRecommendedCampaignTargets} data-testid="button-load-recommended-campaign">
+            <Wand2 className="h-4 w-4 mr-1" />
+            {t.campaigns.detail.kpiLoadRecommended || 'Load recommended values'}
+          </Button>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -595,6 +627,10 @@ function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
           <CardDescription>
             {t.campaigns.detail.kpiDailyCallTarget}
           </CardDescription>
+          <Button variant="outline" size="sm" className="mt-2" onClick={loadRecommendedOperatorTargets} data-testid="button-load-recommended-operator">
+            <Wand2 className="h-4 w-4 mr-1" />
+            {t.campaigns.detail.kpiLoadRecommended || 'Load recommended values'}
+          </Button>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -691,7 +727,7 @@ const ACTION_TYPE_COLORS: Record<string, string> = {
 };
 
 function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedded?: boolean }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { toast } = useToast();
   const [showAddForm, setShowAddForm] = useState(false);
   const [addingSubFor, setAddingSubFor] = useState<string | null>(null);
@@ -729,7 +765,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
   };
 
   const seedMutation = useMutation({
-    mutationFn: () => apiRequest("POST", `/api/campaigns/${campaignId}/dispositions/seed`),
+    mutationFn: () => apiRequest("POST", `/api/campaigns/${campaignId}/dispositions/seed`, { language: locale }),
     onSuccess: () => {
       toast({ title: t.campaigns.detail.dispDefaultsCreated });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "dispositions"] });

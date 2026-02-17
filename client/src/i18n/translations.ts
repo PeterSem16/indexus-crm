@@ -1121,6 +1121,7 @@ export interface Translations {
       dispositions: string;
       general: string;
       kpiTargets: string;
+      kpiLoadRecommended: string;
       totalContacts: string;
       pendingContacts: string;
       completedContacts: string;
@@ -4384,6 +4385,7 @@ export const translations: Record<Locale, Translations> = {
         dispositions: 'Dispositions',
         general: 'General',
         kpiTargets: 'KPI Targets',
+        kpiLoadRecommended: 'Load recommended',
         totalContacts: 'Total Contacts',
         pendingContacts: 'Pending',
         completedContacts: 'Completed',
@@ -7632,6 +7634,7 @@ export const translations: Record<Locale, Translations> = {
         dispositions: 'Výsledky',
         general: 'Všeobecné',
         kpiTargets: 'KPI ciele',
+        kpiLoadRecommended: 'Načítať odporúčané',
         totalContacts: 'Celkom kontaktov',
         pendingContacts: 'Čakajúce',
         completedContacts: 'Dokončené',
@@ -10811,6 +10814,7 @@ export const translations: Record<Locale, Translations> = {
         dispositions: 'Výsledky',
         general: 'Obecné',
         kpiTargets: 'KPI cíle',
+        kpiLoadRecommended: 'Načíst doporučené',
         totalContacts: 'Celkem kontaktů',
         pendingContacts: 'Čekající',
         completedContacts: 'Dokončené',
@@ -13953,6 +13957,7 @@ export const translations: Record<Locale, Translations> = {
         dispositions: 'Eredmények',
         general: 'Általános',
         kpiTargets: 'KPI célok',
+        kpiLoadRecommended: 'Ajánlott betöltése',
         totalContacts: 'Összes kapcsolat',
         pendingContacts: 'Függőben',
         completedContacts: 'Befejezve',
@@ -17094,6 +17099,7 @@ export const translations: Record<Locale, Translations> = {
         dispositions: 'Rezultate',
         general: 'General',
         kpiTargets: 'Obiective KPI',
+        kpiLoadRecommended: 'Încarcă recomandate',
         totalContacts: 'Total contacte',
         pendingContacts: 'În așteptare',
         completedContacts: 'Finalizate',
@@ -20236,6 +20242,7 @@ export const translations: Record<Locale, Translations> = {
         dispositions: 'Esiti',
         general: 'Generale',
         kpiTargets: 'Obiettivi KPI',
+        kpiLoadRecommended: 'Carica raccomandati',
         totalContacts: 'Contatti totali',
         pendingContacts: 'In attesa',
         completedContacts: 'Completati',
@@ -23378,6 +23385,7 @@ export const translations: Record<Locale, Translations> = {
         dispositions: 'Ergebnisse',
         general: 'Allgemein',
         kpiTargets: 'KPI-Ziele',
+        kpiLoadRecommended: 'Empfohlene laden',
         totalContacts: 'Kontakte gesamt',
         pendingContacts: 'Ausstehend',
         completedContacts: 'Abgeschlossen',

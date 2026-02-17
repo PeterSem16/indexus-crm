@@ -2991,6 +2991,33 @@ export const DEFAULT_SMS_DISPOSITIONS = [
   { name: "Odhlásený", code: "unsubscribed", icon: "XCircle", color: "red", actionType: "dnd" as const, children: [] },
 ];
 
+export const DISPOSITION_NAME_TRANSLATIONS: Record<string, Record<string, string>> = {
+  interested: { en: 'Interested', sk: 'Záujem', cs: 'Zájem', hu: 'Érdeklődik', ro: 'Interesat', it: 'Interessato', de: 'Interessiert' },
+  wants_info: { en: 'Wants information', sk: 'Chce informácie', cs: 'Chce informace', hu: 'Információt kér', ro: 'Vrea informații', it: 'Vuole informazioni', de: 'Möchte Informationen' },
+  wants_meeting: { en: 'Wants meeting', sk: 'Chce stretnutie', cs: 'Chce schůzku', hu: 'Találkozót kér', ro: 'Vrea întâlnire', it: 'Vuole incontro', de: 'Möchte Treffen' },
+  wants_quote: { en: 'Wants quote', sk: 'Chce cenovú ponuku', cs: 'Chce cenovou nabídku', hu: 'Árajánlatot kér', ro: 'Vrea ofertă', it: 'Vuole preventivo', de: 'Möchte Angebot' },
+  callback: { en: 'Call back later', sk: 'Zavolať neskôr', cs: 'Zavolat později', hu: 'Visszahívás később', ro: 'Reapelați mai târziu', it: 'Richiamare più tardi', de: 'Später anrufen' },
+  requested_date: { en: 'Requested date', sk: 'Požiadal o termín', cs: 'Požádal o termín', hu: 'Időpontot kért', ro: 'A solicitat dată', it: 'Ha richiesto data', de: 'Termin gewünscht' },
+  no_time: { en: 'No time', sk: 'Nemal čas', cs: 'Neměl čas', hu: 'Nem volt ideje', ro: 'Nu a avut timp', it: 'Non aveva tempo', de: 'Keine Zeit' },
+  thinking: { en: 'Thinking about it', sk: 'Chce rozmyslieť', cs: 'Chce rozmyslet', hu: 'Gondolkodik', ro: 'Vrea să se gândească', it: 'Vuole pensarci', de: 'Überlegt noch' },
+  not_interested: { en: 'Not interested', sk: 'Nezáujem', cs: 'Nezájem', hu: 'Nem érdekli', ro: 'Neinteresat', it: 'Non interessato', de: 'Kein Interesse' },
+  not_now: { en: 'Not now', sk: 'Momentálne nie', cs: 'Momentálně ne', hu: 'Most nem', ro: 'Nu acum', it: 'Non ora', de: 'Nicht jetzt' },
+  never: { en: 'Never', sk: 'Nikdy', cs: 'Nikdy', hu: 'Soha', ro: 'Niciodată', it: 'Mai', de: 'Nie' },
+  has_competitor: { en: 'Has competitor', sk: 'Má konkurenciu', cs: 'Má konkurenci', hu: 'Van konkurencia', ro: 'Are concurență', it: 'Ha concorrenza', de: 'Hat Konkurrenz' },
+  no_answer: { en: 'No answer', sk: 'Nedvíha', cs: 'Nezvedá', hu: 'Nem veszi fel', ro: 'Nu răspunde', it: 'Non risponde', de: 'Keine Antwort' },
+  busy: { en: 'Busy', sk: 'Obsadené', cs: 'Obsazeno', hu: 'Foglalt', ro: 'Ocupat', it: 'Occupato', de: 'Besetzt' },
+  voicemail: { en: 'Voicemail', sk: 'Hlasová schránka', cs: 'Hlasová schránka', hu: 'Hangposta', ro: 'Mesagerie vocală', it: 'Segreteria', de: 'Mailbox' },
+  wrong_number: { en: 'Wrong number', sk: 'Zlé číslo', cs: 'Špatné číslo', hu: 'Rossz szám', ro: 'Număr greșit', it: 'Numero sbagliato', de: 'Falsche Nummer' },
+  dnd: { en: 'Do not call (DND)', sk: 'Nevolať (DND)', cs: 'Nevolat (DND)', hu: 'Ne hívja (DND)', ro: 'Nu apelați (DND)', it: 'Non chiamare (DND)', de: 'Nicht anrufen (DND)' },
+  replied_interested: { en: 'Replied - interested', sk: 'Odpovedal - záujem', cs: 'Odpověděl - zájem', hu: 'Válaszolt - érdekli', ro: 'A răspuns - interesat', it: 'Ha risposto - interessato', de: 'Geantwortet - interessiert' },
+  replied_not_interested: { en: 'Replied - not interested', sk: 'Odpovedal - nezáujem', cs: 'Odpověděl - nezájem', hu: 'Válaszolt - nem érdekli', ro: 'A răspuns - neinteresat', it: 'Ha risposto - non interessato', de: 'Geantwortet - kein Interesse' },
+  no_reply: { en: 'No reply', sk: 'Neodpovedal', cs: 'Neodpověděl', hu: 'Nem válaszolt', ro: 'Nu a răspuns', it: 'Non ha risposto', de: 'Keine Antwort' },
+  invalid_email: { en: 'Invalid email', sk: 'Email neplatný', cs: 'Email neplatný', hu: 'Érvénytelen email', ro: 'Email invalid', it: 'Email non valida', de: 'Ungültige E-Mail' },
+  unsubscribed: { en: 'Unsubscribed', sk: 'Odhlásený', cs: 'Odhlášen', hu: 'Leiratkozott', ro: 'Dezabonat', it: 'Cancellato', de: 'Abgemeldet' },
+  resend_later: { en: 'Resend later', sk: 'Preposlať neskôr', cs: 'Přeposlat později', hu: 'Később újraküldeni', ro: 'Retrimite mai târziu', it: 'Rinviare più tardi', de: 'Später erneut senden' },
+  invalid_number: { en: 'Invalid number', sk: 'Číslo neplatné', cs: 'Číslo neplatné', hu: 'Érvénytelen szám', ro: 'Număr invalid', it: 'Numero non valido', de: 'Ungültige Nummer' },
+};
+
 // Operator Script Types - structured interactive scripts for call center agents
 export const scriptElementTypes = [
   "heading",

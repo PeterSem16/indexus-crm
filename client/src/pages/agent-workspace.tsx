@@ -106,6 +106,7 @@ import {
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useSip } from "@/contexts/sip-context";
+import { useCall } from "@/contexts/call-context";
 import { format } from "date-fns";
 import { sk } from "date-fns/locale";
 import { useAgentSession } from "@/contexts/agent-session-context";
@@ -232,6 +233,9 @@ function TopBar({
   isOnBreak,
   onEndSession,
   isSessionActive,
+  callState,
+  callDuration,
+  onEndCall,
   t,
 }: {
   status: AgentStatus;
@@ -246,6 +250,9 @@ function TopBar({
   isOnBreak: boolean;
   onEndSession: () => void;
   isSessionActive: boolean;
+  callState: string;
+  callDuration: number;
+  onEndCall: () => void;
   t: any;
 }) {
   const STATUS_CONFIG = getStatusConfig(t);
@@ -318,6 +325,20 @@ function TopBar({
             <Button variant="outline" size="sm" onClick={onEndBreak} data-testid="button-end-break">
               <Play className="h-3.5 w-3.5 mr-1" />
               {t.agentSession.continueWork}
+            </Button>
+          </div>
+        )}
+
+        {(callState === "connecting" || callState === "ringing" || callState === "active" || callState === "on_hold") && (
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="gap-1.5 text-green-700 dark:text-green-300 animate-pulse" data-testid="badge-call-active">
+              <PhoneCall className="h-3 w-3" />
+              {callState === "connecting" ? "Pripájanie..." : callState === "ringing" ? "Zvoní..." : callState === "on_hold" ? "Podržané" : "Aktívny hovor"}
+              <span className="font-mono text-xs">{Math.floor(callDuration / 60)}:{(callDuration % 60).toString().padStart(2, "0")}</span>
+            </Badge>
+            <Button variant="destructive" size="sm" onClick={onEndCall} data-testid="button-end-call-topbar">
+              <PhoneOff className="h-3.5 w-3.5 mr-1" />
+              Ukončiť
             </Button>
           </div>
         )}
@@ -1088,7 +1109,7 @@ function CommunicationCanvas({
   }
 
   return (
-    <div className="flex-1 flex flex-col min-w-0">
+    <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
       <div className="h-12 border-b bg-card flex items-center justify-between px-4 shrink-0">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
@@ -1216,7 +1237,7 @@ function CommunicationCanvas({
       </div>
 
       {activeChannel === "script" && (
-        <div className="flex flex-col flex-1 relative">
+        <div className="flex flex-col flex-1 relative overflow-y-auto">
           <Button
             size="icon"
             variant="ghost"
@@ -1231,7 +1252,7 @@ function CommunicationCanvas({
       )}
 
       {activeChannel === "phone" && (
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col overflow-y-auto">
           <div className="border-b bg-card/50 flex items-center">
             <button
               className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium border-b-2 transition-colors ${
@@ -1357,7 +1378,7 @@ function CommunicationCanvas({
       )}
 
       {activeChannel === "email" && (
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col overflow-y-auto">
           <ScrollArea className="flex-1">
             <div className="p-4 space-y-3">
               {timeline.filter(e => e.type === "email").map((entry) => (
@@ -1534,7 +1555,7 @@ function CommunicationCanvas({
       )}
 
       {activeChannel === "sms" && (
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col overflow-y-auto">
           <ScrollArea className="flex-1">
             <div className="p-4 space-y-3">
               {timeline.filter(e => e.type === "sms").map((entry) => (
@@ -1625,10 +1646,6 @@ function CustomerInfoPanel({
   onOpenDispositionModal: () => void;
 }) {
   const [newNote, setNewNote] = useState("");
-  const [selectedParentDisposition, setSelectedParentDisposition] = useState<string | null>(null);
-  const [callbackDate, setCallbackDate] = useState<string>("");
-  const [callbackTime, setCallbackTime] = useState<string>("09:00");
-  const [callbackAssignMode, setCallbackAssignMode] = useState<"me" | "all">("me");
 
   const handleAddNote = () => {
     if (newNote.trim()) {
@@ -1908,195 +1925,6 @@ function CustomerInfoPanel({
                 </Button>
               </div>
             </div>
-
-            <Separator />
-
-            <div>
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-semibold uppercase text-muted-foreground">
-                  {selectedParentDisposition ? "Podkategória" : "Výsledok kontaktu"}
-                </h4>
-                <Button size="icon" variant="ghost" onClick={onOpenDispositionModal} data-testid="btn-maximize-disposition">
-                  <Maximize2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-
-              {dispositions.length === 0 ? (
-                <div className="text-center py-4">
-                  <Info className="h-6 w-6 mx-auto text-muted-foreground/30 mb-1" />
-                  <p className="text-xs text-muted-foreground">Žiadne výsledky kontaktu definované pre túto kampaň</p>
-                </div>
-              ) : selectedParentDisposition ? (
-                <div className="space-y-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="gap-1 text-xs"
-                    onClick={() => {
-                      setSelectedParentDisposition(null);
-                      setCallbackDate("");
-                      setCallbackTime("09:00");
-                    }}
-                    data-testid="btn-disposition-back"
-                  >
-                    <ChevronLeft className="h-3 w-3" />
-                    Späť
-                  </Button>
-                  {(() => {
-                    const parent = dispositions.find(d => d.id === selectedParentDisposition);
-                    const children = dispositions.filter(d => d.parentId === selectedParentDisposition && d.isActive);
-                    
-                    if (parent?.actionType === "callback") {
-                      const cbAssignTo = callbackAssignMode === "me" && currentUserId ? currentUserId : null;
-                      return (
-                        <div className="space-y-2">
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <label className="text-[11px] text-muted-foreground">Dátum</label>
-                              <Input
-                                type="date"
-                                value={callbackDate}
-                                onChange={(e) => setCallbackDate(e.target.value)}
-                                min={new Date().toISOString().split("T")[0]}
-                                data-testid="input-callback-date"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-[11px] text-muted-foreground">Čas</label>
-                              <Input
-                                type="time"
-                                value={callbackTime}
-                                onChange={(e) => setCallbackTime(e.target.value)}
-                                data-testid="input-callback-time"
-                              />
-                            </div>
-                          </div>
-                          <div>
-                            <label className="text-[11px] text-muted-foreground">Priradiť komu</label>
-                            <div className="flex gap-1 mt-1">
-                              <Button
-                                size="sm"
-                                variant={callbackAssignMode === "me" ? "default" : "outline"}
-                                className="flex-1 gap-1 text-xs"
-                                onClick={() => setCallbackAssignMode("me")}
-                                disabled={!currentUserId}
-                                data-testid="btn-callback-assign-me"
-                              >
-                                <User className="h-3 w-3" />
-                                Mne
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant={callbackAssignMode === "all" ? "default" : "outline"}
-                                className="flex-1 gap-1 text-xs"
-                                onClick={() => setCallbackAssignMode("all")}
-                                data-testid="btn-callback-assign-all"
-                              >
-                                <Users className="h-3 w-3" />
-                                Všetkým
-                              </Button>
-                            </div>
-                          </div>
-                          {children.length > 0 && (
-                            <div className="grid grid-cols-1 gap-1">
-                              {children.map((child) => {
-                                const IconComp = DISPOSITION_ICON_MAP[child.icon || ""] || CircleDot;
-                                const colorClass = DISPOSITION_COLOR_MAP[child.color || "gray"] || DISPOSITION_COLOR_MAP.gray;
-                                return (
-                                  <Button
-                                    key={child.id}
-                                    variant="outline"
-                                    size="sm"
-                                    className={`gap-2 justify-start ${colorClass}`}
-                                    onClick={() => onDisposition(child.code, parent?.code, callbackDate && callbackTime ? `${callbackDate}T${callbackTime}` : undefined, cbAssignTo)}
-                                    data-testid={`btn-disposition-${child.code}`}
-                                  >
-                                    <IconComp className="h-4 w-4" />
-                                    <span className="text-xs font-medium">{child.name}</span>
-                                  </Button>
-                                );
-                              })}
-                            </div>
-                          )}
-                          <Button
-                            size="sm"
-                            className="w-full"
-                            disabled={!callbackDate}
-                            onClick={() => onDisposition(parent!.code, undefined, callbackDate && callbackTime ? `${callbackDate}T${callbackTime}` : undefined, cbAssignTo)}
-                            data-testid="btn-disposition-confirm-callback"
-                          >
-                            <CalendarPlus className="h-4 w-4 mr-1" />
-                            Potvrdiť preplánovanie
-                          </Button>
-                        </div>
-                      );
-                    }
-                    
-                    if (children.length > 0) {
-                      return (
-                        <div className="grid grid-cols-1 gap-1.5">
-                          {children.map((child) => {
-                            const IconComp = DISPOSITION_ICON_MAP[child.icon || ""] || CircleDot;
-                            const colorClass = DISPOSITION_COLOR_MAP[child.color || "gray"] || DISPOSITION_COLOR_MAP.gray;
-                            return (
-                              <Button
-                                key={child.id}
-                                variant="outline"
-                                size="sm"
-                                className={`gap-2 justify-start ${colorClass}`}
-                                onClick={() => onDisposition(child.code, parent?.code)}
-                                data-testid={`btn-disposition-${child.code}`}
-                              >
-                                <IconComp className="h-4 w-4" />
-                                <span className="text-xs font-medium">{child.name}</span>
-                              </Button>
-                            );
-                          })}
-                        </div>
-                      );
-                    }
-                    
-                    return null;
-                  })()}
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 gap-1.5">
-                  {dispositions.filter(d => !d.parentId && d.isActive).map((disp) => {
-                    const IconComp = DISPOSITION_ICON_MAP[disp.icon || ""] || CircleDot;
-                    const colorClass = DISPOSITION_COLOR_MAP[disp.color || "gray"] || DISPOSITION_COLOR_MAP.gray;
-                    const children = dispositions.filter(d => d.parentId === disp.id && d.isActive);
-                    const hasChildren = children.length > 0;
-                    const isCallback = disp.actionType === "callback";
-                    
-                    return (
-                      <Button
-                        key={disp.id}
-                        variant="outline"
-                        size="sm"
-                        className={`gap-2 justify-start ${colorClass}`}
-                        onClick={() => {
-                          if (hasChildren || isCallback) {
-                            setSelectedParentDisposition(disp.id);
-                            if (isCallback) {
-                              const tomorrow = new Date();
-                              tomorrow.setDate(tomorrow.getDate() + 1);
-                              setCallbackDate(tomorrow.toISOString().split("T")[0]);
-                            }
-                          } else {
-                            onDisposition(disp.code);
-                          }
-                        }}
-                        data-testid={`btn-disposition-${disp.code}`}
-                      >
-                        <IconComp className="h-4 w-4" />
-                        <span className="text-xs font-medium flex-1 text-left">{disp.name}</span>
-                        {(hasChildren || isCallback) && <ChevronRight className="h-3 w-3 opacity-50" />}
-                      </Button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
           </div>
         )}
       </ScrollArea>
@@ -2109,6 +1937,7 @@ export default function AgentWorkspacePage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { makeCall, isRegistered: isSipRegistered } = useSip();
+  const callContext = useCall();
   const [, setLocation] = useLocation();
   const { open: sidebarOpen, setOpen: setSidebarOpen } = useSidebar();
   const prevSidebarOpenRef = useRef(sidebarOpen);
@@ -2138,6 +1967,9 @@ export default function AgentWorkspacePage() {
   const [modalCallbackTime, setModalCallbackTime] = useState("09:00");
   const [modalCallbackAssign, setModalCallbackAssign] = useState<"me" | "all">("me");
   const [scriptModalOpen, setScriptModalOpen] = useState(false);
+  const [mandatoryDisposition, setMandatoryDisposition] = useState(false);
+  const [callEndTimestamp, setCallEndTimestamp] = useState<number | null>(null);
+  const prevCallStateRef = useRef(callContext.callState);
   const [modalFilter, setModalFilter] = useState<"all" | "my_callbacks" | "team_callbacks" | "pending" | "due">("all");
   const [modalSort, setModalSort] = useState<"callback_asc" | "name_asc" | "attempts_desc">("callback_asc");
   const [modalSearch, setModalSearch] = useState("");
@@ -2184,6 +2016,19 @@ export default function AgentWorkspacePage() {
       document.documentElement.removeAttribute('data-agent-fullscreen');
     };
   }, []);
+
+  useEffect(() => {
+    const prev = prevCallStateRef.current;
+    const curr = callContext.callState;
+    prevCallStateRef.current = curr;
+    if ((prev === "active" || prev === "on_hold") && (curr === "ended" || curr === "idle")) {
+      if (currentContact && currentCampaignContactId) {
+        setCallEndTimestamp(Date.now());
+        setMandatoryDisposition(true);
+        setDispositionModalOpen(true);
+      }
+    }
+  }, [callContext.callState, currentContact, currentCampaignContactId]);
 
   const { data: allCampaigns = [] } = useQuery<Campaign[]>({
     queryKey: ["/api/campaigns"],
@@ -2408,6 +2253,8 @@ export default function AgentWorkspacePage() {
       || campaignDispositions.find(d => d.code === parentCode);
 
     const assignLabel = callbackAssignedTo ? "osobný" : "pre všetkých";
+    const dispositionElapsed = callEndTimestamp ? Math.round((Date.now() - callEndTimestamp) / 1000) : undefined;
+
     setTimeline((prev) => [
       ...prev,
       {
@@ -2415,7 +2262,7 @@ export default function AgentWorkspacePage() {
         type: "system",
         timestamp: new Date(),
         content: `Výsledok: ${disp?.name || value}`,
-        details: `Kontakt ukončený - ${disp?.name || value}${callbackDateTime ? ` (callback ${assignLabel}: ${callbackDateTime})` : ""}`,
+        details: `Kontakt ukončený - ${disp?.name || value}${callbackDateTime ? ` (callback ${assignLabel}: ${callbackDateTime})` : ""}${dispositionElapsed !== undefined ? ` (čas dispozície: ${dispositionElapsed}s)` : ""}`,
       },
     ]);
 
@@ -2436,6 +2283,9 @@ export default function AgentWorkspacePage() {
       description: `Výsledok: ${disp?.name || value}`,
     });
 
+    const wasMandatory = mandatoryDisposition;
+    setMandatoryDisposition(false);
+    setCallEndTimestamp(null);
     setAgentStatus("wrap_up");
 
     if (activeTaskId) {
@@ -2451,6 +2301,9 @@ export default function AgentWorkspacePage() {
 
     setTimeout(() => {
       setAgentStatus("available");
+      if (wasMandatory && isAutoMode) {
+        handleNextContact();
+      }
     }, 3000);
   };
 
@@ -2842,6 +2695,9 @@ export default function AgentWorkspacePage() {
         isOnBreak={!!agentSession.activeBreak}
         onEndSession={handleEndSession}
         isSessionActive={agentSession.isSessionActive}
+        callState={callContext.callState}
+        callDuration={callContext.callDuration}
+        onEndCall={() => callContext.endCallFn.current?.()}
         t={t}
       />
 
@@ -3143,16 +2999,19 @@ export default function AgentWorkspacePage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={dispositionModalOpen} onOpenChange={(open) => { setDispositionModalOpen(open); if (!open) { setModalSelectedParent(null); setModalCallbackDate(""); setModalCallbackTime("09:00"); setModalCallbackAssign("me"); } }}>
-        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+      <Dialog open={dispositionModalOpen} onOpenChange={(open) => { if (!open && mandatoryDisposition) return; setDispositionModalOpen(open); if (!open) { setModalSelectedParent(null); setModalCallbackDate(""); setModalCallbackTime("09:00"); setModalCallbackAssign("me"); } }}>
+        <DialogContent className={`max-w-2xl max-h-[80vh] flex flex-col ${mandatoryDisposition ? "[&>button]:hidden" : ""}`} onPointerDownOutside={mandatoryDisposition ? (e) => e.preventDefault() : undefined} onEscapeKeyDown={mandatoryDisposition ? (e) => e.preventDefault() : undefined}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Target className="h-5 w-5 text-primary" />
-              {modalSelectedParent ? "Podkategória" : "Výsledok kontaktu"}
+              {modalSelectedParent ? "Podkategória" : mandatoryDisposition ? "Povinný výsledok hovoru" : "Výsledok kontaktu"}
               {currentContact && (
                 <Badge variant="secondary" className="ml-2">{currentContact.firstName} {currentContact.lastName}</Badge>
               )}
             </DialogTitle>
+            {mandatoryDisposition && (
+              <p className="text-xs text-destructive mt-1">Vyberte výsledok hovoru pred pokračovaním</p>
+            )}
           </DialogHeader>
           <ScrollArea className="flex-1 -mx-6 px-6">
             <div className="py-4 space-y-3">

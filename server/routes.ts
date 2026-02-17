@@ -26,7 +26,7 @@ import {
   insertGsmSenderConfigSchema,
   insertVisitEventSchema,
   campaignDispositions, insertCampaignDispositionSchema,
-  DEFAULT_PHONE_DISPOSITIONS, DEFAULT_EMAIL_DISPOSITIONS, DEFAULT_SMS_DISPOSITIONS,
+  DEFAULT_PHONE_DISPOSITIONS, DEFAULT_EMAIL_DISPOSITIONS, DEFAULT_SMS_DISPOSITIONS, DISPOSITION_NAME_TRANSLATIONS,
   campaignContacts, campaignContactHistory,
   type SafeUser, type Customer, type Product, type BillingDetails, type ActivityLog, type LeadScoringCriteria,
   type ServiceConfiguration, type InvoiceTemplate, type InvoiceLayout, type Role,
@@ -15170,6 +15170,7 @@ export async function registerRoutes(
   // Seed default dispositions for a campaign based on its channel
   app.post("/api/campaigns/:id/dispositions/seed", requireAuth, async (req, res) => {
     try {
+      const { language = 'sk' } = req.body || {};
       const campaign = await storage.getCampaign(req.params.id);
       if (!campaign) {
         return res.status(404).json({ error: "Campaign not found" });
@@ -15204,9 +15205,10 @@ export async function registerRoutes(
       const allDispositions: any[] = [];
       for (let i = 0; i < defaults.length; i++) {
         const def = defaults[i];
+        const translatedName = DISPOSITION_NAME_TRANSLATIONS[def.code]?.[language] || def.name;
         const [parent] = await db.insert(campaignDispositions).values({
           campaignId: req.params.id,
-          name: def.name,
+          name: translatedName,
           code: def.code,
           channel,
           icon: def.icon,
@@ -15221,10 +15223,11 @@ export async function registerRoutes(
         if (def.children && def.children.length > 0) {
           for (let j = 0; j < def.children.length; j++) {
             const child = def.children[j];
+            const childName = DISPOSITION_NAME_TRANSLATIONS[child.code]?.[language] || child.name;
             const [sub] = await db.insert(campaignDispositions).values({
               campaignId: req.params.id,
               parentId: parent.id,
-              name: child.name,
+              name: childName,
               code: child.code,
               channel,
               icon: child.icon,
