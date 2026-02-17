@@ -20334,6 +20334,12 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
     smsText: (cn: string, otp: string) => string;
     smsTextWithLink: (cn: string, otp: string, link: string) => string;
     contract: string;
+    timelineSubject: (cn: string) => string;
+    timelineTitle: string;
+    timelineIntro: (cn: string) => string;
+    timelineDescription: string;
+    timelineButton: string;
+    timelineExpiry: string;
   }> = {
     sk: {
       greeting: 'Dobrý deň',
@@ -20349,6 +20355,12 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       smsText: (cn, otp) => `INDEXUS: Váš overovací kód pre zmluvu ${cn} je: ${otp}. Kód je platný 24 hodín.`,
       smsTextWithLink: (cn, otp, link) => `INDEXUS: Kód pre zmluvu ${cn}: ${otp}. Podpíšte tu: ${link}`,
       contract: 'zmluvu',
+      timelineSubject: (cn) => `Zmluva č. ${cn} - Audit zmluvy`,
+      timelineTitle: 'Audit zmluvy',
+      timelineIntro: (cn) => `Podrobný prehľad všetkých udalostí súvisiacich so zmluvou <strong>${cn}</strong> je k dispozícii na nahliadnutie.`,
+      timelineDescription: 'Kliknutím na tlačidlo nižšie zobrazíte kompletný auditný záznam vrátane vytvorenia zmluvy, podpisov a všetkých zmien stavu.',
+      timelineButton: 'Zobraziť audit zmluvy',
+      timelineExpiry: 'Tento odkaz je platný 30 dní.',
     },
     cs: {
       greeting: 'Dobrý den',
@@ -20364,6 +20376,12 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       smsText: (cn, otp) => `INDEXUS: Váš ověřovací kód pro smlouvu ${cn} je: ${otp}. Kód je platný 24 hodin.`,
       smsTextWithLink: (cn, otp, link) => `INDEXUS: Kód pro smlouvu ${cn}: ${otp}. Podepište zde: ${link}`,
       contract: 'smlouvu',
+      timelineSubject: (cn) => `Smlouva č. ${cn} - Audit smlouvy`,
+      timelineTitle: 'Audit smlouvy',
+      timelineIntro: (cn) => `Podrobný přehled všech událostí souvisejících se smlouvou <strong>${cn}</strong> je k dispozici k nahlédnutí.`,
+      timelineDescription: 'Kliknutím na tlačítko níže zobrazíte kompletní auditní záznam včetně vytvoření smlouvy, podpisů a všech změn stavu.',
+      timelineButton: 'Zobrazit audit smlouvy',
+      timelineExpiry: 'Tento odkaz je platný 30 dní.',
     },
     hu: {
       greeting: 'Tisztelt',
@@ -20379,6 +20397,12 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       smsText: (cn, otp) => `INDEXUS: Hitelesítő kód a(z) ${cn} szerződéshez: ${otp}. 24 órán át érvényes.`,
       smsTextWithLink: (cn, otp, link) => `INDEXUS: Kód a(z) ${cn} szerz.: ${otp}. Aláírás: ${link}`,
       contract: 'szerződéshez',
+      timelineSubject: (cn) => `Szerződés ${cn} - Szerződés audit`,
+      timelineTitle: 'Szerződés audit',
+      timelineIntro: (cn) => `A(z) <strong>${cn}</strong> szerződéssel kapcsolatos összes esemény részletes áttekintése megtekinthető.`,
+      timelineDescription: 'Kattintson az alábbi gombra a teljes audit nyomvonal megtekintéséhez, beleértve a szerződés létrehozását, aláírásokat és az összes állapotváltozást.',
+      timelineButton: 'Audit megtekintése',
+      timelineExpiry: 'Ez a link 30 napig érvényes.',
     },
     ro: {
       greeting: 'Bună ziua',
@@ -20394,6 +20418,12 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       smsText: (cn, otp) => `INDEXUS: Codul de verificare pentru contractul ${cn}: ${otp}. Valabil 24 ore.`,
       smsTextWithLink: (cn, otp, link) => `INDEXUS: Cod contract ${cn}: ${otp}. Semnați: ${link}`,
       contract: 'contractul',
+      timelineSubject: (cn) => `Contract nr. ${cn} - Auditul contractului`,
+      timelineTitle: 'Auditul contractului',
+      timelineIntro: (cn) => `Un rezumat detaliat al tuturor evenimentelor legate de contractul <strong>${cn}</strong> este disponibil pentru consultare.`,
+      timelineDescription: 'Faceți clic pe butonul de mai jos pentru a vizualiza traseul complet de audit, inclusiv crearea contractului, semnăturile și toate modificările de stare.',
+      timelineButton: 'Vizualizare audit',
+      timelineExpiry: 'Acest link este valabil 30 de zile.',
     },
     it: {
       greeting: 'Gentile',
@@ -20409,6 +20439,12 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       smsText: (cn, otp) => `INDEXUS: Codice di verifica per contratto ${cn}: ${otp}. Valido 24 ore.`,
       smsTextWithLink: (cn, otp, link) => `INDEXUS: Codice contratto ${cn}: ${otp}. Firma: ${link}`,
       contract: 'il contratto',
+      timelineSubject: (cn) => `Contratto n. ${cn} - Audit del contratto`,
+      timelineTitle: 'Audit del contratto',
+      timelineIntro: (cn) => `Un riepilogo dettagliato di tutti gli eventi relativi al contratto <strong>${cn}</strong> è disponibile per la consultazione.`,
+      timelineDescription: 'Clicca sul pulsante qui sotto per visualizzare il registro di audit completo, inclusa la creazione del contratto, le firme e tutte le modifiche di stato.',
+      timelineButton: 'Visualizza audit',
+      timelineExpiry: 'Questo link è valido per 30 giorni.',
     },
     de: {
       greeting: 'Guten Tag',
@@ -20424,6 +20460,12 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       smsText: (cn, otp) => `INDEXUS: Verifizierungscode für Vertrag ${cn}: ${otp}. Gültig 24 Std.`,
       smsTextWithLink: (cn, otp, link) => `INDEXUS: Code Vertrag ${cn}: ${otp}. Unterschrift: ${link}`,
       contract: 'den Vertrag',
+      timelineSubject: (cn) => `Vertrag Nr. ${cn} - Vertragsaudit`,
+      timelineTitle: 'Vertragsaudit',
+      timelineIntro: (cn) => `Eine detaillierte Übersicht aller Ereignisse im Zusammenhang mit dem Vertrag <strong>${cn}</strong> steht zur Einsicht bereit.`,
+      timelineDescription: 'Klicken Sie auf die Schaltfläche unten, um den vollständigen Audit-Trail einzusehen, einschließlich Vertragserstellung, Unterschriften und aller Statusänderungen.',
+      timelineButton: 'Audit anzeigen',
+      timelineExpiry: 'Dieser Link ist 30 Tage gültig.',
     },
     en: {
       greeting: 'Dear',
@@ -20439,6 +20481,12 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       smsText: (cn, otp) => `INDEXUS: Your verification code for contract ${cn}: ${otp}. Valid for 24 hours.`,
       smsTextWithLink: (cn, otp, link) => `INDEXUS: Code for contract ${cn}: ${otp}. Sign here: ${link}`,
       contract: 'the contract',
+      timelineSubject: (cn) => `Contract No. ${cn} - Contract Audit Timeline`,
+      timelineTitle: 'Contract Audit Timeline',
+      timelineIntro: (cn) => `A detailed timeline of all actions related to your contract <strong>${cn}</strong> is available for review.`,
+      timelineDescription: 'Click the button below to view the complete audit trail, including contract creation, signatures, and all status changes.',
+      timelineButton: 'View Audit Timeline',
+      timelineExpiry: 'This link expires in 30 days.',
     },
   };
 
@@ -21544,6 +21592,8 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
             }
             
             const contractCountryCode = await resolveContractCountry(contract);
+            const timelineLocale = getSigningLocale(contractCountryCode);
+            const tl = signingI18n[timelineLocale];
             const timelineCountrySettings = contractCountryCode ? await storage.getCountrySystemSettingsByCountry(contractCountryCode) : null;
             const timelineBrandName = timelineCountrySettings?.systemBrandName || "INDEXUS";
             const timelineEmailSig = timelineCountrySettings?.systemEmailSignature
@@ -21554,20 +21604,20 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
               <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f8f9fa; padding: 20px;">
                 <div style="background: #6B1C3B; padding: 24px; border-radius: 12px 12px 0 0; text-align: center;">
                   <h1 style="color: white; margin: 0; font-size: 22px;">${timelineBrandName}</h1>
-                  <p style="color: rgba(255,255,255,0.8); margin: 4px 0 0; font-size: 14px;">Contract Audit Timeline</p>
+                  <p style="color: rgba(255,255,255,0.8); margin: 4px 0 0; font-size: 14px;">${tl.timelineTitle}</p>
                 </div>
                 <div style="background: white; padding: 24px; border-radius: 0 0 12px 12px; border: 1px solid #e5e7eb; border-top: 0;">
-                  <p style="color: #374151; font-size: 15px;">A detailed timeline of all actions related to your contract <strong>${contract.contractNumber}</strong> is available for review.</p>
-                  <p style="color: #6b7280; font-size: 14px;">Click the button below to view the complete audit trail, including contract creation, signatures, and all status changes.</p>
+                  <p style="color: #374151; font-size: 15px;">${tl.timelineIntro(contract.contractNumber)}</p>
+                  <p style="color: #6b7280; font-size: 14px;">${tl.timelineDescription}</p>
                   <div style="text-align: center; margin: 24px 0;">
-                    <a href="${timelineUrl}" style="display: inline-block; background: #6B1C3B; color: white; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">View Audit Timeline</a>
+                    <a href="${timelineUrl}" style="display: inline-block; background: #6B1C3B; color: white; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">${tl.timelineButton}</a>
                   </div>
-                  <p style="color: #9ca3af; font-size: 12px; text-align: center;">This link expires in 30 days.</p>
+                  <p style="color: #9ca3af; font-size: 12px; text-align: center;">${tl.timelineExpiry}</p>
                   ${timelineEmailSig}
                 </div>
               </div>`;
 
-            await ms365SendEmail(tokenResult.accessToken, [email], `Contract Audit Timeline - ${contract.contractNumber}`, emailHtml, true);
+            await ms365SendEmail(tokenResult.accessToken, [email], tl.timelineSubject(contract.contractNumber), emailHtml, true);
             emailSent = true;
           }
         }
