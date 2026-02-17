@@ -1566,6 +1566,8 @@ export interface Translations {
     servicesDescription: string;
     numberRanges: string;
     numberRangesDescription: string;
+    numberRangesInvoices: string;
+    numberRangesContracts: string;
     addNumberRange: string;
     editNumberRange: string;
     numberRangeName: string;
@@ -4650,6 +4652,8 @@ export const translations: Record<Locale, Translations> = {
       servicesDescription: 'Configure service offerings for each country',
       numberRanges: 'Number Ranges',
       numberRangesDescription: 'Configure invoice and proforma numbering sequences',
+      numberRangesInvoices: 'Invoice Number Ranges',
+      numberRangesContracts: 'Contract Number Ranges',
       addNumberRange: 'Add Number Range',
       editNumberRange: 'Edit Number Range',
       numberRangeName: 'Name',
@@ -7665,6 +7669,8 @@ export const translations: Record<Locale, Translations> = {
       servicesDescription: 'Konfigurácia ponuky služieb pre každú krajinu',
       numberRanges: 'Číselné rady',
       numberRangesDescription: 'Konfigurácia číselných radov pre faktúry a zálohy',
+      numberRangesInvoices: 'Číselníky faktúr',
+      numberRangesContracts: 'Číselníky zmlúv',
       addNumberRange: 'Pridať číselnú radu',
       editNumberRange: 'Upraviť číselnú radu',
       numberRangeName: 'Názov',
@@ -10665,6 +10671,8 @@ export const translations: Record<Locale, Translations> = {
       servicesDescription: 'Konfigurace nabídky služeb pro každou zemi',
       numberRanges: 'Číselné řady',
       numberRangesDescription: 'Konfigurace číselných řad pro faktury a zálohy',
+      numberRangesInvoices: 'Číselníky faktur',
+      numberRangesContracts: 'Číselníky smluv',
       addNumberRange: 'Přidat číselnou řadu',
       editNumberRange: 'Upravit číselnou řadu',
       numberRangeName: 'Název',
@@ -13628,6 +13636,8 @@ export const translations: Record<Locale, Translations> = {
       servicesDescription: 'Szolgáltatási ajánlatok konfigurálása országonként',
       numberRanges: 'Számtartományok',
       numberRangesDescription: 'Számla és előlegszámla számozási sorozatok konfigurálása',
+      numberRangesInvoices: 'Számlaszám-tartományok',
+      numberRangesContracts: 'Szerződésszám-tartományok',
       addNumberRange: 'Számtartomány hozzáadása',
       editNumberRange: 'Számtartomány szerkesztése',
       numberRangeName: 'Név',
@@ -16590,6 +16600,8 @@ export const translations: Record<Locale, Translations> = {
       servicesDescription: 'Configurați ofertele de servicii pentru fiecare țară',
       numberRanges: 'Intervale numerice',
       numberRangesDescription: 'Configurați secvențele de numerotare pentru facturi și proforma',
+      numberRangesInvoices: 'Intervale numere facturi',
+      numberRangesContracts: 'Intervale numere contracte',
       addNumberRange: 'Adaugă interval numeric',
       editNumberRange: 'Editează interval numeric',
       numberRangeName: 'Nume',
@@ -19553,6 +19565,8 @@ export const translations: Record<Locale, Translations> = {
       servicesDescription: 'Configura le offerte di servizi per ogni paese',
       numberRanges: 'Intervalli numerici',
       numberRangesDescription: 'Configura le sequenze di numerazione per fatture e proforma',
+      numberRangesInvoices: 'Intervalli numeri fatture',
+      numberRangesContracts: 'Intervalli numeri contratti',
       addNumberRange: 'Aggiungi intervallo numerico',
       editNumberRange: 'Modifica intervallo numerico',
       numberRangeName: 'Nome',
@@ -22516,6 +22530,8 @@ export const translations: Record<Locale, Translations> = {
       servicesDescription: 'Dienstleistungsangebote für jedes Land konfigurieren',
       numberRanges: 'Nummernkreise',
       numberRangesDescription: 'Nummernkreise für Rechnungen und Proformarechnungen konfigurieren',
+      numberRangesInvoices: 'Rechnungsnummernkreise',
+      numberRangesContracts: 'Vertragsnummernkreise',
       addNumberRange: 'Nummernkreis hinzufügen',
       editNumberRange: 'Nummernkreis bearbeiten',
       numberRangeName: 'Name',

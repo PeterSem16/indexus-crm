@@ -115,7 +115,7 @@ const numberRangeFormSchema = z.object({
   billingDetailsId: z.string().optional(),
   year: z.number().min(1990).max(2100),
   useServiceCode: z.boolean().default(false),
-  type: z.enum(["invoice", "proforma"]).default("invoice"),
+  type: z.enum(["invoice", "proforma", "contract"]).default("invoice"),
   prefix: z.string().optional(),
   suffix: z.string().optional(),
   digitsToGenerate: z.number().min(1).max(20).default(6),
@@ -8755,7 +8755,7 @@ function InvoiceTemplatesTab() {
   );
 }
 
-function NumberRangesTab() {
+function NumberRangesTab({ mode = "invoice" }: { mode?: "invoice" | "contract" }) {
   const { t } = useI18n();
   const { toast } = useToast();
   const { selectedCountries } = useCountryFilter();
@@ -8764,6 +8764,8 @@ function NumberRangesTab() {
   const [wizardStep, setWizardStep] = useState(1);
   const [search, setSearch] = useState("");
   const totalSteps = 4;
+
+  const modeTypes = mode === "invoice" ? ["invoice", "proforma"] : ["contract"];
   
   // Filtering & Sorting state
   const [countryFilter, setCountryFilter] = useState<string>("all");
@@ -8802,7 +8804,7 @@ function NumberRangesTab() {
       billingDetailsId: "",
       year: currentYear,
       useServiceCode: false,
-      type: "invoice",
+      type: mode === "contract" ? "contract" : "invoice",
       prefix: "",
       suffix: "",
       digitsToGenerate: 6,
@@ -8934,7 +8936,7 @@ function NumberRangesTab() {
       billingDetailsId: range.billingDetailsId || "",
       year: range.year,
       useServiceCode: range.useServiceCode,
-      type: range.type as "invoice" | "proforma",
+      type: range.type as "invoice" | "proforma" | "contract",
       prefix: range.prefix || "",
       suffix: range.suffix || "",
       digitsToGenerate: range.digitsToGenerate,
@@ -8984,11 +8986,9 @@ function NumberRangesTab() {
   
   const filteredRanges = ranges
     .filter(range => {
-      // Apply country filter
+      if (!modeTypes.includes(range.type)) return false;
       if (countryFilter !== "all" && range.countryCode !== countryFilter) return false;
-      // Apply type filter
       if (typeFilter !== "all" && range.type !== typeFilter) return false;
-      // Apply year filter
       if (yearFilter !== "all" && String(range.year) !== yearFilter) return false;
       // Apply search
       if (!search) return true;
@@ -9081,16 +9081,21 @@ function NumberRangesTab() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v); setCurrentPage(1); }}>
-            <SelectTrigger className="w-[140px]" data-testid="select-range-type-filter">
-              <SelectValue placeholder={t.konfigurator.numberRangeType} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t.common.all || "All"}</SelectItem>
-              <SelectItem value="invoice">{t.konfigurator.invoice}</SelectItem>
-              <SelectItem value="proforma">{t.konfigurator.proformaInvoice}</SelectItem>
-            </SelectContent>
-          </Select>
+          {modeTypes.length > 1 && (
+            <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v); setCurrentPage(1); }}>
+              <SelectTrigger className="w-[140px]" data-testid="select-range-type-filter">
+                <SelectValue placeholder={t.konfigurator.numberRangeType} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t.common.all || "All"}</SelectItem>
+                {modeTypes.map(mt => (
+                  <SelectItem key={mt} value={mt}>
+                    {mt === "invoice" ? t.konfigurator.invoice : mt === "proforma" ? t.konfigurator.proformaInvoice : (t.contractsModule?.contract || "Zmluva")}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Select value={yearFilter} onValueChange={(v) => { setYearFilter(v); setCurrentPage(1); }}>
             <SelectTrigger className="w-[100px]" data-testid="select-range-year-filter">
               <SelectValue placeholder={t.konfigurator.numberRangeYear} />
@@ -9102,7 +9107,7 @@ function NumberRangesTab() {
               ))}
             </SelectContent>
           </Select>
-          {(countryFilter !== "all" || typeFilter !== "all" || yearFilter !== "all" || search) && (
+          {(countryFilter !== "all" || (modeTypes.length > 1 && typeFilter !== "all") || yearFilter !== "all" || search) && (
             <Button 
               variant="ghost" 
               size="sm"
@@ -9274,8 +9279,14 @@ function NumberRangesTab() {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="invoice">{t.konfigurator.invoice}</SelectItem>
-                                <SelectItem value="proforma">{t.konfigurator.proformaInvoice}</SelectItem>
+                                {mode === "contract" ? (
+                                  <SelectItem value="contract">{t.contractsModule?.contract || "Zmluva"}</SelectItem>
+                                ) : (
+                                  <>
+                                    <SelectItem value="invoice">{t.konfigurator.invoice}</SelectItem>
+                                    <SelectItem value="proforma">{t.konfigurator.proformaInvoice}</SelectItem>
+                                  </>
+                                )}
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -9571,8 +9582,8 @@ function NumberRangesTab() {
                   </TableCell>
                   <TableCell>{range.year}</TableCell>
                   <TableCell>
-                    <Badge variant={range.type === "invoice" ? "default" : "secondary"}>
-                      {range.type === "invoice" ? t.konfigurator.invoice : t.konfigurator.proformaInvoice}
+                    <Badge variant={range.type === "invoice" ? "default" : range.type === "contract" ? "default" : "secondary"}>
+                      {range.type === "invoice" ? t.konfigurator.invoice : range.type === "contract" ? (t.contractsModule?.contract || "Zmluva") : t.konfigurator.proformaInvoice}
                     </Badge>
                   </TableCell>
                   <TableCell>{range.prefix || "-"} / {range.suffix || "-"}</TableCell>
@@ -17094,7 +17105,24 @@ export default function ConfiguratorPage() {
                   <BillingCompaniesTab />
                 </TabsContent>
                 <TabsContent value="number-ranges">
-                  <NumberRangesTab />
+                  <Tabs defaultValue="nr-invoices" className="space-y-4">
+                    <TabsList>
+                      <TabsTrigger value="nr-invoices" data-testid="subtab-nr-invoices">
+                        <FileText className="h-4 w-4 mr-2" />
+                        {t.konfigurator.numberRangesInvoices || "Číselníky faktúr"}
+                      </TabsTrigger>
+                      <TabsTrigger value="nr-contracts" data-testid="subtab-nr-contracts">
+                        <FileText className="h-4 w-4 mr-2" />
+                        {t.konfigurator.numberRangesContracts || "Číselníky zmlúv"}
+                      </TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="nr-invoices">
+                      <NumberRangesTab mode="invoice" />
+                    </TabsContent>
+                    <TabsContent value="nr-contracts">
+                      <NumberRangesTab mode="contract" />
+                    </TabsContent>
+                  </Tabs>
                 </TabsContent>
                 <TabsContent value="invoice-templates">
                   <DocxTemplatesTab />

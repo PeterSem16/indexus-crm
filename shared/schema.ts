@@ -2408,7 +2408,7 @@ export const insertServiceInstanceSchema = createInsertSchema(serviceInstances).
 export type InsertServiceInstance = z.infer<typeof insertServiceInstanceSchema>;
 export type ServiceInstance = typeof serviceInstances.$inferSelect;
 
-// Number ranges - for invoice/proforma numbering configuration
+// Number ranges - for invoice/proforma/contract numbering configuration
 export const numberRanges = pgTable("number_ranges", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
@@ -2416,7 +2416,7 @@ export const numberRanges = pgTable("number_ranges", {
   billingDetailsId: varchar("billing_details_id"), // Reference to billing company
   year: integer("year").notNull(),
   useServiceCode: boolean("use_service_code").notNull().default(false),
-  type: text("type").notNull().default("invoice"), // invoice, proforma
+  type: text("type").notNull().default("invoice"), // invoice, proforma, contract
   prefix: text("prefix"),
   suffix: text("suffix"),
   digitsToGenerate: integer("digits_to_generate").notNull().default(6),
