@@ -432,19 +432,21 @@ export function SipPhone({
             });
             onCallEnd?.(duration, duration > 0 ? "completed" : "failed", callLogId);
             setCurrentCallLogId(null);
-            setTimeout(() => {
-              setCallStateLocal((prev) => {
-                if (prev === "ended") {
-                  callContext.setCallState("idle");
-                  callContext.setCallInfo(null);
-                  callContext.resetCallTiming();
-                  return "idle";
-                }
-                return prev;
-              });
-              setCallDuration(0);
-              sessionRef.current = null;
-            }, 3000);
+            if (!callContext.preventAutoReset) {
+              setTimeout(() => {
+                setCallStateLocal((prev) => {
+                  if (prev === "ended") {
+                    callContext.setCallState("idle");
+                    callContext.setCallInfo(null);
+                    callContext.resetCallTiming();
+                    return "idle";
+                  }
+                  return prev;
+                });
+                setCallDuration(0);
+                sessionRef.current = null;
+              }, 3000);
+            }
             break;
         }
       });

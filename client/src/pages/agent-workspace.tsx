@@ -963,6 +963,22 @@ function CommunicationCanvas({
   onUpdateContact?: (data: CustomerFormData) => void;
   isUpdatingContact?: boolean;
   externalPhoneSubTab?: "card" | "details" | "history" | null;
+  callState?: string;
+  callDuration?: number;
+  ringDuration?: number;
+  hungUpBy?: "user" | "customer" | null;
+  isMuted?: boolean;
+  isOnHold?: boolean;
+  volume?: number;
+  micVolume?: number;
+  onEndCall?: () => void;
+  onOpenDisposition?: () => void;
+  onToggleMute?: () => void;
+  onToggleHold?: () => void;
+  onSendDtmf?: (digit: string) => void;
+  onVolumeChange?: (vol: number) => void;
+  onMicVolumeChange?: (vol: number) => void;
+  callerNumber?: string;
 }) {
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
@@ -1291,6 +1307,117 @@ function CommunicationCanvas({
               História
             </button>
           </div>
+
+          {callState && callState !== "idle" && (
+            <div
+              className={`flex items-center gap-2 px-3 py-2 border-b text-xs ${
+                callState === "ended"
+                  ? "bg-red-500/10 border-red-500/30"
+                  : callState === "active"
+                  ? "bg-green-500/10 border-green-500/30"
+                  : callState === "ringing" || callState === "connecting"
+                  ? "bg-yellow-500/10 border-yellow-500/30"
+                  : callState === "on_hold"
+                  ? "bg-orange-500/10 border-orange-500/30"
+                  : "bg-muted/50"
+              }`}
+              data-testid="inline-call-bar"
+            >
+              <div className={`h-2 w-2 rounded-full flex-shrink-0 ${
+                callState === "ended" ? "bg-red-500" :
+                callState === "active" ? "bg-green-500 animate-pulse" :
+                callState === "ringing" || callState === "connecting" ? "bg-yellow-500 animate-pulse" :
+                callState === "on_hold" ? "bg-orange-500 animate-pulse" :
+                "bg-muted-foreground"
+              }`} />
+
+              <div className="flex items-center gap-1.5 min-w-0">
+                {callState === "ended" ? (
+                  <PhoneOff className="h-3 w-3 text-red-500 flex-shrink-0" />
+                ) : callState === "active" || callState === "on_hold" ? (
+                  <PhoneCall className="h-3 w-3 text-green-500 flex-shrink-0" />
+                ) : (
+                  <Phone className="h-3 w-3 text-yellow-500 flex-shrink-0" />
+                )}
+                <span className="font-medium truncate">
+                  {callerNumber || "---"}
+                </span>
+              </div>
+
+              <div className="font-mono text-[11px] tabular-nums">
+                {callState === "ended" ? (
+                  <span className="text-red-500 font-semibold">
+                    {hungUpBy === "customer" ? "Zákazník zavesil" : "Ukončený"}
+                  </span>
+                ) : callState === "ringing" || callState === "connecting" ? (
+                  <span className="text-yellow-600 dark:text-yellow-400">
+                    {ringDuration ? `${ringDuration}s` : "Vyzvánanie..."}
+                  </span>
+                ) : (
+                  <span className="text-green-600 dark:text-green-400">
+                    {String(Math.floor((callDuration || 0) / 60)).padStart(2, "0")}:
+                    {String((callDuration || 0) % 60).padStart(2, "0")}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-0.5 ml-auto flex-shrink-0">
+                {(callState === "active" || callState === "on_hold") && (
+                  <>
+                    <Button
+                      size="icon"
+                      variant={isMuted ? "destructive" : "ghost"}
+                      className="h-6 w-6"
+                      onClick={onToggleMute}
+                      data-testid="inline-call-mute"
+                    >
+                      {isMuted ? <MicOff className="h-3 w-3" /> : <Mic className="h-3 w-3" />}
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant={isOnHold ? "secondary" : "ghost"}
+                      className="h-6 w-6"
+                      onClick={onToggleHold}
+                      data-testid="inline-call-hold"
+                    >
+                      {isOnHold ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="destructive"
+                      className="h-6 w-6"
+                      onClick={onEndCall}
+                      data-testid="inline-call-end"
+                    >
+                      <PhoneOff className="h-3 w-3" />
+                    </Button>
+                  </>
+                )}
+                {callState === "ended" && (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="h-6 text-[10px] px-2"
+                    onClick={onOpenDisposition}
+                    data-testid="inline-call-disposition"
+                  >
+                    Dispozícia
+                  </Button>
+                )}
+                {(callState === "ringing" || callState === "connecting") && (
+                  <Button
+                    size="icon"
+                    variant="destructive"
+                    className="h-6 w-6"
+                    onClick={onEndCall}
+                    data-testid="inline-call-cancel"
+                  >
+                    <PhoneOff className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
 
           {phoneSubTab === "card" && contact && (
             <ScrollArea className="flex-1">
@@ -2220,8 +2347,10 @@ export default function AgentWorkspacePage() {
       prevSidebarOpenRef.current = sidebarOpen;
       setSidebarOpen(false);
       document.documentElement.setAttribute('data-agent-fullscreen', 'true');
+      callContext.setPreventAutoReset(true);
     } else {
       document.documentElement.removeAttribute('data-agent-fullscreen');
+      callContext.setPreventAutoReset(false);
     }
   }, [agentSession.isSessionActive]);
 
@@ -2229,6 +2358,7 @@ export default function AgentWorkspacePage() {
     return () => {
       setSidebarOpen(prevSidebarOpenRef.current);
       document.documentElement.removeAttribute('data-agent-fullscreen');
+      callContext.setPreventAutoReset(false);
       if (ringTimerRef.current) {
         clearInterval(ringTimerRef.current);
         ringTimerRef.current = null;
@@ -3049,6 +3179,22 @@ export default function AgentWorkspacePage() {
           onUpdateContact={(data) => updateContactMutation.mutate(data)}
           isUpdatingContact={updateContactMutation.isPending}
           externalPhoneSubTab={phoneSubTabOverride}
+          callState={callContext.callState}
+          callDuration={callContext.callDuration}
+          ringDuration={ringDuration}
+          hungUpBy={callContext.callTiming.hungUpBy}
+          isMuted={callContext.isMuted}
+          isOnHold={callContext.isOnHold}
+          volume={callContext.volume}
+          micVolume={callContext.micVolume}
+          onEndCall={() => callContext.endCallFn.current?.()}
+          onOpenDisposition={() => setDispositionModalOpen(true)}
+          onToggleMute={() => callContext.toggleMuteFn.current?.()}
+          onToggleHold={() => callContext.toggleHoldFn.current?.()}
+          onSendDtmf={(digit) => callContext.sendDtmfFn.current?.(digit)}
+          onVolumeChange={(vol) => callContext.onVolumeChangeFn.current?.(vol)}
+          onMicVolumeChange={(vol) => callContext.onMicVolumeChangeFn.current?.(vol)}
+          callerNumber={callContext.callInfo?.phoneNumber || ""}
         />
 
         <CustomerInfoPanel

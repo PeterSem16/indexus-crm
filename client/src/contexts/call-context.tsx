@@ -31,6 +31,8 @@ interface CallContextType {
   volume: number;
   micVolume: number;
   callTiming: CallTimingMeta;
+  preventAutoReset: boolean;
+  setPreventAutoReset: (prevent: boolean) => void;
   setCallState: (state: CallState) => void;
   setCallInfo: (info: CallInfo | null) => void;
   setCallDuration: (duration: number) => void;
@@ -70,6 +72,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const [volume, setVolume] = useState(80);
   const [micVolume, setMicVolume] = useState(100);
   const [callTiming, setCallTimingState] = useState<CallTimingMeta>({ ...defaultTiming });
+  const [preventAutoReset, setPreventAutoReset] = useState(false);
   
   const endCallFn = useRef<(() => void) | null>(null);
   const forceResetCallFn = useRef<(() => void) | null>(null);
@@ -98,6 +101,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
       volume,
       micVolume,
       callTiming,
+      preventAutoReset,
+      setPreventAutoReset,
       setCallState,
       setCallInfo,
       setCallDuration,
