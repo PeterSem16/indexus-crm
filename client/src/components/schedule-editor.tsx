@@ -231,9 +231,10 @@ export function ScheduleEditor({ schedule, onChange, readonly }: ScheduleEditorP
     });
   };
 
-  const activeDays = DAYS_OF_WEEK.filter(d => schedule.weeklySchedule[d.value]?.enabled).length;
-  const totalHours = Object.values(schedule.weeklySchedule).reduce((total: number, day: DaySchedule) => {
-    if (!day.enabled) return total;
+  const safeWeekly = schedule.weeklySchedule || {};
+  const activeDays = DAYS_OF_WEEK.filter(d => safeWeekly[d.value]?.enabled).length;
+  const totalHours = Object.values(safeWeekly).reduce((total: number, day: DaySchedule) => {
+    if (!day?.enabled || !Array.isArray(day.slots)) return total;
     return total + day.slots.reduce((slotTotal: number, slot: TimeSlot) => {
       const start = slot.startTime.split(":").map(Number);
       const end = slot.endTime.split(":").map(Number);

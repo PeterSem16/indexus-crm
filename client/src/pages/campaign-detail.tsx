@@ -580,10 +580,19 @@ function SchedulingCard({ campaign }: { campaign: Campaign }) {
   const { t } = useI18n();
   const { toast } = useToast();
   const [schedule, setSchedule] = useState<ScheduleConfig>(() => {
+    const defaults = getDefaultScheduleConfig();
     try {
-      return campaign.settings ? JSON.parse(campaign.settings) : getDefaultScheduleConfig();
+      if (campaign.settings) {
+        const parsed = JSON.parse(campaign.settings);
+        return {
+          maxAttemptsPerContact: parsed.maxAttemptsPerContact ?? defaults.maxAttemptsPerContact,
+          minHoursBetweenAttempts: parsed.minHoursBetweenAttempts ?? defaults.minHoursBetweenAttempts,
+          weeklySchedule: parsed.weeklySchedule ?? defaults.weeklySchedule,
+        };
+      }
+      return defaults;
     } catch {
-      return getDefaultScheduleConfig();
+      return defaults;
     }
   });
   const [hasChanges, setHasChanges] = useState(false);
