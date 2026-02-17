@@ -32,7 +32,7 @@ import {
 import { PageHeader } from "@/components/page-header";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { type Campaign, type CampaignContact, type Customer, COUNTRIES, type OperatorScript, operatorScriptSchema, type CampaignDisposition, DISPOSITION_ACTION_TYPES } from "@shared/schema";
+import { type Campaign, type CampaignContact, type Customer, COUNTRIES, type OperatorScript, operatorScriptSchema, type CampaignDisposition, DISPOSITION_ACTION_TYPES, DISPOSITION_NAME_TRANSLATIONS } from "@shared/schema";
 import { Input } from "@/components/ui/input";
 
 function getDefaultSalesScript(lang: string): OperatorScript {
@@ -970,6 +970,20 @@ const ACTION_TYPE_COLORS: Record<string, string> = {
 function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedded?: boolean }) {
   const { t, locale } = useI18n();
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  const userLocale = useMemo(() => {
+    const countryToLang: Record<string, string> = { SK: 'sk', CZ: 'cs', HU: 'hu', RO: 'ro', IT: 'it', DE: 'de', US: 'en' };
+    if (user?.countries?.length) {
+      return countryToLang[user.countries[0]] || locale;
+    }
+    return locale;
+  }, [user?.countries, locale]);
+
+  const getDispName = (code: string, fallbackName: string) => {
+    return DISPOSITION_NAME_TRANSLATIONS[code]?.[userLocale] || fallbackName;
+  };
+
   const [showAddForm, setShowAddForm] = useState(false);
   const [addingSubFor, setAddingSubFor] = useState<string | null>(null);
   const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
@@ -1221,7 +1235,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
                     })()}
                     <div className="flex-1 min-w-0">
                       <span className={`font-medium ${!parent.isActive ? "line-through text-muted-foreground" : ""}`} data-testid={`text-disposition-name-${parent.id}`}>
-                        {parent.name}
+                        {getDispName(parent.code, parent.name)}
                       </span>
                       <span className="ml-2 text-xs text-muted-foreground">{parent.code}</span>
                     </div>
@@ -1268,7 +1282,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
                           })()}
                           <div className="flex-1 min-w-0">
                             <span className={`text-sm ${!child.isActive ? "line-through text-muted-foreground" : ""}`} data-testid={`text-disposition-name-${child.id}`}>
-                              {child.name}
+                              {getDispName(child.code, child.name)}
                             </span>
                             <span className="ml-2 text-xs text-muted-foreground">{child.code}</span>
                           </div>
@@ -1313,6 +1327,19 @@ export default function CampaignDetailPage() {
   const campaignId = params?.id || "";
   const { t, locale } = useI18n();
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  const userLocale = useMemo(() => {
+    const countryToLang: Record<string, string> = { SK: 'sk', CZ: 'cs', HU: 'hu', RO: 'ro', IT: 'it', DE: 'de', US: 'en' };
+    if (user?.countries?.length) {
+      return countryToLang[user.countries[0]] || locale;
+    }
+    return locale;
+  }, [user?.countries, locale]);
+
+  const getDispName = (code: string, fallbackName: string) => {
+    return DISPOSITION_NAME_TRANSLATIONS[code]?.[userLocale] || fallbackName;
+  };
   const [activeTab, setActiveTab] = useState("overview");
   const [settingsSubTab, setSettingsSubTab] = useState("general");
   const [contactFilters, setContactFilters] = useState<CampaignContactFilters>({});
@@ -1749,7 +1776,7 @@ export default function CampaignDetailPage() {
       c.customer?.email || "",
       c.customer?.phone || "",
       (t.campaigns.contactStatuses as Record<string, string>)[c.status] || c.status,
-      c.dispositionCode ? (dispositionMap[c.dispositionCode]?.name || c.dispositionCode) : "",
+      c.dispositionCode ? getDispName(c.dispositionCode, dispositionMap[c.dispositionCode]?.name || c.dispositionCode) : "",
       c.dispositionCode || "",
       c.attemptCount || 0,
       c.lastAttemptAt ? format(new Date(c.lastAttemptAt), "yyyy-MM-dd HH:mm") : "",
@@ -1910,7 +1937,7 @@ export default function CampaignDetailPage() {
       sortable: true,
       sortValue: (contact: EnrichedContact) => {
         const dc = (contact as any).dispositionCode;
-        return dc ? (dispositionMap[dc]?.name || dc) : "";
+        return dc ? getDispName(dc, dispositionMap[dc]?.name || dc) : "";
       },
       cell: (contact: EnrichedContact) => {
         const dc = (contact as any).dispositionCode;
@@ -1934,7 +1961,7 @@ export default function CampaignDetailPage() {
           <div className="space-y-1 max-w-[220px]">
             {disp && (
               <Badge variant="secondary" className={`text-xs ${colorClasses[disp.color] || colorClasses.gray}`} data-testid={`badge-disposition-${dc}`}>
-                {disp.name}
+                {getDispName(dc, disp.name)}
               </Badge>
             )}
             {hasCallback && (
@@ -3171,7 +3198,7 @@ export default function CampaignDetailPage() {
                         gray: "bg-muted text-muted-foreground",
                       }[dispositionMap[(selectedContact as any).dispositionCode]?.color] || "bg-muted text-muted-foreground"
                     }`}>
-                      {dispositionMap[(selectedContact as any).dispositionCode]?.name}
+                      {getDispName((selectedContact as any).dispositionCode, dispositionMap[(selectedContact as any).dispositionCode]?.name)}
                     </Badge>
                   </div>
                 )}
@@ -3600,7 +3627,7 @@ export default function CampaignDetailPage() {
                         data-testid={`requeue-disp-${d.code}`}
                       >
                         {isSelected && <CheckCircle className="w-3 h-3 mr-1 shrink-0" />}
-                        {d.name}
+                        {getDispName(d.code, d.name)}
                         {children.length > 0 && <span className="opacity-60 ml-1">+{children.length}</span>}
                       </Badge>
                     );
@@ -3655,7 +3682,7 @@ export default function CampaignDetailPage() {
                           <div className="flex items-center gap-2">
                             {c.dispositionCode && (
                               <Badge variant="outline" className="text-xs">
-                                {dispositionMap[c.dispositionCode]?.name || c.dispositionCode}
+                                {getDispName(c.dispositionCode, dispositionMap[c.dispositionCode]?.name || c.dispositionCode)}
                               </Badge>
                             )}
                             <Badge variant="secondary" className="text-xs">

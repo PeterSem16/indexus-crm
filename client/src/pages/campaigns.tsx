@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Plus, Pencil, Trash2, Search, Megaphone, PlayCircle, CheckCircle, Clock, XCircle, ExternalLink, FileText, Calendar, LayoutList, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, BarChart3, TrendingUp, Phone, RefreshCw, Users, Mail, MessageSquare, User, Check, Loader2, Shield, Headphones, X, Download } from "lucide-react";
@@ -868,10 +868,14 @@ export default function CampaignsPage() {
     },
   });
 
-  // Set initial selected agents when dialog opens
-  useMemo(() => {
-    if (agentsDialogCampaign && currentCampaignAgents.length >= 0) {
-      setSelectedAgentIds(currentCampaignAgents.map(a => a.userId));
+  useEffect(() => {
+    if (agentsDialogCampaign) {
+      const newIds = currentCampaignAgents.map(a => a.userId).sort();
+      setSelectedAgentIds(prev => {
+        const sorted = [...prev].sort();
+        if (sorted.length === newIds.length && sorted.every((v, i) => v === newIds[i])) return prev;
+        return newIds;
+      });
     }
   }, [currentCampaignAgents, agentsDialogCampaign]);
 
