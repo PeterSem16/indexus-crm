@@ -432,6 +432,19 @@ export function SipPhone({
             });
             onCallEnd?.(duration, duration > 0 ? "completed" : "failed", callLogId);
             setCurrentCallLogId(null);
+            setTimeout(() => {
+              setCallStateLocal((prev) => {
+                if (prev === "ended") {
+                  callContext.setCallState("idle");
+                  callContext.setCallInfo(null);
+                  callContext.resetCallTiming();
+                  return "idle";
+                }
+                return prev;
+              });
+              setCallDuration(0);
+              sessionRef.current = null;
+            }, 3000);
             break;
         }
       });
@@ -460,7 +473,12 @@ export function SipPhone({
   }, [phoneNumber, sipConfig.server, sipConfig.realm, isRegistered, onCallStart, onCallEnd, toast, createCallLogMutation, updateCallLogMutation, userId, currentUser, localCustomerId, localCampaignId, localCustomerName, currentCallLogId, isSipConfigured]);
 
   useEffect(() => {
-    if (pendingCall && callState === "idle") {
+    if (pendingCall && (callState === "idle" || callState === "ended")) {
+      if (callState === "ended") {
+        setCallState("idle");
+        setCallDuration(0);
+        sessionRef.current = null;
+      }
       const callData = pendingCall;
       setPhoneNumber(callData.phoneNumber);
       setLocalCustomerId(callData.customerId?.toString());
@@ -473,7 +491,7 @@ export function SipPhone({
       if (isRegistered) {
         setTimeout(() => {
           makeCall();
-        }, 50);
+        }, 100);
       } else {
         pendingCallProcessedRef.current = true;
       }
@@ -481,11 +499,16 @@ export function SipPhone({
   }, [pendingCall, callState, clearPendingCall, isRegistered, makeCall]);
 
   useEffect(() => {
-    if (pendingCallProcessedRef.current && isRegistered && callState === "idle") {
+    if (pendingCallProcessedRef.current && isRegistered && (callState === "idle" || callState === "ended")) {
+      if (callState === "ended") {
+        setCallState("idle");
+        setCallDuration(0);
+        sessionRef.current = null;
+      }
       pendingCallProcessedRef.current = false;
       setTimeout(() => {
         makeCall();
-      }, 50);
+      }, 100);
     }
   }, [isRegistered, callState, makeCall]);
 
