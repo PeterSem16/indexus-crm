@@ -11,7 +11,6 @@ import { AuthProvider, useAuth } from "@/contexts/auth-context";
 import { PermissionsProvider } from "@/contexts/permissions-context";
 import { SipProvider, useSip } from "@/contexts/sip-context";
 import { CallProvider } from "@/contexts/call-context";
-import { CallBar } from "@/components/call-bar";
 import { I18nProvider } from "@/i18n";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -176,7 +175,6 @@ function AuthenticatedApp() {
           <div className="flex h-screen w-full">
             <AppSidebar />
             <div className="flex flex-col flex-1 overflow-hidden min-w-0">
-              <CallBar />
               <header className="flex h-14 items-center justify-between gap-4 border-b px-4 shrink-0">
                 <SidebarTrigger data-testid="button-sidebar-toggle" />
                 <div className="flex items-center gap-2">
