@@ -186,8 +186,10 @@ export default function ContractDetailPage() {
     return collections.filter((c: Collection) => c.customerId === customerId);
   }, [collections, customerId]);
 
+  const [lastContractUpdatedAt, setLastContractUpdatedAt] = useState<string | null>(null);
+
   useEffect(() => {
-    if (contract && !formInitialized) {
+    if (contract && (!formInitialized || (contract.updatedAt && contract.updatedAt !== lastContractUpdatedAt))) {
       setFormState({
         internalId: contract.internalId || "",
         status: contract.status || "draft",
@@ -226,8 +228,9 @@ export default function ContractDetailPage() {
         recruitedDate: formatDateTimeForInput(contract.recruitedDate),
       });
       setFormInitialized(true);
+      setLastContractUpdatedAt(contract.updatedAt || null);
     }
-  }, [contract, formInitialized]);
+  }, [contract, formInitialized, lastContractUpdatedAt]);
 
   useEffect(() => {
     if (contract && formInitialized) {
