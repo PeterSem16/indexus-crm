@@ -15429,6 +15429,9 @@ function CountrySystemSettingsTab() {
     systemSmsEnabled: false,
     systemSmsSenderType: "gSystem",
     systemSmsSenderValue: "",
+    systemBrandName: "",
+    systemEmailSignature: "",
+    systemSmsSignature: "",
     alertsEnabled: true,
     notificationsEnabled: true,
   });
@@ -15442,6 +15445,9 @@ function CountrySystemSettingsTab() {
         systemSmsEnabled: currentSettings.systemSmsEnabled || false,
         systemSmsSenderType: currentSettings.systemSmsSenderType || currentGsmConfig?.senderIdType || "gSystem",
         systemSmsSenderValue: currentSettings.systemSmsSenderValue || currentGsmConfig?.senderIdValue || "",
+        systemBrandName: currentSettings.systemBrandName || "",
+        systemEmailSignature: currentSettings.systemEmailSignature || "",
+        systemSmsSignature: currentSettings.systemSmsSignature || "",
         alertsEnabled: currentSettings.alertsEnabled ?? true,
         notificationsEnabled: currentSettings.notificationsEnabled ?? true,
       });
@@ -15453,6 +15459,9 @@ function CountrySystemSettingsTab() {
         systemSmsEnabled: false,
         systemSmsSenderType: currentGsmConfig?.senderIdType || "gSystem",
         systemSmsSenderValue: currentGsmConfig?.senderIdValue || "",
+        systemBrandName: "",
+        systemEmailSignature: "",
+        systemSmsSignature: "",
         alertsEnabled: true,
         notificationsEnabled: true,
       });
@@ -15685,6 +15694,68 @@ function CountrySystemSettingsTab() {
                   )}
                 </>
               )}
+            </CardContent>
+          </Card>
+
+          <Card className="col-span-2">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Branding a podpisy
+              </CardTitle>
+              <CardDescription>
+                Systémový názov a podpisy pre emaily a SMS odosielané automaticky (zmluvy, faktúry, upozornenia)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="systemBrandName">Systémový názov</Label>
+                <p className="text-xs text-muted-foreground">
+                  Nahradí "INDEXUS" v systémových emailoch a SMS pre túto krajinu
+                </p>
+                <Input
+                  id="systemBrandName"
+                  value={formData.systemBrandName}
+                  onChange={(e) => setFormData({...formData, systemBrandName: e.target.value})}
+                  placeholder="INDEXUS"
+                  data-testid="input-system-brand-name"
+                />
+              </div>
+              <Separator />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="systemEmailSignature">Podpis pre systémové emaily</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Pripojí sa na koniec systémových emailov (zmluvy, faktúry, timeline)
+                  </p>
+                  <Textarea
+                    id="systemEmailSignature"
+                    value={formData.systemEmailSignature}
+                    onChange={(e) => setFormData({...formData, systemEmailSignature: e.target.value})}
+                    placeholder={"S pozdravom,\nINDEXUS tím\nwww.indexus.sk"}
+                    rows={5}
+                    data-testid="input-system-email-signature"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="systemSmsSignature">Podpis pre systémové SMS</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Pripojí sa na koniec systémových SMS (max 160 znakov)
+                  </p>
+                  <Textarea
+                    id="systemSmsSignature"
+                    value={formData.systemSmsSignature}
+                    onChange={(e) => setFormData({...formData, systemSmsSignature: e.target.value.slice(0, 160)})}
+                    placeholder="INDEXUS tím"
+                    rows={3}
+                    maxLength={160}
+                    data-testid="input-system-sms-signature"
+                  />
+                  <p className="text-xs text-muted-foreground text-right">
+                    {formData.systemSmsSignature.length}/160
+                  </p>
+                </div>
+              </div>
             </CardContent>
           </Card>
 

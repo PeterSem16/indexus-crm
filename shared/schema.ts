@@ -4435,6 +4435,11 @@ export const countrySystemSettings = pgTable("country_system_settings", {
   systemSmsSenderType: varchar("system_sms_sender_type", { length: 20 }), // gSystem, gShort, gText, gMobile, gPush, gOwn, gProfile
   systemSmsSenderValue: varchar("system_sms_sender_value", { length: 50 }), // Value based on sender type
   
+  // System branding
+  systemBrandName: varchar("system_brand_name", { length: 100 }),
+  systemEmailSignature: text("system_email_signature"),
+  systemSmsSignature: varchar("system_sms_signature", { length: 160 }),
+
   // Additional settings
   alertsEnabled: boolean("alerts_enabled").notNull().default(true),
   notificationsEnabled: boolean("notifications_enabled").notNull().default(true),
