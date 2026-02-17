@@ -20492,6 +20492,13 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       const baseUrl = getBaseUrl();
       const signingLink = signingToken ? `${baseUrl}/s/${signingToken}` : null;
       
+      const contractCountryCode = await resolveContractCountry(contract);
+      const countrySettings = contractCountryCode ? await storage.getCountrySystemSettingsByCountry(contractCountryCode) : null;
+      const brandName = countrySettings?.systemBrandName || "INDEXUS CRM";
+      const emailSignature = countrySettings?.systemEmailSignature 
+        ? countrySettings.systemEmailSignature.split('\n').map((line: string) => line.trim() ? `<p style="margin:0;color:#666;">${line}</p>` : '<br>').join('')
+        : `<p>${t.closing},<br>${brandName}</p>`;
+
       const emailSubject = t.emailSubject(contract.contractNumber);
       const emailHtml = `
         <h2>${t.greeting} ${signerName},</h2>
@@ -20507,7 +20514,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         ` : `<p>${t.fallbackInstruction}</p>`}
         ${contract.pdfPath ? `<p><strong>${t.attachmentNote}</strong></p>` : ''}
         <br>
-        <p>${t.closing},<br>INDEXUS CRM</p>
+        ${emailSignature}
       `;
 
       let attachments: Array<{ name: string; contentType: string; contentBase64: string }> | undefined;
@@ -20647,9 +20654,13 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       const baseUrl = getBaseUrl();
       const signingLink = signingToken ? `${baseUrl}/s/${signingToken}` : null;
 
-      const smsText = signingLink 
+      const smsCountrySettings = countryCode ? await storage.getCountrySystemSettingsByCountry(countryCode) : null;
+      let smsText = signingLink 
         ? t.smsTextWithLink(contract.contractNumber, otpCode, signingLink)
         : t.smsText(contract.contractNumber, otpCode);
+      if (smsCountrySettings?.systemSmsSignature) {
+        smsText += `\n${smsCountrySettings.systemSmsSignature}`;
+      }
 
       const { sendTransactionalSms, isBulkGateConfigured } = await import("./lib/bulkgate");
       if (isBulkGateConfigured()) {
@@ -21460,10 +21471,17 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
               await storage.updateUserMs365Connection(userId, updateData);
             }
             
+            const contractCountryCode = await resolveContractCountry(contract);
+            const timelineCountrySettings = contractCountryCode ? await storage.getCountrySystemSettingsByCountry(contractCountryCode) : null;
+            const timelineBrandName = timelineCountrySettings?.systemBrandName || "INDEXUS";
+            const timelineEmailSig = timelineCountrySettings?.systemEmailSignature
+              ? `<div style="margin-top:16px;color:#6b7280;font-size:13px;">${timelineCountrySettings.systemEmailSignature.split('\n').map((line: string) => line.trim() ? `<p style="margin:0;">${line}</p>` : '<br>').join('')}</div>`
+              : '';
+
             const emailHtml = `
               <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f8f9fa; padding: 20px;">
                 <div style="background: #6B1C3B; padding: 24px; border-radius: 12px 12px 0 0; text-align: center;">
-                  <h1 style="color: white; margin: 0; font-size: 22px;">INDEXUS</h1>
+                  <h1 style="color: white; margin: 0; font-size: 22px;">${timelineBrandName}</h1>
                   <p style="color: rgba(255,255,255,0.8); margin: 4px 0 0; font-size: 14px;">Contract Audit Timeline</p>
                 </div>
                 <div style="background: white; padding: 24px; border-radius: 0 0 12px 12px; border: 1px solid #e5e7eb; border-top: 0;">
@@ -21473,6 +21491,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
                     <a href="${timelineUrl}" style="display: inline-block; background: #6B1C3B; color: white; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">View Audit Timeline</a>
                   </div>
                   <p style="color: #9ca3af; font-size: 12px; text-align: center;">This link expires in 30 days.</p>
+                  ${timelineEmailSig}
                 </div>
               </div>`;
 

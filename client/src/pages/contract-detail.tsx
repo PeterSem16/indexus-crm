@@ -229,6 +229,24 @@ export default function ContractDetailPage() {
     }
   }, [contract, formInitialized]);
 
+  useEffect(() => {
+    if (contract && formInitialized) {
+      setFormState((prev) => {
+        const updates: Record<string, any> = {};
+        if (contract.sentContractDate && !prev.sentContractDate) {
+          updates.sentContractDate = formatDateTimeForInput(contract.sentContractDate);
+        }
+        if (contract.status && contract.status !== prev.status) {
+          updates.status = contract.status;
+        }
+        if (Object.keys(updates).length > 0) {
+          return { ...prev, ...updates };
+        }
+        return prev;
+      });
+    }
+  }, [contract, formInitialized]);
+
   const updateField = (field: string, value: any) => {
     setFormState((prev) => ({ ...prev, [field]: value }));
   };
@@ -549,11 +567,11 @@ export default function ContractDetailPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="expectedDeliveryDate">{t.contractsModule.fieldExpectedDeliveryDate}</Label>
-                  <Input
-                    id="expectedDeliveryDate"
-                    type="date"
+                  <DateTimePicker
                     value={formState.expectedDeliveryDate || ""}
-                    onChange={(e) => updateField("expectedDeliveryDate", e.target.value)}
+                    onChange={(v) => updateField("expectedDeliveryDate", v)}
+                    countryCode={contractCountryCode}
+                    includeTime={false}
                     data-testid="input-expectedDeliveryDate"
                   />
                 </div>
