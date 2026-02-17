@@ -947,6 +947,22 @@ function CommunicationCanvas({
   onUpdateContact,
   isUpdatingContact,
   externalPhoneSubTab,
+  callState,
+  callDuration,
+  ringDuration,
+  hungUpBy,
+  isMuted,
+  isOnHold,
+  volume,
+  micVolume,
+  onEndCall,
+  onOpenDisposition,
+  onToggleMute,
+  onToggleHold,
+  onSendDtmf,
+  onVolumeChange,
+  onMicVolumeChange,
+  callerNumber,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
