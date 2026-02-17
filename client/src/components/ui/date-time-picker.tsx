@@ -8,6 +8,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
+function toLocalISOString(date: Date, includeTime: boolean): string {
+  const y = date.getFullYear();
+  const mo = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  if (!includeTime) return `${y}-${mo}-${d}`;
+  const h = String(date.getHours()).padStart(2, "0");
+  const mi = String(date.getMinutes()).padStart(2, "0");
+  return `${y}-${mo}-${d}T${h}:${mi}`;
+}
+
 const LOCALE_MAP: Record<string, Locale> = {
   SK: sk, CZ: cs, HU: hu, RO: ro, IT: it, DE: de, US: enUS
 };
@@ -62,9 +72,9 @@ export function DateTimePicker({
       const h = parseInt(hours) || 0;
       const m = parseInt(minutes) || 0;
       const withTime = setMinutes(setHours(date, h), m);
-      onChange(withTime.toISOString().slice(0, 16));
+      onChange(toLocalISOString(withTime, true));
     } else {
-      onChange(date.toISOString().slice(0, 10));
+      onChange(toLocalISOString(date, false));
     }
   }, [hours, minutes, includeTime, onChange]);
 
@@ -76,7 +86,7 @@ export function DateTimePicker({
 
     if (isValidDate) {
       const updated = setMinutes(setHours(new Date(currentDate), h), m);
-      onChange(updated.toISOString().slice(0, 16));
+      onChange(toLocalISOString(updated, true));
     }
   }, [isValidDate, currentDate, onChange]);
 
@@ -150,7 +160,7 @@ export function DateTimePicker({
               size="sm"
               onClick={() => {
                 const now = new Date();
-                onChange(now.toISOString().slice(0, 16));
+                onChange(toLocalISOString(now, true));
                 setOpen(false);
               }}
               data-testid={testId ? `${testId}-now` : undefined}
