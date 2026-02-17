@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useLocation } from "wouter";
 import { useCall } from "@/contexts/call-context";
 import { useI18n } from "@/i18n";
@@ -49,13 +50,21 @@ export function CallBar() {
   } = useCall();
   
   const [dialpadOpen, setDialpadOpen] = useState(false);
+  const [barHeight, setBarHeight] = useState(0);
+  const barRef = useRef<HTMLDivElement>(null);
   const [location] = useLocation();
 
-  if (location === "/agent-workspace") {
-    return null;
-  }
+  const isVisible = location !== "/agent-workspace" && callState !== "idle" && callState !== "ended";
 
-  if (callState === "idle" || callState === "ended") {
+  useEffect(() => {
+    if (isVisible && barRef.current) {
+      setBarHeight(barRef.current.offsetHeight);
+    } else {
+      setBarHeight(0);
+    }
+  }, [isVisible, callState]);
+
+  if (!isVisible) {
     return null;
   }
 
@@ -152,8 +161,8 @@ export function CallBar() {
     }
   };
 
-  return (
-    <div className="shrink-0 bg-card border-b shadow-sm z-50" data-testid="call-bar">
+  const barContent = (
+    <div ref={barRef} className="fixed top-0 left-0 right-0 z-[9999] bg-card border-b shadow-lg" data-testid="call-bar">
       <div className="flex items-center justify-between px-4 py-2 max-w-screen-2xl mx-auto gap-4">
         <div className="flex items-center gap-3 min-w-0 flex-shrink">
           <div className={`w-3 h-3 rounded-full animate-pulse flex-shrink-0 ${getStatusColor()}`} />
@@ -290,5 +299,12 @@ export function CallBar() {
         </div>
       </div>
     </div>
+  );
+
+  return (
+    <>
+      <div className="shrink-0" style={{ height: barHeight || 48 }} />
+      {createPortal(barContent, document.body)}
+    </>
   );
 }
