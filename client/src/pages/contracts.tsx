@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useI18n } from "@/i18n";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useSearch, Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -1584,6 +1585,7 @@ export default function ContractsPage() {
   const [contractStatusFilter, setContractStatusFilter] = useState<string | string[]>("all");
   const [contractSortOrder, setContractSortOrder] = useState<"asc" | "desc">("desc");
   const [contractPage, setContractPage] = useState(1);
+  const [showAnalytics, setShowAnalytics] = useState(false);
   const CONTRACTS_PER_PAGE = 15;
 
   const filteredContracts = contracts.filter(c => {
@@ -1608,6 +1610,84 @@ export default function ContractsPage() {
   );
 
   useEffect(() => { setContractPage(1); }, [contractSearchTerm, contractStatusFilter, contractSortOrder, selectedCountry]);
+
+  const analyticsData = useMemo(() => {
+    const countryContracts = contracts.filter(c => {
+      if (!selectedCountry) return true;
+      const customer = customers.find(cust => cust.id === c.customerId);
+      return customer?.country === selectedCountry;
+    });
+
+    const now = new Date();
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    const monthlyData: { month: string; created: number; signed: number }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label = `${monthNames[d.getMonth()]} ${d.getFullYear().toString().slice(-2)}`;
+      const created = countryContracts.filter(c => {
+        const cd = c.createdAt ? new Date(c.createdAt) : null;
+        return cd && `${cd.getFullYear()}-${String(cd.getMonth() + 1).padStart(2, '0')}` === monthKey;
+      }).length;
+      const signed = countryContracts.filter(c => {
+        if (!['signed', 'executed', 'completed'].includes(c.status)) return false;
+        const sd = c.signedDate ? new Date(c.signedDate) : c.verifiedDate ? new Date(c.verifiedDate) : c.createdAt ? new Date(c.createdAt) : null;
+        return sd && `${sd.getFullYear()}-${String(sd.getMonth() + 1).padStart(2, '0')}` === monthKey;
+      }).length;
+      monthlyData.push({ month: label, created, signed });
+    }
+
+    const forecastData = [...monthlyData];
+    const recentCreated = monthlyData.slice(-3).reduce((s, m) => s + m.created, 0) / 3;
+    const recentSigned = monthlyData.slice(-3).reduce((s, m) => s + m.signed, 0) / 3;
+    for (let i = 1; i <= 3; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+      const label = `${monthNames[d.getMonth()]} ${d.getFullYear().toString().slice(-2)}`;
+      forecastData.push({
+        month: label,
+        created: Math.round(recentCreated * (1 + 0.05 * i)),
+        signed: Math.round(recentSigned * (1 + 0.08 * i)),
+      });
+    }
+
+    const statusCounts = [
+      { name: 'draft', value: countryContracts.filter(c => c.status === 'draft' || c.status === 'created').length },
+      { name: 'sent', value: countryContracts.filter(c => c.status === 'sent' || c.status === 'received' || c.status === 'returned').length },
+      { name: 'pending', value: countryContracts.filter(c => c.status === 'pending_signature' || c.status === 'verified').length },
+      { name: 'signed', value: countryContracts.filter(c => c.status === 'signed' || c.status === 'executed' || c.status === 'completed').length },
+    ];
+
+    const total = countryContracts.length;
+    const signedCount = statusCounts[3].value;
+    const conversionRate = total > 0 ? Math.round((signedCount / total) * 100) : 0;
+
+    const signedContracts = countryContracts.filter(c => 
+      ['signed', 'executed', 'completed'].includes(c.status) && c.createdAt
+    );
+    let avgDays = 0;
+    if (signedContracts.length > 0) {
+      const totalDays = signedContracts.reduce((sum, c) => {
+        const created = new Date(c.createdAt!).getTime();
+        const signed = c.signedDate ? new Date(c.signedDate).getTime() : c.verifiedDate ? new Date(c.verifiedDate).getTime() : created;
+        return sum + Math.max(0, Math.round((signed - created) / (1000 * 60 * 60 * 24)));
+      }, 0);
+      avgDays = Math.round(totalDays / signedContracts.length);
+    }
+
+    const monthlyTarget = 10;
+    const thisMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const thisMonthSigned = countryContracts.filter(c => {
+      if (!['signed', 'executed', 'completed'].includes(c.status)) return false;
+      const sd = c.signedDate ? new Date(c.signedDate) : c.createdAt ? new Date(c.createdAt) : null;
+      return sd && `${sd.getFullYear()}-${String(sd.getMonth() + 1).padStart(2, '0')}` === thisMonthKey;
+    }).length;
+    const targetPercent = monthlyTarget > 0 ? Math.min(100, Math.round((thisMonthSigned / monthlyTarget) * 100)) : 0;
+
+    return { monthlyData, forecastData, statusCounts, conversionRate, avgDays, monthlyTarget, thisMonthSigned, targetPercent };
+  }, [contracts, customers, selectedCountry]);
+
+  const PIE_COLORS = ['hsl(var(--muted-foreground))', 'hsl(210, 70%, 50%)', 'hsl(35, 85%, 55%)', 'hsl(142, 65%, 40%)'];
 
   const getCustomerName = (customerId: string) => {
     const customer = customers.find(c => c.id === customerId);
@@ -1946,6 +2026,214 @@ export default function ContractsPage() {
                 );
               })()}
             </div>
+
+            {/* Analytics Toggle */}
+            <div className="flex items-center justify-between mb-4">
+              <Button
+                variant={showAnalytics ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowAnalytics(!showAnalytics)}
+                data-testid="button-toggle-analytics"
+              >
+                <Sparkles className="h-4 w-4 mr-2" />
+                {t.contractsModule.analyticsTitle}
+              </Button>
+            </div>
+
+            {/* Analytics Charts Section */}
+            {showAnalytics && (
+              <div className="space-y-4 mb-6" data-testid="section-contract-analytics">
+                {contracts.length === 0 ? (
+                  <Card>
+                    <CardContent className="py-12 text-center">
+                      <Sparkles className="h-8 w-8 mx-auto mb-3 text-muted-foreground" />
+                      <p className="text-muted-foreground" data-testid="text-no-analytics-data">{t.contractsModule.noDataForCharts}</p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                <>
+                {/* Row 1: Monthly Trend + Signing Forecast */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* Monthly Trend Area Chart */}
+                  <Card data-testid="chart-monthly-trend">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium">{t.contractsModule.monthlyTrend}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-[220px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={analyticsData.monthlyData}>
+                            <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                            <XAxis dataKey="month" tick={{ fontSize: 11 }} className="text-muted-foreground" />
+                            <YAxis tick={{ fontSize: 11 }} allowDecimals={false} className="text-muted-foreground" />
+                            <Tooltip
+                              contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '6px', fontSize: '12px' }}
+                              labelStyle={{ color: 'hsl(var(--foreground))' }}
+                            />
+                            <Area type="monotone" dataKey="created" name={t.contractsModule.contractsCreated} fill="hsl(210, 70%, 50%)" fillOpacity={0.15} stroke="hsl(210, 70%, 50%)" strokeWidth={2} />
+                            <Area type="monotone" dataKey="signed" name={t.contractsModule.contractsSigned} fill="hsl(142, 65%, 40%)" fillOpacity={0.15} stroke="hsl(142, 65%, 40%)" strokeWidth={2} />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Signing Forecast */}
+                  <Card data-testid="chart-signing-forecast">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium">{t.contractsModule.signingForecast}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-[220px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={analyticsData.forecastData}>
+                            <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                            <XAxis dataKey="month" tick={{ fontSize: 10 }} className="text-muted-foreground" />
+                            <YAxis tick={{ fontSize: 11 }} allowDecimals={false} className="text-muted-foreground" />
+                            <Tooltip
+                              contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '6px', fontSize: '12px' }}
+                              labelStyle={{ color: 'hsl(var(--foreground))' }}
+                            />
+                            <Bar dataKey="created" name={t.contractsModule.contractsCreated} fill="hsl(210, 70%, 50%)" radius={[3, 3, 0, 0]} />
+                            <Bar dataKey="signed" name={t.contractsModule.contractsSigned} fill="hsl(142, 65%, 40%)" radius={[3, 3, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="flex items-center justify-center gap-4 mt-2">
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: 'hsl(210, 70%, 50%)' }} />
+                          {t.contractsModule.contractsCreated}
+                        </div>
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: 'hsl(142, 65%, 40%)' }} />
+                          {t.contractsModule.contractsSigned}
+                        </div>
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground opacity-50">
+                          {t.contractsModule.forecast} →
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Row 2: Pipeline + KPIs */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Signing Pipeline */}
+                  <Card data-testid="chart-signing-pipeline">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium">{t.contractsModule.signingPipeline}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-[180px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={analyticsData.statusCounts}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={45}
+                              outerRadius={70}
+                              paddingAngle={3}
+                              dataKey="value"
+                            >
+                              {analyticsData.statusCounts.map((_, index) => (
+                                <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip
+                              contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '6px', fontSize: '12px' }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 mt-1">
+                        {[
+                          { label: t.contractsModule.pipelineDraft, color: PIE_COLORS[0], value: analyticsData.statusCounts[0].value },
+                          { label: t.contractsModule.pipelineSent, color: PIE_COLORS[1], value: analyticsData.statusCounts[1].value },
+                          { label: t.contractsModule.pipelinePending, color: PIE_COLORS[2], value: analyticsData.statusCounts[2].value },
+                          { label: t.contractsModule.pipelineSigned, color: PIE_COLORS[3], value: analyticsData.statusCounts[3].value },
+                        ].map((item, i) => (
+                          <div key={i} className="flex items-center gap-1.5 text-xs">
+                            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
+                            <span className="text-muted-foreground truncate">{item.label}</span>
+                            <span className="font-medium ml-auto">{item.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* KPI Cards */}
+                  <Card data-testid="card-kpi-conversion">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium">{t.contractsModule.conversionRate}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex flex-col items-center justify-center py-4">
+                        <div className="relative w-28 h-28">
+                          <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="42" fill="none" stroke="hsl(var(--border))" strokeWidth="8" />
+                            <circle cx="50" cy="50" r="42" fill="none" stroke="hsl(142, 65%, 40%)" strokeWidth="8"
+                              strokeDasharray={`${analyticsData.conversionRate * 2.64} 264`}
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                          <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            <span className="text-2xl font-bold" data-testid="text-conversion-rate">{analyticsData.conversionRate}%</span>
+                          </div>
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-3">{t.contractsModule.conversionRate}</div>
+                      </div>
+                      <Separator className="my-2" />
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">{t.contractsModule.avgSigningTime}</span>
+                        <span className="font-medium" data-testid="text-avg-signing-time">{analyticsData.avgDays} {t.contractsModule.days}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Monthly Target */}
+                  <Card data-testid="card-kpi-target">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium">{t.contractsModule.monthlyTarget}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex flex-col items-center justify-center py-4">
+                        <div className="relative w-28 h-28">
+                          <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="42" fill="none" stroke="hsl(var(--border))" strokeWidth="8" />
+                            <circle cx="50" cy="50" r="42" fill="none" stroke="hsl(var(--primary))" strokeWidth="8"
+                              strokeDasharray={`${analyticsData.targetPercent * 2.64} 264`}
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                          <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            <span className="text-2xl font-bold" data-testid="text-monthly-signed">{analyticsData.thisMonthSigned}</span>
+                            <span className="text-xs text-muted-foreground">/ {analyticsData.monthlyTarget}</span>
+                          </div>
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-3" data-testid="text-target-percent">
+                          {analyticsData.targetPercent}% {t.contractsModule.targetReached}
+                        </div>
+                      </div>
+                      <Separator className="my-2" />
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">{t.contractsModule.contractsSigned}</span>
+                          <span className="font-medium text-green-600">{analyticsData.thisMonthSigned}</span>
+                        </div>
+                        <div className="w-full bg-muted rounded-full h-1.5">
+                          <div className="h-1.5 rounded-full transition-all" style={{ width: `${analyticsData.targetPercent}%`, backgroundColor: 'hsl(var(--primary))' }} />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+                </>
+                )}
+              </div>
+            )}
+
             <div className="flex items-center gap-4 mb-4 flex-wrap">
               <div className="flex-1 min-w-[200px] max-w-sm">
                 <Input
