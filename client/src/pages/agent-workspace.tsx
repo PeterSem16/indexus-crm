@@ -240,22 +240,6 @@ function TopBar({
   isOnBreak,
   onEndSession,
   isSessionActive,
-  callState,
-  callDuration,
-  ringDuration,
-  hungUpBy,
-  onEndCall,
-  onOpenDisposition,
-  isMuted,
-  isOnHold,
-  volume,
-  micVolume,
-  onToggleMute,
-  onToggleHold,
-  onSendDtmf,
-  onVolumeChange,
-  onMicVolumeChange,
-  callerNumber,
   t,
 }: {
   status: AgentStatus;
@@ -270,34 +254,10 @@ function TopBar({
   isOnBreak: boolean;
   onEndSession: () => void;
   isSessionActive: boolean;
-  callState: string;
-  callDuration: number;
-  ringDuration: number;
-  hungUpBy: "user" | "customer" | null;
-  onEndCall: () => void;
-  onOpenDisposition: () => void;
-  isMuted: boolean;
-  isOnHold: boolean;
-  volume: number;
-  micVolume: number;
-  onToggleMute: () => void;
-  onToggleHold: () => void;
-  onSendDtmf: (digit: string) => void;
-  onVolumeChange: (vol: number) => void;
-  onMicVolumeChange: (vol: number) => void;
-  callerNumber: string;
   t: any;
 }) {
   const STATUS_CONFIG = getStatusConfig(t);
   const config = STATUS_CONFIG[status];
-  const [showDialpad, setShowDialpad] = useState(false);
-  const [showVolume, setShowVolume] = useState(false);
-
-  const fmtTime = (sec: number) => `${Math.floor(sec / 60)}:${(sec % 60).toString().padStart(2, "0")}`;
-
-  const dialPadButtons = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
-
-  const hasCall = callState === "connecting" || callState === "ringing" || callState === "active" || callState === "on_hold" || (callState === "ended" && hungUpBy);
 
   return (
     <div className="shrink-0">
@@ -404,157 +364,6 @@ function TopBar({
         </div>
       </div>
 
-      {/* Row 2: Full-width call bar (only visible during calls) */}
-      {hasCall && (
-        <div className={`h-11 flex items-center justify-between px-4 gap-3 ${
-          (callState === "connecting" || callState === "ringing")
-            ? "bg-green-600 dark:bg-green-700 text-white"
-            : (callState === "active" || callState === "on_hold")
-              ? "bg-blue-600 dark:bg-blue-700 text-white"
-              : hungUpBy === "customer"
-                ? "bg-red-600 dark:bg-red-700 text-white animate-pulse"
-                : "bg-orange-600 dark:bg-orange-700 text-white"
-        }`}>
-          {/* Ringing state */}
-          {(callState === "connecting" || callState === "ringing") && (
-            <>
-              <div className="flex items-center gap-3">
-                <PhoneCall className="h-5 w-5 animate-bounce" />
-                <span className="text-sm font-semibold">
-                  {callState === "connecting" ? "Pripájanie..." : "Zvoní..."}
-                </span>
-                {callerNumber && <span className="text-sm font-mono opacity-90">{callerNumber}</span>}
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="font-mono text-lg font-bold tabular-nums">{fmtTime(ringDuration)}</span>
-                <Button size="sm" variant="secondary" onClick={() => { onEndCall(); onOpenDisposition(); }} className="gap-1.5 text-red-700 dark:text-red-300" data-testid="button-end-call-topbar">
-                  <PhoneOff className="h-4 w-4" />
-                  Ukončiť hovor
-                </Button>
-              </div>
-            </>
-          )}
-
-          {/* Active / on hold state */}
-          {(callState === "active" || callState === "on_hold") && (
-            <>
-              <div className="flex items-center gap-3">
-                <PhoneCall className="h-5 w-5" />
-                <span className="text-sm font-semibold">
-                  {callState === "on_hold" ? "Podržané" : "Aktívny hovor"}
-                </span>
-                {callerNumber && <span className="text-sm font-mono opacity-90">{callerNumber}</span>}
-                <span className="font-mono text-lg font-bold tabular-nums">{fmtTime(callDuration)}</span>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={onToggleMute}
-                  className={`h-8 w-8 text-white hover:bg-white/20 ${isMuted ? "bg-white/30" : ""}`}
-                  data-testid="button-topbar-mute"
-                >
-                  {isMuted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                </Button>
-
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={onToggleHold}
-                  className={`h-8 w-8 text-white hover:bg-white/20 ${isOnHold ? "bg-white/30" : ""}`}
-                  data-testid="button-topbar-hold"
-                >
-                  {isOnHold ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
-                </Button>
-
-                <Popover open={showDialpad} onOpenChange={setShowDialpad}>
-                  <PopoverTrigger asChild>
-                    <Button size="icon" variant="ghost" className="h-8 w-8 text-white hover:bg-white/20" data-testid="button-topbar-dialpad">
-                      <Grid3X3 className="h-4 w-4" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-48 p-2" align="center">
-                    <div className="grid grid-cols-3 gap-1">
-                      {dialPadButtons.map((digit) => (
-                        <Button
-                          key={digit}
-                          variant="outline"
-                          size="sm"
-                          className="h-9 text-sm font-semibold"
-                          onClick={() => onSendDtmf(digit)}
-                          data-testid={`button-topbar-dtmf-${digit}`}
-                        >
-                          {digit}
-                        </Button>
-                      ))}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-
-                <Popover open={showVolume} onOpenChange={setShowVolume}>
-                  <PopoverTrigger asChild>
-                    <Button size="icon" variant="ghost" className="h-8 w-8 text-white hover:bg-white/20" data-testid="button-topbar-volume">
-                      <Volume2 className="h-4 w-4" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-56 p-3 space-y-3" align="center">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground flex items-center gap-1"><Volume2 className="h-3 w-3" /> Reproduktor</span>
-                        <span className="text-xs font-mono">{volume}%</span>
-                      </div>
-                      <Slider
-                        value={[volume]}
-                        onValueChange={([v]) => onVolumeChange(v)}
-                        max={100}
-                        step={1}
-                        data-testid="slider-topbar-speaker"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground flex items-center gap-1"><Mic className="h-3 w-3" /> Mikrofón</span>
-                        <span className="text-xs font-mono">{micVolume}%</span>
-                      </div>
-                      <Slider
-                        value={[micVolume]}
-                        onValueChange={([v]) => onMicVolumeChange(v)}
-                        max={100}
-                        step={1}
-                        data-testid="slider-topbar-mic"
-                      />
-                    </div>
-                  </PopoverContent>
-                </Popover>
-
-                <Separator orientation="vertical" className="h-6 mx-1 bg-white/30" />
-
-                <Button size="sm" variant="secondary" onClick={() => { onEndCall(); onOpenDisposition(); }} className="gap-1.5 text-red-700 dark:text-red-300" data-testid="button-end-call-topbar">
-                  <PhoneOff className="h-4 w-4" />
-                  Ukončiť hovor
-                </Button>
-              </div>
-            </>
-          )}
-
-          {/* Ended state - customer hung up */}
-          {callState === "ended" && hungUpBy && (
-            <>
-              <div className="flex items-center gap-3">
-                <PhoneOff className="h-5 w-5" />
-                <span className="text-sm font-semibold">
-                  {hungUpBy === "customer" ? "Zákazník položil hovor" : "Hovor ukončený"}
-                </span>
-              </div>
-              <Button size="sm" variant="secondary" onClick={onOpenDisposition} className="gap-1.5" data-testid="button-open-disposition-topbar">
-                <FileText className="h-4 w-4" />
-                Zadať dispozíciu
-              </Button>
-            </>
-          )}
-        </div>
-      )}
     </div>
   );
 }
@@ -1814,6 +1623,22 @@ function CustomerInfoPanel({
   dispositions,
   currentUserId,
   onOpenDispositionModal,
+  callState,
+  callDuration,
+  ringDuration,
+  hungUpBy,
+  onEndCall,
+  onOpenDispositionFromCall,
+  isMuted,
+  isOnHold,
+  volume,
+  micVolume,
+  onToggleMute,
+  onToggleHold,
+  onSendDtmf,
+  onVolumeChange,
+  onMicVolumeChange,
+  callerNumber,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
@@ -1827,8 +1652,29 @@ function CustomerInfoPanel({
   dispositions: CampaignDisposition[];
   currentUserId?: string;
   onOpenDispositionModal: () => void;
+  callState: string;
+  callDuration: number;
+  ringDuration: number;
+  hungUpBy: "user" | "customer" | null;
+  onEndCall: () => void;
+  onOpenDispositionFromCall: () => void;
+  isMuted: boolean;
+  isOnHold: boolean;
+  volume: number;
+  micVolume: number;
+  onToggleMute: () => void;
+  onToggleHold: () => void;
+  onSendDtmf: (digit: string) => void;
+  onVolumeChange: (vol: number) => void;
+  onMicVolumeChange: (vol: number) => void;
+  callerNumber: string;
 }) {
   const [newNote, setNewNote] = useState("");
+  const [showDialpad, setShowDialpad] = useState(false);
+  const [showVolume, setShowVolume] = useState(false);
+  const fmtTime = (sec: number) => `${Math.floor(sec / 60)}:${(sec % 60).toString().padStart(2, "0")}`;
+  const dialPadButtons = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
+  const hasCall = callState === "connecting" || callState === "ringing" || callState === "active" || callState === "on_hold" || (callState === "ended" && hungUpBy);
 
   const handleAddNote = () => {
     if (newNote.trim()) {
@@ -1880,6 +1726,154 @@ function CustomerInfoPanel({
           </div>
         </div>
       </div>
+
+      {hasCall && (
+        <div className={`border-b px-3 py-2 space-y-2 ${
+          (callState === "connecting" || callState === "ringing")
+            ? "bg-green-50 dark:bg-green-950/30"
+            : (callState === "active" || callState === "on_hold")
+              ? "bg-blue-50 dark:bg-blue-950/30"
+              : hungUpBy === "customer"
+                ? "bg-red-50 dark:bg-red-950/30"
+                : "bg-orange-50 dark:bg-orange-950/30"
+        }`} data-testid="call-controls-card">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                (callState === "connecting" || callState === "ringing") ? "bg-green-500 animate-pulse" :
+                (callState === "active") ? "bg-blue-500 animate-pulse" :
+                (callState === "on_hold") ? "bg-orange-500" :
+                "bg-red-500"
+              }`} />
+              <span className="text-xs font-semibold truncate">
+                {(callState === "connecting") ? "Pripájanie..." :
+                 (callState === "ringing") ? "Zvoní..." :
+                 (callState === "on_hold") ? "Podržané" :
+                 (callState === "ended" && hungUpBy === "customer") ? "Zákazník položil" :
+                 (callState === "ended") ? "Hovor ukončený" :
+                 "Aktívny hovor"}
+              </span>
+            </div>
+            <span className="font-mono text-sm font-bold tabular-nums shrink-0">
+              {(callState === "active" || callState === "on_hold") ? fmtTime(callDuration) :
+               (callState === "connecting" || callState === "ringing") ? fmtTime(ringDuration) : ""}
+            </span>
+          </div>
+
+          {callerNumber && (
+            <div className="text-[11px] text-muted-foreground font-mono">{callerNumber}</div>
+          )}
+
+          {(callState === "active" || callState === "on_hold") && (
+            <div className="flex items-center gap-1 flex-wrap">
+              <Button
+                size="icon"
+                variant={isMuted ? "destructive" : "outline"}
+                onClick={onToggleMute}
+                data-testid="button-card-mute"
+                title={isMuted ? "Zapnúť mikrofón" : "Stlmiť"}
+              >
+                {isMuted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+              </Button>
+
+              <Button
+                size="icon"
+                variant={isOnHold ? "secondary" : "outline"}
+                onClick={onToggleHold}
+                data-testid="button-card-hold"
+                title={isOnHold ? "Obnoviť" : "Podržať"}
+              >
+                {isOnHold ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+              </Button>
+
+              <Popover open={showDialpad} onOpenChange={setShowDialpad}>
+                <PopoverTrigger asChild>
+                  <Button size="icon" variant="outline" data-testid="button-card-dialpad" title="Klávesnica">
+                    <Grid3X3 className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-48 p-2" align="center" side="left">
+                  <div className="grid grid-cols-3 gap-1">
+                    {dialPadButtons.map((digit) => (
+                      <Button
+                        key={digit}
+                        variant="outline"
+                        size="sm"
+                        className="h-9 text-sm font-semibold"
+                        onClick={() => onSendDtmf(digit)}
+                        data-testid={`button-card-dtmf-${digit}`}
+                      >
+                        {digit}
+                      </Button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              <Popover open={showVolume} onOpenChange={setShowVolume}>
+                <PopoverTrigger asChild>
+                  <Button size="icon" variant="outline" data-testid="button-card-volume" title="Hlasitosť">
+                    <Volume2 className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-3 space-y-3" align="center" side="left">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground flex items-center gap-1"><Volume2 className="h-3 w-3" /> Reproduktor</span>
+                      <span className="text-xs font-mono">{volume}%</span>
+                    </div>
+                    <Slider value={[volume]} onValueChange={([v]) => onVolumeChange(v)} max={100} step={1} data-testid="slider-card-speaker" />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground flex items-center gap-1"><Mic className="h-3 w-3" /> Mikrofón</span>
+                      <span className="text-xs font-mono">{micVolume}%</span>
+                    </div>
+                    <Slider value={[micVolume]} onValueChange={([v]) => onMicVolumeChange(v)} max={100} step={1} data-testid="slider-card-mic" />
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => { onEndCall(); onOpenDispositionFromCall(); }}
+                className="gap-1 ml-auto"
+                data-testid="button-card-end-call"
+              >
+                <PhoneOff className="h-3.5 w-3.5" />
+                <span className="text-xs">Ukončiť</span>
+              </Button>
+            </div>
+          )}
+
+          {(callState === "connecting" || callState === "ringing") && (
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => { onEndCall(); onOpenDispositionFromCall(); }}
+              className="w-full gap-1.5"
+              data-testid="button-card-cancel-call"
+            >
+              <PhoneOff className="h-3.5 w-3.5" />
+              Ukončiť hovor
+            </Button>
+          )}
+
+          {callState === "ended" && hungUpBy && (
+            <Button
+              size="sm"
+              variant="default"
+              onClick={onOpenDispositionFromCall}
+              className="w-full gap-1.5"
+              data-testid="button-card-disposition"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              Zadať dispozíciu
+            </Button>
+          )}
+        </div>
+      )}
 
       <div className="border-b">
         <div className="flex">
@@ -2977,22 +2971,6 @@ export default function AgentWorkspacePage() {
         isOnBreak={!!agentSession.activeBreak}
         onEndSession={handleEndSession}
         isSessionActive={agentSession.isSessionActive}
-        callState={callContext.callState}
-        callDuration={callContext.callDuration}
-        ringDuration={ringDuration}
-        hungUpBy={callContext.callTiming.hungUpBy}
-        onEndCall={() => callContext.endCallFn.current?.()}
-        onOpenDisposition={() => setDispositionModalOpen(true)}
-        isMuted={callContext.isMuted}
-        isOnHold={callContext.isOnHold}
-        volume={callContext.volume}
-        micVolume={callContext.micVolume}
-        onToggleMute={() => callContext.toggleMuteFn.current?.()}
-        onToggleHold={() => callContext.toggleHoldFn.current?.()}
-        onSendDtmf={(digit) => callContext.sendDtmfFn.current?.(digit)}
-        onVolumeChange={(vol) => callContext.onVolumeChangeFn.current?.(vol)}
-        onMicVolumeChange={(vol) => callContext.onMicVolumeChangeFn.current?.(vol)}
-        callerNumber={callContext.callInfo?.phoneNumber || ""}
         t={t}
       />
 
@@ -3050,6 +3028,22 @@ export default function AgentWorkspacePage() {
           dispositions={campaignDispositions}
           currentUserId={user?.id}
           onOpenDispositionModal={() => setDispositionModalOpen(true)}
+          callState={callContext.callState}
+          callDuration={callContext.callDuration}
+          ringDuration={ringDuration}
+          hungUpBy={callContext.callTiming.hungUpBy}
+          onEndCall={() => callContext.endCallFn.current?.()}
+          onOpenDispositionFromCall={() => setDispositionModalOpen(true)}
+          isMuted={callContext.isMuted}
+          isOnHold={callContext.isOnHold}
+          volume={callContext.volume}
+          micVolume={callContext.micVolume}
+          onToggleMute={() => callContext.toggleMuteFn.current?.()}
+          onToggleHold={() => callContext.toggleHoldFn.current?.()}
+          onSendDtmf={(digit) => callContext.sendDtmfFn.current?.(digit)}
+          onVolumeChange={(vol) => callContext.onVolumeChangeFn.current?.(vol)}
+          onMicVolumeChange={(vol) => callContext.onMicVolumeChangeFn.current?.(vol)}
+          callerNumber={callContext.callInfo?.phoneNumber || ""}
         />
       </div>
 
