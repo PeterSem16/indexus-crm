@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, MailOpen, Phone, PhoneCall, PhoneOutgoing, PhoneIncoming, Baby, Copy, ListChecks, FileEdit, UserCircle, Clock, PlusCircle, RefreshCw, XCircle, LogIn, LogOut, AlertCircle, CheckCircle2, ArrowRight, Shield, CreditCard, Loader2, Calendar, Globe, Linkedin, Facebook, Twitter, Instagram, Building2, ExternalLink, Sparkles, FileSignature, Receipt, Target, ArrowDownLeft, ArrowUpRight, PenSquare, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, Filter, X, ChevronDown, ChevronUp, Upload } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, MailOpen, Phone, PhoneCall, PhoneOutgoing, PhoneIncoming, Baby, Copy, ListChecks, FileEdit, UserCircle, Clock, PlusCircle, RefreshCw, XCircle, LogIn, LogOut, AlertCircle, CheckCircle2, ArrowRight, Shield, CreditCard, Loader2, Calendar, Globe, Linkedin, Facebook, Twitter, Instagram, Building2, ExternalLink, Sparkles, FileSignature, Receipt, Target, ArrowDownLeft, ArrowUpRight, PenSquare, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, Filter, X, ChevronDown, ChevronUp, Upload, Mic, MicOff, Pause, Play, Grid3X3, Volume2, PhoneOff } from "lucide-react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import { Button } from "@/components/ui/button";
@@ -60,6 +60,8 @@ import { useAuth } from "@/contexts/auth-context";
 import { useSip } from "@/contexts/sip-context";
 import { useCall } from "@/contexts/call-context";
 import { CreateInvoiceWizard } from "@/components/create-invoice-wizard";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Slider } from "@/components/ui/slider";
 
 interface AvailableMailbox {
   id: string | null;
@@ -5253,6 +5255,161 @@ export function CustomerDetailsContent({
   );
 }
 
+function CustomerCallStrip({ 
+  phone, customerId, customerName, callContext, makeCall, testIdPrefix, t, className = ""
+}: { 
+  phone: string; 
+  customerId: number; 
+  customerName: string; 
+  callContext: ReturnType<typeof useCall>; 
+  makeCall: any; 
+  testIdPrefix: string; 
+  t: any;
+  className?: string;
+}) {
+  const [showDialpad, setShowDialpad] = useState(false);
+  const [showVolume, setShowVolume] = useState(false);
+  const dialPadButtons = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
+  const isActiveCall = callContext.callState === "active" || callContext.callState === "on_hold";
+  const isRinging = callContext.callState === "connecting" || callContext.callState === "ringing";
+  const isEnded = callContext.callState === "ended";
+  const isIdle = callContext.callState === "idle" || !callContext.callState;
+
+  return (
+    <div className={`border-b px-4 py-2 space-y-2 shrink-0 ${
+      isEnded ? "bg-red-500/10" :
+      isActiveCall ? "bg-green-500/10" :
+      isRinging ? "bg-yellow-500/10" :
+      "bg-muted/30"
+    } ${className}`} data-testid={`customer-${testIdPrefix}-call-strip`}>
+      <div className="flex items-center gap-2">
+        <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+        <span className="text-xs font-medium">{phone}</span>
+        {isIdle ? (
+          <Button
+            size="sm"
+            variant="default"
+            className="h-7 text-xs px-3 ml-auto bg-green-600 hover:bg-green-700 text-white"
+            onClick={() => makeCall({ phoneNumber: phone, customerId, customerName: customerName || undefined })}
+            data-testid={`btn-call-from-${testIdPrefix}-strip`}
+          >
+            <Phone className="h-3 w-3 mr-1" />
+            {t.customers.details?.sipCall || "Zavolať"}
+          </Button>
+        ) : isRinging ? (
+          <div className="ml-auto flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-yellow-500 animate-pulse" />
+            <span className="text-[11px] text-yellow-600 dark:text-yellow-400">
+              {callContext.callTiming.ringDurationSeconds ? `${callContext.callTiming.ringDurationSeconds}s` : "..."}
+            </span>
+            <Button size="icon" variant="destructive" className="h-6 w-6" onClick={() => callContext.endCallFn.current?.()} data-testid={`btn-cancel-call-${testIdPrefix}`}>
+              <PhoneOff className="h-3 w-3" />
+            </Button>
+          </div>
+        ) : isActiveCall ? (
+          <div className="ml-auto flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+            <span className="text-[11px] font-mono tabular-nums text-green-600 dark:text-green-400">
+              {String(Math.floor(callContext.callDuration / 60)).padStart(2, "0")}:{String(callContext.callDuration % 60).padStart(2, "0")}
+            </span>
+            {callContext.callState === "on_hold" && <Badge variant="outline" className="text-[9px] h-4 px-1">HOLD</Badge>}
+          </div>
+        ) : isEnded ? (
+          <span className="text-[11px] text-red-500 ml-auto flex items-center gap-1.5 font-semibold">
+            <span className="h-2 w-2 rounded-full bg-red-500" />
+            {callContext.callTiming.hungUpBy === "customer" ? "Zákazník zavesil" : "Hovor ukončený"}
+          </span>
+        ) : null}
+      </div>
+
+      {isActiveCall && (
+        <div className="flex items-center gap-1 flex-wrap">
+          <Button
+            size="icon"
+            variant={callContext.isMuted ? "destructive" : "outline"}
+            className="h-7 w-7"
+            onClick={() => callContext.toggleMuteFn.current?.()}
+            data-testid={`btn-mute-${testIdPrefix}`}
+            title={callContext.isMuted ? "Zapnúť mikrofón" : "Stlmiť"}
+          >
+            {callContext.isMuted ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
+          </Button>
+
+          <Button
+            size="icon"
+            variant={callContext.isOnHold ? "secondary" : "outline"}
+            className="h-7 w-7"
+            onClick={() => callContext.toggleHoldFn.current?.()}
+            data-testid={`btn-hold-${testIdPrefix}`}
+            title={callContext.isOnHold ? "Obnoviť" : "Podržať"}
+          >
+            {callContext.isOnHold ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
+          </Button>
+
+          <Popover open={showDialpad} onOpenChange={setShowDialpad}>
+            <PopoverTrigger asChild>
+              <Button size="icon" variant="outline" className="h-7 w-7" data-testid={`btn-dialpad-${testIdPrefix}`} title="Klávesnica">
+                <Grid3X3 className="h-3.5 w-3.5" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-48 p-2" align="center">
+              <div className="grid grid-cols-3 gap-1">
+                {dialPadButtons.map((digit) => (
+                  <Button
+                    key={digit}
+                    variant="outline"
+                    size="sm"
+                    className="h-9 text-sm font-semibold"
+                    onClick={() => callContext.sendDtmfFn.current?.(digit)}
+                    data-testid={`btn-dtmf-${testIdPrefix}-${digit}`}
+                  >
+                    {digit}
+                  </Button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          <Popover open={showVolume} onOpenChange={setShowVolume}>
+            <PopoverTrigger asChild>
+              <Button size="icon" variant="outline" className="h-7 w-7" data-testid={`btn-volume-${testIdPrefix}`} title="Hlasitosť">
+                <Volume2 className="h-3.5 w-3.5" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-3 space-y-3" align="center">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground flex items-center gap-1"><Volume2 className="h-3 w-3" /> Reproduktor</span>
+                  <span className="text-xs font-mono">{callContext.volume}%</span>
+                </div>
+                <Slider value={[callContext.volume]} onValueChange={([v]) => callContext.onVolumeChangeFn.current?.(v)} max={100} step={1} data-testid={`slider-speaker-${testIdPrefix}`} />
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground flex items-center gap-1"><Mic className="h-3 w-3" /> Mikrofón</span>
+                  <span className="text-xs font-mono">{callContext.micVolume}%</span>
+                </div>
+                <Slider value={[callContext.micVolume]} onValueChange={([v]) => callContext.onMicVolumeChangeFn.current?.(v)} max={100} step={1} data-testid={`slider-mic-${testIdPrefix}`} />
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          <Button
+            size="sm"
+            variant="destructive"
+            className="gap-1 ml-auto h-7"
+            onClick={() => callContext.endCallFn.current?.()}
+            data-testid={`btn-end-call-${testIdPrefix}`}
+          >
+            <PhoneOff className="h-3 w-3" />
+            <span className="text-[10px]">Ukončiť</span>
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CustomersPage() {
   const { toast } = useToast();
   const { t } = useI18n();
@@ -6470,60 +6627,15 @@ export default function CustomersPage() {
               </div>
               
               {editingCustomer.phone && isRegistered && (
-                <div className={`border-b px-4 py-2 flex items-center gap-2 shrink-0 ${
-                  callContext.callState === "ended" ? "bg-red-500/10" :
-                  callContext.callState === "active" || callContext.callState === "on_hold" ? "bg-green-500/10" :
-                  callContext.callState === "ringing" || callContext.callState === "connecting" ? "bg-yellow-500/10" :
-                  "bg-muted/30"
-                }`} data-testid="customer-edit-call-strip">
-                  <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs font-medium">{editingCustomer.phone}</span>
-                  {callContext.callState === "idle" || !callContext.callState ? (
-                    <Button
-                      size="sm"
-                      variant="default"
-                      className="h-7 text-xs px-3 ml-auto bg-green-600 hover:bg-green-700 text-white"
-                      onClick={() => {
-                        const customerName = [editingCustomer.firstName, editingCustomer.lastName].filter(Boolean).join(" ");
-                        makeCall({
-                          phoneNumber: editingCustomer.phone!,
-                          customerId: editingCustomer.id,
-                          customerName: customerName || undefined,
-                        });
-                      }}
-                      data-testid="btn-call-from-edit-strip"
-                    >
-                      <Phone className="h-3 w-3 mr-1" />
-                      {t.customers.details?.sipCall || "Zavolať"}
-                    </Button>
-                  ) : callContext.callState === "connecting" || callContext.callState === "ringing" ? (
-                    <div className="ml-auto flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full bg-yellow-500 animate-pulse" />
-                      <span className="text-[11px] text-yellow-600 dark:text-yellow-400">
-                        {callContext.callTiming.ringDurationSeconds ? `${callContext.callTiming.ringDurationSeconds}s` : "..."}
-                      </span>
-                      <Button size="icon" variant="destructive" className="h-6 w-6" onClick={() => callContext.endCallFn.current?.()} data-testid="btn-cancel-call-edit">
-                        <PhoneCall className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ) : callContext.callState === "active" || callContext.callState === "on_hold" ? (
-                    <div className="ml-auto flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                      <span className="text-[11px] font-mono tabular-nums text-green-600 dark:text-green-400">
-                        {String(Math.floor(callContext.callDuration / 60)).padStart(2, "0")}:{String(callContext.callDuration % 60).padStart(2, "0")}
-                      </span>
-                      {callContext.callState === "on_hold" && <Badge variant="outline" className="text-[9px] h-4 px-1">HOLD</Badge>}
-                      <Button size="icon" variant="destructive" className="h-6 w-6" onClick={() => callContext.endCallFn.current?.()} data-testid="btn-end-call-edit">
-                        <PhoneCall className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ) : callContext.callState === "ended" ? (
-                    <span className="text-[11px] text-red-500 ml-auto flex items-center gap-1.5 font-semibold">
-                      <span className="h-2 w-2 rounded-full bg-red-500" />
-                      {callContext.callTiming.hungUpBy === "customer" ? "Zákazník zavesil" : "Hovor ukončený"}
-                    </span>
-                  ) : null}
-                </div>
+                <CustomerCallStrip
+                  phone={editingCustomer.phone}
+                  customerId={editingCustomer.id}
+                  customerName={[editingCustomer.firstName, editingCustomer.lastName].filter(Boolean).join(" ")}
+                  callContext={callContext}
+                  makeCall={makeCall}
+                  testIdPrefix="edit"
+                  t={t}
+                />
               )}
 
               <Tabs defaultValue="data" className="flex-1 flex flex-col overflow-hidden">
@@ -6569,60 +6681,16 @@ export default function CustomersPage() {
           {viewingCustomer && (
             <>
               {viewingCustomer.phone && isRegistered && (
-                <div className={`border-b mb-4 px-4 py-2 flex items-center gap-2 rounded-md ${
-                  callContext.callState === "ended" ? "bg-red-500/10" :
-                  callContext.callState === "active" || callContext.callState === "on_hold" ? "bg-green-500/10" :
-                  callContext.callState === "ringing" || callContext.callState === "connecting" ? "bg-yellow-500/10" :
-                  "bg-muted/30"
-                }`} data-testid="customer-view-call-strip">
-                  <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs font-medium">{viewingCustomer.phone}</span>
-                  {callContext.callState === "idle" || !callContext.callState ? (
-                    <Button
-                      size="sm"
-                      variant="default"
-                      className="h-7 text-xs px-3 ml-auto bg-green-600 hover:bg-green-700 text-white"
-                      onClick={() => {
-                        const customerName = [viewingCustomer.firstName, viewingCustomer.lastName].filter(Boolean).join(" ");
-                        makeCall({
-                          phoneNumber: viewingCustomer.phone!,
-                          customerId: viewingCustomer.id,
-                          customerName: customerName || undefined,
-                        });
-                      }}
-                      data-testid="btn-call-from-view-strip"
-                    >
-                      <Phone className="h-3 w-3 mr-1" />
-                      {t.customers.details?.sipCall || "Zavolať"}
-                    </Button>
-                  ) : callContext.callState === "connecting" || callContext.callState === "ringing" ? (
-                    <div className="ml-auto flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full bg-yellow-500 animate-pulse" />
-                      <span className="text-[11px] text-yellow-600 dark:text-yellow-400">
-                        {callContext.callTiming.ringDurationSeconds ? `${callContext.callTiming.ringDurationSeconds}s` : "..."}
-                      </span>
-                      <Button size="icon" variant="destructive" className="h-6 w-6" onClick={() => callContext.endCallFn.current?.()} data-testid="btn-cancel-call-view">
-                        <PhoneCall className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ) : callContext.callState === "active" || callContext.callState === "on_hold" ? (
-                    <div className="ml-auto flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                      <span className="text-[11px] font-mono tabular-nums text-green-600 dark:text-green-400">
-                        {String(Math.floor(callContext.callDuration / 60)).padStart(2, "0")}:{String(callContext.callDuration % 60).padStart(2, "0")}
-                      </span>
-                      {callContext.callState === "on_hold" && <Badge variant="outline" className="text-[9px] h-4 px-1">HOLD</Badge>}
-                      <Button size="icon" variant="destructive" className="h-6 w-6" onClick={() => callContext.endCallFn.current?.()} data-testid="btn-end-call-view">
-                        <PhoneCall className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ) : callContext.callState === "ended" ? (
-                    <span className="text-[11px] text-red-500 ml-auto flex items-center gap-1.5 font-semibold">
-                      <span className="h-2 w-2 rounded-full bg-red-500" />
-                      {callContext.callTiming.hungUpBy === "customer" ? "Zákazník zavesil" : "Hovor ukončený"}
-                    </span>
-                  ) : null}
-                </div>
+                <CustomerCallStrip
+                  phone={viewingCustomer.phone}
+                  customerId={viewingCustomer.id}
+                  customerName={[viewingCustomer.firstName, viewingCustomer.lastName].filter(Boolean).join(" ")}
+                  callContext={callContext}
+                  makeCall={makeCall}
+                  testIdPrefix="view"
+                  t={t}
+                  className="mb-4 rounded-md"
+                />
               )}
               <CustomerDetailsContent 
                 customer={viewingCustomer} 
