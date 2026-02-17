@@ -336,7 +336,7 @@ function TopBar({
               {callState === "connecting" ? "Pripájanie..." : callState === "ringing" ? "Zvoní..." : callState === "on_hold" ? "Podržané" : "Aktívny hovor"}
               <span className="font-mono text-xs">{Math.floor(callDuration / 60)}:{(callDuration % 60).toString().padStart(2, "0")}</span>
             </Badge>
-            <Button variant="destructive" size="sm" onClick={onEndCall} data-testid="button-end-call-topbar">
+            <Button variant="destructive" size="sm" onClick={onEndCall} disabled={callState === "ended"} data-testid="button-end-call-topbar">
               <PhoneOff className="h-3.5 w-3.5 mr-1" />
               Ukončiť
             </Button>
@@ -1970,6 +1970,7 @@ export default function AgentWorkspacePage() {
   const [mandatoryDisposition, setMandatoryDisposition] = useState(false);
   const [callEndTimestamp, setCallEndTimestamp] = useState<number | null>(null);
   const prevCallStateRef = useRef(callContext.callState);
+  const callWasActiveRef = useRef(false);
   const [modalFilter, setModalFilter] = useState<"all" | "my_callbacks" | "team_callbacks" | "pending" | "due">("all");
   const [modalSort, setModalSort] = useState<"callback_asc" | "name_asc" | "attempts_desc">("callback_asc");
   const [modalSearch, setModalSearch] = useState("");
@@ -2018,16 +2019,19 @@ export default function AgentWorkspacePage() {
   }, []);
 
   useEffect(() => {
-    const prev = prevCallStateRef.current;
     const curr = callContext.callState;
-    prevCallStateRef.current = curr;
-    if ((prev === "active" || prev === "on_hold") && (curr === "ended" || curr === "idle")) {
+    if (curr === "active" || curr === "on_hold" || curr === "connecting" || curr === "ringing") {
+      callWasActiveRef.current = true;
+    }
+    if (callWasActiveRef.current && (curr === "ended" || curr === "idle")) {
+      callWasActiveRef.current = false;
       if (currentContact && currentCampaignContactId) {
         setCallEndTimestamp(Date.now());
         setMandatoryDisposition(true);
         setDispositionModalOpen(true);
       }
     }
+    prevCallStateRef.current = curr;
   }, [callContext.callState, currentContact, currentCampaignContactId]);
 
   const { data: allCampaigns = [] } = useQuery<Campaign[]>({
