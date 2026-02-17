@@ -20770,9 +20770,22 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       const locale = getSigningLocale(contractCountry);
       console.log(`[ContractOTP] Contract ${contract.contractNumber} country=${contractCountry}, locale=${locale}`);
 
+      const existingRequests = await storage.getContractSignatureRequests(contract.id);
+      for (const oldReq of existingRequests) {
+        if (oldReq.status === "sent" || oldReq.status === "pending" || oldReq.status === "otp_verified") {
+          try {
+            await storage.updateContractSignatureRequest(oldReq.id, { status: "expired" });
+            console.log(`[ContractOTP] Expired old signature request ${oldReq.id} (status=${oldReq.status}) for ${oldReq.signerName}`);
+          } catch {}
+        }
+      }
+
       const createdSignatureRequests = [];
-      let allOtpsSent = true;
+      const successfulRequests = [];
+      const failedSigners: string[] = [];
       let otpFailureReason = "";
+      const cryptoMod = await import("crypto");
+
       for (const signer of signers) {
         const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
         const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -20781,7 +20794,6 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
           : method === "email_otp" && signer.email ? "email_otp"
           : signer.email ? "email_otp" : "sms_otp";
         
-        const cryptoMod = await import("crypto");
         const signingToken = cryptoMod.randomBytes(16).toString('hex');
         console.log(`[ContractOTP] Generated signingToken for ${signer.fullName}: ${signingToken.substring(0, 8)}...`);
         const signatureRequest = await storage.createContractSignatureRequest({
@@ -20803,6 +20815,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         try {
           const sent = await sendOtpByMethod(contract, signer.fullName, signer.email, signer.phone, otpCode, actualMethod, req.session, signingToken, locale);
           if (sent) {
+            successfulRequests.push(signatureRequest);
             await storage.createContractAuditLog({
               contractId: contract.id,
               action: "otp_sent",
@@ -20819,11 +20832,12 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
               })
             });
           } else {
-            allOtpsSent = false;
+            failedSigners.push(signer.fullName);
             otpFailureReason = actualMethod === "sms_otp" 
               ? `SMS OTP failed for ${signer.fullName}. Check BulkGate config or phone number ${signer.phone}.`
               : `Email OTP failed for ${signer.fullName}. Check MS365 connection.`;
             console.error(`[ContractOTP] Failed to send OTP via ${actualMethod} to ${signer.fullName} (${actualMethod === "sms_otp" ? signer.phone : signer.email})`);
+            await storage.updateContractSignatureRequest(signatureRequest.id, { status: "expired" });
             await storage.createContractAuditLog({
               contractId: contract.id,
               action: "otp_send_failed",
@@ -20839,9 +20853,10 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
             });
           }
         } catch (sendErr) {
-          allOtpsSent = false;
+          failedSigners.push(signer.fullName);
           otpFailureReason = (sendErr as Error).message;
           console.error(`[ContractOTP] Failed to send OTP via ${actualMethod} to ${signer.fullName}:`, (sendErr as Error).message);
+          await storage.updateContractSignatureRequest(signatureRequest.id, { status: "expired" });
           await storage.createContractAuditLog({
             contractId: contract.id,
             action: "otp_send_failed",
@@ -20857,14 +20872,12 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         }
       }
       
-      if (!allOtpsSent) {
-        for (const sr of createdSignatureRequests) {
-          try { await storage.updateContractSignatureRequest(sr.id, { status: "expired" }); } catch {}
-        }
+      if (successfulRequests.length === 0) {
         return res.status(500).json({ 
-          error: otpFailureReason || "Failed to send OTP verification code",
+          error: otpFailureReason || "Failed to send OTP verification code to any signer",
           success: false,
           signersCount: signers.length,
+          failedSigners,
           verificationMethod: method
         });
       }
@@ -20906,6 +20919,8 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       res.json({ 
         success: true, 
         signersCount: signers.length,
+        successCount: successfulRequests.length,
+        failedSigners: failedSigners.length > 0 ? failedSigners : undefined,
         verificationMethod: method,
         signatureRequests: createdSignatureRequests.map(sr => ({
           id: sr.id,
@@ -21163,7 +21178,8 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       });
 
       const allRequests = await storage.getContractSignatureRequests(signatureRequest.contractId);
-      const allSigned = allRequests.every(r => r.status === "signed");
+      const activeRequests = allRequests.filter(r => r.status !== "expired" && r.status !== "cancelled");
+      const allSigned = activeRequests.length > 0 && activeRequests.every(r => r.status === "signed");
 
       if (allSigned) {
         await storage.updateContractInstance(signatureRequest.contractId, {
@@ -21182,6 +21198,10 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
             signedAt: new Date().toISOString(),
             message: "All signatures collected. Contract status changed to signed."
           })
+        });
+      } else {
+        await storage.updateContractInstance(signatureRequest.contractId, {
+          status: "pending_signature"
         });
       }
 
@@ -21344,7 +21364,9 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       });
       
       const allRequests = await storage.getContractSignatureRequests(signatureRequest.contractId);
-      const allSigned = allRequests.every(r => r.status === "signed");
+      const activeRequests = allRequests.filter(r => r.status !== "expired" && r.status !== "cancelled");
+      const allSigned = activeRequests.length > 0 && activeRequests.every(r => r.status === "signed");
+      const remainingUnsigned = activeRequests.filter(r => r.status !== "signed");
       
       if (allSigned) {
         await storage.updateContractInstance(signatureRequest.contractId, {
@@ -21352,7 +21374,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
           signedAt: new Date(),
           executedDate: new Date()
         });
-      } else {
+      } else if (remainingUnsigned.length > 0) {
         await storage.updateContractInstance(signatureRequest.contractId, {
           status: "pending_signature"
         });
@@ -21366,10 +21388,10 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         actorEmail: signatureRequest.signerEmail,
         ipAddress: req.ip,
         userAgent: req.get("User-Agent"),
-        details: JSON.stringify({ signatureHash, allSigned })
+        details: JSON.stringify({ signatureHash, allSigned, remainingSigners: remainingUnsigned.length })
       });
       
-      res.json({ success: true, allSigned });
+      res.json({ success: true, allSigned, remainingSigners: remainingUnsigned.length });
     } catch (error) {
       console.error("Error submitting signature:", error);
       res.status(500).json({ error: "Failed to submit signature" });

@@ -749,7 +749,8 @@ export default function ContractsPage() {
     mutationFn: async ({ id, verificationMethod }: { id: string; verificationMethod?: "email_otp" | "sms_otp" }) => {
       const response = await apiRequest("POST", `/api/contracts/${id}/send`, { verificationMethod });
       const data = await response.json() as { 
-        success: boolean; signersCount: number; verificationMethod?: string;
+        success: boolean; signersCount: number; successCount?: number; verificationMethod?: string;
+        failedSigners?: string[];
         signatureRequests: Array<{ id: string; signerName: string; signerEmail: string | null; signerPhone: string | null; verificationMethod: string; status: string }>; 
         error?: string 
       };
@@ -761,15 +762,24 @@ export default function ContractsPage() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
       if (data.signatureRequests && data.signatureRequests.length > 0) {
-        const method = (data.verificationMethod || data.signatureRequests[0].verificationMethod || "email_otp") as "email_otp" | "sms_otp";
-        setSignatureForm(prev => ({ ...prev, signatureRequestId: data.signatureRequests[0].id, verificationMethod: method }));
+        const activeRequest = data.signatureRequests.find(sr => sr.status === "sent") || data.signatureRequests[0];
+        const method = (activeRequest.verificationMethod || data.verificationMethod || "email_otp") as "email_otp" | "sms_otp";
+        setSignatureForm(prev => ({ ...prev, signatureRequestId: activeRequest.id, verificationMethod: method }));
       }
       setIsSendConfirmOpen(false);
       const isSmsSent = data.verificationMethod === "sms_otp";
-      toast({ 
-        title: t.contractsModule.sendForSignature, 
-        description: isSmsSent ? t.contractsModule.otpSentToPhone : t.contractsModule.otpSentMessage 
-      });
+      if (data.failedSigners && data.failedSigners.length > 0) {
+        toast({ 
+          title: t.contractsModule.sendForSignature, 
+          description: `${t.contractsModule.otpSentMessage}. ${t.contractsModule.otpSendFailed || "Failed"}: ${data.failedSigners.join(", ")}`,
+          variant: "destructive"
+        });
+      } else {
+        toast({ 
+          title: t.contractsModule.sendForSignature, 
+          description: isSmsSent ? t.contractsModule.otpSentToPhone : t.contractsModule.otpSentMessage 
+        });
+      }
     },
     onError: (error: Error) => {
       toast({ title: t.contractsModule.saveError, description: error.message, variant: "destructive" });
@@ -818,19 +828,25 @@ export default function ContractsPage() {
 
   const signContractMutation = useMutation({
     mutationFn: async ({ contractId, signatureRequestId, signatureData }: { contractId: string; signatureRequestId: string; signatureData: string }) => {
-      return apiRequest("POST", `/api/contracts/${contractId}/sign`, { 
+      const response = await apiRequest("POST", `/api/contracts/${contractId}/sign`, { 
         signatureRequestId, 
         signatureData,
         signatureType: "typed"
       });
+      return await response.json() as { success: boolean; allSigned: boolean; remainingSigners?: number };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
-      setIsSignatureModalOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts", selectedContract?.id, "signature-requests"] });
       setOtpVerified(false);
       setSignatureForm({ otpCode: "", signatureRequestId: "", verificationMethod: "email_otp" });
       setSignatureData("");
-      toast({ title: t.contractsModule.contractSigned, description: t.contractsModule.contractSignedMessage });
+      if (data.allSigned) {
+        setIsSignatureModalOpen(false);
+        toast({ title: t.contractsModule.contractSigned, description: t.contractsModule.contractSignedMessage });
+      } else {
+        toast({ title: t.contractsModule.contractSigned, description: `${t.contractsModule.contractSignedMessage}. ${data.remainingSigners || 0} ${t.contractsModule.signers} ${t.contractsModule.statusWaitingOtp || "pending"}.` });
+      }
     },
     onError: () => {
       toast({ title: t.contractsModule.saveError, variant: "destructive" });
