@@ -20465,6 +20465,9 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
   }
 
   function getBaseUrl(): string {
+    if (process.env.APP_BASE_URL) {
+      return process.env.APP_BASE_URL.replace(/\/$/, '');
+    }
     return process.env.REPLIT_DEV_DOMAIN 
       ? `https://${process.env.REPLIT_DEV_DOMAIN}`
       : process.env.REPL_SLUG 

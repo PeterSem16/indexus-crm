@@ -541,7 +541,7 @@ function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
             <KpiTargetField
               icon={CheckCircle}
               label={t.campaigns.detail.completionRate}
-              description=""
+              description={t.campaigns.detail.completionRateDesc}
               hint=""
               value={targets.campaignCompletionTarget}
               onChange={(v) => updateTarget("campaignCompletionTarget", v)}
@@ -601,7 +601,7 @@ function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
             <KpiTargetField
               icon={Phone}
               label={t.campaigns.detail.kpiDailyCallTarget}
-              description=""
+              description={t.campaigns.detail.kpiDailyCallTargetDesc}
               hint=""
               value={targets.agentDailyCallsTarget}
               onChange={(v) => updateTarget("agentDailyCallsTarget", v)}
@@ -612,7 +612,7 @@ function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
             <KpiTargetField
               icon={UserCheck}
               label={t.campaigns.detail.kpiDailyContactTarget}
-              description=""
+              description={t.campaigns.detail.kpiDailyContactTargetDesc}
               hint=""
               value={targets.agentDailyContactsTarget}
               onChange={(v) => updateTarget("agentDailyContactsTarget", v)}
@@ -623,7 +623,7 @@ function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
             <KpiTargetField
               icon={Star}
               label={t.campaigns.detail.kpiDailyConversionTarget}
-              description=""
+              description={t.campaigns.detail.kpiDailyConversionTargetDesc}
               hint=""
               value={targets.agentDailySuccessTarget}
               onChange={(v) => updateTarget("agentDailySuccessTarget", v)}
@@ -667,7 +667,7 @@ function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
             <KpiTargetField
               icon={CalendarPlus}
               label={t.campaigns.detail.callbackScheduled}
-              description=""
+              description={t.campaigns.detail.callbackScheduledDesc}
               hint=""
               value={targets.agentCallbackComplianceTarget}
               onChange={(v) => updateTarget("agentCallbackComplianceTarget", v)}

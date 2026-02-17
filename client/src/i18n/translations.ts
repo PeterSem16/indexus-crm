@@ -1232,6 +1232,11 @@ export interface Translations {
       kpiMaxIdleTime: string;
       kpiMaxIdleTimeDesc: string;
       kpiMaxIdleTimeHint: string;
+      completionRateDesc: string;
+      kpiDailyCallTargetDesc: string;
+      kpiDailyContactTargetDesc: string;
+      kpiDailyConversionTargetDesc: string;
+      callbackScheduledDesc: string;
       dispTitle: string;
       dispName: string;
       dispSelectIcon: string;
@@ -4397,6 +4402,11 @@ export const translations: Record<Locale, Translations> = {
         kpiMaxIdleTime: 'Maximum idle time',
         kpiMaxIdleTimeDesc: 'Maximum allowed idle time between two calls',
         kpiMaxIdleTimeHint: 'Longer idle time reduces operator productivity',
+        completionRateDesc: 'Target percentage of processed contacts from total',
+        kpiDailyCallTargetDesc: 'Number of outbound calls an operator should make per day',
+        kpiDailyContactTargetDesc: 'Number of successful contacts an operator should achieve per day',
+        kpiDailyConversionTargetDesc: 'Number of successful conversions an operator should achieve per day',
+        callbackScheduledDesc: 'Percentage of callbacks that should be scheduled on time',
         dispTitle: 'Contact dispositions',
         dispName: 'Name',
         dispSelectIcon: 'Select',
@@ -7547,6 +7557,11 @@ export const translations: Record<Locale, Translations> = {
         kpiMaxIdleTime: 'Maximálny čas nečinnosti',
         kpiMaxIdleTimeDesc: 'Maximálny povolený čas nečinnosti medzi dvoma hovormi',
         kpiMaxIdleTimeHint: 'Dlhšia nečinnosť znižuje produktivitu operátora',
+        completionRateDesc: 'Cieľové percento spracovaných kontaktov z celkového počtu',
+        kpiDailyCallTargetDesc: 'Počet odchádzajúcich hovorov, ktoré by mal operátor uskutočniť za deň',
+        kpiDailyContactTargetDesc: 'Počet úspešných kontaktov, ktoré by mal operátor dosiahnuť za deň',
+        kpiDailyConversionTargetDesc: 'Počet úspešných konverzií, ktoré by mal operátor dosiahnuť za deň',
+        callbackScheduledDesc: 'Percento spätných volaní, ktoré by mali byť naplánované včas',
         dispTitle: 'Výsledky kontaktu',
         dispName: 'Názov',
         dispSelectIcon: 'Vybrať',
@@ -10628,6 +10643,11 @@ export const translations: Record<Locale, Translations> = {
         kpiMaxIdleTime: 'Maximální doba nečinnosti',
         kpiMaxIdleTimeDesc: 'Maximální povolená doba nečinnosti mezi dvěma hovory',
         kpiMaxIdleTimeHint: 'Delší nečinnost snižuje produktivitu operátora',
+        completionRateDesc: 'Cílové procento zpracovaných kontaktů z celkového počtu',
+        kpiDailyCallTargetDesc: 'Počet odchozích hovorů, které by měl operátor uskutečnit za den',
+        kpiDailyContactTargetDesc: 'Počet úspěšných kontaktů, které by měl operátor dosáhnout za den',
+        kpiDailyConversionTargetDesc: 'Počet úspěšných konverzí, které by měl operátor dosáhnout za den',
+        callbackScheduledDesc: 'Procento zpětných volání, která by měla být naplánována včas',
         dispTitle: 'Výsledky kontaktu',
         dispName: 'Název',
         dispSelectIcon: 'Vybrat',
@@ -13672,6 +13692,11 @@ export const translations: Record<Locale, Translations> = {
         kpiMaxIdleTime: 'Maximális tétlenségi idő',
         kpiMaxIdleTimeDesc: 'Maximális megengedett tétlenségi idő két hívás között',
         kpiMaxIdleTimeHint: 'A hosszabb tétlenség csökkenti az operátor termelékenységét',
+        completionRateDesc: 'A feldolgozott kapcsolatok célszázaléka az összesből',
+        kpiDailyCallTargetDesc: 'Az operátornak naponta indítandó kimenő hívások száma',
+        kpiDailyContactTargetDesc: 'Az operátornak naponta elérendő sikeres kapcsolatok száma',
+        kpiDailyConversionTargetDesc: 'Az operátornak naponta elérendő sikeres konverziók száma',
+        callbackScheduledDesc: 'A visszahívások százaléka, amelyeket időben kell ütemezni',
         dispTitle: 'Kapcsolat eredmények',
         dispName: 'Név',
         dispSelectIcon: 'Kiválasztás',
@@ -16715,6 +16740,11 @@ export const translations: Record<Locale, Translations> = {
         kpiMaxIdleTime: 'Timp maxim de inactivitate',
         kpiMaxIdleTimeDesc: 'Timpul maxim permis de inactivitate între două apeluri',
         kpiMaxIdleTimeHint: 'Inactivitatea mai lungă reduce productivitatea operatorului',
+        completionRateDesc: 'Procentul țintă de contacte procesate din total',
+        kpiDailyCallTargetDesc: 'Numărul de apeluri de ieșire pe care un operator ar trebui să le facă zilnic',
+        kpiDailyContactTargetDesc: 'Numărul de contacte reușite pe care un operator ar trebui să le realizeze zilnic',
+        kpiDailyConversionTargetDesc: 'Numărul de conversii reușite pe care un operator ar trebui să le realizeze zilnic',
+        callbackScheduledDesc: 'Procentul de reapeluri care ar trebui programate la timp',
         dispTitle: 'Rezultate contact',
         dispName: 'Nume',
         dispSelectIcon: 'Selectare',
@@ -19759,6 +19789,11 @@ export const translations: Record<Locale, Translations> = {
         kpiMaxIdleTime: 'Tempo massimo di inattività',
         kpiMaxIdleTimeDesc: 'Tempo massimo consentito di inattività tra due chiamate',
         kpiMaxIdleTimeHint: 'L\'inattività prolungata riduce la produttività dell\'operatore',
+        completionRateDesc: 'Percentuale obiettivo di contatti elaborati sul totale',
+        kpiDailyCallTargetDesc: 'Numero di chiamate in uscita che un operatore dovrebbe effettuare al giorno',
+        kpiDailyContactTargetDesc: 'Numero di contatti riusciti che un operatore dovrebbe raggiungere al giorno',
+        kpiDailyConversionTargetDesc: 'Numero di conversioni riuscite che un operatore dovrebbe raggiungere al giorno',
+        callbackScheduledDesc: 'Percentuale di richiamate che dovrebbero essere programmate in tempo',
         dispTitle: 'Esiti contatto',
         dispName: 'Nome',
         dispSelectIcon: 'Seleziona',
@@ -22803,6 +22838,11 @@ export const translations: Record<Locale, Translations> = {
         kpiMaxIdleTime: 'Maximale Leerlaufzeit',
         kpiMaxIdleTimeDesc: 'Maximal erlaubte Leerlaufzeit zwischen zwei Anrufen',
         kpiMaxIdleTimeHint: 'Längere Leerlaufzeit verringert die Produktivität des Operators',
+        completionRateDesc: 'Zielprozentsatz der bearbeiteten Kontakte aus der Gesamtzahl',
+        kpiDailyCallTargetDesc: 'Anzahl ausgehender Anrufe, die ein Operator pro Tag tätigen sollte',
+        kpiDailyContactTargetDesc: 'Anzahl erfolgreicher Kontakte, die ein Operator pro Tag erreichen sollte',
+        kpiDailyConversionTargetDesc: 'Anzahl erfolgreicher Konversionen, die ein Operator pro Tag erreichen sollte',
+        callbackScheduledDesc: 'Prozentsatz der Rückrufe, die rechtzeitig geplant werden sollten',
         dispTitle: 'Kontaktergebnisse',
         dispName: 'Name',
         dispSelectIcon: 'Auswählen',

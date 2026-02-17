@@ -946,21 +946,21 @@ export default function CampaignsPage() {
 
     if (kpiTargets.campaignTotalContactsTarget && kpiTargets.campaignTotalContactsTarget > 0) {
       const pct = Math.round((stats.totalContacts / kpiTargets.campaignTotalContactsTarget) * 100);
-      badges.push({ label: `Kontakty ${pct}%`, pct });
+      badges.push({ label: `${t.campaigns.detail.kpiTotalContacts} ${pct}%`, pct });
     }
 
     if (kpiTargets.campaignCompletionTarget && kpiTargets.campaignCompletionTarget > 0) {
       const processed = stats.completedContacts + stats.failedContacts + stats.noAnswerContacts + stats.notInterestedContacts;
       const completionRate = stats.totalContacts > 0 ? (processed / stats.totalContacts) * 100 : 0;
       const pct = Math.round((completionRate / kpiTargets.campaignCompletionTarget) * 100);
-      badges.push({ label: `Dokončenie ${pct}%`, pct });
+      badges.push({ label: `${t.campaigns.detail.completionRate} ${pct}%`, pct });
     }
 
     if (kpiTargets.campaignConversionTarget && kpiTargets.campaignConversionTarget > 0) {
       const processed = stats.completedContacts + stats.failedContacts + stats.noAnswerContacts + stats.notInterestedContacts;
       const conversionRate = processed > 0 ? (stats.completedContacts / processed) * 100 : 0;
       const pct = Math.round((conversionRate / kpiTargets.campaignConversionTarget) * 100);
-      badges.push({ label: `Konverzia ${pct}%`, pct });
+      badges.push({ label: `${t.campaigns.detail.kpiMinConversionRate} ${pct}%`, pct });
     }
 
     if (badges.length === 0) return null;
