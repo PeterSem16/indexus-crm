@@ -120,6 +120,7 @@ import { CustomerDetailsContent } from "@/pages/customers";
 import { StatusBadge } from "@/components/status-badge";
 import { CustomerForm, type CustomerFormData } from "@/components/customer-form";
 import type { Campaign, Customer, CampaignContact, CampaignDisposition, AgentBreakType } from "@shared/schema";
+import { DISPOSITION_NAME_TRANSLATIONS } from "@shared/schema";
 
 type AgentStatus = "available" | "busy" | "break" | "wrap_up" | "offline";
 
@@ -2115,7 +2116,7 @@ function CustomerInfoPanel({
 }
 
 export default function AgentWorkspacePage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { user } = useAuth();
   const { toast } = useToast();
   const { makeCall, isRegistered: isSipRegistered } = useSip();
@@ -2274,6 +2275,10 @@ export default function AgentWorkspacePage() {
     queryKey: ["/api/campaigns", selectedCampaignId, "dispositions"],
     enabled: !!selectedCampaignId,
   });
+
+  const getDispName = (disp: { code: string; name: string }) => {
+    return DISPOSITION_NAME_TRANSLATIONS[disp.code]?.[locale] || disp.name;
+  };
 
   const { data: rawCampaignContacts = [] } = useQuery<EnrichedCampaignContact[]>({
     queryKey: ["/api/campaigns", selectedCampaignId, "contacts"],
@@ -3348,7 +3353,7 @@ export default function AgentWorkspacePage() {
                           return (
                             <Button key={child.id} variant="outline" className={`gap-2 justify-start py-3 ${colorClass}`} onClick={() => { handleDisposition(child.code, parent?.code, parent?.actionType === "callback" && modalCallbackDate && modalCallbackTime ? `${modalCallbackDate}T${modalCallbackTime}` : undefined, parent?.actionType === "callback" ? cbAssignTo : undefined); }} data-testid={`modal-disposition-${child.code}`}>
                               <IconComp className="h-4 w-4" />
-                              <span className="text-sm font-medium">{child.name}</span>
+                              <span className="text-sm font-medium">{getDispName(child)}</span>
                             </Button>
                           );
                         })}
@@ -3384,7 +3389,7 @@ export default function AgentWorkspacePage() {
                         }
                       }} data-testid={`modal-disposition-${disp.code}`}>
                         <IconComp className="h-5 w-5" />
-                        <span className="text-sm font-medium flex-1 text-left">{disp.name}</span>
+                        <span className="text-sm font-medium flex-1 text-left">{getDispName(disp)}</span>
                         {(hasChildren || isCallback) && <ChevronRight className="h-4 w-4 opacity-50" />}
                       </Button>
                     );

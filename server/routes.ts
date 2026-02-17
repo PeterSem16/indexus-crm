@@ -13977,6 +13977,37 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/campaigns/:id/export", requireAuth, async (req, res) => {
+    try {
+      if (req.session.user?.role !== "admin" && req.session.user?.role !== "manager") {
+        return res.status(403).json({ error: "Insufficient permissions" });
+      }
+      const campaign = await storage.getCampaign(req.params.id);
+      if (!campaign) {
+        return res.status(404).json({ error: "Campaign not found" });
+      }
+      const contacts = await db.select().from(campaignContacts)
+        .where(eq(campaignContacts.campaignId, req.params.id));
+      const dispositions = await db.select().from(campaignDispositions)
+        .where(eq(campaignDispositions.campaignId, req.params.id));
+      const history = await db.select().from(campaignContactHistory)
+        .where(eq(campaignContactHistory.campaignId, req.params.id));
+      const exportData = {
+        campaign,
+        contacts,
+        dispositions,
+        history,
+        exportedAt: new Date().toISOString(),
+      };
+      res.setHeader("Content-Type", "application/json");
+      res.setHeader("Content-Disposition", `attachment; filename="campaign-${campaign.name.replace(/\s+/g, "_")}-export.json"`);
+      res.json(exportData);
+    } catch (error) {
+      console.error("Failed to export campaign:", error);
+      res.status(500).json({ error: "Failed to export campaign" });
+    }
+  });
+
   app.delete("/api/campaigns/:id", requireAuth, async (req, res) => {
     try {
       const campaign = await storage.getCampaign(req.params.id);

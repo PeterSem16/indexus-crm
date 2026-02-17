@@ -20,20 +20,20 @@ import { getCountryFlag } from "@/lib/countries";
 
 export interface CampaignContactFilters {
   search?: string;
-  country?: string;
+  country?: string[];
   city?: string;
   status?: string;
-  clientStatus?: string;
-  serviceType?: string;
-  leadStatus?: string;
-  caseStatus?: string;
+  clientStatus?: string[];
+  serviceType?: string[];
+  leadStatus?: string[];
+  caseStatus?: string[];
   expectedDateFrom?: string;
   expectedDateTo?: string;
-  hospitalId?: string;
-  productType?: string;
-  salesChannel?: string;
-  infoSource?: string;
-  contactStatus?: string;
+  hospitalId?: string[];
+  productType?: string[];
+  salesChannel?: string[];
+  infoSource?: string[];
+  contactStatus?: string[];
 }
 
 interface CampaignContactsFilterProps {
@@ -133,20 +133,29 @@ function FilterSection({ icon: Icon, title, children }: { icon: any; title: stri
   );
 }
 
-function ChipSelect({ options, value, onChange, testIdPrefix }: {
+function MultiChipSelect({ options, value, onChange, testIdPrefix }: {
   options: { value: string; label: string }[];
-  value?: string;
-  onChange: (val: string | undefined) => void;
+  value?: string[];
+  onChange: (val: string[] | undefined) => void;
   testIdPrefix: string;
 }) {
+  const selected = value || [];
+  const toggle = (v: string) => {
+    if (selected.includes(v)) {
+      const next = selected.filter(s => s !== v);
+      onChange(next.length > 0 ? next : undefined);
+    } else {
+      onChange([...selected, v]);
+    }
+  };
   return (
     <div className="flex flex-wrap gap-1.5">
       {options.map(opt => (
         <Badge
           key={opt.value}
-          variant={value === opt.value ? "default" : "outline"}
-          className={`cursor-pointer select-none ${value === opt.value ? "" : ""}`}
-          onClick={() => onChange(value === opt.value ? undefined : opt.value)}
+          variant={selected.includes(opt.value) ? "default" : "outline"}
+          className="cursor-pointer select-none"
+          onClick={() => toggle(opt.value)}
           data-testid={`${testIdPrefix}-${opt.value}`}
         >
           {opt.label}
@@ -186,46 +195,70 @@ export function CampaignContactsFilter({
     : COUNTRIES;
 
   const activeFilterCount = Object.entries(filters).filter(
-    ([key, v]) => v && v !== "all" && key !== "search"
+    ([key, v]) => {
+      if (key === "search") return false;
+      if (Array.isArray(v)) return v.length > 0;
+      return v && v !== "all";
+    }
   ).length;
 
-  const updateFilter = (key: keyof CampaignContactFilters, value: string | undefined) => {
+  const updateFilter = (key: keyof CampaignContactFilters, value: any) => {
     onFiltersChange({ ...filters, [key]: value });
   };
 
-  const getActiveFilterLabels = (): { key: keyof CampaignContactFilters; label: string }[] => {
-    const labels: { key: keyof CampaignContactFilters; label: string }[] = [];
-    if (filters.country) {
-      const c = COUNTRIES.find(c => c.code === filters.country);
-      labels.push({ key: "country", label: `${getCountryFlag(filters.country)} ${c?.name || filters.country}` });
+  const getActiveFilterLabels = (): { key: keyof CampaignContactFilters; label: string; subValue?: string }[] => {
+    const labels: { key: keyof CampaignContactFilters; label: string; subValue?: string }[] = [];
+    if (filters.country && filters.country.length > 0) {
+      for (const code of filters.country) {
+        const c = COUNTRIES.find(c => c.code === code);
+        labels.push({ key: "country", label: `${getCountryFlag(code)} ${c?.name || code}`, subValue: code });
+      }
     }
-    if (filters.clientStatus) {
-      labels.push({ key: "clientStatus", label: CLIENT_STATUSES.find(s => s.value === filters.clientStatus)?.label || filters.clientStatus });
+    if (filters.clientStatus && filters.clientStatus.length > 0) {
+      for (const v of filters.clientStatus) {
+        labels.push({ key: "clientStatus", label: CLIENT_STATUSES.find(s => s.value === v)?.label || v, subValue: v });
+      }
     }
-    if (filters.serviceType) {
-      labels.push({ key: "serviceType", label: SERVICE_TYPES.find(s => s.value === filters.serviceType)?.label || filters.serviceType });
+    if (filters.serviceType && filters.serviceType.length > 0) {
+      for (const v of filters.serviceType) {
+        labels.push({ key: "serviceType", label: SERVICE_TYPES.find(s => s.value === v)?.label || v, subValue: v });
+      }
     }
-    if (filters.leadStatus) {
-      labels.push({ key: "leadStatus", label: LEAD_STATUSES.find(s => s.value === filters.leadStatus)?.label || filters.leadStatus });
+    if (filters.leadStatus && filters.leadStatus.length > 0) {
+      for (const v of filters.leadStatus) {
+        labels.push({ key: "leadStatus", label: LEAD_STATUSES.find(s => s.value === v)?.label || v, subValue: v });
+      }
     }
-    if (filters.caseStatus) {
-      labels.push({ key: "caseStatus", label: CASE_STATUSES.find(s => s.value === filters.caseStatus)?.label || filters.caseStatus });
+    if (filters.caseStatus && filters.caseStatus.length > 0) {
+      for (const v of filters.caseStatus) {
+        labels.push({ key: "caseStatus", label: CASE_STATUSES.find(s => s.value === v)?.label || v, subValue: v });
+      }
     }
-    if (filters.contactStatus) {
-      labels.push({ key: "contactStatus", label: CONTACT_STATUSES.find(s => s.value === filters.contactStatus)?.label || filters.contactStatus });
+    if (filters.contactStatus && filters.contactStatus.length > 0) {
+      for (const v of filters.contactStatus) {
+        labels.push({ key: "contactStatus", label: CONTACT_STATUSES.find(s => s.value === v)?.label || v, subValue: v });
+      }
     }
-    if (filters.salesChannel) {
-      labels.push({ key: "salesChannel", label: `${t.campaigns.filter.salesChannel}: ${filters.salesChannel}` });
+    if (filters.salesChannel && filters.salesChannel.length > 0) {
+      for (const v of filters.salesChannel) {
+        labels.push({ key: "salesChannel", label: `${t.campaigns.filter.salesChannel}: ${v}`, subValue: v });
+      }
     }
-    if (filters.productType) {
-      labels.push({ key: "productType", label: PRODUCT_TYPES.find(s => s.value === filters.productType)?.label || filters.productType });
+    if (filters.productType && filters.productType.length > 0) {
+      for (const v of filters.productType) {
+        labels.push({ key: "productType", label: PRODUCT_TYPES.find(s => s.value === v)?.label || v, subValue: v });
+      }
     }
-    if (filters.infoSource) {
-      labels.push({ key: "infoSource", label: INFO_SOURCES.find(s => s.value === filters.infoSource)?.label || filters.infoSource });
+    if (filters.infoSource && filters.infoSource.length > 0) {
+      for (const v of filters.infoSource) {
+        labels.push({ key: "infoSource", label: INFO_SOURCES.find(s => s.value === v)?.label || v, subValue: v });
+      }
     }
-    if (filters.hospitalId) {
-      const h = filteredHospitals.find(h => h.id === filters.hospitalId);
-      labels.push({ key: "hospitalId", label: h?.name || t.campaigns.filter.hospital });
+    if (filters.hospitalId && filters.hospitalId.length > 0) {
+      for (const v of filters.hospitalId) {
+        const h = filteredHospitals.find(h => h.id === v);
+        labels.push({ key: "hospitalId", label: h?.name || t.campaigns.filter.hospital, subValue: v });
+      }
     }
     if (filters.city) {
       labels.push({ key: "city", label: `${t.campaigns.filter.city}: ${filters.city}` });
@@ -237,6 +270,16 @@ export function CampaignContactsFilter({
       labels.push({ key: "expectedDateTo", label: `${t.campaigns.filter.expectedDateTo}: ${filters.expectedDateTo}` });
     }
     return labels;
+  };
+
+  const removeFilterValue = (key: keyof CampaignContactFilters, subValue?: string) => {
+    const current = filters[key];
+    if (Array.isArray(current) && subValue) {
+      const next = current.filter(v => v !== subValue);
+      updateFilter(key, next.length > 0 ? next : undefined);
+    } else {
+      updateFilter(key, undefined);
+    }
   };
 
   return (
@@ -287,7 +330,7 @@ export function CampaignContactsFilter({
             <div className="p-6 space-y-6">
 
               <FilterSection icon={Phone} title={t.campaigns.filter.contactStatusInCampaign}>
-                <ChipSelect
+                <MultiChipSelect
                   options={CONTACT_STATUSES}
                   value={filters.contactStatus}
                   onChange={(v) => updateFilter("contactStatus", v)}
@@ -301,7 +344,7 @@ export function CampaignContactsFilter({
                 <div className="space-y-3">
                   <div>
                     <span className="text-xs text-muted-foreground mb-1.5 block">{t.campaigns.filter.clientStatus}</span>
-                    <ChipSelect
+                    <MultiChipSelect
                       options={CLIENT_STATUSES}
                       value={filters.clientStatus}
                       onChange={(v) => updateFilter("clientStatus", v)}
@@ -310,7 +353,7 @@ export function CampaignContactsFilter({
                   </div>
                   <div>
                     <span className="text-xs text-muted-foreground mb-1.5 block">{t.campaigns.filter.leadQuality}</span>
-                    <ChipSelect
+                    <MultiChipSelect
                       options={LEAD_STATUSES}
                       value={filters.leadStatus}
                       onChange={(v) => updateFilter("leadStatus", v)}
@@ -319,7 +362,7 @@ export function CampaignContactsFilter({
                   </div>
                   <div>
                     <span className="text-xs text-muted-foreground mb-1.5 block">{t.campaigns.filter.serviceType}</span>
-                    <ChipSelect
+                    <MultiChipSelect
                       options={SERVICE_TYPES}
                       value={filters.serviceType}
                       onChange={(v) => updateFilter("serviceType", v)}
@@ -336,17 +379,28 @@ export function CampaignContactsFilter({
                   <div>
                     <span className="text-xs text-muted-foreground mb-1.5 block">{t.campaigns.filter.countryLabel}</span>
                     <div className="flex flex-wrap gap-1.5">
-                      {availableCountries.map(c => (
-                        <Badge
-                          key={c.code}
-                          variant={filters.country === c.code ? "default" : "outline"}
-                          className="cursor-pointer select-none"
-                          onClick={() => updateFilter("country", filters.country === c.code ? undefined : c.code)}
-                          data-testid={`chip-country-${c.code}`}
-                        >
-                          {getCountryFlag(c.code)} {c.name}
-                        </Badge>
-                      ))}
+                      {availableCountries.map(c => {
+                        const selected = filters.country?.includes(c.code) || false;
+                        return (
+                          <Badge
+                            key={c.code}
+                            variant={selected ? "default" : "outline"}
+                            className="cursor-pointer select-none"
+                            onClick={() => {
+                              const current = filters.country || [];
+                              if (selected) {
+                                const next = current.filter(v => v !== c.code);
+                                updateFilter("country", next.length > 0 ? next : undefined);
+                              } else {
+                                updateFilter("country", [...current, c.code]);
+                              }
+                            }}
+                            data-testid={`chip-country-${c.code}`}
+                          >
+                            {getCountryFlag(c.code)} {c.name}
+                          </Badge>
+                        );
+                      })}
                     </div>
                   </div>
                   <div>
@@ -367,7 +421,7 @@ export function CampaignContactsFilter({
                 <div className="space-y-3">
                   <div>
                     <span className="text-xs text-muted-foreground mb-1.5 block">{t.campaigns.filter.caseStatus}</span>
-                    <ChipSelect
+                    <MultiChipSelect
                       options={CASE_STATUSES}
                       value={filters.caseStatus}
                       onChange={(v) => updateFilter("caseStatus", v)}
@@ -376,7 +430,7 @@ export function CampaignContactsFilter({
                   </div>
                   <div>
                     <span className="text-xs text-muted-foreground mb-1.5 block">{t.campaigns.filter.productType}</span>
-                    <ChipSelect
+                    <MultiChipSelect
                       options={PRODUCT_TYPES}
                       value={filters.productType}
                       onChange={(v) => updateFilter("productType", v)}
@@ -387,17 +441,28 @@ export function CampaignContactsFilter({
                     <div>
                       <span className="text-xs text-muted-foreground mb-1.5 block">{t.campaigns.filter.hospital}</span>
                       <div className="flex flex-wrap gap-1.5 max-h-[120px] overflow-y-auto">
-                        {filteredHospitals.map(h => (
-                          <Badge
-                            key={h.id}
-                            variant={filters.hospitalId === h.id ? "default" : "outline"}
-                            className="cursor-pointer select-none"
-                            onClick={() => updateFilter("hospitalId", filters.hospitalId === h.id ? undefined : h.id)}
-                            data-testid={`chip-hospital-${h.id}`}
-                          >
-                            {h.name}
-                          </Badge>
-                        ))}
+                        {filteredHospitals.map(h => {
+                          const selected = filters.hospitalId?.includes(h.id) || false;
+                          return (
+                            <Badge
+                              key={h.id}
+                              variant={selected ? "default" : "outline"}
+                              className="cursor-pointer select-none"
+                              onClick={() => {
+                                const current = filters.hospitalId || [];
+                                if (selected) {
+                                  const next = current.filter(v => v !== h.id);
+                                  updateFilter("hospitalId", next.length > 0 ? next : undefined);
+                                } else {
+                                  updateFilter("hospitalId", [...current, h.id]);
+                                }
+                              }}
+                              data-testid={`chip-hospital-${h.id}`}
+                            >
+                              {h.name}
+                            </Badge>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -430,7 +495,7 @@ export function CampaignContactsFilter({
                 <div className="space-y-3">
                   <div>
                     <span className="text-xs text-muted-foreground mb-1.5 block">{t.campaigns.filter.salesChannel}</span>
-                    <ChipSelect
+                    <MultiChipSelect
                       options={SALES_CHANNELS}
                       value={filters.salesChannel}
                       onChange={(v) => updateFilter("salesChannel", v)}
@@ -439,7 +504,7 @@ export function CampaignContactsFilter({
                   </div>
                   <div>
                     <span className="text-xs text-muted-foreground mb-1.5 block">{t.campaigns.filter.infoSource}</span>
-                    <ChipSelect
+                    <MultiChipSelect
                       options={INFO_SOURCES}
                       value={filters.infoSource}
                       onChange={(v) => updateFilter("infoSource", v)}
@@ -470,13 +535,13 @@ export function CampaignContactsFilter({
 
       {activeFilterCount > 0 && (
         <div className="flex items-center gap-1.5 flex-wrap">
-          {getActiveFilterLabels().map(f => (
-            <Badge key={f.key} variant="secondary" className="gap-1 bg-primary/10 text-primary">
+          {getActiveFilterLabels().map((f, i) => (
+            <Badge key={`${f.key}-${f.subValue || i}`} variant="secondary" className="gap-1 bg-primary/10 text-primary">
               {f.label}
               <X 
                 className="h-3 w-3 cursor-pointer" 
-                onClick={() => updateFilter(f.key, undefined)}
-                data-testid={`remove-filter-${f.key}`}
+                onClick={() => removeFilterValue(f.key, f.subValue)}
+                data-testid={`remove-filter-${f.key}-${f.subValue || ''}`}
               />
             </Badge>
           ))}
@@ -531,7 +596,7 @@ export function applyContactFilters(
       }
     }
 
-    if (filters.country && customer.country !== filters.country) {
+    if (filters.country && filters.country.length > 0 && !filters.country.includes(customer.country)) {
       return false;
     }
 
@@ -543,49 +608,49 @@ export function applyContactFilters(
       return false;
     }
 
-    if (filters.clientStatus && customer.clientStatus !== filters.clientStatus) {
+    if (filters.clientStatus && filters.clientStatus.length > 0 && !filters.clientStatus.includes(customer.clientStatus || "")) {
       return false;
     }
 
-    if (filters.serviceType && customer.serviceType !== filters.serviceType) {
+    if (filters.serviceType && filters.serviceType.length > 0 && !filters.serviceType.includes(customer.serviceType || "")) {
       return false;
     }
 
-    if (filters.leadStatus && customer.leadStatus !== filters.leadStatus) {
+    if (filters.leadStatus && filters.leadStatus.length > 0 && !filters.leadStatus.includes(customer.leadStatus || "")) {
       return false;
     }
 
-    if (filters.contactStatus && contact.status !== filters.contactStatus) {
+    if (filters.contactStatus && filters.contactStatus.length > 0 && !filters.contactStatus.includes(contact.status || "")) {
       return false;
     }
 
     const potentialCase = customer.potentialCase;
-    if (filters.caseStatus) {
-      if (!potentialCase || potentialCase.caseStatus !== filters.caseStatus) {
+    if (filters.caseStatus && filters.caseStatus.length > 0) {
+      if (!potentialCase || !filters.caseStatus.includes(potentialCase.caseStatus || "")) {
         return false;
       }
     }
 
-    if (filters.hospitalId) {
-      if (!potentialCase || potentialCase.hospitalId !== filters.hospitalId) {
+    if (filters.hospitalId && filters.hospitalId.length > 0) {
+      if (!potentialCase || !filters.hospitalId.includes(potentialCase.hospitalId || "")) {
         return false;
       }
     }
 
-    if (filters.productType) {
-      if (!potentialCase || potentialCase.productType !== filters.productType) {
+    if (filters.productType && filters.productType.length > 0) {
+      if (!potentialCase || !filters.productType.includes(potentialCase.productType || "")) {
         return false;
       }
     }
 
-    if (filters.salesChannel) {
-      if (!potentialCase || potentialCase.salesChannel !== filters.salesChannel) {
+    if (filters.salesChannel && filters.salesChannel.length > 0) {
+      if (!potentialCase || !filters.salesChannel.includes(potentialCase.salesChannel || "")) {
         return false;
       }
     }
 
-    if (filters.infoSource) {
-      if (!potentialCase || potentialCase.infoSource !== filters.infoSource) {
+    if (filters.infoSource && filters.infoSource.length > 0) {
+      if (!potentialCase || !filters.infoSource.includes(potentialCase.infoSource || "")) {
         return false;
       }
     }

@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Plus, Pencil, Trash2, Search, Megaphone, PlayCircle, CheckCircle, Clock, XCircle, ExternalLink, FileText, Calendar, LayoutList, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, BarChart3, TrendingUp, Phone, RefreshCw, Users, Mail, MessageSquare, User, Check, Loader2, Shield, Headphones, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Megaphone, PlayCircle, CheckCircle, Clock, XCircle, ExternalLink, FileText, Calendar, LayoutList, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, BarChart3, TrendingUp, Phone, RefreshCw, Users, Mail, MessageSquare, User, Check, Loader2, Shield, Headphones, X, Download } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/auth-context";
 import { useCountryFilter } from "@/contexts/country-filter-context";
@@ -1256,15 +1256,40 @@ export default function CampaignsPage() {
               {t.campaigns.deleteConfirm}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
             <AlertDialogCancel data-testid="button-cancel-delete">
               {t.common.cancel}
             </AlertDialogCancel>
+            <Button
+              variant="outline"
+              onClick={async () => {
+                if (!deletingCampaign) return;
+                try {
+                  const res = await fetch(`/api/campaigns/${deletingCampaign.id}/export`, { credentials: "include" });
+                  if (!res.ok) throw new Error();
+                  const blob = await res.blob();
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `campaign-${deletingCampaign.name.replace(/\s+/g, "_")}-export.json`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                  toast({ title: t.campaigns.exportSuccess || "Export saved" });
+                } catch {
+                  toast({ title: t.common.error, variant: "destructive" });
+                }
+              }}
+              data-testid="button-export-before-delete"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              {t.campaigns.exportData || "Export data"}
+            </Button>
             <AlertDialogAction
               onClick={() => deletingCampaign && deleteMutation.mutate(deletingCampaign.id)}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               data-testid="button-confirm-delete"
             >
+              <Trash2 className="w-4 h-4 mr-2" />
               {t.common.delete}
             </AlertDialogAction>
           </AlertDialogFooter>

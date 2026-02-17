@@ -2733,6 +2733,7 @@ export interface Translations {
     saveMappings: string;
     mappingsSaved: string;
     loadTemplate: string;
+    salesScript: string;
     resetTemplate: string;
     electronicSignature: string;
     identityVerification: string;
@@ -6007,6 +6008,7 @@ export const translations: Record<Locale, Translations> = {
       saveMappings: 'Save Mappings',
       mappingsSaved: 'Mappings saved successfully',
       loadTemplate: 'Load Template',
+      salesScript: 'Sales Script',
       resetTemplate: 'Reset Template',
       electronicSignature: 'Electronic Signature',
       identityVerification: 'Identity Verification',
@@ -9218,6 +9220,7 @@ export const translations: Record<Locale, Translations> = {
       saveMappings: 'Uložiť mapovanie',
       mappingsSaved: 'Mapovanie bolo úspešne uložené',
       loadTemplate: 'Načítať šablónu',
+      salesScript: 'Predajný scenár',
       resetTemplate: 'Resetovať šablónu',
       electronicSignature: 'Elektronický podpis',
       identityVerification: 'Overenie totožnosti',
@@ -12361,6 +12364,7 @@ export const translations: Record<Locale, Translations> = {
       saveMappings: 'Uložit mapování',
       mappingsSaved: 'Mapování bylo úspěšně uloženo',
       loadTemplate: 'Načíst šablonu',
+      salesScript: 'Prodejní scénář',
       resetTemplate: 'Resetovat šablonu',
       electronicSignature: 'Elektronický podpis',
       identityVerification: 'Ověření totožnosti',
@@ -15504,6 +15508,7 @@ export const translations: Record<Locale, Translations> = {
       saveMappings: 'Hozzárendelések mentése',
       mappingsSaved: 'Hozzárendelések sikeresen mentve',
       loadTemplate: 'Sablon betöltése',
+      salesScript: 'Értékesítési szkript',
       resetTemplate: 'Sablon visszaállítása',
       electronicSignature: 'Elektronikus aláírás',
       identityVerification: 'Személyazonosság ellenőrzése',
@@ -18646,6 +18651,7 @@ export const translations: Record<Locale, Translations> = {
       saveMappings: 'Salvează mapările',
       mappingsSaved: 'Mapări salvate cu succes',
       loadTemplate: 'Încarcă șablonul',
+      salesScript: 'Script de vânzare',
       resetTemplate: 'Resetează șablonul',
       electronicSignature: 'Semnătură electronică',
       identityVerification: 'Verificarea identității',
@@ -21789,6 +21795,7 @@ export const translations: Record<Locale, Translations> = {
       saveMappings: 'Salva mappature',
       mappingsSaved: 'Mappature salvate con successo',
       loadTemplate: 'Carica modello',
+      salesScript: 'Script di vendita',
       resetTemplate: 'Reimposta modello',
       electronicSignature: 'Firma elettronica',
       identityVerification: 'Verifica identità',
@@ -24932,6 +24939,7 @@ export const translations: Record<Locale, Translations> = {
       saveMappings: 'Zuordnungen speichern',
       mappingsSaved: 'Zuordnungen erfolgreich gespeichert',
       loadTemplate: 'Vorlage laden',
+      salesScript: 'Verkaufsskript',
       resetTemplate: 'Vorlage zurücksetzen',
       electronicSignature: 'Elektronische Unterschrift',
       identityVerification: 'Identitätsüberprüfung',

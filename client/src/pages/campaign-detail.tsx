@@ -5,7 +5,7 @@ import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/auth-context";
 import { CHART_PALETTE } from "@/lib/chart-colors";
 import { 
-  ArrowLeft, Users, Settings, BarChart3, FileText, 
+  ArrowLeft, Users, Settings, BarChart3, FileText, FileDown,
   Play, Pause, CheckCircle, CheckCircle2, Clock, Phone, PhoneMissed, User, Calendar,
   RefreshCw, Download, Filter, MoreHorizontal, Trash2, CheckCheck,
   Copy, Save, ScrollText, History, ArrowRight, Mail, MessageSquare, FileEdit, Package, Shield,
@@ -34,6 +34,135 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { type Campaign, type CampaignContact, type Customer, COUNTRIES, type OperatorScript, operatorScriptSchema, type CampaignDisposition, DISPOSITION_ACTION_TYPES } from "@shared/schema";
 import { Input } from "@/components/ui/input";
+
+function getDefaultSalesScript(lang: string): OperatorScript {
+  const texts: Record<string, { greeting: string; intro: string; introNote: string; interestQ: string; interestOpts: { value: string; label: string }[]; productQ: string; productOpts: { value: string; label: string }[]; objectionQ: string; objectionOpts: { value: string; label: string }[]; closing: string; closingNote: string; noInterest: string; noInterestNote: string; thankYou: string; thankYouNote: string; name: string; desc: string }> = {
+    sk: {
+      name: "Predajny scenar", desc: "Zakladny predajny scenar pre kampane",
+      greeting: "Pozdrav", intro: "Dobry den, volam z {firma}. Hovorim s {meno}?",
+      introNote: "Predstavte sa a overte identitu klienta.",
+      interestQ: "Ma klient zaujem?", interestOpts: [{ value: "yes", label: "Ano, ma zaujem" }, { value: "partial", label: "Ciastocny zaujem" }, { value: "no", label: "Nema zaujem" }],
+      productQ: "O aky produkt ma zaujem?", productOpts: [{ value: "cord_blood", label: "Pupocnikova krv" }, { value: "cord_tissue", label: "Pupocnikove tkanivo" }, { value: "both", label: "Obe sluzby" }],
+      objectionQ: "Namietka klienta", objectionOpts: [{ value: "price", label: "Vysoka cena" }, { value: "thinking", label: "Chce rozmysliet" }, { value: "competitor", label: "Ma konkurenciu" }, { value: "none", label: "Ziadna namietka" }],
+      closing: "Dohodnutie dalsieho kroku", closingNote: "Dohodnite stretnutie, zaslanie ponuky alebo zavolanie neskôr.",
+      noInterest: "Klient nema zaujem", noInterestNote: "Podakujte za cas a zaznamenajte dovod odmietnutia.",
+      thankYou: "Rozlucenie", thankYouNote: "Dakujem za vas cas. Prajem pekny den!",
+    },
+    en: {
+      name: "Sales Script", desc: "Basic sales call script for campaigns",
+      greeting: "Greeting", intro: "Hello, I am calling from {company}. Am I speaking with {name}?",
+      introNote: "Introduce yourself and verify the client identity.",
+      interestQ: "Is the client interested?", interestOpts: [{ value: "yes", label: "Yes, interested" }, { value: "partial", label: "Partial interest" }, { value: "no", label: "Not interested" }],
+      productQ: "Which product is of interest?", productOpts: [{ value: "cord_blood", label: "Cord blood" }, { value: "cord_tissue", label: "Cord tissue" }, { value: "both", label: "Both services" }],
+      objectionQ: "Client objection", objectionOpts: [{ value: "price", label: "High price" }, { value: "thinking", label: "Wants to think" }, { value: "competitor", label: "Has competitor" }, { value: "none", label: "No objection" }],
+      closing: "Agree on next step", closingNote: "Schedule a meeting, send a quote, or call back later.",
+      noInterest: "Client not interested", noInterestNote: "Thank them for their time and record the reason for rejection.",
+      thankYou: "Farewell", thankYouNote: "Thank you for your time. Have a nice day!",
+    },
+    cs: {
+      name: "Prodejni scenar", desc: "Zakladni prodejni scenar pro kampane",
+      greeting: "Pozdrav", intro: "Dobry den, volam z {firma}. Mluvim s {jmeno}?",
+      introNote: "Predstavte se a overte identitu klienta.",
+      interestQ: "Ma klient zajem?", interestOpts: [{ value: "yes", label: "Ano, ma zajem" }, { value: "partial", label: "Castecny zajem" }, { value: "no", label: "Nema zajem" }],
+      productQ: "O jaky produkt ma zajem?", productOpts: [{ value: "cord_blood", label: "Pupecnikova krev" }, { value: "cord_tissue", label: "Pupecnikova tkan" }, { value: "both", label: "Obe sluzby" }],
+      objectionQ: "Namitka klienta", objectionOpts: [{ value: "price", label: "Vysoka cena" }, { value: "thinking", label: "Chce rozmyslet" }, { value: "competitor", label: "Ma konkurenci" }, { value: "none", label: "Zadna namitka" }],
+      closing: "Dohodnuti dalsiho kroku", closingNote: "Dohodnete schuzku, zaslani nabidky nebo zavolani pozdeji.",
+      noInterest: "Klient nema zajem", noInterestNote: "Podekujte za cas a zaznamenejte duvod odmitnuti.",
+      thankYou: "Rozlouceni", thankYouNote: "Dekuji za vas cas. Preji hezky den!",
+    },
+    hu: {
+      name: "Ertekesitesi szkript", desc: "Alap ertekesitesi hivasi szkript",
+      greeting: "Udvozles", intro: "Jo napot, a {ceg} cegtol hivom. {nev}-vel beszelek?",
+      introNote: "Mutatkozzon be es ellenorizze az ugyfelet.",
+      interestQ: "Erdeklodik az ugyfel?", interestOpts: [{ value: "yes", label: "Igen, erdeklodik" }, { value: "partial", label: "Reszben erdeklodik" }, { value: "no", label: "Nem erdeklodik" }],
+      productQ: "Melyik termek erdekli?", productOpts: [{ value: "cord_blood", label: "Koeldokver" }, { value: "cord_tissue", label: "Koeldokszovet" }, { value: "both", label: "Mindketto" }],
+      objectionQ: "Ugyfel ellenvetese", objectionOpts: [{ value: "price", label: "Magas ar" }, { value: "thinking", label: "Gondolkodni akar" }, { value: "competitor", label: "Van versenytars" }, { value: "none", label: "Nincs ellenvetés" }],
+      closing: "Kovetkezo lepes egyeztetese", closingNote: "Egyeztessen talalkozot, ajanlatkuldesset vagy visszahivast.",
+      noInterest: "Ugyfel nem erdeklodik", noInterestNote: "Koszonje meg az idot es rogzitse az elutasitas okat.",
+      thankYou: "Bucsuzas", thankYouNote: "Koszonom az idejet. Szep napot kivanok!",
+    },
+    ro: {
+      name: "Script de vanzare", desc: "Script de baza pentru apeluri de vanzare",
+      greeting: "Salut", intro: "Buna ziua, sun de la {companie}. Vorbesc cu {nume}?",
+      introNote: "Prezentati-va si verificati identitatea clientului.",
+      interestQ: "Clientul este interesat?", interestOpts: [{ value: "yes", label: "Da, interesat" }, { value: "partial", label: "Partial interesat" }, { value: "no", label: "Nu este interesat" }],
+      productQ: "Ce produs il intereseaza?", productOpts: [{ value: "cord_blood", label: "Sange din cordon" }, { value: "cord_tissue", label: "Tesut din cordon" }, { value: "both", label: "Ambele servicii" }],
+      objectionQ: "Obiectia clientului", objectionOpts: [{ value: "price", label: "Pret ridicat" }, { value: "thinking", label: "Vrea sa se gandeasca" }, { value: "competitor", label: "Are concurenta" }, { value: "none", label: "Fara obiectii" }],
+      closing: "Stabilirea pasului urmator", closingNote: "Programati o intalnire, trimiteti o oferta sau sunati mai tarziu.",
+      noInterest: "Client neinteresat", noInterestNote: "Multumiti pentru timp si inregistrati motivul refuzului.",
+      thankYou: "La revedere", thankYouNote: "Va multumesc pentru timpul acordat. O zi buna!",
+    },
+    it: {
+      name: "Script di vendita", desc: "Script di base per chiamate di vendita",
+      greeting: "Saluto", intro: "Buongiorno, chiamo da {azienda}. Parlo con {nome}?",
+      introNote: "Presentatevi e verificate l'identita del cliente.",
+      interestQ: "Il cliente e interessato?", interestOpts: [{ value: "yes", label: "Si, interessato" }, { value: "partial", label: "Parzialmente" }, { value: "no", label: "Non interessato" }],
+      productQ: "Quale prodotto interessa?", productOpts: [{ value: "cord_blood", label: "Sangue cordonale" }, { value: "cord_tissue", label: "Tessuto cordonale" }, { value: "both", label: "Entrambi" }],
+      objectionQ: "Obiezione del cliente", objectionOpts: [{ value: "price", label: "Prezzo alto" }, { value: "thinking", label: "Vuole pensarci" }, { value: "competitor", label: "Ha concorrenza" }, { value: "none", label: "Nessuna obiezione" }],
+      closing: "Accordo sul prossimo passo", closingNote: "Fissate un incontro, inviate un preventivo o richiamate.",
+      noInterest: "Cliente non interessato", noInterestNote: "Ringraziate per il tempo e registrate il motivo del rifiuto.",
+      thankYou: "Commiato", thankYouNote: "Grazie per il suo tempo. Buona giornata!",
+    },
+    de: {
+      name: "Verkaufsskript", desc: "Basis-Verkaufsskript fuer Kampagnen",
+      greeting: "Begruessung", intro: "Guten Tag, ich rufe von {Firma} an. Spreche ich mit {Name}?",
+      introNote: "Stellen Sie sich vor und bestaetigen Sie die Identitaet des Kunden.",
+      interestQ: "Hat der Kunde Interesse?", interestOpts: [{ value: "yes", label: "Ja, interessiert" }, { value: "partial", label: "Teilweise" }, { value: "no", label: "Kein Interesse" }],
+      productQ: "Welches Produkt interessiert?", productOpts: [{ value: "cord_blood", label: "Nabelschnurblut" }, { value: "cord_tissue", label: "Nabelschnurgewebe" }, { value: "both", label: "Beide" }],
+      objectionQ: "Einwand des Kunden", objectionOpts: [{ value: "price", label: "Hoher Preis" }, { value: "thinking", label: "Moechte ueberlegen" }, { value: "competitor", label: "Hat Konkurrenz" }, { value: "none", label: "Kein Einwand" }],
+      closing: "Naechsten Schritt vereinbaren", closingNote: "Vereinbaren Sie ein Treffen, senden Sie ein Angebot oder rufen Sie spaeter an.",
+      noInterest: "Kein Interesse", noInterestNote: "Bedanken Sie sich und notieren Sie den Ablehnungsgrund.",
+      thankYou: "Verabschiedung", thankYouNote: "Vielen Dank fuer Ihre Zeit. Schoenen Tag noch!",
+    },
+  };
+  const tx = texts[lang] || texts.en;
+  return {
+    version: 1,
+    name: tx.name,
+    description: tx.desc,
+    startStepId: "step_greeting",
+    steps: [
+      {
+        id: "step_greeting", title: tx.greeting, description: tx.introNote,
+        elements: [{ id: "el_greeting", type: "paragraph" as const, content: tx.intro }],
+        nextStepId: "step_interest",
+      },
+      {
+        id: "step_interest", title: tx.interestQ,
+        elements: [{ id: "el_interest", type: "radio" as const, label: tx.interestQ, required: true, options: tx.interestOpts.map(o => ({ ...o, nextStepId: o.value === "no" ? "step_no_interest" : "step_product" })) }],
+      },
+      {
+        id: "step_product", title: tx.productQ,
+        elements: [{ id: "el_product", type: "select" as const, label: tx.productQ, required: true, options: tx.productOpts }],
+        nextStepId: "step_objection",
+      },
+      {
+        id: "step_objection", title: tx.objectionQ,
+        elements: [
+          { id: "el_objection", type: "select" as const, label: tx.objectionQ, options: tx.objectionOpts },
+          { id: "el_notes", type: "textarea" as const, label: "Notes", placeholder: "..." },
+        ],
+        nextStepId: "step_closing",
+      },
+      {
+        id: "step_closing", title: tx.closing, description: tx.closingNote,
+        elements: [{ id: "el_closing_note", type: "textarea" as const, label: tx.closing, placeholder: "..." }],
+        nextStepId: "step_thanks",
+      },
+      {
+        id: "step_no_interest", title: tx.noInterest, description: tx.noInterestNote,
+        elements: [{ id: "el_no_interest_note", type: "textarea" as const, label: tx.noInterest, placeholder: "..." }],
+        nextStepId: "step_thanks",
+      },
+      {
+        id: "step_thanks", title: tx.thankYou, description: tx.thankYouNote,
+        elements: [{ id: "el_thanks", type: "paragraph" as const, content: tx.thankYouNote }],
+        isEndStep: true,
+      },
+    ],
+  };
+}
+
 import { Switch } from "@/components/ui/switch";
 import { ScriptBuilder } from "@/components/script-builder";
 import { ScriptRunner } from "@/components/script-runner";
@@ -147,6 +276,118 @@ function StatsCard({
         {description && (
           <p className="text-xs text-muted-foreground">{description}</p>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function CampaignDetailsCard({ campaign }: { campaign: Campaign }) {
+  const { t } = useI18n();
+  const { toast } = useToast();
+  const [editName, setEditName] = useState(campaign.name);
+  const [editStartDate, setEditStartDate] = useState(campaign.startDate ? format(new Date(campaign.startDate), "yyyy-MM-dd") : "");
+  const [editEndDate, setEditEndDate] = useState(campaign.endDate ? format(new Date(campaign.endDate), "yyyy-MM-dd") : "");
+  const [editCountries, setEditCountries] = useState<string[]>(campaign.countryCodes || []);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setEditName(campaign.name);
+    setEditStartDate(campaign.startDate ? format(new Date(campaign.startDate), "yyyy-MM-dd") : "");
+    setEditEndDate(campaign.endDate ? format(new Date(campaign.endDate), "yyyy-MM-dd") : "");
+    setEditCountries(campaign.countryCodes || []);
+  }, [campaign]);
+
+  const hasChanges = editName !== campaign.name 
+    || editStartDate !== (campaign.startDate ? format(new Date(campaign.startDate), "yyyy-MM-dd") : "")
+    || editEndDate !== (campaign.endDate ? format(new Date(campaign.endDate), "yyyy-MM-dd") : "")
+    || JSON.stringify(editCountries.sort()) !== JSON.stringify((campaign.countryCodes || []).sort());
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await apiRequest("PATCH", `/api/campaigns/${campaign.id}`, {
+        name: editName,
+        startDate: editStartDate || null,
+        endDate: editEndDate || null,
+        countryCodes: editCountries,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id] });
+      toast({ title: t.campaigns.detail.settingsSaved });
+    } catch {
+      toast({ title: t.campaigns.detail.error, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleCountry = (code: string) => {
+    setEditCountries(prev => prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code]);
+  };
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between gap-4">
+        <div>
+          <CardTitle className="flex items-center gap-2">
+            <FileEdit className="w-5 h-5" />
+            {t.campaigns.detail.campaignSummary}
+          </CardTitle>
+          <CardDescription>
+            {t.campaigns.detail.editCampaignDetails || "Edit campaign name, dates, and countries"}
+          </CardDescription>
+        </div>
+        {hasChanges && (
+          <Button onClick={handleSave} disabled={saving || !editName.trim()} data-testid="button-save-campaign-details">
+            <Save className="w-4 h-4 mr-2" />
+            {saving ? t.campaigns.detail.saving : t.common.save}
+          </Button>
+        )}
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label>{t.campaigns.name}</Label>
+          <Input
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            data-testid="input-edit-campaign-name"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>{t.campaigns.startDate}</Label>
+            <Input
+              type="date"
+              value={editStartDate}
+              onChange={(e) => setEditStartDate(e.target.value)}
+              data-testid="input-edit-start-date"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>{t.campaigns.endDate}</Label>
+            <Input
+              type="date"
+              value={editEndDate}
+              onChange={(e) => setEditEndDate(e.target.value)}
+              data-testid="input-edit-end-date"
+            />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label>{t.campaigns.detail.country}</Label>
+          <div className="flex flex-wrap gap-1.5">
+            {COUNTRIES.map(c => (
+              <Badge
+                key={c.code}
+                variant={editCountries.includes(c.code) ? "default" : "outline"}
+                className="cursor-pointer select-none"
+                onClick={() => toggleCountry(c.code)}
+                data-testid={`chip-edit-country-${c.code}`}
+              >
+                {c.flag} {c.name}
+              </Badge>
+            ))}
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
@@ -2078,6 +2319,7 @@ export default function CampaignDetailPage() {
             </TabsList>
 
             <TabsContent value="general" className="space-y-6">
+              <CampaignDetailsCard campaign={campaign} />
               <Card>
                 <CardHeader>
                   <CardTitle>{t.campaigns.detail.defaultAgentTab}</CardTitle>
@@ -2746,7 +2988,25 @@ export default function CampaignDetailPage() {
                   {t.campaigns.detail.scriptBuilder}
                 </CardDescription>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" data-testid="button-load-script-template">
+                      <FileDown className="w-4 h-4 mr-2" />
+                      {t.campaigns.detail.loadTemplate || "Load template"}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onClick={() => {
+                      const script = getDefaultSalesScript(locale);
+                      setStructuredScript(script);
+                      setStructuredScriptModified(true);
+                      setScriptMode("builder");
+                    }} data-testid="menu-load-sales-script">
+                      {t.campaigns.detail.salesScript || "Sales script"}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <Select
                   value={scriptMode}
                   onValueChange={(v) => setScriptMode(v as "builder" | "preview" | "legacy")}
