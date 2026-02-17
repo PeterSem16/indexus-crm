@@ -21214,6 +21214,12 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
         signerUserAgent: req.get("User-Agent")
       });
 
+      if (signatureRequest.participantId) {
+        await storage.updateContractParticipant(signatureRequest.participantId, {
+          signedAt: new Date()
+        });
+      }
+
       await storage.createContractAuditLog({
         contractId: signatureRequest.contractId,
         action: "signed",
@@ -21663,6 +21669,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       }
       const auditLog = await storage.getContractAuditLog(shareToken.contractId);
       const participants = await storage.getContractParticipants(shareToken.contractId);
+      const signatureRequests = await storage.getContractSignatureRequests(shareToken.contractId);
       
       let customerCountry = "SK";
       try {
@@ -21687,13 +21694,22 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
           contactDate: contract.contactDate,
           hasPdf: !!contract.pdfPath,
         },
-        participants: participants.map(p => ({
-          fullName: p.fullName,
-          participantType: p.participantType,
-          role: p.role,
-          signedAt: p.signedAt,
-          signatureRequired: p.signatureRequired,
-        })),
+        participants: participants.map(p => {
+          let signedAt = p.signedAt;
+          if (!signedAt && p.signatureRequired) {
+            const matchingReq = signatureRequests.find(
+              r => r.participantId === p.id && r.status === "signed" && r.signedAt
+            );
+            if (matchingReq) signedAt = matchingReq.signedAt;
+          }
+          return {
+            fullName: p.fullName,
+            participantType: p.participantType,
+            role: p.role,
+            signedAt,
+            signatureRequired: p.signatureRequired,
+          };
+        }),
         events: auditLog.map(e => ({
           action: e.action,
           actorType: e.actorType,

@@ -42,6 +42,7 @@ type LangStrings = {
   participants: string;
   signed: string;
   awaitingSignature: string;
+  signatureNotRequired: string;
   timeline: string;
   downloadContract: string;
   secureView: string;
@@ -53,6 +54,9 @@ type LangStrings = {
   actions: Record<string, string>;
   statuses: Record<string, string>;
   actorTypes: Record<string, string>;
+  participantTypes: Record<string, string>;
+  roles: Record<string, string>;
+  detailKeys: Record<string, string>;
 };
 
 const TRANSLATIONS: Record<string, LangStrings> = {
@@ -63,6 +67,7 @@ const TRANSLATIONS: Record<string, LangStrings> = {
     participants: "Participants",
     signed: "Signed",
     awaitingSignature: "Awaiting signature",
+    signatureNotRequired: "Observer",
     timeline: "Timeline",
     downloadContract: "Download Contract",
     secureView: "This is a secure, read-only view of the contract audit trail.",
@@ -79,6 +84,9 @@ const TRANSLATIONS: Record<string, LangStrings> = {
       cancelled: "Contract Cancelled", terminated: "Contract Terminated",
       audit_exported: "Audit Timeline Exported", status_changed: "Status Changed",
       received: "Contract Received", returned: "Contract Returned", verified: "Contract Verified",
+      pdf_generated: "PDF Generated", pdf_regenerated: "PDF Regenerated",
+      resent: "Resent for Signature", participant_added: "Participant Added",
+      email_sent: "Email Sent", sms_sent: "SMS Sent",
     },
     statuses: {
       draft: "DRAFT", created: "CREATED", sent: "SENT", received: "RECEIVED", returned: "RETURNED",
@@ -87,6 +95,9 @@ const TRANSLATIONS: Record<string, LangStrings> = {
       terminated: "TERMINATED", expired: "EXPIRED",
     },
     actorTypes: { customer: "Customer", system: "System", user: "User" },
+    participantTypes: { customer: "Customer", guarantor: "Guarantor", witness: "Witness", representative: "Representative", other: "Other" },
+    roles: { signer: "Signer", observer: "Observer", witness: "Witness", guarantor: "Guarantor" },
+    detailKeys: { signerName: "Signer", signerEmail: "Email", method: "Method", verifiedAt: "Verified at", statusChangedTo: "New status", message: "Note", signedAt: "Signed at", templateName: "Template", fileName: "File" },
   },
   sk: {
     title: "Audit timeline zmluvy",
@@ -95,6 +106,7 @@ const TRANSLATIONS: Record<string, LangStrings> = {
     participants: "Účastníci",
     signed: "Podpísané",
     awaitingSignature: "Čaká na podpis",
+    signatureNotRequired: "Pozorovateľ",
     timeline: "Časová os",
     downloadContract: "Stiahnuť zmluvu",
     secureView: "Toto je zabezpečený pohľad na audit trail zmluvy (iba na čítanie).",
@@ -106,11 +118,14 @@ const TRANSLATIONS: Record<string, LangStrings> = {
     actions: {
       created: "Zmluva vytvorená", updated: "Zmluva aktualizovaná", sent: "Odoslaná na podpis",
       viewed: "Zmluva zobrazená", signing_page_viewed: "Podpisová stránka zobrazená",
-      otp_sent: "OTP kód odoslaný", otp_resent: "Overovací kód opätovne odoslaný", otp_send_failed: "Odoslanie overovacieho kódu zlyhalo", otp_verified: "OTP overený",
+      otp_sent: "OTP kód odoslaný", otp_resent: "Overovací kód opätovne odoslaný", otp_send_failed: "Odoslanie overovacieho kódu zlyhalo", otp_verified: "Identita overená",
       signed: "Zmluva podpísaná", completed: "Zmluva dokončená", executed: "Zmluva vykonaná",
       cancelled: "Zmluva zrušená", terminated: "Zmluva ukončená",
       audit_exported: "Audit timeline exportovaný", status_changed: "Zmena stavu",
       received: "Zmluva prijatá", returned: "Zmluva vrátená", verified: "Zmluva overená",
+      pdf_generated: "PDF vygenerované", pdf_regenerated: "PDF pregenerované",
+      resent: "Opätovne odoslaná na podpis", participant_added: "Účastník pridaný",
+      email_sent: "Email odoslaný", sms_sent: "SMS odoslaná",
     },
     statuses: {
       draft: "KONCEPT", created: "VYTVORENÁ", sent: "ODOSLANÁ", received: "PRIJATÁ", returned: "VRÁTENÁ",
@@ -119,6 +134,9 @@ const TRANSLATIONS: Record<string, LangStrings> = {
       terminated: "UKONČENÁ", expired: "EXPIROVANÁ",
     },
     actorTypes: { customer: "Zákazník", system: "Systém", user: "Používateľ" },
+    participantTypes: { customer: "Zákazník", guarantor: "Ručiteľ", witness: "Svedok", representative: "Zástupca", other: "Iný" },
+    roles: { signer: "Podpisujúci", observer: "Pozorovateľ", witness: "Svedok", guarantor: "Ručiteľ" },
+    detailKeys: { signerName: "Podpisujúci", signerEmail: "Email", method: "Metóda", verifiedAt: "Overené", statusChangedTo: "Nový stav", message: "Poznámka", signedAt: "Podpísané", templateName: "Šablóna", fileName: "Súbor" },
   },
   cs: {
     title: "Audit timeline smlouvy",
@@ -127,6 +145,7 @@ const TRANSLATIONS: Record<string, LangStrings> = {
     participants: "Účastníci",
     signed: "Podepsáno",
     awaitingSignature: "Čeká na podpis",
+    signatureNotRequired: "Pozorovatel",
     timeline: "Časová osa",
     downloadContract: "Stáhnout smlouvu",
     secureView: "Toto je zabezpečený náhled na audit trail smlouvy (pouze ke čtení).",
@@ -138,11 +157,14 @@ const TRANSLATIONS: Record<string, LangStrings> = {
     actions: {
       created: "Smlouva vytvořena", updated: "Smlouva aktualizována", sent: "Odeslána k podpisu",
       viewed: "Smlouva zobrazena", signing_page_viewed: "Podpisová stránka zobrazena",
-      otp_sent: "OTP kód odeslán", otp_resent: "Ověřovací kód znovu odeslán", otp_send_failed: "Odeslání ověřovacího kódu selhalo", otp_verified: "OTP ověřen",
+      otp_sent: "OTP kód odeslán", otp_resent: "Ověřovací kód znovu odeslán", otp_send_failed: "Odeslání ověřovacího kódu selhalo", otp_verified: "Identita ověřena",
       signed: "Smlouva podepsána", completed: "Smlouva dokončena", executed: "Smlouva provedena",
       cancelled: "Smlouva zrušena", terminated: "Smlouva ukončena",
       audit_exported: "Audit timeline exportován", status_changed: "Změna stavu",
       received: "Smlouva přijata", returned: "Smlouva vrácena", verified: "Smlouva ověřena",
+      pdf_generated: "PDF vygenerováno", pdf_regenerated: "PDF přegenerováno",
+      resent: "Znovu odeslána k podpisu", participant_added: "Účastník přidán",
+      email_sent: "Email odeslán", sms_sent: "SMS odeslána",
     },
     statuses: {
       draft: "KONCEPT", created: "VYTVOŘENA", sent: "ODESLÁNA", received: "PŘIJATA", returned: "VRÁCENA",
@@ -151,6 +173,9 @@ const TRANSLATIONS: Record<string, LangStrings> = {
       terminated: "UKONČENA", expired: "EXPIROVÁNA",
     },
     actorTypes: { customer: "Zákazník", system: "Systém", user: "Uživatel" },
+    participantTypes: { customer: "Zákazník", guarantor: "Ručitel", witness: "Svědek", representative: "Zástupce", other: "Jiný" },
+    roles: { signer: "Podepisující", observer: "Pozorovatel", witness: "Svědek", guarantor: "Ručitel" },
+    detailKeys: { signerName: "Podepisující", signerEmail: "Email", method: "Metoda", verifiedAt: "Ověřeno", statusChangedTo: "Nový stav", message: "Poznámka", signedAt: "Podepsáno", templateName: "Šablona", fileName: "Soubor" },
   },
   hu: {
     title: "Szerződés audit idővonal",
@@ -159,6 +184,7 @@ const TRANSLATIONS: Record<string, LangStrings> = {
     participants: "Résztvevők",
     signed: "Aláírva",
     awaitingSignature: "Aláírásra vár",
+    signatureNotRequired: "Megfigyelő",
     timeline: "Idővonal",
     downloadContract: "Szerződés letöltése",
     secureView: "Ez a szerződés audit nyomvonalának biztonságos, csak olvasható nézete.",
@@ -170,11 +196,14 @@ const TRANSLATIONS: Record<string, LangStrings> = {
     actions: {
       created: "Szerződés létrehozva", updated: "Szerződés frissítve", sent: "Aláírásra elküldve",
       viewed: "Szerződés megtekintve", signing_page_viewed: "Aláírási oldal megtekintve",
-      otp_sent: "OTP kód elküldve", otp_resent: "Ellenőrző kód újraküldve", otp_send_failed: "Ellenőrző kód küldése sikertelen", otp_verified: "OTP ellenőrizve",
+      otp_sent: "OTP kód elküldve", otp_resent: "Ellenőrző kód újraküldve", otp_send_failed: "Ellenőrző kód küldése sikertelen", otp_verified: "Személyazonosság ellenőrizve",
       signed: "Szerződés aláírva", completed: "Szerződés befejezve", executed: "Szerződés végrehajtva",
       cancelled: "Szerződés törölve", terminated: "Szerződés megszüntetve",
       audit_exported: "Audit idővonal exportálva", status_changed: "Állapot megváltoztatva",
       received: "Szerződés átvéve", returned: "Szerződés visszaküldve", verified: "Szerződés ellenőrizve",
+      pdf_generated: "PDF generálva", pdf_regenerated: "PDF újragenerálva",
+      resent: "Újraküldve aláírásra", participant_added: "Résztvevő hozzáadva",
+      email_sent: "Email elküldve", sms_sent: "SMS elküldve",
     },
     statuses: {
       draft: "TERVEZET", created: "LÉTREHOZVA", sent: "ELKÜLDVE", received: "ÁTVÉVE", returned: "VISSZAKÜLDVE",
@@ -183,6 +212,9 @@ const TRANSLATIONS: Record<string, LangStrings> = {
       terminated: "MEGSZÜNTETVE", expired: "LEJÁRT",
     },
     actorTypes: { customer: "Ügyfél", system: "Rendszer", user: "Felhasználó" },
+    participantTypes: { customer: "Ügyfél", guarantor: "Kezes", witness: "Tanú", representative: "Képviselő", other: "Egyéb" },
+    roles: { signer: "Aláíró", observer: "Megfigyelő", witness: "Tanú", guarantor: "Kezes" },
+    detailKeys: { signerName: "Aláíró", signerEmail: "Email", method: "Módszer", verifiedAt: "Ellenőrizve", statusChangedTo: "Új állapot", message: "Megjegyzés", signedAt: "Aláírva", templateName: "Sablon", fileName: "Fájl" },
   },
   ro: {
     title: "Cronologia audit a contractului",
@@ -191,6 +223,7 @@ const TRANSLATIONS: Record<string, LangStrings> = {
     participants: "Participanți",
     signed: "Semnat",
     awaitingSignature: "Așteaptă semnarea",
+    signatureNotRequired: "Observator",
     timeline: "Cronologie",
     downloadContract: "Descarcă contractul",
     secureView: "Aceasta este o vizualizare securizată, doar pentru citire, a auditului contractului.",
@@ -202,11 +235,14 @@ const TRANSLATIONS: Record<string, LangStrings> = {
     actions: {
       created: "Contract creat", updated: "Contract actualizat", sent: "Trimis pentru semnare",
       viewed: "Contract vizualizat", signing_page_viewed: "Pagina de semnare vizualizată",
-      otp_sent: "Cod OTP trimis", otp_resent: "Cod de verificare retrimis", otp_send_failed: "Trimiterea codului de verificare a eșuat", otp_verified: "OTP verificat",
+      otp_sent: "Cod OTP trimis", otp_resent: "Cod de verificare retrimis", otp_send_failed: "Trimiterea codului de verificare a eșuat", otp_verified: "Identitate verificată",
       signed: "Contract semnat", completed: "Contract finalizat", executed: "Contract executat",
       cancelled: "Contract anulat", terminated: "Contract reziliat",
       audit_exported: "Cronologie audit exportată", status_changed: "Stare modificată",
       received: "Contract recepționat", returned: "Contract returnat", verified: "Contract verificat",
+      pdf_generated: "PDF generat", pdf_regenerated: "PDF regenerat",
+      resent: "Retrimis pentru semnare", participant_added: "Participant adăugat",
+      email_sent: "Email trimis", sms_sent: "SMS trimis",
     },
     statuses: {
       draft: "CIORNĂ", created: "CREAT", sent: "TRIMIS", received: "RECEPȚIONAT", returned: "RETURNAT",
@@ -215,6 +251,9 @@ const TRANSLATIONS: Record<string, LangStrings> = {
       terminated: "REZILIAT", expired: "EXPIRAT",
     },
     actorTypes: { customer: "Client", system: "Sistem", user: "Utilizator" },
+    participantTypes: { customer: "Client", guarantor: "Garant", witness: "Martor", representative: "Reprezentant", other: "Altul" },
+    roles: { signer: "Semnatar", observer: "Observator", witness: "Martor", guarantor: "Garant" },
+    detailKeys: { signerName: "Semnatar", signerEmail: "Email", method: "Metodă", verifiedAt: "Verificat", statusChangedTo: "Stare nouă", message: "Notă", signedAt: "Semnat", templateName: "Șablon", fileName: "Fișier" },
   },
   it: {
     title: "Cronologia audit del contratto",
@@ -223,6 +262,7 @@ const TRANSLATIONS: Record<string, LangStrings> = {
     participants: "Partecipanti",
     signed: "Firmato",
     awaitingSignature: "In attesa di firma",
+    signatureNotRequired: "Osservatore",
     timeline: "Cronologia",
     downloadContract: "Scarica contratto",
     secureView: "Questa è una visualizzazione sicura e di sola lettura dell'audit trail del contratto.",
@@ -234,11 +274,14 @@ const TRANSLATIONS: Record<string, LangStrings> = {
     actions: {
       created: "Contratto creato", updated: "Contratto aggiornato", sent: "Inviato per la firma",
       viewed: "Contratto visualizzato", signing_page_viewed: "Pagina di firma visualizzata",
-      otp_sent: "Codice OTP inviato", otp_resent: "Codice di verifica reinviato", otp_send_failed: "Invio del codice di verifica fallito", otp_verified: "OTP verificato",
+      otp_sent: "Codice OTP inviato", otp_resent: "Codice di verifica reinviato", otp_send_failed: "Invio del codice di verifica fallito", otp_verified: "Identità verificata",
       signed: "Contratto firmato", completed: "Contratto completato", executed: "Contratto eseguito",
       cancelled: "Contratto annullato", terminated: "Contratto risolto",
       audit_exported: "Cronologia audit esportata", status_changed: "Stato modificato",
       received: "Contratto ricevuto", returned: "Contratto restituito", verified: "Contratto verificato",
+      pdf_generated: "PDF generato", pdf_regenerated: "PDF rigenerato",
+      resent: "Reinviato per la firma", participant_added: "Partecipante aggiunto",
+      email_sent: "Email inviata", sms_sent: "SMS inviato",
     },
     statuses: {
       draft: "BOZZA", created: "CREATO", sent: "INVIATO", received: "RICEVUTO", returned: "RESTITUITO",
@@ -247,6 +290,9 @@ const TRANSLATIONS: Record<string, LangStrings> = {
       terminated: "RISOLTO", expired: "SCADUTO",
     },
     actorTypes: { customer: "Cliente", system: "Sistema", user: "Utente" },
+    participantTypes: { customer: "Cliente", guarantor: "Garante", witness: "Testimone", representative: "Rappresentante", other: "Altro" },
+    roles: { signer: "Firmatario", observer: "Osservatore", witness: "Testimone", guarantor: "Garante" },
+    detailKeys: { signerName: "Firmatario", signerEmail: "Email", method: "Metodo", verifiedAt: "Verificato", statusChangedTo: "Nuovo stato", message: "Nota", signedAt: "Firmato", templateName: "Modello", fileName: "File" },
   },
   de: {
     title: "Vertrag Audit-Zeitleiste",
@@ -255,6 +301,7 @@ const TRANSLATIONS: Record<string, LangStrings> = {
     participants: "Teilnehmer",
     signed: "Unterschrieben",
     awaitingSignature: "Wartet auf Unterschrift",
+    signatureNotRequired: "Beobachter",
     timeline: "Zeitleiste",
     downloadContract: "Vertrag herunterladen",
     secureView: "Dies ist eine sichere, schreibgeschützte Ansicht des Vertrags-Audit-Trails.",
@@ -266,11 +313,14 @@ const TRANSLATIONS: Record<string, LangStrings> = {
     actions: {
       created: "Vertrag erstellt", updated: "Vertrag aktualisiert", sent: "Zur Unterschrift gesendet",
       viewed: "Vertrag angezeigt", signing_page_viewed: "Unterschriftsseite angezeigt",
-      otp_sent: "OTP-Code gesendet", otp_resent: "Verifizierungscode erneut gesendet", otp_send_failed: "Senden des Verifizierungscodes fehlgeschlagen", otp_verified: "OTP verifiziert",
+      otp_sent: "OTP-Code gesendet", otp_resent: "Verifizierungscode erneut gesendet", otp_send_failed: "Senden des Verifizierungscodes fehlgeschlagen", otp_verified: "Identität verifiziert",
       signed: "Vertrag unterschrieben", completed: "Vertrag abgeschlossen", executed: "Vertrag ausgeführt",
       cancelled: "Vertrag storniert", terminated: "Vertrag beendet",
       audit_exported: "Audit-Zeitleiste exportiert", status_changed: "Status geändert",
       received: "Vertrag empfangen", returned: "Vertrag zurückgesandt", verified: "Vertrag verifiziert",
+      pdf_generated: "PDF generiert", pdf_regenerated: "PDF neu generiert",
+      resent: "Erneut zur Unterschrift gesendet", participant_added: "Teilnehmer hinzugefügt",
+      email_sent: "E-Mail gesendet", sms_sent: "SMS gesendet",
     },
     statuses: {
       draft: "ENTWURF", created: "ERSTELLT", sent: "GESENDET", received: "EMPFANGEN", returned: "ZURÜCKGESANDT",
@@ -279,6 +329,9 @@ const TRANSLATIONS: Record<string, LangStrings> = {
       terminated: "BEENDET", expired: "ABGELAUFEN",
     },
     actorTypes: { customer: "Kunde", system: "System", user: "Benutzer" },
+    participantTypes: { customer: "Kunde", guarantor: "Bürge", witness: "Zeuge", representative: "Vertreter", other: "Sonstige" },
+    roles: { signer: "Unterzeichner", observer: "Beobachter", witness: "Zeuge", guarantor: "Bürge" },
+    detailKeys: { signerName: "Unterzeichner", signerEmail: "E-Mail", method: "Methode", verifiedAt: "Verifiziert", statusChangedTo: "Neuer Status", message: "Hinweis", signedAt: "Unterschrieben", templateName: "Vorlage", fileName: "Datei" },
   },
 };
 
@@ -302,6 +355,12 @@ const ACTION_COLORS: Record<string, { color: string; bgColor: string }> = {
   received: { color: "#7C3AED", bgColor: "#F5F3FF" },
   returned: { color: "#F97316", bgColor: "#FFF7ED" },
   verified: { color: "#10B981", bgColor: "#ECFDF5" },
+  pdf_generated: { color: "#3B82F6", bgColor: "#EFF6FF" },
+  pdf_regenerated: { color: "#3B82F6", bgColor: "#EFF6FF" },
+  resent: { color: "#F59E0B", bgColor: "#FFFBEB" },
+  participant_added: { color: "#8B5CF6", bgColor: "#F5F3FF" },
+  email_sent: { color: "#6366F1", bgColor: "#EEF2FF" },
+  sms_sent: { color: "#6366F1", bgColor: "#EEF2FF" },
 };
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -477,7 +536,7 @@ export default function AuditTimelinePublic() {
                     <div>
                       <div style={{ fontWeight: 500, color: "#111827" }}>{p.fullName}</div>
                       <div style={{ fontSize: 11, color: "#6B7280" }}>
-                        {p.participantType} {p.signedAt ? `\u2022 ${lang.signed} ${formatDate(p.signedAt)}` : p.signatureRequired ? `\u2022 ${lang.awaitingSignature}` : ""}
+                        {lang.participantTypes[p.participantType] || lang.participantTypes[p.role] || p.participantType} {p.signedAt ? `\u2022 ${lang.signed} ${formatDate(p.signedAt)}` : p.signatureRequired ? `\u2022 ${lang.awaitingSignature}` : `\u2022 ${lang.signatureNotRequired}`}
                       </div>
                     </div>
                     {p.signedAt && (
@@ -504,7 +563,17 @@ export default function AuditTimelinePublic() {
             const colorConfig = ACTION_COLORS[event.action] || { color: "#6B7280", bgColor: "#F9FAFB" };
             const label = lang.actions[event.action] || event.action;
             let details: Record<string, any> = {};
-            try { details = event.details ? JSON.parse(event.details) : {}; } catch {}
+            let detailsIsString = false;
+            try { 
+              if (event.details) {
+                const parsed = JSON.parse(event.details);
+                if (typeof parsed === "object" && parsed !== null) {
+                  details = parsed;
+                } else {
+                  detailsIsString = true;
+                }
+              }
+            } catch { detailsIsString = !!event.details; }
             const isFirst = index === 0;
             const isLast = index === data.events.length - 1;
             const isSignature = event.action === "signed" || event.action === "completed";
@@ -563,14 +632,26 @@ export default function AuditTimelinePublic() {
                     </div>
                   </div>
 
-                  {Object.keys(details).length > 0 && (
+                  {detailsIsString && event.details && (
                     <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 6, background: "#F9FAFB", fontSize: 12, color: "#6B7280" }}>
-                      {Object.entries(details).map(([key, value]) => (
-                        <div key={key} style={{ display: "flex", gap: 4, marginBottom: 2 }}>
-                          <span style={{ fontWeight: 500, color: "#374151" }}>{key}:</span>
-                          <span>{String(value)}</span>
-                        </div>
-                      ))}
+                      {event.details}
+                    </div>
+                  )}
+                  {!detailsIsString && Object.keys(details).length > 0 && (
+                    <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 6, background: "#F9FAFB", fontSize: 12, color: "#6B7280" }}>
+                      {Object.entries(details).filter(([key]) => !["signatureHash", "ipAddress", "userAgent"].includes(key)).map(([key, value]) => {
+                        const translatedKey = lang.detailKeys[key] || key.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase());
+                        let displayValue = String(value);
+                        if (key === "statusChangedTo") {
+                          displayValue = lang.statuses[displayValue] || displayValue;
+                        }
+                        return (
+                          <div key={key} style={{ display: "flex", gap: 4, marginBottom: 2 }}>
+                            <span style={{ fontWeight: 500, color: "#374151" }}>{translatedKey}:</span>
+                            <span>{displayValue}</span>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
