@@ -477,7 +477,7 @@ export default function ContractDetailPage() {
                             </p>
                             {hasDate && (
                               <p className="text-[9px] text-muted-foreground text-center mt-0.5">
-                                {formatDateOnly(formState[step.id], contractCountryCode)}
+                                {formatDate(formState[step.id], contractCountryCode)}
                               </p>
                             )}
                           </div>
