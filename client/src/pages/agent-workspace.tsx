@@ -3042,10 +3042,15 @@ export default function AgentWorkspacePage() {
     setTimeline([]);
     setActiveChannel("phone");
 
+    const isAuto = isAutoMode || campaignAutoSettings.autoMode;
+    const wrapUpDelay = isAuto ? (campaignAutoSettings.autoDelaySeconds || 5) * 1000 : 2000;
+
     setTimeout(() => {
       setAgentStatus("available");
-      handleNextContact();
-    }, 3000);
+      if (isAuto) {
+        handleNextContact();
+      }
+    }, wrapUpDelay);
   };
 
   const sendEmailMutation = useMutation({
