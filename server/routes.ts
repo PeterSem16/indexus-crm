@@ -13809,7 +13809,7 @@ export async function registerRoutes(
 
   app.get("/api/agent/scheduled-queue", requireAuth, async (req, res) => {
     try {
-      const user = (req as any).user;
+      const user = req.session.user!;
       const now = new Date();
 
       const scheduledContacts = await db
