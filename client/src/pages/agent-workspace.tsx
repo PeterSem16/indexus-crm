@@ -1447,39 +1447,55 @@ function CommunicationCanvas({
       )}
 
       {activeChannel === "email" && (
-        <div className="flex-1 flex flex-col overflow-y-auto">
-          <ScrollArea className="flex-1">
-            <div className="p-4 space-y-3">
-              {timeline.filter(e => e.type === "email").map((entry) => (
-                <div key={entry.id} className={`flex ${entry.direction === "outbound" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[80%] rounded-lg p-3 ${
-                    entry.direction === "outbound"
-                      ? "bg-green-100 dark:bg-green-950/40 text-green-900 dark:text-green-100"
-                      : "bg-muted"
-                  }`}>
-                    <div className="flex items-center gap-2 mb-1">
-                      <Mail className="h-3 w-3" />
-                      <span className="text-xs font-medium">{entry.content}</span>
-                    </div>
-                    {entry.details && (
-                      <p className="text-xs opacity-80">{entry.details}</p>
-                    )}
-                    <span className="text-[10px] opacity-60 mt-1 block">
-                      {format(entry.timestamp, "HH:mm", { locale: sk })}
-                    </span>
-                  </div>
-                </div>
-              ))}
-              {timeline.filter(e => e.type === "email").length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Mail className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                  <p className="text-xs">Žiadne emaily</p>
-                </div>
-              )}
+        <div className="flex-1 flex overflow-hidden">
+          <div className="w-[20%] min-w-[180px] border-r flex flex-col bg-muted/20">
+            <div className="p-3 border-b">
+              <div className="flex items-center gap-2">
+                <History className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">História</span>
+              </div>
             </div>
-          </ScrollArea>
-          <div className="border-t bg-card">
-            <div className="p-3 space-y-2">
+            <ScrollArea className="flex-1">
+              <div className="p-2 space-y-1.5">
+                {timeline.filter(e => e.type === "email").length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Mail className="h-6 w-6 mx-auto mb-2 opacity-20" />
+                    <p className="text-[10px]">Žiadne emaily</p>
+                  </div>
+                ) : timeline.filter(e => e.type === "email").map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="rounded-md p-2 bg-card border border-border/50 cursor-default"
+                    data-testid={`email-history-${entry.id}`}
+                  >
+                    <div className="flex items-center gap-1.5 mb-1">
+                      {entry.direction === "outbound" ? (
+                        <Send className="h-3 w-3 text-green-500 shrink-0" />
+                      ) : (
+                        <Mail className="h-3 w-3 text-blue-500 shrink-0" />
+                      )}
+                      <span className="text-[10px] text-muted-foreground">
+                        {format(entry.timestamp, "d.M. HH:mm", { locale: sk })}
+                      </span>
+                    </div>
+                    <p className="text-[11px] font-medium line-clamp-2 leading-tight">{entry.content}</p>
+                    {entry.details && (
+                      <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">{entry.details}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+          <div className="w-[80%] flex flex-col">
+            <div className="flex-1 flex flex-col p-4 space-y-3 overflow-y-auto">
+              <div className="flex items-center gap-2 mb-1">
+                <Mail className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-semibold">Nový email</span>
+                {contact?.email && (
+                  <Badge variant="secondary" className="text-[10px]">{contact.email}</Badge>
+                )}
+              </div>
               {emailTemplates.length > 0 && (
                 <Select onValueChange={handleSelectTemplate}>
                   <SelectTrigger data-testid="select-email-template" className="text-sm">
@@ -1501,59 +1517,29 @@ function CommunicationCanvas({
                 disabled={isSendingEmail}
                 data-testid="input-email-subject"
               />
-              <div className="border rounded-md overflow-visible">
+              <div className="border rounded-md overflow-visible flex-1 flex flex-col">
                 <div className="flex items-center gap-0.5 p-1.5 border-b bg-muted/30 flex-wrap">
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => execFormat("bold")}
-                    data-testid="btn-format-bold"
-                    title="Tučné"
-                  >
+                  <Button size="icon" variant="ghost" onClick={() => execFormat("bold")} data-testid="btn-format-bold" title="Tučné">
                     <Bold className="h-3.5 w-3.5" />
                   </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => execFormat("italic")}
-                    data-testid="btn-format-italic"
-                    title="Kurzíva"
-                  >
+                  <Button size="icon" variant="ghost" onClick={() => execFormat("italic")} data-testid="btn-format-italic" title="Kurzíva">
                     <Italic className="h-3.5 w-3.5" />
                   </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => execFormat("underline")}
-                    data-testid="btn-format-underline"
-                    title="Podčiarknuté"
-                  >
+                  <Button size="icon" variant="ghost" onClick={() => execFormat("underline")} data-testid="btn-format-underline" title="Podčiarknuté">
                     <Underline className="h-3.5 w-3.5" />
                   </Button>
                   <Separator orientation="vertical" className="h-5 mx-1" />
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => execFormat("insertUnorderedList")}
-                    data-testid="btn-format-ul"
-                    title="Odrážkový zoznam"
-                  >
+                  <Button size="icon" variant="ghost" onClick={() => execFormat("insertUnorderedList")} data-testid="btn-format-ul" title="Odrážkový zoznam">
                     <List className="h-3.5 w-3.5" />
                   </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => execFormat("insertOrderedList")}
-                    data-testid="btn-format-ol"
-                    title="Číslovaný zoznam"
-                  >
+                  <Button size="icon" variant="ghost" onClick={() => execFormat("insertOrderedList")} data-testid="btn-format-ol" title="Číslovaný zoznam">
                     <ListOrdered className="h-3.5 w-3.5" />
                   </Button>
                 </div>
                 <div
                   ref={editorRef}
                   contentEditable={!isSendingEmail}
-                  className="min-h-[120px] max-h-[200px] overflow-y-auto p-3 text-sm focus:outline-none"
+                  className="flex-1 min-h-[180px] overflow-y-auto p-3 text-sm focus:outline-none"
                   data-testid="input-email-body"
                   onInput={() => {
                     setEmailBody(editorRef.current?.innerHTML || "");
@@ -1592,92 +1578,115 @@ function CommunicationCanvas({
                   ))}
                 </div>
               )}
-              <div className="flex items-center justify-between gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isSendingEmail}
-                  className="gap-1.5"
-                  data-testid="btn-add-attachment"
-                >
-                  <Paperclip className="h-3.5 w-3.5" />
-                  Príloha
-                </Button>
-                <Button
-                  onClick={handleSendEmail}
-                  disabled={!emailSubject || !(editorRef.current?.innerHTML || emailBody) || isSendingEmail}
-                  className="gap-2"
-                  data-testid="btn-send-email"
-                >
-                  {isSendingEmail ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4" />
-                  )}
-                  Odoslať
-                </Button>
-              </div>
+            </div>
+            <div className="border-t p-3 bg-card flex items-center justify-between gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isSendingEmail}
+                className="gap-1.5"
+                data-testid="btn-add-attachment"
+              >
+                <Paperclip className="h-3.5 w-3.5" />
+                Príloha
+              </Button>
+              <Button
+                onClick={handleSendEmail}
+                disabled={!emailSubject || !(editorRef.current?.innerHTML || emailBody) || isSendingEmail}
+                className="gap-2"
+                data-testid="btn-send-email"
+              >
+                {isSendingEmail ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+                Odoslať
+              </Button>
             </div>
           </div>
         </div>
       )}
 
       {activeChannel === "sms" && (
-        <div className="flex-1 flex flex-col overflow-y-auto">
-          <ScrollArea className="flex-1">
-            <div className="p-4 space-y-3">
-              {timeline.filter(e => e.type === "sms").map((entry) => (
-                <div key={entry.id} className={`flex ${entry.direction === "outbound" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[80%] rounded-lg p-3 ${
-                    entry.direction === "outbound"
-                      ? "bg-orange-100 dark:bg-orange-950/40 text-orange-900 dark:text-orange-100"
-                      : "bg-muted"
-                  }`}>
-                    <p className="text-sm">{entry.content}</p>
-                    <span className="text-[10px] opacity-60 mt-1 block">
-                      {format(entry.timestamp, "HH:mm", { locale: sk })}
-                    </span>
+        <div className="flex-1 flex overflow-hidden">
+          <div className="w-[20%] min-w-[180px] border-r flex flex-col bg-muted/20">
+            <div className="p-3 border-b">
+              <div className="flex items-center gap-2">
+                <History className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">História</span>
+              </div>
+            </div>
+            <ScrollArea className="flex-1">
+              <div className="p-2 space-y-1.5">
+                {timeline.filter(e => e.type === "sms").length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <MessageSquare className="h-6 w-6 mx-auto mb-2 opacity-20" />
+                    <p className="text-[10px]">Žiadne SMS</p>
+                  </div>
+                ) : timeline.filter(e => e.type === "sms").map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="rounded-md p-2 bg-card border border-border/50 cursor-default"
+                    data-testid={`sms-history-${entry.id}`}
+                  >
+                    <div className="flex items-center gap-1.5 mb-1">
+                      {entry.direction === "outbound" ? (
+                        <Send className="h-3 w-3 text-orange-500 shrink-0" />
+                      ) : (
+                        <MessageSquare className="h-3 w-3 text-blue-500 shrink-0" />
+                      )}
+                      <span className="text-[10px] text-muted-foreground">
+                        {format(entry.timestamp, "d.M. HH:mm", { locale: sk })}
+                      </span>
+                    </div>
+                    <p className="text-[11px] line-clamp-3 leading-tight">{entry.content}</p>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+          <div className="w-[80%] flex flex-col">
+            <div className="flex-1 flex flex-col p-4 overflow-y-auto">
+              <div className="flex items-center gap-2 mb-3">
+                <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-semibold">Nová SMS</span>
+                {contact?.phone && (
+                  <Badge variant="secondary" className="text-[10px]">{contact.phone}</Badge>
+                )}
+              </div>
+            </div>
+            <div className="border-t p-3 bg-card">
+              <div className="flex gap-2">
+                <div className="flex-1 space-y-1">
+                  <Textarea
+                    placeholder="Text SMS správy..."
+                    value={smsMessage}
+                    onChange={(e) => setSmsMessage(e.target.value)}
+                    disabled={isSendingSms}
+                    rows={3}
+                    data-testid="input-sms-message"
+                  />
+                  <div className="flex justify-between text-[10px] text-muted-foreground px-1">
+                    <span>{smsCharCount} znakov</span>
+                    <span>{smsCount} SMS</span>
                   </div>
                 </div>
-              ))}
-              {timeline.filter(e => e.type === "sms").length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                  <p className="text-xs">Žiadne SMS správy</p>
-                </div>
-              )}
-            </div>
-          </ScrollArea>
-          <div className="border-t p-4 bg-card">
-            <div className="flex gap-2">
-              <div className="flex-1 space-y-1">
-                <Textarea
-                  placeholder="Text SMS správy..."
-                  value={smsMessage}
-                  onChange={(e) => setSmsMessage(e.target.value)}
-                  disabled={isSendingSms}
-                  rows={2}
-                  data-testid="input-sms-message"
-                />
-                <div className="flex justify-between text-[10px] text-muted-foreground px-1">
-                  <span>{smsCharCount} znakov</span>
-                  <span>{smsCount} SMS</span>
-                </div>
+                <Button
+                  onClick={handleSendSms}
+                  disabled={!smsMessage || isSendingSms}
+                  size="icon"
+                  className="self-end mb-5"
+                  data-testid="btn-send-sms"
+                >
+                  {isSendingSms ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </Button>
               </div>
-              <Button
-                onClick={handleSendSms}
-                disabled={!smsMessage || isSendingSms}
-                size="icon"
-                className="self-start mt-0.5"
-                data-testid="btn-send-sms"
-              >
-                {isSendingSms ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-              </Button>
             </div>
           </div>
         </div>
@@ -2243,6 +2252,7 @@ export default function AgentWorkspacePage() {
   const [contactsModalOpen, setContactsModalOpen] = useState(false);
   const [tasksModalOpen, setTasksModalOpen] = useState(false);
   const [dispositionModalOpen, setDispositionModalOpen] = useState(false);
+  const [dispositionChannelFilter, setDispositionChannelFilter] = useState<"phone" | "email" | "sms" | null>(null);
   const [modalSelectedParent, setModalSelectedParent] = useState<string | null>(null);
   const [modalCallbackDate, setModalCallbackDate] = useState("");
   const [modalCallbackTime, setModalCallbackTime] = useState("09:00");
@@ -2340,6 +2350,7 @@ export default function AgentWorkspacePage() {
         callWasActiveRef.current = false;
         if (currentContact && currentCampaignContactId) {
           setCallEndTimestamp(Date.now());
+          setDispositionChannelFilter("phone");
           setMandatoryDisposition(true);
         }
       }
@@ -2631,6 +2642,7 @@ export default function AgentWorkspacePage() {
     setDispositionModalOpen(false);
     setModalSelectedParent(null);
     setMandatoryDisposition(false);
+    setDispositionChannelFilter(null);
     setCallEndTimestamp(null);
     setRingDuration(0);
     callContext.resetCallTiming();
@@ -2693,6 +2705,10 @@ export default function AgentWorkspacePage() {
         queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "activity-logs"] });
         queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "contact-history"] });
       }
+      if (currentCampaignContactId) {
+        setDispositionChannelFilter("email");
+        setDispositionModalOpen(true);
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -2737,6 +2753,10 @@ export default function AgentWorkspacePage() {
         queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "messages"] });
         queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "activity-logs"] });
         queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "contact-history"] });
+      }
+      if (currentCampaignContactId) {
+        setDispositionChannelFilter("sms");
+        setDispositionModalOpen(true);
       }
     },
     onError: (error: Error) => {
@@ -3130,7 +3150,7 @@ export default function AgentWorkspacePage() {
           volume={callContext.volume}
           micVolume={callContext.micVolume}
           onEndCall={() => callContext.endCallFn.current?.()}
-          onOpenDisposition={() => setDispositionModalOpen(true)}
+          onOpenDisposition={() => { setDispositionChannelFilter(null); setDispositionModalOpen(true); }}
           onToggleMute={() => callContext.toggleMuteFn.current?.()}
           onToggleHold={() => callContext.toggleHoldFn.current?.()}
           onSendDtmf={(digit) => callContext.sendDtmfFn.current?.(digit)}
@@ -3151,13 +3171,13 @@ export default function AgentWorkspacePage() {
           contactHistory={contactHistory}
           dispositions={campaignDispositions}
           currentUserId={user?.id}
-          onOpenDispositionModal={() => setDispositionModalOpen(true)}
+          onOpenDispositionModal={() => { setDispositionChannelFilter(null); setDispositionModalOpen(true); }}
           callState={callContext.callState}
           callDuration={callContext.callDuration}
           ringDuration={ringDuration}
           hungUpBy={callContext.callTiming.hungUpBy}
           onEndCall={() => callContext.endCallFn.current?.()}
-          onOpenDispositionFromCall={() => setDispositionModalOpen(true)}
+          onOpenDispositionFromCall={() => { setDispositionChannelFilter("phone"); setMandatoryDisposition(true); setDispositionModalOpen(true); }}
           isMuted={callContext.isMuted}
           isOnHold={callContext.isOnHold}
           volume={callContext.volume}
@@ -3414,12 +3434,12 @@ export default function AgentWorkspacePage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={dispositionModalOpen} onOpenChange={(open) => { if (!open && mandatoryDisposition) return; setDispositionModalOpen(open); if (!open) { setModalSelectedParent(null); setModalCallbackDate(""); setModalCallbackTime("09:00"); setModalCallbackAssign("me"); } }}>
+      <Dialog open={dispositionModalOpen} onOpenChange={(open) => { if (!open && mandatoryDisposition) return; setDispositionModalOpen(open); if (!open) { setModalSelectedParent(null); setModalCallbackDate(""); setModalCallbackTime("09:00"); setModalCallbackAssign("me"); setDispositionChannelFilter(null); } }}>
         <DialogContent className={`max-w-2xl max-h-[80vh] flex flex-col ${mandatoryDisposition ? "[&>button]:hidden" : ""}`} onPointerDownOutside={mandatoryDisposition ? (e) => e.preventDefault() : undefined} onEscapeKeyDown={mandatoryDisposition ? (e) => e.preventDefault() : undefined}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Target className="h-5 w-5 text-primary" />
-              {modalSelectedParent ? "Podkategória" : mandatoryDisposition ? "Povinný výsledok hovoru" : "Výsledok kontaktu"}
+              {modalSelectedParent ? "Podkategória" : dispositionChannelFilter === "phone" ? "Výsledok hovoru" : dispositionChannelFilter === "email" ? "Výsledok emailu" : dispositionChannelFilter === "sms" ? "Výsledok SMS" : mandatoryDisposition ? "Povinný výsledok hovoru" : "Výsledok kontaktu"}
               {currentContact && (
                 <Badge variant="secondary" className="ml-2">{currentContact.firstName} {currentContact.lastName}</Badge>
               )}
@@ -3446,7 +3466,7 @@ export default function AgentWorkspacePage() {
                       <ChevronLeft className="h-3 w-3" />
                       Späť
                     </Button>
-                    {parent?.actionType === "callback" && (
+                    {(parent?.actionType === "callback" || parent?.actionType === "schedule_email" || parent?.actionType === "schedule_sms") && (
                       <>
                         <div className="grid grid-cols-2 gap-3">
                           <div>
@@ -3478,8 +3498,9 @@ export default function AgentWorkspacePage() {
                         {children.map((child) => {
                           const IconComp = DISPOSITION_ICON_MAP[child.icon || ""] || CircleDot;
                           const colorClass = DISPOSITION_COLOR_MAP[child.color || "gray"] || DISPOSITION_COLOR_MAP.gray;
+                          const isScheduleType = parent?.actionType === "callback" || parent?.actionType === "schedule_email" || parent?.actionType === "schedule_sms";
                           return (
-                            <Button key={child.id} variant="outline" className={`gap-2 justify-start py-3 ${colorClass}`} onClick={() => { handleDisposition(child.code, parent?.code, parent?.actionType === "callback" && modalCallbackDate && modalCallbackTime ? `${modalCallbackDate}T${modalCallbackTime}` : undefined, parent?.actionType === "callback" ? cbAssignTo : undefined); }} data-testid={`modal-disposition-${child.code}`}>
+                            <Button key={child.id} variant="outline" className={`gap-2 justify-start py-3 ${colorClass}`} onClick={() => { handleDisposition(child.code, parent?.code, isScheduleType && modalCallbackDate && modalCallbackTime ? `${modalCallbackDate}T${modalCallbackTime}` : undefined, isScheduleType ? cbAssignTo : undefined); }} data-testid={`modal-disposition-${child.code}`}>
                               <IconComp className="h-4 w-4" />
                               <span className="text-sm font-medium">{getDispName(child)}</span>
                             </Button>
@@ -3487,22 +3508,22 @@ export default function AgentWorkspacePage() {
                         })}
                       </div>
                     )}
-                    {parent?.actionType === "callback" && (
+                    {(parent?.actionType === "callback" || parent?.actionType === "schedule_email" || parent?.actionType === "schedule_sms") && (
                       <Button className="w-full" disabled={!modalCallbackDate} onClick={() => { handleDisposition(parent!.code, undefined, modalCallbackDate && modalCallbackTime ? `${modalCallbackDate}T${modalCallbackTime}` : undefined, cbAssignTo); }} data-testid="btn-modal-disposition-confirm-callback">
                         <CalendarPlus className="h-4 w-4 mr-1" />
-                        Potvrdiť preplánovanie
+                        {parent?.actionType === "schedule_email" ? "Naplánovať email" : parent?.actionType === "schedule_sms" ? "Naplánovať SMS" : "Potvrdiť preplánovanie"}
                       </Button>
                     )}
                   </div>
                 );
               })() : (
                 <div className="grid grid-cols-2 gap-2">
-                  {campaignDispositions.filter(d => !d.parentId && d.isActive).map((disp) => {
+                  {campaignDispositions.filter(d => !d.parentId && d.isActive && (!dispositionChannelFilter || d.channel === dispositionChannelFilter)).map((disp) => {
                     const IconComp = DISPOSITION_ICON_MAP[disp.icon || ""] || CircleDot;
                     const colorClass = DISPOSITION_COLOR_MAP[disp.color || "gray"] || DISPOSITION_COLOR_MAP.gray;
                     const children = campaignDispositions.filter(d => d.parentId === disp.id && d.isActive);
                     const hasChildren = children.length > 0;
-                    const isCallback = disp.actionType === "callback";
+                    const isCallback = disp.actionType === "callback" || disp.actionType === "schedule_email" || disp.actionType === "schedule_sms";
                     return (
                       <Button key={disp.id} variant="outline" className={`gap-2 justify-start py-4 ${colorClass}`} onClick={() => {
                         if (hasChildren || isCallback) {

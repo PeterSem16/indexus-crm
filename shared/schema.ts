@@ -2932,7 +2932,7 @@ export const campaignDispositions = pgTable("campaign_dispositions", {
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
-export const DISPOSITION_ACTION_TYPES = ["none", "callback", "dnd", "complete", "convert", "send_email", "send_sms"] as const;
+export const DISPOSITION_ACTION_TYPES = ["none", "callback", "dnd", "complete", "convert", "send_email", "send_sms", "schedule_email", "schedule_sms"] as const;
 export type DispositionActionType = typeof DISPOSITION_ACTION_TYPES[number];
 
 export const insertCampaignDispositionSchema = createInsertSchema(campaignDispositions).omit({
@@ -2943,7 +2943,7 @@ export const insertCampaignDispositionSchema = createInsertSchema(campaignDispos
   parentId: z.string().optional().nullable(),
   icon: z.string().optional().nullable(),
   color: z.string().optional().nullable(),
-  actionType: z.enum(["none", "callback", "dnd", "complete", "convert"]).optional().default("none"),
+  actionType: z.enum(DISPOSITION_ACTION_TYPES).optional().default("none"),
   isDefault: z.boolean().optional().default(false),
   isActive: z.boolean().optional().default(true),
   sortOrder: z.number().optional().default(0),
@@ -2953,43 +2953,47 @@ export type InsertCampaignDisposition = z.infer<typeof insertCampaignDisposition
 export type CampaignDisposition = typeof campaignDispositions.$inferSelect;
 
 export const DEFAULT_PHONE_DISPOSITIONS = [
-  { name: "Záujem", code: "interested", icon: "ThumbsUp", color: "green", actionType: "convert" as const, children: [
+  { name: "Záujem", code: "interested", icon: "ThumbsUp", color: "green", actionType: "convert" as const, channel: "phone" as const, children: [
     { name: "Chce informácie", code: "wants_info", icon: "Info", color: "green" },
     { name: "Chce stretnutie", code: "wants_meeting", icon: "Calendar", color: "green" },
     { name: "Chce cenovú ponuku", code: "wants_quote", icon: "FileText", color: "green" },
   ]},
-  { name: "Zavolať neskôr", code: "callback", icon: "CalendarPlus", color: "blue", actionType: "callback" as const, children: [
+  { name: "Zavolať neskôr", code: "callback", icon: "CalendarPlus", color: "blue", actionType: "callback" as const, channel: "phone" as const, children: [
     { name: "Požiadal o termín", code: "requested_date", icon: "Calendar", color: "blue" },
     { name: "Nemal čas", code: "no_time", icon: "Clock", color: "blue" },
     { name: "Chce rozmyslieť", code: "thinking", icon: "Clock", color: "blue" },
   ]},
-  { name: "Nezáujem", code: "not_interested", icon: "ThumbsDown", color: "orange", actionType: "complete" as const, children: [
+  { name: "Nezáujem", code: "not_interested", icon: "ThumbsDown", color: "orange", actionType: "complete" as const, channel: "phone" as const, children: [
     { name: "Momentálne nie", code: "not_now", icon: "Clock", color: "orange" },
     { name: "Nikdy", code: "never", icon: "XCircle", color: "orange" },
     { name: "Má konkurenciu", code: "has_competitor", icon: "Users", color: "orange" },
   ]},
-  { name: "Nedvíha", code: "no_answer", icon: "PhoneOff", color: "gray", actionType: "none" as const, children: [] },
-  { name: "Obsadené", code: "busy", icon: "Phone", color: "yellow", actionType: "callback" as const, children: [] },
-  { name: "Hlasová schránka", code: "voicemail", icon: "MessageSquare", color: "gray", actionType: "callback" as const, children: [] },
-  { name: "Zlé číslo", code: "wrong_number", icon: "AlertCircle", color: "red", actionType: "complete" as const, children: [] },
-  { name: "Nevolať (DND)", code: "dnd", icon: "XCircle", color: "red", actionType: "dnd" as const, children: [] },
+  { name: "Nedvíha", code: "no_answer", icon: "PhoneOff", color: "gray", actionType: "none" as const, channel: "phone" as const, children: [] },
+  { name: "Obsadené", code: "busy", icon: "Phone", color: "yellow", actionType: "callback" as const, channel: "phone" as const, children: [] },
+  { name: "Hlasová schránka", code: "voicemail", icon: "MessageSquare", color: "gray", actionType: "callback" as const, channel: "phone" as const, children: [] },
+  { name: "Zlé číslo", code: "wrong_number", icon: "AlertCircle", color: "red", actionType: "complete" as const, channel: "phone" as const, children: [] },
+  { name: "Nevolať (DND)", code: "dnd", icon: "XCircle", color: "red", actionType: "dnd" as const, channel: "phone" as const, children: [] },
 ];
 
 export const DEFAULT_EMAIL_DISPOSITIONS = [
-  { name: "Odpovedal - záujem", code: "replied_interested", icon: "ThumbsUp", color: "green", actionType: "convert" as const, children: [] },
-  { name: "Odpovedal - nezáujem", code: "replied_not_interested", icon: "ThumbsDown", color: "orange", actionType: "complete" as const, children: [] },
-  { name: "Neodpovedal", code: "no_reply", icon: "Clock", color: "gray", actionType: "none" as const, children: [] },
-  { name: "Email neplatný", code: "invalid_email", icon: "AlertCircle", color: "red", actionType: "complete" as const, children: [] },
-  { name: "Odhlásený", code: "unsubscribed", icon: "XCircle", color: "red", actionType: "dnd" as const, children: [] },
-  { name: "Preposlať neskôr", code: "resend_later", icon: "CalendarPlus", color: "blue", actionType: "callback" as const, children: [] },
+  { name: "Email odoslaný", code: "email_sent", icon: "Send", color: "green", actionType: "send_email" as const, channel: "email" as const, children: [] },
+  { name: "Odpovedal - záujem", code: "replied_interested", icon: "ThumbsUp", color: "green", actionType: "convert" as const, channel: "email" as const, children: [] },
+  { name: "Odpovedal - nezáujem", code: "replied_not_interested", icon: "ThumbsDown", color: "orange", actionType: "complete" as const, channel: "email" as const, children: [] },
+  { name: "Neodpovedal", code: "no_reply", icon: "Clock", color: "gray", actionType: "none" as const, channel: "email" as const, children: [] },
+  { name: "Email neplatný", code: "invalid_email", icon: "AlertCircle", color: "red", actionType: "complete" as const, channel: "email" as const, children: [] },
+  { name: "Odhlásený", code: "unsubscribed", icon: "XCircle", color: "red", actionType: "dnd" as const, channel: "email" as const, children: [] },
+  { name: "Naplánovať ďalší email", code: "schedule_next_email", icon: "CalendarPlus", color: "blue", actionType: "schedule_email" as const, channel: "email" as const, children: [] },
+  { name: "Preposlať neskôr", code: "resend_later", icon: "CalendarPlus", color: "blue", actionType: "callback" as const, channel: "email" as const, children: [] },
 ];
 
 export const DEFAULT_SMS_DISPOSITIONS = [
-  { name: "Odpovedal - záujem", code: "replied_interested", icon: "ThumbsUp", color: "green", actionType: "convert" as const, children: [] },
-  { name: "Odpovedal - nezáujem", code: "replied_not_interested", icon: "ThumbsDown", color: "orange", actionType: "complete" as const, children: [] },
-  { name: "Neodpovedal", code: "no_reply", icon: "Clock", color: "gray", actionType: "none" as const, children: [] },
-  { name: "Číslo neplatné", code: "invalid_number", icon: "AlertCircle", color: "red", actionType: "complete" as const, children: [] },
-  { name: "Odhlásený", code: "unsubscribed", icon: "XCircle", color: "red", actionType: "dnd" as const, children: [] },
+  { name: "SMS odoslaná", code: "sms_sent", icon: "Send", color: "green", actionType: "send_sms" as const, channel: "sms" as const, children: [] },
+  { name: "Odpovedal - záujem", code: "sms_replied_interested", icon: "ThumbsUp", color: "green", actionType: "convert" as const, channel: "sms" as const, children: [] },
+  { name: "Odpovedal - nezáujem", code: "sms_replied_not_interested", icon: "ThumbsDown", color: "orange", actionType: "complete" as const, channel: "sms" as const, children: [] },
+  { name: "Neodpovedal", code: "sms_no_reply", icon: "Clock", color: "gray", actionType: "none" as const, channel: "sms" as const, children: [] },
+  { name: "Číslo neplatné", code: "invalid_number", icon: "AlertCircle", color: "red", actionType: "complete" as const, channel: "sms" as const, children: [] },
+  { name: "Odhlásený", code: "sms_unsubscribed", icon: "XCircle", color: "red", actionType: "dnd" as const, channel: "sms" as const, children: [] },
+  { name: "Naplánovať ďalšiu SMS", code: "schedule_next_sms", icon: "CalendarPlus", color: "blue", actionType: "schedule_sms" as const, channel: "sms" as const, children: [] },
 ];
 
 export const DISPOSITION_NAME_TRANSLATIONS: Record<string, Record<string, string>> = {
@@ -3017,6 +3021,14 @@ export const DISPOSITION_NAME_TRANSLATIONS: Record<string, Record<string, string
   unsubscribed: { en: 'Unsubscribed', sk: 'Odhlásený', cs: 'Odhlášen', hu: 'Leiratkozott', ro: 'Dezabonat', it: 'Cancellato', de: 'Abgemeldet' },
   resend_later: { en: 'Resend later', sk: 'Preposlať neskôr', cs: 'Přeposlat později', hu: 'Később újraküldeni', ro: 'Retrimite mai târziu', it: 'Rinviare più tardi', de: 'Später erneut senden' },
   invalid_number: { en: 'Invalid number', sk: 'Číslo neplatné', cs: 'Číslo neplatné', hu: 'Érvénytelen szám', ro: 'Număr invalid', it: 'Numero non valido', de: 'Ungültige Nummer' },
+  email_sent: { en: 'Email sent', sk: 'Email odoslaný', cs: 'Email odeslán', hu: 'Email elküldve', ro: 'Email trimis', it: 'Email inviata', de: 'E-Mail gesendet' },
+  schedule_next_email: { en: 'Schedule next email', sk: 'Naplánovať ďalší email', cs: 'Naplánovat další email', hu: 'Következő email ütemezése', ro: 'Programează următorul email', it: 'Pianifica prossima email', de: 'Nächste E-Mail planen' },
+  sms_sent: { en: 'SMS sent', sk: 'SMS odoslaná', cs: 'SMS odeslána', hu: 'SMS elküldve', ro: 'SMS trimis', it: 'SMS inviato', de: 'SMS gesendet' },
+  sms_replied_interested: { en: 'Replied - interested', sk: 'Odpovedal - záujem', cs: 'Odpověděl - zájem', hu: 'Válaszolt - érdekli', ro: 'A răspuns - interesat', it: 'Ha risposto - interessato', de: 'Geantwortet - interessiert' },
+  sms_replied_not_interested: { en: 'Replied - not interested', sk: 'Odpovedal - nezáujem', cs: 'Odpověděl - nezájem', hu: 'Válaszolt - nem érdekli', ro: 'A răspuns - neinteresat', it: 'Ha risposto - non interessato', de: 'Geantwortet - kein Interesse' },
+  sms_no_reply: { en: 'No reply', sk: 'Neodpovedal', cs: 'Neodpověděl', hu: 'Nem válaszolt', ro: 'Nu a răspuns', it: 'Non ha risposto', de: 'Keine Antwort' },
+  sms_unsubscribed: { en: 'Unsubscribed', sk: 'Odhlásený', cs: 'Odhlášen', hu: 'Leiratkozott', ro: 'Dezabonat', it: 'Cancellato', de: 'Abgemeldet' },
+  schedule_next_sms: { en: 'Schedule next SMS', sk: 'Naplánovať ďalšiu SMS', cs: 'Naplánovat další SMS', hu: 'Következő SMS ütemezése', ro: 'Programează următorul SMS', it: 'Pianifica prossimo SMS', de: 'Nächste SMS planen' },
 };
 
 // Operator Script Types - structured interactive scripts for call center agents

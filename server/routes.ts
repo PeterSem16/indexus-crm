@@ -13885,16 +13885,17 @@ export async function registerRoutes(
 
       // Auto-seed default dispositions based on channel
       try {
-        const channel = campaign.channel || "phone";
+        const campaignChannel = campaign.channel || "phone";
         let defaults: typeof DEFAULT_PHONE_DISPOSITIONS;
-        if (channel === "email") {
+        if (campaignChannel === "email") {
           defaults = DEFAULT_EMAIL_DISPOSITIONS;
-        } else if (channel === "sms") {
+        } else if (campaignChannel === "sms") {
           defaults = DEFAULT_SMS_DISPOSITIONS;
-        } else if (channel === "mixed") {
+        } else if (campaignChannel === "mixed") {
           defaults = [
             ...DEFAULT_PHONE_DISPOSITIONS,
-            ...DEFAULT_EMAIL_DISPOSITIONS.filter(d => !DEFAULT_PHONE_DISPOSITIONS.some(p => p.code === d.code)),
+            ...DEFAULT_EMAIL_DISPOSITIONS,
+            ...DEFAULT_SMS_DISPOSITIONS.filter(d => !DEFAULT_EMAIL_DISPOSITIONS.some(p => p.code === d.code)),
           ];
         } else {
           defaults = DEFAULT_PHONE_DISPOSITIONS;
@@ -13905,7 +13906,7 @@ export async function registerRoutes(
             campaignId: campaign.id,
             name: def.name,
             code: def.code,
-            channel,
+            channel: def.channel || campaignChannel,
             icon: def.icon,
             color: def.color,
             actionType: def.actionType || "none",
@@ -13921,7 +13922,7 @@ export async function registerRoutes(
                 parentId: parent.id,
                 name: child.name,
                 code: child.code,
-                channel,
+                channel: def.channel || campaignChannel,
                 icon: child.icon,
                 color: child.color,
                 actionType: def.actionType || "none",
