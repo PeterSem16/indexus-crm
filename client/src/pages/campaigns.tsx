@@ -270,6 +270,24 @@ function ScriptBuilder({ value, onChange, t }: { value: string; onChange: (v: st
 
   return (
     <div className="space-y-3" data-testid="script-builder">
+      <div className="rounded-md border bg-muted/30 p-3">
+        <div className="flex items-center gap-1.5 mb-2">
+          <Variable className="h-3.5 w-3.5 text-primary" />
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Dostupné premenné pre scenár</span>
+        </div>
+        <div className="flex flex-wrap gap-1">
+          {SCRIPT_AVAILABLE_VARIABLES.map((v) => (
+            <Badge key={v.key} variant="secondary" className="text-[10px] font-mono cursor-default" title={v.key}>
+              {v.key}
+              <span className="ml-1 font-sans text-muted-foreground">({v.label})</span>
+            </Badge>
+          ))}
+        </div>
+        <p className="text-[10px] text-muted-foreground mt-2">
+          Tieto premenné sa v agentskom workspace automaticky nahradia skutočnými údajmi kontaktu.
+        </p>
+      </div>
+
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-sm font-medium">Kroky scenára:</span>
         {script.steps.map((step, idx) => (
