@@ -2177,6 +2177,7 @@ function CustomerInfoPanel({
   const [historyTypeFilter, setHistoryTypeFilter] = useState("all");
   const [faqExpandedId, setFaqExpandedId] = useState<string | null>(null);
   const [faqSearchQuery, setFaqSearchQuery] = useState("");
+  const [historyMaximized, setHistoryMaximized] = useState(false);
   const fmtTime = (sec: number) => `${Math.floor(sec / 60)}:${(sec % 60).toString().padStart(2, "0")}`;
   const dialPadButtons = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
   const hasCall = callState === "connecting" || callState === "ringing" || callState === "active" || callState === "on_hold" || (callState === "ended" && hungUpBy);
@@ -2562,28 +2563,41 @@ function CustomerInfoPanel({
             );
           };
 
-          return (
-          <div className="flex flex-col h-full">
-            <div className="p-2 space-y-2 border-b">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <Input
-                  value={histSearchQuery}
-                  onChange={(e) => setHistorySearchQuery(e.target.value)}
-                  placeholder="Hľadať v histórii..."
-                  className="pl-8 h-8 text-xs"
-                  data-testid="input-history-search"
-                />
-                {histSearchQuery && (
-                  <button
-                    onClick={() => setHistorySearchQuery("")}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                )}
-              </div>
-              <div className="flex gap-1 flex-wrap">
+          const renderHistoryContent = (isModal: boolean) => (
+            <>
+              <div className={`${isModal ? "p-4" : "p-2"} space-y-2 border-b`}>
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Search className={`absolute left-2.5 top-1/2 -translate-y-1/2 ${isModal ? "h-4 w-4" : "h-3.5 w-3.5"} text-muted-foreground`} />
+                    <Input
+                      value={histSearchQuery}
+                      onChange={(e) => setHistorySearchQuery(e.target.value)}
+                      placeholder="Hľadať v histórii..."
+                      className={`${isModal ? "pl-9 h-9 text-sm" : "pl-8 h-8 text-xs"}`}
+                      data-testid={isModal ? "input-history-search-modal" : "input-history-search"}
+                    />
+                    {histSearchQuery && (
+                      <button
+                        onClick={() => setHistorySearchQuery("")}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                  {!isModal && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => setHistoryMaximized(true)}
+                      data-testid="btn-history-maximize"
+                      title="Maximalizovať históriu"
+                    >
+                      <Maximize2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
+                <div className="flex gap-1 flex-wrap">
                 {["all", "call", "email", "sms", "disposition"].map((t) => {
                   const count = t === "all" ? contactHistory.length : (typeCounts[t] || 0);
                   if (t !== "all" && count === 0) return null;
@@ -2592,50 +2606,49 @@ function CustomerInfoPanel({
                     <button
                       key={t}
                       onClick={() => setHistoryTypeFilter(t)}
-                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-colors ${
+                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-md ${isModal ? "text-xs" : "text-[10px]"} font-medium transition-colors ${
                         isActive
                           ? "bg-primary/10 text-primary border border-primary/30"
                           : "bg-muted/40 text-muted-foreground border border-transparent hover-elevate"
                       }`}
                       data-testid={`btn-history-filter-${t}`}
                     >
-                      {t === "call" && <Phone className="h-2.5 w-2.5" />}
-                      {t === "email" && <Mail className="h-2.5 w-2.5" />}
-                      {t === "sms" && <MessageSquare className="h-2.5 w-2.5" />}
-                      {t === "disposition" && <ListChecks className="h-2.5 w-2.5" />}
+                      {t === "call" && <Phone className={isModal ? "h-3 w-3" : "h-2.5 w-2.5"} />}
+                      {t === "email" && <Mail className={isModal ? "h-3 w-3" : "h-2.5 w-2.5"} />}
+                      {t === "sms" && <MessageSquare className={isModal ? "h-3 w-3" : "h-2.5 w-2.5"} />}
+                      {t === "disposition" && <ListChecks className={isModal ? "h-3 w-3" : "h-2.5 w-2.5"} />}
                       {typeLabels[t]}
-                      <span className={`text-[9px] ${isActive ? "text-primary" : "text-muted-foreground/70"}`}>({count})</span>
+                      <span className={`${isModal ? "text-[10px]" : "text-[9px]"} ${isActive ? "text-primary" : "text-muted-foreground/70"}`}>({count})</span>
                     </button>
                   );
                 })}
               </div>
             </div>
 
-            <div className="flex-1 overflow-auto">
+            <div className={`flex-1 overflow-auto ${isModal ? "max-h-[65vh]" : ""}`}>
               {filteredHistory.length === 0 && (
                 <div className="text-center py-8">
                   {contactHistory.length === 0 ? (
                     <>
                       <History className="h-8 w-8 mx-auto mb-2 text-muted-foreground/20" />
-                      <p className="text-xs text-muted-foreground">Žiadna história komunikácie</p>
+                      <p className={`${isModal ? "text-sm" : "text-xs"} text-muted-foreground`}>Žiadna história komunikácie</p>
                     </>
                   ) : (
                     <>
                       <Search className="h-8 w-8 mx-auto mb-2 text-muted-foreground/20" />
-                      <p className="text-xs text-muted-foreground">Žiadne výsledky pre "{histSearchQuery}"</p>
+                      <p className={`${isModal ? "text-sm" : "text-xs"} text-muted-foreground`}>Žiadne výsledky pre "{histSearchQuery}"</p>
                     </>
                   )}
                 </div>
               )}
 
               {filteredHistory.length > 0 && (
-                <div className="p-2 space-y-1.5">
+                <div className={`${isModal ? "p-4 space-y-2" : "p-2 space-y-1.5"}`}>
                   {filteredHistory.map((item) => {
                     const isClickable = item.type === "email" || item.type === "sms";
                     const plainDetails = item.details?.replace(/<[^>]*>/g, '') || "";
                     const isCall = item.type === "call";
                     const contentText = item.content || item.notes || "";
-                    const fullContentText = (item as any).fullContent || "";
 
                     return (
                       <div
@@ -2644,57 +2657,57 @@ function CustomerInfoPanel({
                         data-testid={`history-item-${item.id}`}
                         onClick={() => { if (isClickable && onOpenHistoryDetail) onOpenHistoryDetail(item); }}
                       >
-                        <div className="flex items-start gap-2 p-2">
-                          <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full mt-0.5 ${
+                        <div className={`flex items-start gap-2 ${isModal ? "p-3" : "p-2"}`}>
+                          <div className={`flex ${isModal ? "h-8 w-8" : "h-6 w-6"} shrink-0 items-center justify-center rounded-full mt-0.5 ${
                             item.type === "call" ? "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400" :
                             item.type === "email" ? "bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400" :
                             item.type === "sms" ? "bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400" :
                             "bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400"
                           }`}>
-                            {item.type === "call" && <Phone className="h-3 w-3" />}
-                            {item.type === "email" && <Mail className="h-3 w-3" />}
-                            {item.type === "sms" && <MessageSquare className="h-3 w-3" />}
-                            {item.type === "disposition" && <ListChecks className="h-3 w-3" />}
+                            {item.type === "call" && <Phone className={isModal ? "h-4 w-4" : "h-3 w-3"} />}
+                            {item.type === "email" && <Mail className={isModal ? "h-4 w-4" : "h-3 w-3"} />}
+                            {item.type === "sms" && <MessageSquare className={isModal ? "h-4 w-4" : "h-3 w-3"} />}
+                            {item.type === "disposition" && <ListChecks className={isModal ? "h-4 w-4" : "h-3 w-3"} />}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1 flex-wrap">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               {item.direction && (
-                                <span className={`text-[9px] font-medium ${item.direction === "outbound" ? "text-green-600 dark:text-green-400" : "text-blue-600 dark:text-blue-400"}`}>
+                                <span className={`${isModal ? "text-xs" : "text-[9px]"} font-medium ${item.direction === "outbound" ? "text-green-600 dark:text-green-400" : "text-blue-600 dark:text-blue-400"}`}>
                                   {item.direction === "inbound" ? "Prijatý" : "Odoslaný"}
                                 </span>
                               )}
                               {item.type === "disposition" && (
-                                <span className="text-[9px] font-medium text-purple-600 dark:text-purple-400">Dispozícia</span>
+                                <span className={`${isModal ? "text-xs" : "text-[9px]"} font-medium text-purple-600 dark:text-purple-400`}>Dispozícia</span>
                               )}
                               {item.status && (
-                                <Badge variant="secondary" className="text-[9px] h-4 px-1">{item.status}</Badge>
+                                <Badge variant="secondary" className={`${isModal ? "text-[10px] h-5" : "text-[9px] h-4"} px-1`}>{item.status}</Badge>
                               )}
-                              <span className="text-[9px] text-muted-foreground/70 ml-auto">
-                                {format(new Date(item.date), "d.M. HH:mm", { locale: sk })}
+                              <span className={`${isModal ? "text-xs" : "text-[9px]"} text-muted-foreground/70 ml-auto`}>
+                                {format(new Date(item.date), isModal ? "d. MMMM yyyy, HH:mm" : "d.M. HH:mm", { locale: sk })}
                               </span>
                             </div>
-                            <p className="text-[11px] text-foreground mt-0.5 line-clamp-2 leading-snug">
+                            <p className={`${isModal ? "text-sm mt-1" : "text-[11px] mt-0.5"} text-foreground ${isModal ? "" : "line-clamp-2"} leading-snug`}>
                               {highlightMatch(contentText) || "—"}
                             </p>
                             {plainDetails && (
-                              <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1 leading-snug">
+                              <p className={`${isModal ? "text-xs mt-1" : "text-[10px] mt-0.5"} text-muted-foreground ${isModal ? "line-clamp-3" : "line-clamp-1"} leading-snug`}>
                                 {highlightMatch(plainDetails)}
                               </p>
                             )}
                           </div>
                           {isClickable && (
-                            <ExternalLink className="h-3 w-3 text-muted-foreground/40 shrink-0 mt-1 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <ExternalLink className={`${isModal ? "h-4 w-4" : "h-3 w-3"} text-muted-foreground/40 shrink-0 mt-1 opacity-0 group-hover:opacity-100 transition-opacity`} />
                           )}
                         </div>
-                        <div className="flex items-center gap-2 px-2 pb-1.5 text-[9px] text-muted-foreground/60">
+                        <div className={`flex items-center gap-2 ${isModal ? "px-3 pb-2 text-xs" : "px-2 pb-1.5 text-[9px]"} text-muted-foreground/60 flex-wrap`}>
                           {item.agentName && (
                             <span className="flex items-center gap-0.5">
-                              <UserCircle className="h-2.5 w-2.5" />
+                              <UserCircle className={isModal ? "h-3 w-3" : "h-2.5 w-2.5"} />
                               {item.agentName}
                             </span>
                           )}
                           {item.campaignName && (
-                            <span className="truncate max-w-[120px]" title={item.campaignName}>
+                            <span className={`truncate ${isModal ? "max-w-[200px]" : "max-w-[120px]"}`} title={item.campaignName}>
                               {item.campaignName}
                             </span>
                           )}
@@ -2710,14 +2723,41 @@ function CustomerInfoPanel({
             </div>
 
             {filteredHistory.length > 0 && (
-              <div className="px-3 py-1.5 border-t bg-muted/20 text-center">
-                <span className="text-[10px] text-muted-foreground">
+              <div className={`${isModal ? "px-4 py-2" : "px-3 py-1.5"} border-t bg-muted/20 text-center`}>
+                <span className={`${isModal ? "text-xs" : "text-[10px]"} text-muted-foreground`}>
                   {filteredHistory.length} {filteredHistory.length === 1 ? "záznam" : filteredHistory.length < 5 ? "záznamy" : "záznamov"}
                   {histSearchQuery && ` pre "${histSearchQuery}"`}
                 </span>
               </div>
             )}
-          </div>
+            </>
+          );
+
+          return (
+          <>
+            <div className="flex flex-col h-full">
+              {renderHistoryContent(false)}
+            </div>
+
+            <Dialog open={historyMaximized} onOpenChange={setHistoryMaximized}>
+              <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col p-0">
+                <div className="flex items-center justify-between px-5 py-3 border-b">
+                  <div className="flex items-center gap-2">
+                    <History className="h-5 w-5 text-primary" />
+                    <h2 className="text-base font-semibold" data-testid="text-history-modal-title">História komunikácie</h2>
+                    {contact && (
+                      <Badge variant="outline" className="text-xs ml-2">
+                        {contact.firstName} {contact.lastName}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+                  {renderHistoryContent(true)}
+                </div>
+              </DialogContent>
+            </Dialog>
+          </>
           );
         })()}
 
