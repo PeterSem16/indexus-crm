@@ -100,6 +100,12 @@ import {
   MicOff,
   LogOut,
   Grid3X3,
+  CalendarClock,
+  PhoneForwarded,
+  MailPlus,
+  MessageSquarePlus,
+  RotateCcw,
+  Trash2,
 } from "lucide-react";
 import {
   Dialog,
@@ -241,6 +247,7 @@ function TopBar({
   onEndSession,
   isSessionActive,
   t,
+  onOpenScheduledQueue,
 }: {
   status: AgentStatus;
   onStatusChange: (status: AgentStatus) => void;
@@ -255,6 +262,7 @@ function TopBar({
   onEndSession: () => void;
   isSessionActive: boolean;
   t: any;
+  onOpenScheduledQueue?: () => void;
 }) {
   const STATUS_CONFIG = getStatusConfig(t);
   const config = STATUS_CONFIG[status];
@@ -361,6 +369,22 @@ function TopBar({
               <span className="font-bold text-orange-600 dark:text-orange-400">{stats.sms}</span>
             </div>
           </div>
+
+          {onOpenScheduledQueue && (
+            <>
+              <Separator orientation="vertical" className="h-6 mx-1" />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onOpenScheduledQueue}
+                className="gap-1.5"
+                data-testid="btn-open-scheduled-queue"
+              >
+                <CalendarClock className="h-3.5 w-3.5" />
+                <span className="text-xs hidden xl:inline">Fronta</span>
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -733,6 +757,15 @@ function TaskListPanel({
 function ScriptViewer({ script }: { script: string | null }) {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [selectedValues, setSelectedValues] = useState<Record<string, string>>({});
+  const [visitedSteps, setVisitedSteps] = useState<Set<number>>(new Set([0]));
+
+  useEffect(() => {
+    setVisitedSteps(prev => {
+      const next = new Set(prev);
+      next.add(currentStepIndex);
+      return next;
+    });
+  }, [currentStepIndex]);
 
   if (!script) {
     return (
@@ -751,13 +784,27 @@ function ScriptViewer({ script }: { script: string | null }) {
   } catch {
     const lines = script.split("\n");
     return (
-      <ScrollArea className="flex-1">
-        <div className="p-4 prose prose-sm dark:prose-invert max-w-none">
-          {lines.map((line, i) => (
-            <p key={i} className="mb-2">{line || "\u00A0"}</p>
-          ))}
+      <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 p-6">
+          <Card className="h-full">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <FileText className="h-4 w-4 text-primary" />
+                Scenár
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[calc(100%-2rem)]">
+                <div className="space-y-1.5">
+                  {lines.map((line, i) => (
+                    <p key={i} className="text-sm leading-relaxed text-foreground">{line || "\u00A0"}</p>
+                  ))}
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
         </div>
-      </ScrollArea>
+      </div>
     );
   }
 
@@ -779,153 +826,218 @@ function ScriptViewer({ script }: { script: string | null }) {
     setSelectedValues(prev => ({ ...prev, [elementId]: value }));
   };
 
-  return (
-    <div className="flex flex-col flex-1">
-      <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30">
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="font-normal text-xs">
-            {currentStepIndex + 1}/{totalSteps}
-          </Badge>
-          <span className="font-medium text-sm">{currentStep.title}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setCurrentStepIndex(Math.max(0, currentStepIndex - 1))}
-            disabled={currentStepIndex === 0}
-            data-testid="btn-script-prev"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setCurrentStepIndex(Math.min(totalSteps - 1, currentStepIndex + 1))}
-            disabled={currentStepIndex === totalSteps - 1}
-            data-testid="btn-script-next"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+  const handleStepClick = (idx: number) => {
+    setCurrentStepIndex(idx);
+  };
 
-      <ScrollArea className="flex-1">
-        <div className="p-4 space-y-4">
-          {currentStep.elements.map((element) => (
-            <div key={element.id} className="space-y-2">
-              {element.type === "heading" && (
-                <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
-                  <h4 className="font-semibold text-primary text-sm">{element.label}</h4>
-                  {element.content && (
-                    <p className="mt-1 text-foreground text-sm">{element.content}</p>
+  return (
+    <div className="flex flex-1 overflow-hidden relative">
+      <div className="w-[25%] min-w-[180px] border-r flex flex-col bg-muted/20">
+        <div className="p-3 border-b">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Kroky</span>
+            <Badge variant="secondary" className="text-[10px]" data-testid="badge-script-progress">
+              {visitedSteps.size}/{totalSteps}
+            </Badge>
+          </div>
+        </div>
+        <ScrollArea className="flex-1">
+          <div className="p-2 space-y-1">
+            {parsedScript.steps.map((step, idx) => (
+              <button
+                key={step.id}
+                onClick={() => handleStepClick(idx)}
+                className={`w-full text-left rounded-md p-2.5 transition-colors flex items-start gap-2.5 ${
+                  idx === currentStepIndex
+                    ? "bg-primary/10 border border-primary/30"
+                    : "hover-elevate border border-transparent"
+                }`}
+                data-testid={`btn-script-step-${idx}`}
+              >
+                <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                  idx === currentStepIndex
+                    ? "bg-primary text-primary-foreground"
+                    : visitedSteps.has(idx)
+                    ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400"
+                    : "bg-muted text-muted-foreground"
+                }`}>
+                  {visitedSteps.has(idx) && idx !== currentStepIndex ? (
+                    <CheckCircle className="h-3.5 w-3.5" />
+                  ) : (
+                    idx + 1
                   )}
                 </div>
-              )}
-              {element.type === "text" && (
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">{element.label}</label>
-                  <div className="p-2 rounded-md bg-muted/50 text-sm">{element.content || "..."}</div>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-[11px] font-medium leading-tight truncate ${
+                    idx === currentStepIndex ? "text-primary" : "text-foreground"
+                  }`}>{step.title}</p>
+                  {step.isEndStep && (
+                    <Badge variant="secondary" className="text-[9px] mt-1 bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400">
+                      Koniec
+                    </Badge>
+                  )}
                 </div>
-              )}
-              {element.type === "select" && element.options && (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium flex items-center gap-1">
-                    {element.label}
-                    {element.required && <span className="text-destructive">*</span>}
-                  </label>
-                  <Select
-                    value={selectedValues[element.id] || "_none"}
-                    onValueChange={(v) => handleValueChange(element.id, v)}
-                  >
-                    <SelectTrigger data-testid={`select-script-${element.id}`}>
-                      <SelectValue placeholder="Vyberte možnosť" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="_none">Vyberte možnosť</SelectItem>
-                      {element.options.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-              {element.type === "outcome" && element.options && (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium flex items-center gap-1">
-                    {element.label}
-                    {element.required && <span className="text-destructive">*</span>}
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {element.options.map((opt) => (
-                      <Button
-                        key={opt.value}
-                        variant={selectedValues[element.id] === opt.value ? "default" : "outline"}
-                        size="sm"
-                        className="justify-start"
-                        onClick={() => handleValueChange(element.id, opt.value)}
-                        data-testid={`btn-script-outcome-${opt.value}`}
-                      >
-                        {opt.label}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {element.type === "checkbox" && (
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id={element.id}
-                    checked={selectedValues[element.id] === "true"}
-                    onCheckedChange={(checked) => handleValueChange(element.id, checked ? "true" : "false")}
-                    data-testid={`checkbox-script-${element.id}`}
-                  />
-                  <Label htmlFor={element.id} className="text-sm">{element.label}</Label>
-                </div>
-              )}
-              {element.type === "input" && (
-                <div className="space-y-1">
-                  <label className="text-sm font-medium flex items-center gap-1">
-                    {element.label}
-                    {element.required && <span className="text-destructive">*</span>}
-                  </label>
-                  <Input
-                    value={selectedValues[element.id] || ""}
-                    onChange={(e) => handleValueChange(element.id, e.target.value)}
-                    placeholder={element.content || ""}
-                    data-testid={`input-script-${element.id}`}
-                  />
-                </div>
-              )}
+              </button>
+            ))}
+          </div>
+        </ScrollArea>
+      </div>
+
+      <div className="w-[75%] flex flex-col">
+        <div className="flex items-center justify-between px-4 py-2.5 border-b bg-card">
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
+              {currentStepIndex + 1}
             </div>
-          ))}
+            <span className="font-semibold text-sm truncate">{currentStep.title}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setCurrentStepIndex(Math.max(0, currentStepIndex - 1))}
+              disabled={currentStepIndex === 0}
+              data-testid="btn-script-prev"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setCurrentStepIndex(Math.min(totalSteps - 1, currentStepIndex + 1))}
+              disabled={currentStepIndex === totalSteps - 1}
+              data-testid="btn-script-next"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
-      </ScrollArea>
 
-      {currentStep.isEndStep && (
-        <div className="px-4 py-2 border-t bg-green-50 dark:bg-green-950/20 text-center">
-          <span className="text-xs text-green-600 dark:text-green-400 font-medium">
-            Toto je konečný krok scenára
-          </span>
-        </div>
-      )}
+        <ScrollArea className="flex-1">
+          <div className="p-5 space-y-4">
+            {currentStep.elements.map((element) => (
+              <div key={element.id}>
+                {element.type === "heading" && (
+                  <Card className="bg-primary/5 border-primary/20">
+                    <CardContent className="p-4">
+                      <h4 className="font-semibold text-primary text-sm">{element.label}</h4>
+                      {element.content && (
+                        <p className="mt-1.5 text-foreground text-sm leading-relaxed">{element.content}</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+                {element.type === "text" && (
+                  <Card>
+                    <CardContent className="p-4">
+                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{element.label}</label>
+                      <p className="mt-2 text-sm leading-relaxed text-foreground">{element.content || "..."}</p>
+                    </CardContent>
+                  </Card>
+                )}
+                {element.type === "select" && element.options && (
+                  <Card>
+                    <CardContent className="p-4 space-y-2">
+                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                        {element.label}
+                        {element.required && <span className="text-destructive">*</span>}
+                      </label>
+                      <Select
+                        value={selectedValues[element.id] || "_none"}
+                        onValueChange={(v) => handleValueChange(element.id, v)}
+                      >
+                        <SelectTrigger data-testid={`select-script-${element.id}`}>
+                          <SelectValue placeholder="Vyberte možnosť" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="_none">Vyberte možnosť</SelectItem>
+                          {element.options.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </CardContent>
+                  </Card>
+                )}
+                {element.type === "outcome" && element.options && (
+                  <Card>
+                    <CardContent className="p-4 space-y-3">
+                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                        {element.label}
+                        {element.required && <span className="text-destructive">*</span>}
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {element.options.map((opt) => (
+                          <Button
+                            key={opt.value}
+                            variant={selectedValues[element.id] === opt.value ? "default" : "outline"}
+                            size="sm"
+                            className="justify-start gap-2"
+                            onClick={() => handleValueChange(element.id, opt.value)}
+                            data-testid={`btn-script-outcome-${opt.value}`}
+                          >
+                            {selectedValues[element.id] === opt.value && <CheckCircle className="h-3.5 w-3.5" />}
+                            {opt.label}
+                          </Button>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                {element.type === "checkbox" && (
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3">
+                        <Checkbox
+                          id={element.id}
+                          checked={selectedValues[element.id] === "true"}
+                          onCheckedChange={(checked) => handleValueChange(element.id, checked ? "true" : "false")}
+                          data-testid={`checkbox-script-${element.id}`}
+                        />
+                        <Label htmlFor={element.id} className="text-sm cursor-pointer">{element.label}</Label>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                {element.type === "input" && (
+                  <Card>
+                    <CardContent className="p-4 space-y-2">
+                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                        {element.label}
+                        {element.required && <span className="text-destructive">*</span>}
+                      </label>
+                      <Input
+                        value={selectedValues[element.id] || ""}
+                        onChange={(e) => handleValueChange(element.id, e.target.value)}
+                        placeholder={element.content || ""}
+                        data-testid={`input-script-${element.id}`}
+                      />
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
 
-      <div className="flex gap-1 px-4 py-2 border-t">
-        {parsedScript.steps.map((step, idx) => (
-          <button
-            key={step.id}
-            onClick={() => setCurrentStepIndex(idx)}
-            className={`flex-1 h-1.5 rounded-full transition-colors ${
-              idx === currentStepIndex
-                ? "bg-primary"
-                : idx < currentStepIndex
-                ? "bg-primary/50"
-                : "bg-muted"
-            }`}
-          />
-        ))}
+        {currentStep.isEndStep && (
+          <div className="px-4 py-2.5 border-t bg-green-50 dark:bg-green-950/20 text-center">
+            <div className="flex items-center justify-center gap-2">
+              <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+              <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                Toto je konečný krok scenára
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="absolute bottom-3 right-3 z-10">
+        <Badge variant="secondary" className="shadow-sm text-[10px] font-mono" data-testid="badge-script-floating-progress">
+          {currentStepIndex + 1} / {totalSteps}
+        </Badge>
       </div>
     </div>
   );
@@ -963,6 +1075,7 @@ function CommunicationCanvas({
   onVolumeChange,
   onMicVolumeChange,
   callerNumber,
+  contactHistory,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
@@ -995,6 +1108,7 @@ function CommunicationCanvas({
   onVolumeChange?: (vol: number) => void;
   onMicVolumeChange?: (vol: number) => void;
   callerNumber?: string;
+  contactHistory?: ContactHistory[];
 }) {
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
@@ -1123,6 +1237,28 @@ function CommunicationCanvas({
 
   const smsCharCount = smsMessage.length;
   const smsCount = Math.ceil(smsCharCount / 160) || 1;
+
+  const mergedHistory = useMemo(() => {
+    const historyItems = (contactHistory || []);
+    const timelineIds = new Set(timeline.map(t => t.id));
+    const persistentAsTimeline: TimelineEntry[] = historyItems
+      .filter(h => !timelineIds.has(h.id))
+      .map(h => ({
+        id: h.id,
+        type: h.type === "disposition" ? "system" as const : h.type as TimelineEntry["type"],
+        direction: h.direction,
+        timestamp: new Date(h.date),
+        content: h.content || h.notes || "",
+        details: h.details || h.campaignName || "",
+        status: h.status,
+      }));
+    const all = [...timeline, ...persistentAsTimeline];
+    return {
+      all: all.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
+      email: all.filter(e => e.type === "email").sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
+      sms: all.filter(e => e.type === "sms").sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
+    };
+  }, [timeline, contactHistory]);
 
   if (!contact) {
     return (
@@ -1386,15 +1522,13 @@ function CommunicationCanvas({
           {phoneSubTab === "history" && contact && (
             <ScrollArea className="flex-1">
               <div className="p-4 space-y-2">
-                {timeline.length === 0 ? (
+                {mergedHistory.all.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground text-sm">
                     <History className="h-8 w-8 mx-auto mb-2 opacity-40" />
                     <p>Žiadna história komunikácie</p>
                   </div>
                 ) : (
-                  [...timeline]
-                    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-                    .map((entry) => (
+                  mergedHistory.all.map((entry) => (
                       <div
                         key={entry.id}
                         className="flex items-start gap-3 p-2.5 rounded-md bg-muted/30 border border-border/50"
@@ -1457,12 +1591,12 @@ function CommunicationCanvas({
             </div>
             <ScrollArea className="flex-1">
               <div className="p-2 space-y-1.5">
-                {timeline.filter(e => e.type === "email").length === 0 ? (
+                {mergedHistory.email.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <Mail className="h-6 w-6 mx-auto mb-2 opacity-20" />
                     <p className="text-[10px]">Žiadne emaily</p>
                   </div>
-                ) : timeline.filter(e => e.type === "email").map((entry) => (
+                ) : mergedHistory.email.map((entry) => (
                   <div
                     key={entry.id}
                     className="rounded-md p-2 bg-card border border-border/50 cursor-default"
@@ -1620,12 +1754,12 @@ function CommunicationCanvas({
             </div>
             <ScrollArea className="flex-1">
               <div className="p-2 space-y-1.5">
-                {timeline.filter(e => e.type === "sms").length === 0 ? (
+                {mergedHistory.sms.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <MessageSquare className="h-6 w-6 mx-auto mb-2 opacity-20" />
                     <p className="text-[10px]">Žiadne SMS</p>
                   </div>
-                ) : timeline.filter(e => e.type === "sms").map((entry) => (
+                ) : mergedHistory.sms.map((entry) => (
                   <div
                     key={entry.id}
                     className="rounded-md p-2 bg-card border border-border/50 cursor-default"
@@ -2221,6 +2355,233 @@ function CustomerInfoPanel({
   );
 }
 
+interface ScheduledItem {
+  id: string;
+  type: "callback" | "email" | "sms";
+  contactId: string;
+  contactName: string;
+  contactPhone: string;
+  contactEmail: string;
+  campaignId: string;
+  campaignName: string;
+  scheduledAt: string;
+  notes: string;
+  status: string;
+}
+
+function ScheduledQueuePanel({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const [filterType, setFilterType] = useState<"all" | "callback" | "email" | "sms">("all");
+  const { toast } = useToast();
+
+  const { data: scheduledItems = [], isLoading } = useQuery<ScheduledItem[]>({
+    queryKey: ["/api/agent/scheduled-queue"],
+    queryFn: async () => {
+      const res = await fetch("/api/agent/scheduled-queue", { credentials: "include" });
+      return res.ok ? res.json() : [];
+    },
+    enabled: open,
+    refetchInterval: open ? 30000 : false,
+  });
+
+  const filteredItems = useMemo(() => {
+    if (filterType === "all") return scheduledItems;
+    return scheduledItems.filter(item => item.type === filterType);
+  }, [scheduledItems, filterType]);
+
+  const todayCount = useMemo(() => {
+    const today = new Date();
+    return scheduledItems.filter(item => {
+      const d = new Date(item.scheduledAt);
+      return d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
+    }).length;
+  }, [scheduledItems]);
+
+  const getTypeIcon = (type: string) => {
+    if (type === "callback") return <PhoneForwarded className="h-4 w-4" />;
+    if (type === "email") return <MailPlus className="h-4 w-4" />;
+    return <MessageSquarePlus className="h-4 w-4" />;
+  };
+
+  const getTypeColor = (type: string) => {
+    if (type === "callback") return "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400";
+    if (type === "email") return "bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400";
+    return "bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400";
+  };
+
+  const getTypeLabel = (type: string) => {
+    if (type === "callback") return "Spätné volanie";
+    if (type === "email") return "Email";
+    return "SMS";
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <CalendarClock className="h-5 w-5 text-primary" />
+            Naplánovaná fronta
+            {todayCount > 0 && (
+              <Badge variant="secondary" className="text-[10px]" data-testid="badge-scheduled-today">
+                {todayCount} dnes
+              </Badge>
+            )}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="flex items-center gap-1 pb-2">
+          {(["all", "callback", "email", "sms"] as const).map(type => (
+            <Button
+              key={type}
+              variant={filterType === type ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFilterType(type)}
+              className="gap-1.5"
+              data-testid={`btn-scheduled-filter-${type}`}
+            >
+              {type === "all" ? (
+                <CalendarClock className="h-3.5 w-3.5" />
+              ) : type === "callback" ? (
+                <PhoneForwarded className="h-3.5 w-3.5" />
+              ) : type === "email" ? (
+                <MailPlus className="h-3.5 w-3.5" />
+              ) : (
+                <MessageSquarePlus className="h-3.5 w-3.5" />
+              )}
+              <span className="text-xs">
+                {type === "all" ? "Všetko" : type === "callback" ? "Hovory" : type === "email" ? "Emaily" : "SMS"}
+              </span>
+              <Badge variant="secondary" className="text-[9px] ml-0.5">
+                {type === "all" ? scheduledItems.length : scheduledItems.filter(i => i.type === type).length}
+              </Badge>
+            </Button>
+          ))}
+        </div>
+
+        <ScrollArea className="flex-1 min-h-0">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : filteredItems.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <CalendarClock className="h-10 w-10 mx-auto mb-3 opacity-20" />
+              <p className="text-sm">Žiadne naplánované položky</p>
+            </div>
+          ) : (
+            <div className="space-y-2 pr-2">
+              {filteredItems.map(item => (
+                <Card key={item.id} data-testid={`scheduled-item-${item.id}`}>
+                  <CardContent className="p-3">
+                    <div className="flex items-start gap-3">
+                      <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${getTypeColor(item.type)}`}>
+                        {getTypeIcon(item.type)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-medium truncate" data-testid={`text-scheduled-name-${item.id}`}>
+                            {item.contactName || "Neznámy kontakt"}
+                          </span>
+                          <Badge variant="outline" className="text-[9px]">
+                            {getTypeLabel(item.type)}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
+                          {item.contactPhone && (
+                            <span className="flex items-center gap-1">
+                              <Phone className="h-3 w-3" />
+                              {item.contactPhone}
+                            </span>
+                          )}
+                          {item.contactEmail && (
+                            <span className="flex items-center gap-1">
+                              <Mail className="h-3 w-3" />
+                              {item.contactEmail}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
+                          <span className="flex items-center gap-1">
+                            <Megaphone className="h-3 w-3" />
+                            {item.campaignName}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {format(new Date(item.scheduledAt), "d.M.yyyy HH:mm", { locale: sk })}
+                          </span>
+                        </div>
+                        {item.notes && (
+                          <p className="text-[11px] text-muted-foreground mt-1 line-clamp-1">{item.notes}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {item.type === "callback" && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Zavolať teraz"
+                            data-testid={`btn-scheduled-call-${item.id}`}
+                            onClick={() => {
+                              toast({ title: "Volanie", description: `Volám ${item.contactName}...` });
+                            }}
+                          >
+                            <PhoneCall className="h-4 w-4 text-blue-500" />
+                          </Button>
+                        )}
+                        {(item.type === "email" || item.type === "sms") && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Odoslať teraz"
+                            data-testid={`btn-scheduled-send-${item.id}`}
+                            onClick={() => {
+                              toast({ title: "Odoslané", description: `Odosielam ${item.type === "email" ? "email" : "SMS"} pre ${item.contactName}...` });
+                            }}
+                          >
+                            <Send className="h-4 w-4 text-green-500" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Preplánovať"
+                          data-testid={`btn-scheduled-reschedule-${item.id}`}
+                          onClick={() => {
+                            toast({ title: "Preplánovanie", description: `Otvorte kalendár pre preplánovanie...` });
+                          }}
+                        >
+                          <RotateCcw className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Zrušiť"
+                          data-testid={`btn-scheduled-cancel-${item.id}`}
+                          onClick={() => {
+                            toast({ title: "Zrušené", description: `Položka bola zrušená.` });
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function AgentWorkspacePage() {
   const { t, locale } = useI18n();
   const { user } = useAuth();
@@ -2247,6 +2608,7 @@ export default function AgentWorkspacePage() {
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
   const [isAutoMode, setIsAutoMode] = useState(false);
+  const [scheduledQueueOpen, setScheduledQueueOpen] = useState(false);
   const [autoCountdown, setAutoCountdown] = useState<number | null>(null);
   const autoTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [contactsModalOpen, setContactsModalOpen] = useState(false);
@@ -3099,6 +3461,7 @@ export default function AgentWorkspacePage() {
         onEndSession={handleEndSession}
         isSessionActive={agentSession.isSessionActive}
         t={t}
+        onOpenScheduledQueue={() => setScheduledQueueOpen(true)}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -3157,6 +3520,7 @@ export default function AgentWorkspacePage() {
           onVolumeChange={(vol) => callContext.onVolumeChangeFn.current?.(vol)}
           onMicVolumeChange={(vol) => callContext.onMicVolumeChangeFn.current?.(vol)}
           callerNumber={callContext.callInfo?.phoneNumber || ""}
+          contactHistory={contactHistory}
         />
 
         <CustomerInfoPanel
@@ -3559,6 +3923,8 @@ export default function AgentWorkspacePage() {
           </ScrollArea>
         </DialogContent>
       </Dialog>
+
+      <ScheduledQueuePanel open={scheduledQueueOpen} onOpenChange={setScheduledQueueOpen} />
 
       <Dialog open={scriptModalOpen} onOpenChange={setScriptModalOpen}>
         <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">

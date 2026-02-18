@@ -2,7 +2,7 @@ import express, { type Express, type Request, type Response, type NextFunction }
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { startOfDay, endOfDay, subDays } from "date-fns";
-import { eq, desc, and, gte, lte, inArray } from "drizzle-orm";
+import { eq, desc, and, gte, lte, inArray, isNotNull, or } from "drizzle-orm";
 import { db, pool } from "./db";
 import { storage } from "./storage";
 import { 
@@ -27,7 +27,7 @@ import {
   insertVisitEventSchema,
   campaignDispositions, insertCampaignDispositionSchema,
   DEFAULT_PHONE_DISPOSITIONS, DEFAULT_EMAIL_DISPOSITIONS, DEFAULT_SMS_DISPOSITIONS, DISPOSITION_NAME_TRANSLATIONS,
-  campaignContacts, campaignContactHistory,
+  campaignContacts, campaignContactHistory, campaignContactSessions, campaigns, customers,
   type SafeUser, type Customer, type Product, type BillingDetails, type ActivityLog, type LeadScoringCriteria,
   type ServiceConfiguration, type InvoiceTemplate, type InvoiceLayout, type Role,
   type Campaign, type CampaignContact, type ContractInstance
@@ -13804,6 +13804,120 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Failed to delete department:", error);
       res.status(500).json({ error: "Failed to delete department" });
+    }
+  });
+
+  app.get("/api/agent/scheduled-queue", requireAuth, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const now = new Date();
+
+      const scheduledContacts = await db
+        .select({
+          ccId: campaignContacts.id,
+          ccCustomerId: campaignContacts.customerId,
+          ccCampaignId: campaignContacts.campaignId,
+          ccCallbackDate: campaignContacts.callbackDate,
+          ccNotes: campaignContacts.notes,
+          ccAssignedTo: campaignContacts.assignedTo,
+          ccStatus: campaignContacts.status,
+          customerFirstName: customers.firstName,
+          customerLastName: customers.lastName,
+          customerPhone: customers.phone,
+          customerEmail: customers.email,
+          campaignName: campaigns.name,
+        })
+        .from(campaignContacts)
+        .innerJoin(customers, eq(campaignContacts.customerId, customers.id))
+        .innerJoin(campaigns, eq(campaignContacts.campaignId, campaigns.id))
+        .where(
+          and(
+            eq(campaignContacts.status, "callback_scheduled"),
+            isNotNull(campaignContacts.callbackDate),
+            or(
+              eq(campaignContacts.assignedTo, user.id),
+              eq(campaignContacts.assignedTo, "all")
+            )
+          )
+        );
+
+      const scheduledSessions = await db
+        .select({
+          sessionId: campaignContactSessions.id,
+          sessionCampaignContactId: campaignContactSessions.campaignContactId,
+          sessionCallbackDate: campaignContactSessions.callbackDate,
+          sessionNotes: campaignContactSessions.notes,
+          sessionUserId: campaignContactSessions.userId,
+          ccCustomerId: campaignContacts.customerId,
+          ccCampaignId: campaignContacts.campaignId,
+          customerFirstName: customers.firstName,
+          customerLastName: customers.lastName,
+          customerPhone: customers.phone,
+          customerEmail: customers.email,
+          campaignName: campaigns.name,
+        })
+        .from(campaignContactSessions)
+        .innerJoin(campaignContacts, eq(campaignContactSessions.campaignContactId, campaignContacts.id))
+        .innerJoin(customers, eq(campaignContacts.customerId, customers.id))
+        .innerJoin(campaigns, eq(campaignContacts.campaignId, campaigns.id))
+        .where(
+          and(
+            eq(campaignContactSessions.callbackScheduled, true),
+            isNotNull(campaignContactSessions.callbackDate),
+            gte(campaignContactSessions.callbackDate, now),
+            or(
+              eq(campaignContactSessions.userId, user.id),
+              eq(campaignContacts.assignedTo, "all")
+            )
+          )
+        );
+
+      const seenIds = new Set<string>();
+      const items: any[] = [];
+
+      for (const row of scheduledContacts) {
+        const key = `cc-${row.ccId}`;
+        if (seenIds.has(key)) continue;
+        seenIds.add(key);
+        items.push({
+          id: row.ccId,
+          type: "callback",
+          contactId: row.ccCustomerId,
+          contactName: `${row.customerFirstName || ""} ${row.customerLastName || ""}`.trim(),
+          contactPhone: row.customerPhone || "",
+          contactEmail: row.customerEmail || "",
+          campaignId: row.ccCampaignId,
+          campaignName: row.campaignName,
+          scheduledAt: row.ccCallbackDate,
+          notes: row.ccNotes || "",
+          status: "pending",
+        });
+      }
+
+      for (const row of scheduledSessions) {
+        const key = `session-${row.sessionId}`;
+        if (seenIds.has(key)) continue;
+        seenIds.add(key);
+        items.push({
+          id: row.sessionId,
+          type: "callback",
+          contactId: row.ccCustomerId,
+          contactName: `${row.customerFirstName || ""} ${row.customerLastName || ""}`.trim(),
+          contactPhone: row.customerPhone || "",
+          contactEmail: row.customerEmail || "",
+          campaignId: row.ccCampaignId,
+          campaignName: row.campaignName,
+          scheduledAt: row.sessionCallbackDate,
+          notes: row.sessionNotes || "",
+          status: "pending",
+        });
+      }
+
+      items.sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
+      res.json(items);
+    } catch (error) {
+      console.error("Failed to fetch scheduled queue:", error);
+      res.status(500).json({ error: "Failed to fetch scheduled queue" });
     }
   });
 
