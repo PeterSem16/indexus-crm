@@ -13,6 +13,7 @@ import {
   ThumbsUp, ThumbsDown, CalendarPlus, PhoneOff, AlertCircle, XCircle, Zap, Star,
   CircleDot, Info, Heart, Ban, Bell, Send, Target, Flag, Eye, EyeOff,
   Volume2, VolumeX, UserCheck, UserX, Briefcase, Gift, Home, MapPin, Globe, Wand2,
+  Variable,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -3179,22 +3180,78 @@ export default function CampaignDetailPage() {
           </Card>
           
           {scriptMode === "builder" && (
-            <Card>
-              <CardHeader>
-                <CardTitle>{t.campaigns.detail.scriptGuideTitle}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="list-disc list-inside space-y-2 text-sm text-muted-foreground">
-                  <li>{t.campaigns.detail.scriptGuideSteps}</li>
-                  <li>{t.campaigns.detail.scriptGuideHeadings}</li>
-                  <li>{t.campaigns.detail.scriptGuideSelect}</li>
-                  <li>{t.campaigns.detail.scriptGuideCheckbox}</li>
-                  <li>{t.campaigns.detail.scriptGuideText}</li>
-                  <li>{t.campaigns.detail.scriptGuideNotes}</li>
-                  <li>{t.campaigns.detail.scriptGuideOutcome}</li>
-                </ul>
-              </CardContent>
-            </Card>
+            <>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-sm">
+                    <Variable className="h-4 w-4 text-primary" />
+                    {t.campaigns.detail.scriptVariablesTitle || "Dostupné premenné"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    {t.campaigns.detail.scriptVariablesDesc || "Tieto premenné sa v agentskom workspace automaticky nahradia skutočnými údajmi kontaktu. Vkladajte ich do textových elementov scenára."}
+                  </p>
+                  <div className="space-y-2">
+                    <div>
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Kontakt</span>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {[
+                          { key: "{{customer.firstName}}", label: "Meno" },
+                          { key: "{{customer.lastName}}", label: "Priezvisko" },
+                          { key: "{{customer.fullName}}", label: "Celé meno" },
+                          { key: "{{customer.greeting}}", label: "Oslovenie" },
+                          { key: "{{customer.titleBefore}}", label: "Titul pred" },
+                          { key: "{{customer.titleAfter}}", label: "Titul za" },
+                          { key: "{{customer.email}}", label: "Email" },
+                          { key: "{{customer.phone}}", label: "Telefón" },
+                          { key: "{{customer.address}}", label: "Adresa" },
+                          { key: "{{customer.city}}", label: "Mesto" },
+                          { key: "{{customer.postalCode}}", label: "PSČ" },
+                          { key: "{{customer.country}}", label: "Krajina" },
+                        ].map((v) => (
+                          <Badge key={v.key} variant="secondary" className="text-[10px] font-mono cursor-default" title={v.key}>
+                            {v.key}
+                            <span className="ml-1 font-sans text-muted-foreground">({v.label})</span>
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Systém</span>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {[
+                          { key: "{{date.today}}", label: "Dnešný dátum" },
+                          { key: "{{agent.name}}", label: "Meno agenta" },
+                          { key: "{{campaign.name}}", label: "Názov kampane" },
+                        ].map((v) => (
+                          <Badge key={v.key} variant="secondary" className="text-[10px] font-mono cursor-default" title={v.key}>
+                            {v.key}
+                            <span className="ml-1 font-sans text-muted-foreground">({v.label})</span>
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>{t.campaigns.detail.scriptGuideTitle}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ul className="list-disc list-inside space-y-2 text-sm text-muted-foreground">
+                    <li>{t.campaigns.detail.scriptGuideSteps}</li>
+                    <li>{t.campaigns.detail.scriptGuideHeadings}</li>
+                    <li>{t.campaigns.detail.scriptGuideSelect}</li>
+                    <li>{t.campaigns.detail.scriptGuideCheckbox}</li>
+                    <li>{t.campaigns.detail.scriptGuideText}</li>
+                    <li>{t.campaigns.detail.scriptGuideNotes}</li>
+                    <li>{t.campaigns.detail.scriptGuideOutcome}</li>
+                  </ul>
+                </CardContent>
+              </Card>
+            </>
           )}
         </TabsContent>
 

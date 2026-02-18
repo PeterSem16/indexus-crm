@@ -47,6 +47,7 @@ import {
   Target,
   Save,
   Eye,
+  Variable,
 } from "lucide-react";
 import {
   DndContext,
@@ -67,6 +68,25 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import type { OperatorScript, ScriptStep, ScriptElement, ScriptElementType } from "@shared/schema";
 import { useI18n } from "@/i18n";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+
+const SCRIPT_VARIABLES = [
+  { key: "{{customer.firstName}}", label: "Meno", category: "customer" },
+  { key: "{{customer.lastName}}", label: "Priezvisko", category: "customer" },
+  { key: "{{customer.fullName}}", label: "Celé meno", category: "customer" },
+  { key: "{{customer.greeting}}", label: "Oslovenie", category: "customer" },
+  { key: "{{customer.titleBefore}}", label: "Titul pred", category: "customer" },
+  { key: "{{customer.titleAfter}}", label: "Titul za", category: "customer" },
+  { key: "{{customer.email}}", label: "Email", category: "customer" },
+  { key: "{{customer.phone}}", label: "Telefón", category: "customer" },
+  { key: "{{customer.address}}", label: "Adresa", category: "customer" },
+  { key: "{{customer.city}}", label: "Mesto", category: "customer" },
+  { key: "{{customer.postalCode}}", label: "PSČ", category: "customer" },
+  { key: "{{customer.country}}", label: "Krajina", category: "customer" },
+  { key: "{{date.today}}", label: "Dnešný dátum", category: "system" },
+  { key: "{{agent.name}}", label: "Meno agenta", category: "system" },
+  { key: "{{campaign.name}}", label: "Názov kampane", category: "system" },
+];
 
 interface SortableStepProps {
   step: ScriptStep;
@@ -595,8 +615,49 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving }:
                       value={selectedElement.content || ""}
                       onChange={(e) => updateElement(selectedElement.id, { content: e.target.value })}
                       rows={4}
+                      placeholder="Text... Použite premenné ako {{customer.firstName}}"
                       data-testid="textarea-element-content"
                     />
+                    <div className="rounded-md border bg-muted/30 p-2">
+                      <div className="flex items-center gap-1 mb-1.5">
+                        <Variable className="h-3 w-3 text-primary" />
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Vložiť premennú</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {SCRIPT_VARIABLES.map((v) => (
+                          <Tooltip key={v.key}>
+                            <TooltipTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="text-[10px] h-5 px-1.5 font-mono"
+                                onClick={() => {
+                                  const el = document.getElementById("element-content") as HTMLTextAreaElement;
+                                  if (el) {
+                                    const start = el.selectionStart;
+                                    const end = el.selectionEnd;
+                                    const current = selectedElement.content || "";
+                                    const newContent = current.slice(0, start) + v.key + current.slice(end);
+                                    updateElement(selectedElement.id, { content: newContent });
+                                    setTimeout(() => {
+                                      el.focus();
+                                      el.setSelectionRange(start + v.key.length, start + v.key.length);
+                                    }, 50);
+                                  } else {
+                                    updateElement(selectedElement.id, { content: (selectedElement.content || "") + v.key });
+                                  }
+                                }}
+                                data-testid={`btn-insert-var-${v.key}`}
+                              >
+                                {v.label}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" className="text-xs">{v.key}</TooltipContent>
+                          </Tooltip>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 )}
 
