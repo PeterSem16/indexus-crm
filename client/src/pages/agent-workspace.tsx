@@ -2743,6 +2743,7 @@ export default function AgentWorkspacePage() {
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
   const [currentContact, setCurrentContact] = useState<Customer | null>(null);
   const [currentCampaignContactId, setCurrentCampaignContactId] = useState<string | null>(null);
+  const [disposedContactIds, setDisposedContactIds] = useState<Set<string>>(new Set());
   const [sessionLoginOpen, setSessionLoginOpen] = useState(true);
   const [activeChannel, setActiveChannel] = useState("phone");
   const [phoneSubTabOverride, setPhoneSubTabOverride] = useState<"card" | "details" | "history" | null>(null);
@@ -2941,9 +2942,9 @@ export default function AgentWorkspacePage() {
 
   const pendingCampaignContacts = useMemo(() => {
     return rawCampaignContacts.filter(
-      (cc) => cc.customer && (cc.status === "pending" || cc.status === "callback_scheduled")
+      (cc) => cc.customer && (cc.status === "pending" || cc.status === "callback_scheduled") && !disposedContactIds.has(cc.id)
     );
-  }, [rawCampaignContacts]);
+  }, [rawCampaignContacts, disposedContactIds]);
 
   const selectedCampaign = useMemo(() => {
     return campaigns.find((c) => c.id === selectedCampaignId) || null;
@@ -3082,9 +3083,13 @@ export default function AgentWorkspacePage() {
       
       const actionStatusMap: Record<string, string> = {
         callback: "callback_scheduled",
+        schedule_email: "callback_scheduled",
+        schedule_sms: "callback_scheduled",
         dnd: "not_interested",
         complete: "completed",
         convert: "contacted",
+        send_email: "contacted",
+        send_sms: "contacted",
         none: "contacted",
       };
       const newStatus = actionStatusMap[disp?.actionType || "none"] || "contacted";
@@ -3190,6 +3195,9 @@ export default function AgentWorkspacePage() {
       setActiveTaskId(null);
     }
 
+    if (currentCampaignContactId) {
+      setDisposedContactIds(prev => new Set(prev).add(currentCampaignContactId));
+    }
     setCurrentContact(null);
     setCurrentCampaignContactId(null);
     setCallNotes("");
@@ -3694,7 +3702,7 @@ export default function AgentWorkspacePage() {
           onSelectTask={handleSelectTask}
           campaigns={activeCampaigns}
           selectedCampaignId={selectedCampaignId}
-          onSelectCampaign={setSelectedCampaignId}
+          onSelectCampaign={(id: string) => { setSelectedCampaignId(id); setDisposedContactIds(new Set()); }}
           showOnlyAssigned={showOnlyAssigned}
           onToggleAssigned={setShowOnlyAssigned}
           channelFilter={channelFilter}
