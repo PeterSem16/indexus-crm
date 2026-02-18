@@ -229,21 +229,27 @@ const DISPOSITION_COLOR_MAP: Record<string, string> = {
 interface ScriptElement {
   id: string;
   type: string;
-  label: string;
+  label?: string;
   content?: string;
   required?: boolean;
-  options?: { value: string; label: string }[];
+  placeholder?: string;
+  options?: { value: string; label: string; nextStepId?: string }[];
 }
 
 interface ScriptStep {
   id: string;
   title: string;
+  description?: string;
   elements: ScriptElement[];
-  isEndStep: boolean;
+  isEndStep?: boolean;
+  nextStepId?: string;
 }
 
 interface ParsedScript {
   version: number;
+  name?: string;
+  description?: string;
+  startStepId?: string;
   steps: ScriptStep[];
 }
 
@@ -789,6 +795,7 @@ function ScriptViewer({ script }: { script: string | null }) {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [selectedValues, setSelectedValues] = useState<Record<string, string>>({});
   const [visitedSteps, setVisitedSteps] = useState<Set<number>>(new Set([0]));
+  const [stepHistory, setStepHistory] = useState<number[]>([0]);
 
   useEffect(() => {
     setVisitedSteps(prev => {
@@ -850,6 +857,11 @@ function ScriptViewer({ script }: { script: string | null }) {
     );
   }
 
+  const stepIdToIndex: Record<string, number> = {};
+  parsedScript.steps.forEach((s, i) => { stepIdToIndex[s.id] = i; });
+
+  const hasIdBasedNav = parsedScript.steps.some(s => s.nextStepId || s.elements.some(el => el.options?.some(o => o.nextStepId)));
+
   const currentStep = parsedScript.steps[currentStepIndex];
   const totalSteps = parsedScript.steps.length;
 
@@ -857,8 +869,267 @@ function ScriptViewer({ script }: { script: string | null }) {
     setSelectedValues(prev => ({ ...prev, [elementId]: value }));
   };
 
-  const handleStepClick = (idx: number) => {
+  const navigateToStep = (idx: number) => {
+    setStepHistory(prev => [...prev, idx]);
     setCurrentStepIndex(idx);
+  };
+
+  const handleStepClick = (idx: number) => {
+    navigateToStep(idx);
+  };
+
+  const goBack = () => {
+    if (stepHistory.length > 1) {
+      const newHistory = [...stepHistory];
+      newHistory.pop();
+      const prevIdx = newHistory[newHistory.length - 1];
+      setStepHistory(newHistory);
+      setCurrentStepIndex(prevIdx);
+    } else {
+      setCurrentStepIndex(Math.max(0, currentStepIndex - 1));
+    }
+  };
+
+  const goNext = () => {
+    if (hasIdBasedNav) {
+      for (const el of currentStep.elements) {
+        if ((el.type === "radio" || el.type === "outcome") && el.options) {
+          const selected = selectedValues[el.id];
+          if (selected) {
+            const opt = el.options.find(o => o.value === selected);
+            if (opt?.nextStepId && stepIdToIndex[opt.nextStepId] !== undefined) {
+              navigateToStep(stepIdToIndex[opt.nextStepId]);
+              return;
+            }
+          }
+        }
+      }
+      if (currentStep.nextStepId && stepIdToIndex[currentStep.nextStepId] !== undefined) {
+        navigateToStep(stepIdToIndex[currentStep.nextStepId]);
+        return;
+      }
+    }
+    if (currentStepIndex < totalSteps - 1) {
+      navigateToStep(currentStepIndex + 1);
+    }
+  };
+
+  const renderElement = (element: ScriptElement) => {
+    switch (element.type) {
+      case "heading":
+        return (
+          <Card className="bg-primary/5 border-primary/20">
+            <CardContent className="p-4">
+              {element.label && <h4 className="font-semibold text-primary text-sm">{element.label}</h4>}
+              {element.content && (
+                <p className={`text-foreground text-sm leading-relaxed ${element.label ? "mt-1.5" : ""}`}>{element.content}</p>
+              )}
+            </CardContent>
+          </Card>
+        );
+
+      case "paragraph":
+        return (
+          <Card className="bg-muted/30 border-border/50">
+            <CardContent className="p-4">
+              {element.label && (
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-2">{element.label}</label>
+              )}
+              <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">{element.content || ""}</p>
+            </CardContent>
+          </Card>
+        );
+
+      case "text":
+        return (
+          <Card>
+            <CardContent className="p-4">
+              {element.label && (
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{element.label}</label>
+              )}
+              <p className={`text-sm leading-relaxed text-foreground ${element.label ? "mt-2" : ""}`}>{element.content || ""}</p>
+            </CardContent>
+          </Card>
+        );
+
+      case "select":
+        if (!element.options) return null;
+        return (
+          <Card>
+            <CardContent className="p-4 space-y-2">
+              {element.label && (
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                  {element.label}
+                  {element.required && <span className="text-destructive">*</span>}
+                </label>
+              )}
+              <Select
+                value={selectedValues[element.id] || "_none"}
+                onValueChange={(v) => handleValueChange(element.id, v)}
+              >
+                <SelectTrigger data-testid={`select-script-${element.id}`}>
+                  <SelectValue placeholder={element.placeholder || "Vyberte možnosť"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">{element.placeholder || "Vyberte možnosť"}</SelectItem>
+                  {element.options.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </CardContent>
+          </Card>
+        );
+
+      case "radio":
+        if (!element.options) return null;
+        return (
+          <Card>
+            <CardContent className="p-4 space-y-3">
+              {element.label && (
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                  {element.label}
+                  {element.required && <span className="text-destructive">*</span>}
+                </label>
+              )}
+              <div className="space-y-2">
+                {element.options.map((opt) => {
+                  const isSelected = selectedValues[element.id] === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      onClick={() => handleValueChange(element.id, opt.value)}
+                      className={`w-full text-left rounded-md p-3 flex items-center gap-3 border transition-colors ${
+                        isSelected
+                          ? "bg-primary/10 border-primary/40"
+                          : "bg-card border-border/50 hover-elevate"
+                      }`}
+                      data-testid={`btn-script-radio-${opt.value}`}
+                    >
+                      <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+                        isSelected ? "border-primary bg-primary" : "border-muted-foreground/40"
+                      }`}>
+                        {isSelected && <div className="h-2 w-2 rounded-full bg-primary-foreground" />}
+                      </div>
+                      <span className={`text-sm ${isSelected ? "font-medium text-primary" : "text-foreground"}`}>{opt.label}</span>
+                      {opt.nextStepId && isSelected && (
+                        <ChevronRight className="h-4 w-4 ml-auto text-primary/60" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        );
+
+      case "outcome":
+        if (!element.options) return null;
+        return (
+          <Card>
+            <CardContent className="p-4 space-y-3">
+              {element.label && (
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                  {element.label}
+                  {element.required && <span className="text-destructive">*</span>}
+                </label>
+              )}
+              <div className="grid grid-cols-2 gap-2">
+                {element.options.map((opt) => (
+                  <Button
+                    key={opt.value}
+                    variant={selectedValues[element.id] === opt.value ? "default" : "outline"}
+                    size="sm"
+                    className="justify-start gap-2"
+                    onClick={() => handleValueChange(element.id, opt.value)}
+                    data-testid={`btn-script-outcome-${opt.value}`}
+                  >
+                    {selectedValues[element.id] === opt.value && <CheckCircle className="h-3.5 w-3.5" />}
+                    {opt.label}
+                  </Button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        );
+
+      case "textarea":
+        return (
+          <Card>
+            <CardContent className="p-4 space-y-2">
+              {element.label && (
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                  {element.label}
+                  {element.required && <span className="text-destructive">*</span>}
+                </label>
+              )}
+              <Textarea
+                value={selectedValues[element.id] || ""}
+                onChange={(e) => handleValueChange(element.id, e.target.value)}
+                placeholder={element.placeholder || element.content || ""}
+                className="min-h-[80px] resize-none text-sm"
+                data-testid={`textarea-script-${element.id}`}
+              />
+            </CardContent>
+          </Card>
+        );
+
+      case "checkbox":
+        return (
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  id={element.id}
+                  checked={selectedValues[element.id] === "true"}
+                  onCheckedChange={(checked) => handleValueChange(element.id, checked ? "true" : "false")}
+                  data-testid={`checkbox-script-${element.id}`}
+                />
+                <Label htmlFor={element.id} className="text-sm cursor-pointer">{element.label}</Label>
+              </div>
+            </CardContent>
+          </Card>
+        );
+
+      case "input":
+        return (
+          <Card>
+            <CardContent className="p-4 space-y-2">
+              {element.label && (
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                  {element.label}
+                  {element.required && <span className="text-destructive">*</span>}
+                </label>
+              )}
+              <Input
+                value={selectedValues[element.id] || ""}
+                onChange={(e) => handleValueChange(element.id, e.target.value)}
+                placeholder={element.placeholder || element.content || ""}
+                data-testid={`input-script-${element.id}`}
+              />
+            </CardContent>
+          </Card>
+        );
+
+      default:
+        if (element.content || element.label) {
+          return (
+            <Card>
+              <CardContent className="p-4">
+                {element.label && (
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-1">{element.label}</label>
+                )}
+                {element.content && (
+                  <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">{element.content}</p>
+                )}
+              </CardContent>
+            </Card>
+          );
+        }
+        return null;
+    }
   };
 
   return (
@@ -926,8 +1197,8 @@ function ScriptViewer({ script }: { script: string | null }) {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setCurrentStepIndex(Math.max(0, currentStepIndex - 1))}
-              disabled={currentStepIndex === 0}
+              onClick={goBack}
+              disabled={currentStepIndex === 0 && stepHistory.length <= 1}
               data-testid="btn-script-prev"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -935,8 +1206,8 @@ function ScriptViewer({ script }: { script: string | null }) {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setCurrentStepIndex(Math.min(totalSteps - 1, currentStepIndex + 1))}
-              disabled={currentStepIndex === totalSteps - 1}
+              onClick={goNext}
+              disabled={currentStepIndex === totalSteps - 1 && !currentStep.nextStepId}
               data-testid="btn-script-next"
             >
               <ChevronRight className="h-4 w-4" />
@@ -946,108 +1217,16 @@ function ScriptViewer({ script }: { script: string | null }) {
 
         <ScrollArea className="flex-1">
           <div className="p-5 space-y-4">
+            {currentStep.description && (
+              <Card className="bg-muted/20 border-border/40">
+                <CardContent className="p-4">
+                  <p className="text-sm text-muted-foreground leading-relaxed italic">{currentStep.description}</p>
+                </CardContent>
+              </Card>
+            )}
             {currentStep.elements.map((element) => (
               <div key={element.id}>
-                {element.type === "heading" && (
-                  <Card className="bg-primary/5 border-primary/20">
-                    <CardContent className="p-4">
-                      <h4 className="font-semibold text-primary text-sm">{element.label}</h4>
-                      {element.content && (
-                        <p className="mt-1.5 text-foreground text-sm leading-relaxed">{element.content}</p>
-                      )}
-                    </CardContent>
-                  </Card>
-                )}
-                {element.type === "text" && (
-                  <Card>
-                    <CardContent className="p-4">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{element.label}</label>
-                      <p className="mt-2 text-sm leading-relaxed text-foreground">{element.content || "..."}</p>
-                    </CardContent>
-                  </Card>
-                )}
-                {element.type === "select" && element.options && (
-                  <Card>
-                    <CardContent className="p-4 space-y-2">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-                        {element.label}
-                        {element.required && <span className="text-destructive">*</span>}
-                      </label>
-                      <Select
-                        value={selectedValues[element.id] || "_none"}
-                        onValueChange={(v) => handleValueChange(element.id, v)}
-                      >
-                        <SelectTrigger data-testid={`select-script-${element.id}`}>
-                          <SelectValue placeholder="Vyberte možnosť" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="_none">Vyberte možnosť</SelectItem>
-                          {element.options.map((opt) => (
-                            <SelectItem key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </CardContent>
-                  </Card>
-                )}
-                {element.type === "outcome" && element.options && (
-                  <Card>
-                    <CardContent className="p-4 space-y-3">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-                        {element.label}
-                        {element.required && <span className="text-destructive">*</span>}
-                      </label>
-                      <div className="grid grid-cols-2 gap-2">
-                        {element.options.map((opt) => (
-                          <Button
-                            key={opt.value}
-                            variant={selectedValues[element.id] === opt.value ? "default" : "outline"}
-                            size="sm"
-                            className="justify-start gap-2"
-                            onClick={() => handleValueChange(element.id, opt.value)}
-                            data-testid={`btn-script-outcome-${opt.value}`}
-                          >
-                            {selectedValues[element.id] === opt.value && <CheckCircle className="h-3.5 w-3.5" />}
-                            {opt.label}
-                          </Button>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-                {element.type === "checkbox" && (
-                  <Card>
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-3">
-                        <Checkbox
-                          id={element.id}
-                          checked={selectedValues[element.id] === "true"}
-                          onCheckedChange={(checked) => handleValueChange(element.id, checked ? "true" : "false")}
-                          data-testid={`checkbox-script-${element.id}`}
-                        />
-                        <Label htmlFor={element.id} className="text-sm cursor-pointer">{element.label}</Label>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-                {element.type === "input" && (
-                  <Card>
-                    <CardContent className="p-4 space-y-2">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-                        {element.label}
-                        {element.required && <span className="text-destructive">*</span>}
-                      </label>
-                      <Input
-                        value={selectedValues[element.id] || ""}
-                        onChange={(e) => handleValueChange(element.id, e.target.value)}
-                        placeholder={element.content || ""}
-                        data-testid={`input-script-${element.id}`}
-                      />
-                    </CardContent>
-                  </Card>
-                )}
+                {renderElement(element)}
               </div>
             ))}
           </div>
