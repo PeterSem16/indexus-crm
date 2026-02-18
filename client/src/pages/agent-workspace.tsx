@@ -1370,6 +1370,7 @@ function CommunicationCanvas({
   const [smsCcCountry, setSmsCcCountry] = useState("SK");
   const [showSmsCcField, setShowSmsCcField] = useState(false);
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [emailOpenedAt, setEmailOpenedAt] = useState<number | null>(null);
   const [smsOpenedAt, setSmsOpenedAt] = useState<number | null>(null);
   const [phoneSubTab, setPhoneSubTab] = useState<"card" | "details" | "history">(externalPhoneSubTab || "card");
@@ -1756,6 +1757,22 @@ function CommunicationCanvas({
             <MessageSquare className="h-3.5 w-3.5" />
             SMS
           </button>
+          <div className="ml-auto flex items-center pr-2">
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => setShowHistoryModal(true)}
+              data-testid="btn-open-history-modal"
+              title={t.agentWorkspace.history}
+            >
+              <History className="h-4 w-4" />
+              {(mergedHistory.all.length > 0) && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] text-primary-foreground font-bold">
+                  {mergedHistory.all.length > 99 ? "99+" : mergedHistory.all.length}
+                </span>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -1972,72 +1989,6 @@ function CommunicationCanvas({
 
       {activeChannel === "email" && (
         <div className="flex-1 flex overflow-hidden">
-          <div className="w-[25%] min-w-[220px] max-w-[320px] border-r flex flex-col bg-muted/10">
-            <div className="p-3 border-b">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Inbox className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t.agentWorkspace.emailHistory}</span>
-                </div>
-                {mergedHistory.email.length > 0 && (
-                  <Badge variant="secondary" className="text-[9px] h-4">{mergedHistory.email.length}</Badge>
-                )}
-              </div>
-            </div>
-            <ScrollArea className="flex-1">
-              <div className="p-2 space-y-1">
-                {mergedHistory.email.length === 0 ? (
-                  <div className="text-center py-10 text-muted-foreground">
-                    <Mail className="h-8 w-8 mx-auto mb-3 opacity-15" />
-                    <p className="text-xs font-medium">Žiadne emaily</p>
-                    <p className="text-[10px] mt-1 opacity-60">Odoslané emaily sa zobrazia tu</p>
-                  </div>
-                ) : mergedHistory.email.map((entry) => (
-                  <div
-                    key={entry.id}
-                    className="rounded-md p-2.5 bg-card border border-border/40 cursor-pointer hover-elevate transition-colors group"
-                    data-testid={`email-history-${entry.id}`}
-                    onClick={() => onOpenHistoryDetail?.(entry as any)}
-                  >
-                    <div className="flex items-center justify-between mb-1.5">
-                      <div className="flex items-center gap-1.5">
-                        {entry.direction === "outbound" ? (
-                          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/40">
-                            <Send className="h-2.5 w-2.5 text-green-600 dark:text-green-400" />
-                          </div>
-                        ) : (
-                          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/40">
-                            <Inbox className="h-2.5 w-2.5 text-blue-600 dark:text-blue-400" />
-                          </div>
-                        )}
-                        <Badge variant={entry.direction === "outbound" ? "secondary" : "outline"} className="text-[8px] h-4">
-                          {entry.direction === "outbound" ? "Odoslaný" : "Prijatý"}
-                        </Badge>
-                      </div>
-                      <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                    <p className="text-[11px] font-semibold line-clamp-1 leading-tight mb-1">{entry.content}</p>
-                    {entry.details && (
-                      <p className="text-[10px] text-muted-foreground line-clamp-2 leading-relaxed">{entry.details?.replace(/<[^>]*>/g, '')}</p>
-                    )}
-                    <div className="flex items-center gap-2 mt-2 pt-1.5 border-t border-border/30">
-                      <Clock className="h-2.5 w-2.5 text-muted-foreground/60" />
-                      <span className="text-[9px] text-muted-foreground/80">
-                        {format(entry.timestamp, "d.M.yyyy HH:mm", { locale: sk })}
-                      </span>
-                      {entry.agentName && (
-                        <>
-                          <span className="text-[9px] text-muted-foreground/40">|</span>
-                          <UserCircle className="h-2.5 w-2.5 text-muted-foreground/60" />
-                          <span className="text-[9px] text-muted-foreground/80 truncate">{entry.agentName}</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          </div>
           <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
             <div className="flex gap-4 p-4 flex-1">
               <div className="w-2/5 space-y-3 border-r pr-4">
@@ -2225,69 +2176,6 @@ function CommunicationCanvas({
 
       {activeChannel === "sms" && (
         <div className="flex-1 flex overflow-hidden">
-          <div className="w-[25%] min-w-[220px] max-w-[320px] border-r flex flex-col bg-muted/10">
-            <div className="p-3 border-b">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t.agentWorkspace.smsHistory}</span>
-                </div>
-                {mergedHistory.sms.length > 0 && (
-                  <Badge variant="secondary" className="text-[9px] h-4">{mergedHistory.sms.length}</Badge>
-                )}
-              </div>
-            </div>
-            <ScrollArea className="flex-1">
-              <div className="p-2 space-y-1">
-                {mergedHistory.sms.length === 0 ? (
-                  <div className="text-center py-10 text-muted-foreground">
-                    <MessageSquare className="h-8 w-8 mx-auto mb-3 opacity-15" />
-                    <p className="text-xs font-medium">Žiadne SMS</p>
-                    <p className="text-[10px] mt-1 opacity-60">Odoslané SMS sa zobrazia tu</p>
-                  </div>
-                ) : mergedHistory.sms.map((entry) => (
-                  <div
-                    key={entry.id}
-                    className="rounded-md p-2.5 bg-card border border-border/40 cursor-pointer hover-elevate transition-colors group"
-                    data-testid={`sms-history-${entry.id}`}
-                    onClick={() => onOpenHistoryDetail?.(entry as any)}
-                  >
-                    <div className="flex items-center justify-between mb-1.5">
-                      <div className="flex items-center gap-1.5">
-                        {entry.direction === "outbound" ? (
-                          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/40">
-                            <Send className="h-2.5 w-2.5 text-orange-600 dark:text-orange-400" />
-                          </div>
-                        ) : (
-                          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/40">
-                            <Inbox className="h-2.5 w-2.5 text-blue-600 dark:text-blue-400" />
-                          </div>
-                        )}
-                        <Badge variant={entry.direction === "outbound" ? "secondary" : "outline"} className="text-[8px] h-4">
-                          {entry.direction === "outbound" ? "Odoslaná" : "Prijatá"}
-                        </Badge>
-                      </div>
-                      <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                    <p className="text-[11px] line-clamp-2 leading-relaxed">{entry.content || entry.fullContent}</p>
-                    <div className="flex items-center gap-2 mt-2 pt-1.5 border-t border-border/30">
-                      <Clock className="h-2.5 w-2.5 text-muted-foreground/60" />
-                      <span className="text-[9px] text-muted-foreground/80">
-                        {format(entry.timestamp, "d.M.yyyy HH:mm", { locale: sk })}
-                      </span>
-                      {entry.agentName && (
-                        <>
-                          <span className="text-[9px] text-muted-foreground/40">|</span>
-                          <UserCircle className="h-2.5 w-2.5 text-muted-foreground/60" />
-                          <span className="text-[9px] text-muted-foreground/80 truncate">{entry.agentName}</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          </div>
           <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
             <div className="flex gap-4 p-4 flex-1">
               <div className="w-2/5 space-y-3 border-r pr-4">
@@ -2399,6 +2287,103 @@ function CommunicationCanvas({
           </div>
         </div>
       )}
+
+      <Dialog open={showHistoryModal} onOpenChange={setShowHistoryModal}>
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="h-5 w-5" />
+              {t.agentWorkspace.history} — {contact?.firstName} {contact?.lastName}
+            </DialogTitle>
+          </DialogHeader>
+          <Tabs defaultValue="all" className="flex-1 flex flex-col min-h-0">
+            <TabsList className="w-full justify-start shrink-0">
+              <TabsTrigger value="all" data-testid="history-modal-tab-all">
+                {t.common?.all || "All"} ({mergedHistory.all.length})
+              </TabsTrigger>
+              <TabsTrigger value="email" data-testid="history-modal-tab-email">
+                <Mail className="h-3.5 w-3.5 mr-1" />
+                Email ({mergedHistory.email.length})
+              </TabsTrigger>
+              <TabsTrigger value="sms" data-testid="history-modal-tab-sms">
+                <MessageSquare className="h-3.5 w-3.5 mr-1" />
+                SMS ({mergedHistory.sms.length})
+              </TabsTrigger>
+            </TabsList>
+            {(["all", "email", "sms"] as const).map((tabKey) => (
+              <TabsContent key={tabKey} value={tabKey} className="flex-1 mt-0 overflow-hidden">
+                <ScrollArea className="h-[55vh]">
+                  <div className="p-3 space-y-2">
+                    {(tabKey === "all" ? mergedHistory.all : tabKey === "email" ? mergedHistory.email : mergedHistory.sms).length === 0 ? (
+                      <div className="text-center py-12 text-muted-foreground">
+                        {tabKey === "email" ? <Mail className="h-10 w-10 mx-auto mb-3 opacity-20" /> :
+                         tabKey === "sms" ? <MessageSquare className="h-10 w-10 mx-auto mb-3 opacity-20" /> :
+                         <History className="h-10 w-10 mx-auto mb-3 opacity-20" />}
+                        <p className="text-sm font-medium">{t.agentWorkspace.noHistory || "No communication history"}</p>
+                      </div>
+                    ) : (tabKey === "all" ? mergedHistory.all : tabKey === "email" ? mergedHistory.email : mergedHistory.sms).map((entry) => (
+                      <div
+                        key={entry.id}
+                        className="flex items-start gap-3 p-3 rounded-md bg-muted/30 border border-border/50 cursor-pointer hover-elevate transition-colors"
+                        data-testid={`history-modal-entry-${entry.id}`}
+                        onClick={() => { onOpenHistoryDetail?.(entry as any); setShowHistoryModal(false); }}
+                      >
+                        <div className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+                          entry.type === "call" ? "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400" :
+                          entry.type === "email" ? "bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400" :
+                          entry.type === "sms" ? "bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400" :
+                          entry.type === "note" ? "bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400" :
+                          "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                        }`}>
+                          {entry.type === "call" && <PhoneCall className="h-3.5 w-3.5" />}
+                          {entry.type === "email" && <Mail className="h-3.5 w-3.5" />}
+                          {entry.type === "sms" && <MessageSquare className="h-3.5 w-3.5" />}
+                          {entry.type === "note" && <FileText className="h-3.5 w-3.5" />}
+                          {entry.type === "system" && <AlertCircle className="h-3.5 w-3.5" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant="outline" className="text-[10px] h-5 capitalize">
+                              {entry.type === "call" ? "Hovor" : entry.type === "email" ? "Email" : entry.type === "sms" ? "SMS" : entry.type === "note" ? "Poznámka" : "Systém"}
+                            </Badge>
+                            {entry.direction && (
+                              <Badge variant="secondary" className="text-[10px] h-5">
+                                {entry.direction === "inbound" ? "Prichádzajúci" : "Odchádzajúci"}
+                              </Badge>
+                            )}
+                            {entry.status && (
+                              <Badge variant="secondary" className="text-[10px] h-5">{entry.status}</Badge>
+                            )}
+                            {entry.recipientEmail && (
+                              <span className="text-[10px] text-muted-foreground truncate">{entry.recipientEmail}</span>
+                            )}
+                            {entry.recipientPhone && (
+                              <span className="text-[10px] text-muted-foreground">{entry.recipientPhone}</span>
+                            )}
+                            <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
+                              {format(new Date(entry.timestamp), "d.M.yyyy HH:mm", { locale: sk })}
+                            </span>
+                          </div>
+                          <p className="text-xs text-foreground mt-1 line-clamp-2">{entry.content}</p>
+                          {entry.details && (
+                            <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{entry.details?.replace(/<[^>]*>/g, '')}</p>
+                          )}
+                          {entry.agentName && (
+                            <div className="flex items-center gap-1 mt-1">
+                              <UserCircle className="h-3 w-3 text-muted-foreground/60" />
+                              <span className="text-[10px] text-muted-foreground">{entry.agentName}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </TabsContent>
+            ))}
+          </Tabs>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );
