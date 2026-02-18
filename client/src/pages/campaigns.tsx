@@ -1,7 +1,7 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Plus, Pencil, Trash2, Search, Megaphone, PlayCircle, CheckCircle, Clock, XCircle, ExternalLink, FileText, Calendar, LayoutList, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, BarChart3, TrendingUp, Phone, RefreshCw, Users, Mail, MessageSquare, User, Check, Loader2, Shield, Headphones, X, Download, HelpCircle, BookOpen } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Megaphone, PlayCircle, CheckCircle, Clock, XCircle, ExternalLink, FileText, Calendar, LayoutList, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, BarChart3, TrendingUp, Phone, RefreshCw, Users, Mail, MessageSquare, User, Check, Loader2, Shield, Headphones, X, Download, HelpCircle, BookOpen, Type, AlignLeft, ListOrdered, CircleDot, Target, Square, TextCursorInput, Variable, GripVertical, Copy, ArrowUp, ArrowDown } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/auth-context";
 import { useCountryFilter } from "@/contexts/country-filter-context";
@@ -76,6 +76,491 @@ type CampaignFormData = z.infer<typeof campaignFormSchema>;
 const CAMPAIGN_TYPES = ["marketing", "sales", "follow_up", "retention", "upsell", "other"] as const;
 const CAMPAIGN_CHANNELS = ["phone", "email", "sms", "mixed"] as const;
 const CAMPAIGN_STATUSES = ["draft", "active", "paused", "completed", "cancelled"] as const;
+
+const SCRIPT_AVAILABLE_VARIABLES = [
+  { key: "{{customer.firstName}}", label: "Meno", category: "customer" },
+  { key: "{{customer.lastName}}", label: "Priezvisko", category: "customer" },
+  { key: "{{customer.fullName}}", label: "Celé meno", category: "customer" },
+  { key: "{{customer.greeting}}", label: "Oslovenie", category: "customer" },
+  { key: "{{customer.titleBefore}}", label: "Titul pred", category: "customer" },
+  { key: "{{customer.titleAfter}}", label: "Titul za", category: "customer" },
+  { key: "{{customer.email}}", label: "Email", category: "customer" },
+  { key: "{{customer.phone}}", label: "Telefón", category: "customer" },
+  { key: "{{customer.address}}", label: "Adresa", category: "customer" },
+  { key: "{{customer.city}}", label: "Mesto", category: "customer" },
+  { key: "{{customer.postalCode}}", label: "PSČ", category: "customer" },
+  { key: "{{customer.country}}", label: "Krajina", category: "customer" },
+  { key: "{{date.today}}", label: "Dnešný dátum", category: "system" },
+  { key: "{{agent.name}}", label: "Meno agenta", category: "system" },
+  { key: "{{campaign.name}}", label: "Názov kampane", category: "system" },
+];
+
+interface ScriptElementData {
+  id: string;
+  type: "heading" | "text" | "paragraph" | "select" | "radio" | "outcome" | "textarea" | "checkbox" | "input";
+  label?: string;
+  content?: string;
+  required?: boolean;
+  placeholder?: string;
+  options?: { value: string; label: string; nextStepId?: string }[];
+}
+
+interface ScriptStepData {
+  id: string;
+  title: string;
+  description?: string;
+  elements: ScriptElementData[];
+  isEndStep?: boolean;
+  nextStepId?: string;
+}
+
+interface ScriptData {
+  version: number;
+  name?: string;
+  description?: string;
+  startStepId?: string;
+  steps: ScriptStepData[];
+}
+
+function generateId() {
+  return `el_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+}
+
+function ScriptBuilder({ value, onChange, t }: { value: string; onChange: (v: string) => void; t: any }) {
+  const [script, setScript] = useState<ScriptData>(() => {
+    try {
+      if (value) {
+        const parsed = JSON.parse(value);
+        if (parsed.steps) return parsed;
+      }
+    } catch {}
+    return { version: 1, steps: [] };
+  });
+  const [activeStepIndex, setActiveStepIndex] = useState(0);
+  const [editingElementId, setEditingElementId] = useState<string | null>(null);
+  const lastExternalValue = useRef(value);
+
+  useEffect(() => {
+    if (value !== lastExternalValue.current) {
+      lastExternalValue.current = value;
+      try {
+        if (value) {
+          const parsed = JSON.parse(value);
+          if (parsed.steps) {
+            setScript(parsed);
+            setActiveStepIndex(0);
+            setEditingElementId(null);
+            return;
+          }
+        }
+      } catch {}
+      setScript({ version: 1, steps: [] });
+      setActiveStepIndex(0);
+      setEditingElementId(null);
+    }
+  }, [value]);
+
+  const syncToForm = useCallback((updated: ScriptData) => {
+    setScript(updated);
+    const newVal = updated.steps.length === 0 ? "" : JSON.stringify(updated);
+    lastExternalValue.current = newVal;
+    onChange(newVal);
+  }, [onChange]);
+
+  const addStep = () => {
+    const newStep: ScriptStepData = {
+      id: `step_${Date.now()}`,
+      title: `Krok ${script.steps.length + 1}`,
+      elements: [],
+    };
+    const updated = { ...script, steps: [...script.steps, newStep] };
+    syncToForm(updated);
+    setActiveStepIndex(updated.steps.length - 1);
+  };
+
+  const removeStep = (idx: number) => {
+    const updated = { ...script, steps: script.steps.filter((_, i) => i !== idx) };
+    syncToForm(updated);
+    if (activeStepIndex >= updated.steps.length) {
+      setActiveStepIndex(Math.max(0, updated.steps.length - 1));
+    }
+  };
+
+  const updateStep = (idx: number, patch: Partial<ScriptStepData>) => {
+    const steps = [...script.steps];
+    steps[idx] = { ...steps[idx], ...patch };
+    syncToForm({ ...script, steps });
+  };
+
+  const addElement = (type: ScriptElementData["type"]) => {
+    if (script.steps.length === 0) return;
+    const step = script.steps[activeStepIndex];
+    const newEl: ScriptElementData = {
+      id: generateId(),
+      type,
+      label: type === "heading" ? "Nadpis" : type === "text" ? "" : type === "paragraph" ? "" : type === "select" ? "Výber" : type === "radio" ? "Voľba" : type === "outcome" ? "Výsledok" : type === "textarea" ? "Poznámka" : type === "checkbox" ? "Potvrdenie" : "Vstup",
+      content: type === "heading" || type === "text" || type === "paragraph" ? "" : undefined,
+      options: ["select", "radio", "outcome"].includes(type)
+        ? [{ value: "option1", label: "Možnosť 1" }, { value: "option2", label: "Možnosť 2" }]
+        : undefined,
+    };
+    const elements = [...step.elements, newEl];
+    updateStep(activeStepIndex, { elements });
+    setEditingElementId(newEl.id);
+  };
+
+  const removeElement = (elId: string) => {
+    const step = script.steps[activeStepIndex];
+    updateStep(activeStepIndex, { elements: step.elements.filter(e => e.id !== elId) });
+    if (editingElementId === elId) setEditingElementId(null);
+  };
+
+  const updateElement = (elId: string, patch: Partial<ScriptElementData>) => {
+    const step = script.steps[activeStepIndex];
+    const elements = step.elements.map(e => e.id === elId ? { ...e, ...patch } : e);
+    updateStep(activeStepIndex, { elements });
+  };
+
+  const moveElement = (elId: string, dir: -1 | 1) => {
+    const step = script.steps[activeStepIndex];
+    const idx = step.elements.findIndex(e => e.id === elId);
+    if (idx < 0) return;
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= step.elements.length) return;
+    const elements = [...step.elements];
+    [elements[idx], elements[newIdx]] = [elements[newIdx], elements[idx]];
+    updateStep(activeStepIndex, { elements });
+  };
+
+  const insertVariable = (elId: string, field: "content" | "label", varKey: string) => {
+    const step = script.steps[activeStepIndex];
+    const el = step.elements.find(e => e.id === elId);
+    if (!el) return;
+    updateElement(elId, { [field]: (el[field] || "") + varKey });
+  };
+
+  const currentStep = script.steps[activeStepIndex];
+
+  const getElementIcon = (type: string) => {
+    switch (type) {
+      case "heading": return <Type className="h-3.5 w-3.5" />;
+      case "text": return <AlignLeft className="h-3.5 w-3.5" />;
+      case "paragraph": return <FileText className="h-3.5 w-3.5" />;
+      case "select": return <ListOrdered className="h-3.5 w-3.5" />;
+      case "radio": return <CircleDot className="h-3.5 w-3.5" />;
+      case "outcome": return <Target className="h-3.5 w-3.5" />;
+      case "textarea": return <AlignLeft className="h-3.5 w-3.5" />;
+      case "checkbox": return <Square className="h-3.5 w-3.5" />;
+      case "input": return <TextCursorInput className="h-3.5 w-3.5" />;
+      default: return <FileText className="h-3.5 w-3.5" />;
+    }
+  };
+
+  const elementTypeLabels: Record<string, string> = {
+    heading: "Nadpis",
+    text: "Text",
+    paragraph: "Odstavec",
+    select: "Výber (dropdown)",
+    radio: "Voľba (radio)",
+    outcome: "Výsledok",
+    textarea: "Textové pole",
+    checkbox: "Zaškrtávacie pole",
+    input: "Vstupné pole",
+  };
+
+  return (
+    <div className="space-y-3" data-testid="script-builder">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-sm font-medium">Kroky scenára:</span>
+        {script.steps.map((step, idx) => (
+          <Button
+            key={step.id}
+            type="button"
+            size="sm"
+            variant={activeStepIndex === idx ? "default" : "outline"}
+            onClick={() => setActiveStepIndex(idx)}
+            data-testid={`btn-script-step-${idx}`}
+          >
+            {step.title || `Krok ${idx + 1}`}
+          </Button>
+        ))}
+        <Button type="button" size="sm" variant="outline" onClick={addStep} data-testid="btn-add-script-step">
+          <Plus className="h-3.5 w-3.5 mr-1" />
+          Pridať krok
+        </Button>
+      </div>
+
+      {currentStep && (
+        <Card>
+          <CardContent className="p-4 space-y-4">
+            <div className="flex items-center gap-2">
+              <Input
+                value={currentStep.title}
+                onChange={(e) => updateStep(activeStepIndex, { title: e.target.value })}
+                placeholder="Názov kroku"
+                className="flex-1"
+                data-testid="input-step-title"
+              />
+              <div className="flex items-center gap-1">
+                <Label htmlFor={`endstep-${currentStep.id}`} className="text-xs text-muted-foreground whitespace-nowrap">Konečný krok</Label>
+                <Checkbox
+                  id={`endstep-${currentStep.id}`}
+                  checked={currentStep.isEndStep || false}
+                  onCheckedChange={(v) => updateStep(activeStepIndex, { isEndStep: !!v })}
+                  data-testid="checkbox-end-step"
+                />
+              </div>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                onClick={() => removeStep(activeStepIndex)}
+                data-testid="btn-remove-step"
+              >
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            </div>
+
+            <Input
+              value={currentStep.description || ""}
+              onChange={(e) => updateStep(activeStepIndex, { description: e.target.value })}
+              placeholder="Popis kroku (voliteľný)"
+              data-testid="input-step-description"
+            />
+
+            <div className="space-y-2">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Elementy</span>
+              {currentStep.elements.map((el, idx) => (
+                <Card key={el.id} className={`${editingElementId === el.id ? "ring-2 ring-primary/30" : ""}`}>
+                  <CardContent className="p-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1 text-muted-foreground">
+                        {getElementIcon(el.type)}
+                        <span className="text-xs">{elementTypeLabels[el.type] || el.type}</span>
+                      </div>
+                      <span className="flex-1 text-sm truncate">{el.label || el.content?.substring(0, 40) || "—"}</span>
+                      <Button type="button" size="icon" variant="ghost" onClick={() => moveElement(el.id, -1)} disabled={idx === 0}>
+                        <ArrowUp className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button type="button" size="icon" variant="ghost" onClick={() => moveElement(el.id, 1)} disabled={idx === currentStep.elements.length - 1}>
+                        <ArrowDown className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => setEditingElementId(editingElementId === el.id ? null : el.id)}
+                        data-testid={`btn-edit-element-${el.id}`}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button type="button" size="icon" variant="ghost" onClick={() => removeElement(el.id)}>
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      </Button>
+                    </div>
+
+                    {editingElementId === el.id && (
+                      <div className="space-y-3 pt-2 border-t">
+                        {el.type !== "checkbox" && (
+                          <div>
+                            <Label className="text-xs">Označenie (label)</Label>
+                            <div className="flex gap-1">
+                              <Input
+                                value={el.label || ""}
+                                onChange={(e) => updateElement(el.id, { label: e.target.value })}
+                                placeholder="Označenie elementu"
+                                data-testid={`input-element-label-${el.id}`}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {["heading", "text", "paragraph"].includes(el.type) && (
+                          <div>
+                            <Label className="text-xs">Obsah textu</Label>
+                            <Textarea
+                              value={el.content || ""}
+                              onChange={(e) => updateElement(el.id, { content: e.target.value })}
+                              placeholder="Text scenára... Použite premenné ako {{customer.firstName}}"
+                              rows={3}
+                              data-testid={`input-element-content-${el.id}`}
+                            />
+                            <div className="mt-2">
+                              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1 mb-1">
+                                <Variable className="h-3 w-3" />
+                                Dostupné premenné
+                              </span>
+                              <div className="flex flex-wrap gap-1">
+                                {SCRIPT_AVAILABLE_VARIABLES.map((v) => (
+                                  <Button
+                                    key={v.key}
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-[10px] h-6 px-1.5"
+                                    onClick={() => insertVariable(el.id, "content", v.key)}
+                                    title={v.key}
+                                    data-testid={`btn-var-${v.key}`}
+                                  >
+                                    {v.label}
+                                  </Button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {el.type === "checkbox" && (
+                          <div>
+                            <Label className="text-xs">Text zaškrtávacieho poľa</Label>
+                            <Input
+                              value={el.label || ""}
+                              onChange={(e) => updateElement(el.id, { label: e.target.value })}
+                              placeholder="Text potvrdenia"
+                              data-testid={`input-checkbox-label-${el.id}`}
+                            />
+                          </div>
+                        )}
+
+                        {["select", "input", "textarea"].includes(el.type) && (
+                          <div>
+                            <Label className="text-xs">Placeholder</Label>
+                            <Input
+                              value={el.placeholder || ""}
+                              onChange={(e) => updateElement(el.id, { placeholder: e.target.value })}
+                              placeholder="Zástupný text"
+                              data-testid={`input-element-placeholder-${el.id}`}
+                            />
+                          </div>
+                        )}
+
+                        {["select", "radio", "outcome"].includes(el.type) && (
+                          <div>
+                            <Label className="text-xs">Možnosti</Label>
+                            <div className="space-y-1">
+                              {(el.options || []).map((opt, oi) => (
+                                <div key={oi} className="flex gap-1 items-center">
+                                  <Input
+                                    value={opt.label}
+                                    onChange={(e) => {
+                                      const options = [...(el.options || [])];
+                                      options[oi] = { ...options[oi], label: e.target.value };
+                                      updateElement(el.id, { options });
+                                    }}
+                                    placeholder="Popis"
+                                    className="flex-1"
+                                    data-testid={`input-option-label-${el.id}-${oi}`}
+                                  />
+                                  <Input
+                                    value={opt.value}
+                                    onChange={(e) => {
+                                      const options = [...(el.options || [])];
+                                      options[oi] = { ...options[oi], value: e.target.value };
+                                      updateElement(el.id, { options });
+                                    }}
+                                    placeholder="Hodnota"
+                                    className="w-24"
+                                    data-testid={`input-option-value-${el.id}-${oi}`}
+                                  />
+                                  <Select
+                                    value={opt.nextStepId || "_none"}
+                                    onValueChange={(v) => {
+                                      const options = [...(el.options || [])];
+                                      options[oi] = { ...options[oi], nextStepId: v === "_none" ? undefined : v };
+                                      updateElement(el.id, { options });
+                                    }}
+                                  >
+                                    <SelectTrigger className="w-28">
+                                      <SelectValue placeholder="Skok na" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="_none">Žiadny skok</SelectItem>
+                                      {script.steps.map((s) => (
+                                        <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => {
+                                      const options = (el.options || []).filter((_, i) => i !== oi);
+                                      updateElement(el.id, { options });
+                                    }}
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              ))}
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  const options = [...(el.options || []), { value: `option${(el.options?.length || 0) + 1}`, label: `Možnosť ${(el.options?.length || 0) + 1}` }];
+                                  updateElement(el.id, { options });
+                                }}
+                                data-testid={`btn-add-option-${el.id}`}
+                              >
+                                <Plus className="h-3 w-3 mr-1" />
+                                Pridať možnosť
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id={`required-${el.id}`}
+                            checked={el.required || false}
+                            onCheckedChange={(v) => updateElement(el.id, { required: !!v })}
+                          />
+                          <Label htmlFor={`required-${el.id}`} className="text-xs">Povinný element</Label>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            <div className="border-t pt-3">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2 block">Pridať element</span>
+              <div className="flex flex-wrap gap-1">
+                {(["heading", "text", "paragraph", "select", "radio", "outcome", "textarea", "checkbox", "input"] as const).map((type) => (
+                  <Button
+                    key={type}
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => addElement(type)}
+                    className="gap-1"
+                    data-testid={`btn-add-element-${type}`}
+                  >
+                    {getElementIcon(type)}
+                    <span className="text-xs">{elementTypeLabels[type]}</span>
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {script.steps.length === 0 && (
+        <div className="text-center py-6 border rounded-md border-dashed">
+          <FileText className="h-8 w-8 mx-auto mb-2 text-muted-foreground/30" />
+          <p className="text-sm text-muted-foreground mb-2">Scenár zatiaľ neobsahuje žiadne kroky</p>
+          <Button type="button" size="sm" variant="outline" onClick={addStep} data-testid="btn-add-first-step">
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            Pridať prvý krok
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function CampaignForm({
   initialData,
@@ -335,6 +820,23 @@ function CampaignForm({
                   </div>
                 ))}
               </div>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="script"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Scenár (Script)
+              </FormLabel>
+              <FormControl>
+                <ScriptBuilder value={field.value || ""} onChange={field.onChange} t={t} />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}

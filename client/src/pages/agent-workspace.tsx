@@ -796,7 +796,35 @@ function TaskListPanel({
   );
 }
 
-function ScriptViewer({ script }: { script: string | null }) {
+function ScriptViewer({ script, contact }: { script: string | null; contact?: Customer | null }) {
+  const SCRIPT_VARIABLES: Record<string, string> = {
+    "{{customer.firstName}}": contact?.firstName || "",
+    "{{customer.lastName}}": contact?.lastName || "",
+    "{{customer.fullName}}": `${contact?.firstName || ""} ${contact?.lastName || ""}`.trim(),
+    "{{customer.titleBefore}}": (contact as any)?.titleBefore || "",
+    "{{customer.titleAfter}}": (contact as any)?.titleAfter || "",
+    "{{customer.email}}": contact?.email || "",
+    "{{customer.phone}}": contact?.phone || "",
+    "{{customer.address}}": contact?.address || "",
+    "{{customer.city}}": contact?.city || "",
+    "{{customer.postalCode}}": contact?.postalCode || "",
+    "{{customer.country}}": contact?.country || "",
+    "{{customer.greeting}}": (contact as any)?.titleBefore
+      ? `${(contact as any).titleBefore} ${contact?.lastName || ""}`
+      : contact?.lastName || "",
+    "{{agent.name}}": "",
+    "{{campaign.name}}": "",
+    "{{date.today}}": new Date().toLocaleDateString(),
+  };
+
+  const substituteVariables = (text: string): string => {
+    if (!text) return text;
+    let result = text;
+    for (const [key, value] of Object.entries(SCRIPT_VARIABLES)) {
+      result = result.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), value || key);
+    }
+    return result;
+  };
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [selectedValues, setSelectedValues] = useState<Record<string, string>>({});
   const [visitedSteps, setVisitedSteps] = useState<Set<number>>(new Set([0]));
@@ -840,7 +868,7 @@ function ScriptViewer({ script }: { script: string | null }) {
               <ScrollArea className="h-[calc(100%-2rem)]">
                 <div className="space-y-1.5">
                   {lines.map((line, i) => (
-                    <p key={i} className="text-sm leading-relaxed text-foreground">{line || "\u00A0"}</p>
+                    <p key={i} className="text-sm leading-relaxed text-foreground">{substituteVariables(line) || "\u00A0"}</p>
                   ))}
                 </div>
               </ScrollArea>
@@ -925,9 +953,9 @@ function ScriptViewer({ script }: { script: string | null }) {
         return (
           <Card className="bg-primary/5 border-primary/20">
             <CardContent className="p-4">
-              {element.label && <h4 className="font-semibold text-primary text-sm">{element.label}</h4>}
+              {element.label && <h4 className="font-semibold text-primary text-sm">{substituteVariables(element.label)}</h4>}
               {element.content && (
-                <p className={`text-foreground text-sm leading-relaxed ${element.label ? "mt-1.5" : ""}`}>{element.content}</p>
+                <p className={`text-foreground text-sm leading-relaxed ${element.label ? "mt-1.5" : ""}`}>{substituteVariables(element.content)}</p>
               )}
             </CardContent>
           </Card>
@@ -938,9 +966,9 @@ function ScriptViewer({ script }: { script: string | null }) {
           <Card className="bg-muted/30 border-border/50">
             <CardContent className="p-4">
               {element.label && (
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-2">{element.label}</label>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-2">{substituteVariables(element.label)}</label>
               )}
-              <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">{element.content || ""}</p>
+              <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">{substituteVariables(element.content || "")}</p>
             </CardContent>
           </Card>
         );
@@ -950,9 +978,9 @@ function ScriptViewer({ script }: { script: string | null }) {
           <Card>
             <CardContent className="p-4">
               {element.label && (
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{element.label}</label>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{substituteVariables(element.label)}</label>
               )}
-              <p className={`text-sm leading-relaxed text-foreground ${element.label ? "mt-2" : ""}`}>{element.content || ""}</p>
+              <p className={`text-sm leading-relaxed text-foreground ${element.label ? "mt-2" : ""}`}>{substituteVariables(element.content || "")}</p>
             </CardContent>
           </Card>
         );
@@ -973,10 +1001,10 @@ function ScriptViewer({ script }: { script: string | null }) {
                 onValueChange={(v) => handleValueChange(element.id, v)}
               >
                 <SelectTrigger data-testid={`select-script-${element.id}`}>
-                  <SelectValue placeholder={element.placeholder || "Vyberte možnosť"} />
+                  <SelectValue placeholder={substituteVariables(element.placeholder || "Vyberte možnosť")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="_none">{element.placeholder || "Vyberte možnosť"}</SelectItem>
+                  <SelectItem value="_none">{substituteVariables(element.placeholder || "Vyberte možnosť")}</SelectItem>
                   {element.options.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>
                       {opt.label}
@@ -1177,7 +1205,7 @@ function ScriptViewer({ script }: { script: string | null }) {
                 <div className="flex-1 min-w-0">
                   <p className={`text-[11px] font-medium leading-tight truncate ${
                     idx === currentStepIndex ? "text-primary" : "text-foreground"
-                  }`}>{step.title}</p>
+                  }`}>{substituteVariables(step.title)}</p>
                   {step.isEndStep && (
                     <Badge variant="secondary" className="text-[9px] mt-1 bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400">
                       Koniec
@@ -1196,7 +1224,7 @@ function ScriptViewer({ script }: { script: string | null }) {
             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
               {currentStepIndex + 1}
             </div>
-            <span className="font-semibold text-sm truncate">{currentStep.title}</span>
+            <span className="font-semibold text-sm truncate">{substituteVariables(currentStep.title)}</span>
           </div>
           <div className="flex items-center gap-1">
             <Button
@@ -1225,7 +1253,7 @@ function ScriptViewer({ script }: { script: string | null }) {
             {currentStep.description && (
               <Card className="bg-muted/20 border-border/40">
                 <CardContent className="p-4">
-                  <p className="text-sm text-muted-foreground leading-relaxed italic">{currentStep.description}</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed italic">{substituteVariables(currentStep.description)}</p>
                 </CardContent>
               </Card>
             )}
@@ -1638,7 +1666,7 @@ function CommunicationCanvas({
           >
             <Maximize2 className="h-3.5 w-3.5" />
           </Button>
-          <ScriptViewer script={campaign?.script || null} />
+          <ScriptViewer script={campaign?.script || null} contact={contact} />
         </div>
       )}
 
@@ -4851,7 +4879,7 @@ export default function AgentWorkspacePage() {
           </DialogHeader>
           <div className="flex-1 min-h-0 -mx-6 px-6">
             <div className="h-full max-h-[65vh]">
-              <ScriptViewer script={selectedCampaign?.script || null} />
+              <ScriptViewer script={selectedCampaign?.script || null} contact={currentContact} />
             </div>
           </div>
         </DialogContent>
