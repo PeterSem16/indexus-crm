@@ -2901,12 +2901,20 @@ export default function AgentWorkspacePage() {
   const baseCampaigns = showOnlyAssigned ? assignedCampaigns : allCampaigns;
 
   const campaigns = useMemo(() => {
-    if (user?.role === "admin") return baseCampaigns;
-    if (allowedCountries.length === 0) return [];
-    return baseCampaigns.filter((c) => {
+    const now = new Date();
+    const isAvailable = (c: Campaign) => {
+      if (c.status === "paused" || c.status === "draft" || c.status === "completed" || c.status === "cancelled") return false;
+      if (c.startDate && new Date(c.startDate) > now) return false;
+      if (c.endDate && new Date(c.endDate) < now) return false;
+      return true;
+    };
+    const countryFilter = (c: Campaign) => {
+      if (user?.role === "admin") return true;
+      if (allowedCountries.length === 0) return false;
       if (!c.countryCodes || c.countryCodes.length === 0) return true;
       return c.countryCodes.some((code: string) => allowedCountries.includes(code));
-    });
+    };
+    return baseCampaigns.filter((c) => isAvailable(c) && countryFilter(c));
   }, [baseCampaigns, allowedCountries, user?.role]);
 
   const { data: campaignDispositions = [] } = useQuery<CampaignDisposition[]>({
