@@ -23009,10 +23009,15 @@ Guidelines:
     externalCollectionRef: z.string().min(1).optional(),
     clientResultId: z.string().min(1).optional(),
     
-    // Required fields with strict enum validation
+    // Required fields
     resultsDate: dateStringSchema,
     usability: z.enum(["usable", "unusable", "conditionally_usable", "pending"]),
-    status: z.enum(["pending", "completed", "rejected", "under_review"]),
+    // Status: numeric ID from collection_statuses table (e.g. "5"..."14")
+    // or legacy string values for backwards compatibility
+    status: z.union([
+      z.string().regex(/^\d+$/, "Status must be a numeric ID from collection_statuses table"),
+      z.enum(["pending", "completed", "rejected", "under_review"]),
+    ]),
     
     // Optional fields with date validation where applicable
     labNote: z.string().optional(),
@@ -23139,6 +23144,14 @@ Guidelines:
         dateOfPrintingResults: labData.dateOfPrintingResults ? new Date(labData.dateOfPrintingResults) : undefined,
         dateOfSendingResults: labData.dateOfSendingResults ? new Date(labData.dateOfSendingResults) : undefined,
       });
+
+      // Update collection state if status is a numeric ID from collection_statuses
+      if (labData.status) {
+        const statusId = parseInt(labData.status, 10);
+        if (!isNaN(statusId)) {
+          await storage.updateCollection(collection.id, { state: String(statusId), status: statusId } as any);
+        }
+      }
 
       res.status(201).json({
         success: true,
@@ -23283,6 +23296,14 @@ Guidelines:
             dateOfSendingResults: labData.dateOfSendingResults ? new Date(labData.dateOfSendingResults) : undefined,
           });
 
+          // Update collection state if status is a numeric ID from collection_statuses
+          if (labData.status) {
+            const statusId = parseInt(labData.status, 10);
+            if (!isNaN(statusId)) {
+              await storage.updateCollection(collection.id, { state: String(statusId), status: statusId } as any);
+            }
+          }
+
           batchResults.push({
             index: i,
             status: "created",
@@ -23409,6 +23430,14 @@ Guidelines:
 
       const result = await storage.updateCollectionLabResult(req.params.id, updateData);
 
+      // Update collection state if status is a numeric ID from collection_statuses
+      if (updateData.status && existing.collectionId) {
+        const statusId = parseInt(updateData.status, 10);
+        if (!isNaN(statusId)) {
+          await storage.updateCollection(existing.collectionId, { state: String(statusId), status: statusId } as any);
+        }
+      }
+
       res.json({
         success: true,
         data: {
@@ -23460,6 +23489,33 @@ Guidelines:
         error: {
           code: "INTERNAL_ERROR",
           message: "Failed to fetch lab results"
+        }
+      });
+    }
+  });
+
+  // GET /api/v1/collection-statuses - Get all collection statuses (for external systems to reference status IDs)
+  app.get("/api/v1/collection-statuses", requireApiKey, async (req, res) => {
+    try {
+      const statuses = await storage.getAllCollectionStatuses();
+      res.json({
+        success: true,
+        data: statuses.map(s => ({
+          id: s.id,
+          name: s.name,
+          code: s.code,
+          branch: s.branch,
+          branchName: s.branch === 1 ? "Vydaný odber" : "Likvidácia",
+        })),
+        count: statuses.length
+      });
+    } catch (error) {
+      console.error("Error fetching collection statuses:", error);
+      res.status(500).json({
+        success: false,
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to fetch collection statuses"
         }
       });
     }
