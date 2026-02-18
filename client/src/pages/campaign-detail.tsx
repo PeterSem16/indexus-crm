@@ -166,7 +166,17 @@ function getDefaultSalesScript(lang: string): OperatorScript {
 import { Switch } from "@/components/ui/switch";
 import { ScriptBuilder } from "@/components/script-builder";
 import { ScriptRunner } from "@/components/script-runner";
+import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { format } from "date-fns";
+import { sk, cs, hu, ro, it, de, enUS, type Locale } from "date-fns/locale";
+
+const DATE_LOCALE_MAP: Record<string, Locale> = {
+  SK: sk, CZ: cs, HU: hu, RO: ro, IT: it, DE: de, US: enUS
+};
+const DATE_FORMAT_MAP: Record<string, string> = {
+  SK: "dd.MM.yyyy", CZ: "dd.MM.yyyy", HU: "yyyy.MM.dd",
+  RO: "dd.MM.yyyy", IT: "dd/MM/yyyy", DE: "dd.MM.yyyy", US: "MM/dd/yyyy"
+};
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -330,11 +340,8 @@ function CampaignDetailsCard({ campaign }: { campaign: Campaign }) {
         <div>
           <CardTitle className="flex items-center gap-2">
             <FileEdit className="w-5 h-5" />
-            {t.campaigns.detail.campaignSummary}
+            {t.campaigns.detail.editCampaignDetails || t.campaigns.detail.settings}
           </CardTitle>
-          <CardDescription>
-            {t.campaigns.detail.editCampaignDetails || "Edit campaign name, dates, and countries"}
-          </CardDescription>
         </div>
         {hasChanges && (
           <Button onClick={handleSave} disabled={saving || !editName.trim()} data-testid="button-save-campaign-details">
@@ -355,19 +362,23 @@ function CampaignDetailsCard({ campaign }: { campaign: Campaign }) {
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>{t.campaigns.startDate}</Label>
-            <Input
-              type="date"
+            <DateTimePicker
               value={editStartDate}
-              onChange={(e) => setEditStartDate(e.target.value)}
+              onChange={setEditStartDate}
+              countryCode={editCountries[0] || "SK"}
+              includeTime={false}
+              placeholder={t.campaigns.startDate}
               data-testid="input-edit-start-date"
             />
           </div>
           <div className="space-y-2">
             <Label>{t.campaigns.endDate}</Label>
-            <Input
-              type="date"
+            <DateTimePicker
               value={editEndDate}
-              onChange={(e) => setEditEndDate(e.target.value)}
+              onChange={setEditEndDate}
+              countryCode={editCountries[0] || "SK"}
+              includeTime={false}
+              placeholder={t.campaigns.endDate}
               data-testid="input-edit-end-date"
             />
           </div>
@@ -1004,6 +1015,8 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
     dnd: t.campaigns.detail.dispActionDnd,
     complete: t.campaigns.detail.dispActionComplete,
     convert: t.campaigns.detail.dispActionConvert,
+    send_email: t.campaigns.detail.dispActionEmail,
+    send_sms: t.campaigns.detail.dispActionSms,
   };
 
   const { data: dispositions = [], isLoading } = useQuery<CampaignDisposition[]>({
@@ -1475,7 +1488,7 @@ export default function CampaignDetailPage() {
   }, [campaignDispositions]);
 
   const callCenterRoleId = roles.find(r => r.name === "Call Center")?.id;
-  const callCenterUsers = allUsers.filter(u => u.role === "admin" || (callCenterRoleId && u.roleId === callCenterRoleId));
+  const callCenterUsers = allUsers.filter(u => u.role === "admin" || u.role === "callCenter" || (callCenterRoleId && u.roleId === callCenterRoleId));
   const assignedAgentIds = campaignAgents.map(a => a.userId);
 
   const getStageName = (stageId: string) => {
@@ -2158,12 +2171,12 @@ export default function CampaignDetailPage() {
                 <Separator />
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">{t.campaigns.startDate}</span>
-                  <span>{campaign.startDate ? format(new Date(campaign.startDate), "PP") : "-"}</span>
+                  <span>{campaign.startDate ? format(new Date(campaign.startDate), DATE_FORMAT_MAP[campaign.countryCodes?.[0] || "SK"] || "dd.MM.yyyy", { locale: DATE_LOCALE_MAP[campaign.countryCodes?.[0] || "SK"] || sk }) : "-"}</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">{t.campaigns.endDate}</span>
-                  <span>{campaign.endDate ? format(new Date(campaign.endDate), "PP") : "-"}</span>
+                  <span>{campaign.endDate ? format(new Date(campaign.endDate), DATE_FORMAT_MAP[campaign.countryCodes?.[0] || "SK"] || "dd.MM.yyyy", { locale: DATE_LOCALE_MAP[campaign.countryCodes?.[0] || "SK"] || sk }) : "-"}</span>
                 </div>
               </CardContent>
             </Card>

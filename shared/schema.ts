@@ -2932,7 +2932,7 @@ export const campaignDispositions = pgTable("campaign_dispositions", {
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
-export const DISPOSITION_ACTION_TYPES = ["none", "callback", "dnd", "complete", "convert"] as const;
+export const DISPOSITION_ACTION_TYPES = ["none", "callback", "dnd", "complete", "convert", "send_email", "send_sms"] as const;
 export type DispositionActionType = typeof DISPOSITION_ACTION_TYPES[number];
 
 export const insertCampaignDispositionSchema = createInsertSchema(campaignDispositions).omit({
