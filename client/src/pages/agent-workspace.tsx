@@ -111,6 +111,7 @@ import {
   Inbox,
   Reply,
   Forward,
+  Search,
 } from "lucide-react";
 import {
   Dialog,
@@ -2169,6 +2170,8 @@ function CustomerInfoPanel({
   const [newNote, setNewNote] = useState("");
   const [showDialpad, setShowDialpad] = useState(false);
   const [showVolume, setShowVolume] = useState(false);
+  const [historySearchQuery, setHistorySearchQuery] = useState("");
+  const [historyTypeFilter, setHistoryTypeFilter] = useState("all");
   const fmtTime = (sec: number) => `${Math.floor(sec / 60)}:${(sec % 60).toString().padStart(2, "0")}`;
   const dialPadButtons = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
   const hasCall = callState === "connecting" || callState === "ringing" || callState === "active" || callState === "on_hold" || (callState === "ended" && hungUpBy);
@@ -2503,81 +2506,204 @@ function CustomerInfoPanel({
           </div>
         )}
 
-        {rightTab === "history" && (
-          <div className="p-3 space-y-2">
-            {contactHistory.length === 0 && (
-              <div className="text-center py-8">
-                <History className="h-8 w-8 mx-auto mb-2 text-muted-foreground/20" />
-                <p className="text-xs text-muted-foreground">Žiadna história komunikácie</p>
+        {rightTab === "history" && (() => {
+          const [histSearchQuery, setHistSearchQuery] = [historySearchQuery, setHistorySearchQuery];
+          const [histTypeFilter, setHistTypeFilter] = [historyTypeFilter, setHistoryTypeFilter];
+
+          const typeLabels: Record<string, string> = { all: "Všetko", call: "Hovory", email: "Emaily", sms: "SMS", disposition: "Dispozície" };
+          const typeCounts = contactHistory.reduce((acc, item) => {
+            acc[item.type] = (acc[item.type] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>);
+
+          const filteredHistory = contactHistory.filter((item) => {
+            if (histTypeFilter !== "all" && item.type !== histTypeFilter) return false;
+            if (histSearchQuery.trim()) {
+              const q = histSearchQuery.toLowerCase();
+              const searchable = [
+                item.content,
+                item.notes,
+                item.details?.replace(/<[^>]*>/g, ''),
+                item.agentName,
+                item.campaignName,
+                (item as any).recipientEmail,
+                (item as any).recipientPhone,
+                (item as any).fullContent,
+                item.status,
+              ].filter(Boolean).join(" ").toLowerCase();
+              if (!searchable.includes(q)) return false;
+            }
+            return true;
+          });
+
+          const highlightMatch = (text: string | undefined | null) => {
+            if (!text || !histSearchQuery.trim()) return text || "";
+            const q = histSearchQuery.trim();
+            const idx = text.toLowerCase().indexOf(q.toLowerCase());
+            if (idx === -1) return text;
+            return (
+              <>{text.substring(0, idx)}<mark className="bg-yellow-200 dark:bg-yellow-800 text-foreground rounded-sm px-0.5">{text.substring(idx, idx + q.length)}</mark>{text.substring(idx + q.length)}</>
+            );
+          };
+
+          return (
+          <div className="flex flex-col h-full">
+            <div className="p-2 space-y-2 border-b">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  value={histSearchQuery}
+                  onChange={(e) => setHistorySearchQuery(e.target.value)}
+                  placeholder="Hľadať v histórii..."
+                  className="pl-8 h-8 text-xs"
+                  data-testid="input-history-search"
+                />
+                {histSearchQuery && (
+                  <button
+                    onClick={() => setHistorySearchQuery("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-1 flex-wrap">
+                {["all", "call", "email", "sms", "disposition"].map((t) => {
+                  const count = t === "all" ? contactHistory.length : (typeCounts[t] || 0);
+                  if (t !== "all" && count === 0) return null;
+                  const isActive = histTypeFilter === t;
+                  return (
+                    <button
+                      key={t}
+                      onClick={() => setHistoryTypeFilter(t)}
+                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium transition-colors ${
+                        isActive
+                          ? "bg-primary/10 text-primary border border-primary/30"
+                          : "bg-muted/40 text-muted-foreground border border-transparent hover-elevate"
+                      }`}
+                      data-testid={`btn-history-filter-${t}`}
+                    >
+                      {t === "call" && <Phone className="h-2.5 w-2.5" />}
+                      {t === "email" && <Mail className="h-2.5 w-2.5" />}
+                      {t === "sms" && <MessageSquare className="h-2.5 w-2.5" />}
+                      {t === "disposition" && <ListChecks className="h-2.5 w-2.5" />}
+                      {typeLabels[t]}
+                      <span className={`text-[9px] ${isActive ? "text-primary" : "text-muted-foreground/70"}`}>({count})</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-auto">
+              {filteredHistory.length === 0 && (
+                <div className="text-center py-8">
+                  {contactHistory.length === 0 ? (
+                    <>
+                      <History className="h-8 w-8 mx-auto mb-2 text-muted-foreground/20" />
+                      <p className="text-xs text-muted-foreground">Žiadna história komunikácie</p>
+                    </>
+                  ) : (
+                    <>
+                      <Search className="h-8 w-8 mx-auto mb-2 text-muted-foreground/20" />
+                      <p className="text-xs text-muted-foreground">Žiadne výsledky pre "{histSearchQuery}"</p>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {filteredHistory.length > 0 && (
+                <div className="p-2 space-y-1.5">
+                  {filteredHistory.map((item) => {
+                    const isClickable = item.type === "email" || item.type === "sms";
+                    const plainDetails = item.details?.replace(/<[^>]*>/g, '') || "";
+                    const isCall = item.type === "call";
+                    const contentText = item.content || item.notes || "";
+                    const fullContentText = (item as any).fullContent || "";
+
+                    return (
+                      <div
+                        key={item.id}
+                        className={`rounded-md border border-border/40 overflow-visible transition-colors ${isClickable ? "cursor-pointer hover-elevate group" : ""}`}
+                        data-testid={`history-item-${item.id}`}
+                        onClick={() => { if (isClickable && onOpenHistoryDetail) onOpenHistoryDetail(item); }}
+                      >
+                        <div className="flex items-start gap-2 p-2">
+                          <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full mt-0.5 ${
+                            item.type === "call" ? "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400" :
+                            item.type === "email" ? "bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400" :
+                            item.type === "sms" ? "bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400" :
+                            "bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400"
+                          }`}>
+                            {item.type === "call" && <Phone className="h-3 w-3" />}
+                            {item.type === "email" && <Mail className="h-3 w-3" />}
+                            {item.type === "sms" && <MessageSquare className="h-3 w-3" />}
+                            {item.type === "disposition" && <ListChecks className="h-3 w-3" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1 flex-wrap">
+                              {item.direction && (
+                                <span className={`text-[9px] font-medium ${item.direction === "outbound" ? "text-green-600 dark:text-green-400" : "text-blue-600 dark:text-blue-400"}`}>
+                                  {item.direction === "inbound" ? "Prijatý" : "Odoslaný"}
+                                </span>
+                              )}
+                              {item.type === "disposition" && (
+                                <span className="text-[9px] font-medium text-purple-600 dark:text-purple-400">Dispozícia</span>
+                              )}
+                              {item.status && (
+                                <Badge variant="secondary" className="text-[9px] h-4 px-1">{item.status}</Badge>
+                              )}
+                              <span className="text-[9px] text-muted-foreground/70 ml-auto">
+                                {format(new Date(item.date), "d.M. HH:mm", { locale: sk })}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-foreground mt-0.5 line-clamp-2 leading-snug">
+                              {highlightMatch(contentText) || "—"}
+                            </p>
+                            {plainDetails && (
+                              <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1 leading-snug">
+                                {highlightMatch(plainDetails)}
+                              </p>
+                            )}
+                          </div>
+                          {isClickable && (
+                            <ExternalLink className="h-3 w-3 text-muted-foreground/40 shrink-0 mt-1 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 px-2 pb-1.5 text-[9px] text-muted-foreground/60">
+                          {item.agentName && (
+                            <span className="flex items-center gap-0.5">
+                              <UserCircle className="h-2.5 w-2.5" />
+                              {item.agentName}
+                            </span>
+                          )}
+                          {item.campaignName && (
+                            <span className="truncate max-w-[120px]" title={item.campaignName}>
+                              {item.campaignName}
+                            </span>
+                          )}
+                          {isCall && item.details && (
+                            <span>{highlightMatch(item.details)}</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {filteredHistory.length > 0 && (
+              <div className="px-3 py-1.5 border-t bg-muted/20 text-center">
+                <span className="text-[10px] text-muted-foreground">
+                  {filteredHistory.length} {filteredHistory.length === 1 ? "záznam" : filteredHistory.length < 5 ? "záznamy" : "záznamov"}
+                  {histSearchQuery && ` pre "${histSearchQuery}"`}
+                </span>
               </div>
             )}
-            {contactHistory.map((item) => {
-              const isClickable = item.type === "email" || item.type === "sms";
-              return (
-              <div
-                key={item.id}
-                className={`flex items-start gap-2.5 p-2.5 rounded-md bg-muted/30 border border-border/50 ${isClickable ? "cursor-pointer hover-elevate group" : ""}`}
-                data-testid={`history-item-${item.id}`}
-                onClick={() => { if (isClickable && onOpenHistoryDetail) onOpenHistoryDetail(item); }}
-              >
-                <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full mt-0.5 ${
-                  item.type === "call" ? "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400" :
-                  item.type === "email" ? "bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400" :
-                  item.type === "sms" ? "bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400" :
-                  "bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400"
-                }`}>
-                  {item.type === "call" && <Phone className="h-3.5 w-3.5" />}
-                  {item.type === "email" && <Mail className="h-3.5 w-3.5" />}
-                  {item.type === "sms" && <MessageSquare className="h-3.5 w-3.5" />}
-                  {item.type === "disposition" && <ListChecks className="h-3.5 w-3.5" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <Badge variant="outline" className="text-[10px] h-5">
-                      {item.type === "call" ? "Hovor" : item.type === "email" ? "Email" : item.type === "sms" ? "SMS" : "Dispozícia"}
-                    </Badge>
-                    {item.direction && (
-                      <Badge variant="secondary" className="text-[10px] h-5">
-                        {item.direction === "inbound" ? "Prichádz." : "Odchádz."}
-                      </Badge>
-                    )}
-                    {item.status && (
-                      <Badge variant="secondary" className="text-[10px] h-5">
-                        {item.status}
-                      </Badge>
-                    )}
-                    {isClickable && (
-                      <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-auto" />
-                    )}
-                  </div>
-                  <p className="text-xs text-foreground mt-1 line-clamp-2">
-                    {item.content || item.notes || "—"}
-                  </p>
-                  {item.details && (
-                    <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{item.details?.replace(/<[^>]*>/g, '')}</p>
-                  )}
-                  {item.campaignName && (
-                    <p className="text-[10px] text-muted-foreground mt-0.5 italic">
-                      Kampaň: {item.campaignName}
-                    </p>
-                  )}
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[10px] text-muted-foreground">
-                      {format(new Date(item.date), "d.M.yyyy HH:mm", { locale: sk })}
-                    </span>
-                    {item.agentName && (
-                      <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                        <UserCircle className="h-3 w-3" />
-                        {item.agentName}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-              );
-            })}
           </div>
-        )}
+          );
+        })()}
 
         {rightTab === "actions" && (
           <div className="p-3 space-y-3">
@@ -4411,22 +4537,33 @@ export default function AgentWorkspacePage() {
                   </div>
                 </div>
 
-                <div className="flex-1 min-h-0 overflow-auto">
+                <div className="flex-1 min-h-0 overflow-auto" style={{ maxHeight: "60vh" }}>
                   {isEmail && htmlBody ? (
-                    <div className="p-1">
-                      <div
-                        className="bg-white dark:bg-gray-950 rounded-md border border-border/30"
-                        style={{ minHeight: "300px" }}
-                      >
-                        <iframe
-                          srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;line-height:1.6;color:#333;margin:16px;word-wrap:break-word}img{max-width:100%;height:auto}a{color:#1a73e8}table{border-collapse:collapse;max-width:100%}td,th{padding:4px 8px}@media(prefers-color-scheme:dark){body{color:#e0e0e0;background:#0a0a0a}a{color:#8ab4f8}}</style></head><body>${htmlBody.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/on\w+\s*=/gi, 'data-blocked=')}</body></html>`}
-                          className="w-full border-0 rounded-md"
-                          style={{ minHeight: "350px", height: "100%" }}
-                          sandbox=""
-                          title="Email obsah"
-                          data-testid="iframe-email-content"
-                        />
-                      </div>
+                    <div className="p-2 h-full">
+                      <iframe
+                        ref={(iframe) => {
+                          if (iframe) {
+                            const tryResize = () => {
+                              try {
+                                const doc = iframe.contentDocument || iframe.contentWindow?.document;
+                                if (doc?.body) {
+                                  const h = Math.max(doc.body.scrollHeight + 40, 300);
+                                  iframe.style.height = h + "px";
+                                }
+                              } catch {}
+                            };
+                            iframe.onload = tryResize;
+                            setTimeout(tryResize, 200);
+                            setTimeout(tryResize, 600);
+                          }
+                        }}
+                        srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;line-height:1.6;color:#333;margin:16px;word-wrap:break-word}img{max-width:100%;height:auto}a{color:#1a73e8;text-decoration:none}table{border-collapse:collapse;max-width:100%}td,th{padding:4px 8px}pre{white-space:pre-wrap;word-wrap:break-word}@media(prefers-color-scheme:dark){body{color:#e0e0e0;background:#0a0a0a}a{color:#8ab4f8}}</style></head><body>${htmlBody.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/on\w+\s*=/gi, 'data-blocked=')}</body></html>`}
+                        className="w-full border-0 rounded-md bg-white dark:bg-gray-950"
+                        style={{ minHeight: "400px", width: "100%" }}
+                        sandbox="allow-same-origin"
+                        title="Email obsah"
+                        data-testid="iframe-email-content"
+                      />
                     </div>
                   ) : (
                     <div className="p-6">
