@@ -112,6 +112,9 @@ import {
   Reply,
   Forward,
   Search,
+  HelpCircle,
+  BookOpen,
+  ChevronUp,
 } from "lucide-react";
 import {
   Dialog,
@@ -2172,6 +2175,8 @@ function CustomerInfoPanel({
   const [showVolume, setShowVolume] = useState(false);
   const [historySearchQuery, setHistorySearchQuery] = useState("");
   const [historyTypeFilter, setHistoryTypeFilter] = useState("all");
+  const [faqExpandedId, setFaqExpandedId] = useState<string | null>(null);
+  const [faqSearchQuery, setFaqSearchQuery] = useState("");
   const fmtTime = (sec: number) => `${Math.floor(sec / 60)}:${(sec % 60).toString().padStart(2, "0")}`;
   const dialPadButtons = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
   const hasCall = callState === "connecting" || callState === "ringing" || callState === "active" || callState === "on_hold" || (callState === "ended" && hungUpBy);
@@ -2431,6 +2436,17 @@ function CustomerInfoPanel({
             data-testid="tab-history"
           >
             História
+          </button>
+          <button
+            className={`flex-1 py-2 text-[10px] font-semibold uppercase tracking-wider border-b-2 transition-colors ${
+              rightTab === "faq"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => onRightTabChange("faq")}
+            data-testid="tab-faq"
+          >
+            FAQ
           </button>
         </div>
       </div>
@@ -2702,6 +2718,107 @@ function CustomerInfoPanel({
               </div>
             )}
           </div>
+          );
+        })()}
+
+        {rightTab === "faq" && (() => {
+          const campaignFaqs: Array<{ id: string; question: string; answer: string; category: string }> = [
+            { id: "1", question: "Čo je pupočníková krv?", answer: "Pupočníková krv je krv, ktorá zostáva v pupočníku a placente po pôrode. Obsahuje kmeňové bunky, ktoré môžu byť použité na liečbu rôznych ochorení.", category: "Všeobecné" },
+            { id: "2", question: "Je odber bolestivý?", answer: "Nie, odber pupočníkovej krvi je úplne bezbolestný pre matku aj dieťa. Vykonáva sa až po pôrode a prestrihnutí pupočníka.", category: "Odber" },
+            { id: "3", question: "Ako dlho sa dá uchovávať?", answer: "Kmeňové bunky z pupočníkovej krvi je možné uchovávať v kryokonzervácii prakticky neobmedzene dlho. Štúdie potvrdzujú životaschopnosť aj po 25+ rokoch.", category: "Uchovávanie" },
+            { id: "4", question: "Aké ochorenia sa dajú liečiť?", answer: "Kmeňové bunky z pupočníkovej krvi sa používajú na liečbu viac ako 80 ochorení vrátane leukémie, lymfómov, anemie, metabolických porúch a imunodeficiencií.", category: "Liečba" },
+            { id: "5", question: "Koľko to stojí?", answer: "Cena závisí od zvoleného balíka služieb. Základný balík začína od 990€. Podrobnejšie informácie o cenách nájdete v aktuálnom cenníku alebo kontaktujte nášho poradcu.", category: "Cena" },
+            { id: "6", question: "Kedy sa mám rozhodnúť?", answer: "Ideálne je rozhodnúť sa do 34. týždňa tehotenstva, aby sme stihli pripraviť všetky potrebné dokumenty a odberový set. V urgentných prípadoch vieme zabezpečiť aj rýchlejšie spracovanie.", category: "Proces" },
+            { id: "7", question: "Čo ak mám cisársky rez?", answer: "Odber pupočníkovej krvi je možný aj pri cisárskom reze. Postup je rovnako bezpečný a bezbolestný. Informujte o tom vašu pôrodnicu a nášho koordinátora.", category: "Odber" },
+            { id: "8", question: "Je to kompatibilné pre súrodencov?", answer: "Áno, pupočníková krv je s vyššou pravdepodobnosťou kompatibilná medzi súrodencami (25% plná zhoda). Pre samotné dieťa je zhoda 100%. Uchovanie pre jedného potomka môže pomôcť celej rodine.", category: "Liečba" },
+          ];
+
+          const [expandedFaqId, setExpandedFaqId] = [faqExpandedId, setFaqExpandedId];
+          const [faqSearch, setFaqSearch] = [faqSearchQuery, setFaqSearchQuery];
+
+          const categories = [...new Set(campaignFaqs.map(f => f.category))];
+          const filteredFaqs = campaignFaqs.filter(f => {
+            if (!faqSearch.trim()) return true;
+            const q = faqSearch.toLowerCase();
+            return f.question.toLowerCase().includes(q) || f.answer.toLowerCase().includes(q) || f.category.toLowerCase().includes(q);
+          });
+          const groupedFaqs = categories.map(cat => ({
+            category: cat,
+            items: filteredFaqs.filter(f => f.category === cat),
+          })).filter(g => g.items.length > 0);
+
+          return (
+            <div className="flex flex-col h-full">
+              <div className="p-2 border-b space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <BookOpen className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Často kladené otázky</span>
+                  <Badge variant="secondary" className="text-[9px] h-4 px-1 ml-auto">{filteredFaqs.length}</Badge>
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                  <Input
+                    value={faqSearch}
+                    onChange={(e) => setFaqSearchQuery(e.target.value)}
+                    placeholder="Hľadať v FAQ..."
+                    className="pl-7 h-7 text-xs"
+                    data-testid="input-faq-search"
+                  />
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-auto">
+                {filteredFaqs.length === 0 ? (
+                  <div className="text-center py-8">
+                    <HelpCircle className="h-8 w-8 mx-auto mb-2 text-muted-foreground/20" />
+                    <p className="text-xs text-muted-foreground">Žiadne FAQ pre túto kampaň</p>
+                  </div>
+                ) : (
+                  <div className="p-2 space-y-3">
+                    {groupedFaqs.map((group) => (
+                      <div key={group.category}>
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                          <div className="h-1.5 w-1.5 rounded-full bg-primary/60" />
+                          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{group.category}</span>
+                          <span className="text-[9px] text-muted-foreground/50">({group.items.length})</span>
+                        </div>
+                        <div className="space-y-1">
+                          {group.items.map((faq) => {
+                            const isExpanded = expandedFaqId === faq.id;
+                            return (
+                              <div
+                                key={faq.id}
+                                className="rounded-md border border-border/40 overflow-visible"
+                                data-testid={`faq-item-${faq.id}`}
+                              >
+                                <button
+                                  onClick={() => setFaqExpandedId(isExpanded ? null : faq.id)}
+                                  className="w-full flex items-start gap-2 p-2 text-left hover-elevate rounded-md"
+                                  data-testid={`btn-faq-toggle-${faq.id}`}
+                                >
+                                  <HelpCircle className="h-3.5 w-3.5 text-primary/70 shrink-0 mt-0.5" />
+                                  <span className="text-[11px] font-medium text-foreground flex-1 leading-snug">{faq.question}</span>
+                                  {isExpanded ? (
+                                    <ChevronUp className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />
+                                  ) : (
+                                    <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />
+                                  )}
+                                </button>
+                                {isExpanded && (
+                                  <div className="px-2 pb-2 pt-0.5 ml-5">
+                                    <p className="text-[11px] text-muted-foreground leading-relaxed">{faq.answer}</p>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           );
         })()}
 

@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Plus, Pencil, Trash2, Search, Megaphone, PlayCircle, CheckCircle, Clock, XCircle, ExternalLink, FileText, Calendar, LayoutList, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, BarChart3, TrendingUp, Phone, RefreshCw, Users, Mail, MessageSquare, User, Check, Loader2, Shield, Headphones, X, Download } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Megaphone, PlayCircle, CheckCircle, Clock, XCircle, ExternalLink, FileText, Calendar, LayoutList, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, BarChart3, TrendingUp, Phone, RefreshCw, Users, Mail, MessageSquare, User, Check, Loader2, Shield, Headphones, X, Download, HelpCircle, BookOpen } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/auth-context";
 import { useCountryFilter } from "@/contexts/country-filter-context";
@@ -496,6 +496,328 @@ function CampaignCalendar({
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// Campaign FAQ Management Tab
+function CampaignFaqTab({ campaigns }: { campaigns: Campaign[] }) {
+  const { toast } = useToast();
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string>("all");
+  const [faqSearch, setFaqSearch] = useState("");
+  const [editingFaq, setEditingFaq] = useState<{ id: string; question: string; answer: string; category: string; campaignId: string } | null>(null);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const sampleFaqs = useMemo(() => [
+    { id: "faq-1", question: "Čo je pupočníková krv?", answer: "Pupočníková krv je krv, ktorá zostáva v pupočníku a placente po pôrode. Obsahuje kmeňové bunky, ktoré môžu byť použité na liečbu rôznych ochorení vrátane leukémie, lymfómov a metabolických porúch.", category: "Všeobecné", campaignId: "all" },
+    { id: "faq-2", question: "Je odber bolestivý pre matku alebo dieťa?", answer: "Nie, odber pupočníkovej krvi je úplne bezbolestný pre matku aj dieťa. Vykonáva sa až po pôrode a prestrihnutí pupočníka. Neovplyvňuje priebeh pôrodu ani zdravie novorodenca.", category: "Odber", campaignId: "all" },
+    { id: "faq-3", question: "Ako dlho sa dajú kmeňové bunky uchovávať?", answer: "Kmeňové bunky z pupočníkovej krvi je možné uchovávať v kryokonzervácii prakticky neobmedzene dlho. Vedecké štúdie potvrdzujú ich životaschopnosť aj po viac ako 25 rokoch uchovávania pri -196°C v tekutom dusíku.", category: "Uchovávanie", campaignId: "all" },
+    { id: "faq-4", question: "Aké ochorenia sa dajú liečiť kmeňovými bunkami?", answer: "Kmeňové bunky z pupočníkovej krvi sa v súčasnosti používajú na liečbu viac ako 80 ochorení. Patria medzi ne rôzne formy leukémie, lymfómy, ťažké anémie (vrátane kosáčikovitej anémie), metabolické poruchy, imunodeficiencie a niektoré solídne nádory. Prebiehajú klinické štúdie pre ďalšie indikácie.", category: "Liečba", campaignId: "all" },
+    { id: "faq-5", question: "Aké sú cenové možnosti?", answer: "Cena závisí od zvoleného balíka služieb. Základný balík začína od 990€. Máme k dispozícii aj rozšírené balíky s dlhšou dobou uchovávania a doplnkovými službami. Ponúkame tiež možnosť splátok. Aktuálny cenník vám radi pošleme emailom.", category: "Cena", campaignId: "all" },
+    { id: "faq-6", question: "Kedy sa musím rozhodnúť o odbere?", answer: "Odporúčame rozhodnúť sa do 34. týždňa tehotenstva, aby sme stihli pripraviť všetky potrebné dokumenty a odberový set. V urgentných prípadoch vieme zabezpečiť expresné spracovanie, ale odporúčame nepodceniť čas na prípravu.", category: "Proces", campaignId: "all" },
+    { id: "faq-7", question: "Čo ak mám cisársky rez?", answer: "Odber pupočníkovej krvi je plne kompatibilný aj s cisárskym rezom. Postup je rovnako bezpečný a bezbolestný. Dôležité je vopred informovať pôrodníčku a nášho koordinátora pre hladký priebeh.", category: "Odber", campaignId: "all" },
+    { id: "faq-8", question: "Je pupočníková krv kompatibilná medzi súrodencami?", answer: "Áno, medzi súrodencami je 25% pravdepodobnosť plnej HLA zhody a 50% pravdepodobnosť čiastočnej zhody. Pre samotné dieťa je zhoda 100%. Uchovanie pupočníkovej krvi jedného dieťaťa tak môže pomôcť celej rodine.", category: "Liečba", campaignId: "all" },
+    { id: "faq-9", question: "Aký je postup po podpísaní zmluvy?", answer: "Po podpísaní zmluvy vám pošleme odberový set s podrobnými inštrukciami. Set prinesiete do pôrodnice. Po pôrode vykoná odber vyškolený personál. Krv sa prepraví do nášho laboratória, kde sa spracuje a uloží do kryobánky do 48 hodín.", category: "Proces", campaignId: "all" },
+    { id: "faq-10", question: "Čo ak pupočníková krv nie je vhodná na spracovanie?", answer: "V zriedkavých prípadoch (cca 5%) môže byť objem pupočníkovej krvi nedostatočný alebo kvalita nevyhovujúca. V takom prípade vás budeme informovať a ponúkneme alternatívne riešenia vrátane čiastočného vrátenia poplatku.", category: "Všeobecné", campaignId: "all" },
+  ], []);
+
+  const [faqs, setFaqs] = useState(sampleFaqs);
+
+  const categories = useMemo(() => [...new Set(faqs.map(f => f.category))], [faqs]);
+
+  const filteredFaqs = useMemo(() => {
+    return faqs.filter(f => {
+      if (selectedCampaignId !== "all" && f.campaignId !== "all" && f.campaignId !== selectedCampaignId) return false;
+      if (faqSearch.trim()) {
+        const q = faqSearch.toLowerCase();
+        return f.question.toLowerCase().includes(q) || f.answer.toLowerCase().includes(q) || f.category.toLowerCase().includes(q);
+      }
+      return true;
+    });
+  }, [faqs, selectedCampaignId, faqSearch]);
+
+  const groupedFaqs = useMemo(() => {
+    return categories.map(cat => ({
+      category: cat,
+      items: filteredFaqs.filter(f => f.category === cat),
+    })).filter(g => g.items.length > 0);
+  }, [filteredFaqs, categories]);
+
+  const handleDeleteFaq = (id: string) => {
+    setFaqs(prev => prev.filter(f => f.id !== id));
+    toast({ title: "FAQ odstránená", description: "Otázka bola úspešne odstránená." });
+  };
+
+  const handleSaveFaq = (faq: { id?: string; question: string; answer: string; category: string; campaignId: string }) => {
+    if (faq.id) {
+      setFaqs(prev => prev.map(f => f.id === faq.id ? { ...f, ...faq, id: f.id } : f));
+      toast({ title: "FAQ aktualizovaná", description: "Otázka bola úspešne upravená." });
+    } else {
+      const newFaq = { ...faq, id: `faq-${Date.now()}` };
+      setFaqs(prev => [...prev, newFaq]);
+      toast({ title: "FAQ pridaná", description: "Nová otázka bola úspešne pridaná." });
+    }
+    setEditingFaq(null);
+    setIsAddDialogOpen(false);
+  };
+
+  return (
+    <div className="p-6 space-y-6">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-4 pb-4 flex-wrap">
+          <div className="space-y-1">
+            <CardTitle className="flex items-center gap-2">
+              <BookOpen className="h-5 w-5 text-primary" />
+              Správa FAQ
+            </CardTitle>
+            <CardDescription>Spravujte často kladené otázky pre agentov v kampaniach</CardDescription>
+          </div>
+          <Button onClick={() => { setEditingFaq(null); setIsAddDialogOpen(true); }} data-testid="btn-add-faq">
+            <Plus className="h-4 w-4 mr-2" />
+            Pridať FAQ
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-3 mb-6 flex-wrap">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Hľadať v FAQ..."
+                value={faqSearch}
+                onChange={(e) => setFaqSearch(e.target.value)}
+                className="pl-10"
+                data-testid="input-faq-campaign-search"
+              />
+            </div>
+            <Select value={selectedCampaignId} onValueChange={setSelectedCampaignId}>
+              <SelectTrigger className="w-[200px]" data-testid="select-faq-campaign">
+                <SelectValue placeholder="Všetky kampane" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Všetky kampane</SelectItem>
+                {campaigns.map(c => (
+                  <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Badge variant="secondary" className="text-xs">{filteredFaqs.length} otázok</Badge>
+          </div>
+
+          {groupedFaqs.length === 0 ? (
+            <div className="text-center py-12">
+              <HelpCircle className="h-12 w-12 mx-auto mb-3 text-muted-foreground/20" />
+              <p className="text-sm text-muted-foreground">
+                {faqSearch ? `Žiadne FAQ pre "${faqSearch}"` : "Zatiaľ neboli vytvorené žiadne FAQ"}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {groupedFaqs.map((group) => (
+                <div key={group.category}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="h-2 w-2 rounded-full bg-primary/60" />
+                    <h3 className="text-sm font-semibold text-foreground">{group.category}</h3>
+                    <Badge variant="outline" className="text-[10px]">{group.items.length}</Badge>
+                  </div>
+                  <div className="space-y-2">
+                    {group.items.map((faq) => {
+                      const isExpanded = expandedId === faq.id;
+                      return (
+                        <Card key={faq.id} data-testid={`faq-manage-item-${faq.id}`}>
+                          <div className="flex items-start gap-3 p-4">
+                            <HelpCircle className="h-4 w-4 text-primary/70 shrink-0 mt-1" />
+                            <div className="flex-1 min-w-0">
+                              <button
+                                onClick={() => setExpandedId(isExpanded ? null : faq.id)}
+                                className="w-full text-left"
+                                data-testid={`btn-faq-expand-${faq.id}`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <p className="text-sm font-medium text-foreground flex-1">{faq.question}</p>
+                                  {isExpanded ? (
+                                    <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
+                                  ) : (
+                                    <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                                  )}
+                                </div>
+                              </button>
+                              {isExpanded && (
+                                <div className="mt-3 pt-3 border-t">
+                                  <p className="text-sm text-muted-foreground leading-relaxed">{faq.answer}</p>
+                                  <div className="flex items-center gap-2 mt-3 flex-wrap">
+                                    <Badge variant="outline" className="text-[10px]">{faq.category}</Badge>
+                                    <Badge variant="secondary" className="text-[10px]">
+                                      {faq.campaignId === "all" ? "Všetky kampane" : campaigns.find(c => String(c.id) === faq.campaignId)?.name || "—"}
+                                    </Badge>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => { setEditingFaq(faq); setIsAddDialogOpen(true); }}
+                                data-testid={`btn-faq-edit-${faq.id}`}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => handleDeleteFaq(faq.id)}
+                                data-testid={`btn-faq-delete-${faq.id}`}
+                              >
+                                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                              </Button>
+                            </div>
+                          </div>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={isAddDialogOpen} onOpenChange={(open) => { setIsAddDialogOpen(open); if (!open) setEditingFaq(null); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editingFaq ? "Upraviť FAQ" : "Pridať novú FAQ"}</DialogTitle>
+            <DialogDescription>
+              {editingFaq ? "Upravte otázku a odpoveď" : "Vytvorte novú často kladenú otázku pre agentov"}
+            </DialogDescription>
+          </DialogHeader>
+          <FaqForm
+            initialData={editingFaq}
+            campaigns={campaigns}
+            categories={categories}
+            onSave={handleSaveFaq}
+            onCancel={() => { setIsAddDialogOpen(false); setEditingFaq(null); }}
+          />
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function FaqForm({
+  initialData,
+  campaigns,
+  categories,
+  onSave,
+  onCancel,
+}: {
+  initialData: { id?: string; question: string; answer: string; category: string; campaignId: string } | null;
+  campaigns: Campaign[];
+  categories: string[];
+  onSave: (faq: { id?: string; question: string; answer: string; category: string; campaignId: string }) => void;
+  onCancel: () => void;
+}) {
+  const [question, setQuestion] = useState(initialData?.question || "");
+  const [answer, setAnswer] = useState(initialData?.answer || "");
+  const [category, setCategory] = useState(initialData?.category || "");
+  const [newCategory, setNewCategory] = useState("");
+  const [campaignId, setCampaignId] = useState(initialData?.campaignId || "all");
+  const [useNewCategory, setUseNewCategory] = useState(false);
+
+  const handleSubmit = () => {
+    if (!question.trim() || !answer.trim()) return;
+    const finalCategory = useNewCategory ? newCategory.trim() : category;
+    if (!finalCategory) return;
+    onSave({
+      id: initialData?.id,
+      question: question.trim(),
+      answer: answer.trim(),
+      category: finalCategory,
+      campaignId,
+    });
+  };
+
+  return (
+    <div className="space-y-4 pt-2">
+      <div className="space-y-2">
+        <Label>Otázka</Label>
+        <Input
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          placeholder="Napíšte otázku..."
+          data-testid="input-faq-question"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>Odpoveď</Label>
+        <Textarea
+          value={answer}
+          onChange={(e) => setAnswer(e.target.value)}
+          placeholder="Napíšte odpoveď..."
+          rows={4}
+          data-testid="input-faq-answer"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>Kategória</Label>
+        <div className="flex items-center gap-2 flex-wrap">
+          {!useNewCategory ? (
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger className="flex-1" data-testid="select-faq-category">
+                <SelectValue placeholder="Vyberte kategóriu" />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map(cat => (
+                  <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <Input
+              value={newCategory}
+              onChange={(e) => setNewCategory(e.target.value)}
+              placeholder="Nová kategória..."
+              className="flex-1"
+              data-testid="input-faq-new-category"
+            />
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setUseNewCategory(!useNewCategory)}
+            data-testid="btn-toggle-new-category"
+          >
+            {useNewCategory ? "Existujúca" : "Nová"}
+          </Button>
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label>Kampaň</Label>
+        <Select value={campaignId} onValueChange={setCampaignId}>
+          <SelectTrigger data-testid="select-faq-campaign-assign">
+            <SelectValue placeholder="Vyberte kampaň" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Všetky kampane</SelectItem>
+            {campaigns.map(c => (
+              <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex justify-end gap-2 pt-2">
+        <Button variant="outline" onClick={onCancel} data-testid="btn-faq-cancel">
+          Zrušiť
+        </Button>
+        <Button
+          onClick={handleSubmit}
+          disabled={!question.trim() || !answer.trim() || (!category && !newCategory.trim())}
+          data-testid="btn-faq-save"
+        >
+          {initialData ? "Uložiť zmeny" : "Pridať FAQ"}
+        </Button>
       </div>
     </div>
   );
@@ -1128,6 +1450,10 @@ export default function CampaignsPage() {
               <Shield className="h-4 w-4" />
               Prístup agentov
             </TabsTrigger>
+            <TabsTrigger value="faq" className="gap-2" data-testid="tab-faq">
+              <HelpCircle className="h-4 w-4" />
+              FAQ
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -1185,6 +1511,10 @@ export default function CampaignsPage() {
 
         <TabsContent value="access" className="flex-1 overflow-auto mt-0">
           <AgentWorkspaceAccessTab />
+        </TabsContent>
+
+        <TabsContent value="faq" className="flex-1 overflow-auto p-6 mt-0">
+          <CampaignFaqTab campaigns={campaigns || []} />
         </TabsContent>
       </Tabs>
 
