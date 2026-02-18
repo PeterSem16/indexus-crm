@@ -15203,17 +15203,21 @@ export async function registerRoutes(
   // Seed default dispositions for a campaign based on its channel
   app.post("/api/campaigns/:id/dispositions/seed", requireAuth, async (req, res) => {
     try {
-      const { language = 'sk' } = req.body || {};
+      const { language = 'sk', force = false } = req.body || {};
       const campaign = await storage.getCampaign(req.params.id);
       if (!campaign) {
         return res.status(404).json({ error: "Campaign not found" });
       }
 
-      // Check if already seeded
       const existing = await db.select().from(campaignDispositions)
         .where(eq(campaignDispositions.campaignId, req.params.id));
-      if (existing.length > 0) {
+      if (existing.length > 0 && !force) {
         return res.json({ message: "Already seeded", dispositions: existing });
+      }
+
+      if (existing.length > 0 && force) {
+        await db.delete(campaignDispositions)
+          .where(eq(campaignDispositions.campaignId, req.params.id));
       }
 
       const channel = campaign.channel || "phone";

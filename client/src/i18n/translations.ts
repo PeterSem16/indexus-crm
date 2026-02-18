@@ -1268,6 +1268,8 @@ export interface Translations {
       dispSave: string;
       dispLoadDefaults: string;
       dispLoadDefaultsLoading: string;
+      dispReloadDefaults: string;
+      dispResetConfirm: string;
       dispDefaultsCreated: string;
       dispCreated: string;
       dispCreateError: string;
@@ -4535,6 +4537,8 @@ export const translations: Record<Locale, Translations> = {
         dispSave: 'Save',
         dispLoadDefaults: 'Load defaults',
         dispLoadDefaultsLoading: 'Creating...',
+        dispReloadDefaults: 'Reset to defaults',
+        dispResetConfirm: 'Existing dispositions will be replaced with defaults. Continue?',
         dispDefaultsCreated: 'Default dispositions created',
         dispCreated: 'Disposition added',
         dispCreateError: 'Error creating disposition',
@@ -7787,6 +7791,8 @@ export const translations: Record<Locale, Translations> = {
         dispSave: 'Uložiť',
         dispLoadDefaults: 'Načítať predvolené',
         dispLoadDefaultsLoading: 'Vytváranie...',
+        dispReloadDefaults: 'Obnoviť predvolené',
+        dispResetConfirm: 'Existujúce dispozície budú nahradené predvolenými. Pokračovať?',
         dispDefaultsCreated: 'Predvolené výsledky boli vytvorené',
         dispCreated: 'Výsledok pridaný',
         dispCreateError: 'Chyba pri vytváraní',
@@ -10978,6 +10984,8 @@ export const translations: Record<Locale, Translations> = {
         dispSave: 'Uložit',
         dispLoadDefaults: 'Načíst výchozí',
         dispLoadDefaultsLoading: 'Vytváření...',
+        dispReloadDefaults: 'Obnovit výchozí',
+        dispResetConfirm: 'Stávající dispozice budou nahrazeny výchozími. Pokračovat?',
         dispDefaultsCreated: 'Výchozí výsledky vytvořeny',
         dispCreated: 'Výsledek přidán',
         dispCreateError: 'Chyba při vytváření',
@@ -14132,6 +14140,8 @@ export const translations: Record<Locale, Translations> = {
         dispSave: 'Mentés',
         dispLoadDefaults: 'Alapértékek betöltése',
         dispLoadDefaultsLoading: 'Létrehozás...',
+        dispReloadDefaults: 'Alapértékek visszaállítása',
+        dispResetConfirm: 'A meglévő diszpozíciók az alapértékekre cserélődnek. Folytatja?',
         dispDefaultsCreated: 'Alapértelmezett eredmények létrehozva',
         dispCreated: 'Eredmény hozzáadva',
         dispCreateError: 'Hiba a létrehozáskor',
@@ -17285,6 +17295,8 @@ export const translations: Record<Locale, Translations> = {
         dispSave: 'Salvare',
         dispLoadDefaults: 'Încarcă valorile implicite',
         dispLoadDefaultsLoading: 'Se creează...',
+        dispReloadDefaults: 'Resetare la valorile implicite',
+        dispResetConfirm: 'Dispozițiile existente vor fi înlocuite cu cele implicite. Continuați?',
         dispDefaultsCreated: 'Rezultatele implicite au fost create',
         dispCreated: 'Rezultat adăugat',
         dispCreateError: 'Eroare la creare',
@@ -20439,6 +20451,8 @@ export const translations: Record<Locale, Translations> = {
         dispSave: 'Salva',
         dispLoadDefaults: 'Carica predefiniti',
         dispLoadDefaultsLoading: 'Creazione...',
+        dispReloadDefaults: 'Ripristina predefiniti',
+        dispResetConfirm: 'Le disposizioni esistenti saranno sostituite con quelle predefinite. Continuare?',
         dispDefaultsCreated: 'Esiti predefiniti creati',
         dispCreated: 'Esito aggiunto',
         dispCreateError: 'Errore nella creazione',
@@ -23593,6 +23607,8 @@ export const translations: Record<Locale, Translations> = {
         dispSave: 'Speichern',
         dispLoadDefaults: 'Standardwerte laden',
         dispLoadDefaultsLoading: 'Erstellen...',
+        dispReloadDefaults: 'Standardwerte zurücksetzen',
+        dispResetConfirm: 'Bestehende Dispositionen werden durch Standardwerte ersetzt. Fortfahren?',
         dispDefaultsCreated: 'Standard-Ergebnisse erstellt',
         dispCreated: 'Ergebnis hinzugefügt',
         dispCreateError: 'Fehler beim Erstellen',

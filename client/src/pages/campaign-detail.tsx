@@ -1042,7 +1042,7 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
   };
 
   const seedMutation = useMutation({
-    mutationFn: () => apiRequest("POST", `/api/campaigns/${campaignId}/dispositions/seed`, { language: locale }),
+    mutationFn: (force: boolean = false) => apiRequest("POST", `/api/campaigns/${campaignId}/dispositions/seed`, { language: locale, force }),
     onSuccess: () => {
       toast({ title: t.campaigns.detail.dispDefaultsCreated });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "dispositions"] });
@@ -1206,17 +1206,27 @@ function DispositionsTab({ campaignId, embedded }: { campaignId: string; embedde
           <p className="text-sm text-muted-foreground">{t.campaigns.detail.dispTitle}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {dispositions.length === 0 && (
-            <Button
-              variant="outline"
-              onClick={() => seedMutation.mutate()}
-              disabled={seedMutation.isPending}
-              data-testid="button-seed-dispositions"
-            >
-              <ListChecks className="w-4 h-4 mr-2" />
-              {seedMutation.isPending ? t.campaigns.detail.dispLoadDefaultsLoading : t.campaigns.detail.dispLoadDefaults}
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            onClick={() => {
+              if (dispositions.length > 0) {
+                if (window.confirm(t.campaigns?.detail?.dispResetConfirm || "Existujúce dispozície budú nahradené predvolenými. Pokračovať?")) {
+                  seedMutation.mutate(true);
+                }
+              } else {
+                seedMutation.mutate(false);
+              }
+            }}
+            disabled={seedMutation.isPending}
+            data-testid="button-seed-dispositions"
+          >
+            <ListChecks className="w-4 h-4 mr-2" />
+            {seedMutation.isPending
+              ? t.campaigns.detail.dispLoadDefaultsLoading
+              : dispositions.length > 0
+                ? (t.campaigns?.detail?.dispReloadDefaults || "Obnoviť predvolené")
+                : t.campaigns.detail.dispLoadDefaults}
+          </Button>
           <Button
             onClick={() => { setShowAddForm(true); setAddingSubFor(null); setNewDisp({ name: "", code: "", icon: "", color: "#6b7280", actionType: "none" }); }}
             data-testid="button-add-disposition"
