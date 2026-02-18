@@ -407,7 +407,7 @@ function TopBar({
                 data-testid="btn-open-scheduled-queue"
               >
                 <CalendarClock className="h-3.5 w-3.5" />
-                <span className="text-xs hidden xl:inline">Fronta</span>
+                <span className="text-xs hidden xl:inline">{t.agentWorkspace.queue}</span>
                 {scheduledQueueCounts && scheduledQueueCounts.total > 0 && (
                   <Badge
                     variant={scheduledQueueCounts.overdue > 0 ? "destructive" : "secondary"}
@@ -476,6 +476,7 @@ function TaskListPanel({
   onOpenContactsModal: () => void;
   onOpenTasksModal: () => void;
 }) {
+  const { t } = useI18n();
   const filteredCampaigns = useMemo(() => {
     if (channelFilter === "all") return campaigns;
     return campaigns.filter((c) => c.channel === channelFilter);
@@ -487,7 +488,7 @@ function TaskListPanel({
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-sm flex items-center gap-2">
             <Headphones className="h-4 w-4 text-primary" />
-            Pracovný priestor
+            {t.agentWorkspace.workspace}
           </h3>
           {tasks.length > 0 && (
             <Badge variant="secondary">{tasks.length}</Badge>
@@ -522,7 +523,7 @@ function TaskListPanel({
         <div className="border-b">
           <div className="px-3 py-2 flex items-center justify-between gap-1">
             <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-              Aktívne úlohy ({tasks.length})
+              {t.agentWorkspace.activeTasks} ({tasks.length})
             </span>
             <Button size="icon" variant="ghost" onClick={onOpenTasksModal} data-testid="btn-maximize-tasks">
               <Maximize2 className="h-3.5 w-3.5" />
@@ -584,7 +585,7 @@ function TaskListPanel({
 
       <div className="px-3 py-2">
         <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-          Kampane
+          {t.agentWorkspace.campaigns}
         </span>
       </div>
       <ScrollArea className="flex-1">
@@ -642,7 +643,7 @@ function TaskListPanel({
           >
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                Kontakty ({campaignContacts.length})
+                {t.agentWorkspace.contacts} ({campaignContacts.length})
               </span>
               <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); onOpenContactsModal(); }} data-testid="btn-maximize-contacts"><Maximize2 className="h-3.5 w-3.5" /></Button>
             </div>
@@ -712,13 +713,13 @@ function TaskListPanel({
                         {myCallbackCount > 0 && (
                           <Badge variant="default" className="text-[9px] gap-1 bg-purple-500 text-white">
                             <User className="h-2.5 w-2.5" />
-                            {myCallbackCount} moje
+                            {myCallbackCount} {t.agentWorkspace.myCB}
                           </Badge>
                         )}
                         {teamCallbackCount > 0 && (
                           <Badge variant="default" className="text-[9px] gap-1 bg-blue-500 text-white">
                             <Users className="h-2.5 w-2.5" />
-                            {teamCallbackCount} tímové
+                            {teamCallbackCount} {t.agentWorkspace.teamCB}
                           </Badge>
                         )}
                       </div>
@@ -767,7 +768,7 @@ function TaskListPanel({
                           <div className="flex flex-col items-end gap-0.5 shrink-0">
                             {isCallback && (
                               <Badge variant={isDueCallback ? "default" : "outline"} className={`text-[9px] px-1 py-0 ${isDueCallback && isMyCallback ? "bg-purple-500 text-white" : isDueCallback ? "bg-blue-500 text-white" : ""}`}>
-                                {isDueCallback ? "Zavolať!" : isMyCallback ? "Môj CB" : "Tím CB"}
+                                {isDueCallback ? t.agentWorkspace.callBack : isMyCallback ? t.agentWorkspace.myCB : t.agentWorkspace.teamCB}
                               </Badge>
                             )}
                             {callbackDateStr && (
@@ -1326,6 +1327,7 @@ function CommunicationCanvas({
   contactHistory?: ContactHistory[];
   onOpenHistoryDetail?: (entry: TimelineEntry | ContactHistory) => void;
 }) {
+  const { t } = useI18n();
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
   const [smsMessage, setSmsMessage] = useState("");
@@ -1527,7 +1529,7 @@ function CommunicationCanvas({
                   variant="ghost"
                   onClick={() => onMakeCall(contact.phone!)}
                   data-testid="btn-call-from-canvas"
-                  title="Zavolať"
+                  title={t.agentWorkspace.call}
                 >
                   <Phone className="h-4 w-4 text-green-600" />
                 </Button>
@@ -1677,7 +1679,7 @@ function CommunicationCanvas({
               data-testid="subtab-communication-history"
             >
               <History className="h-3 w-3" />
-              História
+              {t.agentWorkspace.history}
             </button>
           </div>
 
@@ -1694,7 +1696,7 @@ function CommunicationCanvas({
                   data-testid="btn-call-from-subtab"
                 >
                   <Phone className="h-3 w-3 mr-1" />
-                  Zavolať
+                  {t.agentWorkspace.call}
                 </Button>
               ) : callState === "connecting" || callState === "ringing" ? (
                 <span className="text-[11px] text-yellow-600 dark:text-yellow-400 ml-auto flex items-center gap-1.5">
@@ -1808,7 +1810,7 @@ function CommunicationCanvas({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Inbox className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">História emailov</span>
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t.agentWorkspace.emailHistory}</span>
                 </div>
                 {mergedHistory.email.length > 0 && (
                   <Badge variant="secondary" className="text-[9px] h-4">{mergedHistory.email.length}</Badge>
@@ -1998,7 +2000,7 @@ function CommunicationCanvas({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">História SMS</span>
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t.agentWorkspace.smsHistory}</span>
                 </div>
                 {mergedHistory.sms.length > 0 && (
                   <Badge variant="secondary" className="text-[9px] h-4">{mergedHistory.sms.length}</Badge>
@@ -2416,7 +2418,7 @@ function CustomerInfoPanel({
             onClick={() => onRightTabChange("actions")}
             data-testid="tab-actions"
           >
-            Akcie
+            {t.agentWorkspace.actions}
           </button>
           <button
             className={`flex-1 py-2 text-[10px] font-semibold uppercase tracking-wider border-b-2 transition-colors ${
@@ -2427,7 +2429,7 @@ function CustomerInfoPanel({
             onClick={() => onRightTabChange("profile")}
             data-testid="tab-profile"
           >
-            Profil
+            {t.agentWorkspace.profile}
           </button>
           <button
             className={`flex-1 py-2 text-[10px] font-semibold uppercase tracking-wider border-b-2 transition-colors ${
@@ -2438,7 +2440,7 @@ function CustomerInfoPanel({
             onClick={() => onRightTabChange("history")}
             data-testid="tab-history"
           >
-            História
+            {t.agentWorkspace.history}
           </button>
           <button
             className={`flex-1 py-2 text-[10px] font-semibold uppercase tracking-wider border-b-2 transition-colors ${
@@ -2746,7 +2748,7 @@ function CustomerInfoPanel({
                 <div className="flex items-center justify-between px-5 py-3 border-b">
                   <div className="flex items-center gap-2">
                     <History className="h-5 w-5 text-primary" />
-                    <h2 className="text-base font-semibold" data-testid="text-history-modal-title">História komunikácie</h2>
+                    <h2 className="text-base font-semibold" data-testid="text-history-modal-title">{t.agentWorkspace.communicationHistory}</h2>
                     {contact && (
                       <Badge variant="outline" className="text-xs ml-2">
                         {contact.firstName} {contact.lastName}
@@ -2964,7 +2966,7 @@ function CustomerInfoPanel({
             <div>
               <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
                 <Zap className="h-3 w-3" />
-                Rýchle akcie
+                {t.agentWorkspace.quickActions}
               </h4>
               <div className="grid grid-cols-2 gap-2">
                 <Button
@@ -2976,7 +2978,7 @@ function CustomerInfoPanel({
                   data-testid="btn-quick-call"
                 >
                   <Phone className="h-3.5 w-3.5 text-blue-500" />
-                  <span className="text-xs">Volať</span>
+                  <span className="text-xs">{t.agentWorkspace.callAction}</span>
                 </Button>
                 <Button
                   variant="outline"
@@ -2987,7 +2989,7 @@ function CustomerInfoPanel({
                   data-testid="btn-quick-email"
                 >
                   <Mail className="h-3.5 w-3.5 text-green-500" />
-                  <span className="text-xs">Email</span>
+                  <span className="text-xs">{t.agentWorkspace.emailAction}</span>
                 </Button>
                 <Button
                   variant="outline"
@@ -2998,7 +3000,7 @@ function CustomerInfoPanel({
                   data-testid="btn-quick-sms"
                 >
                   <MessageSquare className="h-3.5 w-3.5 text-orange-500" />
-                  <span className="text-xs">SMS</span>
+                  <span className="text-xs">{t.agentWorkspace.smsAction}</span>
                 </Button>
                 <Button
                   variant="outline"
@@ -3008,7 +3010,7 @@ function CustomerInfoPanel({
                   data-testid="btn-quick-task"
                 >
                   <CalendarPlus className="h-3.5 w-3.5 text-purple-500" />
-                  <span className="text-xs">Úloha</span>
+                  <span className="text-xs">{t.agentWorkspace.taskAction}</span>
                 </Button>
               </div>
             </div>
@@ -3043,6 +3045,7 @@ function ScheduledQueuePanel({
   onOpenContact?: (contactId: string, campaignId: string, campaignContactId: string, channel: "phone" | "email" | "sms") => void;
 }) {
   const [filterType, setFilterType] = useState<"all" | "callback" | "email" | "sms">("all");
+  const { t } = useI18n();
   const { toast } = useToast();
 
   const { data: scheduledItems = [], isLoading } = useQuery<ScheduledItem[]>({
@@ -3224,7 +3227,7 @@ function ScheduledQueuePanel({
                           <Button
                             variant="ghost"
                             size="icon"
-                            title="Zavolať teraz"
+                            title={t.agentWorkspace.callNow}
                             data-testid={`btn-scheduled-call-${item.id}`}
                             onClick={() => {
                               if (onOpenContact) {
@@ -4354,7 +4357,7 @@ export default function AgentWorkspacePage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Users className="h-5 w-5 text-primary" />
-              Kontakty kampane
+              {t.agentWorkspace.campaignContacts}
               {selectedCampaign && (
                 <Badge variant="secondary" className="ml-2">{selectedCampaign.name}</Badge>
               )}
@@ -4504,7 +4507,7 @@ export default function AgentWorkspacePage() {
                         <div className="flex items-center gap-2 shrink-0">
                           {isCallback && (
                             <Badge variant={isDueCallback ? "default" : "outline"} className={`text-[10px] ${isDueCallback && isMyCallback ? "bg-purple-500 text-white" : isDueCallback ? "bg-blue-500 text-white" : ""}`}>
-                              {isDueCallback ? "Zavolať!" : isMyCallback ? "Môj CB" : isTeamCallback ? "Tím CB" : "CB"}
+                              {isDueCallback ? t.agentWorkspace.callBack : isMyCallback ? t.agentWorkspace.myCB : isTeamCallback ? t.agentWorkspace.teamCB : "CB"}
                             </Badge>
                           )}
                           {callbackDateStr && (
@@ -4537,7 +4540,7 @@ export default function AgentWorkspacePage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ListTodo className="h-5 w-5 text-primary" />
-              Aktívne úlohy
+              {t.agentWorkspace.activeTasks}
               <Badge variant="secondary" className="ml-2">{tasks.length}</Badge>
             </DialogTitle>
           </DialogHeader>

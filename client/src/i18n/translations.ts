@@ -1588,6 +1588,31 @@ export interface Translations {
       agentAccessTab: string;
     };
   };
+  agentWorkspace: {
+    queue: string;
+    workspace: string;
+    activeTasks: string;
+    campaigns: string;
+    contacts: string;
+    campaignContacts: string;
+    actions: string;
+    profile: string;
+    history: string;
+    faq: string;
+    call: string;
+    callNow: string;
+    callBack: string;
+    myCB: string;
+    teamCB: string;
+    emailHistory: string;
+    smsHistory: string;
+    communicationHistory: string;
+    quickActions: string;
+    callAction: string;
+    emailAction: string;
+    smsAction: string;
+    taskAction: string;
+  };
   settings: {
     title: string;
     description: string;
@@ -4898,6 +4923,31 @@ export const translations: Record<Locale, Translations> = {
         agentAccessTab: 'Agent access',
       },
     },
+    agentWorkspace: {
+      queue: 'Queue',
+      workspace: 'Workspace',
+      activeTasks: 'Active tasks',
+      campaigns: 'Campaigns',
+      contacts: 'Contacts',
+      campaignContacts: 'Campaign contacts',
+      actions: 'Actions',
+      profile: 'Profile',
+      history: 'History',
+      faq: 'FAQ',
+      call: 'Call',
+      callNow: 'Call now',
+      callBack: 'Call!',
+      myCB: 'My CB',
+      teamCB: 'Team CB',
+      emailHistory: 'Email history',
+      smsHistory: 'SMS history',
+      communicationHistory: 'Communication history',
+      quickActions: 'Quick actions',
+      callAction: 'Call',
+      emailAction: 'Email',
+      smsAction: 'SMS',
+      taskAction: 'Task',
+    },
     settings: {
       title: 'Settings',
       description: 'System configuration and billing details',
@@ -8147,6 +8197,31 @@ export const translations: Record<Locale, Translations> = {
         agentAccessTab: 'Prístup agentov',
       },
     },
+    agentWorkspace: {
+      queue: 'Fronta',
+      workspace: 'Pracovný priestor',
+      activeTasks: 'Aktívne úlohy',
+      campaigns: 'Kampane',
+      contacts: 'Kontakty',
+      campaignContacts: 'Kontakty kampane',
+      actions: 'Akcie',
+      profile: 'Profil',
+      history: 'História',
+      faq: 'FAQ',
+      call: 'Zavolať',
+      callNow: 'Zavolať teraz',
+      callBack: 'Zavolať!',
+      myCB: 'Môj CB',
+      teamCB: 'Tím CB',
+      emailHistory: 'História emailov',
+      smsHistory: 'História SMS',
+      communicationHistory: 'História komunikácie',
+      quickActions: 'Rýchle akcie',
+      callAction: 'Volať',
+      emailAction: 'Email',
+      smsAction: 'SMS',
+      taskAction: 'Úloha',
+    },
     settings: {
       title: 'Nastavenia',
       description: 'Konfigurácia systému a fakturačné údaje',
@@ -11381,6 +11456,31 @@ export const translations: Record<Locale, Translations> = {
         agentAccessTab: 'Přístup agentů',
       },
     },
+    agentWorkspace: {
+      queue: 'Fronta',
+      workspace: 'Pracovní prostor',
+      activeTasks: 'Aktivní úkoly',
+      campaigns: 'Kampaně',
+      contacts: 'Kontakty',
+      campaignContacts: 'Kontakty kampaně',
+      actions: 'Akce',
+      profile: 'Profil',
+      history: 'Historie',
+      faq: 'FAQ',
+      call: 'Zavolat',
+      callNow: 'Zavolat nyní',
+      callBack: 'Zavolat!',
+      myCB: 'Můj CB',
+      teamCB: 'Tým CB',
+      emailHistory: 'Historie e-mailů',
+      smsHistory: 'Historie SMS',
+      communicationHistory: 'Historie komunikace',
+      quickActions: 'Rychlé akce',
+      callAction: 'Volat',
+      emailAction: 'Email',
+      smsAction: 'SMS',
+      taskAction: 'Úkol',
+    },
     settings: {
       title: 'Nastavení',
       description: 'Konfigurace systému a fakturační údaje',
@@ -14578,6 +14678,31 @@ export const translations: Record<Locale, Translations> = {
         agentAccessTab: 'Ügynök hozzáférés',
       },
     },
+    agentWorkspace: {
+      queue: 'Várólista',
+      workspace: 'Munkaterület',
+      activeTasks: 'Aktív feladatok',
+      campaigns: 'Kampányok',
+      contacts: 'Kapcsolatok',
+      campaignContacts: 'Kampány kapcsolatok',
+      actions: 'Műveletek',
+      profile: 'Profil',
+      history: 'Előzmények',
+      faq: 'FAQ',
+      call: 'Hívás',
+      callNow: 'Hívás most',
+      callBack: 'Hívás!',
+      myCB: 'Saját CB',
+      teamCB: 'Csapat CB',
+      emailHistory: 'E-mail előzmények',
+      smsHistory: 'SMS előzmények',
+      communicationHistory: 'Kommunikációs előzmények',
+      quickActions: 'Gyors műveletek',
+      callAction: 'Hívás',
+      emailAction: 'Email',
+      smsAction: 'SMS',
+      taskAction: 'Feladat',
+    },
     settings: {
       title: 'Beállítások',
       description: 'Rendszerkonfiguráció és számlázási adatok',
@@ -17773,6 +17898,31 @@ export const translations: Record<Locale, Translations> = {
         removeAll: 'Elimină toate',
         agentAccessTab: 'Acces agenți',
       },
+    },
+    agentWorkspace: {
+      queue: 'Coadă',
+      workspace: 'Spațiu de lucru',
+      activeTasks: 'Sarcini active',
+      campaigns: 'Campanii',
+      contacts: 'Contacte',
+      campaignContacts: 'Contacte campanie',
+      actions: 'Acțiuni',
+      profile: 'Profil',
+      history: 'Istoric',
+      faq: 'FAQ',
+      call: 'Apelează',
+      callNow: 'Apelează acum',
+      callBack: 'Apelează!',
+      myCB: 'CB-ul meu',
+      teamCB: 'CB echipă',
+      emailHistory: 'Istoric e-mailuri',
+      smsHistory: 'Istoric SMS',
+      communicationHistory: 'Istoric comunicare',
+      quickActions: 'Acțiuni rapide',
+      callAction: 'Apelează',
+      emailAction: 'Email',
+      smsAction: 'SMS',
+      taskAction: 'Sarcină',
     },
     settings: {
       title: 'Setări',
@@ -20971,6 +21121,31 @@ export const translations: Record<Locale, Translations> = {
         agentAccessTab: 'Accesso agenti',
       },
     },
+    agentWorkspace: {
+      queue: 'Coda',
+      workspace: 'Area di lavoro',
+      activeTasks: 'Attività attive',
+      campaigns: 'Campagne',
+      contacts: 'Contatti',
+      campaignContacts: 'Contatti campagna',
+      actions: 'Azioni',
+      profile: 'Profilo',
+      history: 'Cronologia',
+      faq: 'FAQ',
+      call: 'Chiama',
+      callNow: 'Chiama ora',
+      callBack: 'Chiama!',
+      myCB: 'Mio CB',
+      teamCB: 'CB squadra',
+      emailHistory: 'Cronologia e-mail',
+      smsHistory: 'Cronologia SMS',
+      communicationHistory: 'Cronologia comunicazioni',
+      quickActions: 'Azioni rapide',
+      callAction: 'Chiama',
+      emailAction: 'Email',
+      smsAction: 'SMS',
+      taskAction: 'Attività',
+    },
     settings: {
       title: 'Impostazioni',
       description: 'Configurazione sistema e dettagli fatturazione',
@@ -24167,6 +24342,31 @@ export const translations: Record<Locale, Translations> = {
         removeAll: 'Alle entfernen',
         agentAccessTab: 'Agentenzugang',
       },
+    },
+    agentWorkspace: {
+      queue: 'Warteschlange',
+      workspace: 'Arbeitsbereich',
+      activeTasks: 'Aktive Aufgaben',
+      campaigns: 'Kampagnen',
+      contacts: 'Kontakte',
+      campaignContacts: 'Kampagnenkontakte',
+      actions: 'Aktionen',
+      profile: 'Profil',
+      history: 'Verlauf',
+      faq: 'FAQ',
+      call: 'Anrufen',
+      callNow: 'Jetzt anrufen',
+      callBack: 'Anrufen!',
+      myCB: 'Mein CB',
+      teamCB: 'Team CB',
+      emailHistory: 'E-Mail-Verlauf',
+      smsHistory: 'SMS-Verlauf',
+      communicationHistory: 'Kommunikationsverlauf',
+      quickActions: 'Schnellaktionen',
+      callAction: 'Anrufen',
+      emailAction: 'E-Mail',
+      smsAction: 'SMS',
+      taskAction: 'Aufgabe',
     },
     settings: {
       title: 'Einstellungen',
