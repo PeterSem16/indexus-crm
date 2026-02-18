@@ -106,6 +106,11 @@ import {
   MessageSquarePlus,
   RotateCcw,
   Trash2,
+  AlertTriangle,
+  ExternalLink,
+  Inbox,
+  Reply,
+  Forward,
 } from "lucide-react";
 import {
   Dialog,
@@ -165,6 +170,10 @@ interface ContactHistory {
   action?: string;
   previousStatus?: string;
   newStatus?: string;
+  htmlBody?: string;
+  fullContent?: string;
+  recipientEmail?: string;
+  recipientPhone?: string;
 }
 
 interface TimelineEntry {
@@ -175,6 +184,11 @@ interface TimelineEntry {
   content: string;
   details?: string;
   status?: string;
+  htmlBody?: string;
+  fullContent?: string;
+  agentName?: string;
+  recipientEmail?: string;
+  recipientPhone?: string;
 }
 
 function getStatusConfig(t: any): Record<AgentStatus, { label: string; color: string; icon: React.ReactNode }> {
@@ -248,6 +262,7 @@ function TopBar({
   isSessionActive,
   t,
   onOpenScheduledQueue,
+  scheduledQueueCounts,
 }: {
   status: AgentStatus;
   onStatusChange: (status: AgentStatus) => void;
@@ -263,6 +278,7 @@ function TopBar({
   isSessionActive: boolean;
   t: any;
   onOpenScheduledQueue?: () => void;
+  scheduledQueueCounts?: { total: number; overdue: number };
 }) {
   const STATUS_CONFIG = getStatusConfig(t);
   const config = STATUS_CONFIG[status];
@@ -377,11 +393,26 @@ function TopBar({
                 variant="outline"
                 size="sm"
                 onClick={onOpenScheduledQueue}
-                className="gap-1.5"
+                className="gap-1.5 relative"
                 data-testid="btn-open-scheduled-queue"
               >
                 <CalendarClock className="h-3.5 w-3.5" />
                 <span className="text-xs hidden xl:inline">Fronta</span>
+                {scheduledQueueCounts && scheduledQueueCounts.total > 0 && (
+                  <Badge
+                    variant={scheduledQueueCounts.overdue > 0 ? "destructive" : "secondary"}
+                    className="text-[9px] h-4 min-w-[16px] px-1 ml-0.5"
+                    data-testid="badge-scheduled-total"
+                  >
+                    {scheduledQueueCounts.total}
+                  </Badge>
+                )}
+                {scheduledQueueCounts && scheduledQueueCounts.overdue > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75" />
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive" />
+                  </span>
+                )}
               </Button>
             </>
           )}
@@ -1076,6 +1107,7 @@ function CommunicationCanvas({
   onMicVolumeChange,
   callerNumber,
   contactHistory,
+  onOpenHistoryDetail,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
@@ -1109,6 +1141,7 @@ function CommunicationCanvas({
   onMicVolumeChange?: (vol: number) => void;
   callerNumber?: string;
   contactHistory?: ContactHistory[];
+  onOpenHistoryDetail?: (entry: TimelineEntry | ContactHistory) => void;
 }) {
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
@@ -1251,6 +1284,11 @@ function CommunicationCanvas({
         content: h.content || h.notes || "",
         details: h.details || h.campaignName || "",
         status: h.status,
+        htmlBody: h.htmlBody,
+        fullContent: h.fullContent,
+        agentName: h.agentName,
+        recipientEmail: h.recipientEmail,
+        recipientPhone: h.recipientPhone,
       }));
     const all = [...timeline, ...persistentAsTimeline];
     return {
@@ -1582,46 +1620,73 @@ function CommunicationCanvas({
 
       {activeChannel === "email" && (
         <div className="flex-1 flex overflow-hidden">
-          <div className="w-[20%] min-w-[180px] border-r flex flex-col bg-muted/20">
+          <div className="w-[25%] min-w-[220px] max-w-[320px] border-r flex flex-col bg-muted/10">
             <div className="p-3 border-b">
-              <div className="flex items-center gap-2">
-                <History className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">História</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Inbox className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">História emailov</span>
+                </div>
+                {mergedHistory.email.length > 0 && (
+                  <Badge variant="secondary" className="text-[9px] h-4">{mergedHistory.email.length}</Badge>
+                )}
               </div>
             </div>
             <ScrollArea className="flex-1">
-              <div className="p-2 space-y-1.5">
+              <div className="p-2 space-y-1">
                 {mergedHistory.email.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Mail className="h-6 w-6 mx-auto mb-2 opacity-20" />
-                    <p className="text-[10px]">Žiadne emaily</p>
+                  <div className="text-center py-10 text-muted-foreground">
+                    <Mail className="h-8 w-8 mx-auto mb-3 opacity-15" />
+                    <p className="text-xs font-medium">Žiadne emaily</p>
+                    <p className="text-[10px] mt-1 opacity-60">Odoslané emaily sa zobrazia tu</p>
                   </div>
                 ) : mergedHistory.email.map((entry) => (
                   <div
                     key={entry.id}
-                    className="rounded-md p-2 bg-card border border-border/50 cursor-default"
+                    className="rounded-md p-2.5 bg-card border border-border/40 cursor-pointer hover-elevate transition-colors group"
                     data-testid={`email-history-${entry.id}`}
+                    onClick={() => onOpenHistoryDetail?.(entry as any)}
                   >
-                    <div className="flex items-center gap-1.5 mb-1">
-                      {entry.direction === "outbound" ? (
-                        <Send className="h-3 w-3 text-green-500 shrink-0" />
-                      ) : (
-                        <Mail className="h-3 w-3 text-blue-500 shrink-0" />
-                      )}
-                      <span className="text-[10px] text-muted-foreground">
-                        {format(entry.timestamp, "d.M. HH:mm", { locale: sk })}
-                      </span>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-1.5">
+                        {entry.direction === "outbound" ? (
+                          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/40">
+                            <Send className="h-2.5 w-2.5 text-green-600 dark:text-green-400" />
+                          </div>
+                        ) : (
+                          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/40">
+                            <Inbox className="h-2.5 w-2.5 text-blue-600 dark:text-blue-400" />
+                          </div>
+                        )}
+                        <Badge variant={entry.direction === "outbound" ? "secondary" : "outline"} className="text-[8px] h-4">
+                          {entry.direction === "outbound" ? "Odoslaný" : "Prijatý"}
+                        </Badge>
+                      </div>
+                      <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
-                    <p className="text-[11px] font-medium line-clamp-2 leading-tight">{entry.content}</p>
+                    <p className="text-[11px] font-semibold line-clamp-1 leading-tight mb-1">{entry.content}</p>
                     {entry.details && (
-                      <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">{entry.details}</p>
+                      <p className="text-[10px] text-muted-foreground line-clamp-2 leading-relaxed">{entry.details?.replace(/<[^>]*>/g, '')}</p>
                     )}
+                    <div className="flex items-center gap-2 mt-2 pt-1.5 border-t border-border/30">
+                      <Clock className="h-2.5 w-2.5 text-muted-foreground/60" />
+                      <span className="text-[9px] text-muted-foreground/80">
+                        {format(entry.timestamp, "d.M.yyyy HH:mm", { locale: sk })}
+                      </span>
+                      {entry.agentName && (
+                        <>
+                          <span className="text-[9px] text-muted-foreground/40">|</span>
+                          <UserCircle className="h-2.5 w-2.5 text-muted-foreground/60" />
+                          <span className="text-[9px] text-muted-foreground/80 truncate">{entry.agentName}</span>
+                        </>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
             </ScrollArea>
           </div>
-          <div className="w-[80%] flex flex-col">
+          <div className="flex-1 flex flex-col min-w-0">
             <div className="flex-1 flex flex-col p-4 space-y-3 overflow-y-auto">
               <div className="flex items-center gap-2 mb-1">
                 <Mail className="h-4 w-4 text-muted-foreground" />
@@ -1745,43 +1810,70 @@ function CommunicationCanvas({
 
       {activeChannel === "sms" && (
         <div className="flex-1 flex overflow-hidden">
-          <div className="w-[20%] min-w-[180px] border-r flex flex-col bg-muted/20">
+          <div className="w-[25%] min-w-[220px] max-w-[320px] border-r flex flex-col bg-muted/10">
             <div className="p-3 border-b">
-              <div className="flex items-center gap-2">
-                <History className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">História</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">História SMS</span>
+                </div>
+                {mergedHistory.sms.length > 0 && (
+                  <Badge variant="secondary" className="text-[9px] h-4">{mergedHistory.sms.length}</Badge>
+                )}
               </div>
             </div>
             <ScrollArea className="flex-1">
-              <div className="p-2 space-y-1.5">
+              <div className="p-2 space-y-1">
                 {mergedHistory.sms.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <MessageSquare className="h-6 w-6 mx-auto mb-2 opacity-20" />
-                    <p className="text-[10px]">Žiadne SMS</p>
+                  <div className="text-center py-10 text-muted-foreground">
+                    <MessageSquare className="h-8 w-8 mx-auto mb-3 opacity-15" />
+                    <p className="text-xs font-medium">Žiadne SMS</p>
+                    <p className="text-[10px] mt-1 opacity-60">Odoslané SMS sa zobrazia tu</p>
                   </div>
                 ) : mergedHistory.sms.map((entry) => (
                   <div
                     key={entry.id}
-                    className="rounded-md p-2 bg-card border border-border/50 cursor-default"
+                    className="rounded-md p-2.5 bg-card border border-border/40 cursor-pointer hover-elevate transition-colors group"
                     data-testid={`sms-history-${entry.id}`}
+                    onClick={() => onOpenHistoryDetail?.(entry as any)}
                   >
-                    <div className="flex items-center gap-1.5 mb-1">
-                      {entry.direction === "outbound" ? (
-                        <Send className="h-3 w-3 text-orange-500 shrink-0" />
-                      ) : (
-                        <MessageSquare className="h-3 w-3 text-blue-500 shrink-0" />
-                      )}
-                      <span className="text-[10px] text-muted-foreground">
-                        {format(entry.timestamp, "d.M. HH:mm", { locale: sk })}
-                      </span>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-1.5">
+                        {entry.direction === "outbound" ? (
+                          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/40">
+                            <Send className="h-2.5 w-2.5 text-orange-600 dark:text-orange-400" />
+                          </div>
+                        ) : (
+                          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/40">
+                            <Inbox className="h-2.5 w-2.5 text-blue-600 dark:text-blue-400" />
+                          </div>
+                        )}
+                        <Badge variant={entry.direction === "outbound" ? "secondary" : "outline"} className="text-[8px] h-4">
+                          {entry.direction === "outbound" ? "Odoslaná" : "Prijatá"}
+                        </Badge>
+                      </div>
+                      <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
-                    <p className="text-[11px] line-clamp-3 leading-tight">{entry.content}</p>
+                    <p className="text-[11px] line-clamp-2 leading-relaxed">{entry.content || entry.fullContent}</p>
+                    <div className="flex items-center gap-2 mt-2 pt-1.5 border-t border-border/30">
+                      <Clock className="h-2.5 w-2.5 text-muted-foreground/60" />
+                      <span className="text-[9px] text-muted-foreground/80">
+                        {format(entry.timestamp, "d.M.yyyy HH:mm", { locale: sk })}
+                      </span>
+                      {entry.agentName && (
+                        <>
+                          <span className="text-[9px] text-muted-foreground/40">|</span>
+                          <UserCircle className="h-2.5 w-2.5 text-muted-foreground/60" />
+                          <span className="text-[9px] text-muted-foreground/80 truncate">{entry.agentName}</span>
+                        </>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
             </ScrollArea>
           </div>
-          <div className="w-[80%] flex flex-col">
+          <div className="flex-1 flex flex-col min-w-0">
             <div className="flex-1 flex flex-col p-4 overflow-y-auto">
               <div className="flex items-center gap-2 mb-3">
                 <MessageSquare className="h-4 w-4 text-muted-foreground" />
@@ -1861,6 +1953,7 @@ function CustomerInfoPanel({
   callerNumber,
   onEditCustomer,
   onViewCustomer,
+  onOpenHistoryDetail,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
@@ -1892,6 +1985,7 @@ function CustomerInfoPanel({
   callerNumber: string;
   onEditCustomer: () => void;
   onViewCustomer: () => void;
+  onOpenHistoryDetail?: (entry: ContactHistory) => void;
 }) {
   const [newNote, setNewNote] = useState("");
   const [showDialpad, setShowDialpad] = useState(false);
@@ -2238,8 +2332,15 @@ function CustomerInfoPanel({
                 <p className="text-xs text-muted-foreground">Žiadna história komunikácie</p>
               </div>
             )}
-            {contactHistory.map((item) => (
-              <div key={item.id} className="flex items-start gap-2.5 p-2.5 rounded-md bg-muted/30 border border-border/50" data-testid={`history-item-${item.id}`}>
+            {contactHistory.map((item) => {
+              const isClickable = item.type === "email" || item.type === "sms";
+              return (
+              <div
+                key={item.id}
+                className={`flex items-start gap-2.5 p-2.5 rounded-md bg-muted/30 border border-border/50 ${isClickable ? "cursor-pointer hover-elevate group" : ""}`}
+                data-testid={`history-item-${item.id}`}
+                onClick={() => { if (isClickable && onOpenHistoryDetail) onOpenHistoryDetail(item); }}
+              >
                 <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full mt-0.5 ${
                   item.type === "call" ? "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400" :
                   item.type === "email" ? "bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400" :
@@ -2266,12 +2367,15 @@ function CustomerInfoPanel({
                         {item.status}
                       </Badge>
                     )}
+                    {isClickable && (
+                      <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-auto" />
+                    )}
                   </div>
                   <p className="text-xs text-foreground mt-1 line-clamp-2">
                     {item.content || item.notes || "—"}
                   </p>
                   {item.details && (
-                    <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{item.details}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{item.details?.replace(/<[^>]*>/g, '')}</p>
                   )}
                   {item.campaignName && (
                     <p className="text-[10px] text-muted-foreground mt-0.5 italic">
@@ -2291,7 +2395,8 @@ function CustomerInfoPanel({
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -2396,13 +2501,19 @@ function ScheduledQueuePanel({
     return scheduledItems.filter(item => item.type === filterType);
   }, [scheduledItems, filterType]);
 
-  const todayCount = useMemo(() => {
+  const { todayCount, overdueCount } = useMemo(() => {
+    const now = new Date();
     const today = new Date();
-    return scheduledItems.filter(item => {
+    let tc = 0, oc = 0;
+    for (const item of scheduledItems) {
       const d = new Date(item.scheduledAt);
-      return d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
-    }).length;
+      if (d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate()) tc++;
+      if (d < now) oc++;
+    }
+    return { todayCount: tc, overdueCount: oc };
   }, [scheduledItems]);
+
+  const isOverdue = (scheduledAt: string) => new Date(scheduledAt) < new Date();
 
   const getTypeIcon = (type: string) => {
     if (type === "callback") return <PhoneForwarded className="h-4 w-4" />;
@@ -2426,12 +2537,21 @@ function ScheduledQueuePanel({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 flex-wrap">
             <CalendarClock className="h-5 w-5 text-primary" />
             Naplánovaná fronta
+            <Badge variant="secondary" className="text-[10px]" data-testid="badge-scheduled-total">
+              {scheduledItems.length} celkom
+            </Badge>
             {todayCount > 0 && (
               <Badge variant="secondary" className="text-[10px]" data-testid="badge-scheduled-today">
                 {todayCount} dnes
+              </Badge>
+            )}
+            {overdueCount > 0 && (
+              <Badge variant="destructive" className="text-[10px] gap-1" data-testid="badge-scheduled-overdue">
+                <AlertTriangle className="h-3 w-3" />
+                {overdueCount} po termíne
               </Badge>
             )}
           </DialogTitle>
@@ -2478,12 +2598,14 @@ function ScheduledQueuePanel({
             </div>
           ) : (
             <div className="space-y-2 pr-2">
-              {filteredItems.map(item => (
-                <Card key={item.id} data-testid={`scheduled-item-${item.id}`}>
+              {filteredItems.map(item => {
+                const itemOverdue = isOverdue(item.scheduledAt);
+                return (
+                <Card key={item.id} data-testid={`scheduled-item-${item.id}`} className={itemOverdue ? "border-destructive/50 bg-destructive/5" : ""}>
                   <CardContent className="p-3">
                     <div className="flex items-start gap-3">
-                      <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${getTypeColor(item.type)}`}>
-                        {getTypeIcon(item.type)}
+                      <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${itemOverdue ? "bg-destructive/10 text-destructive" : getTypeColor(item.type)}`}>
+                        {itemOverdue ? <AlertTriangle className="h-4 w-4" /> : getTypeIcon(item.type)}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -2503,6 +2625,12 @@ function ScheduledQueuePanel({
                           <Badge variant="outline" className="text-[9px]">
                             {getTypeLabel(item.type)}
                           </Badge>
+                          {itemOverdue && (
+                            <Badge variant="destructive" className="text-[9px] gap-0.5">
+                              <AlertTriangle className="h-2.5 w-2.5" />
+                              Po termíne
+                            </Badge>
+                          )}
                         </div>
                         <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
                           {item.contactPhone && (
@@ -2523,7 +2651,7 @@ function ScheduledQueuePanel({
                             <Megaphone className="h-3 w-3" />
                             {item.campaignName}
                           </span>
-                          <span className="flex items-center gap-1">
+                          <span className={`flex items-center gap-1 ${itemOverdue ? "text-destructive font-medium" : ""}`}>
                             <Calendar className="h-3 w-3" />
                             {format(new Date(item.scheduledAt), "d.M.yyyy HH:mm", { locale: sk })}
                           </span>
@@ -2591,7 +2719,8 @@ function ScheduledQueuePanel({
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+                );
+              })}
             </div>
           )}
         </ScrollArea>
@@ -2627,6 +2756,7 @@ export default function AgentWorkspacePage() {
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
   const [isAutoMode, setIsAutoMode] = useState(false);
   const [scheduledQueueOpen, setScheduledQueueOpen] = useState(false);
+  const [historyDetailModal, setHistoryDetailModal] = useState<TimelineEntry | ContactHistory | null>(null);
   const [autoCountdown, setAutoCountdown] = useState<number | null>(null);
   const autoTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [contactsModalOpen, setContactsModalOpen] = useState(false);
@@ -2661,6 +2791,22 @@ export default function AgentWorkspacePage() {
   }, [workspaceAccess]);
 
   const hasAccess = user && hasRoleAccess && (user.role === "admin" || allowedCountries.length > 0);
+
+  const { data: scheduledQueueItems = [] } = useQuery<ScheduledItem[]>({
+    queryKey: ["/api/agent/scheduled-queue", "badge"],
+    queryFn: async () => {
+      const res = await fetch("/api/agent/scheduled-queue", { credentials: "include" });
+      return res.ok ? res.json() : [];
+    },
+    enabled: !!hasAccess && agentSession.isSessionActive,
+    refetchInterval: 60000,
+  });
+
+  const scheduledQueueCounts = useMemo(() => {
+    const now = new Date();
+    const overdue = scheduledQueueItems.filter(item => new Date(item.scheduledAt) < now);
+    return { total: scheduledQueueItems.length, overdue: overdue.length };
+  }, [scheduledQueueItems]);
 
   useEffect(() => {
     if (user && hasRoleAccess && !hasAccess && workspaceAccess !== undefined) {
@@ -3530,6 +3676,7 @@ export default function AgentWorkspacePage() {
         isSessionActive={agentSession.isSessionActive}
         t={t}
         onOpenScheduledQueue={() => setScheduledQueueOpen(true)}
+        scheduledQueueCounts={scheduledQueueCounts}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -3589,6 +3736,7 @@ export default function AgentWorkspacePage() {
           onMicVolumeChange={(vol) => callContext.onMicVolumeChangeFn.current?.(vol)}
           callerNumber={callContext.callInfo?.phoneNumber || ""}
           contactHistory={contactHistory}
+          onOpenHistoryDetail={(entry) => setHistoryDetailModal(entry)}
         />
 
         <CustomerInfoPanel
@@ -3622,6 +3770,7 @@ export default function AgentWorkspacePage() {
           callerNumber={callContext.callInfo?.phoneNumber || ""}
           onEditCustomer={() => { setActiveChannel("phone"); setPhoneSubTabOverride("card"); setTimeout(() => setPhoneSubTabOverride(null), 100); }}
           onViewCustomer={() => { setActiveChannel("phone"); setPhoneSubTabOverride("details"); setTimeout(() => setPhoneSubTabOverride(null), 100); }}
+          onOpenHistoryDetail={(entry) => setHistoryDetailModal(entry)}
         />
       </div>
 
@@ -3993,6 +4142,112 @@ export default function AgentWorkspacePage() {
       </Dialog>
 
       <ScheduledQueuePanel open={scheduledQueueOpen} onOpenChange={setScheduledQueueOpen} onOpenContact={handleOpenScheduledContact} />
+
+      <Dialog open={!!historyDetailModal} onOpenChange={(open) => !open && setHistoryDetailModal(null)}>
+        <DialogContent className="sm:max-w-3xl max-h-[85vh] flex flex-col p-0">
+          {historyDetailModal && (() => {
+            const entry = historyDetailModal;
+            const isEmail = (entry as any).type === "email" || !!(entry as any).htmlBody;
+            const isSms = (entry as any).type === "sms";
+            const timestamp = (entry as any).timestamp instanceof Date
+              ? (entry as any).timestamp
+              : new Date((entry as any).timestamp || (entry as any).date);
+            const htmlBody = (entry as any).htmlBody || (entry as any).details || "";
+            const fullContent = (entry as any).fullContent || (entry as any).content || "";
+            const direction = (entry as any).direction;
+            const agentName = (entry as any).agentName;
+            const status = (entry as any).status;
+            const recipientEmail = (entry as any).recipientEmail;
+            const recipientPhone = (entry as any).recipientPhone;
+            const subject = isEmail ? ((entry as any).content || "Email") : null;
+
+            return (
+              <>
+                <div className={`px-6 py-4 border-b ${isEmail ? "bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20" : "bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/20 dark:to-amber-950/20"}`}>
+                  <div className="flex items-start gap-3">
+                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${isEmail ? "bg-green-100 dark:bg-green-900/40" : "bg-orange-100 dark:bg-orange-900/40"}`}>
+                      {isEmail ? (
+                        direction === "outbound"
+                          ? <Send className="h-5 w-5 text-green-600 dark:text-green-400" />
+                          : <Inbox className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                      ) : (
+                        direction === "outbound"
+                          ? <Send className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                          : <Inbox className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <h3 className="text-base font-semibold" data-testid="text-history-detail-title">
+                          {isEmail ? (subject || "Email") : "SMS správa"}
+                        </h3>
+                        <Badge variant={direction === "outbound" ? "secondary" : "outline"} className="text-[10px]">
+                          {direction === "outbound" ? "Odoslaný" : "Prijatý"}
+                        </Badge>
+                        {status && (
+                          <Badge variant="outline" className="text-[10px]">{status}</Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {format(timestamp, "d. MMMM yyyy, HH:mm:ss", { locale: sk })}
+                        </span>
+                        {agentName && (
+                          <span className="flex items-center gap-1">
+                            <UserCircle className="h-3 w-3" />
+                            {agentName}
+                          </span>
+                        )}
+                        {isEmail && recipientEmail && (
+                          <span className="flex items-center gap-1">
+                            <Mail className="h-3 w-3" />
+                            {recipientEmail}
+                          </span>
+                        )}
+                        {isSms && recipientPhone && (
+                          <span className="flex items-center gap-1">
+                            <Phone className="h-3 w-3" />
+                            {recipientPhone}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex-1 min-h-0 overflow-auto">
+                  {isEmail && htmlBody ? (
+                    <div className="p-1">
+                      <div
+                        className="bg-white dark:bg-gray-950 rounded-md border border-border/30"
+                        style={{ minHeight: "300px" }}
+                      >
+                        <iframe
+                          srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;line-height:1.6;color:#333;margin:16px;word-wrap:break-word}img{max-width:100%;height:auto}a{color:#1a73e8}table{border-collapse:collapse;max-width:100%}td,th{padding:4px 8px}@media(prefers-color-scheme:dark){body{color:#e0e0e0;background:#0a0a0a}a{color:#8ab4f8}}</style></head><body>${htmlBody.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/on\w+\s*=/gi, 'data-blocked=')}</body></html>`}
+                          className="w-full border-0 rounded-md"
+                          style={{ minHeight: "350px", height: "100%" }}
+                          sandbox=""
+                          title="Email obsah"
+                          data-testid="iframe-email-content"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-6">
+                      <div className={`rounded-lg p-4 ${direction === "outbound" ? "bg-primary/5 border border-primary/10" : "bg-muted/30 border border-border/30"}`}>
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap" data-testid="text-history-detail-content">
+                          {isSms ? fullContent : (entry as any).content || ""}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={scriptModalOpen} onOpenChange={setScriptModalOpen}>
         <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">

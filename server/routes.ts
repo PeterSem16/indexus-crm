@@ -7791,6 +7791,10 @@ export async function registerRoutes(
             ? ((msg as any).subject || "Email") 
             : ((msg as any).content?.substring(0, 100) || "SMS"),
           details: msgType === "email" ? (msg as any).content?.substring(0, 200) : null,
+          htmlBody: msgType === "email" ? (msg as any).content : null,
+          fullContent: msgType === "sms" ? (msg as any).content : null,
+          recipientEmail: (msg as any).recipientEmail || null,
+          recipientPhone: (msg as any).recipientPhone || null,
         });
       }
 
