@@ -2,7 +2,7 @@ import express, { type Express, type Request, type Response, type NextFunction }
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { startOfDay, endOfDay, subDays } from "date-fns";
-import { eq, desc, and, gte, lte, inArray, isNotNull, or } from "drizzle-orm";
+import { eq, desc, and, gte, lte, inArray, isNotNull, isNull, or } from "drizzle-orm";
 import { db, pool } from "./db";
 import { storage } from "./storage";
 import { 
@@ -13836,7 +13836,8 @@ export async function registerRoutes(
             isNotNull(campaignContacts.callbackDate),
             or(
               eq(campaignContacts.assignedTo, user.id),
-              eq(campaignContacts.assignedTo, "all")
+              eq(campaignContacts.assignedTo, "all"),
+              isNull(campaignContacts.assignedTo)
             )
           )
         );
@@ -14002,17 +14003,19 @@ export async function registerRoutes(
         const campaignChannel = campaign.channel || "phone";
         let defaults: typeof DEFAULT_PHONE_DISPOSITIONS;
         if (campaignChannel === "email") {
-          defaults = DEFAULT_EMAIL_DISPOSITIONS;
-        } else if (campaignChannel === "sms") {
-          defaults = DEFAULT_SMS_DISPOSITIONS;
-        } else if (campaignChannel === "mixed") {
           defaults = [
-            ...DEFAULT_PHONE_DISPOSITIONS,
             ...DEFAULT_EMAIL_DISPOSITIONS,
-            ...DEFAULT_SMS_DISPOSITIONS.filter(d => !DEFAULT_EMAIL_DISPOSITIONS.some(p => p.code === d.code)),
+          ];
+        } else if (campaignChannel === "sms") {
+          defaults = [
+            ...DEFAULT_SMS_DISPOSITIONS,
           ];
         } else {
-          defaults = DEFAULT_PHONE_DISPOSITIONS;
+          defaults = [
+            ...DEFAULT_PHONE_DISPOSITIONS,
+            ...DEFAULT_EMAIL_DISPOSITIONS.filter(d => !DEFAULT_PHONE_DISPOSITIONS.some(p => p.code === d.code)),
+            ...DEFAULT_SMS_DISPOSITIONS.filter(d => !DEFAULT_PHONE_DISPOSITIONS.some(p => p.code === d.code) && !DEFAULT_EMAIL_DISPOSITIONS.some(e => e.code === d.code)),
+          ];
         }
         for (let i = 0; i < defaults.length; i++) {
           const def = defaults[i];
@@ -15337,15 +15340,14 @@ export async function registerRoutes(
       const channel = campaign.channel || "phone";
       let defaults: typeof DEFAULT_PHONE_DISPOSITIONS;
       if (channel === "email") {
-        defaults = DEFAULT_EMAIL_DISPOSITIONS;
+        defaults = [
+          ...DEFAULT_EMAIL_DISPOSITIONS,
+        ];
       } else if (channel === "sms") {
-        defaults = DEFAULT_SMS_DISPOSITIONS;
+        defaults = [
+          ...DEFAULT_SMS_DISPOSITIONS,
+        ];
       } else {
-        defaults = DEFAULT_PHONE_DISPOSITIONS;
-      }
-
-      // For mixed campaigns, combine all
-      if (channel === "mixed") {
         defaults = [
           ...DEFAULT_PHONE_DISPOSITIONS,
           ...DEFAULT_EMAIL_DISPOSITIONS.filter(d => !DEFAULT_PHONE_DISPOSITIONS.some(p => p.code === d.code)),

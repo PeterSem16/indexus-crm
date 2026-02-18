@@ -2946,6 +2946,7 @@ export default function AgentWorkspacePage() {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns/contact-counts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/agent/callbacks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
       if (currentContact?.id) {
         queryClient.invalidateQueries({ queryKey: ["/api/customers", currentContact.id, "contact-history"] });
       }
