@@ -504,6 +504,7 @@ function CampaignCalendar({
 // Campaign FAQ Management Tab
 function CampaignFaqTab({ campaigns }: { campaigns: Campaign[] }) {
   const { toast } = useToast();
+  const { t } = useI18n();
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>("all");
   const [faqSearch, setFaqSearch] = useState("");
   const [editingFaq, setEditingFaq] = useState<{ id: string; question: string; answer: string; category: string; campaignId: string } | null>(null);
@@ -547,17 +548,17 @@ function CampaignFaqTab({ campaigns }: { campaigns: Campaign[] }) {
 
   const handleDeleteFaq = (id: string) => {
     setFaqs(prev => prev.filter(f => f.id !== id));
-    toast({ title: "FAQ odstránená", description: "Otázka bola úspešne odstránená." });
+    toast({ title: t.campaigns.faq.faqDeleted, description: t.campaigns.faq.faqDeletedDesc });
   };
 
   const handleSaveFaq = (faq: { id?: string; question: string; answer: string; category: string; campaignId: string }) => {
     if (faq.id) {
       setFaqs(prev => prev.map(f => f.id === faq.id ? { ...f, ...faq, id: f.id } : f));
-      toast({ title: "FAQ aktualizovaná", description: "Otázka bola úspešne upravená." });
+      toast({ title: t.campaigns.faq.faqUpdated, description: t.campaigns.faq.faqUpdatedDesc });
     } else {
       const newFaq = { ...faq, id: `faq-${Date.now()}` };
       setFaqs(prev => [...prev, newFaq]);
-      toast({ title: "FAQ pridaná", description: "Nová otázka bola úspešne pridaná." });
+      toast({ title: t.campaigns.faq.faqAdded, description: t.campaigns.faq.faqAddedDesc });
     }
     setEditingFaq(null);
     setIsAddDialogOpen(false);
@@ -570,13 +571,13 @@ function CampaignFaqTab({ campaigns }: { campaigns: Campaign[] }) {
           <div className="space-y-1">
             <CardTitle className="flex items-center gap-2">
               <BookOpen className="h-5 w-5 text-primary" />
-              Správa FAQ
+              {t.campaigns.faq.title}
             </CardTitle>
-            <CardDescription>Spravujte často kladené otázky pre agentov v kampaniach</CardDescription>
+            <CardDescription>{t.campaigns.faq.description}</CardDescription>
           </div>
           <Button onClick={() => { setEditingFaq(null); setIsAddDialogOpen(true); }} data-testid="btn-add-faq">
             <Plus className="h-4 w-4 mr-2" />
-            Pridať FAQ
+            {t.campaigns.faq.addFaq}
           </Button>
         </CardHeader>
         <CardContent>
@@ -584,7 +585,7 @@ function CampaignFaqTab({ campaigns }: { campaigns: Campaign[] }) {
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Hľadať v FAQ..."
+                placeholder={t.campaigns.faq.searchPlaceholder}
                 value={faqSearch}
                 onChange={(e) => setFaqSearch(e.target.value)}
                 className="pl-10"
@@ -593,23 +594,23 @@ function CampaignFaqTab({ campaigns }: { campaigns: Campaign[] }) {
             </div>
             <Select value={selectedCampaignId} onValueChange={setSelectedCampaignId}>
               <SelectTrigger className="w-[200px]" data-testid="select-faq-campaign">
-                <SelectValue placeholder="Všetky kampane" />
+                <SelectValue placeholder={t.campaigns.faq.allCampaigns} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Všetky kampane</SelectItem>
+                <SelectItem value="all">{t.campaigns.faq.allCampaigns}</SelectItem>
                 {campaigns.map(c => (
                   <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <Badge variant="secondary" className="text-xs">{filteredFaqs.length} otázok</Badge>
+            <Badge variant="secondary" className="text-xs">{filteredFaqs.length} {t.campaigns.faq.questionsCount}</Badge>
           </div>
 
           {groupedFaqs.length === 0 ? (
             <div className="text-center py-12">
               <HelpCircle className="h-12 w-12 mx-auto mb-3 text-muted-foreground/20" />
               <p className="text-sm text-muted-foreground">
-                {faqSearch ? `Žiadne FAQ pre "${faqSearch}"` : "Zatiaľ neboli vytvorené žiadne FAQ"}
+                {faqSearch ? `${t.campaigns.faq.noFaqsForSearch} "${faqSearch}"` : t.campaigns.faq.noFaqs}
               </p>
             </div>
           ) : (
@@ -649,7 +650,7 @@ function CampaignFaqTab({ campaigns }: { campaigns: Campaign[] }) {
                                   <div className="flex items-center gap-2 mt-3 flex-wrap">
                                     <Badge variant="outline" className="text-[10px]">{faq.category}</Badge>
                                     <Badge variant="secondary" className="text-[10px]">
-                                      {faq.campaignId === "all" ? "Všetky kampane" : campaigns.find(c => String(c.id) === faq.campaignId)?.name || "—"}
+                                      {faq.campaignId === "all" ? t.campaigns.faq.allCampaigns : campaigns.find(c => String(c.id) === faq.campaignId)?.name || "—"}
                                     </Badge>
                                   </div>
                                 </div>
@@ -688,9 +689,9 @@ function CampaignFaqTab({ campaigns }: { campaigns: Campaign[] }) {
       <Dialog open={isAddDialogOpen} onOpenChange={(open) => { setIsAddDialogOpen(open); if (!open) setEditingFaq(null); }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editingFaq ? "Upraviť FAQ" : "Pridať novú FAQ"}</DialogTitle>
+            <DialogTitle>{editingFaq ? t.campaigns.faq.editFaq : t.campaigns.faq.addFaq}</DialogTitle>
             <DialogDescription>
-              {editingFaq ? "Upravte otázku a odpoveď" : "Vytvorte novú často kladenú otázku pre agentov"}
+              {editingFaq ? t.campaigns.faq.editFaqDesc : t.campaigns.faq.addFaqDesc}
             </DialogDescription>
           </DialogHeader>
           <FaqForm
@@ -719,6 +720,7 @@ function FaqForm({
   onSave: (faq: { id?: string; question: string; answer: string; category: string; campaignId: string }) => void;
   onCancel: () => void;
 }) {
+  const { t } = useI18n();
   const [question, setQuestion] = useState(initialData?.question || "");
   const [answer, setAnswer] = useState(initialData?.answer || "");
   const [category, setCategory] = useState(initialData?.category || "");
@@ -742,31 +744,31 @@ function FaqForm({
   return (
     <div className="space-y-4 pt-2">
       <div className="space-y-2">
-        <Label>Otázka</Label>
+        <Label>{t.campaigns.faq.question}</Label>
         <Input
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
-          placeholder="Napíšte otázku..."
+          placeholder={t.campaigns.faq.questionPlaceholder}
           data-testid="input-faq-question"
         />
       </div>
       <div className="space-y-2">
-        <Label>Odpoveď</Label>
+        <Label>{t.campaigns.faq.answer}</Label>
         <Textarea
           value={answer}
           onChange={(e) => setAnswer(e.target.value)}
-          placeholder="Napíšte odpoveď..."
+          placeholder={t.campaigns.faq.answerPlaceholder}
           rows={4}
           data-testid="input-faq-answer"
         />
       </div>
       <div className="space-y-2">
-        <Label>Kategória</Label>
+        <Label>{t.campaigns.faq.category}</Label>
         <div className="flex items-center gap-2 flex-wrap">
           {!useNewCategory ? (
             <Select value={category} onValueChange={setCategory}>
               <SelectTrigger className="flex-1" data-testid="select-faq-category">
-                <SelectValue placeholder="Vyberte kategóriu" />
+                <SelectValue placeholder={t.campaigns.faq.selectCategory} />
               </SelectTrigger>
               <SelectContent>
                 {categories.map(cat => (
@@ -778,7 +780,7 @@ function FaqForm({
             <Input
               value={newCategory}
               onChange={(e) => setNewCategory(e.target.value)}
-              placeholder="Nová kategória..."
+              placeholder={t.campaigns.faq.newCategoryPlaceholder}
               className="flex-1"
               data-testid="input-faq-new-category"
             />
@@ -789,18 +791,18 @@ function FaqForm({
             onClick={() => setUseNewCategory(!useNewCategory)}
             data-testid="btn-toggle-new-category"
           >
-            {useNewCategory ? "Existujúca" : "Nová"}
+            {useNewCategory ? t.campaigns.faq.existingCategory : t.campaigns.faq.newCategory}
           </Button>
         </div>
       </div>
       <div className="space-y-2">
-        <Label>Kampaň</Label>
+        <Label>{t.campaigns.faq.campaign}</Label>
         <Select value={campaignId} onValueChange={setCampaignId}>
           <SelectTrigger data-testid="select-faq-campaign-assign">
-            <SelectValue placeholder="Vyberte kampaň" />
+            <SelectValue placeholder={t.campaigns.faq.campaign} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Všetky kampane</SelectItem>
+            <SelectItem value="all">{t.campaigns.faq.allCampaigns}</SelectItem>
             {campaigns.map(c => (
               <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
             ))}
@@ -809,14 +811,14 @@ function FaqForm({
       </div>
       <div className="flex justify-end gap-2 pt-2">
         <Button variant="outline" onClick={onCancel} data-testid="btn-faq-cancel">
-          Zrušiť
+          {t.campaigns.faq.cancel}
         </Button>
         <Button
           onClick={handleSubmit}
           disabled={!question.trim() || !answer.trim() || (!category && !newCategory.trim())}
           data-testid="btn-faq-save"
         >
-          {initialData ? "Uložiť zmeny" : "Pridať FAQ"}
+          {initialData ? t.campaigns.faq.save : t.campaigns.faq.addFaq}
         </Button>
       </div>
     </div>
@@ -955,7 +957,7 @@ function AgentWorkspaceAccessTab() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Headphones className="w-5 h-5" />
-            Prístup agentov ku kampaniam
+            {t.campaigns.agentAccess.title}
           </CardTitle>
           <CardDescription>
             {t.campaigns.detail.operatorAssignmentDesc}
@@ -966,10 +968,10 @@ function AgentWorkspaceAccessTab() {
             <div className="text-center py-8">
               <Users className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
               <p className="text-sm text-muted-foreground">
-                Žiadni používatelia s rolou "Call Center" nie sú k dispozícii.
+                {t.campaigns.agentAccess.noAgents}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                Najprv vytvorte používateľov s rolou Call Center v sekcii Používatelia.
+                {t.campaigns.agentAccess.noAgentsHint}
               </p>
             </div>
           ) : (
@@ -1020,7 +1022,7 @@ function AgentWorkspaceAccessTab() {
                               data-testid={`button-assign-all-${agent.id}`}
                             >
                               <Plus className="w-3 h-3 mr-1" />
-                              Priradiť všetky
+                              {t.campaigns.agentAccess.assignAll}
                             </Button>
                             <Button
                               variant="ghost"
@@ -1030,7 +1032,7 @@ function AgentWorkspaceAccessTab() {
                               data-testid={`button-remove-all-${agent.id}`}
                             >
                               <X className="w-3 h-3 mr-1" />
-                              Odobrať všetky
+                              {t.campaigns.agentAccess.removeAll}
                             </Button>
                           </div>
                         </div>
@@ -1444,15 +1446,15 @@ export default function CampaignsPage() {
           <TabsList>
             <TabsTrigger value="campaigns" className="gap-2" data-testid="tab-campaigns">
               <Megaphone className="h-4 w-4" />
-              Kampane
+              {t.campaigns.title}
             </TabsTrigger>
             <TabsTrigger value="access" className="gap-2" data-testid="tab-access">
               <Shield className="h-4 w-4" />
-              Prístup agentov
+              {t.campaigns.agentAccess.agentAccessTab}
             </TabsTrigger>
             <TabsTrigger value="faq" className="gap-2" data-testid="tab-faq">
               <HelpCircle className="h-4 w-4" />
-              FAQ
+              {t.campaigns.faq.faqTab}
             </TabsTrigger>
           </TabsList>
         </div>

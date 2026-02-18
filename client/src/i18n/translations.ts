@@ -1546,6 +1546,47 @@ export interface Translations {
       yes: string;
       no: string;
     };
+    faq: {
+      title: string;
+      description: string;
+      addFaq: string;
+      editFaq: string;
+      addFaqDesc: string;
+      editFaqDesc: string;
+      question: string;
+      answer: string;
+      category: string;
+      campaign: string;
+      allCampaigns: string;
+      searchPlaceholder: string;
+      noFaqs: string;
+      noFaqsForSearch: string;
+      faqDeleted: string;
+      faqDeletedDesc: string;
+      faqUpdated: string;
+      faqUpdatedDesc: string;
+      faqAdded: string;
+      faqAddedDesc: string;
+      questionPlaceholder: string;
+      answerPlaceholder: string;
+      selectCategory: string;
+      newCategory: string;
+      newCategoryPlaceholder: string;
+      existingCategory: string;
+      save: string;
+      cancel: string;
+      questionsCount: string;
+      frequentlyAsked: string;
+      faqTab: string;
+    };
+    agentAccess: {
+      title: string;
+      noAgents: string;
+      noAgentsHint: string;
+      assignAll: string;
+      removeAll: string;
+      agentAccessTab: string;
+    };
   };
   settings: {
     title: string;
@@ -4815,6 +4856,47 @@ export const translations: Record<Locale, Translations> = {
         yes: 'Yes',
         no: 'No',
       },
+      faq: {
+        title: 'FAQ Management',
+        description: 'Manage frequently asked questions for agents in campaigns',
+        addFaq: 'Add FAQ',
+        editFaq: 'Edit FAQ',
+        addFaqDesc: 'Create a new frequently asked question for agents',
+        editFaqDesc: 'Edit question and answer',
+        question: 'Question',
+        answer: 'Answer',
+        category: 'Category',
+        campaign: 'Campaign',
+        allCampaigns: 'All campaigns',
+        searchPlaceholder: 'Search FAQ...',
+        noFaqs: 'No FAQs created yet',
+        noFaqsForSearch: 'No FAQ for',
+        faqDeleted: 'FAQ deleted',
+        faqDeletedDesc: 'Question was successfully deleted.',
+        faqUpdated: 'FAQ updated',
+        faqUpdatedDesc: 'Question was successfully updated.',
+        faqAdded: 'FAQ added',
+        faqAddedDesc: 'New question was successfully added.',
+        questionPlaceholder: 'Write a question...',
+        answerPlaceholder: 'Write an answer...',
+        selectCategory: 'Select category',
+        newCategory: 'New',
+        newCategoryPlaceholder: 'New category...',
+        existingCategory: 'Existing',
+        save: 'Save changes',
+        cancel: 'Cancel',
+        questionsCount: 'questions',
+        frequentlyAsked: 'Frequently asked questions',
+        faqTab: 'FAQ',
+      },
+      agentAccess: {
+        title: 'Agent access to campaigns',
+        noAgents: 'No users with "Call Center" role are available.',
+        noAgentsHint: 'First create users with Call Center role in the Users section.',
+        assignAll: 'Assign all',
+        removeAll: 'Remove all',
+        agentAccessTab: 'Agent access',
+      },
     },
     settings: {
       title: 'Settings',
@@ -8023,6 +8105,47 @@ export const translations: Record<Locale, Translations> = {
         yes: 'Áno',
         no: 'Nie',
       },
+      faq: {
+        title: 'Správa FAQ',
+        description: 'Spravujte často kladené otázky pre agentov v kampaniach',
+        addFaq: 'Pridať FAQ',
+        editFaq: 'Upraviť FAQ',
+        addFaqDesc: 'Vytvorte novú často kladenú otázku pre agentov',
+        editFaqDesc: 'Upravte otázku a odpoveď',
+        question: 'Otázka',
+        answer: 'Odpoveď',
+        category: 'Kategória',
+        campaign: 'Kampaň',
+        allCampaigns: 'Všetky kampane',
+        searchPlaceholder: 'Hľadať v FAQ...',
+        noFaqs: 'Zatiaľ neboli vytvorené žiadne FAQ',
+        noFaqsForSearch: 'Žiadne FAQ pre',
+        faqDeleted: 'FAQ odstránená',
+        faqDeletedDesc: 'Otázka bola úspešne odstránená.',
+        faqUpdated: 'FAQ aktualizovaná',
+        faqUpdatedDesc: 'Otázka bola úspešne upravená.',
+        faqAdded: 'FAQ pridaná',
+        faqAddedDesc: 'Nová otázka bola úspešne pridaná.',
+        questionPlaceholder: 'Napíšte otázku...',
+        answerPlaceholder: 'Napíšte odpoveď...',
+        selectCategory: 'Vyberte kategóriu',
+        newCategory: 'Nová',
+        newCategoryPlaceholder: 'Nová kategória...',
+        existingCategory: 'Existujúca',
+        save: 'Uložiť zmeny',
+        cancel: 'Zrušiť',
+        questionsCount: 'otázok',
+        frequentlyAsked: 'Často kladené otázky',
+        faqTab: 'FAQ',
+      },
+      agentAccess: {
+        title: 'Prístup agentov ku kampaniam',
+        noAgents: 'Žiadni používatelia s rolou "Call Center" nie sú k dispozícii.',
+        noAgentsHint: 'Najprv vytvorte používateľov s rolou Call Center v sekcii Používatelia.',
+        assignAll: 'Priradiť všetky',
+        removeAll: 'Odobrať všetky',
+        agentAccessTab: 'Prístup agentov',
+      },
     },
     settings: {
       title: 'Nastavenia',
@@ -11216,6 +11339,47 @@ export const translations: Record<Locale, Translations> = {
         yes: 'Ano',
         no: 'Ne',
       },
+      faq: {
+        title: 'Správa FAQ',
+        description: 'Spravujte často kladené otázky pro agenty v kampaních',
+        addFaq: 'Přidat FAQ',
+        editFaq: 'Upravit FAQ',
+        addFaqDesc: 'Vytvořte novou často kladenou otázku pro agenty',
+        editFaqDesc: 'Upravte otázku a odpověď',
+        question: 'Otázka',
+        answer: 'Odpověď',
+        category: 'Kategorie',
+        campaign: 'Kampaň',
+        allCampaigns: 'Všechny kampaně',
+        searchPlaceholder: 'Hledat v FAQ...',
+        noFaqs: 'Zatím nebyly vytvořeny žádné FAQ',
+        noFaqsForSearch: 'Žádné FAQ pro',
+        faqDeleted: 'FAQ odstraněna',
+        faqDeletedDesc: 'Otázka byla úspěšně odstraněna.',
+        faqUpdated: 'FAQ aktualizována',
+        faqUpdatedDesc: 'Otázka byla úspěšně upravena.',
+        faqAdded: 'FAQ přidána',
+        faqAddedDesc: 'Nová otázka byla úspěšně přidána.',
+        questionPlaceholder: 'Napište otázku...',
+        answerPlaceholder: 'Napište odpověď...',
+        selectCategory: 'Vyberte kategorii',
+        newCategory: 'Nová',
+        newCategoryPlaceholder: 'Nová kategorie...',
+        existingCategory: 'Existující',
+        save: 'Uložit změny',
+        cancel: 'Zrušit',
+        questionsCount: 'otázek',
+        frequentlyAsked: 'Často kladené otázky',
+        faqTab: 'FAQ',
+      },
+      agentAccess: {
+        title: 'Přístup agentů ke kampaním',
+        noAgents: 'Žádní uživatelé s rolí "Call Center" nejsou k dispozici.',
+        noAgentsHint: 'Nejprve vytvořte uživatele s rolí Call Center v sekci Uživatelé.',
+        assignAll: 'Přiřadit všechny',
+        removeAll: 'Odebrat všechny',
+        agentAccessTab: 'Přístup agentů',
+      },
     },
     settings: {
       title: 'Nastavení',
@@ -14372,6 +14536,47 @@ export const translations: Record<Locale, Translations> = {
         yes: 'Igen',
         no: 'Nem',
       },
+      faq: {
+        title: 'FAQ kezelés',
+        description: 'Gyakran ismételt kérdések kezelése az ügynökök számára a kampányokban',
+        addFaq: 'FAQ hozzáadása',
+        editFaq: 'FAQ szerkesztése',
+        addFaqDesc: 'Új gyakran ismételt kérdés létrehozása az ügynökök számára',
+        editFaqDesc: 'Kérdés és válasz szerkesztése',
+        question: 'Kérdés',
+        answer: 'Válasz',
+        category: 'Kategória',
+        campaign: 'Kampány',
+        allCampaigns: 'Összes kampány',
+        searchPlaceholder: 'Keresés a FAQ-ban...',
+        noFaqs: 'Még nem hoztak létre FAQ-t',
+        noFaqsForSearch: 'Nincs FAQ ehhez',
+        faqDeleted: 'FAQ törölve',
+        faqDeletedDesc: 'A kérdés sikeresen törölve.',
+        faqUpdated: 'FAQ frissítve',
+        faqUpdatedDesc: 'A kérdés sikeresen frissítve.',
+        faqAdded: 'FAQ hozzáadva',
+        faqAddedDesc: 'Új kérdés sikeresen hozzáadva.',
+        questionPlaceholder: 'Írjon egy kérdést...',
+        answerPlaceholder: 'Írjon egy választ...',
+        selectCategory: 'Válasszon kategóriát',
+        newCategory: 'Új',
+        newCategoryPlaceholder: 'Új kategória...',
+        existingCategory: 'Meglévő',
+        save: 'Változások mentése',
+        cancel: 'Mégse',
+        questionsCount: 'kérdés',
+        frequentlyAsked: 'Gyakran ismételt kérdések',
+        faqTab: 'FAQ',
+      },
+      agentAccess: {
+        title: 'Ügynökök hozzáférése a kampányokhoz',
+        noAgents: 'Nincsenek "Call Center" szerepű felhasználók.',
+        noAgentsHint: 'Először hozzon létre Call Center szerepű felhasználókat a Felhasználók részben.',
+        assignAll: 'Összes hozzárendelése',
+        removeAll: 'Összes eltávolítása',
+        agentAccessTab: 'Ügynök hozzáférés',
+      },
     },
     settings: {
       title: 'Beállítások',
@@ -17526,6 +17731,47 @@ export const translations: Record<Locale, Translations> = {
         or: 'sau',
         yes: 'Da',
         no: 'Nu',
+      },
+      faq: {
+        title: 'Gestionare FAQ',
+        description: 'Gestionați întrebările frecvente pentru agenți în campanii',
+        addFaq: 'Adaugă FAQ',
+        editFaq: 'Editează FAQ',
+        addFaqDesc: 'Creați o nouă întrebare frecventă pentru agenți',
+        editFaqDesc: 'Editați întrebarea și răspunsul',
+        question: 'Întrebare',
+        answer: 'Răspuns',
+        category: 'Categorie',
+        campaign: 'Campanie',
+        allCampaigns: 'Toate campaniile',
+        searchPlaceholder: 'Căutare în FAQ...',
+        noFaqs: 'Nu au fost create încă FAQ-uri',
+        noFaqsForSearch: 'Niciun FAQ pentru',
+        faqDeleted: 'FAQ șters',
+        faqDeletedDesc: 'Întrebarea a fost ștearsă cu succes.',
+        faqUpdated: 'FAQ actualizat',
+        faqUpdatedDesc: 'Întrebarea a fost actualizată cu succes.',
+        faqAdded: 'FAQ adăugat',
+        faqAddedDesc: 'Întrebare nouă adăugată cu succes.',
+        questionPlaceholder: 'Scrieți o întrebare...',
+        answerPlaceholder: 'Scrieți un răspuns...',
+        selectCategory: 'Selectați categoria',
+        newCategory: 'Nouă',
+        newCategoryPlaceholder: 'Categorie nouă...',
+        existingCategory: 'Existentă',
+        save: 'Salvare modificări',
+        cancel: 'Anulare',
+        questionsCount: 'întrebări',
+        frequentlyAsked: 'Întrebări frecvente',
+        faqTab: 'FAQ',
+      },
+      agentAccess: {
+        title: 'Acces agenți la campanii',
+        noAgents: 'Nu sunt disponibili utilizatori cu rolul "Call Center".',
+        noAgentsHint: 'Mai întâi creați utilizatori cu rolul Call Center în secțiunea Utilizatori.',
+        assignAll: 'Atribuie toate',
+        removeAll: 'Elimină toate',
+        agentAccessTab: 'Acces agenți',
       },
     },
     settings: {
@@ -20683,6 +20929,47 @@ export const translations: Record<Locale, Translations> = {
         yes: 'Sì',
         no: 'No',
       },
+      faq: {
+        title: 'Gestione FAQ',
+        description: 'Gestisci le domande frequenti per gli agenti nelle campagne',
+        addFaq: 'Aggiungi FAQ',
+        editFaq: 'Modifica FAQ',
+        addFaqDesc: 'Crea una nuova domanda frequente per gli agenti',
+        editFaqDesc: 'Modifica domanda e risposta',
+        question: 'Domanda',
+        answer: 'Risposta',
+        category: 'Categoria',
+        campaign: 'Campagna',
+        allCampaigns: 'Tutte le campagne',
+        searchPlaceholder: 'Cerca nelle FAQ...',
+        noFaqs: 'Nessuna FAQ creata ancora',
+        noFaqsForSearch: 'Nessuna FAQ per',
+        faqDeleted: 'FAQ eliminata',
+        faqDeletedDesc: 'La domanda è stata eliminata con successo.',
+        faqUpdated: 'FAQ aggiornata',
+        faqUpdatedDesc: 'La domanda è stata aggiornata con successo.',
+        faqAdded: 'FAQ aggiunta',
+        faqAddedDesc: 'Nuova domanda aggiunta con successo.',
+        questionPlaceholder: 'Scrivi una domanda...',
+        answerPlaceholder: 'Scrivi una risposta...',
+        selectCategory: 'Seleziona categoria',
+        newCategory: 'Nuova',
+        newCategoryPlaceholder: 'Nuova categoria...',
+        existingCategory: 'Esistente',
+        save: 'Salva modifiche',
+        cancel: 'Annulla',
+        questionsCount: 'domande',
+        frequentlyAsked: 'Domande frequenti',
+        faqTab: 'FAQ',
+      },
+      agentAccess: {
+        title: 'Accesso agenti alle campagne',
+        noAgents: 'Nessun utente con ruolo "Call Center" disponibile.',
+        noAgentsHint: 'Prima crea utenti con il ruolo Call Center nella sezione Utenti.',
+        assignAll: 'Assegna tutti',
+        removeAll: 'Rimuovi tutti',
+        agentAccessTab: 'Accesso agenti',
+      },
     },
     settings: {
       title: 'Impostazioni',
@@ -23838,6 +24125,47 @@ export const translations: Record<Locale, Translations> = {
         or: 'oder',
         yes: 'Ja',
         no: 'Nein',
+      },
+      faq: {
+        title: 'FAQ-Verwaltung',
+        description: 'Häufig gestellte Fragen für Agenten in Kampagnen verwalten',
+        addFaq: 'FAQ hinzufügen',
+        editFaq: 'FAQ bearbeiten',
+        addFaqDesc: 'Erstellen Sie eine neue häufig gestellte Frage für Agenten',
+        editFaqDesc: 'Frage und Antwort bearbeiten',
+        question: 'Frage',
+        answer: 'Antwort',
+        category: 'Kategorie',
+        campaign: 'Kampagne',
+        allCampaigns: 'Alle Kampagnen',
+        searchPlaceholder: 'In FAQ suchen...',
+        noFaqs: 'Noch keine FAQ erstellt',
+        noFaqsForSearch: 'Keine FAQ für',
+        faqDeleted: 'FAQ gelöscht',
+        faqDeletedDesc: 'Die Frage wurde erfolgreich gelöscht.',
+        faqUpdated: 'FAQ aktualisiert',
+        faqUpdatedDesc: 'Die Frage wurde erfolgreich aktualisiert.',
+        faqAdded: 'FAQ hinzugefügt',
+        faqAddedDesc: 'Neue Frage erfolgreich hinzugefügt.',
+        questionPlaceholder: 'Schreiben Sie eine Frage...',
+        answerPlaceholder: 'Schreiben Sie eine Antwort...',
+        selectCategory: 'Kategorie auswählen',
+        newCategory: 'Neu',
+        newCategoryPlaceholder: 'Neue Kategorie...',
+        existingCategory: 'Vorhandene',
+        save: 'Änderungen speichern',
+        cancel: 'Abbrechen',
+        questionsCount: 'Fragen',
+        frequentlyAsked: 'Häufig gestellte Fragen',
+        faqTab: 'FAQ',
+      },
+      agentAccess: {
+        title: 'Agentenzugang zu Kampagnen',
+        noAgents: 'Keine Benutzer mit der Rolle "Call Center" verfügbar.',
+        noAgentsHint: 'Erstellen Sie zuerst Benutzer mit der Call Center-Rolle im Bereich Benutzer.',
+        assignAll: 'Alle zuweisen',
+        removeAll: 'Alle entfernen',
+        agentAccessTab: 'Agentenzugang',
       },
     },
     settings: {
