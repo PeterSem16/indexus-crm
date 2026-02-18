@@ -3518,7 +3518,17 @@ export default function AgentWorkspacePage() {
                 );
               })() : (
                 <div className="grid grid-cols-2 gap-2">
-                  {campaignDispositions.filter(d => !d.parentId && d.isActive && (!dispositionChannelFilter || d.channel === dispositionChannelFilter)).map((disp) => {
+                  {campaignDispositions.filter(d => {
+                    if (d.parentId || !d.isActive) return false;
+                    if (!dispositionChannelFilter) return true;
+                    if (dispositionChannelFilter === "sms") {
+                      return d.actionType === "send_sms" || d.actionType === "schedule_sms";
+                    }
+                    if (dispositionChannelFilter === "email") {
+                      return d.actionType === "send_email" || d.actionType === "schedule_email";
+                    }
+                    return d.channel === dispositionChannelFilter;
+                  }).map((disp) => {
                     const IconComp = DISPOSITION_ICON_MAP[disp.icon || ""] || CircleDot;
                     const colorClass = DISPOSITION_COLOR_MAP[disp.color || "gray"] || DISPOSITION_COLOR_MAP.gray;
                     const children = campaignDispositions.filter(d => d.parentId === disp.id && d.isActive);
