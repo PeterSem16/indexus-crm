@@ -2372,9 +2372,11 @@ interface ScheduledItem {
 function ScheduledQueuePanel({
   open,
   onOpenChange,
+  onOpenContact,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onOpenContact?: (contactId: string, campaignId: string, campaignContactId: string, channel: "phone" | "email" | "sms") => void;
 }) {
   const [filterType, setFilterType] = useState<"all" | "callback" | "email" | "sms">("all");
   const { toast } = useToast();
@@ -2485,9 +2487,19 @@ function ScheduledQueuePanel({
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-medium truncate" data-testid={`text-scheduled-name-${item.id}`}>
+                          <button
+                            className="text-sm font-medium truncate text-left hover:underline cursor-pointer"
+                            data-testid={`text-scheduled-name-${item.id}`}
+                            onClick={() => {
+                              if (onOpenContact) {
+                                const channel = item.type === "callback" ? "phone" : item.type;
+                                onOpenContact(item.contactId, item.campaignId, item.id, channel as "phone" | "email" | "sms");
+                                onOpenChange(false);
+                              }
+                            }}
+                          >
                             {item.contactName || "Neznámy kontakt"}
-                          </span>
+                          </button>
                           <Badge variant="outline" className="text-[9px]">
                             {getTypeLabel(item.type)}
                           </Badge>
@@ -2528,7 +2540,10 @@ function ScheduledQueuePanel({
                             title="Zavolať teraz"
                             data-testid={`btn-scheduled-call-${item.id}`}
                             onClick={() => {
-                              toast({ title: "Volanie", description: `Volám ${item.contactName}...` });
+                              if (onOpenContact) {
+                                onOpenContact(item.contactId, item.campaignId, item.id, "phone");
+                                onOpenChange(false);
+                              }
                             }}
                           >
                             <PhoneCall className="h-4 w-4 text-blue-500" />
@@ -2541,7 +2556,10 @@ function ScheduledQueuePanel({
                             title="Odoslať teraz"
                             data-testid={`btn-scheduled-send-${item.id}`}
                             onClick={() => {
-                              toast({ title: "Odoslané", description: `Odosielam ${item.type === "email" ? "email" : "SMS"} pre ${item.contactName}...` });
+                              if (onOpenContact) {
+                                onOpenContact(item.contactId, item.campaignId, item.id, item.type as "email" | "sms");
+                                onOpenChange(false);
+                              }
                             }}
                           >
                             <Send className="h-4 w-4 text-green-500" />
@@ -3406,6 +3424,50 @@ export default function AgentWorkspacePage() {
     }
   };
 
+  const handleOpenScheduledContact = async (contactId: string, campaignId: string, campaignContactId: string, channel: "phone" | "email" | "sms") => {
+    try {
+      const res = await fetch(`/api/customers/${contactId}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Customer not found");
+      const customer = await res.json();
+
+      if (selectedCampaignId !== campaignId) {
+        setSelectedCampaignId(campaignId);
+      }
+      setCurrentCampaignContactId(campaignContactId);
+      setCurrentContact(customer);
+      agentSession.updateStatus("busy").catch(() => {});
+      setCallNotes("");
+      setActiveChannel(channel);
+      setRightTab("actions");
+
+      const campaign = campaigns?.find((c: any) => c.id === campaignId);
+      const campaignChannel = (campaign?.channel || "phone") as ChannelType;
+      const newTask: TaskItem = {
+        id: `task-${Date.now()}`,
+        contact: customer,
+        campaignId,
+        campaignName: campaign?.name || "",
+        campaignContactId,
+        channel: campaignChannel,
+        startedAt: new Date(),
+        status: "active",
+      };
+      setTasks((prev) => [...prev, newTask]);
+      setActiveTaskId(newTask.id);
+
+      setTimeline([
+        {
+          id: `start-${Date.now()}`,
+          type: "note",
+          timestamp: new Date(),
+          content: `Kontakt otvorený z naplánovanej fronty (${channel === "phone" ? "spätné volanie" : channel})`,
+        },
+      ]);
+    } catch (err) {
+      toast({ title: "Chyba", description: "Nepodarilo sa načítať kontakt", variant: "destructive" });
+    }
+  };
+
   const activeBreakName = agentSession.activeBreak
     ? agentSession.breakTypes.find(bt => bt.id === agentSession.activeBreak?.breakTypeId)?.name || t.agentSession.statusBreak
     : null;
@@ -3925,7 +3987,7 @@ export default function AgentWorkspacePage() {
         </DialogContent>
       </Dialog>
 
-      <ScheduledQueuePanel open={scheduledQueueOpen} onOpenChange={setScheduledQueueOpen} />
+      <ScheduledQueuePanel open={scheduledQueueOpen} onOpenChange={setScheduledQueueOpen} onOpenContact={handleOpenScheduledContact} />
 
       <Dialog open={scriptModalOpen} onOpenChange={setScriptModalOpen}>
         <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
