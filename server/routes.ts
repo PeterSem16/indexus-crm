@@ -13826,6 +13826,7 @@ export async function registerRoutes(
           customerPhone: customers.phone,
           customerEmail: customers.email,
           campaignName: campaigns.name,
+          campaignChannel: campaigns.channel,
         })
         .from(campaignContacts)
         .innerJoin(customers, eq(campaignContacts.customerId, customers.id))
@@ -13856,6 +13857,7 @@ export async function registerRoutes(
           customerPhone: customers.phone,
           customerEmail: customers.email,
           campaignName: campaigns.name,
+          campaignChannel: campaigns.channel,
         })
         .from(campaignContactSessions)
         .innerJoin(campaignContacts, eq(campaignContactSessions.campaignContactId, campaignContacts.id))
@@ -13876,13 +13878,20 @@ export async function registerRoutes(
       const seenIds = new Set<string>();
       const items: any[] = [];
 
+      const channelTypeMap: Record<string, string> = {
+        phone: "callback",
+        email: "email",
+        sms: "sms",
+        mixed: "callback",
+      };
+
       for (const row of scheduledContacts) {
         const key = `cc-${row.ccId}`;
         if (seenIds.has(key)) continue;
         seenIds.add(key);
         items.push({
           id: row.ccId,
-          type: "callback",
+          type: channelTypeMap[row.campaignChannel || "phone"] || "callback",
           contactId: row.ccCustomerId,
           contactName: `${row.customerFirstName || ""} ${row.customerLastName || ""}`.trim(),
           contactPhone: row.customerPhone || "",
@@ -13901,7 +13910,7 @@ export async function registerRoutes(
         seenIds.add(key);
         items.push({
           id: row.sessionId,
-          type: "callback",
+          type: channelTypeMap[row.campaignChannel || "phone"] || "callback",
           contactId: row.ccCustomerId,
           contactName: `${row.customerFirstName || ""} ${row.customerLastName || ""}`.trim(),
           contactPhone: row.customerPhone || "",

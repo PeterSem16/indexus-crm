@@ -3029,7 +3029,7 @@ export default function AgentWorkspacePage() {
     callContext.resetCallTiming();
     callContext.setCallState("idle");
     callContext.setCallDuration(0);
-    setAgentStatus("wrap_up");
+    agentSession.updateStatus("wrap_up").catch(() => {});
 
     if (activeTaskId) {
       setTasks((prev) => prev.filter((t) => t.id !== activeTaskId));
@@ -3046,7 +3046,7 @@ export default function AgentWorkspacePage() {
     const wrapUpDelay = isAuto ? (campaignAutoSettings.autoDelaySeconds || 5) * 1000 : 2000;
 
     setTimeout(() => {
-      setAgentStatus("available");
+      agentSession.updateStatus("available").catch(() => {});
       if (isAuto) {
         handleNextContact();
       }
