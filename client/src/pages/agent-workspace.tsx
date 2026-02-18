@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useI18n } from "@/i18n";
@@ -81,11 +81,6 @@ import {
   Gift,
   Volume2,
   VolumeX,
-  Bold,
-  Italic,
-  Underline,
-  List,
-  ListOrdered,
   Paperclip,
   X,
   File as FileIcon,
@@ -136,6 +131,10 @@ import { StatusBadge } from "@/components/status-badge";
 import { CustomerForm, type CustomerFormData } from "@/components/customer-form";
 import type { Campaign, Customer, CampaignContact, CampaignDisposition, AgentBreakType } from "@shared/schema";
 import { DISPOSITION_NAME_TRANSLATIONS } from "@shared/schema";
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
+import { getCountryFlag } from "@/lib/countries";
+import { COUNTRY_TO_LOCALE } from "@/i18n/translations";
 
 type AgentStatus = "available" | "busy" | "break" | "wrap_up" | "offline";
 
@@ -1326,8 +1325,8 @@ function CommunicationCanvas({
   activeChannel: string;
   onChannelChange: (ch: string) => void;
   timeline: TimelineEntry[];
-  onSendEmail: (data: { subject: string; body: string; attachments?: { name: string; contentBase64: string; contentType: string }[] }) => void;
-  onSendSms: (message: string) => void;
+  onSendEmail: (data: { to: string[]; subject: string; body: string; mailboxId?: string | null; cc?: string; documentIds?: string[]; attachments?: { name: string; contentBase64: string; contentType: string }[]; compositionDurationSeconds?: number | null }) => void;
+  onSendSms: (data: { to: string[]; message: string; compositionDurationSeconds?: number | null }) => void;
   isSendingEmail: boolean;
   isSendingSms: boolean;
   onMakeCall?: (phoneNumber: string) => void;
@@ -1356,10 +1355,23 @@ function CommunicationCanvas({
   onOpenHistoryDetail?: (entry: TimelineEntry | ContactHistory) => void;
 }) {
   const { t } = useI18n();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [emailSubject, setEmailSubject] = useState("");
-  const [emailBody, setEmailBody] = useState("");
+  const [emailMessage, setEmailMessage] = useState("");
   const [smsMessage, setSmsMessage] = useState("");
-  const [emailAttachments, setEmailAttachments] = useState<File[]>([]);
+  const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
+  const [selectedPhones, setSelectedPhones] = useState<string[]>([]);
+  const [selectedFromAccount, setSelectedFromAccount] = useState<string>("");
+  const [emailAttachment, setEmailAttachment] = useState<File | null>(null);
+  const [emailCc, setEmailCc] = useState("");
+  const [showCcField, setShowCcField] = useState(false);
+  const [smsCc, setSmsCc] = useState("");
+  const [smsCcCountry, setSmsCcCountry] = useState("SK");
+  const [showSmsCcField, setShowSmsCcField] = useState(false);
+  const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
+  const [emailOpenedAt, setEmailOpenedAt] = useState<number | null>(null);
+  const [smsOpenedAt, setSmsOpenedAt] = useState<number | null>(null);
   const [phoneSubTab, setPhoneSubTab] = useState<"card" | "details" | "history">(externalPhoneSubTab || "card");
   
   useEffect(() => {
@@ -1370,13 +1382,88 @@ function CommunicationCanvas({
 
   useEffect(() => {
     setPhoneSubTab("card");
+    setSelectedEmails([]);
+    setSelectedPhones([]);
+    setEmailSubject("");
+    setEmailMessage("");
+    setSmsMessage("");
+    setSelectedFromAccount("");
+    setEmailAttachment(null);
+    setEmailCc("");
+    setShowCcField(false);
+    setSmsCc("");
+    setShowSmsCcField(false);
+    setSelectedDocuments([]);
   }, [contact?.id]);
 
-  const editorRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (activeChannel === "email") {
+      setEmailOpenedAt(Date.now());
+      if (contact?.email) {
+        setSelectedEmails([contact.email]);
+      }
+    } else if (activeChannel === "sms") {
+      setSmsOpenedAt(Date.now());
+      if (contact?.phone) {
+        setSelectedPhones([contact.phone]);
+      }
+    }
+  }, [activeChannel, contact?.id]);
+
   const timelineEndRef = useRef<HTMLDivElement>(null);
 
-  const language = contact?.country === "CZ" ? "cs" : contact?.country === "HU" ? "hu" : contact?.country === "RO" ? "ro" : contact?.country === "IT" ? "it" : contact?.country === "DE" ? "de" : contact?.country === "US" ? "en" : "sk";
+  const getCustomerLanguage = (customer: Customer | null): string => {
+    if (!customer?.country) return "sk";
+    const normalizedCountry = customer.country.toUpperCase();
+    return COUNTRY_TO_LOCALE[normalizedCountry] || "sk";
+  };
+
+  const language = getCustomerLanguage(contact);
+
+  const { data: sharedMailboxes = [] } = useQuery<{ id: string; email: string; displayName: string; isDefault: boolean }[]>({
+    queryKey: ["/api/users", user?.id, "ms365-shared-mailboxes"],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const res = await fetch(`/api/users/${user.id}/ms365-shared-mailboxes`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!user?.id,
+  });
+
+  const { data: personalMs365 } = useQuery<{ email: string; displayName: string; hasTokens: boolean } | null>({
+    queryKey: ["/api/users", user?.id, "ms365-connection"],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const res = await fetch(`/api/users/${user.id}/ms365-connection`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!user?.id,
+  });
+
+  const allEmailAccounts = useMemo(() => {
+    const accounts: { id: string; email: string; displayName: string; type: string; isDefault: boolean }[] = [];
+    if (personalMs365?.hasTokens && personalMs365?.email) {
+      accounts.push({ id: "personal", email: personalMs365.email, displayName: personalMs365.displayName || personalMs365.email, type: "personal", isDefault: false });
+    }
+    sharedMailboxes.forEach(mailbox => {
+      accounts.push({ id: mailbox.id, email: mailbox.email, displayName: mailbox.displayName || mailbox.email, type: "shared", isDefault: mailbox.isDefault });
+    });
+    return accounts;
+  }, [personalMs365, sharedMailboxes]);
+
+  useEffect(() => {
+    if (contact && allEmailAccounts.length > 0 && !selectedFromAccount) {
+      const defaultMailbox = allEmailAccounts.find(m => m.isDefault);
+      if (defaultMailbox) {
+        setSelectedFromAccount(defaultMailbox.id || "");
+      } else if (allEmailAccounts[0]) {
+        setSelectedFromAccount(allEmailAccounts[0].id || "");
+      }
+    }
+  }, [contact, allEmailAccounts, selectedFromAccount]);
+
   const { data: emailTemplates = [] } = useQuery<{ id: string; name: string; subject: string | null; content: string; contentHtml: string | null }[]>({
     queryKey: ["/api/message-templates", "email", language],
     queryFn: async () => {
@@ -1386,34 +1473,97 @@ function CommunicationCanvas({
     enabled: !!contact,
   });
 
-  const replaceTemplateVars = (content: string): string => {
+  const { data: smsTemplates = [] } = useQuery<{ id: string; name: string; content: string }[]>({
+    queryKey: ["/api/message-templates", "sms", language],
+    queryFn: async () => {
+      const res = await fetch(`/api/message-templates?type=sms&isActive=true&language=${language}`, { credentials: "include" });
+      return res.ok ? res.json() : [];
+    },
+    enabled: !!contact,
+  });
+
+  const { data: customerDocuments = [] } = useQuery<{ id: string; name: string; type: string; url: string }[]>({
+    queryKey: ["/api/customers", contact?.id, "documents-for-email"],
+    queryFn: async () => {
+      if (!contact?.id) return [];
+      const res = await fetch(`/api/customers/${contact.id}/documents`, { credentials: "include" });
+      if (!res.ok) return [];
+      const data = await res.json();
+      const docs: { id: string; name: string; type: string; url: string }[] = [];
+      if (Array.isArray(data)) {
+        data.forEach((doc: any) => {
+          if (doc.type === "contract" && doc.pdfPath) {
+            docs.push({ id: `contract-${doc.id}`, name: `${t.contracts?.title || "Zmluva"} ${doc.number || String(doc.id)}`, type: "contract", url: `/api/contract-instances/${doc.id}/pdf` });
+          } else if (doc.type === "invoice" && doc.pdfPath) {
+            docs.push({ id: `invoice-${doc.id}`, name: `${t.invoices?.title || "Faktúra"} ${doc.number || String(doc.id)}`, type: "invoice", url: `/api/invoices/${doc.id}/pdf` });
+          }
+        });
+      }
+      return docs;
+    },
+    enabled: !!contact?.id,
+  });
+
+  const replaceTemplateVars = useCallback((content: string): string => {
     if (!content || !contact) return content;
+    const selectedAccount = allEmailAccounts.find(a => a.id === selectedFromAccount);
+    const userPhone = user?.phone ? `${(user as any)?.phonePrefix || ""}${user.phone}` : "";
+    const now = new Date();
     const replacements: Record<string, string> = {
       "{{customer.firstName}}": contact.firstName || "",
       "{{customer.lastName}}": contact.lastName || "",
       "{{customer.fullName}}": `${contact.firstName || ""} ${contact.lastName || ""}`.trim(),
       "{{customer.email}}": contact.email || "",
+      "{{customer.email2}}": (contact as any).email2 || "",
       "{{customer.phone}}": contact.phone || "",
+      "{{customer.phone2}}": (contact as any).phone2 || "",
       "{{customer.address}}": contact.address || "",
       "{{customer.city}}": contact.city || "",
       "{{customer.postalCode}}": contact.postalCode || "",
       "{{customer.country}}": contact.country || "",
+      "{{customer.birthDate}}": (contact as any).birthDate || "",
+      "{{customer.deliveryDate}}": (contact as any).deliveryDate || "",
+      "{{user.fullName}}": user?.fullName || "",
+      "{{user.email}}": selectedAccount?.email || user?.email || "",
+      "{{user.phone}}": userPhone,
+      "{{user.position}}": (user as any)?.position || "",
+      "{{user.signature}}": (user as any)?.signature || "",
+      "{{system.today}}": now.toLocaleDateString("sk-SK"),
+      "{{system.currentDate}}": now.toLocaleDateString("sk-SK"),
+      "{{system.currentTime}}": now.toLocaleTimeString("sk-SK"),
+      "{{system.currentDateTime}}": now.toLocaleString("sk-SK"),
+      "{{system.year}}": now.getFullYear().toString(),
+      "{{system.month}}": (now.getMonth() + 1).toString().padStart(2, "0"),
+      "{{system.day}}": now.getDate().toString().padStart(2, "0"),
+      "{{company.name}}": "Cord Blood Center Group",
+      "{{company.address}}": "Gallayova 11, 841 02 Bratislava",
+      "{{company.phone}}": "+421 2 59 200 700",
+      "{{company.email}}": "info@cordbloodcenter.com",
+      "{{company.web}}": "www.cordbloodcenter.com",
     };
     let result = content;
-    for (const [key, value] of Object.entries(replacements)) {
-      result = result.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), value);
+    for (const [variable, value] of Object.entries(replacements)) {
+      result = result.split(variable).join(value);
     }
     return result;
-  };
+  }, [contact, user, allEmailAccounts, selectedFromAccount]);
 
-  const handleSelectTemplate = (templateId: string) => {
+  const handleSelectEmailTemplate = (templateId: string) => {
     const template = emailTemplates.find(t => t.id === templateId);
     if (template) {
       const subject = replaceTemplateVars(template.subject || "");
       const content = replaceTemplateVars(template.contentHtml || template.content || "");
       setEmailSubject(subject);
-      setEmailBody(content);
-      if (editorRef.current) editorRef.current.innerHTML = content;
+      setEmailMessage(content);
+      fetch(`/api/message-templates/${templateId}/use`, { method: "POST", credentials: "include" });
+    }
+  };
+
+  const handleSelectSmsTemplate = (templateId: string) => {
+    const template = smsTemplates.find(t => t.id === templateId);
+    if (template) {
+      const content = replaceTemplateVars(template.content || "");
+      setSmsMessage(content);
       fetch(`/api/message-templates/${templateId}/use`, { method: "POST", credentials: "include" });
     }
   };
@@ -1423,62 +1573,51 @@ function CommunicationCanvas({
   }, [timeline.length]);
 
   const handleSendEmail = async () => {
-    const body = editorRef.current?.innerHTML || emailBody;
-    if (emailSubject && body) {
-      let attachmentData: { name: string; contentBase64: string; contentType: string }[] = [];
-      if (emailAttachments.length > 0) {
-        attachmentData = await Promise.all(
-          emailAttachments.map(async (file) => {
-            const buffer = await file.arrayBuffer();
-            const bytes = new Uint8Array(buffer);
-            let binary = "";
-            for (let i = 0; i < bytes.length; i++) {
-              binary += String.fromCharCode(bytes[i]);
-            }
-            return {
-              name: file.name,
-              contentBase64: btoa(binary),
-              contentType: file.type || "application/octet-stream",
-            };
-          })
-        );
-      }
-      onSendEmail({ subject: emailSubject, body, attachments: attachmentData.length > 0 ? attachmentData : undefined });
-      setEmailSubject("");
-      setEmailBody("");
-      setEmailAttachments([]);
-      if (editorRef.current) editorRef.current.innerHTML = "";
+    if (selectedEmails.length === 0 || !emailSubject || !emailMessage) {
+      toast({ title: t.common.error, description: t.customers?.details?.fillAllFields || "Vyplňte všetky povinné polia", variant: "destructive" });
+      return;
     }
-  };
-
-  const execFormat = (command: string, value?: string) => {
-    document.execCommand(command, false, value);
-    editorRef.current?.focus();
-  };
-
-  const handleAddAttachments = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files) {
-      setEmailAttachments(prev => [...prev, ...Array.from(files)]);
+    let pcAttachments: Array<{ name: string; contentType: string; contentBase64: string }> = [];
+    if (emailAttachment) {
+      const fileBuffer = await emailAttachment.arrayBuffer();
+      const base64 = btoa(new Uint8Array(fileBuffer).reduce((data, byte) => data + String.fromCharCode(byte), ''));
+      pcAttachments.push({ name: emailAttachment.name, contentType: emailAttachment.type || 'application/octet-stream', contentBase64: base64 });
     }
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    const compositionDurationSeconds = emailOpenedAt ? Math.round((Date.now() - emailOpenedAt) / 1000) : null;
+    onSendEmail({
+      to: selectedEmails,
+      subject: emailSubject,
+      body: emailMessage,
+      mailboxId: selectedFromAccount === "personal" ? null : selectedFromAccount || null,
+      cc: emailCc.trim() || undefined,
+      documentIds: selectedDocuments.length > 0 ? selectedDocuments : undefined,
+      attachments: pcAttachments.length > 0 ? pcAttachments : undefined,
+      compositionDurationSeconds,
+    });
+    setEmailSubject("");
+    setEmailMessage("");
+    setSelectedEmails([]);
+    setEmailAttachment(null);
+    setEmailCc("");
+    setShowCcField(false);
+    setSelectedDocuments([]);
+    setEmailOpenedAt(null);
   };
 
-  const removeAttachment = (index: number) => {
-    setEmailAttachments(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
-
-  const handleSendSms = () => {
-    if (smsMessage) {
-      onSendSms(smsMessage);
-      setSmsMessage("");
+  const handleSendSms = async () => {
+    const allPhones = [...selectedPhones];
+    if (smsCc.trim()) allPhones.push(smsCc.trim());
+    if (allPhones.length === 0 || !smsMessage) {
+      toast({ title: t.common.error, description: t.customers?.details?.fillAllFields || "Vyplňte všetky povinné polia", variant: "destructive" });
+      return;
     }
+    const compositionDurationSeconds = smsOpenedAt ? Math.round((Date.now() - smsOpenedAt) / 1000) : null;
+    onSendSms({ to: allPhones, message: smsMessage, compositionDurationSeconds });
+    setSmsMessage("");
+    setSelectedPhones([]);
+    setSmsCc("");
+    setShowSmsCcField(false);
+    setSmsOpenedAt(null);
   };
 
   const smsCharCount = smsMessage.length;
@@ -1899,123 +2038,186 @@ function CommunicationCanvas({
               </div>
             </ScrollArea>
           </div>
-          <div className="flex-1 flex flex-col min-w-0">
-            <div className="flex-1 flex flex-col p-4 space-y-3 overflow-y-auto">
-              <div className="flex items-center gap-2 mb-1">
-                <Mail className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-semibold">Nový email</span>
-                {contact?.email && (
-                  <Badge variant="secondary" className="text-[10px]">{contact.email}</Badge>
-                )}
-              </div>
-              {emailTemplates.length > 0 && (
-                <Select onValueChange={handleSelectTemplate}>
-                  <SelectTrigger data-testid="select-email-template" className="text-sm">
-                    <SelectValue placeholder="Vybrať šablónu" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {emailTemplates.map((template) => (
-                      <SelectItem key={template.id} value={template.id}>
-                        {template.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              <Input
-                placeholder="Predmet emailu"
-                value={emailSubject}
-                onChange={(e) => setEmailSubject(e.target.value)}
-                disabled={isSendingEmail}
-                data-testid="input-email-subject"
-              />
-              <div className="border rounded-md overflow-visible flex-1 flex flex-col">
-                <div className="flex items-center gap-0.5 p-1.5 border-b bg-muted/30 flex-wrap">
-                  <Button size="icon" variant="ghost" onClick={() => execFormat("bold")} data-testid="btn-format-bold" title="Tučné">
-                    <Bold className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button size="icon" variant="ghost" onClick={() => execFormat("italic")} data-testid="btn-format-italic" title="Kurzíva">
-                    <Italic className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button size="icon" variant="ghost" onClick={() => execFormat("underline")} data-testid="btn-format-underline" title="Podčiarknuté">
-                    <Underline className="h-3.5 w-3.5" />
-                  </Button>
-                  <Separator orientation="vertical" className="h-5 mx-1" />
-                  <Button size="icon" variant="ghost" onClick={() => execFormat("insertUnorderedList")} data-testid="btn-format-ul" title="Odrážkový zoznam">
-                    <List className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button size="icon" variant="ghost" onClick={() => execFormat("insertOrderedList")} data-testid="btn-format-ol" title="Číslovaný zoznam">
-                    <ListOrdered className="h-3.5 w-3.5" />
-                  </Button>
+          <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+            <div className="flex gap-4 p-4 flex-1">
+              <div className="w-2/5 space-y-3 border-r pr-4">
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                    {t.customers?.details?.fromAccount || "FROM ACCOUNT"}
+                  </Label>
+                  <Select value={selectedFromAccount} onValueChange={setSelectedFromAccount}>
+                    <SelectTrigger data-testid="select-from-account" className="text-sm">
+                      <SelectValue placeholder={t.customers?.details?.selectAccount || "Select account"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allEmailAccounts.map((account) => (
+                        <SelectItem key={account.id || "personal"} value={account.id || "personal"}>
+                          <div className="flex items-center gap-2">
+                            <span>{account.displayName}</span>
+                            {account.type === "personal" && (
+                              <Badge variant="outline" className="text-[10px] px-1 py-0">
+                                {t.customers?.details?.personalAccount || "Personal"}
+                              </Badge>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div
-                  ref={editorRef}
-                  contentEditable={!isSendingEmail}
-                  className="flex-1 min-h-[180px] overflow-y-auto p-3 text-sm focus:outline-none"
-                  data-testid="input-email-body"
-                  onInput={() => {
-                    setEmailBody(editorRef.current?.innerHTML || "");
-                  }}
-                  style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
-                  suppressContentEditableWarning
-                />
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                className="hidden"
-                onChange={handleAddAttachments}
-                data-testid="input-email-attachments"
-              />
-              {emailAttachments.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {emailAttachments.map((file, idx) => (
-                    <div
-                      key={`${file.name}-${idx}`}
-                      className="flex items-center gap-1.5 bg-muted rounded-md px-2 py-1 text-xs"
-                      data-testid={`attachment-item-${idx}`}
+
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                    {t.configuration?.messageTemplates || "TEMPLATE"}
+                  </Label>
+                  <Select onValueChange={handleSelectEmailTemplate} disabled={emailTemplates.length === 0}>
+                    <SelectTrigger data-testid="select-email-template" className="text-sm">
+                      <SelectValue placeholder={emailTemplates.length === 0 ? (t.konfigurator?.noMessageTemplates || "No templates") : (t.configuration?.selectTemplate || "Select template")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {emailTemplates.map((template) => (
+                        <SelectItem key={template.id} value={template.id}>{template.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                    {t.customers?.details?.to || "TO"}
+                  </Label>
+                  <div className="space-y-1.5">
+                    {contact?.email && (
+                      <div className="flex items-center gap-2">
+                        <Checkbox id="aw-email1" checked={selectedEmails.includes(contact.email)} onCheckedChange={(checked) => {
+                          if (checked) setSelectedEmails([...selectedEmails, contact.email!]);
+                          else setSelectedEmails(selectedEmails.filter(e => e !== contact.email));
+                        }} data-testid="checkbox-email-primary" />
+                        <Label htmlFor="aw-email1" className="font-normal cursor-pointer text-xs truncate">{contact.email}</Label>
+                      </div>
+                    )}
+                    {(contact as any)?.email2 && (
+                      <div className="flex items-center gap-2">
+                        <Checkbox id="aw-email2" checked={selectedEmails.includes((contact as any).email2)} onCheckedChange={(checked) => {
+                          if (checked) setSelectedEmails([...selectedEmails, (contact as any).email2!]);
+                          else setSelectedEmails(selectedEmails.filter(e => e !== (contact as any).email2));
+                        }} data-testid="checkbox-email-secondary" />
+                        <Label htmlFor="aw-email2" className="font-normal cursor-pointer text-xs truncate">{(contact as any).email2}</Label>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">CC</Label>
+                    <Button variant="ghost" size="sm" onClick={() => setShowCcField(!showCcField)} className="h-5 px-1 text-xs" data-testid="button-toggle-cc">
+                      {showCcField ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                    </Button>
+                  </div>
+                  {showCcField && (
+                    <Input value={emailCc} onChange={(e) => setEmailCc(e.target.value)} placeholder={t.customers?.details?.ccPlaceholder || "email@example.com"} className="text-sm" data-testid="input-email-cc" />
+                  )}
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                    {t.customers?.details?.attachment || "ATTACHMENT"}
+                  </Label>
+                  {!emailAttachment ? (
+                    <label htmlFor="aw-email-attachment-input"
+                      className="flex flex-col items-center justify-center w-full h-20 border-2 border-dashed border-muted-foreground/25 rounded-lg cursor-pointer bg-muted/30 hover:bg-muted/50 transition-colors"
+                      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                      onDrop={(e) => { e.preventDefault(); e.stopPropagation(); const file = e.dataTransfer.files?.[0]; if (file) setEmailAttachment(file); }}
+                      data-testid="dropzone-email-attachment"
                     >
-                      <FileIcon className="h-3 w-3 text-muted-foreground shrink-0" />
-                      <span className="truncate max-w-[140px]">{file.name}</span>
-                      <span className="text-muted-foreground shrink-0">({formatFileSize(file.size)})</span>
-                      <button
-                        onClick={() => removeAttachment(idx)}
-                        className="ml-0.5 text-muted-foreground hover:text-destructive"
-                        data-testid={`btn-remove-attachment-${idx}`}
-                      >
+                      <div className="flex flex-col items-center justify-center py-1">
+                        <Paperclip className="w-5 h-5 mb-1 text-muted-foreground" />
+                        <p className="text-[10px] text-muted-foreground text-center">
+                          <span className="font-medium text-primary">{t.common?.clickToUpload || "Click to upload"}</span> {t.common?.orDragDrop || "or drag and drop"}
+                        </p>
+                      </div>
+                      <input id="aw-email-attachment-input" type="file" className="hidden" onChange={(e) => setEmailAttachment(e.target.files?.[0] || null)} data-testid="input-email-attachment" />
+                    </label>
+                  ) : (
+                    <div className="flex items-center gap-2 p-2 border rounded-lg bg-muted/30">
+                      <FileIcon className="w-4 h-4 text-primary flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium truncate">{emailAttachment.name}</p>
+                        <p className="text-[10px] text-muted-foreground">{(emailAttachment.size / 1024).toFixed(1)} KB</p>
+                      </div>
+                      <Button variant="ghost" size="icon" onClick={() => setEmailAttachment(null)} data-testid="button-remove-attachment">
                         <X className="h-3 w-3" />
-                      </button>
+                      </Button>
                     </div>
-                  ))}
+                  )}
                 </div>
-              )}
-            </div>
-            <div className="border-t p-3 bg-card flex items-center justify-between gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isSendingEmail}
-                className="gap-1.5"
-                data-testid="btn-add-attachment"
-              >
-                <Paperclip className="h-3.5 w-3.5" />
-                Príloha
-              </Button>
-              <Button
-                onClick={handleSendEmail}
-                disabled={!emailSubject || !(editorRef.current?.innerHTML || emailBody) || isSendingEmail}
-                className="gap-2"
-                data-testid="btn-send-email"
-              >
-                {isSendingEmail ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
+
+                {customerDocuments.length > 0 && (
+                  <div className="space-y-1.5">
+                    <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                      {t.customers?.details?.customerDocuments || "CUSTOMER DOCUMENTS"}
+                    </Label>
+                    <div className="space-y-1 max-h-28 overflow-y-auto border rounded-md p-2">
+                      {customerDocuments.map((doc) => (
+                        <div key={doc.id} className="flex items-center gap-2">
+                          <Checkbox id={`aw-doc-${doc.id}`} checked={selectedDocuments.includes(doc.id)} onCheckedChange={(checked) => {
+                            if (checked) setSelectedDocuments([...selectedDocuments, doc.id]);
+                            else setSelectedDocuments(selectedDocuments.filter(d => d !== doc.id));
+                          }} data-testid={`checkbox-doc-${doc.id}`} />
+                          <Label htmlFor={`aw-doc-${doc.id}`} className="font-normal cursor-pointer text-[11px] truncate flex items-center gap-1">
+                            <FileText className="h-3 w-3 text-muted-foreground" />
+                            {doc.name}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
-                Odoslať
-              </Button>
+              </div>
+
+              <div className="w-3/5 space-y-3 flex flex-col">
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{t.customers?.details?.subject || "Subject"}</Label>
+                  <Input value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} placeholder={t.customers?.details?.emailSubjectPlaceholder || "Email subject..."} disabled={isSendingEmail} data-testid="input-email-subject" />
+                </div>
+                <div className="space-y-1.5 flex-1 flex flex-col">
+                  <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{t.customers?.details?.message || "Message"}</Label>
+                  <div className="border rounded-md flex-1" data-testid="wysiwyg-email-message">
+                    <ReactQuill
+                      theme="snow"
+                      value={emailMessage}
+                      onChange={setEmailMessage}
+                      placeholder={t.customers?.details?.writeEmailPlaceholder || "Write your email..."}
+                      modules={{ toolbar: [
+                        [{ 'header': [1, 2, 3, false] }],
+                        ['bold', 'italic', 'underline', 'strike'],
+                        [{ 'color': [] }, { 'background': [] }],
+                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                        ['link'],
+                        ['clean']
+                      ]}}
+                      style={{ minHeight: '200px' }}
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 pt-1">
+                  <Button variant="outline" size="sm" onClick={() => { setEmailSubject(""); setEmailMessage(""); setSelectedEmails([]); setEmailAttachment(null); setEmailCc(""); setShowCcField(false); setSelectedDocuments([]); }} data-testid="button-cancel-email">
+                    {t.common?.cancel || "Cancel"}
+                  </Button>
+                  <Button onClick={handleSendEmail} disabled={selectedEmails.length === 0 || !emailSubject || !emailMessage || isSendingEmail} data-testid="btn-send-email">
+                    {isSendingEmail ? (<Loader2 className="h-4 w-4 mr-2 animate-spin" />) : (<Send className="h-4 w-4 mr-2" />)}
+                    {t.customers?.details?.sendEmail || "Send Email"}
+                  </Button>
+                </div>
+                {(selectedEmails.length === 0 || !emailSubject || !emailMessage) && (
+                  <div className="text-xs text-destructive">
+                    {selectedEmails.length === 0 && <div>• {t.customers?.details?.selectEmail || "Vyberte aspoň jeden email"}</div>}
+                    {!emailSubject && <div>• {t.customers?.details?.enterSubject || "Zadajte predmet"}</div>}
+                    {!emailMessage && <div>• {t.customers?.details?.enterMessage || "Zadajte správu"}</div>}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -2086,45 +2288,112 @@ function CommunicationCanvas({
               </div>
             </ScrollArea>
           </div>
-          <div className="flex-1 flex flex-col min-w-0">
-            <div className="flex-1 flex flex-col p-4 overflow-y-auto">
-              <div className="flex items-center gap-2 mb-3">
-                <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-semibold">Nová SMS</span>
-                {contact?.phone && (
-                  <Badge variant="secondary" className="text-[10px]">{contact.phone}</Badge>
-                )}
-              </div>
-            </div>
-            <div className="border-t p-3 bg-card">
-              <div className="flex gap-2">
-                <div className="flex-1 space-y-1">
-                  <Textarea
-                    placeholder="Text SMS správy..."
-                    value={smsMessage}
-                    onChange={(e) => setSmsMessage(e.target.value)}
-                    disabled={isSendingSms}
-                    rows={3}
-                    data-testid="input-sms-message"
-                  />
-                  <div className="flex justify-between text-[10px] text-muted-foreground px-1">
-                    <span>{smsCharCount} znakov</span>
-                    <span>{smsCount} SMS</span>
+          <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+            <div className="flex gap-4 p-4 flex-1">
+              <div className="w-2/5 space-y-3 border-r pr-4">
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                    {t.configuration?.messageTemplates || "TEMPLATE"}
+                  </Label>
+                  <Select onValueChange={handleSelectSmsTemplate} disabled={smsTemplates.length === 0}>
+                    <SelectTrigger data-testid="select-sms-template" className="text-sm">
+                      <SelectValue placeholder={smsTemplates.length === 0 ? (t.konfigurator?.noMessageTemplates || "No templates") : (t.configuration?.selectTemplate || "Select template")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {smsTemplates.map((template) => (
+                        <SelectItem key={template.id} value={template.id}>{template.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                    {t.customers?.details?.to || "TO"}
+                  </Label>
+                  <div className="space-y-1.5">
+                    {contact?.phone && (
+                      <div className="flex items-center gap-2">
+                        <Checkbox id="aw-phone1" checked={selectedPhones.includes(contact.phone)} onCheckedChange={(checked) => {
+                          if (checked) setSelectedPhones([...selectedPhones, contact.phone!]);
+                          else setSelectedPhones(selectedPhones.filter(p => p !== contact.phone));
+                        }} data-testid="checkbox-phone-primary" />
+                        <Label htmlFor="aw-phone1" className="font-normal cursor-pointer text-xs">
+                          {getCountryFlag(contact.country || "SK")} {contact.phone}
+                        </Label>
+                      </div>
+                    )}
+                    {(contact as any)?.phone2 && (
+                      <div className="flex items-center gap-2">
+                        <Checkbox id="aw-phone2" checked={selectedPhones.includes((contact as any).phone2)} onCheckedChange={(checked) => {
+                          if (checked) setSelectedPhones([...selectedPhones, (contact as any).phone2!]);
+                          else setSelectedPhones(selectedPhones.filter(p => p !== (contact as any).phone2));
+                        }} data-testid="checkbox-phone-secondary" />
+                        <Label htmlFor="aw-phone2" className="font-normal cursor-pointer text-xs">
+                          {getCountryFlag(contact?.country || "SK")} {(contact as any).phone2}
+                        </Label>
+                      </div>
+                    )}
                   </div>
                 </div>
-                <Button
-                  onClick={handleSendSms}
-                  disabled={!smsMessage || isSendingSms}
-                  size="icon"
-                  className="self-end mb-5"
-                  data-testid="btn-send-sms"
-                >
-                  {isSendingSms ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4" />
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">CC</Label>
+                    <Button variant="ghost" size="sm" onClick={() => setShowSmsCcField(!showSmsCcField)} className="h-5 px-1 text-xs" data-testid="button-toggle-sms-cc">
+                      {showSmsCcField ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                    </Button>
+                  </div>
+                  {showSmsCcField && (
+                    <div className="flex gap-2">
+                      <Select value={smsCcCountry} onValueChange={setSmsCcCountry}>
+                        <SelectTrigger className="w-24" data-testid="select-sms-cc-country">
+                          <SelectValue>{getCountryFlag(smsCcCountry)} {smsCcCountry}</SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="SK">{getCountryFlag("SK")} SK</SelectItem>
+                          <SelectItem value="CZ">{getCountryFlag("CZ")} CZ</SelectItem>
+                          <SelectItem value="HU">{getCountryFlag("HU")} HU</SelectItem>
+                          <SelectItem value="RO">{getCountryFlag("RO")} RO</SelectItem>
+                          <SelectItem value="IT">{getCountryFlag("IT")} IT</SelectItem>
+                          <SelectItem value="DE">{getCountryFlag("DE")} DE</SelectItem>
+                          <SelectItem value="US">{getCountryFlag("US")} US</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input value={smsCc} onChange={(e) => setSmsCc(e.target.value)} placeholder={t.customers?.details?.ccPhonePlaceholder || "+421..."} className="flex-1 text-sm" data-testid="input-sms-cc" />
+                    </div>
                   )}
-                </Button>
+                </div>
+              </div>
+
+              <div className="w-3/5 space-y-3 flex flex-col">
+                <div className="space-y-1.5 flex-1 flex flex-col">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">{t.customers?.details?.message || "Message"}</Label>
+                    <span className={`text-[10px] ${smsMessage.length > 160 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                      {smsCharCount}/160 ({smsCount} SMS)
+                    </span>
+                  </div>
+                  <Textarea
+                    value={smsMessage}
+                    onChange={(e) => setSmsMessage(e.target.value)}
+                    placeholder={t.customers?.details?.writeSmsPlaceholder || "Write your SMS..."}
+                    rows={6}
+                    maxLength={160}
+                    disabled={isSendingSms}
+                    className="flex-1"
+                    data-testid="input-sms-message"
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-1">
+                  <Button variant="outline" size="sm" onClick={() => { setSmsMessage(""); setSelectedPhones([]); setSmsCc(""); setShowSmsCcField(false); }} data-testid="button-cancel-sms">
+                    {t.common?.cancel || "Cancel"}
+                  </Button>
+                  <Button onClick={handleSendSms} disabled={(selectedPhones.length === 0 && !smsCc.trim()) || !smsMessage || isSendingSms} data-testid="btn-send-sms">
+                    {isSendingSms ? (<Loader2 className="h-4 w-4 mr-2 animate-spin" />) : (<Send className="h-4 w-4 mr-2" />)}
+                    {t.customers?.details?.sendSms || "Send SMS"}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
@@ -3806,14 +4075,18 @@ export default function AgentWorkspacePage() {
   };
 
   const sendEmailMutation = useMutation({
-    mutationFn: async (data: { to: string; subject: string; body: string; attachments?: { name: string; contentBase64: string; contentType: string }[]; customerId?: string }) => {
+    mutationFn: async (data: { to: string[]; subject: string; body: string; mailboxId?: string | null; cc?: string; documentIds?: string[]; attachments?: { name: string; contentBase64: string; contentType: string }[]; customerId?: string; compositionDurationSeconds?: number | null }) => {
       const res = await apiRequest("POST", "/api/ms365/send-email-from-mailbox", {
         to: data.to,
         subject: data.subject,
         body: data.body,
         isHtml: true,
+        mailboxId: data.mailboxId,
+        cc: data.cc,
+        documentIds: data.documentIds,
         attachments: data.attachments,
         customerId: data.customerId,
+        compositionDurationSeconds: data.compositionDurationSeconds,
       });
       if (!res.ok) {
         const err = await res.json();
@@ -3824,7 +4097,7 @@ export default function AgentWorkspacePage() {
     onSuccess: (_data, variables) => {
       toast({
         title: "Email odoslaný",
-        description: `Email bol úspešne odoslaný na ${currentContact?.email}`,
+        description: `Email bol úspešne odoslaný na ${variables.to.join(", ")}`,
       });
       setStats((prev) => ({ ...prev, emails: prev.emails + 1 }));
       setTimeline((prev) => [
@@ -3858,12 +4131,12 @@ export default function AgentWorkspacePage() {
   });
 
   const sendSmsMutation = useMutation({
-    mutationFn: async (data: { number: string; text: string; customerId?: string }) => {
-      const res = await apiRequest("POST", "/api/bulkgate/send", {
-        number: data.number,
-        text: data.text,
-        country: currentContact?.country || "SK",
+    mutationFn: async (data: { to: string[]; message: string; customerId?: string; compositionDurationSeconds?: number | null }) => {
+      const res = await apiRequest("POST", "/api/send-sms", {
+        to: data.to,
+        message: data.message,
         customerId: data.customerId,
+        compositionDurationSeconds: data.compositionDurationSeconds,
       });
       if (!res.ok) {
         const err = await res.json();
@@ -3874,7 +4147,7 @@ export default function AgentWorkspacePage() {
     onSuccess: (_data, variables) => {
       toast({
         title: "SMS odoslaná",
-        description: `SMS bola úspešne odoslaná na ${currentContact?.phone}`,
+        description: `SMS bola úspešne odoslaná na ${variables.to.join(", ")}`,
       });
       setStats((prev) => ({ ...prev, sms: prev.sms + 1 }));
       setTimeline((prev) => [
@@ -3884,7 +4157,7 @@ export default function AgentWorkspacePage() {
           type: "sms",
           direction: "outbound",
           timestamp: new Date(),
-          content: variables.text,
+          content: variables.message,
         },
       ]);
       if (variables.customerId) {
@@ -4044,26 +4317,35 @@ export default function AgentWorkspacePage() {
     }
   };
 
-  const handleSendEmail = (data: { subject: string; body: string; attachments?: { name: string; contentBase64: string; contentType: string }[] }) => {
-    if (!currentContact?.email) {
-      toast({ title: "Chyba", description: "Kontakt nemá zadaný email", variant: "destructive" });
+  const handleSendEmail = (data: { to: string[]; subject: string; body: string; mailboxId?: string | null; cc?: string; documentIds?: string[]; attachments?: { name: string; contentBase64: string; contentType: string }[]; compositionDurationSeconds?: number | null }) => {
+    if (!currentContact) {
+      toast({ title: "Chyba", description: "Kontakt nie je vybraný", variant: "destructive" });
       return;
     }
     sendEmailMutation.mutate({
-      to: currentContact.email,
+      to: data.to,
       subject: data.subject,
       body: data.body,
+      mailboxId: data.mailboxId,
+      cc: data.cc,
+      documentIds: data.documentIds,
       attachments: data.attachments,
       customerId: currentContact.id,
+      compositionDurationSeconds: data.compositionDurationSeconds,
     });
   };
 
-  const handleSendSms = (message: string) => {
-    if (!currentContact?.phone) {
-      toast({ title: "Chyba", description: "Kontakt nemá zadané telefónne číslo", variant: "destructive" });
+  const handleSendSms = (data: { to: string[]; message: string; compositionDurationSeconds?: number | null }) => {
+    if (!currentContact) {
+      toast({ title: "Chyba", description: "Kontakt nie je vybraný", variant: "destructive" });
       return;
     }
-    sendSmsMutation.mutate({ number: currentContact.phone, text: message, customerId: currentContact.id });
+    sendSmsMutation.mutate({
+      to: data.to,
+      message: data.message,
+      customerId: currentContact.id,
+      compositionDurationSeconds: data.compositionDurationSeconds,
+    });
   };
 
   const handleAddNote = (note: string) => {
