@@ -13915,6 +13915,7 @@ export async function registerRoutes(
       }
 
       items.sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
+      console.log(`[ScheduledQueue] User ${user.id}: ${scheduledContacts.length} contacts, ${scheduledSessions.length} sessions, ${items.length} total items`);
       res.json(items);
     } catch (error) {
       console.error("Failed to fetch scheduled queue:", error);
@@ -14570,6 +14571,8 @@ export async function registerRoutes(
       if (updatePayload.status === "completed") {
         updatePayload.completedAt = new Date().toISOString();
       }
+
+      console.log(`[Disposition] Contact ${req.params.contactId}: status=${updatePayload.status}, dispositionCode=${updatePayload.dispositionCode}, callbackDate=${updatePayload.callbackDate}, assignedTo=${updatePayload.assignedTo}`);
       
       const contact = await storage.updateCampaignContact(req.params.contactId, updatePayload);
       
