@@ -15818,9 +15818,20 @@ export async function registerRoutes(
         }
       }
 
+      const campaignIds = [...new Set(logs.filter(l => l.campaignId).map(l => l.campaignId!))];
+      let campaignMap: Record<string, string> = {};
+      if (campaignIds.length > 0) {
+        const camps = await db.select({ id: campaigns.id, name: campaigns.name })
+          .from(campaigns).where(inArray(campaigns.id, campaignIds));
+        for (const c of camps) {
+          campaignMap[c.id] = c.name;
+        }
+      }
+
       const result = logs.map(log => ({
         ...log,
         customerName: customerMap[log.customerId || ""] || null,
+        campaignName: campaignMap[log.campaignId || ""] || recordingMap[log.id]?.campaignName || null,
         hasRecording: !!recordingMap[log.id],
         recording: recordingMap[log.id] || null,
       }));
@@ -15898,16 +15909,15 @@ export async function registerRoutes(
       cb(null, STORAGE_PATHS.callRecordings);
     },
     filename: (req, file, cb) => {
-      const sanitize = (s: string) => (s || "unknown").replace(/[^a-zA-Z0-9áčďéíľĺňóôŕšťúýžÁČĎÉÍĽĹŇÓÔŔŠŤÚÝŽ_-]/g, "_").substring(0, 40);
-      const customerId = sanitize(req.body.customerId || "0");
-      const customerName = sanitize(req.body.customerName || "unknown");
+      const sanitize = (s: string) => (s || "").replace(/[^a-zA-Z0-9áčďéíľĺňóôŕšťúýžÁČĎÉÍĽĹŇÓÔŔŠŤÚÝŽ_-]/g, "_").substring(0, 50);
+      const customerName = sanitize(req.body.customerName || "neznamy_klient");
       const agentName = sanitize(req.body.agentName || "agent");
-      const campaignName = sanitize(req.body.campaignName || "nocampaign");
+      const campaignName = sanitize(req.body.campaignName || "bez_kampane");
       const now = new Date();
       const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
       const timeStr = now.toISOString().slice(11, 19).replace(/:/g, "");
       const ext = file.mimetype === "audio/webm" ? "webm" : file.mimetype === "audio/ogg" ? "ogg" : "webm";
-      const filename = `${customerId}_${customerName}_${dateStr}_${timeStr}_${agentName}_${campaignName}.${ext}`;
+      const filename = `${customerName}_${dateStr}_${timeStr}_${campaignName}_${agentName}.${ext}`;
       cb(null, filename);
     },
   });
@@ -16115,6 +16125,38 @@ Pravidlá:
 
       if (!callLogId) return res.status(400).json({ error: "callLogId is required" });
 
+      let resolvedCampaignName = campaignName || null;
+      if (!resolvedCampaignName && campaignId) {
+        try {
+          const [campaign] = await db.select({ name: campaigns.name }).from(campaigns).where(eq(campaigns.id, campaignId));
+          if (campaign?.name) {
+            resolvedCampaignName = campaign.name;
+          }
+        } catch (e) {
+          console.warn("[Recording] Could not resolve campaign name for id:", campaignId);
+        }
+      }
+
+      const sanitizeFn = (s: string) => (s || "").replace(/[^a-zA-Z0-9áčďéíľĺňóôŕšťúýžÁČĎÉÍĽĹŇÓÔŔŠŤÚÝŽ_-]/g, "_").substring(0, 50);
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
+      const timeStr = now.toISOString().slice(11, 19).replace(/:/g, "");
+      const extForRename = req.file.mimetype === "audio/ogg" ? "ogg" : "webm";
+      const correctFilename = `${sanitizeFn(customerName || "neznamy_klient")}_${dateStr}_${timeStr}_${sanitizeFn(resolvedCampaignName || "bez_kampane")}_${sanitizeFn(agentName || "agent")}.${extForRename}`;
+
+      if (req.file.filename !== correctFilename) {
+        const oldPath = req.file.path;
+        const newPath = path.join(path.dirname(oldPath), correctFilename);
+        try {
+          const fsSync = await import("fs");
+          fsSync.renameSync(oldPath, newPath);
+          req.file.filename = correctFilename;
+          req.file.path = newPath;
+        } catch (e) {
+          console.warn("[Recording] Could not rename file:", e);
+        }
+      }
+
       const recordingData = {
         callLogId: String(callLogId),
         userId: user.id,
@@ -16127,7 +16169,7 @@ Pravidlá:
         durationSeconds: durationSeconds ? parseInt(durationSeconds) : null,
         customerName: customerName || null,
         agentName: agentName || null,
-        campaignName: campaignName || null,
+        campaignName: resolvedCampaignName,
         phoneNumber: phoneNumber || null,
         analysisStatus: "pending",
       };

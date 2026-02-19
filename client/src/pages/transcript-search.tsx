@@ -40,6 +40,7 @@ interface CallLogEntry {
   notes: string | null;
   createdAt: string;
   customerName: string | null;
+  campaignName: string | null;
   hasRecording: boolean;
   recording: {
     id: string;
@@ -167,6 +168,15 @@ function CallLogCard({ log }: { log: CallLogEntry }) {
                 <User className="h-3 w-3" />
                 {log.customerName}
               </span>
+            )}
+            {log.campaignName && (
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Megaphone className="h-3 w-3" />
+                {log.campaignName}
+              </span>
+            )}
+            {rec?.agentName && (
+              <Badge variant="outline" className="text-[10px]">{rec.agentName}</Badge>
             )}
             <StatusBadge status={log.status} />
           </div>
