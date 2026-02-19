@@ -183,6 +183,7 @@ interface ContactHistory {
   recipientEmail?: string;
   recipientPhone?: string;
   sentiment?: "positive" | "neutral" | "negative" | "angry" | null;
+  callLogId?: string | null;
 }
 
 interface TimelineEntry {
@@ -2942,6 +2943,11 @@ function CustomerInfoPanel({
                             <ExternalLink className={`${isModal ? "h-4 w-4" : "h-3 w-3"} text-muted-foreground/40 shrink-0 mt-1 opacity-0 group-hover:opacity-100 transition-opacity`} />
                           )}
                         </div>
+                        {isCall && item.callLogId && (
+                          <div className={`${isModal ? "px-3 pb-2" : "px-2 pb-1.5"}`} onClick={(e) => e.stopPropagation()}>
+                            <CallRecordingPlayer callLogId={item.callLogId} compact />
+                          </div>
+                        )}
                         <div className={`flex items-center gap-2 ${isModal ? "px-3 pb-2 text-xs" : "px-2 pb-1.5 text-[9px]"} text-muted-foreground/60 flex-wrap`}>
                           {item.agentName && (
                             <span className="flex items-center gap-0.5">
