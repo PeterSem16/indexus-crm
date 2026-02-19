@@ -224,7 +224,7 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel }: Cus
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className={`grid w-full ${initialData?.clientStatus === "acquired" ? "grid-cols-5" : "grid-cols-4"} gap-1`}>
+          <TabsList className={`sticky top-0 z-50 bg-muted grid w-full ${initialData?.clientStatus === "acquired" ? "grid-cols-5" : "grid-cols-4"} gap-1`}>
             <TabsTrigger value="klientka" data-testid="tab-klientka">{t.customers.tabs.client}</TabsTrigger>
             <TabsTrigger value="adresy" data-testid="tab-adresy">{t.customers.tabs.addresses}</TabsTrigger>
             <TabsTrigger value="marketing" data-testid="tab-marketing">{t.customers.tabs.marketing}</TabsTrigger>

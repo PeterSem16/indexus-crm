@@ -1911,7 +1911,7 @@ function CommunicationCanvas({
 
           {phoneSubTab === "card" && contact && (
             <ScrollArea className="flex-1">
-              <div className="p-4">
+              <div className="px-4 pb-4">
                 <CustomerForm
                   key={contact.id}
                   initialData={contact}
@@ -1925,7 +1925,7 @@ function CommunicationCanvas({
 
           {phoneSubTab === "details" && contact && (
             <ScrollArea className="flex-1">
-              <div className="p-4">
+              <div className="px-4 pb-4">
                 <CustomerDetailsContent customer={contact} onEdit={() => {}} compact visibleTabs={["overview", "potential", "gdpr", "notes"]} hideEditButton onCreateContract={onCreateContract} />
               </div>
             </ScrollArea>
@@ -4452,7 +4452,7 @@ export default function AgentWorkspacePage() {
     });
   };
 
-  const handleAddNote = (note: string) => {
+  const handleAddNote = async (note: string) => {
     setCallNotes((prev) => prev + (prev ? "\n" : "") + note);
     setTimeline((prev) => [
       ...prev,
@@ -4463,6 +4463,15 @@ export default function AgentWorkspacePage() {
         content: note,
       },
     ]);
+    if (currentContact) {
+      try {
+        await apiRequest("POST", `/api/customers/${currentContact.id}/notes`, { content: note });
+        queryClient.invalidateQueries({ queryKey: ["/api/customers", currentContact.id, "notes"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/customers", currentContact.id, "activity-logs"] });
+      } catch (err) {
+        console.error("Failed to save note:", err);
+      }
+    }
   };
 
   const loadContact = (customer: Customer) => {
