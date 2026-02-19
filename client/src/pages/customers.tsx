@@ -2744,11 +2744,15 @@ export function CustomerDetailsContent({
   onEdit,
   compact = false,
   visibleTabs,
+  onCreateContract,
+  hideEditButton,
 }: { 
   customer: Customer; 
   onEdit: () => void;
   compact?: boolean;
   visibleTabs?: string[];
+  onCreateContract?: () => void;
+  hideEditButton?: boolean;
 }) {
   const { t, locale } = useI18n();
   const { toast } = useToast();
@@ -4357,6 +4361,7 @@ export function CustomerDetailsContent({
       <Separator />
 
       <div className="flex gap-2 flex-wrap">
+        {!hideEditButton && (
         <Button
           variant="outline"
           onClick={onEdit}
@@ -4365,6 +4370,17 @@ export function CustomerDetailsContent({
           <Pencil className="h-4 w-4 mr-2" />
           {t.customers.details?.editCustomer || "Edit Customer"}
         </Button>
+        )}
+        {onCreateContract ? (
+        <Button
+          variant="outline"
+          onClick={onCreateContract}
+          data-testid="button-create-contract-from-view"
+        >
+          <FileSignature className="h-4 w-4 mr-2" />
+          {t.customers.details?.createContract || "Vytvoriť zmluvu"}
+        </Button>
+        ) : (
         <Button
           variant="outline"
           asChild
@@ -4375,6 +4391,7 @@ export function CustomerDetailsContent({
             {t.customers.details?.createContract || "Vytvoriť zmluvu"}
           </Link>
         </Button>
+        )}
         <Button
           variant="outline"
           onClick={() => setShowCreateInvoiceWizard(true)}

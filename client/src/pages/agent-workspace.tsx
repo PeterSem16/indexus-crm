@@ -48,6 +48,7 @@ import {
   Star,
   Calendar,
   FileText,
+  FileSignature,
   History,
   User,
   Building,
@@ -116,6 +117,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
@@ -1827,8 +1830,8 @@ function CommunicationCanvas({
       )}
 
       {activeChannel === "phone" && (
-        <div className="flex-1 flex flex-col overflow-y-auto">
-          <div className="border-b bg-card/50 flex items-center">
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="border-b bg-card/50 flex items-center shrink-0 z-10">
             <button
               className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium border-b-2 transition-colors ${
                 phoneSubTab === "card"
@@ -1921,7 +1924,7 @@ function CommunicationCanvas({
           {phoneSubTab === "details" && contact && (
             <ScrollArea className="flex-1">
               <div className="p-4">
-                <CustomerDetailsContent customer={contact} onEdit={() => {}} compact visibleTabs={["overview", "potential", "gdpr", "notes"]} />
+                <CustomerDetailsContent customer={contact} onEdit={() => {}} compact visibleTabs={["overview", "potential", "gdpr", "notes"]} hideEditButton onCreateContract={handleOpenContractWizard} />
               </div>
             </ScrollArea>
           )}
@@ -3689,6 +3692,9 @@ export default function AgentWorkspacePage() {
   const [modalFilter, setModalFilter] = useState<"all" | "my_callbacks" | "team_callbacks" | "pending" | "due">("all");
   const [modalSort, setModalSort] = useState<"callback_asc" | "name_asc" | "attempts_desc">("callback_asc");
   const [modalSearch, setModalSearch] = useState("");
+  const [contractWizardOpen, setContractWizardOpen] = useState(false);
+  const [contractWizardStep, setContractWizardStep] = useState(1);
+  const [contractForm, setContractForm] = useState({ categoryId: "", customerId: "", billingDetailsId: "", currency: "EUR", notes: "", numberRangeId: "" });
 
   const allowedRoles = ["callCenter", "admin"];
   const hasRoleAccess = user && allowedRoles.includes(user.role);
@@ -3833,6 +3839,50 @@ export default function AgentWorkspacePage() {
     queryKey: ["/api/campaigns", selectedCampaignId, "dispositions"],
     enabled: !!selectedCampaignId,
   });
+
+  const { data: contractCategories = [] } = useQuery<Array<{ id: number; value: string; label: string }>>({
+    queryKey: ["/api/contract-categories"],
+    enabled: contractWizardOpen,
+  });
+  const { data: contractBillingDetails = [] } = useQuery<Array<{ id: string; companyName: string; countryCode: string }>>({
+    queryKey: ["/api/billing-details"],
+    enabled: contractWizardOpen,
+  });
+  const contractCustomerCountry = currentContact?.country || "SK";
+  const { data: contractNumberRanges = [] } = useQuery<Array<{ id: string; name: string; countryCode: string; type: string; prefix: string | null; suffix: string | null; digitsToGenerate: number; startNumber: number; endNumber: number; lastNumberUsed: number | null; isActive: boolean }>>(
+    {
+      queryKey: ["/api/configurator/number-ranges", contractCustomerCountry],
+      queryFn: async () => {
+        const res = await fetch(`/api/configurator/number-ranges?countries=${contractCustomerCountry}`, { credentials: "include" });
+        if (!res.ok) return [];
+        return res.json();
+      },
+      enabled: contractWizardOpen,
+    }
+  );
+  const activeContractRanges = contractNumberRanges.filter(nr => nr.isActive && nr.type === "contract" && (nr.countryCode === contractCustomerCountry || !nr.countryCode));
+
+  const createContractMutation = useMutation({
+    mutationFn: async (data: typeof contractForm) => apiRequest("POST", "/api/contracts", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+      setContractWizardOpen(false);
+      setContractWizardStep(1);
+      setContractForm({ categoryId: "", customerId: "", billingDetailsId: "", currency: "EUR", notes: "", numberRangeId: "" });
+      toast({ title: t.contractsModule?.contractSigned || "Zmluva vytvorená", description: t.contractsModule?.contractSignedMessage || "Zmluva bola úspešne vytvorená" });
+    },
+    onError: (error: Error) => {
+      toast({ title: t.contractsModule?.saveError || "Chyba", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleOpenContractWizard = useCallback(() => {
+    if (currentContact) {
+      setContractForm(prev => ({ ...prev, customerId: currentContact.id }));
+      setContractWizardStep(1);
+      setContractWizardOpen(true);
+    }
+  }, [currentContact]);
 
   const userLocale = useMemo(() => {
     const countryToLang: Record<string, string> = { SK: 'sk', CZ: 'cs', HU: 'hu', RO: 'ro', IT: 'it', DE: 'de', US: 'en' };
@@ -5216,6 +5266,174 @@ export default function AgentWorkspacePage() {
               <ScriptViewer script={selectedCampaign?.script || null} contact={currentContact} />
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={contractWizardOpen} onOpenChange={setContractWizardOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{t.contractsModule?.wizardTitle || "Nová zmluva"} - {contractWizardStep}/3</DialogTitle>
+            <DialogDescription>
+              {contractWizardStep === 1 && (t.contractsModule?.wizardStep1 || "Vyberte kategóriu zmluvy")}
+              {contractWizardStep === 2 && (t.contractsModule?.wizardStep2 || "Doplňte údaje")}
+              {contractWizardStep === 3 && (t.contractsModule?.wizardStep3 || "Potvrďte vytvorenie")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="flex gap-2 mb-6">
+              {[1, 2, 3].map(step => (
+                <div key={step} className={`flex-1 h-2 rounded-full ${step <= contractWizardStep ? "bg-primary" : "bg-muted"}`} />
+              ))}
+            </div>
+            {contractWizardStep === 1 && (
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label>{t.contractsModule?.templateCategory || "Kategória zmluvy"}</Label>
+                  <Select value={contractForm.categoryId} onValueChange={(v) => setContractForm({ ...contractForm, categoryId: v })}>
+                    <SelectTrigger data-testid="select-aw-contract-category"><SelectValue placeholder={t.contractsModule?.selectTemplate || "Vyberte kategóriu"} /></SelectTrigger>
+                    <SelectContent>
+                      {contractCategories.length === 0 ? (
+                        <div className="py-6 text-center text-sm text-muted-foreground">Žiadne kategórie zmlúv</div>
+                      ) : contractCategories.map(cat => (
+                        <SelectItem key={cat.id} value={String(cat.id)}>{cat.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Klient</Label>
+                  <div className="flex items-center gap-2 p-2.5 rounded-md border bg-muted/30">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">{currentContact?.firstName} {currentContact?.lastName}</span>
+                    <Badge variant="outline" className="ml-auto text-[10px]">{currentContact?.country}</Badge>
+                  </div>
+                </div>
+              </div>
+            )}
+            {contractWizardStep === 2 && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label>{t.contractsModule?.billingCompany || "Fakturačná spoločnosť"}</Label>
+                    <Select value={contractForm.billingDetailsId} onValueChange={(v) => setContractForm({ ...contractForm, billingDetailsId: v })}>
+                      <SelectTrigger data-testid="select-aw-contract-billing"><SelectValue placeholder={t.contractsModule?.selectBillingCompany || "Vyberte"} /></SelectTrigger>
+                      <SelectContent>
+                        {contractBillingDetails.map(bd => (
+                          <SelectItem key={bd.id} value={bd.id}>{bd.companyName} ({bd.countryCode})</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t.contractsModule?.currency || "Mena"}</Label>
+                    <Select value={contractForm.currency} onValueChange={(v) => setContractForm({ ...contractForm, currency: v })}>
+                      <SelectTrigger data-testid="select-aw-contract-currency"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="EUR">EUR</SelectItem>
+                        <SelectItem value="CZK">CZK</SelectItem>
+                        <SelectItem value="HUF">HUF</SelectItem>
+                        <SelectItem value="RON">RON</SelectItem>
+                        <SelectItem value="USD">USD</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label>{t.contractsModule?.selectNumberRange || "Číselník zmluvy"}</Label>
+                    <Select value={contractForm.numberRangeId} onValueChange={(v) => setContractForm({ ...contractForm, numberRangeId: v })}>
+                      <SelectTrigger data-testid="select-aw-contract-range"><SelectValue placeholder={t.contractsModule?.selectNumberRangePlaceholder || "Vyberte číselník"} /></SelectTrigger>
+                      <SelectContent>
+                        {activeContractRanges.length === 0 ? (
+                          <div className="px-2 py-4 text-center text-sm text-muted-foreground">{t.contractsModule?.noContractNumberRanges || "Žiadne číselníky"}</div>
+                        ) : activeContractRanges.map(range => {
+                          const next = (range.lastNumberUsed || 0) + 1;
+                          const formatted = `${range.prefix || ""}${String(next).padStart(range.digitsToGenerate || 6, "0")}${range.suffix || ""}`;
+                          return <SelectItem key={range.id} value={range.id}><span className="font-medium">{range.name}</span> <span className="text-xs text-muted-foreground ml-1">({formatted})</span></SelectItem>;
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t.contractsModule?.notes || "Poznámky"} ({t.customers?.details?.optional || "voliteľné"})</Label>
+                    <Textarea value={contractForm.notes} onChange={(e) => setContractForm({ ...contractForm, notes: e.target.value })} placeholder="Interné poznámky k zmluve..." data-testid="textarea-aw-contract-notes" />
+                  </div>
+                </div>
+              </div>
+            )}
+            {contractWizardStep === 3 && (
+              <div className="space-y-4">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">{t.contractsModule?.preview || "Súhrn"}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm">
+                    <div className="flex justify-between gap-2 flex-wrap">
+                      <span className="text-muted-foreground">{t.contractsModule?.templateCategory || "Kategória"}:</span>
+                      <span className="font-medium">{contractCategories.find(c => String(c.id) === contractForm.categoryId)?.label}</span>
+                    </div>
+                    <Separator className="my-2" />
+                    <div className="flex justify-between gap-2 flex-wrap">
+                      <span className="text-muted-foreground">{t.contractsModule?.client || "Klient"}:</span>
+                      <span className="font-medium">{currentContact?.firstName} {currentContact?.lastName}</span>
+                    </div>
+                    <div className="flex justify-between gap-2 flex-wrap">
+                      <span className="text-muted-foreground">{t.contractsModule?.billingCompany || "Spoločnosť"}:</span>
+                      <span>{contractBillingDetails.find(b => b.id === contractForm.billingDetailsId)?.companyName}</span>
+                    </div>
+                    <div className="flex justify-between gap-2 flex-wrap">
+                      <span className="text-muted-foreground">{t.contractsModule?.currency || "Mena"}:</span>
+                      <span>{contractForm.currency}</span>
+                    </div>
+                    {contractForm.numberRangeId && (
+                      <>
+                        <Separator className="my-2" />
+                        <div className="flex justify-between gap-2 flex-wrap">
+                          <span className="text-muted-foreground">{t.contractsModule?.selectNumberRange || "Číselník"}:</span>
+                          <span className="font-medium">{activeContractRanges.find(r => r.id === contractForm.numberRangeId)?.name}</span>
+                        </div>
+                      </>
+                    )}
+                    {contractForm.notes && (
+                      <>
+                        <Separator className="my-2" />
+                        <div>
+                          <span className="text-muted-foreground">{t.contractsModule?.notes || "Poznámky"}:</span>
+                          <p className="mt-1 text-sm">{contractForm.notes}</p>
+                        </div>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="gap-2 flex-wrap">
+            <Button variant="outline" onClick={() => {
+              if (contractWizardStep > 1) setContractWizardStep(contractWizardStep - 1);
+              else setContractWizardOpen(false);
+            }}>
+              {contractWizardStep > 1 ? (t.contractsModule?.back || "Späť") : (t.contractsModule?.cancel || "Zrušiť")}
+            </Button>
+            {contractWizardStep < 3 ? (
+              <Button
+                onClick={() => setContractWizardStep(contractWizardStep + 1)}
+                disabled={(contractWizardStep === 1 && !contractForm.categoryId) || (contractWizardStep === 2 && (!contractForm.billingDetailsId || (activeContractRanges.length > 0 && !contractForm.numberRangeId)))}
+                data-testid="button-aw-wizard-next"
+              >
+                {t.contractsModule?.next || "Ďalej"}
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            ) : (
+              <Button onClick={() => createContractMutation.mutate(contractForm)} disabled={createContractMutation.isPending} data-testid="button-aw-create-contract">
+                {createContractMutation.isPending ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{t.contractsModule?.saving || "Ukladám..."}</>
+                ) : (
+                  <><FileSignature className="h-4 w-4 mr-2" />{t.contractsModule?.createAndGeneratePdf || "Vytvoriť zmluvu"}</>
+                )}
+              </Button>
+            )}
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
