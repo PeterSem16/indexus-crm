@@ -1322,6 +1322,7 @@ function CommunicationCanvas({
   callerNumber,
   contactHistory,
   onOpenHistoryDetail,
+  onCreateContract,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
@@ -1356,6 +1357,7 @@ function CommunicationCanvas({
   callerNumber?: string;
   contactHistory?: ContactHistory[];
   onOpenHistoryDetail?: (entry: TimelineEntry | ContactHistory) => void;
+  onCreateContract?: () => void;
 }) {
   const { t } = useI18n();
   const { user } = useAuth();
@@ -1924,7 +1926,7 @@ function CommunicationCanvas({
           {phoneSubTab === "details" && contact && (
             <ScrollArea className="flex-1">
               <div className="p-4">
-                <CustomerDetailsContent customer={contact} onEdit={() => {}} compact visibleTabs={["overview", "potential", "gdpr", "notes"]} hideEditButton onCreateContract={handleOpenContractWizard} />
+                <CustomerDetailsContent customer={contact} onEdit={() => {}} compact visibleTabs={["overview", "potential", "gdpr", "notes"]} hideEditButton onCreateContract={onCreateContract} />
               </div>
             </ScrollArea>
           )}
@@ -4727,6 +4729,7 @@ export default function AgentWorkspacePage() {
           callerNumber={callContext.callInfo?.phoneNumber || ""}
           contactHistory={contactHistory}
           onOpenHistoryDetail={(entry) => setHistoryDetailModal(entry)}
+          onCreateContract={handleOpenContractWizard}
         />
 
         <CustomerInfoPanel
