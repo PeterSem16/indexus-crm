@@ -260,10 +260,10 @@ function CardLayoutForm({ form, initialData, isHidden, isReadonly, complaintType
             )} />
             <FormField control={form.control} name="serviceType" render={({ field }) => (
               <FormItem><FormLabel>{t.customers.fields?.serviceType || "Service Type"}</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+                <Select onValueChange={(val) => field.onChange(val === "__none__" ? null : val)} defaultValue={field.value || "__none__"}>
                   <FormControl><SelectTrigger data-testid="select-service-type"><SelectValue placeholder={t.customers.none} /></SelectTrigger></FormControl>
                   <SelectContent>
-                    <SelectItem value="">{t.customers.none}</SelectItem>
+                    <SelectItem value="__none__">{t.customers.none}</SelectItem>
                     <SelectItem value="cord_blood">{t.customers.serviceTypes?.cordBlood || "Cord Blood"}</SelectItem>
                     <SelectItem value="cord_tissue">{t.customers.serviceTypes?.cordTissue || "Cord Tissue"}</SelectItem>
                     <SelectItem value="both">{t.customers.serviceTypes?.both || "Both"}</SelectItem>
