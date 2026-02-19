@@ -7779,6 +7779,7 @@ export async function registerRoutes(
           duration: call.durationSeconds,
           notes: call.notes,
           campaignId: call.campaignId,
+          callLogId: call.id,
         });
       }
 

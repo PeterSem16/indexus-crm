@@ -1674,6 +1674,7 @@ function CommunicationCanvas({
         recipientEmail: h.recipientEmail,
         recipientPhone: h.recipientPhone,
         sentiment: h.sentiment || null,
+        callLogId: (h as any).callLogId || null,
       }));
     const all = [...timeline, ...persistentAsTimeline];
     return {
@@ -3965,6 +3966,7 @@ export default function AgentWorkspacePage() {
       previousStatus: item.previousStatus,
       newStatus: item.newStatus,
       sentiment: item.sentiment || null,
+      callLogId: item.callLogId || null,
     }));
   }, [persistentHistory]);
 
