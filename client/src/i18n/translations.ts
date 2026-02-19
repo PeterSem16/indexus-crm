@@ -1612,6 +1612,8 @@ export interface Translations {
     emailAction: string;
     smsAction: string;
     taskAction: string;
+    customerCard: string;
+    customerDetail: string;
   };
   settings: {
     title: string;
@@ -4947,6 +4949,8 @@ export const translations: Record<Locale, Translations> = {
       emailAction: 'Email',
       smsAction: 'SMS',
       taskAction: 'Task',
+      customerCard: 'Customer Card',
+      customerDetail: 'Customer Detail',
     },
     settings: {
       title: 'Settings',
@@ -8221,6 +8225,8 @@ export const translations: Record<Locale, Translations> = {
       emailAction: 'Email',
       smsAction: 'SMS',
       taskAction: 'Úloha',
+      customerCard: 'Karta zákazníka',
+      customerDetail: 'Detail zákazníka',
     },
     settings: {
       title: 'Nastavenia',
@@ -11480,6 +11486,8 @@ export const translations: Record<Locale, Translations> = {
       emailAction: 'Email',
       smsAction: 'SMS',
       taskAction: 'Úkol',
+      customerCard: 'Karta zákazníka',
+      customerDetail: 'Detail zákazníka',
     },
     settings: {
       title: 'Nastavení',
@@ -14702,6 +14710,8 @@ export const translations: Record<Locale, Translations> = {
       emailAction: 'Email',
       smsAction: 'SMS',
       taskAction: 'Feladat',
+      customerCard: 'Ügyfél kártya',
+      customerDetail: 'Ügyfél részletek',
     },
     settings: {
       title: 'Beállítások',
@@ -17923,6 +17933,8 @@ export const translations: Record<Locale, Translations> = {
       emailAction: 'Email',
       smsAction: 'SMS',
       taskAction: 'Sarcină',
+      customerCard: 'Fișa clientului',
+      customerDetail: 'Detalii client',
     },
     settings: {
       title: 'Setări',
@@ -21145,6 +21157,8 @@ export const translations: Record<Locale, Translations> = {
       emailAction: 'Email',
       smsAction: 'SMS',
       taskAction: 'Attività',
+      customerCard: 'Scheda cliente',
+      customerDetail: 'Dettaglio cliente',
     },
     settings: {
       title: 'Impostazioni',
@@ -24367,6 +24381,8 @@ export const translations: Record<Locale, Translations> = {
       emailAction: 'E-Mail',
       smsAction: 'SMS',
       taskAction: 'Aufgabe',
+      customerCard: 'Kundenkarte',
+      customerDetail: 'Kundendetail',
     },
     settings: {
       title: 'Einstellungen',

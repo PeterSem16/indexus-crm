@@ -1844,7 +1844,7 @@ function CommunicationCanvas({
               data-testid="subtab-customer-card"
             >
               <Pencil className="h-3 w-3" />
-              Karta zákazníka
+              {t.agentWorkspace.customerCard}
             </button>
             <button
               className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium border-b-2 transition-colors ${
@@ -1856,7 +1856,7 @@ function CommunicationCanvas({
               data-testid="subtab-customer-details"
             >
               <Eye className="h-3 w-3" />
-              Detail zákazníka
+              {t.agentWorkspace.customerDetail}
             </button>
             <button
               className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium border-b-2 transition-colors ${
@@ -2526,7 +2526,7 @@ function CustomerInfoPanel({
                 variant="ghost"
                 className="h-7 w-7 shrink-0"
                 onClick={onViewCustomer}
-                title="Detail zákazníka"
+                title={t.agentWorkspace.customerDetail}
                 data-testid="button-view-customer"
               >
                 <Eye className="h-3.5 w-3.5" />
@@ -3843,7 +3843,7 @@ export default function AgentWorkspacePage() {
   });
 
   const { data: contractCategories = [] } = useQuery<Array<{ id: number; value: string; label: string }>>({
-    queryKey: ["/api/contract-categories"],
+    queryKey: ["/api/contracts/categories"],
     enabled: contractWizardOpen,
   });
   const { data: contractBillingDetails = [] } = useQuery<Array<{ id: string; companyName: string; countryCode: string }>>({
