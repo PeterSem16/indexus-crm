@@ -1774,7 +1774,7 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
         </Tabs>
         )}
 
-        <div className={`sticky bottom-0 left-0 right-0 z-[999] bg-background/95 backdrop-blur-sm border-t px-4 py-3 ${useCardLayout ? "" : "-mx-6 -mb-4"} mt-4 flex justify-end gap-3 flex-wrap`}>
+        <div className={`sticky bottom-0 left-0 right-0 z-10 bg-background/95 backdrop-blur-sm border-t px-4 py-3 ${useCardLayout ? "" : "-mx-6 -mb-4"} mt-4 flex justify-end gap-3 flex-wrap`}>
           <Button 
             type="button" 
             variant="outline" 

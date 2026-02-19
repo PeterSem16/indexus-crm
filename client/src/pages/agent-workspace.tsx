@@ -1936,7 +1936,7 @@ function CommunicationCanvas({
           )}
 
           {phoneSubTab === "card" && contact && (
-            <ScrollArea className="flex-1">
+            <ScrollArea className="flex-1 isolate">
               <div className="px-4 pb-4">
                 <CustomerForm
                   key={contact.id}
