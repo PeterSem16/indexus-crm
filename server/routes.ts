@@ -16165,6 +16165,21 @@ Pravidlá:
         return res.status(403).json({ error: "Access denied" });
       }
 
+      if (recording.analysisStatus === "pending" && recording.filePath && process.env.OPENAI_API_KEY) {
+        const fsCheck = await import("fs");
+        if (fsCheck.existsSync(recording.filePath)) {
+          console.log(`[CallAnalysis] Auto-triggering analysis for pending recording ${recording.id}`);
+          processCallRecordingAnalysis(recording.id, recording.filePath).catch(err => {
+            console.error(`[CallAnalysis] Auto-trigger failed:`, err.message);
+          });
+        } else {
+          await db.update(callRecordings).set({
+            analysisStatus: "failed",
+            analysisResult: { error: "Recording file not found on disk" },
+          }).where(eq(callRecordings.id, recording.id));
+        }
+      }
+
       res.json({
         id: recording.id,
         analysisStatus: recording.analysisStatus,
