@@ -1944,6 +1944,7 @@ function CommunicationCanvas({
                   onSubmit={(data) => onUpdateContact?.(data)}
                   isLoading={isUpdatingContact}
                   onCancel={() => setPhoneSubTab("details")}
+                  useCardLayout
                 />
               </div>
             </ScrollArea>
@@ -1952,7 +1953,7 @@ function CommunicationCanvas({
           {phoneSubTab === "details" && contact && (
             <ScrollArea className="flex-1">
               <div className="px-4 pb-4">
-                <CustomerDetailsContent customer={contact} onEdit={() => {}} compact visibleTabs={["overview", "communicate", "potential", "gdpr", "notes"]} hideEditButton useCardLayout onCreateContract={onCreateContract} />
+                <CustomerDetailsContent customer={contact} onEdit={() => {}} compact visibleTabs={["overview", "potential", "gdpr", "notes"]} hideEditButton useCardLayout onCreateContract={onCreateContract} />
               </div>
             </ScrollArea>
           )}
