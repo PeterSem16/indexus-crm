@@ -1789,20 +1789,6 @@ function CommunicationCanvas({
             SMS
           </button>
           <div className="ml-auto flex items-center pr-2">
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => setShowHistoryModal(true)}
-              data-testid="btn-open-history-modal"
-              title={t.agentWorkspace.history}
-            >
-              <History className="h-4 w-4" />
-              {(mergedHistory.all.length > 0) && (
-                <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] text-primary-foreground font-bold">
-                  {mergedHistory.all.length > 99 ? "99+" : mergedHistory.all.length}
-                </span>
-              )}
-            </Button>
           </div>
         </div>
       </div>
@@ -1884,18 +1870,6 @@ function CommunicationCanvas({
               <Eye className="h-3 w-3" />
               {t.agentWorkspace.customerDetail}
             </button>
-            <button
-              className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium border-b-2 transition-colors ${
-                phoneSubTab === "history"
-                  ? "border-green-500 text-green-600 dark:text-green-400"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-              onClick={() => setPhoneSubTab("history")}
-              data-testid="subtab-communication-history"
-            >
-              <History className="h-3 w-3" />
-              {t.agentWorkspace.history}
-            </button>
           </div>
 
           {(phoneSubTab === "card" || phoneSubTab === "details") && contact && contact.phone && isSipRegistered && onMakeCall && (
@@ -1958,67 +1932,6 @@ function CommunicationCanvas({
             </ScrollArea>
           )}
 
-          {phoneSubTab === "history" && contact && (
-            <ScrollArea className="flex-1">
-              <div className="p-4 space-y-2">
-                {mergedHistory.all.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground text-sm">
-                    <History className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                    <p>Žiadna história komunikácie</p>
-                  </div>
-                ) : (
-                  mergedHistory.all.map((entry) => (
-                      <div
-                        key={entry.id}
-                        className="flex items-start gap-3 p-2.5 rounded-md bg-muted/30 border border-border/50"
-                        data-testid={`history-entry-${entry.id}`}
-                      >
-                        <div className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
-                          entry.type === "call" ? "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400" :
-                          entry.type === "email" ? "bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400" :
-                          entry.type === "sms" ? "bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400" :
-                          entry.type === "note" ? "bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400" :
-                          "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
-                        }`}>
-                          {entry.type === "call" && <PhoneCall className="h-3.5 w-3.5" />}
-                          {entry.type === "email" && <Mail className="h-3.5 w-3.5" />}
-                          {entry.type === "sms" && <MessageSquare className="h-3.5 w-3.5" />}
-                          {entry.type === "note" && <FileText className="h-3.5 w-3.5" />}
-                          {entry.type === "system" && <AlertCircle className="h-3.5 w-3.5" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <Badge variant="outline" className="text-[10px] h-5 capitalize">
-                              {entry.type === "call" ? "Hovor" : entry.type === "email" ? "Email" : entry.type === "sms" ? "SMS" : entry.type === "note" ? "Poznámka" : "Systém"}
-                            </Badge>
-                            {entry.direction && (
-                              <Badge variant="secondary" className="text-[10px] h-5">
-                                {entry.direction === "inbound" ? "Prichádzajúci" : "Odchádzajúci"}
-                              </Badge>
-                            )}
-                            {entry.status && (
-                              <Badge variant="secondary" className="text-[10px] h-5">
-                                {entry.status}
-                              </Badge>
-                            )}
-                            {(entry.type === "email" || entry.type === "sms") && entry.sentiment && (
-                              <SentimentBadge sentiment={entry.sentiment} size="sm" />
-                            )}
-                            <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
-                              {format(new Date(entry.timestamp), "d.M.yyyy HH:mm", { locale: sk })}
-                            </span>
-                          </div>
-                          <p className="text-xs text-foreground mt-1 line-clamp-2">{entry.content}</p>
-                          {entry.details && (
-                            <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{entry.details}</p>
-                          )}
-                        </div>
-                      </div>
-                    ))
-                )}
-              </div>
-            </ScrollArea>
-          )}
         </div>
       )}
 
