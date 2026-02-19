@@ -15848,6 +15848,14 @@ export async function registerRoutes(
     },
   });
 
+  const ALERT_KEYWORDS_CONFIG = [
+    "reklamácia", "sťažnosť", "právnik", "advokát", "súd", "žaloba",
+    "GDPR", "zrušiť zmluvu", "odstúpenie", "vrátenie peňazí", "podvod",
+    "nespokojný", "hrozba", "inšpekcia", "regulátor", "úrad",
+    "complaint", "lawyer", "refund", "cancel", "fraud", "lawsuit",
+    "reklamace", "stížnost", "právník", "zrušit smlouvu",
+  ];
+
   async function processCallRecordingAnalysis(recordingId: string, filePath: string) {
     try {
       console.log(`[CallAnalysis] Starting transcription for recording ${recordingId}`);
@@ -15858,6 +15866,28 @@ export async function registerRoutes(
         console.error(`[CallAnalysis] File not found: ${filePath}`);
         await db.update(callRecordings).set({ analysisStatus: "failed", analysisResult: { error: "Recording file not found" } }).where(eq(callRecordings.id, recordingId));
         return;
+      }
+
+      const [recording] = await db.select().from(callRecordings).where(eq(callRecordings.id, recordingId));
+      let campaignScriptText = "";
+      if (recording?.campaignId) {
+        const [campaign] = await db.select({ script: campaigns.script, name: campaigns.name }).from(campaigns).where(eq(campaigns.id, recording.campaignId));
+        if (campaign?.script) {
+          try {
+            const parsed = JSON.parse(campaign.script);
+            if (parsed.steps && Array.isArray(parsed.steps)) {
+              campaignScriptText = parsed.steps.map((s: any) => {
+                const elements = (s.elements || []).map((e: any) => e.label || e.content || "").filter(Boolean).join("; ");
+                return `${s.title || ""}: ${elements}`;
+              }).filter(Boolean).join("\n");
+            } else {
+              campaignScriptText = campaign.script;
+            }
+          } catch {
+            campaignScriptText = campaign.script;
+          }
+          console.log(`[CallAnalysis] Loaded campaign script for ${recording.campaignId} (${campaignScriptText.length} chars)`);
+        }
       }
 
       let transcriptionText = "";
@@ -15879,9 +15909,18 @@ export async function registerRoutes(
         return;
       }
 
+      const detectedAlerts: string[] = [];
+      const lowerText = transcriptionText.toLowerCase();
+      for (const kw of ALERT_KEYWORDS_CONFIG) {
+        if (lowerText.includes(kw.toLowerCase())) {
+          detectedAlerts.push(kw);
+        }
+      }
+
       await db.update(callRecordings).set({
         transcriptionText,
         transcriptionLanguage,
+        alertKeywords: detectedAlerts.length > 0 ? detectedAlerts : null,
       }).where(eq(callRecordings.id, recordingId));
 
       if (!transcriptionText || transcriptionText.trim().length < 10) {
@@ -15898,30 +15937,52 @@ export async function registerRoutes(
       }
 
       try {
+        let scriptSection = "";
+        if (campaignScriptText) {
+          scriptSection = `
+Skript kampane, ktorý mal agent dodržiavať:
+"""
+${campaignScriptText.substring(0, 2000)}
+"""
+`;
+        }
+
+        let alertSection = "";
+        if (detectedAlerts.length > 0) {
+          alertSection = `\nV prepise boli detegované tieto kľúčové/varovné slová: ${detectedAlerts.join(", ")}. Zahrň ich do analýzy.`;
+        }
+
         const analysisPrompt = `Analyzuj nasledujúci prepis telefonického hovoru z call centra krvnej banky (cord blood banking).
 
 Prepis hovoru:
 """
 ${transcriptionText}
 """
+${scriptSection}${alertSection}
 
 Vráť analýzu v JSON formáte s presne týmito poliami:
 {
   "sentiment": "positive" | "neutral" | "negative" | "angry",
   "qualityScore": číslo 1-10 (1=veľmi slabý, 10=výborný),
-  "summary": "stručný súhrn hovoru v 1-3 vetách",
+  "summary": "stručný súhrn hovoru v 2-4 vetách",
   "keyTopics": ["téma1", "téma2", ...],
   "actionItems": ["akčný bod 1", "akčný bod 2", ...],
   "complianceNotes": "poznámky o súlade s pravidlami / kvalite obsluhy, alebo null ak je všetko ok",
+  "scriptComplianceScore": číslo 1-10 alebo null (len ak bol dodaný skript kampane),
+  "scriptComplianceDetails": "detailné zhodnotenie dodržiavania skriptu - čo agent splnil, čo vynechal, čo pridali navyše" alebo null,
+  "alertKeywords": ["detegované varovné slová z prepisu"],
   "detectedLanguage": "sk" | "cs" | "hu" | "ro" | "it" | "de" | "en"
 }
 
 Pravidlá:
 - sentiment: celkový sentiment klienta počas hovoru
-- qualityScore: hodnoť kvalitu obsluhy agentom (profesionalita, empatia, riešenie problému)
+- qualityScore: hodnoť kvalitu obsluhy agentom (profesionalita, empatia, riešenie problému, dodržiavanie postupov)
 - keyTopics: hlavné témy hovoru (max 5)
 - actionItems: čo treba urobiť po hovore (max 5)
 - complianceNotes: ak agent porušil pravidlá alebo bol neprofesionálny, opíš to; inak null
+- scriptComplianceScore: ak bol dodaný skript kampane, ohodnoť 1-10 ako dobre agent dodržiaval skript (1=vôbec, 10=perfektne). Ak nebol skript, vráť null
+- scriptComplianceDetails: podrobnosti o dodržiavaní/nedodržiavaní skriptu. Ak nebol skript, vráť null
+- alertKeywords: varovné slová detegované v prepise (napr. reklamácia, právnik, zrušiť zmluvu, sťažnosť). Ak žiadne, vráť prázdne pole []
 - Odpovedaj VÝHRADNE validným JSON, bez ďalšieho textu`;
 
         const analysisResponse = await openai.chat.completions.create({
@@ -15929,11 +15990,13 @@ Pravidlá:
           messages: [{ role: "user", content: analysisPrompt }],
           response_format: { type: "json_object" },
           temperature: 0.3,
-          max_tokens: 1000,
+          max_tokens: 1500,
         });
 
         const analysisText = analysisResponse.choices[0]?.message?.content || "{}";
         const analysis = JSON.parse(analysisText);
+
+        const allAlerts = [...new Set([...detectedAlerts, ...(analysis.alertKeywords || [])])];
 
         await db.update(callRecordings).set({
           analysisStatus: "completed",
@@ -15944,11 +16007,13 @@ Pravidlá:
           keyTopics: analysis.keyTopics || [],
           actionItems: analysis.actionItems || [],
           complianceNotes: analysis.complianceNotes || null,
+          scriptComplianceScore: analysis.scriptComplianceScore ? Math.min(10, Math.max(1, parseInt(analysis.scriptComplianceScore))) : null,
+          alertKeywords: allAlerts.length > 0 ? allAlerts : null,
           transcriptionLanguage: analysis.detectedLanguage || "sk",
           analyzedAt: new Date(),
         }).where(eq(callRecordings.id, recordingId));
 
-        console.log(`[CallAnalysis] Analysis complete for ${recordingId}: sentiment=${analysis.sentiment}, score=${analysis.qualityScore}`);
+        console.log(`[CallAnalysis] Analysis complete for ${recordingId}: sentiment=${analysis.sentiment}, score=${analysis.qualityScore}, scriptScore=${analysis.scriptComplianceScore || 'N/A'}, alerts=${allAlerts.length}`);
       } catch (analysisErr: any) {
         console.error(`[CallAnalysis] GPT analysis failed for ${recordingId}:`, analysisErr.message);
         await db.update(callRecordings).set({
@@ -16111,6 +16176,9 @@ Pravidlá:
         keyTopics: recording.keyTopics,
         actionItems: recording.actionItems,
         complianceNotes: recording.complianceNotes,
+        scriptComplianceScore: recording.scriptComplianceScore,
+        scriptComplianceDetails: (recording.analysisResult as any)?.scriptComplianceDetails || null,
+        alertKeywords: recording.alertKeywords,
         analyzedAt: recording.analyzedAt,
         analysisResult: recording.analysisResult,
       });
@@ -16146,7 +16214,7 @@ Pravidlá:
       const user = req.session.user;
       if (!user) return res.status(401).json({ error: "Not authenticated" });
 
-      const { query, customerId, limit: limitParam } = req.query;
+      const { query, customerId, campaignId, agentId, sentiment: sentimentFilter, minScore, maxScore, hasAlerts, limit: limitParam } = req.query;
       if (!query || typeof query !== "string" || query.trim().length < 2) {
         return res.status(400).json({ error: "Search query must be at least 2 characters" });
       }
@@ -16155,15 +16223,17 @@ Pravidlá:
       const searchTerm = `%${query.trim()}%`;
       const conditions: any[] = [
         sql`${callRecordings.transcriptionText} IS NOT NULL`,
-        sql`${callRecordings.transcriptionText} ILIKE ${searchTerm}`,
+        sql`(${callRecordings.transcriptionText} ILIKE ${searchTerm} OR ${callRecordings.summary} ILIKE ${searchTerm})`,
       ];
 
-      if (customerId) {
-        conditions.push(eq(callRecordings.customerId, customerId as string));
-      }
-      if (!isPrivileged) {
-        conditions.push(eq(callRecordings.userId, user.id));
-      }
+      if (customerId) conditions.push(eq(callRecordings.customerId, customerId as string));
+      if (campaignId) conditions.push(eq(callRecordings.campaignId, campaignId as string));
+      if (agentId) conditions.push(eq(callRecordings.userId, agentId as string));
+      if (sentimentFilter) conditions.push(eq(callRecordings.sentiment, sentimentFilter as string));
+      if (minScore) conditions.push(sql`${callRecordings.qualityScore} >= ${parseInt(minScore as string)}`);
+      if (maxScore) conditions.push(sql`${callRecordings.qualityScore} <= ${parseInt(maxScore as string)}`);
+      if (hasAlerts === "true") conditions.push(sql`${callRecordings.alertKeywords} IS NOT NULL AND array_length(${callRecordings.alertKeywords}, 1) > 0`);
+      if (!isPrivileged) conditions.push(eq(callRecordings.userId, user.id));
 
       const results = await db.select({
         id: callRecordings.id,
@@ -16171,22 +16241,119 @@ Pravidlá:
         customerId: callRecordings.customerId,
         customerName: callRecordings.customerName,
         agentName: callRecordings.agentName,
+        campaignName: callRecordings.campaignName,
         phoneNumber: callRecordings.phoneNumber,
         durationSeconds: callRecordings.durationSeconds,
         sentiment: callRecordings.sentiment,
         qualityScore: callRecordings.qualityScore,
+        scriptComplianceScore: callRecordings.scriptComplianceScore,
         summary: callRecordings.summary,
+        alertKeywords: callRecordings.alertKeywords,
         transcriptionText: callRecordings.transcriptionText,
         createdAt: callRecordings.createdAt,
       }).from(callRecordings)
         .where(and(...conditions))
         .orderBy(desc(callRecordings.createdAt))
-        .limit(parseInt(limitParam as string) || 20);
+        .limit(parseInt(limitParam as string) || 30);
 
       res.json(results);
     } catch (error) {
       console.error("Failed to search transcripts:", error);
       res.status(500).json({ error: "Failed to search transcripts" });
+    }
+  });
+
+  app.get("/api/call-recordings/:id/export-transcript", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+      const [recording] = await db.select().from(callRecordings).where(eq(callRecordings.id, req.params.id));
+      if (!recording) return res.status(404).json({ error: "Recording not found" });
+
+      const isPrivileged = ["admin", "manager"].includes(user.role);
+      if (!isPrivileged && recording.userId !== user.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      if (!recording.transcriptionText) {
+        return res.status(404).json({ error: "No transcription available for this recording" });
+      }
+
+      const format = (req.query.format as string) || "txt";
+      const dateStr = recording.createdAt ? new Date(recording.createdAt).toLocaleString("sk-SK") : "N/A";
+
+      if (format === "json") {
+        const exportData = {
+          recordingId: recording.id,
+          customer: recording.customerName || "N/A",
+          agent: recording.agentName || "N/A",
+          phone: recording.phoneNumber || "N/A",
+          campaign: recording.campaignName || "N/A",
+          date: dateStr,
+          duration: recording.durationSeconds ? `${Math.floor(recording.durationSeconds / 60)}:${String(recording.durationSeconds % 60).padStart(2, "0")}` : "N/A",
+          language: recording.transcriptionLanguage || "N/A",
+          sentiment: recording.sentiment || "N/A",
+          qualityScore: recording.qualityScore || null,
+          scriptComplianceScore: recording.scriptComplianceScore || null,
+          summary: recording.summary || null,
+          keyTopics: recording.keyTopics || [],
+          actionItems: recording.actionItems || [],
+          complianceNotes: recording.complianceNotes || null,
+          scriptComplianceDetails: (recording.analysisResult as any)?.scriptComplianceDetails || null,
+          alertKeywords: recording.alertKeywords || [],
+          transcription: recording.transcriptionText,
+        };
+        res.setHeader("Content-Type", "application/json");
+        res.setHeader("Content-Disposition", `attachment; filename="transcript_${recording.id}.json"`);
+        return res.send(JSON.stringify(exportData, null, 2));
+      }
+
+      const durationFmt = recording.durationSeconds ? `${Math.floor(recording.durationSeconds / 60)}:${String(recording.durationSeconds % 60).padStart(2, "0")}` : "N/A";
+      let content = `PREPIS HOVORU\n${"=".repeat(60)}\n\n`;
+      content += `Dátum: ${dateStr}\n`;
+      content += `Zákazník: ${recording.customerName || "N/A"}\n`;
+      content += `Agent: ${recording.agentName || "N/A"}\n`;
+      content += `Telefón: ${recording.phoneNumber || "N/A"}\n`;
+      content += `Kampaň: ${recording.campaignName || "N/A"}\n`;
+      content += `Trvanie: ${durationFmt}\n`;
+      content += `Jazyk: ${recording.transcriptionLanguage || "N/A"}\n`;
+      content += `\n${"─".repeat(60)}\n`;
+      content += `ANALÝZA\n${"─".repeat(60)}\n\n`;
+      content += `Sentiment: ${recording.sentiment || "N/A"}\n`;
+      content += `Kvalita hovoru: ${recording.qualityScore ? `${recording.qualityScore}/10` : "N/A"}\n`;
+      if (recording.scriptComplianceScore) {
+        content += `Dodržiavanie skriptu: ${recording.scriptComplianceScore}/10\n`;
+      }
+      if (recording.summary) {
+        content += `\nSúhrn:\n${recording.summary}\n`;
+      }
+      if (recording.keyTopics && recording.keyTopics.length > 0) {
+        content += `\nTémy: ${recording.keyTopics.join(", ")}\n`;
+      }
+      if (recording.actionItems && recording.actionItems.length > 0) {
+        content += `\nAkčné body:\n${recording.actionItems.map((a, i) => `  ${i + 1}. ${a}`).join("\n")}\n`;
+      }
+      if (recording.complianceNotes) {
+        content += `\nCompliance:\n${recording.complianceNotes}\n`;
+      }
+      const scriptDetails = (recording.analysisResult as any)?.scriptComplianceDetails;
+      if (scriptDetails) {
+        content += `\nDodržiavanie skriptu:\n${scriptDetails}\n`;
+      }
+      if (recording.alertKeywords && recording.alertKeywords.length > 0) {
+        content += `\nVarovné slová: ${recording.alertKeywords.join(", ")}\n`;
+      }
+      content += `\n${"─".repeat(60)}\n`;
+      content += `PREPIS\n${"─".repeat(60)}\n\n`;
+      content += recording.transcriptionText;
+
+      res.setHeader("Content-Type", "text/plain; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="transcript_${recording.id}.txt"`);
+      res.send(content);
+    } catch (error) {
+      console.error("Failed to export transcript:", error);
+      res.status(500).json({ error: "Failed to export transcript" });
     }
   });
 

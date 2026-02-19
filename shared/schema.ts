@@ -3214,6 +3214,8 @@ export const callRecordings = pgTable("call_recordings", {
   keyTopics: text("key_topics").array(),
   actionItems: text("action_items").array(),
   complianceNotes: text("compliance_notes"),
+  scriptComplianceScore: integer("script_compliance_score"),
+  alertKeywords: text("alert_keywords").array(),
   analyzedAt: timestamp("analyzed_at"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });

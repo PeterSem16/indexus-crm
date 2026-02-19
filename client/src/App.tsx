@@ -50,6 +50,7 @@ import MobilePreview from "@/pages/mobile-preview";
 import CollectionsPage from "@/pages/collections";
 import CustomerInvoicesPage from "@/pages/customer-invoices";
 import AgentWorkspacePage from "@/pages/agent-workspace";
+import TranscriptSearchPage from "@/pages/transcript-search";
 import { AgentSessionProvider } from "@/contexts/agent-session-context";
 import NotFound from "@/pages/not-found";
 import { Loader2 } from "lucide-react";
@@ -219,6 +220,7 @@ function AuthenticatedApp() {
                     <Route path="/email" component={EmailClientPage} />
                     <Route path="/notifications" component={NotificationCenterPage} />
                     <Route path="/mobile-preview" component={MobilePreview} />
+                    <Route path="/transcript-search" component={TranscriptSearchPage} />
                     <Route path="/agent-workspace">
                       <ErrorBoundary>
                         <AgentSessionProvider>

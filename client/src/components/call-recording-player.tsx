@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Play, Pause, Download, Mic, Loader2, ChevronDown, ChevronUp, FileText, Brain, Star, AlertTriangle, CheckCircle2, ListChecks, Tag, RefreshCw } from "lucide-react";
+import { Play, Pause, Download, Mic, Loader2, ChevronDown, ChevronUp, FileText, Brain, Star, AlertTriangle, CheckCircle2, ListChecks, Tag, RefreshCw, ClipboardCheck, ShieldAlert } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/auth-context";
 import type { CallRecording } from "@shared/schema";
@@ -25,6 +25,9 @@ interface RecordingAnalysis {
   keyTopics: string[] | null;
   actionItems: string[] | null;
   complianceNotes: string | null;
+  scriptComplianceScore: number | null;
+  scriptComplianceDetails: string | null;
+  alertKeywords: string[] | null;
   analyzedAt: string | null;
   analysisResult: any;
 }
@@ -361,17 +364,43 @@ function AnalysisPanel({
   const textSize = compact ? "text-[10px]" : "text-xs";
   const headingSize = compact ? "text-[11px]" : "text-sm";
 
+  const handleExport = (format: string) => {
+    window.open(`/api/call-recordings/${analysis.id}/export-transcript?format=${format}`, "_blank");
+  };
+
   return (
     <div className={`mt-2 space-y-2 ${compact ? "px-1" : ""}`} data-testid="analysis-panel">
       <div className="flex items-center gap-2 flex-wrap">
         <SentimentIcon sentiment={analysis.sentiment} />
         <QualityBadge score={analysis.qualityScore} />
+        {analysis.scriptComplianceScore && (
+          <Badge variant="secondary" className="text-[10px] h-5 gap-1" data-testid="badge-script-compliance">
+            <ClipboardCheck className={`h-2.5 w-2.5 ${analysis.scriptComplianceScore >= 8 ? "text-green-600 dark:text-green-400" : analysis.scriptComplianceScore >= 5 ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400"}`} />
+            <span className={analysis.scriptComplianceScore >= 8 ? "text-green-600 dark:text-green-400" : analysis.scriptComplianceScore >= 5 ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400"}>
+              Skript {analysis.scriptComplianceScore}/10
+            </span>
+          </Badge>
+        )}
         {canReanalyze && (
           <Button size="sm" variant="ghost" className="ml-auto h-6" onClick={onReanalyze} disabled={reanalyzing} data-testid="btn-reanalyze-completed">
             {reanalyzing ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
           </Button>
         )}
       </div>
+
+      {analysis.alertKeywords && analysis.alertKeywords.length > 0 && (
+        <div className="bg-red-50 dark:bg-red-950/30 rounded-md p-2" data-testid="alert-keywords-section">
+          <div className="flex items-center gap-1 mb-1">
+            <ShieldAlert className={`${compact ? "h-3 w-3" : "h-3.5 w-3.5"} text-red-500`} />
+            <span className={`${headingSize} font-medium text-red-700 dark:text-red-400`}>Upozornenia</span>
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {analysis.alertKeywords.map((kw, i) => (
+              <Badge key={i} variant="destructive" className="text-[10px]">{kw}</Badge>
+            ))}
+          </div>
+        </div>
+      )}
 
       {analysis.summary && (
         <div className="bg-muted/40 rounded-md p-2">
@@ -380,6 +409,16 @@ function AnalysisPanel({
             <span className={`${headingSize} font-medium`}>Súhrn</span>
           </div>
           <p className={`${textSize} text-foreground leading-relaxed`}>{analysis.summary}</p>
+        </div>
+      )}
+
+      {analysis.scriptComplianceDetails && (
+        <div className="bg-blue-50 dark:bg-blue-950/30 rounded-md p-2" data-testid="script-compliance-section">
+          <div className="flex items-center gap-1 mb-1">
+            <ClipboardCheck className={`${compact ? "h-3 w-3" : "h-3.5 w-3.5"} text-blue-500`} />
+            <span className={`${headingSize} font-medium text-blue-700 dark:text-blue-400`}>Dodržiavanie skriptu</span>
+          </div>
+          <p className={`${textSize} text-blue-700 dark:text-blue-300 leading-relaxed`}>{analysis.scriptComplianceDetails}</p>
         </div>
       )}
 
@@ -426,17 +465,39 @@ function AnalysisPanel({
 
       {analysis.transcriptionText && (
         <div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start gap-1 h-7"
-            onClick={() => setShowFullTranscript(!showFullTranscript)}
-            data-testid="btn-toggle-transcript"
-          >
-            <FileText className="h-3 w-3" />
-            <span className={textSize}>{showFullTranscript ? "Skryť prepis" : "Zobraziť prepis hovoru"}</span>
-            {showFullTranscript ? <ChevronUp className="h-3 w-3 ml-auto" /> : <ChevronDown className="h-3 w-3 ml-auto" />}
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="flex-1 justify-start gap-1 h-7"
+              onClick={() => setShowFullTranscript(!showFullTranscript)}
+              data-testid="btn-toggle-transcript"
+            >
+              <FileText className="h-3 w-3" />
+              <span className={textSize}>{showFullTranscript ? "Skryť prepis" : "Zobraziť prepis hovoru"}</span>
+              {showFullTranscript ? <ChevronUp className="h-3 w-3 ml-auto" /> : <ChevronDown className="h-3 w-3 ml-auto" />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1"
+              onClick={() => handleExport("txt")}
+              data-testid="btn-export-transcript-txt"
+            >
+              <Download className="h-3 w-3" />
+              <span className={textSize}>TXT</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1"
+              onClick={() => handleExport("json")}
+              data-testid="btn-export-transcript-json"
+            >
+              <Download className="h-3 w-3" />
+              <span className={textSize}>JSON</span>
+            </Button>
+          </div>
           {showFullTranscript && (
             <ScrollArea className={`${compact ? "max-h-[150px]" : "max-h-[300px]"} mt-1`}>
               <div className="bg-muted/40 rounded-md p-3">
