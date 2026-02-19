@@ -86,6 +86,7 @@ import {
   X,
   File as FileIcon,
   Maximize2,
+  Minimize2,
   Filter,
   ArrowUpDown,
   ListTodo,
@@ -2500,6 +2501,7 @@ function CustomerInfoPanel({
   const [faqSearchQuery, setFaqSearchQuery] = useState("");
   const [historyMaximized, setHistoryMaximized] = useState(false);
   const [faqMaximized, setFaqMaximized] = useState(false);
+  const [noteExpanded, setNoteExpanded] = useState(false);
   const fmtTime = (sec: number) => `${Math.floor(sec / 60)}:${(sec % 60).toString().padStart(2, "0")}`;
   const dialPadButtons = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
   const hasCall = callState === "connecting" || callState === "ringing" || callState === "active" || callState === "on_hold" || (callState === "ended" && hungUpBy);
@@ -2723,35 +2725,6 @@ function CustomerInfoPanel({
           )}
         </div>
       )}
-
-      <div className="p-2 border-b space-y-1.5">
-        <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-          <StickyNote className="h-3 w-3" />
-          {t.customers?.tabs?.notes || "Poznámky"}
-        </h4>
-        <Textarea
-          placeholder="Poznámka..."
-          value={newNote}
-          onChange={(e) => setNewNote(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAddNote(); } }}
-          className="text-xs min-h-[60px] resize-none"
-          rows={3}
-          data-testid="input-call-notes"
-        />
-        <div className="flex justify-end">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleAddNote}
-            disabled={!newNote.trim()}
-            className="gap-1.5"
-            data-testid="btn-add-note"
-          >
-            <Send className="h-3 w-3" />
-            <span className="text-xs">{t.customers?.details?.addNote || "Pridať"}</span>
-          </Button>
-        </div>
-      </div>
 
       <div className="border-b">
         <div className="flex">
@@ -3367,11 +3340,52 @@ function CustomerInfoPanel({
                   ))}
                   {customerNotes.length > 10 && (
                     <p className="text-[10px] text-muted-foreground text-center">
-                      +{customerNotes.length - 10} {t.customers?.tabs?.notes?.toLowerCase() || "poznámok"}
+                      +{customerNotes.length - 10} {t.agentWorkspace.moreNotes}
                     </p>
                   )}
                 </div>
               )}
+            </div>
+
+            <Separator />
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <StickyNote className="h-3 w-3" />
+                  {t.agentWorkspace.addNote || "Pridať poznámku"}
+                </h4>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setNoteExpanded(!noteExpanded)}
+                  data-testid="btn-toggle-note-expand"
+                >
+                  {noteExpanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+                </Button>
+              </div>
+              <Textarea
+                placeholder={t.agentWorkspace.notePlaceholder || "Poznámka..."}
+                value={newNote}
+                onChange={(e) => setNewNote(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAddNote(); } }}
+                className={`text-xs resize-none transition-all ${noteExpanded ? "min-h-[200px]" : "min-h-[60px]"}`}
+                rows={noteExpanded ? 8 : 3}
+                data-testid="input-call-notes"
+              />
+              <div className="flex justify-end mt-1.5">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleAddNote}
+                  disabled={!newNote.trim()}
+                  className="gap-1.5"
+                  data-testid="btn-add-note"
+                >
+                  <Send className="h-3 w-3" />
+                  <span className="text-xs">{t.customers?.details?.addNote || "Pridať"}</span>
+                </Button>
+              </div>
             </div>
           </div>
         )}
