@@ -2461,7 +2461,7 @@ function CustomerInfoPanel({
   contact: Customer | null;
   campaign: Campaign | null;
   callNotes: string;
-  onAddNote: (note: string) => void;
+  onAddNote: (note: string) => Promise<void> | void;
   onDisposition: (value: string, parentCode?: string, callbackDateTime?: string, callbackAssignedTo?: string | null) => void;
   onQuickAction: (action: string) => void;
   rightTab: string;
@@ -2517,10 +2517,11 @@ function CustomerInfoPanel({
     enabled: !!contact?.id,
   });
 
-  const handleAddNote = () => {
+  const handleAddNote = async () => {
     if (newNote.trim()) {
-      onAddNote(newNote);
+      const noteText = newNote;
       setNewNote("");
+      await onAddNote(noteText);
     }
   };
 
@@ -4501,8 +4502,11 @@ export default function AgentWorkspacePage() {
     if (currentContact) {
       try {
         await apiRequest("POST", `/api/customers/${currentContact.id}/notes`, { content: note });
-        queryClient.invalidateQueries({ queryKey: ["/api/customers", currentContact.id, "notes"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/customers", currentContact.id, "activity-logs"] });
+        await Promise.all([
+          queryClient.refetchQueries({ queryKey: ["/api/customers", currentContact.id, "notes"] }),
+          queryClient.invalidateQueries({ queryKey: ["/api/customers", currentContact.id, "activity-logs"] }),
+          queryClient.invalidateQueries({ queryKey: ["/api/customers", currentContact.id, "contact-history"] }),
+        ]);
       } catch (err) {
         console.error("Failed to save note:", err);
       }
