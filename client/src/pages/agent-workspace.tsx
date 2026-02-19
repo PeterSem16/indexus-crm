@@ -2413,6 +2413,7 @@ function CustomerInfoPanel({
   onOpenHistoryDetail?: (entry: ContactHistory) => void;
 }) {
   const { t, locale } = useI18n();
+  const callContext = useCall();
   const [newNote, setNewNote] = useState("");
   const [showDialpad, setShowDialpad] = useState(false);
   const [showVolume, setShowVolume] = useState(false);
@@ -2534,6 +2535,31 @@ function CustomerInfoPanel({
 
           {callerNumber && (
             <div className="text-[11px] text-muted-foreground font-mono">{callerNumber}</div>
+          )}
+
+          {(callState === "active" || callState === "on_hold") && callContext.isRecording && (
+            <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800/50">
+              <div className={`w-2 h-2 rounded-full shrink-0 ${callContext.isRecordingPaused ? "bg-orange-500" : "bg-red-500 animate-pulse"}`} />
+              <span className={`text-[11px] font-semibold ${callContext.isRecordingPaused ? "text-orange-600 dark:text-orange-400" : "text-red-600 dark:text-red-400"}`}>
+                {callContext.isRecordingPaused ? "REC PAUSED" : "REC"}
+              </span>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6 ml-auto"
+                onClick={() => {
+                  if (callContext.isRecordingPaused) {
+                    callContext.resumeRecordingFn.current?.();
+                  } else {
+                    callContext.pauseRecordingFn.current?.();
+                  }
+                }}
+                data-testid="button-toggle-recording-pause"
+                title={callContext.isRecordingPaused ? "Obnoviť nahrávanie" : "Pozastaviť nahrávanie"}
+              >
+                {callContext.isRecordingPaused ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
+              </Button>
+            </div>
           )}
 
           {(callState === "active" || callState === "on_hold") && (

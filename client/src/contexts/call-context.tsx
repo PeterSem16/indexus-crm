@@ -28,6 +28,8 @@ interface CallContextType {
   callDuration: number;
   isMuted: boolean;
   isOnHold: boolean;
+  isRecording: boolean;
+  isRecordingPaused: boolean;
   volume: number;
   micVolume: number;
   callTiming: CallTimingMeta;
@@ -38,6 +40,8 @@ interface CallContextType {
   setCallDuration: (duration: number) => void;
   setIsMuted: (muted: boolean) => void;
   setIsOnHold: (hold: boolean) => void;
+  setIsRecording: (recording: boolean) => void;
+  setIsRecordingPaused: (paused: boolean) => void;
   setVolume: (vol: number) => void;
   setMicVolume: (vol: number) => void;
   setCallTiming: (timing: Partial<CallTimingMeta>) => void;
@@ -50,6 +54,8 @@ interface CallContextType {
   onVolumeChangeFn: React.MutableRefObject<((vol: number) => void) | null>;
   onMicVolumeChangeFn: React.MutableRefObject<((vol: number) => void) | null>;
   sendDtmfFn: React.MutableRefObject<((digit: string) => void) | null>;
+  pauseRecordingFn: React.MutableRefObject<(() => void) | null>;
+  resumeRecordingFn: React.MutableRefObject<(() => void) | null>;
 }
 
 const defaultTiming: CallTimingMeta = {
@@ -69,6 +75,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const [callDuration, setCallDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isOnHold, setIsOnHold] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isRecordingPaused, setIsRecordingPaused] = useState(false);
   const [volume, setVolume] = useState(80);
   const [micVolume, setMicVolume] = useState(100);
   const [callTiming, setCallTimingState] = useState<CallTimingMeta>({ ...defaultTiming });
@@ -82,6 +90,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const onVolumeChangeFn = useRef<((vol: number) => void) | null>(null);
   const onMicVolumeChangeFn = useRef<((vol: number) => void) | null>(null);
   const sendDtmfFn = useRef<((digit: string) => void) | null>(null);
+  const pauseRecordingFn = useRef<(() => void) | null>(null);
+  const resumeRecordingFn = useRef<(() => void) | null>(null);
 
   const setCallTiming = useCallback((partial: Partial<CallTimingMeta>) => {
     setCallTimingState(prev => ({ ...prev, ...partial }));
@@ -98,6 +108,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
       callDuration,
       isMuted,
       isOnHold,
+      isRecording,
+      isRecordingPaused,
       volume,
       micVolume,
       callTiming,
@@ -108,6 +120,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
       setCallDuration,
       setIsMuted,
       setIsOnHold,
+      setIsRecording,
+      setIsRecordingPaused,
       setVolume,
       setMicVolume,
       setCallTiming,
@@ -120,6 +134,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
       onVolumeChangeFn,
       onMicVolumeChangeFn,
       sendDtmfFn,
+      pauseRecordingFn,
+      resumeRecordingFn,
     }}>
       {children}
     </CallContext.Provider>

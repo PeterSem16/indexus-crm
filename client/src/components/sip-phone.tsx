@@ -244,15 +244,44 @@ export function SipPhone({
       recorder.start(1000);
       mediaRecorderRef.current = recorder;
       isRecordingRef.current = true;
+      callContext.setIsRecording(true);
+      callContext.setIsRecordingPaused(false);
       console.log("[Recording] Started recording call");
     } catch (err) {
       console.error("[Recording] Failed to start recording:", err);
     }
   }, []);
 
+  const pauseRecording = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      mediaRecorderRef.current.pause();
+      callContext.setIsRecordingPaused(true);
+      console.log("[Recording] Paused");
+    }
+  }, []);
+
+  const resumeRecording = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "paused") {
+      mediaRecorderRef.current.resume();
+      callContext.setIsRecordingPaused(false);
+      console.log("[Recording] Resumed");
+    }
+  }, []);
+
+  useEffect(() => {
+    callContext.pauseRecordingFn.current = pauseRecording;
+    callContext.resumeRecordingFn.current = resumeRecording;
+    return () => {
+      callContext.pauseRecordingFn.current = null;
+      callContext.resumeRecordingFn.current = null;
+    };
+  }, [pauseRecording, resumeRecording]);
+
   const stopRecordingAndUpload = useCallback((callLogId: string | number, duration: number) => {
     if (!mediaRecorderRef.current || !isRecordingRef.current) return;
     isRecordingRef.current = false;
+    callContext.setIsRecording(false);
+    callContext.setIsRecordingPaused(false);
 
     const recorder = mediaRecorderRef.current;
     mediaRecorderRef.current = null;
@@ -573,6 +602,8 @@ export function SipPhone({
                 try { mediaRecorderRef.current.stop(); } catch (e) {}
                 mediaRecorderRef.current = null;
                 isRecordingRef.current = false;
+                callContext.setIsRecording(false);
+                callContext.setIsRecordingPaused(false);
                 recordingChunksRef.current = [];
               }
             }
@@ -789,6 +820,8 @@ export function SipPhone({
           try { mediaRecorderRef.current.stop(); } catch (e) {}
           mediaRecorderRef.current = null;
           isRecordingRef.current = false;
+          callContext.setIsRecording(false);
+          callContext.setIsRecordingPaused(false);
           recordingChunksRef.current = [];
         }
       }
