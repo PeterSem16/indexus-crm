@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, MailOpen, Phone, PhoneCall, PhoneOutgoing, PhoneIncoming, Baby, Copy, ListChecks, FileEdit, UserCircle, Clock, PlusCircle, RefreshCw, XCircle, LogIn, LogOut, AlertCircle, CheckCircle2, ArrowRight, Shield, CreditCard, Loader2, Calendar, Globe, Linkedin, Facebook, Twitter, Instagram, Building2, ExternalLink, Sparkles, FileSignature, Receipt, Target, ArrowDownLeft, ArrowUpRight, PenSquare, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, Filter, X, ChevronDown, ChevronUp, Upload, Mic, MicOff, Pause, Play, Grid3X3, Volume2, PhoneOff } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, MailOpen, Phone, PhoneCall, PhoneOutgoing, PhoneIncoming, Baby, Copy, ListChecks, FileEdit, UserCircle, Clock, PlusCircle, RefreshCw, XCircle, LogIn, LogOut, AlertCircle, CheckCircle2, ArrowRight, Shield, CreditCard, Loader2, Calendar, Globe, Linkedin, Facebook, Twitter, Instagram, Building2, ExternalLink, Sparkles, FileSignature, Receipt, Target, ArrowDownLeft, ArrowUpRight, PenSquare, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, Filter, X, ChevronDown, ChevronUp, Upload, Mic, MicOff, Pause, Play, Grid3X3, Volume2, PhoneOff, User } from "lucide-react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import { Button } from "@/components/ui/button";
@@ -2743,10 +2743,12 @@ export function CustomerDetailsContent({
   customer, 
   onEdit,
   compact = false,
+  visibleTabs,
 }: { 
   customer: Customer; 
   onEdit: () => void;
   compact?: boolean;
+  visibleTabs?: string[];
 }) {
   const { t, locale } = useI18n();
   const { toast } = useToast();
@@ -3535,38 +3537,55 @@ export function CustomerDetailsContent({
         </>
       )}
 
-      <Tabs defaultValue="overview" className="w-full">
-        <TabsList className={`grid w-full ${customer.clientStatus === "acquired" ? "grid-cols-9" : "grid-cols-8"}`}>
+      <Tabs defaultValue={visibleTabs ? (visibleTabs.includes("potential") && customer.clientStatus === "acquired" ? "potential" : visibleTabs.find(t => t !== "potential") || visibleTabs[0]) : "overview"} className="w-full">
+        <TabsList className={`sticky top-0 z-50 grid w-full ${(() => {
+          const allTabs = ["overview", ...(customer.clientStatus === "acquired" ? ["potential"] : []), "documents", "communicate", "notes", "gdpr", "history"];
+          const shown = visibleTabs ? allTabs.filter(t => visibleTabs.includes(t)) : allTabs;
+          const colsMap: Record<number, string> = { 1: "grid-cols-1", 2: "grid-cols-2", 3: "grid-cols-3", 4: "grid-cols-4", 5: "grid-cols-5", 6: "grid-cols-6", 7: "grid-cols-7", 8: "grid-cols-8", 9: "grid-cols-9" };
+          return colsMap[shown.length] || "grid-cols-7";
+        })()}`}>
+          {(!visibleTabs || visibleTabs.includes("overview")) && (
           <TabsTrigger value="overview" data-testid="tab-overview">
             <Package className="h-4 w-4 mr-2" />
             {t.customers.tabs.overview}
           </TabsTrigger>
-          {customer.clientStatus === "acquired" && (
+          )}
+          {customer.clientStatus === "acquired" && (!visibleTabs || visibleTabs.includes("potential")) && (
             <TabsTrigger value="potential" data-testid="tab-potential">
               <Baby className="h-4 w-4 mr-2" />
               {t.customers.tabs.case}
             </TabsTrigger>
           )}
+          {(!visibleTabs || visibleTabs.includes("documents")) && (
           <TabsTrigger value="documents" data-testid="tab-documents">
             <FileText className="h-4 w-4 mr-2" />
             Dokumenty
           </TabsTrigger>
+          )}
+          {(!visibleTabs || visibleTabs.includes("communicate")) && (
           <TabsTrigger value="communicate" data-testid="tab-communicate">
             <Mail className="h-4 w-4 mr-2" />
             {t.customers.tabs.contact}
           </TabsTrigger>
+          )}
+          {(!visibleTabs || visibleTabs.includes("notes")) && (
           <TabsTrigger value="notes" data-testid="tab-notes">
             <MessageSquare className="h-4 w-4 mr-2" />
             {t.customers.tabs.notes}
           </TabsTrigger>
+          )}
+          {(!visibleTabs || visibleTabs.includes("gdpr")) && (
           <TabsTrigger value="gdpr" data-testid="tab-gdpr">
             <Shield className="h-4 w-4 mr-2" />
             {t.customers.tabs?.gdpr || "GDPR"}
           </TabsTrigger>
+          )}
+          {(!visibleTabs || visibleTabs.includes("history")) && (
           <TabsTrigger value="history" data-testid="tab-history">
             <History className="h-4 w-4 mr-2" />
             {t.customers.tabs.activity}
           </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6 mt-4">
@@ -4036,10 +4055,17 @@ export function CustomerDetailsContent({
                             
                             <div className="border rounded-lg p-4 bg-card">
                               <p className="text-sm">{note.content}</p>
-                              <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
-                                <Clock className="h-3.5 w-3.5" />
-                                {format(new Date(note.createdAt), "d.M.yyyy HH:mm")}
-                              </p>
+                              <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                                <div className="flex items-center gap-1">
+                                  <User className="h-3.5 w-3.5" />
+                                  <span>{(note as any).userName || "—"}</span>
+                                </div>
+                                <span>•</span>
+                                <div className="flex items-center gap-1">
+                                  <Clock className="h-3.5 w-3.5" />
+                                  {format(new Date(note.createdAt), "d.M.yyyy HH:mm")}
+                                </div>
+                              </div>
                             </div>
                           </div>
                         ))}

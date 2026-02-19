@@ -1921,7 +1921,7 @@ function CommunicationCanvas({
           {phoneSubTab === "details" && contact && (
             <ScrollArea className="flex-1">
               <div className="p-4">
-                <CustomerDetailsContent customer={contact} onEdit={() => {}} compact />
+                <CustomerDetailsContent customer={contact} onEdit={() => {}} compact visibleTabs={["potential", "gdpr", "notes"]} />
               </div>
             </ScrollArea>
           )}
@@ -2467,6 +2467,19 @@ function CustomerInfoPanel({
   const fmtTime = (sec: number) => `${Math.floor(sec / 60)}:${(sec % 60).toString().padStart(2, "0")}`;
   const dialPadButtons = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
   const hasCall = callState === "connecting" || callState === "ringing" || callState === "active" || callState === "on_hold" || (callState === "ended" && hungUpBy);
+
+  const [selectedNote, setSelectedNote] = useState<{ content: string; userName: string; createdAt: string } | null>(null);
+
+  const { data: customerNotes = [] } = useQuery<Array<{ id: string; content: string; userId: string; userName: string; createdAt: string }>>({
+    queryKey: ["/api/customers", contact?.id, "notes"],
+    queryFn: async () => {
+      if (!contact?.id) return [];
+      const res = await fetch(`/api/customers/${contact.id}/notes`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!contact?.id,
+  });
 
   const handleAddNote = () => {
     if (newNote.trim()) {
@@ -3296,8 +3309,72 @@ function CustomerInfoPanel({
                 </Button>
               </div>
             </div>
+
+            <Separator />
+
+            <div>
+              <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <FileText className="h-3 w-3" />
+                {t.customers?.tabs?.notes || "Poznámky"}
+              </h4>
+              {customerNotes.length === 0 ? (
+                <div className="text-center py-4 text-muted-foreground">
+                  <MessageSquare className="h-6 w-6 mx-auto mb-1 opacity-30" />
+                  <p className="text-[10px]">{t.customers?.details?.noNotes || "Žiadne poznámky"}</p>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {customerNotes.slice(0, 10).map((note) => (
+                    <div
+                      key={note.id}
+                      className="p-2 rounded-md bg-muted/30 border border-border/50 cursor-pointer hover-elevate"
+                      onClick={() => setSelectedNote(note)}
+                      data-testid={`note-entry-${note.id}`}
+                    >
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <User className="h-3 w-3 text-amber-500 shrink-0" />
+                        <span className="text-[10px] font-medium truncate">{note.userName}</span>
+                        <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
+                          {format(new Date(note.createdAt), "d.M. HH:mm", { locale: sk })}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-foreground/80 line-clamp-2">{note.content}</p>
+                    </div>
+                  ))}
+                  {customerNotes.length > 10 && (
+                    <p className="text-[10px] text-muted-foreground text-center">
+                      +{customerNotes.length - 10} {t.customers?.tabs?.notes?.toLowerCase() || "poznámok"}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
+
+        <Dialog open={!!selectedNote} onOpenChange={(open) => !open && setSelectedNote(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-amber-500" />
+                {t.customers?.tabs?.notes || "Poznámka"}
+              </DialogTitle>
+            </DialogHeader>
+            {selectedNote && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <User className="h-4 w-4" />
+                  <span className="font-medium">{selectedNote.userName}</span>
+                  <span className="mx-1">•</span>
+                  <Clock className="h-3.5 w-3.5" />
+                  <span>{format(new Date(selectedNote.createdAt), "d.M.yyyy HH:mm", { locale: sk })}</span>
+                </div>
+                <Separator />
+                <div className="text-sm whitespace-pre-wrap">{selectedNote.content}</div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </ScrollArea>
     </div>
   );

@@ -7581,7 +7581,13 @@ export async function registerRoutes(
   app.get("/api/customers/:customerId/notes", requireAuth, async (req, res) => {
     try {
       const notes = await storage.getCustomerNotes(req.params.customerId);
-      res.json(notes);
+      const users = await storage.getUsers();
+      const userMap = new Map(users.map(u => [u.id, u]));
+      const notesWithUser = notes.map(note => ({
+        ...note,
+        userName: userMap.get(note.userId)?.name || userMap.get(note.userId)?.username || "Unknown",
+      }));
+      res.json(notesWithUser);
     } catch (error) {
       console.error("Error fetching customer notes:", error);
       res.status(500).json({ error: "Failed to fetch notes" });
