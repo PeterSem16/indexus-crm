@@ -5769,7 +5769,10 @@ function CustomerCallStrip({
             size="sm"
             variant="default"
             className="h-7 text-xs px-3 ml-auto bg-green-600 hover:bg-green-700 text-white"
-            onClick={() => makeCall({ phoneNumber: phone, customerId, customerName: customerName || undefined })}
+            onClick={() => {
+              callContext.setAutoRecord(false);
+              makeCall({ phoneNumber: phone, customerId, customerName: customerName || undefined });
+            }}
             data-testid={`btn-call-from-${testIdPrefix}-strip`}
           >
             <Phone className="h-3 w-3 mr-1" />
@@ -5825,9 +5828,51 @@ function CustomerCallStrip({
             {callContext.isOnHold ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
           </Button>
 
+          {!callContext.isRecording ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1 text-red-600 dark:text-red-400 border-red-300 dark:border-red-800"
+              onClick={() => callContext.startRecordingFn.current?.()}
+              data-testid={`btn-start-recording-${testIdPrefix}`}
+              title="Spustit nahravanie"
+            >
+              <Mic className="h-3 w-3" />
+              <span className="text-[10px]">REC</span>
+            </Button>
+          ) : (
+            <div className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+              <span className="text-[10px] text-red-600 dark:text-red-400 font-medium">REC</span>
+              {callContext.isRecordingPaused ? (
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="h-7 w-7"
+                  onClick={() => callContext.resumeRecordingFn.current?.()}
+                  data-testid={`btn-resume-recording-${testIdPrefix}`}
+                  title="Pokracovat v nahravani"
+                >
+                  <Play className="h-3.5 w-3.5 text-red-500" />
+                </Button>
+              ) : (
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="h-7 w-7"
+                  onClick={() => callContext.pauseRecordingFn.current?.()}
+                  data-testid={`btn-pause-recording-${testIdPrefix}`}
+                  title="Pozastavit nahravanie"
+                >
+                  <Pause className="h-3.5 w-3.5 text-red-500" />
+                </Button>
+              )}
+            </div>
+          )}
+
           <Popover open={showDialpad} onOpenChange={setShowDialpad}>
             <PopoverTrigger asChild>
-              <Button size="icon" variant="outline" className="h-7 w-7" data-testid={`btn-dialpad-${testIdPrefix}`} title="Klávesnica">
+              <Button size="icon" variant="outline" className="h-7 w-7" data-testid={`btn-dialpad-${testIdPrefix}`} title="Klavesnica">
                 <Grid3X3 className="h-3.5 w-3.5" />
               </Button>
             </PopoverTrigger>
@@ -7037,6 +7082,7 @@ export default function CustomersPage() {
                           onClick={() => {
                             if (makeCall && editingCustomer.phone) {
                               const customerName = [editingCustomer.firstName, editingCustomer.lastName].filter(Boolean).join(" ");
+                              callContext.setAutoRecord(false);
                               makeCall({
                                 phoneNumber: editingCustomer.phone,
                                 customerId: editingCustomer.id,

@@ -56,6 +56,10 @@ interface CallContextType {
   sendDtmfFn: React.MutableRefObject<((digit: string) => void) | null>;
   pauseRecordingFn: React.MutableRefObject<(() => void) | null>;
   resumeRecordingFn: React.MutableRefObject<(() => void) | null>;
+  startRecordingFn: React.MutableRefObject<(() => void) | null>;
+  stopRecordingFn: React.MutableRefObject<(() => void) | null>;
+  autoRecord: boolean;
+  setAutoRecord: (auto: boolean) => void;
 }
 
 const defaultTiming: CallTimingMeta = {
@@ -81,6 +85,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const [micVolume, setMicVolume] = useState(100);
   const [callTiming, setCallTimingState] = useState<CallTimingMeta>({ ...defaultTiming });
   const [preventAutoReset, setPreventAutoReset] = useState(false);
+  const [autoRecord, setAutoRecord] = useState(true);
   
   const endCallFn = useRef<(() => void) | null>(null);
   const forceResetCallFn = useRef<(() => void) | null>(null);
@@ -92,6 +97,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const sendDtmfFn = useRef<((digit: string) => void) | null>(null);
   const pauseRecordingFn = useRef<(() => void) | null>(null);
   const resumeRecordingFn = useRef<(() => void) | null>(null);
+  const startRecordingFn = useRef<(() => void) | null>(null);
+  const stopRecordingFn = useRef<(() => void) | null>(null);
 
   const setCallTiming = useCallback((partial: Partial<CallTimingMeta>) => {
     setCallTimingState(prev => ({ ...prev, ...partial }));
@@ -136,6 +143,10 @@ export function CallProvider({ children }: { children: ReactNode }) {
       sendDtmfFn,
       pauseRecordingFn,
       resumeRecordingFn,
+      startRecordingFn,
+      stopRecordingFn,
+      autoRecord,
+      setAutoRecord,
     }}>
       {children}
     </CallContext.Provider>

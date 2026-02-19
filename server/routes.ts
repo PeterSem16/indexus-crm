@@ -15756,6 +15756,82 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/call-logs/browse", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+      const { limit: limitParam } = req.query;
+      const limitNum = parseInt(limitParam as string) || 50;
+
+      const isPrivileged = ["admin", "manager"].includes(user.role);
+      const conditions: any[] = [];
+      if (!isPrivileged) conditions.push(eq(callLogs.userId, user.id));
+
+      const logs = await db.select({
+        id: callLogs.id,
+        userId: callLogs.userId,
+        customerId: callLogs.customerId,
+        campaignId: callLogs.campaignId,
+        phoneNumber: callLogs.phoneNumber,
+        direction: callLogs.direction,
+        status: callLogs.status,
+        startedAt: callLogs.startedAt,
+        durationSeconds: callLogs.durationSeconds,
+        notes: callLogs.notes,
+        createdAt: callLogs.createdAt,
+      }).from(callLogs)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(callLogs.createdAt))
+        .limit(limitNum);
+
+      const logIds = logs.map(l => l.id);
+      let recordingMap: Record<string, any> = {};
+      if (logIds.length > 0) {
+        const recs = await db.select({
+          id: callRecordings.id,
+          callLogId: callRecordings.callLogId,
+          analysisStatus: callRecordings.analysisStatus,
+          transcriptionText: callRecordings.transcriptionText,
+          sentiment: callRecordings.sentiment,
+          qualityScore: callRecordings.qualityScore,
+          scriptComplianceScore: callRecordings.scriptComplianceScore,
+          summary: callRecordings.summary,
+          alertKeywords: callRecordings.alertKeywords,
+          customerName: callRecordings.customerName,
+          agentName: callRecordings.agentName,
+          campaignName: callRecordings.campaignName,
+        }).from(callRecordings)
+          .where(inArray(callRecordings.callLogId, logIds));
+        for (const r of recs) {
+          recordingMap[r.callLogId] = r;
+        }
+      }
+
+      const customerIds = [...new Set(logs.filter(l => l.customerId).map(l => l.customerId!))];
+      let customerMap: Record<string, string> = {};
+      if (customerIds.length > 0) {
+        const custs = await db.select({ id: customers.id, firstName: customers.firstName, lastName: customers.lastName })
+          .from(customers).where(inArray(customers.id, customerIds));
+        for (const c of custs) {
+          customerMap[c.id] = `${c.firstName || ""} ${c.lastName || ""}`.trim();
+        }
+      }
+
+      const result = logs.map(log => ({
+        ...log,
+        customerName: customerMap[log.customerId || ""] || null,
+        hasRecording: !!recordingMap[log.id],
+        recording: recordingMap[log.id] || null,
+      }));
+
+      res.json(result);
+    } catch (error) {
+      console.error("Failed to browse call logs:", error);
+      res.status(500).json({ error: "Failed to browse call logs" });
+    }
+  });
+
   // Get call log by ID
   app.get("/api/call-logs/:id", requireAuth, async (req, res) => {
     try {
@@ -16221,82 +16297,6 @@ Pravidlá:
     } catch (error) {
       console.error("Failed to trigger re-analysis:", error);
       res.status(500).json({ error: "Failed to trigger re-analysis" });
-    }
-  });
-
-  app.get("/api/call-logs/browse", requireAuth, async (req, res) => {
-    try {
-      const user = req.session.user;
-      if (!user) return res.status(401).json({ error: "Not authenticated" });
-
-      const { limit: limitParam } = req.query;
-      const limitNum = parseInt(limitParam as string) || 50;
-
-      const isPrivileged = ["admin", "manager"].includes(user.role);
-      const conditions: any[] = [];
-      if (!isPrivileged) conditions.push(eq(callLogs.userId, user.id));
-
-      const logs = await db.select({
-        id: callLogs.id,
-        userId: callLogs.userId,
-        customerId: callLogs.customerId,
-        campaignId: callLogs.campaignId,
-        phoneNumber: callLogs.phoneNumber,
-        direction: callLogs.direction,
-        status: callLogs.status,
-        startedAt: callLogs.startedAt,
-        durationSeconds: callLogs.durationSeconds,
-        notes: callLogs.notes,
-        createdAt: callLogs.createdAt,
-      }).from(callLogs)
-        .where(conditions.length > 0 ? and(...conditions) : undefined)
-        .orderBy(desc(callLogs.createdAt))
-        .limit(limitNum);
-
-      const logIds = logs.map(l => l.id);
-      let recordingMap: Record<string, any> = {};
-      if (logIds.length > 0) {
-        const recs = await db.select({
-          id: callRecordings.id,
-          callLogId: callRecordings.callLogId,
-          analysisStatus: callRecordings.analysisStatus,
-          transcriptionText: callRecordings.transcriptionText,
-          sentiment: callRecordings.sentiment,
-          qualityScore: callRecordings.qualityScore,
-          scriptComplianceScore: callRecordings.scriptComplianceScore,
-          summary: callRecordings.summary,
-          alertKeywords: callRecordings.alertKeywords,
-          customerName: callRecordings.customerName,
-          agentName: callRecordings.agentName,
-          campaignName: callRecordings.campaignName,
-        }).from(callRecordings)
-          .where(inArray(callRecordings.callLogId, logIds));
-        for (const r of recs) {
-          recordingMap[r.callLogId] = r;
-        }
-      }
-
-      const customerIds = [...new Set(logs.filter(l => l.customerId).map(l => l.customerId!))];
-      let customerMap: Record<string, string> = {};
-      if (customerIds.length > 0) {
-        const custs = await db.select({ id: customers.id, firstName: customers.firstName, lastName: customers.lastName })
-          .from(customers).where(inArray(customers.id, customerIds));
-        for (const c of custs) {
-          customerMap[c.id] = `${c.firstName || ""} ${c.lastName || ""}`.trim();
-        }
-      }
-
-      const result = logs.map(log => ({
-        ...log,
-        customerName: customerMap[log.customerId || ""] || null,
-        hasRecording: !!recordingMap[log.id],
-        recording: recordingMap[log.id] || null,
-      }));
-
-      res.json(result);
-    } catch (error) {
-      console.error("Failed to browse call logs:", error);
-      res.status(500).json({ error: "Failed to browse call logs" });
     }
   });
 

@@ -268,14 +268,40 @@ export function SipPhone({
     }
   }, []);
 
+  const manualStartRecording = useCallback(() => {
+    if (isRecordingRef.current) return;
+    const session = sessionRef.current;
+    if (session) {
+      startRecording(session);
+    }
+  }, [startRecording]);
+
+  const manualStopRecording = useCallback(() => {
+    if (!isRecordingRef.current || !mediaRecorderRef.current) return;
+    isRecordingRef.current = false;
+    callContext.setIsRecording(false);
+    callContext.setIsRecordingPaused(false);
+    try { mediaRecorderRef.current.stop(); } catch (e) {}
+    mediaRecorderRef.current = null;
+    recordingChunksRef.current = [];
+    if (recordingContextRef.current && recordingContextRef.current.state !== "closed") {
+      try { recordingContextRef.current.close(); } catch (e) {}
+      recordingContextRef.current = null;
+    }
+  }, []);
+
   useEffect(() => {
     callContext.pauseRecordingFn.current = pauseRecording;
     callContext.resumeRecordingFn.current = resumeRecording;
+    callContext.startRecordingFn.current = manualStartRecording;
+    callContext.stopRecordingFn.current = manualStopRecording;
     return () => {
       callContext.pauseRecordingFn.current = null;
       callContext.resumeRecordingFn.current = null;
+      callContext.startRecordingFn.current = null;
+      callContext.stopRecordingFn.current = null;
     };
-  }, [pauseRecording, resumeRecording]);
+  }, [pauseRecording, resumeRecording, manualStartRecording, manualStopRecording]);
 
   const stopRecordingAndUpload = useCallback((callLogId: string | number, duration: number) => {
     if (!mediaRecorderRef.current || !isRecordingRef.current) return;
@@ -564,7 +590,9 @@ export function SipPhone({
             });
             onCallStart?.(phoneNumber, callLogId);
             setupAudio(inviter);
-            setTimeout(() => startRecording(inviter), 500);
+            if (callContext.autoRecord) {
+              setTimeout(() => startRecording(inviter), 500);
+            }
             break;
           case SessionState.Terminated:
             if (forceIdleRef.current) {
@@ -607,6 +635,7 @@ export function SipPhone({
                 recordingChunksRef.current = [];
               }
             }
+            callContext.setAutoRecord(true);
             onCallEnd?.(duration, duration > 0 ? "completed" : "failed", callLogId);
             setCurrentCallLogId(null);
             if (!callContext.preventAutoReset) {
