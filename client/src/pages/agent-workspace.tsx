@@ -3310,46 +3310,6 @@ function CustomerInfoPanel({
             <Separator />
 
             <div>
-              <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <FileText className="h-3 w-3" />
-                {t.customers?.tabs?.notes || "Poznámky"}
-              </h4>
-              {customerNotes.length === 0 ? (
-                <div className="text-center py-4 text-muted-foreground">
-                  <MessageSquare className="h-6 w-6 mx-auto mb-1 opacity-30" />
-                  <p className="text-[10px]">{t.customers?.details?.noNotes || "Žiadne poznámky"}</p>
-                </div>
-              ) : (
-                <div className="space-y-1.5">
-                  {customerNotes.slice(0, 10).map((note) => (
-                    <div
-                      key={note.id}
-                      className="p-2 rounded-md bg-muted/30 border border-border/50 cursor-pointer hover-elevate"
-                      onClick={() => setSelectedNote(note)}
-                      data-testid={`note-entry-${note.id}`}
-                    >
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <User className="h-3 w-3 text-amber-500 shrink-0" />
-                        <span className="text-[10px] font-medium truncate">{note.userName}</span>
-                        <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
-                          {format(new Date(note.createdAt), "d.M. HH:mm", { locale: sk })}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-foreground/80 line-clamp-2">{note.content}</p>
-                    </div>
-                  ))}
-                  {customerNotes.length > 10 && (
-                    <p className="text-[10px] text-muted-foreground text-center">
-                      +{customerNotes.length - 10} {t.agentWorkspace.moreNotes}
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <Separator />
-
-            <div>
               <div className="flex items-center justify-between mb-2">
                 <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
                   <StickyNote className="h-3 w-3" />
@@ -3386,6 +3346,46 @@ function CustomerInfoPanel({
                   <span className="text-xs">{t.customers?.details?.addNote || "Pridať"}</span>
                 </Button>
               </div>
+            </div>
+
+            <Separator />
+
+            <div>
+              <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <FileText className="h-3 w-3" />
+                {t.customers?.tabs?.notes || "Poznámky"}
+              </h4>
+              {customerNotes.length === 0 ? (
+                <div className="text-center py-4 text-muted-foreground">
+                  <MessageSquare className="h-6 w-6 mx-auto mb-1 opacity-30" />
+                  <p className="text-[10px]">{t.customers?.details?.noNotes || "Žiadne poznámky"}</p>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  {customerNotes.slice(0, 10).map((note) => (
+                    <div
+                      key={note.id}
+                      className="p-2 rounded-md bg-muted/30 border border-border/50 cursor-pointer hover-elevate"
+                      onClick={() => setSelectedNote(note)}
+                      data-testid={`note-entry-${note.id}`}
+                    >
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <User className="h-3 w-3 text-amber-500 shrink-0" />
+                        <span className="text-[10px] font-medium truncate">{note.userName}</span>
+                        <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
+                          {format(new Date(note.createdAt), "d.M. HH:mm", { locale: sk })}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-foreground/80 line-clamp-2">{note.content}</p>
+                    </div>
+                  ))}
+                  {customerNotes.length > 10 && (
+                    <p className="text-[10px] text-muted-foreground text-center">
+                      +{customerNotes.length - 10} {t.agentWorkspace.moreNotes}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
