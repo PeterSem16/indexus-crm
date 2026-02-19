@@ -7581,7 +7581,7 @@ export async function registerRoutes(
   app.get("/api/customers/:customerId/notes", requireAuth, async (req, res) => {
     try {
       const notes = await storage.getCustomerNotes(req.params.customerId);
-      const users = await storage.getUsers();
+      const users = await storage.getAllUsers();
       const userMap = new Map(users.map(u => [u.id, u]));
       const notesWithUser = notes.map(note => ({
         ...note,
