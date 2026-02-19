@@ -317,6 +317,13 @@ export default function TranscriptSearchPage() {
               <Search className="h-12 w-12 mb-4 opacity-30" />
               <p className="text-sm font-medium">Zadajte hľadaný výraz</p>
               <p className="text-xs mt-1">Vyhľadávanie v prepisoch hovorov, súhrnoch a kľúčových slovách</p>
+              <div className="mt-6 bg-muted/40 rounded-md p-4 max-w-md text-center">
+                <p className="text-xs leading-relaxed">
+                  Prepisy sa vytvárajú automaticky z nahraných hovorov cez SIP telefón.
+                  Nahrajte hovor a systém automaticky vytvorí prepis a AI analýzu
+                  (sentiment, kvalita, dodržiavanie skriptu, varovné slová).
+                </p>
+              </div>
             </div>
           )}
 
