@@ -164,7 +164,7 @@ function CardLayoutForm({ form, initialData, isHidden, isReadonly, complaintType
   const dob = getDobFields();
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 pt-4">
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold flex items-center gap-2 text-muted-foreground uppercase tracking-wide">
@@ -331,33 +331,29 @@ function CardLayoutForm({ form, initialData, isHidden, isReadonly, complaintType
               </FormItem>
             )} />
           )}
-          <div className="grid gap-x-4 gap-y-3 grid-cols-2">
-            {!isHidden("mobile_2") && (
-              <FormField control={form.control} name="mobile2" render={({ field }) => (
-                <FormItem><FormLabel>{t.customers.fields.mobile2}</FormLabel>
-                  <div className="flex gap-2"><FormControl><PhoneNumberField value={field.value} onChange={field.onChange} defaultCountryCode={form.watch("country") || "SK"} data-testid="input-mobile2" disabled={isReadonly("mobile_2")} /></FormControl>
-                    {initialData?.id && field.value && <CallCustomerButton phoneNumber={field.value} customerId={initialData.id} customerName={`${initialData.firstName} ${initialData.lastName}`} leadScore={initialData.leadScore} clientStatus={initialData.clientStatus} variant="icon" />}
-                  </div><FormMessage />
-                </FormItem>
+          {!isHidden("mobile_2") && (
+            <FormField control={form.control} name="mobile2" render={({ field }) => (
+              <FormItem><FormLabel>{t.customers.fields.mobile2}</FormLabel>
+                <div className="flex gap-2"><FormControl><PhoneNumberField value={field.value} onChange={field.onChange} defaultCountryCode={form.watch("country") || "SK"} data-testid="input-mobile2" disabled={isReadonly("mobile_2")} /></FormControl>
+                  {initialData?.id && field.value && <CallCustomerButton phoneNumber={field.value} customerId={initialData.id} customerName={`${initialData.firstName} ${initialData.lastName}`} leadScore={initialData.leadScore} clientStatus={initialData.clientStatus} variant="icon" />}
+                </div><FormMessage />
+              </FormItem>
+            )} />
+          )}
+          <FormField control={form.control} name="otherContact" render={({ field }) => (
+            <FormItem><FormLabel>{t.customers.fields.otherContact}</FormLabel><FormControl><Input {...field} data-testid="input-other-contact" /></FormControl><FormMessage /></FormItem>
+          )} />
+          <div className="border-t pt-3 mt-1 space-y-3">
+            {!isHidden("email") && (
+              <FormField control={form.control} name="email" render={({ field }) => (
+                <FormItem><FormLabel>{t.customers.email} *</FormLabel><FormControl><Input type="email" {...field} data-testid="input-customer-email" disabled={isReadonly("email")} className={isReadonly("email") ? "bg-muted" : ""} /></FormControl><FormMessage /></FormItem>
               )} />
             )}
-            <FormField control={form.control} name="otherContact" render={({ field }) => (
-              <FormItem><FormLabel>{t.customers.fields.otherContact}</FormLabel><FormControl><Input {...field} data-testid="input-other-contact" /></FormControl><FormMessage /></FormItem>
-            )} />
-          </div>
-          <div className="border-t pt-3 mt-1">
-            <div className="grid gap-x-4 gap-y-3 grid-cols-2">
-              {!isHidden("email") && (
-                <FormField control={form.control} name="email" render={({ field }) => (
-                  <FormItem><FormLabel>{t.customers.email} *</FormLabel><FormControl><Input type="email" {...field} data-testid="input-customer-email" disabled={isReadonly("email")} className={isReadonly("email") ? "bg-muted" : ""} /></FormControl><FormMessage /></FormItem>
-                )} />
-              )}
-              {!isHidden("email_2") && (
-                <FormField control={form.control} name="email2" render={({ field }) => (
-                  <FormItem><FormLabel>{t.customers.fields.email2}</FormLabel><FormControl><Input type="email" {...field} data-testid="input-email2" disabled={isReadonly("email_2")} className={isReadonly("email_2") ? "bg-muted" : ""} /></FormControl><FormMessage /></FormItem>
-                )} />
-              )}
-            </div>
+            {!isHidden("email_2") && (
+              <FormField control={form.control} name="email2" render={({ field }) => (
+                <FormItem><FormLabel>{t.customers.fields.email2}</FormLabel><FormControl><Input type="email" {...field} data-testid="input-email2" disabled={isReadonly("email_2")} className={isReadonly("email_2") ? "bg-muted" : ""} /></FormControl><FormMessage /></FormItem>
+              )} />
+            )}
           </div>
         </CardContent>
       </Card>
