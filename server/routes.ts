@@ -7801,6 +7801,7 @@ export async function registerRoutes(
           fullContent: msgType === "sms" ? (msg as any).content : null,
           recipientEmail: (msg as any).recipientEmail || null,
           recipientPhone: (msg as any).recipientPhone || null,
+          sentiment: (msg as any).aiSentiment || null,
         });
       }
 

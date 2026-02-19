@@ -180,6 +180,7 @@ interface ContactHistory {
   fullContent?: string;
   recipientEmail?: string;
   recipientPhone?: string;
+  sentiment?: "positive" | "neutral" | "negative" | "angry" | null;
 }
 
 interface TimelineEntry {
@@ -195,6 +196,29 @@ interface TimelineEntry {
   agentName?: string;
   recipientEmail?: string;
   recipientPhone?: string;
+  sentiment?: string | null;
+}
+
+function SentimentBadge({ sentiment, size = "sm" }: { sentiment?: string | null; size?: "sm" | "md" }) {
+  if (!sentiment) return null;
+  const config: Record<string, { label: string; className: string }> = {
+    positive: { label: "+", className: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400 border-green-200 dark:border-green-800" },
+    neutral: { label: "~", className: "bg-gray-100 text-gray-600 dark:bg-gray-800/40 dark:text-gray-400 border-gray-200 dark:border-gray-700" },
+    negative: { label: "−", className: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 border-red-200 dark:border-red-800" },
+    angry: { label: "!", className: "bg-red-200 text-red-800 dark:bg-red-900/60 dark:text-red-300 border-red-300 dark:border-red-700" },
+  };
+  const c = config[sentiment];
+  if (!c) return null;
+  const sizeClass = size === "sm" ? "text-[9px] h-4 w-4 min-w-4" : "text-[10px] h-5 w-5 min-w-5";
+  return (
+    <span
+      className={`inline-flex items-center justify-center rounded-full border font-bold shrink-0 ${sizeClass} ${c.className}`}
+      title={sentiment.charAt(0).toUpperCase() + sentiment.slice(1)}
+      data-testid={`sentiment-${sentiment}`}
+    >
+      {c.label}
+    </span>
+  );
 }
 
 function getStatusConfig(t: any): Record<AgentStatus, { label: string; color: string; icon: React.ReactNode }> {
@@ -1647,6 +1671,7 @@ function CommunicationCanvas({
         agentName: h.agentName,
         recipientEmail: h.recipientEmail,
         recipientPhone: h.recipientPhone,
+        sentiment: h.sentiment || null,
       }));
     const all = [...timeline, ...persistentAsTimeline];
     return {
@@ -1973,6 +1998,9 @@ function CommunicationCanvas({
                               <Badge variant="secondary" className="text-[10px] h-5">
                                 {entry.status}
                               </Badge>
+                            )}
+                            {(entry.type === "email" || entry.type === "sms") && entry.sentiment && (
+                              <SentimentBadge sentiment={entry.sentiment} size="sm" />
                             )}
                             <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
                               {format(new Date(entry.timestamp), "d.M.yyyy HH:mm", { locale: sk })}
@@ -2358,6 +2386,9 @@ function CommunicationCanvas({
                             )}
                             {entry.status && (
                               <Badge variant="secondary" className="text-[10px] h-5">{entry.status}</Badge>
+                            )}
+                            {(entry.type === "email" || entry.type === "sms") && (entry as any).sentiment && (
+                              <SentimentBadge sentiment={(entry as any).sentiment} size="sm" />
                             )}
                             {entry.recipientEmail && (
                               <span className="text-[10px] text-muted-foreground truncate">{entry.recipientEmail}</span>
@@ -2975,6 +3006,9 @@ function CustomerInfoPanel({
                               )}
                               {item.status && (
                                 <Badge variant="secondary" className={`${isModal ? "text-[10px] h-5" : "text-[9px] h-4"} px-1`}>{item.status}</Badge>
+                              )}
+                              {(item.type === "email" || item.type === "sms") && item.sentiment && (
+                                <SentimentBadge sentiment={item.sentiment} size={isModal ? "md" : "sm"} />
                               )}
                               <span className={`${isModal ? "text-xs" : "text-[9px]"} text-muted-foreground/70 ml-auto`}>
                                 {format(new Date(item.date), isModal ? "d. MMMM yyyy, HH:mm" : "d.M. HH:mm", { locale: sk })}
@@ -4001,6 +4035,7 @@ export default function AgentWorkspacePage() {
       action: item.action,
       previousStatus: item.previousStatus,
       newStatus: item.newStatus,
+      sentiment: item.sentiment || null,
     }));
   }, [persistentHistory]);
 
