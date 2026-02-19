@@ -2825,11 +2825,7 @@ export function CustomerDetailsContent({
 
   const { data: customerNotes = [], isLoading: notesLoading } = useQuery<CustomerNote[]>({
     queryKey: ["/api/customers", customer.id, "notes"],
-    queryFn: async () => {
-      const res = await fetch(`/api/customers/${customer.id}/notes`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch notes");
-      return res.json();
-    },
+    staleTime: 0,
   });
 
   const { data: activityLogs = [], isLoading: activityLoading } = useQuery<ActivityLog[]>({
@@ -3244,7 +3240,7 @@ export function CustomerDetailsContent({
     mutationFn: (content: string) =>
       apiRequest("POST", `/api/customers/${customer.id}/notes`, { content }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/customers", customer.id, "notes"] });
+      queryClient.refetchQueries({ queryKey: ["/api/customers", customer.id, "notes"] });
       queryClient.invalidateQueries({ queryKey: ["/api/customers", customer.id, "activity-logs"] });
       setNewNoteContent("");
       toast({ title: "Note added successfully" });

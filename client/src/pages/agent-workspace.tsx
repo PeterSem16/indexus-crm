@@ -2724,6 +2724,35 @@ function CustomerInfoPanel({
         </div>
       )}
 
+      <div className="p-2 border-b space-y-1.5">
+        <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+          <StickyNote className="h-3 w-3" />
+          {t.customers?.tabs?.notes || "Poznámky"}
+        </h4>
+        <Textarea
+          placeholder="Poznámka..."
+          value={newNote}
+          onChange={(e) => setNewNote(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAddNote(); } }}
+          className="text-xs min-h-[60px] resize-none"
+          rows={3}
+          data-testid="input-call-notes"
+        />
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleAddNote}
+            disabled={!newNote.trim()}
+            className="gap-1.5"
+            data-testid="btn-add-note"
+          >
+            <Send className="h-3 w-3" />
+            <span className="text-xs">{t.customers?.details?.addNote || "Pridať"}</span>
+          </Button>
+        </div>
+      </div>
+
       <div className="border-b">
         <div className="flex">
           <button
@@ -2811,36 +2840,6 @@ function CustomerInfoPanel({
               </div>
             )}
 
-            <div className="pt-2 border-t">
-              <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <StickyNote className="h-3 w-3" />
-                Poznámky
-              </h4>
-              {callNotes && (
-                <div className="p-2.5 rounded-md bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-sm mb-2">
-                  <pre className="whitespace-pre-wrap font-sans text-foreground text-xs">{callNotes}</pre>
-                </div>
-              )}
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Poznámka..."
-                  value={newNote}
-                  onChange={(e) => setNewNote(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleAddNote()}
-                  className="text-xs"
-                  data-testid="input-call-notes"
-                />
-                <Button
-                  size="icon"
-                  variant="outline"
-                  onClick={handleAddNote}
-                  disabled={!newNote.trim()}
-                  data-testid="btn-add-note"
-                >
-                  <Send className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
           </div>
         )}
 
@@ -3373,25 +3372,6 @@ function CustomerInfoPanel({
                   )}
                 </div>
               )}
-              <div className="flex gap-2 mt-2">
-                <Input
-                  placeholder="Poznámka..."
-                  value={newNote}
-                  onChange={(e) => setNewNote(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleAddNote()}
-                  className="text-xs"
-                  data-testid="input-note-actions"
-                />
-                <Button
-                  size="icon"
-                  variant="outline"
-                  onClick={handleAddNote}
-                  disabled={!newNote.trim()}
-                  data-testid="btn-add-note-actions"
-                >
-                  <Send className="h-3.5 w-3.5" />
-                </Button>
-              </div>
             </div>
           </div>
         )}
