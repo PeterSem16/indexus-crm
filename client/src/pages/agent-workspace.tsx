@@ -1921,7 +1921,7 @@ function CommunicationCanvas({
           {phoneSubTab === "details" && contact && (
             <ScrollArea className="flex-1">
               <div className="p-4">
-                <CustomerDetailsContent customer={contact} onEdit={() => {}} compact visibleTabs={["potential", "gdpr", "notes"]} />
+                <CustomerDetailsContent customer={contact} onEdit={() => {}} compact visibleTabs={["overview", "potential", "gdpr", "notes"]} />
               </div>
             </ScrollArea>
           )}
@@ -2516,16 +2516,6 @@ function CustomerInfoPanel({
               <h2 className="font-bold text-sm truncate flex-1" data-testid="text-contact-name">
                 {contact.firstName} {contact.lastName}
               </h2>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-7 w-7 shrink-0"
-                onClick={onEditCustomer}
-                title="Upraviť zákazníka"
-                data-testid="button-edit-customer"
-              >
-                <Pencil className="h-3.5 w-3.5" />
-              </Button>
               <Button
                 size="icon"
                 variant="ghost"
