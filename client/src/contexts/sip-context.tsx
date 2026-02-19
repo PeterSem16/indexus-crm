@@ -15,6 +15,7 @@ export interface PendingCall {
   phoneNumber: string;
   customerId?: string;
   campaignId?: string;
+  campaignName?: string;
   customerName?: string;
   leadScore?: number;
   clientStatus?: string;

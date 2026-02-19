@@ -80,6 +80,7 @@ export function SipPhone({
   const callContext = useCall();
   const [localCustomerId, setLocalCustomerId] = useState(customerId);
   const [localCampaignId, setLocalCampaignId] = useState(campaignId);
+  const [localCampaignName, setLocalCampaignName] = useState<string | undefined>(undefined);
   const [localCustomerName, setLocalCustomerName] = useState(customerName);
   const [localLeadScore, setLocalLeadScore] = useState<number | undefined>(undefined);
   const [localClientStatus, setLocalClientStatus] = useState<string | undefined>(undefined);
@@ -333,7 +334,7 @@ export function SipPhone({
       formData.append("campaignId", localCampaignId || "");
       formData.append("customerName", localCustomerName || "");
       formData.append("agentName", currentUser?.fullName || currentUser?.username || "");
-      formData.append("campaignName", "");
+      formData.append("campaignName", localCampaignName || "");
       formData.append("phoneNumber", phoneNumber);
       formData.append("durationSeconds", String(duration));
 
@@ -364,7 +365,7 @@ export function SipPhone({
       } catch (e) {}
       recordingContextRef.current = null;
     }
-  }, [localCustomerId, localCampaignId, localCustomerName, currentUser, phoneNumber]);
+  }, [localCustomerId, localCampaignId, localCampaignName, localCustomerName, currentUser, phoneNumber]);
 
   const isSipConfigured = Boolean(
     globalSipSettings?.server && 
@@ -691,6 +692,7 @@ export function SipPhone({
       setPhoneNumber(callData.phoneNumber);
       setLocalCustomerId(callData.customerId?.toString());
       setLocalCampaignId(callData.campaignId?.toString());
+      setLocalCampaignName(callData.campaignName);
       setLocalCustomerName(callData.customerName);
       setLocalLeadScore(callData.leadScore);
       setLocalClientStatus(callData.clientStatus);

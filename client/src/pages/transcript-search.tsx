@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, FileText, Star, AlertTriangle, Download, ChevronDown, ChevronUp, Loader2, Phone, User, Megaphone, Clock, Filter, X, PhoneIncoming, PhoneOutgoing, PhoneMissed, Mic, MicOff, Brain, List } from "lucide-react";
+import { Search, FileText, Star, AlertTriangle, Download, ChevronDown, ChevronUp, Loader2, Phone, User, Megaphone, Clock, Filter, X, PhoneIncoming, PhoneOutgoing, PhoneMissed, Mic, MicOff, Brain, List, Calendar, UserCircle, Activity, Tag, BarChart3, SlidersHorizontal } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 
 interface TranscriptResult {
@@ -57,8 +57,13 @@ interface CallLogEntry {
   } | null;
 }
 
+interface CampaignBasic {
+  id: string;
+  name: string;
+}
+
 function formatDuration(seconds: number | null): string {
-  if (!seconds) return "—";
+  if (!seconds) return "\u2014";
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${m}:${String(s).padStart(2, "0")}`;
@@ -170,13 +175,16 @@ function CallLogCard({ log }: { log: CallLogEntry }) {
               </span>
             )}
             {log.campaignName && (
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                <Megaphone className="h-3 w-3" />
+              <Badge variant="outline" className="text-[10px] gap-1">
+                <Megaphone className="h-2.5 w-2.5" />
                 {log.campaignName}
-              </span>
+              </Badge>
             )}
             {rec?.agentName && (
-              <Badge variant="outline" className="text-[10px]">{rec.agentName}</Badge>
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <UserCircle className="h-3 w-3" />
+                {rec.agentName}
+              </span>
             )}
             <StatusBadge status={log.status} />
           </div>
@@ -294,10 +302,10 @@ function ResultCard({ result, query }: { result: TranscriptResult; query: string
               <Badge variant="outline" className="text-[10px]">{result.agentName}</Badge>
             )}
             {result.campaignName && (
-              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                <Megaphone className="h-3 w-3" />
+              <Badge variant="outline" className="text-[10px] gap-1">
+                <Megaphone className="h-2.5 w-2.5" />
                 {result.campaignName}
-              </span>
+              </Badge>
             )}
           </div>
 
@@ -313,7 +321,7 @@ function ResultCard({ result, query }: { result: TranscriptResult; query: string
             {result.alertKeywords && result.alertKeywords.length > 0 && (
               <Badge variant="destructive" className="text-[10px] gap-1">
                 <AlertTriangle className="h-2.5 w-2.5" />
-                {result.alertKeywords.length} upozorneni
+                {result.alertKeywords.length} upoz.
               </Badge>
             )}
           </div>
@@ -322,31 +330,20 @@ function ResultCard({ result, query }: { result: TranscriptResult; query: string
             <p className="text-xs text-muted-foreground mb-2 leading-relaxed">{result.summary}</p>
           )}
 
-          {result.alertKeywords && result.alertKeywords.length > 0 && (
-            <div className="flex items-center gap-1 flex-wrap mb-2">
-              <AlertTriangle className="h-3 w-3 text-destructive shrink-0" />
-              {result.alertKeywords.map((kw, i) => (
-                <Badge key={i} variant="destructive" className="text-[10px]">{kw}</Badge>
-              ))}
-            </div>
-          )}
-
           <div className="bg-muted/40 rounded-md p-2 mb-2">
-            <p className="text-xs leading-relaxed">
-              {highlightText(expanded ? result.transcriptionText : snippet, query)}
-            </p>
+            <p className="text-xs leading-relaxed">{highlightText(snippet, query)}</p>
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 flex-wrap">
             <Button
               size="sm"
               variant="ghost"
               className="h-7 gap-1"
               onClick={() => setExpanded(!expanded)}
-              data-testid={`btn-expand-transcript-${result.id}`}
+              data-testid={`btn-full-transcript-${result.id}`}
             >
               {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-              <span className="text-[11px]">{expanded ? "Skryt" : "Cely prepis"}</span>
+              <span className="text-[11px]">{expanded ? "Skryt cely prepis" : "Cely prepis"}</span>
             </Button>
             <Button
               size="sm"
@@ -369,9 +366,30 @@ function ResultCard({ result, query }: { result: TranscriptResult; query: string
               <span className="text-[11px]">JSON</span>
             </Button>
           </div>
+
+          {expanded && (
+            <div className="bg-muted/40 rounded-md p-2 mt-2">
+              <p className="text-xs leading-relaxed whitespace-pre-wrap">{highlightText(result.transcriptionText, query)}</p>
+            </div>
+          )}
         </div>
       </div>
     </Card>
+  );
+}
+
+function FilterChip({ label, active, onClick, icon: Icon }: { label: string; active: boolean; onClick: () => void; icon?: any }) {
+  return (
+    <Button
+      variant={active ? "default" : "outline"}
+      size="sm"
+      className="h-7 gap-1 text-[11px]"
+      onClick={onClick}
+      data-testid={`filter-chip-${label.toLowerCase().replace(/\s+/g, "-")}`}
+    >
+      {Icon && <Icon className="h-3 w-3" />}
+      {label}
+    </Button>
   );
 }
 
@@ -381,17 +399,41 @@ export default function TranscriptSearchPage() {
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const [showBrowseFilters, setShowBrowseFilters] = useState(false);
+
   const [sentimentFilter, setSentimentFilter] = useState<string>("");
   const [hasAlertsFilter, setHasAlertsFilter] = useState(false);
+
+  const [browseCampaignFilter, setBrowseCampaignFilter] = useState<string>("");
+  const [browseDirectionFilter, setBrowseDirectionFilter] = useState<string>("");
+  const [browseStatusFilter, setBrowseStatusFilter] = useState<string>("");
+  const [browseRecordingFilter, setBrowseRecordingFilter] = useState<string>("");
+  const [browseSentimentFilter, setBrowseSentimentFilter] = useState<string>("");
+  const [browseAgentFilter, setBrowseAgentFilter] = useState<string>("");
+  const [browseHasAlertsFilter, setBrowseHasAlertsFilter] = useState(false);
+  const [browseMinQuality, setBrowseMinQuality] = useState<string>("");
+  const [browseDateFrom, setBrowseDateFrom] = useState<string>("");
+  const [browseDateTo, setBrowseDateTo] = useState<string>("");
+  const [browseSearchText, setBrowseSearchText] = useState<string>("");
 
   const { data: callLogs = [], isLoading: logsLoading } = useQuery<CallLogEntry[]>({
     queryKey: ["/api/call-logs/browse"],
     queryFn: async () => {
-      const res = await fetch("/api/call-logs/browse?limit=100", { credentials: "include" });
+      const res = await fetch("/api/call-logs/browse?limit=200", { credentials: "include" });
       if (!res.ok) return [];
       return res.json();
     },
     enabled: activeTab === "browse",
+  });
+
+  const { data: campaignsList = [] } = useQuery<CampaignBasic[]>({
+    queryKey: ["/api/campaigns"],
+    queryFn: async () => {
+      const res = await fetch("/api/campaigns", { credentials: "include" });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.map((c: any) => ({ id: c.id, name: c.name }));
+    },
   });
 
   const { data: results = [], isLoading, isFetching } = useQuery<TranscriptResult[]>({
@@ -422,10 +464,136 @@ export default function TranscriptSearchPage() {
     setHasAlertsFilter(false);
   };
 
+  const clearBrowseFilters = () => {
+    setBrowseCampaignFilter("");
+    setBrowseDirectionFilter("");
+    setBrowseStatusFilter("");
+    setBrowseRecordingFilter("");
+    setBrowseSentimentFilter("");
+    setBrowseAgentFilter("");
+    setBrowseHasAlertsFilter(false);
+    setBrowseMinQuality("");
+    setBrowseDateFrom("");
+    setBrowseDateTo("");
+    setBrowseSearchText("");
+  };
+
   const hasActiveFilters = sentimentFilter || hasAlertsFilter;
 
-  const recordedCount = callLogs.filter(l => l.hasRecording).length;
-  const analyzedCount = callLogs.filter(l => l.recording?.analysisStatus === "completed").length;
+  const hasActiveBrowseFilters = browseCampaignFilter || browseDirectionFilter || browseStatusFilter ||
+    browseRecordingFilter || browseSentimentFilter || browseAgentFilter || browseHasAlertsFilter ||
+    browseMinQuality || browseDateFrom || browseDateTo || browseSearchText;
+
+  const activeBrowseFilterCount = [
+    browseCampaignFilter, browseDirectionFilter, browseStatusFilter,
+    browseRecordingFilter, browseSentimentFilter, browseAgentFilter,
+    browseHasAlertsFilter ? "yes" : "", browseMinQuality, browseDateFrom, browseDateTo, browseSearchText,
+  ].filter(Boolean).length;
+
+  const uniqueAgents = useMemo(() => {
+    const agents = new Set<string>();
+    callLogs.forEach(log => {
+      if (log.recording?.agentName) agents.add(log.recording.agentName);
+    });
+    return Array.from(agents).sort();
+  }, [callLogs]);
+
+  const uniqueCampaignsInLogs = useMemo(() => {
+    const camps = new Map<string, string>();
+    callLogs.forEach(log => {
+      if (log.campaignId && log.campaignName) {
+        camps.set(log.campaignId, log.campaignName);
+      }
+    });
+    return Array.from(camps.entries()).map(([id, name]) => ({ id, name }));
+  }, [callLogs]);
+
+  const filteredCallLogs = useMemo(() => {
+    let filtered = [...callLogs];
+
+    if (browseSearchText) {
+      const q = browseSearchText.toLowerCase();
+      filtered = filtered.filter(log =>
+        log.phoneNumber?.toLowerCase().includes(q) ||
+        log.customerName?.toLowerCase().includes(q) ||
+        log.campaignName?.toLowerCase().includes(q) ||
+        log.recording?.agentName?.toLowerCase().includes(q) ||
+        log.notes?.toLowerCase().includes(q)
+      );
+    }
+
+    if (browseCampaignFilter) {
+      if (browseCampaignFilter === "__none__") {
+        filtered = filtered.filter(log => !log.campaignId);
+      } else {
+        filtered = filtered.filter(log => log.campaignId === browseCampaignFilter);
+      }
+    }
+
+    if (browseDirectionFilter) {
+      filtered = filtered.filter(log => log.direction === browseDirectionFilter);
+    }
+
+    if (browseStatusFilter) {
+      filtered = filtered.filter(log => log.status === browseStatusFilter);
+    }
+
+    if (browseRecordingFilter) {
+      if (browseRecordingFilter === "recorded") {
+        filtered = filtered.filter(log => log.hasRecording);
+      } else if (browseRecordingFilter === "not_recorded") {
+        filtered = filtered.filter(log => !log.hasRecording);
+      } else if (browseRecordingFilter === "analyzed") {
+        filtered = filtered.filter(log => log.recording?.analysisStatus === "completed");
+      } else if (browseRecordingFilter === "transcribed") {
+        filtered = filtered.filter(log => log.recording?.transcriptionText);
+      }
+    }
+
+    if (browseSentimentFilter) {
+      filtered = filtered.filter(log => log.recording?.sentiment === browseSentimentFilter);
+    }
+
+    if (browseAgentFilter) {
+      filtered = filtered.filter(log => log.recording?.agentName === browseAgentFilter);
+    }
+
+    if (browseHasAlertsFilter) {
+      filtered = filtered.filter(log => log.recording?.alertKeywords && log.recording.alertKeywords.length > 0);
+    }
+
+    if (browseMinQuality) {
+      const minQ = parseInt(browseMinQuality);
+      if (!isNaN(minQ)) {
+        filtered = filtered.filter(log => log.recording?.qualityScore != null && log.recording.qualityScore >= minQ);
+      }
+    }
+
+    if (browseDateFrom) {
+      const from = new Date(browseDateFrom);
+      from.setHours(0, 0, 0, 0);
+      filtered = filtered.filter(log => new Date(log.startedAt || log.createdAt) >= from);
+    }
+
+    if (browseDateTo) {
+      const to = new Date(browseDateTo);
+      to.setHours(23, 59, 59, 999);
+      filtered = filtered.filter(log => new Date(log.startedAt || log.createdAt) <= to);
+    }
+
+    return filtered;
+  }, [callLogs, browseSearchText, browseCampaignFilter, browseDirectionFilter, browseStatusFilter,
+    browseRecordingFilter, browseSentimentFilter, browseAgentFilter, browseHasAlertsFilter,
+    browseMinQuality, browseDateFrom, browseDateTo]);
+
+  const stats = useMemo(() => {
+    const total = filteredCallLogs.length;
+    const recorded = filteredCallLogs.filter(l => l.hasRecording).length;
+    const analyzed = filteredCallLogs.filter(l => l.recording?.analysisStatus === "completed").length;
+    const withAlerts = filteredCallLogs.filter(l => l.recording?.alertKeywords && l.recording.alertKeywords.length > 0).length;
+    const avgQuality = filteredCallLogs.filter(l => l.recording?.qualityScore).reduce((sum, l) => sum + (l.recording?.qualityScore || 0), 0) / (filteredCallLogs.filter(l => l.recording?.qualityScore).length || 1);
+    return { total, recorded, analyzed, withAlerts, avgQuality: Math.round(avgQuality * 10) / 10 };
+  }, [filteredCallLogs]);
 
   return (
     <div className="flex flex-col h-full">
@@ -457,11 +625,208 @@ export default function TranscriptSearchPage() {
         </div>
 
         {activeTab === "browse" && (
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span>{callLogs.length} hovorov</span>
-            <span>{recordedCount} nahranych</span>
-            <span>{analyzedCount} analyzovanych</span>
-          </div>
+          <>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="relative flex-1 max-w-sm">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Hladat v hovoroch..."
+                  className="pl-8 h-8 text-xs"
+                  value={browseSearchText}
+                  onChange={(e) => setBrowseSearchText(e.target.value)}
+                  data-testid="input-browse-search"
+                />
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowBrowseFilters(!showBrowseFilters)}
+                className={`gap-1 ${hasActiveBrowseFilters ? "border-primary" : ""}`}
+                data-testid="btn-browse-filters"
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                <span className="text-xs">Filtre</span>
+                {activeBrowseFilterCount > 0 && (
+                  <Badge variant="secondary" className="text-[9px] h-4 min-w-4 px-1">{activeBrowseFilterCount}</Badge>
+                )}
+              </Button>
+              {hasActiveBrowseFilters && (
+                <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={clearBrowseFilters} data-testid="btn-clear-browse-filters">
+                  <X className="h-3 w-3" />
+                  <span className="text-xs">Zrusit</span>
+                </Button>
+              )}
+            </div>
+
+            {showBrowseFilters && (
+              <div className="bg-muted/30 rounded-md p-3 mb-2 space-y-2.5">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    <Megaphone className="h-3.5 w-3.5 text-muted-foreground" />
+                    <Select value={browseCampaignFilter} onValueChange={(v) => setBrowseCampaignFilter(v === "all" ? "" : v)}>
+                      <SelectTrigger className="w-[180px] h-8 text-xs" data-testid="select-browse-campaign">
+                        <SelectValue placeholder="Kampan" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Vsetky kampane</SelectItem>
+                        <SelectItem value="__none__">Bez kampane</SelectItem>
+                        {(uniqueCampaignsInLogs.length > 0 ? uniqueCampaignsInLogs : campaignsList).map(c => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <Activity className="h-3.5 w-3.5 text-muted-foreground" />
+                    <Select value={browseStatusFilter} onValueChange={(v) => setBrowseStatusFilter(v === "all" ? "" : v)}>
+                      <SelectTrigger className="w-[140px] h-8 text-xs" data-testid="select-browse-status">
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Vsetky statusy</SelectItem>
+                        <SelectItem value="completed">Dokonceny</SelectItem>
+                        <SelectItem value="failed">Zlyhany</SelectItem>
+                        <SelectItem value="no_answer">Neprijaty</SelectItem>
+                        <SelectItem value="busy">Obsadeny</SelectItem>
+                        <SelectItem value="cancelled">Zruseny</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                    <Select value={browseDirectionFilter} onValueChange={(v) => setBrowseDirectionFilter(v === "all" ? "" : v)}>
+                      <SelectTrigger className="w-[140px] h-8 text-xs" data-testid="select-browse-direction">
+                        <SelectValue placeholder="Smer" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Vsetky smery</SelectItem>
+                        <SelectItem value="outbound">Odchadzajuce</SelectItem>
+                        <SelectItem value="inbound">Prichadzajuce</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    <Mic className="h-3.5 w-3.5 text-muted-foreground" />
+                    <Select value={browseRecordingFilter} onValueChange={(v) => setBrowseRecordingFilter(v === "all" ? "" : v)}>
+                      <SelectTrigger className="w-[150px] h-8 text-xs" data-testid="select-browse-recording">
+                        <SelectValue placeholder="Nahravka" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Vsetky</SelectItem>
+                        <SelectItem value="recorded">S nahravkou</SelectItem>
+                        <SelectItem value="not_recorded">Bez nahravky</SelectItem>
+                        <SelectItem value="analyzed">Analyzovane</SelectItem>
+                        <SelectItem value="transcribed">S prepisom</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+                    <Select value={browseSentimentFilter} onValueChange={(v) => setBrowseSentimentFilter(v === "all" ? "" : v)}>
+                      <SelectTrigger className="w-[140px] h-8 text-xs" data-testid="select-browse-sentiment">
+                        <SelectValue placeholder="Sentiment" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Vsetky</SelectItem>
+                        <SelectItem value="positive">Pozitivny</SelectItem>
+                        <SelectItem value="neutral">Neutralny</SelectItem>
+                        <SelectItem value="negative">Negativny</SelectItem>
+                        <SelectItem value="angry">Nahnevany</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {uniqueAgents.length > 0 && (
+                    <div className="flex items-center gap-1.5">
+                      <UserCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                      <Select value={browseAgentFilter} onValueChange={(v) => setBrowseAgentFilter(v === "all" ? "" : v)}>
+                        <SelectTrigger className="w-[160px] h-8 text-xs" data-testid="select-browse-agent">
+                          <SelectValue placeholder="Agent" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Vsetci agenti</SelectItem>
+                          {uniqueAgents.map(a => (
+                            <SelectItem key={a} value={a}>{a}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      type="date"
+                      className="h-8 text-xs w-[140px]"
+                      value={browseDateFrom}
+                      onChange={(e) => setBrowseDateFrom(e.target.value)}
+                      data-testid="input-date-from"
+                    />
+                    <span className="text-xs text-muted-foreground">do</span>
+                    <Input
+                      type="date"
+                      className="h-8 text-xs w-[140px]"
+                      value={browseDateTo}
+                      onChange={(e) => setBrowseDateTo(e.target.value)}
+                      data-testid="input-date-to"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
+                    <Select value={browseMinQuality} onValueChange={(v) => setBrowseMinQuality(v === "all" ? "" : v)}>
+                      <SelectTrigger className="w-[150px] h-8 text-xs" data-testid="select-browse-quality">
+                        <SelectValue placeholder="Min. kvalita" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Vsetky</SelectItem>
+                        <SelectItem value="8">8+ (vynikajuce)</SelectItem>
+                        <SelectItem value="6">6+ (dobre)</SelectItem>
+                        <SelectItem value="4">4+ (priemerne)</SelectItem>
+                        <SelectItem value="1">1+ (slabe)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <FilterChip
+                    label="S upozorneniami"
+                    active={browseHasAlertsFilter}
+                    onClick={() => setBrowseHasAlertsFilter(!browseHasAlertsFilter)}
+                    icon={AlertTriangle}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+              <span>{stats.total} hovorov</span>
+              <span>{stats.recorded} nahranych</span>
+              <span>{stats.analyzed} analyzovanych</span>
+              {stats.withAlerts > 0 && (
+                <span className="text-destructive flex items-center gap-0.5">
+                  <AlertTriangle className="h-3 w-3" />
+                  {stats.withAlerts} s upoz.
+                </span>
+              )}
+              {stats.analyzed > 0 && (
+                <span className="flex items-center gap-0.5">
+                  <Star className="h-3 w-3" />
+                  Priemer: {stats.avgQuality}/10
+                </span>
+              )}
+              {hasActiveBrowseFilters && callLogs.length !== filteredCallLogs.length && (
+                <span className="text-primary font-medium">(filtre aktivne: {filteredCallLogs.length} z {callLogs.length})</span>
+              )}
+            </div>
+          </>
         )}
 
         {activeTab === "search" && (
@@ -541,7 +906,7 @@ export default function TranscriptSearchPage() {
             </div>
           )}
 
-          {activeTab === "browse" && !logsLoading && callLogs.length === 0 && (
+          {activeTab === "browse" && !logsLoading && filteredCallLogs.length === 0 && !hasActiveBrowseFilters && (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
               <Phone className="h-12 w-12 mb-4 opacity-30" />
               <p className="text-sm font-medium">Ziadne hovory</p>
@@ -556,9 +921,21 @@ export default function TranscriptSearchPage() {
             </div>
           )}
 
-          {activeTab === "browse" && !logsLoading && callLogs.length > 0 && (
+          {activeTab === "browse" && !logsLoading && filteredCallLogs.length === 0 && hasActiveBrowseFilters && (
+            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+              <Filter className="h-12 w-12 mb-4 opacity-30" />
+              <p className="text-sm font-medium">Ziadne vysledky</p>
+              <p className="text-xs mt-1">Pre zvolene filtre neboli najdene ziadne hovory</p>
+              <Button variant="outline" size="sm" className="mt-4 gap-1" onClick={clearBrowseFilters}>
+                <X className="h-3 w-3" />
+                Zrusit filtre
+              </Button>
+            </div>
+          )}
+
+          {activeTab === "browse" && !logsLoading && filteredCallLogs.length > 0 && (
             <>
-              {callLogs.map((log) => (
+              {filteredCallLogs.map((log) => (
                 <CallLogCard key={log.id} log={log} />
               ))}
             </>

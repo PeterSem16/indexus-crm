@@ -4547,6 +4547,8 @@ export default function AgentWorkspacePage() {
         phoneNumber,
         customerId: currentContact.id,
         customerName: customerName || undefined,
+        campaignId: selectedCampaignId || undefined,
+        campaignName: selectedCampaign?.name || undefined,
       });
       setStats((prev) => ({ ...prev, calls: prev.calls + 1 }));
       setTimeline((prev) => [
