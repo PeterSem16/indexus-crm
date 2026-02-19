@@ -3206,6 +3206,15 @@ export const callRecordings = pgTable("call_recordings", {
   phoneNumber: text("phone_number"),
   analysisStatus: text("analysis_status").default("pending"),
   analysisResult: jsonb("analysis_result"),
+  transcriptionText: text("transcription_text"),
+  transcriptionLanguage: text("transcription_language"),
+  sentiment: text("sentiment"),
+  qualityScore: integer("quality_score"),
+  summary: text("summary"),
+  keyTopics: text("key_topics").array(),
+  actionItems: text("action_items").array(),
+  complianceNotes: text("compliance_notes"),
+  analyzedAt: timestamp("analyzed_at"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 

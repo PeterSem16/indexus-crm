@@ -15848,6 +15848,121 @@ export async function registerRoutes(
     },
   });
 
+  async function processCallRecordingAnalysis(recordingId: string, filePath: string) {
+    try {
+      console.log(`[CallAnalysis] Starting transcription for recording ${recordingId}`);
+      await db.update(callRecordings).set({ analysisStatus: "processing" }).where(eq(callRecordings.id, recordingId));
+
+      const fsSync = await import("fs");
+      if (!fsSync.existsSync(filePath)) {
+        console.error(`[CallAnalysis] File not found: ${filePath}`);
+        await db.update(callRecordings).set({ analysisStatus: "failed", analysisResult: { error: "Recording file not found" } }).where(eq(callRecordings.id, recordingId));
+        return;
+      }
+
+      let transcriptionText = "";
+      let transcriptionLanguage = "sk";
+      try {
+        const transcriptionResult = await openai.audio.transcriptions.create({
+          file: fsSync.createReadStream(filePath),
+          model: "whisper-1",
+          response_format: "text",
+        });
+        transcriptionText = transcriptionResult as unknown as string;
+        console.log(`[CallAnalysis] Transcription complete for ${recordingId}: ${transcriptionText.length} chars`);
+      } catch (whisperErr: any) {
+        console.error(`[CallAnalysis] Whisper transcription failed for ${recordingId}:`, whisperErr.message);
+        await db.update(callRecordings).set({
+          analysisStatus: "failed",
+          analysisResult: { error: `Transcription failed: ${whisperErr.message}` },
+        }).where(eq(callRecordings.id, recordingId));
+        return;
+      }
+
+      await db.update(callRecordings).set({
+        transcriptionText,
+        transcriptionLanguage,
+      }).where(eq(callRecordings.id, recordingId));
+
+      if (!transcriptionText || transcriptionText.trim().length < 10) {
+        await db.update(callRecordings).set({
+          analysisStatus: "completed",
+          sentiment: "neutral",
+          qualityScore: 5,
+          summary: "Krátky alebo neidentifikovateľný hovor",
+          keyTopics: [],
+          actionItems: [],
+          analyzedAt: new Date(),
+        }).where(eq(callRecordings.id, recordingId));
+        return;
+      }
+
+      try {
+        const analysisPrompt = `Analyzuj nasledujúci prepis telefonického hovoru z call centra krvnej banky (cord blood banking).
+
+Prepis hovoru:
+"""
+${transcriptionText}
+"""
+
+Vráť analýzu v JSON formáte s presne týmito poliami:
+{
+  "sentiment": "positive" | "neutral" | "negative" | "angry",
+  "qualityScore": číslo 1-10 (1=veľmi slabý, 10=výborný),
+  "summary": "stručný súhrn hovoru v 1-3 vetách",
+  "keyTopics": ["téma1", "téma2", ...],
+  "actionItems": ["akčný bod 1", "akčný bod 2", ...],
+  "complianceNotes": "poznámky o súlade s pravidlami / kvalite obsluhy, alebo null ak je všetko ok",
+  "detectedLanguage": "sk" | "cs" | "hu" | "ro" | "it" | "de" | "en"
+}
+
+Pravidlá:
+- sentiment: celkový sentiment klienta počas hovoru
+- qualityScore: hodnoť kvalitu obsluhy agentom (profesionalita, empatia, riešenie problému)
+- keyTopics: hlavné témy hovoru (max 5)
+- actionItems: čo treba urobiť po hovore (max 5)
+- complianceNotes: ak agent porušil pravidlá alebo bol neprofesionálny, opíš to; inak null
+- Odpovedaj VÝHRADNE validným JSON, bez ďalšieho textu`;
+
+        const analysisResponse = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [{ role: "user", content: analysisPrompt }],
+          response_format: { type: "json_object" },
+          temperature: 0.3,
+          max_tokens: 1000,
+        });
+
+        const analysisText = analysisResponse.choices[0]?.message?.content || "{}";
+        const analysis = JSON.parse(analysisText);
+
+        await db.update(callRecordings).set({
+          analysisStatus: "completed",
+          analysisResult: analysis,
+          sentiment: analysis.sentiment || "neutral",
+          qualityScore: Math.min(10, Math.max(1, parseInt(analysis.qualityScore) || 5)),
+          summary: analysis.summary || null,
+          keyTopics: analysis.keyTopics || [],
+          actionItems: analysis.actionItems || [],
+          complianceNotes: analysis.complianceNotes || null,
+          transcriptionLanguage: analysis.detectedLanguage || "sk",
+          analyzedAt: new Date(),
+        }).where(eq(callRecordings.id, recordingId));
+
+        console.log(`[CallAnalysis] Analysis complete for ${recordingId}: sentiment=${analysis.sentiment}, score=${analysis.qualityScore}`);
+      } catch (analysisErr: any) {
+        console.error(`[CallAnalysis] GPT analysis failed for ${recordingId}:`, analysisErr.message);
+        await db.update(callRecordings).set({
+          analysisStatus: "completed",
+          analyzedAt: new Date(),
+          analysisResult: { error: `Analysis failed: ${analysisErr.message}` },
+        }).where(eq(callRecordings.id, recordingId));
+      }
+    } catch (err: any) {
+      console.error(`[CallAnalysis] Unexpected error for ${recordingId}:`, err.message);
+      await db.update(callRecordings).set({ analysisStatus: "failed" }).where(eq(callRecordings.id, recordingId));
+    }
+  }
+
   app.post("/api/call-recordings", requireAuth, uploadRecording.single("recording"), async (req, res) => {
     try {
       const user = req.session.user;
@@ -15877,6 +15992,12 @@ export async function registerRoutes(
       };
 
       const [recording] = await db.insert(callRecordings).values(recordingData).returning();
+
+      if (process.env.OPENAI_API_KEY) {
+        processCallRecordingAnalysis(recording.id, req.file!.path).catch(err => {
+          console.error(`[CallAnalysis] Background processing failed:`, err.message);
+        });
+      }
 
       res.status(201).json(recording);
     } catch (error: any) {
@@ -15963,6 +16084,109 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Failed to stream recording:", error);
       res.status(500).json({ error: "Failed to stream recording" });
+    }
+  });
+
+  app.get("/api/call-recordings/:id/analysis", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+      const [recording] = await db.select().from(callRecordings).where(eq(callRecordings.id, req.params.id));
+      if (!recording) return res.status(404).json({ error: "Recording not found" });
+
+      const isPrivileged = ["admin", "manager"].includes(user.role);
+      if (!isPrivileged && recording.userId !== user.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      res.json({
+        id: recording.id,
+        analysisStatus: recording.analysisStatus,
+        transcriptionText: recording.transcriptionText,
+        transcriptionLanguage: recording.transcriptionLanguage,
+        sentiment: recording.sentiment,
+        qualityScore: recording.qualityScore,
+        summary: recording.summary,
+        keyTopics: recording.keyTopics,
+        actionItems: recording.actionItems,
+        complianceNotes: recording.complianceNotes,
+        analyzedAt: recording.analyzedAt,
+        analysisResult: recording.analysisResult,
+      });
+    } catch (error) {
+      console.error("Failed to get recording analysis:", error);
+      res.status(500).json({ error: "Failed to get recording analysis" });
+    }
+  });
+
+  app.post("/api/call-recordings/:id/reanalyze", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || !["admin", "manager"].includes(user.role)) {
+        return res.status(403).json({ error: "Only admins/managers can trigger re-analysis" });
+      }
+
+      const [recording] = await db.select().from(callRecordings).where(eq(callRecordings.id, req.params.id));
+      if (!recording) return res.status(404).json({ error: "Recording not found" });
+
+      processCallRecordingAnalysis(recording.id, recording.filePath).catch(err => {
+        console.error(`[CallAnalysis] Re-analysis failed:`, err.message);
+      });
+
+      res.json({ message: "Re-analysis started", recordingId: recording.id });
+    } catch (error) {
+      console.error("Failed to trigger re-analysis:", error);
+      res.status(500).json({ error: "Failed to trigger re-analysis" });
+    }
+  });
+
+  app.get("/api/call-recordings/search/transcripts", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+      const { query, customerId, limit: limitParam } = req.query;
+      if (!query || typeof query !== "string" || query.trim().length < 2) {
+        return res.status(400).json({ error: "Search query must be at least 2 characters" });
+      }
+
+      const isPrivileged = ["admin", "manager"].includes(user.role);
+      const searchTerm = `%${query.trim()}%`;
+      const conditions: any[] = [
+        sql`${callRecordings.transcriptionText} IS NOT NULL`,
+        sql`${callRecordings.transcriptionText} ILIKE ${searchTerm}`,
+      ];
+
+      if (customerId) {
+        conditions.push(eq(callRecordings.customerId, customerId as string));
+      }
+      if (!isPrivileged) {
+        conditions.push(eq(callRecordings.userId, user.id));
+      }
+
+      const results = await db.select({
+        id: callRecordings.id,
+        callLogId: callRecordings.callLogId,
+        customerId: callRecordings.customerId,
+        customerName: callRecordings.customerName,
+        agentName: callRecordings.agentName,
+        phoneNumber: callRecordings.phoneNumber,
+        durationSeconds: callRecordings.durationSeconds,
+        sentiment: callRecordings.sentiment,
+        qualityScore: callRecordings.qualityScore,
+        summary: callRecordings.summary,
+        transcriptionText: callRecordings.transcriptionText,
+        createdAt: callRecordings.createdAt,
+      }).from(callRecordings)
+        .where(and(...conditions))
+        .orderBy(desc(callRecordings.createdAt))
+        .limit(parseInt(limitParam as string) || 20);
+
+      res.json(results);
+    } catch (error) {
+      console.error("Failed to search transcripts:", error);
+      res.status(500).json({ error: "Failed to search transcripts" });
     }
   });
 
