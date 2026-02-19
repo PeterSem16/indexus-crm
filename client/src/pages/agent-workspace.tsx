@@ -2506,23 +2506,18 @@ function CustomerInfoPanel({
 
   const [selectedNote, setSelectedNote] = useState<{ content: string; userName: string; createdAt: string } | null>(null);
 
-  const { data: customerNotes = [] } = useQuery<Array<{ id: string; content: string; userId: string; userName: string; createdAt: string }>>({
+  const { data: customerNotes = [], refetch: refetchNotes } = useQuery<Array<{ id: string; content: string; userId: string; userName: string; createdAt: string }>>({
     queryKey: ["/api/customers", contact?.id, "notes"],
-    queryFn: async () => {
-      if (!contact?.id) return [];
-      const res = await fetch(`/api/customers/${contact.id}/notes`, { credentials: "include" });
-      if (!res.ok) return [];
-      return res.json();
-    },
     enabled: !!contact?.id,
+    staleTime: 0,
   });
 
   const handleAddNote = async () => {
-    if (newNote.trim()) {
-      const noteText = newNote;
-      setNewNote("");
-      await onAddNote(noteText);
-    }
+    if (!newNote.trim() || !contact?.id) return;
+    const noteText = newNote;
+    setNewNote("");
+    await onAddNote(noteText);
+    refetchNotes();
   };
 
   if (!contact) {
@@ -3378,6 +3373,25 @@ function CustomerInfoPanel({
                   )}
                 </div>
               )}
+              <div className="flex gap-2 mt-2">
+                <Input
+                  placeholder="Poznámka..."
+                  value={newNote}
+                  onChange={(e) => setNewNote(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleAddNote()}
+                  className="text-xs"
+                  data-testid="input-note-actions"
+                />
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={handleAddNote}
+                  disabled={!newNote.trim()}
+                  data-testid="btn-add-note-actions"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
           </div>
         )}
@@ -4489,6 +4503,7 @@ export default function AgentWorkspacePage() {
   };
 
   const handleAddNote = async (note: string) => {
+    if (!currentContact) return;
     setCallNotes((prev) => prev + (prev ? "\n" : "") + note);
     setTimeline((prev) => [
       ...prev,
@@ -4499,17 +4514,24 @@ export default function AgentWorkspacePage() {
         content: note,
       },
     ]);
-    if (currentContact) {
-      try {
-        await apiRequest("POST", `/api/customers/${currentContact.id}/notes`, { content: note });
-        await Promise.all([
-          queryClient.refetchQueries({ queryKey: ["/api/customers", currentContact.id, "notes"] }),
-          queryClient.invalidateQueries({ queryKey: ["/api/customers", currentContact.id, "activity-logs"] }),
-          queryClient.invalidateQueries({ queryKey: ["/api/customers", currentContact.id, "contact-history"] }),
-        ]);
-      } catch (err) {
-        console.error("Failed to save note:", err);
-      }
+    const tempNote = {
+      id: `temp-${Date.now()}`,
+      content: note,
+      userId: user?.id || "",
+      userName: user?.name || user?.username || "Ja",
+      createdAt: new Date().toISOString(),
+    };
+    const notesKey = ["/api/customers", currentContact.id, "notes"];
+    queryClient.setQueryData(notesKey, (old: any) => [tempNote, ...(old || [])]);
+    try {
+      await apiRequest("POST", `/api/customers/${currentContact.id}/notes`, { content: note });
+      queryClient.refetchQueries({ queryKey: notesKey });
+      queryClient.invalidateQueries({ queryKey: ["/api/customers", currentContact.id, "activity-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/customers", currentContact.id, "contact-history"] });
+    } catch (err) {
+      console.error("Failed to save note:", err);
+      queryClient.setQueryData(notesKey, (old: any) => (old || []).filter((n: any) => n.id !== tempNote.id));
+      toast({ title: "Chyba", description: "Nepodarilo sa uložiť poznámku", variant: "destructive" });
     }
   };
 
