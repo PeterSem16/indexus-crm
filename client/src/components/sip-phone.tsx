@@ -127,6 +127,10 @@ export function SipPhone({
   const userHungUpRef = useRef<boolean>(false);
   const pendingCallProcessedRef = useRef<boolean>(false);
   const forceIdleRef = useRef<boolean>(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingChunksRef = useRef<Blob[]>([]);
+  const recordingContextRef = useRef<AudioContext | null>(null);
+  const isRecordingRef = useRef<boolean>(false);
 
   const { data: globalSipSettings, isLoading: sipSettingsLoading } = useQuery<SipSettings | null>({
     queryKey: ["/api/sip-settings"],
@@ -175,6 +179,137 @@ export function SipPhone({
       }
     }
   });
+
+  const startRecording = useCallback((session: Session) => {
+    try {
+      const sdh = session.sessionDescriptionHandler;
+      if (!sdh) return;
+      const pc = (sdh as any).peerConnection as RTCPeerConnection;
+      if (!pc) return;
+
+      const recCtx = new AudioContext();
+      recordingContextRef.current = recCtx;
+      const destination = recCtx.createMediaStreamDestination();
+
+      const localSenders = pc.getSenders();
+      const localAudioSender = localSenders.find(s => s.track?.kind === "audio");
+      if (localAudioSender?.track) {
+        const localStream = new MediaStream([localAudioSender.track]);
+        const localSource = recCtx.createMediaStreamSource(localStream);
+        localSource.connect(destination);
+      }
+
+      const connectRemoteTrack = (track: MediaStreamTrack) => {
+        if (track.kind === "audio" && recCtx.state !== "closed") {
+          try {
+            const remoteStream = new MediaStream([track]);
+            const remoteSource = recCtx.createMediaStreamSource(remoteStream);
+            remoteSource.connect(destination);
+            console.log("[Recording] Remote audio track connected to recorder");
+          } catch (e) {
+            console.warn("[Recording] Could not connect remote track:", e);
+          }
+        }
+      };
+
+      const remoteReceivers = pc.getReceivers();
+      const remoteAudioReceiver = remoteReceivers.find(r => r.track?.kind === "audio");
+      if (remoteAudioReceiver?.track) {
+        connectRemoteTrack(remoteAudioReceiver.track);
+      }
+
+      const origOnTrack = pc.ontrack;
+      pc.ontrack = (event) => {
+        connectRemoteTrack(event.track);
+        if (typeof origOnTrack === "function") {
+          origOnTrack.call(pc, event);
+        }
+      };
+
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : MediaRecorder.isTypeSupported("audio/webm")
+          ? "audio/webm"
+          : "audio/ogg";
+
+      recordingChunksRef.current = [];
+      const recorder = new MediaRecorder(destination.stream, { mimeType });
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          recordingChunksRef.current.push(e.data);
+        }
+      };
+
+      recorder.start(1000);
+      mediaRecorderRef.current = recorder;
+      isRecordingRef.current = true;
+      console.log("[Recording] Started recording call");
+    } catch (err) {
+      console.error("[Recording] Failed to start recording:", err);
+    }
+  }, []);
+
+  const stopRecordingAndUpload = useCallback((callLogId: string | number, duration: number) => {
+    if (!mediaRecorderRef.current || !isRecordingRef.current) return;
+    isRecordingRef.current = false;
+
+    const recorder = mediaRecorderRef.current;
+    mediaRecorderRef.current = null;
+
+    recorder.onstop = () => {
+      const chunks = recordingChunksRef.current;
+      recordingChunksRef.current = [];
+
+      if (chunks.length === 0) {
+        console.warn("[Recording] No data recorded");
+        return;
+      }
+
+      const mimeType = recorder.mimeType || "audio/webm";
+      const blob = new Blob(chunks, { type: mimeType });
+      console.log(`[Recording] Blob ready: ${(blob.size / 1024).toFixed(1)} KB`);
+
+      const formData = new FormData();
+      const ext = mimeType.includes("ogg") ? "ogg" : "webm";
+      formData.append("recording", blob, `recording.${ext}`);
+      formData.append("callLogId", String(callLogId));
+      formData.append("customerId", localCustomerId || "");
+      formData.append("campaignId", localCampaignId || "");
+      formData.append("customerName", localCustomerName || "");
+      formData.append("agentName", currentUser?.fullName || currentUser?.username || "");
+      formData.append("campaignName", "");
+      formData.append("phoneNumber", phoneNumber);
+      formData.append("durationSeconds", String(duration));
+
+      fetch("/api/call-recordings", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      })
+        .then(res => res.json())
+        .then(data => {
+          console.log("[Recording] Uploaded successfully:", data.id);
+          queryClient.invalidateQueries({ queryKey: ["/api/call-recordings"] });
+        })
+        .catch(err => {
+          console.error("[Recording] Upload failed:", err);
+        });
+    };
+
+    try {
+      recorder.stop();
+    } catch (e) {
+      console.error("[Recording] Error stopping recorder:", e);
+    }
+
+    if (recordingContextRef.current) {
+      try {
+        recordingContextRef.current.close();
+      } catch (e) {}
+      recordingContextRef.current = null;
+    }
+  }, [localCustomerId, localCampaignId, localCustomerName, currentUser, phoneNumber]);
 
   const isSipConfigured = Boolean(
     globalSipSettings?.server && 
@@ -400,6 +535,7 @@ export function SipPhone({
             });
             onCallStart?.(phoneNumber, callLogId);
             setupAudio(inviter);
+            setTimeout(() => startRecording(inviter), 500);
             break;
           case SessionState.Terminated:
             if (forceIdleRef.current) {
@@ -430,6 +566,16 @@ export function SipPhone({
               },
               customerId: localCustomerId
             });
+            if (duration > 0) {
+              stopRecordingAndUpload(callLogId, duration);
+            } else {
+              if (mediaRecorderRef.current) {
+                try { mediaRecorderRef.current.stop(); } catch (e) {}
+                mediaRecorderRef.current = null;
+                isRecordingRef.current = false;
+                recordingChunksRef.current = [];
+              }
+            }
             onCallEnd?.(duration, duration > 0 ? "completed" : "failed", callLogId);
             setCurrentCallLogId(null);
             if (!callContext.preventAutoReset) {
@@ -636,6 +782,16 @@ export function SipPhone({
       const duration = callStartTimeRef.current 
         ? Math.floor((Date.now() - callStartTimeRef.current) / 1000) 
         : 0;
+      if (duration > 0) {
+        stopRecordingAndUpload(currentCallLogId, duration);
+      } else {
+        if (mediaRecorderRef.current) {
+          try { mediaRecorderRef.current.stop(); } catch (e) {}
+          mediaRecorderRef.current = null;
+          isRecordingRef.current = false;
+          recordingChunksRef.current = [];
+        }
+      }
       updateCallLogMutation.mutate({
         id: currentCallLogId,
         data: { 

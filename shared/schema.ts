@@ -3188,6 +3188,35 @@ export const insertCallLogSchema = createInsertSchema(callLogs).omit({
 export type InsertCallLog = z.infer<typeof insertCallLogSchema>;
 export type CallLog = typeof callLogs.$inferSelect;
 
+// ========== CALL RECORDINGS ==========
+export const callRecordings = pgTable("call_recordings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  callLogId: varchar("call_log_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  customerId: varchar("customer_id"),
+  campaignId: varchar("campaign_id"),
+  filename: text("filename").notNull(),
+  filePath: text("file_path").notNull(),
+  mimeType: text("mime_type").notNull().default("audio/webm"),
+  fileSizeBytes: integer("file_size_bytes"),
+  durationSeconds: integer("duration_seconds"),
+  customerName: text("customer_name"),
+  agentName: text("agent_name"),
+  campaignName: text("campaign_name"),
+  phoneNumber: text("phone_number"),
+  analysisStatus: text("analysis_status").default("pending"),
+  analysisResult: jsonb("analysis_result"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertCallRecordingSchema = createInsertSchema(callRecordings).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertCallRecording = z.infer<typeof insertCallRecordingSchema>;
+export type CallRecording = typeof callRecordings.$inferSelect;
+
 // ========== ZOSTAVY (Product Sets) ==========
 
 // Product Sets - billing set configurations

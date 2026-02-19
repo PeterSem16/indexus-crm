@@ -28,6 +28,7 @@ export const STORAGE_PATHS = {
   templatePreviews: path.join(DATA_ROOT, "template-previews"),
   exports: path.join(DATA_ROOT, "exports"),
   voiceNotes: path.join(DATA_ROOT, "voice-notes"),
+  callRecordings: path.join(DATA_ROOT, "call-recordings"),
 };
 
 export type StoragePathKey = keyof typeof STORAGE_PATHS;

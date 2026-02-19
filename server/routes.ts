@@ -19,7 +19,7 @@ import {
   insertRoleSchema, insertRoleModulePermissionSchema, insertRoleFieldPermissionSchema,
   insertSavedSearchSchema,
   insertCampaignSchema, insertCampaignContactSchema, insertCampaignContactHistorySchema,
-  insertSipSettingsSchema, insertCallLogSchema,
+  insertSipSettingsSchema, insertCallLogSchema, callRecordings, insertCallRecordingSchema,
   insertInstanceVatRateSchema,
   insertContractTemplateSchema, insertContractTemplateVersionSchema, insertContractInstanceSchema,
   insertContractInstanceProductSchema, insertContractParticipantSchema, insertContractSignatureRequestSchema,
@@ -15811,6 +15811,179 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Failed to fetch user call logs:", error);
       res.status(500).json({ error: "Failed to fetch call logs" });
+    }
+  });
+
+  // ===== CALL RECORDINGS API =====
+
+  const recordingStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, STORAGE_PATHS.callRecordings);
+    },
+    filename: (req, file, cb) => {
+      const sanitize = (s: string) => (s || "unknown").replace(/[^a-zA-Z0-9áčďéíľĺňóôŕšťúýžÁČĎÉÍĽĹŇÓÔŔŠŤÚÝŽ_-]/g, "_").substring(0, 40);
+      const customerId = sanitize(req.body.customerId || "0");
+      const customerName = sanitize(req.body.customerName || "unknown");
+      const agentName = sanitize(req.body.agentName || "agent");
+      const campaignName = sanitize(req.body.campaignName || "nocampaign");
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
+      const timeStr = now.toISOString().slice(11, 19).replace(/:/g, "");
+      const ext = file.mimetype === "audio/webm" ? "webm" : file.mimetype === "audio/ogg" ? "ogg" : "webm";
+      const filename = `${customerId}_${customerName}_${dateStr}_${timeStr}_${agentName}_${campaignName}.${ext}`;
+      cb(null, filename);
+    },
+  });
+
+  const uploadRecording = multer({
+    storage: recordingStorage,
+    limits: { fileSize: 100 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+      if (file.mimetype.startsWith("audio/")) {
+        cb(null, true);
+      } else {
+        cb(new Error("Invalid file type. Only audio files are allowed."));
+      }
+    },
+  });
+
+  app.post("/api/call-recordings", requireAuth, uploadRecording.single("recording"), async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+      if (!req.file) return res.status(400).json({ error: "No recording file uploaded" });
+
+      const { callLogId, customerId, campaignId, customerName, agentName, campaignName, phoneNumber, durationSeconds } = req.body;
+
+      if (!callLogId) return res.status(400).json({ error: "callLogId is required" });
+
+      const recordingData = {
+        callLogId: String(callLogId),
+        userId: user.id,
+        customerId: customerId || null,
+        campaignId: campaignId || null,
+        filename: req.file.filename,
+        filePath: req.file.path,
+        mimeType: req.file.mimetype,
+        fileSizeBytes: req.file.size,
+        durationSeconds: durationSeconds ? parseInt(durationSeconds) : null,
+        customerName: customerName || null,
+        agentName: agentName || null,
+        campaignName: campaignName || null,
+        phoneNumber: phoneNumber || null,
+        analysisStatus: "pending",
+      };
+
+      const [recording] = await db.insert(callRecordings).values(recordingData).returning();
+
+      res.status(201).json(recording);
+    } catch (error: any) {
+      console.error("Failed to upload call recording:", error);
+      res.status(500).json({ error: error.message || "Failed to upload recording" });
+    }
+  });
+
+  app.get("/api/call-recordings", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user) return res.status(401).json({ error: "Not authenticated" });
+      const isPrivileged = ["admin", "manager"].includes(user.role);
+      const { callLogId, customerId, userId, limit } = req.query;
+      const conditions: any[] = [];
+
+      if (callLogId) {
+        conditions.push(eq(callRecordings.callLogId, callLogId as string));
+      } else if (customerId) {
+        conditions.push(eq(callRecordings.customerId, customerId as string));
+      } else if (userId) {
+        conditions.push(eq(callRecordings.userId, userId as string));
+      }
+
+      if (!isPrivileged) {
+        conditions.push(eq(callRecordings.userId, user.id));
+      }
+
+      let query = db.select().from(callRecordings);
+      if (conditions.length > 0) {
+        query = query.where(and(...conditions)) as any;
+      }
+
+      const results = await (query as any).orderBy(desc(callRecordings.createdAt)).limit(limit ? parseInt(limit as string) : 100);
+      res.json(results);
+    } catch (error) {
+      console.error("Failed to fetch call recordings:", error);
+      res.status(500).json({ error: "Failed to fetch call recordings" });
+    }
+  });
+
+  app.get("/api/call-recordings/:id/stream", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user) return res.status(401).json({ error: "Not authenticated" });
+
+      const [recording] = await db.select().from(callRecordings).where(eq(callRecordings.id, req.params.id));
+      if (!recording) return res.status(404).json({ error: "Recording not found" });
+
+      const isPrivileged = ["admin", "manager"].includes(user.role);
+      if (!isPrivileged && recording.userId !== user.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const filePath = recording.filePath;
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: "Recording file not found on disk" });
+      }
+
+      const stat = fs.statSync(filePath);
+      const fileSize = stat.size;
+      const range = req.headers.range;
+
+      if (range) {
+        const parts = range.replace(/bytes=/, "").split("-");
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+        const chunksize = end - start + 1;
+        const file = fs.createReadStream(filePath, { start, end });
+        res.writeHead(206, {
+          "Content-Range": `bytes ${start}-${end}/${fileSize}`,
+          "Accept-Ranges": "bytes",
+          "Content-Length": chunksize,
+          "Content-Type": recording.mimeType || "audio/webm",
+        });
+        file.pipe(res);
+      } else {
+        res.writeHead(200, {
+          "Content-Length": fileSize,
+          "Content-Type": recording.mimeType || "audio/webm",
+        });
+        fs.createReadStream(filePath).pipe(res);
+      }
+    } catch (error) {
+      console.error("Failed to stream recording:", error);
+      res.status(500).json({ error: "Failed to stream recording" });
+    }
+  });
+
+  app.delete("/api/call-recordings/:id", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user;
+      if (!user || !["admin"].includes(user.role)) {
+        return res.status(403).json({ error: "Only admins can delete recordings" });
+      }
+
+      const [recording] = await db.select().from(callRecordings).where(eq(callRecordings.id, req.params.id));
+      if (!recording) return res.status(404).json({ error: "Recording not found" });
+
+      if (fs.existsSync(recording.filePath)) {
+        fs.unlinkSync(recording.filePath);
+      }
+
+      await db.delete(callRecordings).where(eq(callRecordings.id, req.params.id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete recording:", error);
+      res.status(500).json({ error: "Failed to delete recording" });
     }
   });
 

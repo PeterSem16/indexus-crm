@@ -54,6 +54,7 @@ import { CustomerForm, type CustomerFormData } from "@/components/customer-form"
 import { CustomerFormWizard, type CustomerFormData as WizardCustomerFormData } from "@/components/customer-form-wizard";
 import { PotentialCaseForm, EmbeddedPotentialCaseForm } from "@/components/potential-case-form";
 import { CallCustomerButton } from "@/components/sip-phone";
+import { CallRecordingPlayer } from "@/components/call-recording-player";
 import { useCountryFilter } from "@/contexts/country-filter-context";
 import { usePermissions } from "@/contexts/permissions-context";
 import { useAuth } from "@/contexts/auth-context";
@@ -4772,6 +4773,9 @@ export function CustomerDetailsContent({
                                           <span className="font-semibold">{duration}</span>
                                         </div>
                                       </div>
+                                      {call.durationSeconds > 0 && (
+                                        <CallRecordingPlayer callLogId={call.id} compact />
+                                      )}
                                     </div>
                                   </div>
                                 </div>

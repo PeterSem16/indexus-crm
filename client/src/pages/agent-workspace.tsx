@@ -132,6 +132,7 @@ import { sk } from "date-fns/locale";
 import { useAgentSession } from "@/contexts/agent-session-context";
 import { CustomerDetailsContent } from "@/pages/customers";
 import { StatusBadge } from "@/components/status-badge";
+import { CallRecordingPlayer } from "@/components/call-recording-player";
 import { CustomerForm, type CustomerFormData } from "@/components/customer-form";
 import type { Campaign, Customer, CampaignContact, CampaignDisposition, AgentBreakType } from "@shared/schema";
 import { DISPOSITION_NAME_TRANSLATIONS } from "@shared/schema";
@@ -2323,6 +2324,11 @@ function CommunicationCanvas({
                             <div className="flex items-center gap-1 mt-1">
                               <UserCircle className="h-3 w-3 text-muted-foreground/60" />
                               <span className="text-[10px] text-muted-foreground">{entry.agentName}</span>
+                            </div>
+                          )}
+                          {entry.type === "call" && (entry as any).callLogId && (
+                            <div onClick={(e) => e.stopPropagation()}>
+                              <CallRecordingPlayer callLogId={(entry as any).callLogId} compact />
                             </div>
                           )}
                         </div>
