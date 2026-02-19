@@ -427,7 +427,7 @@ export default function TranscriptSearchPage() {
   });
 
   const { data: campaignsList = [] } = useQuery<CampaignBasic[]>({
-    queryKey: ["/api/campaigns"],
+    queryKey: ["/api/campaigns", "basic-list"],
     queryFn: async () => {
       const res = await fetch("/api/campaigns", { credentials: "include" });
       if (!res.ok) return [];
