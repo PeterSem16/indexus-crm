@@ -5,7 +5,7 @@ import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calcula
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useI18n } from "@/i18n";
 import { translations, COUNTRY_TO_LOCALE } from "@/i18n/translations";
@@ -3588,82 +3588,103 @@ export function CustomerDetailsContent({
           )}
         </TabsList>
 
-        <TabsContent value="overview" className="space-y-6 mt-4">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h4 className="font-semibold flex items-center gap-2">
-                <Package className="h-4 w-4" />
-                {t.customers.details?.assignedProducts || "Assigned Products"}
-              </h4>
-            </div>
-
-            {productsLoading ? (
-              <p className="text-sm text-muted-foreground">{t.customers.details?.loadingProducts || "Loading products..."}</p>
-            ) : customerProducts.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t.customers.details?.noProducts || "No products assigned yet."}</p>
-            ) : (
-              <div className="space-y-2">
-                {customerProducts.map((cp) => (
-                  <div 
-                    key={cp.id} 
-                    className="flex items-center justify-between p-2 rounded-md bg-muted/50"
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm">{getCountryFlag(customer.country)}</span>
-                        <p className="font-medium text-sm">{cp.product.name}</p>
-                        <Badge variant="outline" className="text-xs">{customer.country}</Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {cp.billsetName || (t.customers.details?.noBillset || "Bez zostavy")}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      {cp.billsetId && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedInvoiceDetailProduct(cp);
-                            setIsInvoiceDetailOpen(true);
-                          }}
-                          data-testid={`button-invoice-detail-${cp.id}`}
-                        >
-                          <FileText className="h-4 w-4 mr-1" />
-                          {t.customers.details?.invoiceDetail || "Detail fakturácie"}
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          setEditingProductAssignment(cp);
-                          setEditBillsetId(cp.billsetId || "");
-                        }}
-                        data-testid={`button-edit-product-${cp.id}`}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeProductMutation.mutate(cp.id)}
-                        disabled={removeProductMutation.isPending}
-                        data-testid={`button-remove-product-${cp.id}`}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
+        <TabsContent value="overview" className="mt-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <div className="p-1.5 rounded-md bg-primary/10">
+                    <Package className="h-4 w-4 text-primary" />
                   </div>
-                ))}
-              </div>
-            )}
+                  {t.customers.details?.assignedProducts || "Assigned Products"}
+                  {customerProducts.length > 0 && (
+                    <Badge variant="secondary" className="ml-auto">{customerProducts.length}</Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {productsLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : customerProducts.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Package className="h-10 w-10 mx-auto mb-2 opacity-20" />
+                    <p className="text-sm">{t.customers.details?.noProducts || "No products assigned yet."}</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {customerProducts.map((cp) => (
+                      <div 
+                        key={cp.id} 
+                        className="flex items-center justify-between p-3 rounded-lg border bg-muted/30 hover-elevate"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm">{getCountryFlag(customer.country)}</span>
+                            <p className="font-medium text-sm truncate">{cp.product.name}</p>
+                            <Badge variant="outline" className="text-xs shrink-0">{customer.country}</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {cp.billsetName || (t.customers.details?.noBillset || "Bez zostavy")}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {cp.billsetId && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedInvoiceDetailProduct(cp);
+                                setIsInvoiceDetailOpen(true);
+                              }}
+                              data-testid={`button-invoice-detail-${cp.id}`}
+                            >
+                              <FileText className="h-3.5 w-3.5 mr-1" />
+                              <span className="hidden xl:inline">{t.customers.details?.invoiceDetail || "Detail fakturácie"}</span>
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setEditingProductAssignment(cp);
+                              setEditBillsetId(cp.billsetId || "");
+                            }}
+                            data-testid={`button-edit-product-${cp.id}`}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeProductMutation.mutate(cp.id)}
+                            disabled={removeProductMutation.isPending}
+                            data-testid={`button-remove-product-${cp.id}`}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
             {availableProducts.length > 0 && (
-              <div className="space-y-3">
-                <div className="flex items-end gap-2">
-                  <div className="flex-1">
-                    <Label className="text-xs">{t.customers.details?.addProduct || "Add Product"}</Label>
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <div className="p-1.5 rounded-md bg-green-500/10">
+                      <PlusCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    </div>
+                    {t.customers.details?.addProduct || "Add Product"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label className="text-xs font-medium text-muted-foreground">{t.customers.details?.selectProduct || "Select product"}</Label>
                     <Select 
                       value={selectedProductId} 
                       onValueChange={(value) => {
@@ -3671,7 +3692,7 @@ export function CustomerDetailsContent({
                         setSelectedBillsetId("");
                       }}
                     >
-                      <SelectTrigger data-testid="select-add-product">
+                      <SelectTrigger data-testid="select-add-product" className="mt-1">
                         <SelectValue placeholder={t.customers.details?.selectProduct || "Select product"} />
                       </SelectTrigger>
                       <SelectContent>
@@ -3683,73 +3704,74 @@ export function CustomerDetailsContent({
                       </SelectContent>
                     </Select>
                   </div>
-                </div>
 
-                {selectedProductId && (
-                  <div className="flex items-end gap-2">
-                    <div className="flex-1">
-                      <Label className="text-xs">{t.customers.details?.selectBillset || "Select Billset"}</Label>
-                      <Select value={selectedBillsetId} onValueChange={setSelectedBillsetId}>
-                        <SelectTrigger data-testid="select-add-billset">
-                          <SelectValue placeholder={billsetsLoading ? (t.common?.loading || "Loading...") : (t.customers.details?.selectBillset || "Select billset")} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {billsets.map((bs) => (
-                            <SelectItem key={bs.id} value={bs.id}>
-                              {bs.countryCode ? `${getCountryFlag(bs.countryCode)} [${bs.countryCode}]` : `[${t.common?.all || "All"}]`} {bs.name} - {bs.totalGrossAmount ? parseFloat(bs.totalGrossAmount).toFixed(2) : "0.00"} {bs.currency}
-                            </SelectItem>
-                          ))}
-                          {billsets.length === 0 && !billsetsLoading && (
-                            <SelectItem value="__no_billsets" disabled>
-                              {t.customers.details?.noBillsets || "No billsets available"}
-                            </SelectItem>
-                          )}
-                        </SelectContent>
-                      </Select>
-                      {selectedProductId && !billsetsLoading && billsets.length === 0 && (
-                        <p className="text-xs text-destructive mt-1">
-                          {t.customers.details?.noBillsetsForCountry || "No billsets configured for this product and country"}
-                        </p>
-                      )}
-                    </div>
-                    <div className="w-20">
-                      <Label className="text-xs">{t.customers.details?.quantity || "Qty"}</Label>
-                      <Input
-                        type="number"
-                        min={1}
-                        value={quantity}
-                        onChange={(e) => setQuantity(e.target.value)}
-                        data-testid="input-product-quantity"
-                      />
-                    </div>
-                    <Button
-                      size="icon"
-                      onClick={() => {
-                        const qty = parseInt(quantity) || 0;
-                        if (selectedProductId && selectedBillsetId && qty > 0) {
-                          addProductMutation.mutate({ 
-                            productId: selectedProductId, 
-                            billsetId: selectedBillsetId,
-                            quantity: qty 
-                          });
-                        } else {
-                          toast({ 
-                            title: t.customers.details?.productBillsetValidation || "Please select a product and billset with valid quantity", 
-                            variant: "destructive" 
-                          });
-                        }
-                      }}
-                      disabled={!selectedProductId || !selectedBillsetId || !quantity || parseInt(quantity) < 1 || addProductMutation.isPending}
-                      data-testid="button-add-product-to-customer"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                )}
-              </div>
+                  {selectedProductId && (
+                    <>
+                      <div>
+                        <Label className="text-xs font-medium text-muted-foreground">{t.customers.details?.selectBillset || "Select Billset"}</Label>
+                        <Select value={selectedBillsetId} onValueChange={setSelectedBillsetId}>
+                          <SelectTrigger data-testid="select-add-billset" className="mt-1">
+                            <SelectValue placeholder={billsetsLoading ? (t.common?.loading || "Loading...") : (t.customers.details?.selectBillset || "Select billset")} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {billsets.map((bs) => (
+                              <SelectItem key={bs.id} value={bs.id}>
+                                {bs.countryCode ? `${getCountryFlag(bs.countryCode)} [${bs.countryCode}]` : `[${t.common?.all || "All"}]`} {bs.name} - {bs.totalGrossAmount ? parseFloat(bs.totalGrossAmount).toFixed(2) : "0.00"} {bs.currency}
+                              </SelectItem>
+                            ))}
+                            {billsets.length === 0 && !billsetsLoading && (
+                              <SelectItem value="__no_billsets" disabled>
+                                {t.customers.details?.noBillsets || "No billsets available"}
+                              </SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
+                        {selectedProductId && !billsetsLoading && billsets.length === 0 && (
+                          <p className="text-xs text-destructive mt-1">
+                            {t.customers.details?.noBillsetsForCountry || "No billsets configured for this product and country"}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <Label className="text-xs font-medium text-muted-foreground">{t.customers.details?.quantity || "Qty"}</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={quantity}
+                          onChange={(e) => setQuantity(e.target.value)}
+                          className="mt-1 w-24"
+                          data-testid="input-product-quantity"
+                        />
+                      </div>
+                      <Button
+                        onClick={() => {
+                          const qty = parseInt(quantity) || 0;
+                          if (selectedProductId && selectedBillsetId && qty > 0) {
+                            addProductMutation.mutate({ 
+                              productId: selectedProductId, 
+                              billsetId: selectedBillsetId,
+                              quantity: qty 
+                            });
+                          } else {
+                            toast({ 
+                              title: t.customers.details?.productBillsetValidation || "Please select a product and billset with valid quantity", 
+                              variant: "destructive" 
+                            });
+                          }
+                        }}
+                        disabled={!selectedProductId || !selectedBillsetId || !quantity || parseInt(quantity) < 1 || addProductMutation.isPending}
+                        className="w-full gap-2"
+                        data-testid="button-add-product-to-customer"
+                      >
+                        <Plus className="h-4 w-4" />
+                        {t.customers.details?.addProduct || "Add Product"}
+                      </Button>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
             )}
           </div>
-
         </TabsContent>
 
         {customer.clientStatus === "acquired" && (
@@ -3758,324 +3780,408 @@ export function CustomerDetailsContent({
           </TabsContent>
         )}
 
-        <TabsContent value="communicate" className="space-y-6 mt-4">
-          <div className="space-y-4">
-            <h4 className="font-semibold flex items-center gap-2">
-              <Mail className="h-4 w-4" />
-              {t.customers.details?.sendEmail || "Send Email"}
-              {isMs365Connected && (
-                <Badge variant="secondary" className="text-xs">MS365</Badge>
-              )}
-            </h4>
-            <div className="space-y-3">
-              <div>
-                <Label className="text-xs">{t.customers.details?.to || "To"}</Label>
-                <Input value={customer.email} disabled className="bg-muted" data-testid="input-email-to" />
-              </div>
-              {isMs365Connected && availableMailboxes.length > 0 && (
-                <div>
-                  <Label className="text-xs">Odoslať z</Label>
-                  <Select value={selectedMailboxId} onValueChange={setSelectedMailboxId}>
-                    <SelectTrigger data-testid="select-email-from-mailbox">
-                      <SelectValue placeholder="Vyberte schránku" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {personalMailbox && (
-                        <SelectItem value="personal">
-                          {personalMailbox.displayName} ({personalMailbox.email}) [Osobná]
-                        </SelectItem>
-                      )}
-                      {availableMailboxes.filter(m => m.type === "shared").map((mailbox) => (
-                        <SelectItem key={mailbox.id || mailbox.email} value={mailbox.id || mailbox.email}>
-                          {mailbox.displayName} ({mailbox.email}) [Zdieľaná]{mailbox.isDefault ? " (Predvolená)" : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-              {!isMs365Connected && (
-                <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
-                  <p className="text-sm text-amber-700 dark:text-amber-400">
-                    Pre odosielanie emailov cez Microsoft 365 si pripojte váš účet v nastaveniach používateľa.
-                  </p>
-                </div>
-              )}
-              <div>
-                <Label className="text-xs">{t.customers.details?.subject || "Subject"}</Label>
-                <Input
-                  value={emailSubject}
-                  onChange={(e) => setEmailSubject(e.target.value)}
-                  placeholder={t.customers.details?.emailSubjectPlaceholder || "Email subject..."}
-                  data-testid="input-email-subject"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">{t.customers.details?.message || "Message"}</Label>
-                <div className="border rounded-md" data-testid="wysiwyg-inline-email">
-                  <ReactQuill
-                    theme="snow"
-                    value={emailContent}
-                    onChange={setEmailContent}
-                    placeholder={t.customers.details?.writeEmailPlaceholder || "Write your email message..."}
-                    modules={{
-                      toolbar: [
-                        [{ 'header': [1, 2, 3, false] }],
-                        ['bold', 'italic', 'underline', 'strike'],
-                        [{ 'color': [] }, { 'background': [] }],
-                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                        ['link'],
-                        ['clean']
-                      ],
-                    }}
-                    style={{ minHeight: '150px' }}
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end">
-                <Button
-                  onClick={handleSendEmail}
-                  disabled={!emailSubject.trim() || !emailContent.trim() || sendEmailMutation.isPending}
-                  data-testid="button-send-email"
-                >
-                  <Send className="h-4 w-4 mr-2" />
-                  {sendEmailMutation.isPending ? (t.customers.details?.sending || "Odosielam...") : (t.customers.details?.sendEmail || "Odoslať email")}
-                </Button>
-              </div>
-            </div>
-          </div>
+        <TabsContent value="communicate" className="mt-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="space-y-4">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <div className="p-1.5 rounded-md bg-blue-500/10">
+                      <Mail className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    {t.customers.details?.sendEmail || "Send Email"}
+                    {isMs365Connected && (
+                      <Badge variant="secondary" className="ml-auto text-xs">MS365</Badge>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div>
+                    <Label className="text-xs font-medium text-muted-foreground">{t.customers.details?.to || "To"}</Label>
+                    <Input value={customer.email} disabled className="bg-muted mt-1" data-testid="input-email-to" />
+                  </div>
+                  {isMs365Connected && availableMailboxes.length > 0 && (
+                    <div>
+                      <Label className="text-xs font-medium text-muted-foreground">Odoslať z</Label>
+                      <Select value={selectedMailboxId} onValueChange={setSelectedMailboxId}>
+                        <SelectTrigger data-testid="select-email-from-mailbox" className="mt-1">
+                          <SelectValue placeholder="Vyberte schránku" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {personalMailbox && (
+                            <SelectItem value="personal">
+                              {personalMailbox.displayName} ({personalMailbox.email}) [Osobná]
+                            </SelectItem>
+                          )}
+                          {availableMailboxes.filter(m => m.type === "shared").map((mailbox) => (
+                            <SelectItem key={mailbox.id || mailbox.email} value={mailbox.id || mailbox.email}>
+                              {mailbox.displayName} ({mailbox.email}) [Zdieľaná]{mailbox.isDefault ? " (Predvolená)" : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  {!isMs365Connected && (
+                    <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
+                      <p className="text-sm text-amber-700 dark:text-amber-400">
+                        Pre odosielanie emailov cez Microsoft 365 si pripojte váš účet v nastaveniach používateľa.
+                      </p>
+                    </div>
+                  )}
+                  <div>
+                    <Label className="text-xs font-medium text-muted-foreground">{t.customers.details?.subject || "Subject"}</Label>
+                    <Input
+                      value={emailSubject}
+                      onChange={(e) => setEmailSubject(e.target.value)}
+                      placeholder={t.customers.details?.emailSubjectPlaceholder || "Email subject..."}
+                      className="mt-1"
+                      data-testid="input-email-subject"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-medium text-muted-foreground">{t.customers.details?.message || "Message"}</Label>
+                    <div className="border rounded-md mt-1" data-testid="wysiwyg-inline-email">
+                      <ReactQuill
+                        theme="snow"
+                        value={emailContent}
+                        onChange={setEmailContent}
+                        placeholder={t.customers.details?.writeEmailPlaceholder || "Write your email message..."}
+                        modules={{
+                          toolbar: [
+                            [{ 'header': [1, 2, 3, false] }],
+                            ['bold', 'italic', 'underline', 'strike'],
+                            [{ 'color': [] }, { 'background': [] }],
+                            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                            ['link'],
+                            ['clean']
+                          ],
+                        }}
+                        style={{ minHeight: '150px' }}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <Button
+                      onClick={handleSendEmail}
+                      disabled={!emailSubject.trim() || !emailContent.trim() || sendEmailMutation.isPending}
+                      data-testid="button-send-email"
+                    >
+                      <Send className="h-4 w-4 mr-2" />
+                      {sendEmailMutation.isPending ? (t.customers.details?.sending || "Odosielam...") : (t.customers.details?.sendEmail || "Odoslať email")}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
 
-          <Separator />
-
-          <div className="space-y-4">
-            <h4 className="font-semibold flex items-center gap-2">
-              <Phone className="h-4 w-4" />
-              {t.customers.details?.sendSms || "Send SMS"}
-            </h4>
-            {customer.phone ? (
-              <div className="space-y-3">
-                <div>
-                  <Label className="text-xs">{t.customers.details?.to || "To"}</Label>
-                  <Input value={customer.phone} disabled className="bg-muted" data-testid="input-sms-to" />
-                </div>
-                <div>
-                  <Label className="text-xs">{t.customers.details?.message || "Message"}</Label>
-                  <Textarea
-                    value={smsContent}
-                    onChange={(e) => setSmsContent(e.target.value)}
-                    placeholder={t.customers.details?.writeSmsPlaceholder || "Write your SMS message..."}
-                    className="min-h-[80px]"
-                    maxLength={160}
-                    data-testid="input-sms-content"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">{smsContent.length}/160 {t.customers.details?.characters || "characters"}</p>
-                </div>
-                <div className="flex justify-end">
-                  <Button
-                    onClick={handleSendSms}
-                    disabled={!smsContent.trim() || sendSmsMutation.isPending}
-                    data-testid="button-send-sms"
-                  >
-                    <Send className="h-4 w-4 mr-2" />
-                    {sendSmsMutation.isPending ? (t.customers.details?.sending || "Sending...") : (t.customers.details?.sendSms || "Send SMS")}
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">{t.customers.details?.noPhone || "No phone number on file for this customer."}</p>
-            )}
-          </div>
-
-          <Separator />
-
-          <div className="space-y-4">
-            <h4 className="font-semibold flex items-center gap-2">
-              <PhoneCall className="h-4 w-4" />
-              {t.customers.details?.sipCall || "SIP Call"}
-            </h4>
-            {customer.phone ? (
-              <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">
-                  {t.customers.details?.sipCallDescription || "Use SIP phone to call the customer directly. The call will be logged automatically."}
-                </p>
-                <CallCustomerButton 
-                  phoneNumber={customer.phone}
-                  customerId={customer.id}
-                  customerName={`${customer.firstName} ${customer.lastName}`}
-                  leadScore={customer.leadScore}
-                  clientStatus={customer.clientStatus}
-                />
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">{t.customers.details?.noPhone || "No phone number on file for this customer."}</p>
-            )}
-          </div>
-
-          <Separator />
-
-          <div className="space-y-4">
-            <h4 className="font-semibold">{t.customers.details?.messageHistory || "Message History"}</h4>
-            {messagesLoading ? (
-              <p className="text-sm text-muted-foreground">{t.customers.details?.loadingMessages || "Loading messages..."}</p>
-            ) : communicationMessages.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t.customers.details?.noMessages || "No messages sent yet."}</p>
-            ) : (
-              <div className="space-y-3">
-                {communicationMessages.map((msg) => (
-                  <div key={msg.id} className="p-3 rounded-lg bg-muted/50 space-y-1" data-testid={`message-item-${msg.id}`}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        {msg.type === "email" ? (
-                          <Mail className="h-4 w-4 text-primary" />
-                        ) : msg.type === "sms" ? (
-                          <MessageSquare className="h-4 w-4 text-cyan-600" />
-                        ) : (
-                          <Phone className="h-4 w-4 text-primary" />
-                        )}
-                        <span className="text-sm font-medium capitalize" data-testid={`message-type-${msg.id}`}>
-                          {msg.type === "sms" ? "SMS" : msg.type}
-                        </span>
-                        {(msg as any).direction && (
-                          <Badge variant="outline" className={`text-xs ${(msg as any).direction === "inbound" ? "text-cyan-600 border-cyan-400" : "text-emerald-600 border-emerald-400"}`}>
-                            {(msg as any).direction === "inbound" ? "Prijatá" : "Odoslaná"}
-                          </Badge>
-                        )}
-                        <Badge variant={msg.status === "sent" ? "default" : msg.status === "failed" ? "destructive" : "secondary"} className="text-xs" data-testid={`message-status-${msg.id}`}>
-                          {msg.status}
-                        </Badge>
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <div className="p-1.5 rounded-md bg-cyan-500/10">
+                      <MessageSquare className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+                    </div>
+                    {t.customers.details?.sendSms || "Send SMS"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {customer.phone ? (
+                    <div className="space-y-3">
+                      <div>
+                        <Label className="text-xs font-medium text-muted-foreground">{t.customers.details?.to || "To"}</Label>
+                        <Input value={customer.phone} disabled className="bg-muted mt-1" data-testid="input-sms-to" />
                       </div>
-                      <div className="flex items-center gap-1">
+                      <div>
+                        <Label className="text-xs font-medium text-muted-foreground">{t.customers.details?.message || "Message"}</Label>
+                        <Textarea
+                          value={smsContent}
+                          onChange={(e) => setSmsContent(e.target.value)}
+                          placeholder={t.customers.details?.writeSmsPlaceholder || "Write your SMS message..."}
+                          className="min-h-[80px] mt-1"
+                          maxLength={160}
+                          data-testid="input-sms-content"
+                        />
+                        <div className="flex justify-between items-center mt-1">
+                          <p className="text-xs text-muted-foreground">{smsContent.length}/160 {t.customers.details?.characters || "characters"}</p>
+                          <div className="h-1.5 w-24 rounded-full bg-muted overflow-hidden">
+                            <div 
+                              className={`h-full rounded-full transition-all ${smsContent.length > 140 ? 'bg-red-500' : smsContent.length > 100 ? 'bg-amber-500' : 'bg-green-500'}`}
+                              style={{ width: `${Math.min((smsContent.length / 160) * 100, 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex justify-end">
                         <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => {
-                            // View message detail - open in dialog or navigate to NEXUS
-                            toast({
-                              title: msg.type === "sms" ? "SMS správa" : "Email správa",
-                              description: msg.content?.substring(0, 100) + (msg.content && msg.content.length > 100 ? "..." : ""),
-                            });
-                          }}
-                          data-testid={`button-view-message-${msg.id}`}
+                          onClick={handleSendSms}
+                          disabled={!smsContent.trim() || sendSmsMutation.isPending}
+                          data-testid="button-send-sms"
                         >
-                          <Eye className="h-4 w-4" />
+                          <Send className="h-4 w-4 mr-2" />
+                          {sendSmsMutation.isPending ? (t.customers.details?.sending || "Sending...") : (t.customers.details?.sendSms || "Send SMS")}
                         </Button>
-                        {msg.type === "email" && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => {
-                              // Open compose with prefilled reply
-                              setEmailSubject(`Re: ${msg.subject || ""}`);
-                              setEmailContent("");
-                            }}
-                            data-testid={`button-reply-message-${msg.id}`}
-                          >
-                            <PenSquare className="h-4 w-4" />
-                          </Button>
-                        )}
                       </div>
                     </div>
-                    {msg.subject && <p className="text-sm font-medium" data-testid={`message-subject-${msg.id}`}>{msg.subject}</p>}
-                    <p className="text-sm text-muted-foreground line-clamp-2" data-testid={`message-content-${msg.id}`}>{msg.content}</p>
-                    <p className="text-xs text-muted-foreground" data-testid={`message-date-${msg.id}`}>
-                      {format(new Date(msg.createdAt), "MMM dd, yyyy HH:mm")}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ) : (
+                    <div className="text-center py-6 text-muted-foreground">
+                      <Phone className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                      <p className="text-sm">{t.customers.details?.noPhone || "No phone number on file for this customer."}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="space-y-4">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <div className="p-1.5 rounded-md bg-violet-500/10">
+                      <PhoneCall className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                    </div>
+                    {t.customers.details?.sipCall || "SIP Call"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {customer.phone ? (
+                    <div className="space-y-3">
+                      <p className="text-sm text-muted-foreground">
+                        {t.customers.details?.sipCallDescription || "Use SIP phone to call the customer directly. The call will be logged automatically."}
+                      </p>
+                      <div className="p-4 rounded-lg bg-muted/30 border border-border/50 flex items-center justify-center">
+                        <CallCustomerButton 
+                          phoneNumber={customer.phone}
+                          customerId={customer.id}
+                          customerName={`${customer.firstName} ${customer.lastName}`}
+                          leadScore={customer.leadScore}
+                          clientStatus={customer.clientStatus}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-6 text-muted-foreground">
+                      <PhoneOff className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                      <p className="text-sm">{t.customers.details?.noPhone || "No phone number on file for this customer."}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <div className="p-1.5 rounded-md bg-amber-500/10">
+                      <History className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                    </div>
+                    {t.customers.details?.messageHistory || "Message History"}
+                    {communicationMessages.length > 0 && (
+                      <Badge variant="secondary" className="ml-auto">{communicationMessages.length}</Badge>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {messagesLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : communicationMessages.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Mail className="h-10 w-10 mx-auto mb-2 opacity-20" />
+                      <p className="text-sm">{t.customers.details?.noMessages || "No messages sent yet."}</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
+                      {communicationMessages.map((msg) => (
+                        <div key={msg.id} className="p-3 rounded-lg border bg-muted/20 space-y-1.5 hover-elevate" data-testid={`message-item-${msg.id}`}>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <div className={`p-1 rounded-md ${
+                                msg.type === "email" ? "bg-blue-500/10" : msg.type === "sms" ? "bg-cyan-500/10" : "bg-violet-500/10"
+                              }`}>
+                                {msg.type === "email" ? (
+                                  <Mail className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                                ) : msg.type === "sms" ? (
+                                  <MessageSquare className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
+                                ) : (
+                                  <Phone className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
+                                )}
+                              </div>
+                              <span className="text-sm font-medium capitalize" data-testid={`message-type-${msg.id}`}>
+                                {msg.type === "sms" ? "SMS" : msg.type}
+                              </span>
+                              {(msg as any).direction && (
+                                <Badge variant="outline" className={`text-xs ${(msg as any).direction === "inbound" ? "text-cyan-600 border-cyan-400" : "text-emerald-600 border-emerald-400"}`}>
+                                  {(msg as any).direction === "inbound" ? "Prijatá" : "Odoslaná"}
+                                </Badge>
+                              )}
+                              <Badge variant={msg.status === "sent" ? "default" : msg.status === "failed" ? "destructive" : "secondary"} className="text-xs" data-testid={`message-status-${msg.id}`}>
+                                {msg.status}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  toast({
+                                    title: msg.type === "sms" ? "SMS správa" : "Email správa",
+                                    description: msg.content?.substring(0, 100) + (msg.content && msg.content.length > 100 ? "..." : ""),
+                                  });
+                                }}
+                                data-testid={`button-view-message-${msg.id}`}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              {msg.type === "email" && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => {
+                                    setEmailSubject(`Re: ${msg.subject || ""}`);
+                                    setEmailContent("");
+                                  }}
+                                  data-testid={`button-reply-message-${msg.id}`}
+                                >
+                                  <PenSquare className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                          {msg.subject && <p className="text-sm font-medium" data-testid={`message-subject-${msg.id}`}>{msg.subject}</p>}
+                          <p className="text-sm text-muted-foreground line-clamp-2" data-testid={`message-content-${msg.id}`}>{msg.content}</p>
+                          <p className="text-xs text-muted-foreground" data-testid={`message-date-${msg.id}`}>
+                            {format(new Date(msg.createdAt), "MMM dd, yyyy HH:mm")}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </TabsContent>
 
-        <TabsContent value="notes" className="space-y-4 mt-4">
-          <div className="space-y-4">
-            <div className="flex gap-2">
-              <Textarea
-                placeholder={t.customers.details?.addNotePlaceholder || "Add a note about this customer..."}
-                value={newNoteContent}
-                onChange={(e) => setNewNoteContent(e.target.value)}
-                className="min-h-[80px]"
-                data-testid="input-customer-note"
-              />
-            </div>
-            <div className="flex justify-end">
-              <Button
-                onClick={handleAddNote}
-                disabled={!newNoteContent.trim() || createNoteMutation.isPending}
-                data-testid="button-add-note"
-              >
-                <Send className="h-4 w-4 mr-2" />
-                {createNoteMutation.isPending ? (t.customers.details?.adding || "Adding...") : (t.customers.details?.addNote || "Add Note")}
-              </Button>
-            </div>
-          </div>
+        <TabsContent value="notes" className="mt-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <Card className="lg:col-span-1">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <div className="p-1.5 rounded-md bg-amber-500/10">
+                    <PenSquare className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  {t.customers.details?.addNote || "Add Note"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Textarea
+                  placeholder={t.customers.details?.addNotePlaceholder || "Add a note about this customer..."}
+                  value={newNoteContent}
+                  onChange={(e) => setNewNoteContent(e.target.value)}
+                  className="min-h-[120px]"
+                  data-testid="input-customer-note"
+                />
+                <Button
+                  onClick={handleAddNote}
+                  disabled={!newNoteContent.trim() || createNoteMutation.isPending}
+                  className="w-full gap-2"
+                  data-testid="button-add-note"
+                >
+                  <Send className="h-4 w-4" />
+                  {createNoteMutation.isPending ? (t.customers.details?.adding || "Adding...") : (t.customers.details?.addNote || "Add Note")}
+                </Button>
+                {customerNotes.length > 0 && (
+                  <div className="pt-2 border-t space-y-2">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>{t.customers?.tabs?.notes || "Notes"}</span>
+                      <Badge variant="secondary">{customerNotes.length}</Badge>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Clock className="h-3 w-3" />
+                      <span>{format(new Date(customerNotes[0]?.createdAt), "d.M.yyyy HH:mm")}</span>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-          <Separator />
-
-          {notesLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : customerNotes.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <MessageSquare className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p className="font-medium">{t.customers.details?.noNotes || "Žiadne poznámky"}</p>
-            </div>
-          ) : (
-            <div className="relative">
-              <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
-              
-              <div className="space-y-6">
-                {(() => {
-                  const groupedNotes = customerNotes.reduce((groups, note) => {
-                    const date = new Date(note.createdAt);
-                    const key = format(date, "MMMM yyyy", { locale: sk });
-                    if (!groups[key]) groups[key] = [];
-                    groups[key].push(note);
-                    return groups;
-                  }, {} as Record<string, typeof customerNotes>);
-                  
-                  return Object.entries(groupedNotes).map(([monthYear, notes]) => (
-                    <div key={monthYear}>
-                      <div className="relative pl-10 mb-3">
-                        <div className="absolute left-1.5 w-5 h-5 rounded-full bg-muted border-2 border-border flex items-center justify-center">
-                          <Calendar className="h-3 w-3 text-muted-foreground" />
-                        </div>
-                        <h5 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
-                          {monthYear}
-                        </h5>
-                      </div>
-                      
-                      <div className="space-y-4">
-                        {notes.map((note) => (
-                          <div key={note.id} className="relative pl-10">
-                            <div className="absolute left-2.5 w-3 h-3 rounded-full border-2 bg-amber-500 border-amber-500" />
-                            
-                            <div className="border rounded-lg p-4 bg-card">
-                              <p className="text-sm">{note.content}</p>
-                              <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
-                                <div className="flex items-center gap-1">
-                                  <User className="h-3.5 w-3.5" />
-                                  <span>{(note as any).userName || "—"}</span>
-                                </div>
-                                <span>•</span>
-                                <div className="flex items-center gap-1">
-                                  <Clock className="h-3.5 w-3.5" />
-                                  {format(new Date(note.createdAt), "d.M.yyyy HH:mm")}
-                                </div>
+            <Card className="lg:col-span-2">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <div className="p-1.5 rounded-md bg-primary/10">
+                    <FileText className="h-4 w-4 text-primary" />
+                  </div>
+                  {t.customers?.tabs?.notes || "Notes"}
+                  {customerNotes.length > 0 && (
+                    <Badge variant="secondary" className="ml-auto">{customerNotes.length}</Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {notesLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : customerNotes.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <MessageSquare className="h-10 w-10 mx-auto mb-2 opacity-20" />
+                    <p className="text-sm">{t.customers.details?.noNotes || "Žiadne poznámky"}</p>
+                  </div>
+                ) : (
+                  <div className="relative max-h-[600px] overflow-y-auto pr-1">
+                    <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
+                    
+                    <div className="space-y-6">
+                      {(() => {
+                        const groupedNotes = customerNotes.reduce((groups, note) => {
+                          const date = new Date(note.createdAt);
+                          const key = format(date, "MMMM yyyy", { locale: sk });
+                          if (!groups[key]) groups[key] = [];
+                          groups[key].push(note);
+                          return groups;
+                        }, {} as Record<string, typeof customerNotes>);
+                        
+                        return Object.entries(groupedNotes).map(([monthYear, notes]) => (
+                          <div key={monthYear}>
+                            <div className="relative pl-10 mb-3">
+                              <div className="absolute left-1.5 w-5 h-5 rounded-full bg-muted border-2 border-border flex items-center justify-center">
+                                <Calendar className="h-3 w-3 text-muted-foreground" />
                               </div>
+                              <h5 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
+                                {monthYear}
+                              </h5>
+                            </div>
+                            
+                            <div className="space-y-3">
+                              {notes.map((note) => (
+                                <div key={note.id} className="relative pl-10">
+                                  <div className="absolute left-2.5 w-3 h-3 rounded-full border-2 bg-amber-500 border-amber-500" />
+                                  
+                                  <div className="p-3 rounded-lg border bg-muted/20 hover-elevate">
+                                    <p className="text-sm">{note.content}</p>
+                                    <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                                      <div className="flex items-center gap-1">
+                                        <User className="h-3.5 w-3.5 text-amber-500" />
+                                        <span className="font-medium">{(note as any).userName || "—"}</span>
+                                      </div>
+                                      <span>•</span>
+                                      <div className="flex items-center gap-1">
+                                        <Clock className="h-3.5 w-3.5" />
+                                        {format(new Date(note.createdAt), "d.M.yyyy HH:mm")}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
                             </div>
                           </div>
-                        ))}
-                      </div>
+                        ));
+                      })()}
                     </div>
-                  ));
-                })()}
-              </div>
-            </div>
-          )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="documents" className="space-y-6 mt-4">
