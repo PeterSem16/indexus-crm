@@ -502,6 +502,7 @@ function TaskListPanel({
   onToggleAutoMode,
   autoCountdown,
   onOpenTasksModal,
+  agentStatus,
 }: {
   tasks: TaskItem[];
   activeTaskId: string | null;
@@ -523,6 +524,7 @@ function TaskListPanel({
   autoCountdown: number | null;
   onOpenContactsModal: () => void;
   onOpenTasksModal: () => void;
+  agentStatus: AgentStatus;
 }) {
   const { t } = useI18n();
   const filteredCampaigns = useMemo(() => {
@@ -694,7 +696,7 @@ function TaskListPanel({
                 {isAutoMode ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
                 Auto
               </Button>
-              <Button size="sm" variant="ghost" onClick={onLoadNextContact} disabled={isLoadingContact || campaignContacts.length === 0 || isAutoMode} className="text-xs gap-1" data-testid="btn-next-contact">
+              <Button size="sm" variant="ghost" onClick={onLoadNextContact} disabled={isLoadingContact || campaignContacts.length === 0 || isAutoMode || agentStatus === "wrap_up" || agentStatus === "break"} className="text-xs gap-1" data-testid="btn-next-contact">
                 {isLoadingContact ? <Loader2 className="h-3 w-3 animate-spin" /> : <SkipForward className="h-3 w-3" />}
                 Ďalší
               </Button>
@@ -778,8 +780,8 @@ function TaskListPanel({
                       return (
                         <div
                           key={cc.id}
-                          className={`flex items-center gap-2.5 p-2.5 rounded-lg cursor-pointer hover-elevate ${ringClass}`}
-                          onClick={() => onSelectCampaignContact(cc)}
+                          className={`flex items-center gap-2.5 p-2.5 rounded-lg ${agentStatus === "wrap_up" || agentStatus === "break" ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover-elevate"} ${ringClass}`}
+                          onClick={() => { if (agentStatus !== "wrap_up" && agentStatus !== "break") onSelectCampaignContact(cc); }}
                           data-testid={`contact-item-${cc.id}`}
                         >
                           <div className="relative shrink-0">
@@ -4200,11 +4202,13 @@ export default function AgentWorkspacePage() {
     const isAuto = isAutoMode || campaignAutoSettings.autoMode;
     const wrapUpDelay = isAuto ? (campaignAutoSettings.autoDelaySeconds || 5) * 1000 : 2000;
 
-    setTimeout(() => {
-      agentSession.updateStatus("available").catch(() => {});
-      if (isAuto) {
-        handleNextContact();
-      }
+    setTimeout(async () => {
+      try {
+        await agentSession.updateStatus("available");
+        if (isAuto) {
+          handleNextContact(true);
+        }
+      } catch {}
     }, wrapUpDelay);
   };
 
@@ -4552,7 +4556,11 @@ export default function AgentWorkspacePage() {
     ]);
   };
 
-  const handleNextContact = () => {
+  const handleNextContact = (skipStatusCheck = false) => {
+    if (!skipStatusCheck) {
+      const currentStatus = agentSession.status;
+      if (currentStatus === "wrap_up" || currentStatus === "break") return;
+    }
     if (sortedPendingContacts.length > 0) {
       const nextEnriched = sortedPendingContacts[0];
       if (nextEnriched.customer) {
@@ -4563,6 +4571,8 @@ export default function AgentWorkspacePage() {
   };
 
   const handleSelectCampaignContact = (enrichedContact: EnrichedCampaignContact) => {
+    const currentStatus = agentSession.status;
+    if (currentStatus === "wrap_up" || currentStatus === "break") return;
     if (enrichedContact.customer) {
       setCurrentCampaignContactId(enrichedContact.id);
       loadContact(enrichedContact.customer);
@@ -4823,6 +4833,7 @@ export default function AgentWorkspacePage() {
           autoCountdown={autoCountdown}
           onOpenContactsModal={() => { setModalFilter("all"); setModalSearch(""); setContactsModalOpen(true); }}
           onOpenTasksModal={() => setTasksModalOpen(true)}
+          agentStatus={agentSession.status}
         />
 
         <CommunicationCanvas
