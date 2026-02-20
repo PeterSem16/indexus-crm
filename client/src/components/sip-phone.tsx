@@ -171,7 +171,7 @@ export function SipPhone({
   });
 
   const updateCallLogMutation = useMutation({
-    mutationFn: async ({ id, data, customerId }: { id: number; data: { status?: string; endedAt?: string; duration?: number; durationSeconds?: number; notes?: string; hungUpBy?: string }; customerId?: string }) => {
+    mutationFn: async ({ id, data, customerId }: { id: number; data: { status?: string; endedAt?: string; answeredAt?: string; duration?: number; durationSeconds?: number; notes?: string; hungUpBy?: string }; customerId?: string }) => {
       const res = await apiRequest("PATCH", `/api/call-logs/${id}`, data);
       return res.json();
     },
@@ -695,7 +695,7 @@ export function SipPhone({
             }, 1000);
             updateCallLogMutation.mutate({
               id: callLogId,
-              data: { status: "answered" },
+              data: { status: "answered", answeredAt: new Date().toISOString() },
               customerId: localCustomerId
             });
             onCallStart?.(phoneNumber, callLogId);

@@ -3214,6 +3214,9 @@ export interface Translations {
     totalDuration: string;
     disposition: string;
     notes: string;
+    type: string;
+    subjectOrNotes: string;
+    hungUpBy: string;
     sentiment: string;
     qualityScore: string;
     scriptCompliance: string;
@@ -6807,6 +6810,9 @@ export const translations: Record<Locale, Translations> = {
       totalDuration: 'Total Duration',
       disposition: 'Disposition',
       notes: 'Notes',
+      type: 'Type',
+      subjectOrNotes: 'Details',
+      hungUpBy: 'Hung Up By',
       sentiment: 'Sentiment',
       qualityScore: 'Quality Score',
       scriptCompliance: 'Script Compliance',
@@ -10345,6 +10351,9 @@ export const translations: Record<Locale, Translations> = {
       totalDuration: 'Celková dĺžka',
       disposition: 'Dispozícia',
       notes: 'Poznámky',
+      type: 'Typ',
+      subjectOrNotes: 'Detaily',
+      hungUpBy: 'Zavesil',
       sentiment: 'Sentiment',
       qualityScore: 'Skóre kvality',
       scriptCompliance: 'Dodržiavanie skriptu',
@@ -13815,6 +13824,9 @@ export const translations: Record<Locale, Translations> = {
       totalDuration: 'Celková délka',
       disposition: 'Dispozice',
       notes: 'Poznámky',
+      type: 'Typ',
+      subjectOrNotes: 'Detaily',
+      hungUpBy: 'Zavěsil',
       sentiment: 'Sentiment',
       qualityScore: 'Skóre kvality',
       scriptCompliance: 'Dodržování skriptu',
@@ -17285,6 +17297,9 @@ export const translations: Record<Locale, Translations> = {
       totalDuration: 'Teljes időtartam',
       disposition: 'Végállapot',
       notes: 'Jegyzetek',
+      type: 'Típus',
+      subjectOrNotes: 'Részletek',
+      hungUpBy: 'Bontotta',
       sentiment: 'Hangulat',
       qualityScore: 'Minőségi pontszám',
       scriptCompliance: 'Szkript megfelelőség',
@@ -20754,6 +20769,9 @@ export const translations: Record<Locale, Translations> = {
       totalDuration: 'Durata totală',
       disposition: 'Dispoziție',
       notes: 'Note',
+      type: 'Tip',
+      subjectOrNotes: 'Detalii',
+      hungUpBy: 'Închis de',
       sentiment: 'Sentiment',
       qualityScore: 'Scor de calitate',
       scriptCompliance: 'Conformitatea scriptului',
@@ -24224,6 +24242,9 @@ export const translations: Record<Locale, Translations> = {
       totalDuration: 'Durata totale',
       disposition: 'Disposizione',
       notes: 'Note',
+      type: 'Tipo',
+      subjectOrNotes: 'Dettagli',
+      hungUpBy: 'Chiuso da',
       sentiment: 'Sentimento',
       qualityScore: 'Punteggio qualità',
       scriptCompliance: 'Conformità script',
@@ -27694,6 +27715,9 @@ export const translations: Record<Locale, Translations> = {
       totalDuration: 'Gesamtdauer',
       disposition: 'Disposition',
       notes: 'Notizen',
+      type: 'Typ',
+      subjectOrNotes: 'Details',
+      hungUpBy: 'Aufgelegt von',
       sentiment: 'Stimmung',
       qualityScore: 'Qualitätsbewertung',
       scriptCompliance: 'Skript-Einhaltung',
@@ -27763,7 +27787,6 @@ export const translations: Record<Locale, Translations> = {
       breaks: 'Pausen',
       contacts: 'Kontakte',
       records: 'Datensätze',
-      hungUpBy: 'Aufgelegt von',
       analysisStatus: 'Analyse',
       analyzedAt: 'Analysiert am',
     },

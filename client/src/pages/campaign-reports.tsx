@@ -85,6 +85,7 @@ interface OperatorStat {
 
 interface CallListItem {
   id: string;
+  type: string;
   agent: string;
   customer: string;
   phoneNumber: string;
@@ -102,6 +103,8 @@ interface CallListItem {
   disposition: string;
   hungUpBy: string;
   notes: string;
+  subject: string;
+  recipient: string;
 }
 
 interface CallAnalysisItem {
@@ -838,9 +841,24 @@ export default function CampaignReportsPage() {
                   </CardTitle>
                   <CardDescription>{cr.callListDesc}</CardDescription>
                 </div>
-                {callList.length > 0 && (
-                  <Badge variant="secondary">{callList.length} {cr?.records || 'records'}</Badge>
-                )}
+                <div className="flex items-center gap-2">
+                  {callList.length > 0 && (
+                    <>
+                      <Badge variant="secondary">
+                        <Phone className="h-3 w-3 mr-1" />
+                        {callList.filter(c => c.type === 'call').length}
+                      </Badge>
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                        <Mail className="h-3 w-3 mr-1" />
+                        {callList.filter(c => c.type === 'email').length}
+                      </Badge>
+                      <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+                        <MessageSquare className="h-3 w-3 mr-1" />
+                        {callList.filter(c => c.type === 'sms').length}
+                      </Badge>
+                    </>
+                  )}
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -858,6 +876,7 @@ export default function CampaignReportsPage() {
                     <table className="w-full text-sm" data-testid="table-call-list">
                       <thead>
                         <tr className="border-b bg-muted/50">
+                          <th className="text-center p-2 font-medium w-10">{cr?.type || 'Type'}</th>
                           <th className="text-left p-2 font-medium">{cr.agent}</th>
                           <th className="text-left p-2 font-medium">{cr.customer}</th>
                           <th className="text-left p-2 font-medium">{cr.phoneNumber}</th>
@@ -868,16 +887,26 @@ export default function CampaignReportsPage() {
                           <th className="text-center p-2 font-medium">{cr.talkTime}</th>
                           <th className="text-center p-2 font-medium">{cr.totalDuration}</th>
                           <th className="text-center p-2 font-medium">{cr?.hungUpBy || 'Hung up'}</th>
-                          <th className="text-center p-2 font-medium">{cr.disposition}</th>
-                          <th className="text-left p-2 font-medium">{cr.notes}</th>
+                          <th className="text-left p-2 font-medium">{cr?.subjectOrNotes || 'Details'}</th>
                         </tr>
                       </thead>
                       <tbody>
                         {callList.map((call) => (
-                          <tr key={call.id} className="border-b hover:bg-muted/30" data-testid={`row-call-${call.id}`}>
-                            <td className="p-2 font-medium">{call.agent}</td>
+                          <tr key={call.id} className={`border-b hover:bg-muted/30 ${call.type === 'email' ? 'bg-blue-50/30 dark:bg-blue-950/20' : call.type === 'sms' ? 'bg-green-50/30 dark:bg-green-950/20' : ''}`} data-testid={`row-event-${call.id}`}>
+                            <td className="p-2 text-center">
+                              {call.type === 'call' ? (
+                                <Phone className="h-4 w-4 mx-auto text-orange-500" />
+                              ) : call.type === 'email' ? (
+                                <Mail className="h-4 w-4 mx-auto text-blue-500" />
+                              ) : call.type === 'sms' ? (
+                                <MessageSquare className="h-4 w-4 mx-auto text-green-500" />
+                              ) : (
+                                <MessageSquare className="h-4 w-4 mx-auto text-muted-foreground" />
+                              )}
+                            </td>
+                            <td className="p-2 font-medium">{call.agent || '-'}</td>
                             <td className="p-2">{call.customer}</td>
-                            <td className="p-2 font-mono text-xs">{call.phoneNumber}</td>
+                            <td className="p-2 font-mono text-xs">{call.phoneNumber || call.recipient || '-'}</td>
                             <td className="p-2 text-center">
                               <Badge variant={call.direction === 'inbound' ? 'secondary' : 'outline'}>
                                 {call.direction === 'inbound' ? (cr.inbound || 'In') : (cr.outbound || 'Out')}
@@ -885,18 +914,23 @@ export default function CampaignReportsPage() {
                             </td>
                             <td className="p-2 text-center"><StatusBadge status={call.status} /></td>
                             <td className="p-2 text-center text-xs">{formatDateTime(call.startedAt)}</td>
-                            <td className="p-2 text-center font-mono text-xs">{call.ringTimeFormatted}</td>
-                            <td className="p-2 text-center font-mono text-xs font-semibold text-green-600">{call.talkTimeFormatted}</td>
-                            <td className="p-2 text-center font-mono text-xs">{call.totalDurationFormatted}</td>
+                            <td className="p-2 text-center font-mono text-xs">{call.type === 'call' ? call.ringTimeFormatted : '—'}</td>
+                            <td className="p-2 text-center font-mono text-xs font-semibold text-green-600">{call.type === 'call' ? call.talkTimeFormatted : '—'}</td>
+                            <td className="p-2 text-center font-mono text-xs">{call.type === 'call' ? call.totalDurationFormatted : '—'}</td>
                             <td className="p-2 text-center text-xs">
-                              {call.hungUpBy ? (
+                              {call.type === 'call' && call.hungUpBy ? (
                                 <Badge variant="outline" className="text-[10px]">{call.hungUpBy}</Badge>
                               ) : '-'}
                             </td>
-                            <td className="p-2 text-center">
-                              {call.disposition ? <Badge variant="outline">{call.disposition}</Badge> : '-'}
+                            <td className="p-2 text-xs max-w-[250px] truncate" title={call.subject || call.notes}>
+                              {call.type === 'email' ? (
+                                <span className="text-blue-600 dark:text-blue-400">{call.subject || call.notes || '-'}</span>
+                              ) : call.type === 'sms' ? (
+                                <span className="text-green-600 dark:text-green-400">{call.notes || '-'}</span>
+                              ) : (
+                                call.notes || '-'
+                              )}
                             </td>
-                            <td className="p-2 text-xs max-w-[200px] truncate" title={call.notes}>{call.notes || '-'}</td>
                           </tr>
                         ))}
                       </tbody>

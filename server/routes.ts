@@ -14372,17 +14372,33 @@ export async function registerRoutes(
       const campaignId = req.params.id;
       const { dateFrom, dateTo, agentId } = req.query;
 
-      const conditions: any[] = [eq(callLogs.campaignId, campaignId)];
-      if (dateFrom) conditions.push(gte(callLogs.startedAt, new Date(dateFrom as string)));
-      if (dateTo) {
-        const endDate = new Date(dateTo as string);
-        endDate.setHours(23, 59, 59, 999);
-        conditions.push(lte(callLogs.startedAt, endDate));
-      }
-      if (agentId && agentId !== 'all') conditions.push(eq(callLogs.userId, agentId as string));
+      const contacts = await db.select().from(campaignContacts)
+        .where(eq(campaignContacts.campaignId, campaignId));
+      const contactByCustomer = new Map(contacts.map(c => [c.customerId, c]));
+      const campaignCustomerIds = contacts.map(c => c.customerId).filter(Boolean);
+
+      const dateConditions = (dateCol: any) => {
+        const conds: any[] = [];
+        if (dateFrom) conds.push(gte(dateCol, new Date(dateFrom as string)));
+        if (dateTo) {
+          const endDate = new Date(dateTo as string);
+          endDate.setHours(23, 59, 59, 999);
+          conds.push(lte(dateCol, endDate));
+        }
+        return conds;
+      };
+
+      const callConditions: any[] = [
+        or(
+          eq(callLogs.campaignId, campaignId),
+          ...(campaignCustomerIds.length > 0 ? [inArray(callLogs.customerId, campaignCustomerIds)] : [])
+        ),
+        ...dateConditions(callLogs.startedAt),
+      ];
+      if (agentId && agentId !== 'all') callConditions.push(eq(callLogs.userId, agentId as string));
 
       const logs = await db.select().from(callLogs)
-        .where(and(...conditions))
+        .where(and(...callConditions))
         .orderBy(desc(callLogs.startedAt));
 
       const allUsers = await db.select().from(users);
@@ -14391,11 +14407,7 @@ export async function registerRoutes(
       const allCustomers = await db.select().from(customers);
       const customerMap = new Map(allCustomers.map(c => [c.id, c]));
 
-      const contacts = await db.select().from(campaignContacts)
-        .where(eq(campaignContacts.campaignId, campaignId));
-      const contactByCustomer = new Map(contacts.map(c => [c.customerId, c]));
-
-      const result = logs.map(log => {
+      const callResults = logs.map(log => {
         const user = userMap.get(log.userId);
         const customer = log.customerId ? customerMap.get(log.customerId) : null;
         const contact = log.customerId ? contactByCustomer.get(log.customerId) : null;
@@ -14410,7 +14422,8 @@ export async function registerRoutes(
         }
 
         return {
-          id: log.id,
+          id: `call-${log.id}`,
+          type: 'call' as const,
           agent: user?.fullName || user?.username || log.userId,
           customer: customer ? `${customer.firstName || ''} ${customer.lastName || ''}`.trim() : (log.customerId || ''),
           phoneNumber: log.phoneNumber,
@@ -14428,10 +14441,54 @@ export async function registerRoutes(
           disposition: contact?.dispositionCode || '',
           hungUpBy: log.hungUpBy || '',
           notes: log.notes || '',
+          subject: '',
+          recipient: '',
         };
       });
 
-      res.json(result);
+      const commConditions: any[] = [
+        ...(campaignCustomerIds.length > 0 ? [inArray(communicationMessages.customerId, campaignCustomerIds)] : [sql`1=0`]),
+        ...dateConditions(communicationMessages.createdAt),
+      ];
+      if (agentId && agentId !== 'all') commConditions.push(eq(communicationMessages.userId, agentId as string));
+
+      const comms = await db.select().from(communicationMessages)
+        .where(and(...commConditions))
+        .orderBy(desc(communicationMessages.createdAt));
+
+      const commResults = comms.map(msg => {
+        const user = msg.userId ? userMap.get(msg.userId) : null;
+        const customer = msg.customerId ? customerMap.get(msg.customerId) : null;
+        const normalizedType = ['email', 'sms'].includes(msg.type || '') ? msg.type! : 'other';
+        return {
+          id: `${normalizedType}-${msg.id}`,
+          type: normalizedType,
+          agent: user?.fullName || user?.username || msg.userId || '',
+          customer: customer ? `${customer.firstName || ''} ${customer.lastName || ''}`.trim() : (msg.customerId || ''),
+          phoneNumber: msg.recipientPhone || msg.senderPhone || '',
+          direction: msg.direction || 'outbound',
+          status: msg.status || '',
+          startedAt: msg.createdAt ? new Date(msg.createdAt).toISOString() : '',
+          answeredAt: '',
+          endedAt: msg.sentAt ? new Date(msg.sentAt).toISOString() : '',
+          ringTimeSec: 0,
+          ringTimeFormatted: '—',
+          talkTimeSec: 0,
+          talkTimeFormatted: '—',
+          totalDurationSec: 0,
+          totalDurationFormatted: '—',
+          disposition: '',
+          hungUpBy: '',
+          notes: msg.content ? msg.content.replace(/<[^>]*>/g, '').substring(0, 100) : '',
+          subject: msg.subject || '',
+          recipient: msg.recipientEmail || msg.recipientPhone || '',
+        };
+      });
+
+      const allEvents = [...callResults, ...commResults]
+        .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
+
+      res.json(allEvents);
     } catch (error) {
       console.error("Failed to get call list:", error);
       res.status(500).json({ error: "Failed to get call list" });
