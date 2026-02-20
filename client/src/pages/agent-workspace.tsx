@@ -293,7 +293,9 @@ function TopBar({
   workTime,
   breakTypes,
   activeBreakName,
+  activeBreakType,
   breakTime,
+  breakElapsedSeconds,
   onStartBreak,
   onEndBreak,
   isOnBreak,
@@ -309,7 +311,9 @@ function TopBar({
   workTime: string;
   breakTypes: AgentBreakType[];
   activeBreakName: string | null;
+  activeBreakType: AgentBreakType | null;
   breakTime: string;
+  breakElapsedSeconds: number;
   onStartBreak: (breakTypeId: string) => void;
   onEndBreak: () => void;
   isOnBreak: boolean;
@@ -389,19 +393,34 @@ function TopBar({
             </Button>
           )}
 
-          {isOnBreak && activeBreakName && (
-            <div className="flex items-center gap-1.5">
-              <Badge variant="secondary" className="gap-1 text-yellow-700 dark:text-yellow-300" data-testid="badge-break-active">
-                <Coffee className="h-3 w-3" />
-                <span className="text-xs">{activeBreakName}</span>
-                <span className="font-mono text-[10px]">{breakTime}</span>
-              </Badge>
-              <Button variant="outline" size="sm" onClick={onEndBreak} data-testid="button-end-break">
-                <Play className="h-3 w-3 mr-1" />
-                <span className="text-xs">{t.agentSession.continueWork}</span>
-              </Button>
-            </div>
-          )}
+          {isOnBreak && activeBreakName && (() => {
+            const expectedMin = activeBreakType?.expectedDurationMinutes;
+            const isExceeded = expectedMin ? breakElapsedSeconds > expectedMin * 60 : false;
+            const exceededBy = expectedMin ? Math.max(0, Math.floor((breakElapsedSeconds - expectedMin * 60) / 60)) : 0;
+            return (
+              <div className="flex items-center gap-1.5">
+                <Badge
+                  variant="secondary"
+                  className={`gap-1 ${isExceeded ? "text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30 animate-pulse border border-red-300 dark:border-red-700" : "text-yellow-700 dark:text-yellow-300"}`}
+                  data-testid="badge-break-active"
+                >
+                  {isExceeded ? <AlertTriangle className="h-3 w-3" /> : <Coffee className="h-3 w-3" />}
+                  <span className="text-xs">{activeBreakName}</span>
+                  <span className="font-mono text-[10px]">{breakTime}</span>
+                </Badge>
+                {isExceeded && (
+                  <Badge variant="destructive" className="gap-1 text-[10px]" data-testid="badge-break-exceeded">
+                    <AlertTriangle className="h-3 w-3" />
+                    +{exceededBy}m
+                  </Badge>
+                )}
+                <Button variant="outline" size="sm" onClick={onEndBreak} data-testid="button-end-break">
+                  <Play className="h-3 w-3 mr-1" />
+                  <span className="text-xs">{t.agentSession.continueWork}</span>
+                </Button>
+              </div>
+            );
+          })()}
 
           <Separator orientation="vertical" className="h-6 mx-1" />
 
@@ -4648,9 +4667,10 @@ export default function AgentWorkspacePage() {
     }
   };
 
-  const activeBreakName = agentSession.activeBreak
-    ? agentSession.breakTypes.find(bt => bt.id === agentSession.activeBreak?.breakTypeId)?.name || t.agentSession.statusBreak
+  const activeBreakTypeObj = agentSession.activeBreak
+    ? agentSession.breakTypes.find(bt => bt.id === agentSession.activeBreak?.breakTypeId) || null
     : null;
+  const activeBreakName = activeBreakTypeObj?.name || (agentSession.activeBreak ? t.agentSession.statusBreak : null);
 
   return (
     <div className={`flex flex-col ${agentSession.isSessionActive ? "h-screen" : "h-[calc(100vh-8rem)] -m-6"}`}>
@@ -4768,7 +4788,9 @@ export default function AgentWorkspacePage() {
         workTime={agentSession.workTime}
         breakTypes={agentSession.breakTypes}
         activeBreakName={activeBreakName}
+        activeBreakType={activeBreakTypeObj}
         breakTime={agentSession.breakTime}
+        breakElapsedSeconds={agentSession.breakElapsedSeconds}
         onStartBreak={handleStartBreak}
         onEndBreak={handleEndBreak}
         isOnBreak={!!agentSession.activeBreak}

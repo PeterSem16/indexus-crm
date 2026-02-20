@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Plus, Pencil, Trash2, Search, Megaphone, PlayCircle, CheckCircle, Clock, XCircle, ExternalLink, FileText, Calendar, LayoutList, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, BarChart3, TrendingUp, Phone, RefreshCw, Users, Mail, MessageSquare, User, Check, Loader2, Shield, Headphones, X, Download, HelpCircle, BookOpen, Type, AlignLeft, ListOrdered, CircleDot, Target, Square, TextCursorInput, Variable, GripVertical, Copy, ArrowUp, ArrowDown, Mic } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Megaphone, PlayCircle, CheckCircle, Clock, XCircle, ExternalLink, FileText, Calendar, LayoutList, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, BarChart3, TrendingUp, Phone, RefreshCw, Users, Mail, MessageSquare, User, Check, Loader2, Shield, Headphones, X, Download, HelpCircle, BookOpen, Type, AlignLeft, ListOrdered, CircleDot, Target, Square, TextCursorInput, Variable, GripVertical, Copy, ArrowUp, ArrowDown, Mic, Coffee } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { TranscriptSearchContent } from "@/pages/transcript-search";
+import { BreakTypesTab } from "@/components/campaigns/BreakTypesTab";
 import { useAuth } from "@/contexts/auth-context";
 import { useCountryFilter } from "@/contexts/country-filter-context";
 import { Button } from "@/components/ui/button";
@@ -1602,7 +1603,7 @@ function AgentWorkspaceAccessTab() {
 }
 
 export default function CampaignsPage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { toast } = useToast();
   const { selectedCountries } = useCountryFilter();
   const [, setLocation] = useLocation();
@@ -1981,6 +1982,10 @@ export default function CampaignsPage() {
               <HelpCircle className="h-4 w-4" />
               {t.campaigns.faq.faqTab}
             </TabsTrigger>
+            <TabsTrigger value="breaks" className="gap-2" data-testid="tab-breaks">
+              <Coffee className="h-4 w-4" />
+              {locale === "sk" ? "Prestávky" : "Breaks"}
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -2046,6 +2051,10 @@ export default function CampaignsPage() {
 
         <TabsContent value="faq" className="flex-1 overflow-auto p-6 mt-0">
           <CampaignFaqTab campaigns={campaigns || []} />
+        </TabsContent>
+
+        <TabsContent value="breaks" className="flex-1 overflow-auto mt-0">
+          <BreakTypesTab />
         </TabsContent>
       </Tabs>
 

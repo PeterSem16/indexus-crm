@@ -13,6 +13,7 @@ interface AgentSessionContextType {
   status: AgentStatus;
   workTime: string;
   breakTime: string;
+  breakElapsedSeconds: number;
   activeBreak: AgentBreak | null;
   breakTypes: AgentBreakType[];
   stats: {
@@ -44,6 +45,7 @@ export function AgentSessionProvider({ children }: { children: React.ReactNode }
   const { user } = useAuth();
   const [workTime, setWorkTime] = useState("00:00:00");
   const [breakTime, setBreakTime] = useState("00:00:00");
+  const [breakElapsedSeconds, setBreakElapsedSeconds] = useState(0);
   const workTimerRef = useRef<NodeJS.Timeout | null>(null);
   const breakTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -100,6 +102,7 @@ export function AgentSessionProvider({ children }: { children: React.ReactNode }
     if (breakTimerRef.current) clearInterval(breakTimerRef.current);
     if (!activeBreak || activeBreak.endedAt) {
       setBreakTime("00:00:00");
+      setBreakElapsedSeconds(0);
       return;
     }
     const updateBreakTime = () => {
@@ -109,6 +112,7 @@ export function AgentSessionProvider({ children }: { children: React.ReactNode }
       const m = Math.floor((diff % 3600) / 60);
       const s = diff % 60;
       setBreakTime(`${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`);
+      setBreakElapsedSeconds(diff);
     };
     updateBreakTime();
     breakTimerRef.current = setInterval(updateBreakTime, 1000);
@@ -191,6 +195,7 @@ export function AgentSessionProvider({ children }: { children: React.ReactNode }
       status,
       workTime,
       breakTime,
+      breakElapsedSeconds,
       activeBreak,
       breakTypes,
       stats,
