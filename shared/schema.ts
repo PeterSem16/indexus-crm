@@ -5239,6 +5239,8 @@ export const agentBreakTypes = pgTable("agent_break_types", {
   isDefault: boolean("is_default").default(false),
   isActive: boolean("is_active").default(true),
   maxDurationMinutes: integer("max_duration_minutes"),
+  expectedDurationMinutes: integer("expected_duration_minutes"),
+  translations: jsonb("translations"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
