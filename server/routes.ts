@@ -26514,7 +26514,10 @@ Guidelines:
   app.get("/api/agent-break-types", requireAuth, async (req, res) => {
     try {
       const campaignId = req.query.campaignId as string | undefined;
-      const breakTypes = await storage.getAgentBreakTypes(campaignId);
+      const includeAll = req.query.all === 'true';
+      const breakTypes = includeAll
+        ? await storage.getAllAgentBreakTypes()
+        : await storage.getAgentBreakTypes(campaignId);
       res.json(breakTypes);
     } catch (error) {
       console.error("Error fetching break types:", error);

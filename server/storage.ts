@@ -1013,6 +1013,7 @@ export interface IStorage {
 
   // Agent Break Types
   getAgentBreakTypes(campaignId?: string): Promise<AgentBreakType[]>;
+  getAllAgentBreakTypes(): Promise<AgentBreakType[]>;
   createAgentBreakType(data: InsertAgentBreakType): Promise<AgentBreakType>;
   updateAgentBreakType(id: string, data: Partial<InsertAgentBreakType>): Promise<AgentBreakType | undefined>;
   deleteAgentBreakType(id: string): Promise<boolean>;
@@ -6171,6 +6172,11 @@ export class DatabaseStorage implements IStorage {
     }
     return db.select().from(agentBreakTypes)
       .where(eq(agentBreakTypes.isActive, true))
+      .orderBy(asc(agentBreakTypes.name));
+  }
+
+  async getAllAgentBreakTypes(): Promise<AgentBreakType[]> {
+    return db.select().from(agentBreakTypes)
       .orderBy(asc(agentBreakTypes.name));
   }
 
