@@ -26,7 +26,7 @@ Preferred communication style: Simple, everyday language.
 ### Data Storage
 - **Database**: PostgreSQL
 - **Schema**: Defined using Drizzle ORM, shared between frontend and backend.
-- **Key Tables**: `users`, `customers`, `products`, `invoices`, `collections`, `collaborators`, `visit_events`, `voice_notes`, `notifications`, `call_logs`, `call_recordings`, `campaigns`, `campaign_contacts`, `campaign_templates`, `sip_settings`, `faq_entries`.
+- **Key Tables**: `users`, `customers`, `products`, `invoices`, `collections`, `collaborators`, `visit_events`, `voice_notes`, `notifications`, `call_logs`, `call_recordings`, `campaigns`, `campaign_contacts`, `campaign_templates`, `sip_settings`, `faq_entries`, `executive_summaries`.
 
 ### Modules and Features
 - **Collections (Odbery)**: Manages cord blood collections, including client/child info, collection staff, status tracking, and lab results.
@@ -40,6 +40,7 @@ Preferred communication style: Simple, everyday language.
 - **Invoice PDF Generation (DOCX Templates)**: Upload Word DOCX templates with `{variable}` placeholders → docxtemplater fills variables → LibreOffice headless converts filled DOCX to PDF. Uses unique user profiles per conversion to prevent lock conflicts. Templates support `{#items}...{/items}` loops and `{{double braces}}` auto-converted to single braces. Preview shows actual PDF in browser via iframe. QR codes (Pay by Square + EPC) injected into DOCX XML before PDF conversion.
 - **Call Recording & Analysis**: Call recording with pause/resume capability, visual recording indicators, AI-powered call transcription using GPT-4o. Features script compliance checking (1-10 score), sentiment analysis, keyword alert detection, quality scoring, full-text transcript search with advanced filters, export capabilities (TXT/JSON formats), and localized call analysis results displayed across all modules including customer detail pages and agent workspace.
 - **Transcript Search Module**: Dedicated search page for call transcripts with filters by sentiment, quality range, date range, campaign, agent. Supports full-text search with locale-aware date formatting, export to TXT/JSON, and multi-language UI.
+- **Executive Summaries**: AI-powered (GPT-4o) generation of executive summaries from collection data. Highlights key trends, anomalies, and KPIs. Supports period filtering (monthly/quarterly/yearly), country filtering, and multi-language generation. Stored in `executive_summaries` table with expandable card UI showing trends, anomalies, and KPI grids.
 
 ### Multi-Language Support (i18n)
 - **Languages**: English (EN), Slovak (SK), Czech (CS), Hungarian (HU), Romanian (RO), Italian (IT), German (DE)

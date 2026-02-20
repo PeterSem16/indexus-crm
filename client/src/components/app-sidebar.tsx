@@ -88,6 +88,7 @@ export function AppSidebar() {
     { title: t.nav.contracts, url: "/contracts", testId: "contracts", moduleKey: "contracts" },
     { title: t.nav.collections, url: "/collections", testId: "collections", moduleKey: "collections" },
     { title: t.nav.customerInvoices, url: "/customer-invoices", testId: "customer-invoices", moduleKey: "invoices" },
+    { title: t.nav.executiveSummaries, url: "/executive-summaries", testId: "executive-summaries", moduleKey: "collections" },
   ];
 
   const collaboratorSubItems = [
@@ -168,7 +169,7 @@ export function AppSidebar() {
               <Collapsible defaultOpen={false} className="group/collapsible">
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
-                    <SidebarMenuButton isActive={location === "/customers" || location === "/contracts" || location.startsWith("/collections") || location === "/customer-invoices"}>
+                    <SidebarMenuButton isActive={location === "/customers" || location === "/contracts" || location.startsWith("/collections") || location === "/customer-invoices" || location === "/executive-summaries"}>
                       <Users className="h-4 w-4" />
                       <span>{t.nav.customers}</span>
                       <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />

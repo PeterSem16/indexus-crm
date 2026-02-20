@@ -2,7 +2,7 @@ import express, { type Express, type Request, type Response, type NextFunction }
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { startOfDay, endOfDay, subDays } from "date-fns";
-import { eq, desc, and, gte, lte, inArray, isNotNull, isNull, or } from "drizzle-orm";
+import { eq, desc, and, gte, lte, inArray, isNotNull, isNull, or, count, sql, asc } from "drizzle-orm";
 import { db, pool } from "./db";
 import { storage } from "./storage";
 import { 
@@ -28,6 +28,7 @@ import {
   campaignDispositions, insertCampaignDispositionSchema,
   DEFAULT_PHONE_DISPOSITIONS, DEFAULT_EMAIL_DISPOSITIONS, DEFAULT_SMS_DISPOSITIONS, DISPOSITION_NAME_TRANSLATIONS,
   callLogs, campaignContacts, campaignContactHistory, campaignContactSessions, campaigns, customers, users,
+  collections, executiveSummaries, collectionLabResults,
   type SafeUser, type Customer, type Product, type BillingDetails, type ActivityLog, type LeadScoringCriteria,
   type ServiceConfiguration, type InvoiceTemplate, type InvoiceLayout, type Role,
   type Campaign, type CampaignContact, type ContractInstance
@@ -25536,6 +25537,175 @@ Guidelines:
     }
   });
 
+  // ==================== EXECUTIVE SUMMARIES API ====================
+
+  app.get("/api/executive-summaries", requireAuth, async (req, res) => {
+    try {
+      const { countryCode, limit: limitParam } = req.query;
+      const conditions: any[] = [];
+      if (countryCode && countryCode !== "all") {
+        conditions.push(eq(executiveSummaries.countryCode, countryCode as string));
+      }
+      const summaries = await db.select().from(executiveSummaries)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(executiveSummaries.createdAt))
+        .limit(parseInt(limitParam as string) || 20);
+      res.json(summaries);
+    } catch (error) {
+      console.error("Error fetching executive summaries:", error);
+      res.status(500).json({ error: "Failed to fetch executive summaries" });
+    }
+  });
+
+  app.get("/api/executive-summaries/stats/overview", requireAuth, async (req, res) => {
+    try {
+      const { countryCode } = req.query;
+      const now = new Date();
+      const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const thisYear = new Date(now.getFullYear(), 0, 1);
+
+      const conditions: any[] = [];
+      if (countryCode && countryCode !== "all") {
+        conditions.push(eq(collections.countryCode, countryCode as string));
+      }
+
+      const totalAll = await db.select({ cnt: count() }).from(collections)
+        .where(conditions.length > 0 ? and(...conditions) : undefined);
+      const totalMonth = await db.select({ cnt: count() }).from(collections)
+        .where(and(...conditions, gte(collections.createdAt, thisMonth)));
+      const totalYear = await db.select({ cnt: count() }).from(collections)
+        .where(and(...conditions, gte(collections.createdAt, thisYear)));
+
+      const byCountry = await db.select({
+        countryCode: collections.countryCode,
+        cnt: count(),
+      }).from(collections)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .groupBy(collections.countryCode);
+
+      const byState = await db.select({
+        state: collections.state,
+        cnt: count(),
+      }).from(collections)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .groupBy(collections.state);
+
+      res.json({
+        totalAll: totalAll[0]?.cnt || 0,
+        totalMonth: totalMonth[0]?.cnt || 0,
+        totalYear: totalYear[0]?.cnt || 0,
+        byCountry,
+        byState,
+      });
+    } catch (error) {
+      console.error("Error fetching overview stats:", error);
+      res.status(500).json({ error: "Failed to fetch stats" });
+    }
+  });
+
+  app.get("/api/executive-summaries/:id", requireAuth, async (req, res) => {
+    try {
+      const [summary] = await db.select().from(executiveSummaries).where(eq(executiveSummaries.id, req.params.id));
+      if (!summary) return res.status(404).json({ error: "Summary not found" });
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching executive summary:", error);
+      res.status(500).json({ error: "Failed to fetch executive summary" });
+    }
+  });
+
+  app.post("/api/executive-summaries/generate", requireAuth, async (req, res) => {
+    try {
+      const { countryCode, periodType, periodStart, periodEnd, locale } = req.body;
+      const user = (req as any).user;
+
+      let pStart: Date;
+      let pEnd: Date;
+      const now = new Date();
+
+      if (periodStart && periodEnd) {
+        pStart = new Date(periodStart);
+        pEnd = new Date(periodEnd);
+      } else {
+        switch (periodType) {
+          case "monthly":
+            pStart = new Date(now.getFullYear(), now.getMonth(), 1);
+            pEnd = now;
+            break;
+          case "quarterly":
+            const quarterMonth = Math.floor(now.getMonth() / 3) * 3;
+            pStart = new Date(now.getFullYear(), quarterMonth, 1);
+            pEnd = now;
+            break;
+          case "yearly":
+            pStart = new Date(now.getFullYear(), 0, 1);
+            pEnd = now;
+            break;
+          default:
+            pStart = new Date(now.getFullYear(), now.getMonth(), 1);
+            pEnd = now;
+        }
+      }
+
+      const summaryId = crypto.randomUUID();
+      await db.insert(executiveSummaries).values({
+        id: summaryId,
+        title: "Generovanie...",
+        countryCode: countryCode || null,
+        periodStart: pStart,
+        periodEnd: pEnd,
+        periodType: periodType || "monthly",
+        totalCollections: 0,
+        summaryText: "",
+        status: "generating",
+        generatedBy: user?.id,
+      });
+
+      res.json({ id: summaryId, status: "generating" });
+
+      (async () => {
+        try {
+          const userLocale = locale || "en";
+          const stats = await gatherCollectionStats(countryCode || null, pStart, pEnd);
+          const aiResult = await generateExecutiveSummaryWithAI(stats, countryCode || null, periodType || "monthly", userLocale);
+
+          await db.update(executiveSummaries).set({
+            title: aiResult.title || "Executive Summary",
+            totalCollections: stats.total,
+            summaryText: aiResult.summaryText || "",
+            trends: aiResult.trends || [],
+            anomalies: aiResult.anomalies || [],
+            kpis: aiResult.kpis || [],
+            metadata: stats,
+            status: "completed",
+          }).where(eq(executiveSummaries.id, summaryId));
+
+          console.log(`[ExecSummary] Generated summary ${summaryId}: ${stats.total} collections analyzed`);
+        } catch (err: any) {
+          console.error(`[ExecSummary] Generation failed for ${summaryId}:`, err.message);
+          await db.update(executiveSummaries).set({
+            title: "Generation Failed",
+            summaryText: `Error: ${err.message}`,
+            status: "failed",
+          }).where(eq(executiveSummaries.id, summaryId));
+        }
+      })();
+    } catch (error) {
+      console.error("Error generating executive summary:", error);
+      res.status(500).json({ error: "Failed to start generation" });
+    }
+  });
+
+  app.delete("/api/executive-summaries/:id", requireAuth, async (req, res) => {
+    try {
+      await db.delete(executiveSummaries).where(eq(executiveSummaries.id, req.params.id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting executive summary:", error);
+      res.status(500).json({ error: "Failed to delete executive summary" });
+    }
+  });
+
   return httpServer;
 }
 
@@ -25850,4 +26020,136 @@ async function executeCustomerAutomationAction(
     default:
       return { action: rule.actionType, details: "Akcia nie je podporovaná pre zákazníkov" };
   }
+}
+
+// ==================== EXECUTIVE SUMMARIES ====================
+
+async function gatherCollectionStats(countryCode: string | null, periodStart: Date, periodEnd: Date) {
+  const conditions = [
+    gte(collections.createdAt, periodStart),
+    lte(collections.createdAt, periodEnd),
+  ];
+  if (countryCode) {
+    conditions.push(eq(collections.countryCode, countryCode));
+  }
+
+  const allCollections = await db.select().from(collections).where(and(...conditions));
+  const total = allCollections.length;
+
+  const byCountry: Record<string, number> = {};
+  const byState: Record<string, number> = {};
+  const byMonth: Record<string, number> = {};
+  const byGender: Record<string, number> = {};
+  let withHospital = 0;
+  let withLabResults = 0;
+
+  for (const c of allCollections) {
+    const cc = c.countryCode || "unknown";
+    byCountry[cc] = (byCountry[cc] || 0) + 1;
+
+    const st = c.state || "unknown";
+    byState[st] = (byState[st] || 0) + 1;
+
+    const monthKey = c.createdAt ? `${c.createdAt.getFullYear()}-${String(c.createdAt.getMonth() + 1).padStart(2, '0')}` : "unknown";
+    byMonth[monthKey] = (byMonth[monthKey] || 0) + 1;
+
+    const g = c.childGender || "unknown";
+    byGender[g] = (byGender[g] || 0) + 1;
+
+    if (c.hospitalId) withHospital++;
+  }
+
+  const collectionIds = allCollections.map(c => c.id);
+  if (collectionIds.length > 0) {
+    const labResults = await db.select({ collectionId: collectionLabResults.collectionId })
+      .from(collectionLabResults)
+      .where(inArray(collectionLabResults.collectionId, collectionIds));
+    withLabResults = new Set(labResults.map(r => r.collectionId)).size;
+  }
+
+  const prevPeriodDuration = periodEnd.getTime() - periodStart.getTime();
+  const prevStart = new Date(periodStart.getTime() - prevPeriodDuration);
+  const prevEnd = new Date(periodStart);
+  const prevConditions = [
+    gte(collections.createdAt, prevStart),
+    lte(collections.createdAt, prevEnd),
+  ];
+  if (countryCode) {
+    prevConditions.push(eq(collections.countryCode, countryCode));
+  }
+  const prevCollections = await db.select({ id: collections.id }).from(collections).where(and(...prevConditions));
+  const prevTotal = prevCollections.length;
+
+  return {
+    total,
+    prevTotal,
+    byCountry,
+    byState,
+    byMonth,
+    byGender,
+    withHospital,
+    withLabResults,
+    periodStartStr: periodStart.toISOString(),
+    periodEndStr: periodEnd.toISOString(),
+  };
+}
+
+async function generateExecutiveSummaryWithAI(stats: any, countryCode: string | null, periodType: string, userLocale: string) {
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+  const localeMap: Record<string, string> = {
+    en: "English", sk: "Slovak", cs: "Czech", hu: "Hungarian", ro: "Romanian", it: "Italian", de: "German"
+  };
+  const language = localeMap[userLocale] || "English";
+
+  const prompt = `You are a medical business intelligence analyst for a cord blood banking company called INDEXUS.
+Analyze the following collection data and generate an executive summary in ${language}.
+
+DATA:
+- Period: ${stats.periodStartStr} to ${stats.periodEndStr} (${periodType})
+- Total collections this period: ${stats.total}
+- Previous period total: ${stats.prevTotal}
+- Collections by country: ${JSON.stringify(stats.byCountry)}
+- Collections by state/status: ${JSON.stringify(stats.byState)}
+- Collections by month: ${JSON.stringify(stats.byMonth)}
+- Child gender distribution: ${JSON.stringify(stats.byGender)}
+- Collections with hospital assigned: ${stats.withHospital}
+- Collections with lab results: ${stats.withLabResults}
+${countryCode ? `- Filtered for country: ${countryCode}` : "- All countries"}
+
+Generate a JSON response with this exact structure:
+{
+  "title": "Brief title for this executive summary",
+  "summaryText": "2-4 paragraph executive summary highlighting overall performance, key observations, and recommendations. Use professional business language.",
+  "trends": [
+    { "key": "trend_identifier", "direction": "up|down|stable", "value": "numeric or text value", "description": "Brief trend description" }
+  ],
+  "anomalies": [
+    { "severity": "high|medium|low", "title": "Anomaly title", "description": "What makes this unusual", "metric": "affected metric name" }
+  ],
+  "kpis": [
+    { "label": "KPI name", "value": "current value", "change": "+X or -X", "changePercent": "X%" }
+  ]
+}
+
+IMPORTANT:
+- Include 3-6 trends (volume changes, country distribution shifts, status pipeline efficiency, etc.)
+- Include 1-4 anomalies if any exist (unusual patterns, spikes, drops, data quality issues)
+- Include 4-8 KPIs (total collections, growth rate, lab completion rate, hospital coverage, gender ratio, etc.)
+- If there is very little data, still provide a professional summary noting the limited dataset and suggesting data collection improvements
+- All text must be in ${language}
+- Return ONLY valid JSON, no markdown`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o",
+    messages: [{ role: "user", content: prompt }],
+    temperature: 0.3,
+    max_tokens: 3000,
+    response_format: { type: "json_object" },
+  });
+
+  const content = response.choices[0]?.message?.content;
+  if (!content) throw new Error("Empty GPT response");
+
+  return JSON.parse(content);
 }

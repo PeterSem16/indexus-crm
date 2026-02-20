@@ -5282,3 +5282,29 @@ export const agentBreaksRelations = relations(agentBreaks, ({ one }) => ({
   session: one(agentSessions, { fields: [agentBreaks.sessionId], references: [agentSessions.id] }),
   breakType: one(agentBreakTypes, { fields: [agentBreaks.breakTypeId], references: [agentBreakTypes.id] }),
 }));
+
+// Executive Summaries - AI-generated summaries from collection data
+export const executiveSummaries = pgTable("executive_summaries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  countryCode: text("country_code"),
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+  periodType: text("period_type").notNull(), // "monthly", "quarterly", "yearly", "custom"
+  totalCollections: integer("total_collections").notNull().default(0),
+  summaryText: text("summary_text").notNull(),
+  trends: jsonb("trends"), // { key, direction, value, description }[]
+  anomalies: jsonb("anomalies"), // { severity, title, description, metric }[]
+  kpis: jsonb("kpis"), // { label, value, change, changePercent }[]
+  metadata: jsonb("metadata"), // additional raw stats used for generation
+  generatedBy: varchar("generated_by"),
+  status: text("status").notNull().default("completed"), // "generating", "completed", "failed"
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertExecutiveSummarySchema = createInsertSchema(executiveSummaries).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertExecutiveSummary = z.infer<typeof insertExecutiveSummarySchema>;
+export type ExecutiveSummary = typeof executiveSummaries.$inferSelect;
