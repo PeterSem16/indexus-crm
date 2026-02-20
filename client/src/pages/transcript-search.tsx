@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Search, FileText, Star, AlertTriangle, Download, ChevronDown, ChevronUp, Loader2, Phone, User, Megaphone, Clock, Filter, X, PhoneIncoming, PhoneOutgoing, PhoneMissed, Mic, MicOff, Brain, List, Calendar, UserCircle, Activity, Tag, BarChart3, SlidersHorizontal, ListChecks, ClipboardList, ShieldCheck, CheckCircle2, ShieldAlert, ClipboardCheck, Sparkles } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useI18n } from "@/i18n";
-import { CallRecordingPlayer } from "@/components/call-recording-player";
+import { CallRecordingPlayer, type PlaybackState } from "@/components/call-recording-player";
 
 const LOCALE_MAP: Record<string, string> = { en: 'en-US', sk: 'sk-SK', cs: 'cs-CZ', hu: 'hu-HU', ro: 'ro-RO', it: 'it-IT', de: 'de-DE' };
 
@@ -96,6 +96,83 @@ function highlightText(text: string, query: string): JSX.Element {
         )
       )}
     </span>
+  );
+}
+
+function splitIntoSegments(text: string): string[] {
+  const byNewline = text.split(/\n/).filter(l => l.trim().length > 0);
+  if (byNewline.length >= 3) return byNewline;
+  const segments: string[] = [];
+  for (const line of byNewline) {
+    const sentences = line.match(/[^.!?]+[.!?]+\s*/g);
+    if (sentences && sentences.length > 1) {
+      let chunk = "";
+      for (const s of sentences) {
+        chunk += s;
+        if (chunk.length >= 80) {
+          segments.push(chunk.trim());
+          chunk = "";
+        }
+      }
+      if (chunk.trim()) segments.push(chunk.trim());
+    } else if (line.length > 150) {
+      const words = line.split(/\s+/);
+      let chunk = "";
+      for (const w of words) {
+        if (chunk.length + w.length > 100 && chunk.length > 0) {
+          segments.push(chunk.trim());
+          chunk = "";
+        }
+        chunk += (chunk ? " " : "") + w;
+      }
+      if (chunk.trim()) segments.push(chunk.trim());
+    } else {
+      segments.push(line);
+    }
+  }
+  return segments.length > 0 ? segments : [text];
+}
+
+function TranscriptWithPlayback({ text, searchText, playback }: { text: string; searchText?: string; playback?: PlaybackState | null }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const activeLineRef = useRef<HTMLSpanElement>(null);
+
+  const segments = useMemo(() => splitIntoSegments(text), [text]);
+
+  const activeLineIdx = useMemo(() => {
+    if (!playback || playback.duration <= 0 || playback.currentTime <= 0) return -1;
+    const progress = Math.min(playback.currentTime / playback.duration, 1);
+    return Math.min(Math.floor(progress * segments.length), segments.length - 1);
+  }, [playback?.currentTime, playback?.duration, segments.length]);
+
+  useEffect(() => {
+    if (activeLineRef.current && activeLineIdx >= 0) {
+      activeLineRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [activeLineIdx]);
+
+  const renderSegment = (segment: string, idx: number) => {
+    const isActive = idx === activeLineIdx;
+    const isPast = activeLineIdx >= 0 && idx < activeLineIdx;
+    const content = searchText ? highlightText(segment, searchText) : <span>{segment}</span>;
+    return (
+      <span
+        key={idx}
+        ref={isActive ? activeLineRef : undefined}
+        className={`block py-0.5 px-1.5 rounded-sm transition-colors duration-200 ${isActive ? "bg-primary/15 border-l-2 border-primary font-medium" : isPast ? "text-muted-foreground" : ""}`}
+        data-testid={`transcript-line-${idx}`}
+      >
+        {content}
+      </span>
+    );
+  };
+
+  return (
+    <div ref={containerRef} className="bg-muted/40 rounded-md p-2">
+      <div className="text-xs leading-relaxed">
+        {segments.map(renderSegment)}
+      </div>
+    </div>
   );
 }
 
@@ -323,9 +400,7 @@ function CallAnalysisDialogContent({ recording, callId, ca, sentimentLabels }: {
           </div>
           {showTranscript && (
             <ScrollArea className="max-h-[250px] mt-1">
-              <div className="bg-muted/40 rounded-md p-3">
-                <p className="text-xs text-foreground whitespace-pre-wrap leading-relaxed">{recording.transcriptionText}</p>
-              </div>
+              <TranscriptWithPlayback text={recording.transcriptionText} />
             </ScrollArea>
           )}
         </div>
@@ -334,10 +409,11 @@ function CallAnalysisDialogContent({ recording, callId, ca, sentimentLabels }: {
   );
 }
 
-function CallLogCard({ log }: { log: CallLogEntry }) {
+function CallLogCard({ log, searchText }: { log: CallLogEntry; searchText?: string }) {
   const { t, locale } = useI18n();
   const ca = t.callAnalysis;
   const [expanded, setExpanded] = useState(false);
+  const [playbackState, setPlaybackState] = useState<PlaybackState | null>(null);
   const dateStr = new Date(log.startedAt || log.createdAt).toLocaleString(LOCALE_MAP[locale] || 'en-US', {
     day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
   });
@@ -422,7 +498,7 @@ function CallLogCard({ log }: { log: CallLogEntry }) {
           </div>
 
           {log.hasRecording && (
-            <CallRecordingPlayer callLogId={log.id} compact />
+            <CallRecordingPlayer callLogId={log.id} compact onTimeUpdate={setPlaybackState} />
           )}
 
           {rec && rec.analysisStatus === "completed" && (
@@ -468,9 +544,9 @@ function CallLogCard({ log }: { log: CallLogEntry }) {
                     <span className="text-[11px]">{expanded ? ca.hideTranscript : ca.showTranscript}</span>
                   </Button>
                   {expanded && (
-                    <div className="bg-muted/40 rounded-md p-2">
-                      <p className="text-xs leading-relaxed whitespace-pre-wrap">{rec.transcriptionText}</p>
-                    </div>
+                    <ScrollArea className="max-h-[250px]">
+                      <TranscriptWithPlayback text={rec.transcriptionText!} searchText={searchText} playback={playbackState} />
+                    </ScrollArea>
                   )}
                 </>
               )}
@@ -490,6 +566,7 @@ function ResultCard({ result, query }: { result: TranscriptResult; query: string
   const { t, locale } = useI18n();
   const ca = t.callAnalysis;
   const [expanded, setExpanded] = useState(false);
+  const [playbackState, setPlaybackState] = useState<PlaybackState | null>(null);
 
   const handleExport = (format: string) => {
     window.open(`/api/call-recordings/${result.id}/export-transcript?format=${format}`, "_blank");
@@ -568,7 +645,7 @@ function ResultCard({ result, query }: { result: TranscriptResult; query: string
 
           {result.callLogId && (
             <div className="mb-2">
-              <CallRecordingPlayer callLogId={result.callLogId} compact />
+              <CallRecordingPlayer callLogId={result.callLogId} compact onTimeUpdate={setPlaybackState} />
             </div>
           )}
 
@@ -614,9 +691,9 @@ function ResultCard({ result, query }: { result: TranscriptResult; query: string
           </div>
 
           {expanded && (
-            <div className="bg-muted/40 rounded-md p-2 mt-2">
-              <p className="text-xs leading-relaxed whitespace-pre-wrap">{highlightText(result.transcriptionText, query)}</p>
-            </div>
+            <ScrollArea className="max-h-[300px] mt-2">
+              <TranscriptWithPlayback text={result.transcriptionText} searchText={query} playback={playbackState} />
+            </ScrollArea>
           )}
         </div>
       </div>
@@ -1211,7 +1288,7 @@ export function TranscriptSearchContent() {
           {activeTab === "browse" && !logsLoading && filteredCallLogs.length > 0 && (
             <>
               {filteredCallLogs.map((log) => (
-                <CallLogCard key={log.id} log={log} />
+                <CallLogCard key={log.id} log={log} searchText={browseSearchText} />
               ))}
             </>
           )}

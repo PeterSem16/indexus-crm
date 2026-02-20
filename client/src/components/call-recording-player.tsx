@@ -9,9 +9,16 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/auth-context";
 import type { CallRecording } from "@shared/schema";
 
+export interface PlaybackState {
+  currentTime: number;
+  duration: number;
+  isPlaying: boolean;
+}
+
 interface CallRecordingPlayerProps {
   callLogId: string | number;
   compact?: boolean;
+  onTimeUpdate?: (state: PlaybackState) => void;
 }
 
 interface RecordingAnalysis {
@@ -71,7 +78,7 @@ function QualityBadge({ score }: { score: number | null }) {
   );
 }
 
-export function CallRecordingPlayer({ callLogId, compact = false }: CallRecordingPlayerProps) {
+export function CallRecordingPlayer({ callLogId, compact = false, onTimeUpdate }: CallRecordingPlayerProps) {
   const { data: recordings = [], isLoading } = useQuery<CallRecording[]>({
     queryKey: ["/api/call-recordings", { callLogId: String(callLogId) }],
     queryFn: async () => {
@@ -88,18 +95,20 @@ export function CallRecordingPlayer({ callLogId, compact = false }: CallRecordin
   return (
     <div className="space-y-1.5 mt-2">
       {recordings.map((rec) => (
-        <RecordingItem key={rec.id} recording={rec} compact={compact} />
+        <RecordingItem key={rec.id} recording={rec} compact={compact} onTimeUpdate={onTimeUpdate} />
       ))}
     </div>
   );
 }
 
-function RecordingItem({ recording, compact }: { recording: CallRecording; compact: boolean }) {
+function RecordingItem({ recording, compact, onTimeUpdate }: { recording: CallRecording; compact: boolean; onTimeUpdate?: (state: PlaybackState) => void }) {
   const { user } = useAuth();
   const canReanalyze = user && ["admin", "manager"].includes(user.role);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(recording.durationSeconds || 0);
+  const onTimeUpdateRef = useRef(onTimeUpdate);
+  onTimeUpdateRef.current = onTimeUpdate;
   const [showAnalysis, setShowAnalysis] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const animationRef = useRef<number | null>(null);
@@ -132,12 +141,14 @@ function RecordingItem({ recording, compact }: { recording: CallRecording; compa
 
   const updateProgress = useCallback(() => {
     if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime);
+      const ct = audioRef.current.currentTime;
+      setCurrentTime(ct);
+      onTimeUpdateRef.current?.({ currentTime: ct, duration: audioRef.current.duration || duration, isPlaying: !audioRef.current.paused });
       if (!audioRef.current.paused) {
         animationRef.current = requestAnimationFrame(updateProgress);
       }
     }
-  }, []);
+  }, [duration]);
 
   const togglePlay = useCallback(() => {
     if (!audioRef.current) {
@@ -152,6 +163,7 @@ function RecordingItem({ recording, compact }: { recording: CallRecording; compa
         setIsPlaying(false);
         setCurrentTime(0);
         if (animationRef.current) cancelAnimationFrame(animationRef.current);
+        onTimeUpdateRef.current?.({ currentTime: 0, duration: audio.duration || duration, isPlaying: false });
       };
       audio.onerror = () => {
         setIsPlaying(false);
@@ -163,6 +175,7 @@ function RecordingItem({ recording, compact }: { recording: CallRecording; compa
       audioRef.current.pause();
       setIsPlaying(false);
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
+      onTimeUpdateRef.current?.({ currentTime: audioRef.current.currentTime, duration: audioRef.current.duration || duration, isPlaying: false });
     } else {
       audioRef.current.play();
       setIsPlaying(true);
