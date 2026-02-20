@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
 import { useI18n } from "@/i18n";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { format } from "date-fns";
+import { format, subDays, startOfWeek, startOfMonth, startOfYear, subMonths, subWeeks } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,16 +13,47 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
-import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Progress } from "@/components/ui/progress";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
-  ArrowLeft, Download, Mail, FileSpreadsheet, FileText, Users, Phone, BarChart3,
-  Loader2, Filter, Calendar, Search, AlertTriangle, Clock, ChevronDown
+  ArrowLeft, Download, Mail, FileSpreadsheet, Users, Phone, BarChart3,
+  Loader2, Calendar, ChevronDown, ChevronRight, Clock, TrendingUp,
+  Coffee, Headphones, MessageSquare, WrapText, Timer, Activity,
+  User, Zap, Target, AlertTriangle
 } from "lucide-react";
 import type { Campaign } from "@shared/schema";
 
+interface BreakSummaryItem {
+  type: string;
+  count: number;
+  totalFormatted: string;
+}
+
+interface SessionDetail {
+  sessionId: string;
+  login: string | null;
+  logout: string | null;
+  status: string;
+  workTime: number;
+  breakTime: number;
+  callTime: number;
+  emailTime: number;
+  smsTime: number;
+  wrapUpTime: number;
+  contactsHandled: number;
+  duration: number;
+  breakCount: number;
+}
+
 interface OperatorStat {
+  operatorId: string;
   operator: string;
+  operatorEmail: string;
+  operatorRole: string;
+  period: string;
   sessionsCount: number;
   firstLogin: string | null;
   lastLogout: string | null;
@@ -33,13 +64,23 @@ interface OperatorStat {
   totalSmsTime: number;
   totalWrapUpTime: number;
   contactsHandled: number;
+  longestSession: number;
+  shortestSession: number;
+  totalActiveTime: number;
+  totalActiveTimeFormatted: string;
+  utilization: number;
   totalWorkTimeFormatted: string;
   totalBreakTimeFormatted: string;
   totalCallTimeFormatted: string;
   totalEmailTimeFormatted: string;
   totalSmsTimeFormatted: string;
   totalWrapUpTimeFormatted: string;
+  longestSessionFormatted: string;
+  shortestSessionFormatted: string;
+  avgSessionDuration: string;
   avgCallDuration: string;
+  breakSummary: BreakSummaryItem[];
+  sessionDetails: SessionDetail[];
 }
 
 interface CallListItem {
@@ -91,6 +132,8 @@ interface AgentOption {
   name: string;
 }
 
+const DATE_FMT = "yyyy-MM-dd";
+
 export default function CampaignReportsPage() {
   const { t, locale } = useI18n();
   const cr = t.campaignReports;
@@ -102,15 +145,46 @@ export default function CampaignReportsPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [selectedAgent, setSelectedAgent] = useState("all");
+  const [groupBy, setGroupBy] = useState("total");
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [emailRecipient, setEmailRecipient] = useState("");
+  const [expandedOperators, setExpandedOperators] = useState<Set<string>>(new Set());
+  const [quickDateOpen, setQuickDateOpen] = useState(false);
+
+  const today = format(new Date(), DATE_FMT);
+
+  const quickDatePresets = useMemo(() => [
+    { label: cr?.today || 'Today', from: today, to: today },
+    { label: cr?.yesterday || 'Yesterday', from: format(subDays(new Date(), 1), DATE_FMT), to: format(subDays(new Date(), 1), DATE_FMT) },
+    { label: cr?.last7days || 'Last 7 days', from: format(subDays(new Date(), 7), DATE_FMT), to: today },
+    { label: cr?.thisWeek || 'This week', from: format(startOfWeek(new Date(), { weekStartsOn: 1 }), DATE_FMT), to: today },
+    { label: cr?.lastWeek || 'Last week', from: format(startOfWeek(subWeeks(new Date(), 1), { weekStartsOn: 1 }), DATE_FMT), to: format(subDays(startOfWeek(new Date(), { weekStartsOn: 1 }), 1), DATE_FMT) },
+    { label: cr?.thisMonth || 'This month', from: format(startOfMonth(new Date()), DATE_FMT), to: today },
+    { label: cr?.lastMonth || 'Last month', from: format(startOfMonth(subMonths(new Date(), 1)), DATE_FMT), to: format(subDays(startOfMonth(new Date()), 1), DATE_FMT) },
+    { label: cr?.last30days || 'Last 30 days', from: format(subDays(new Date(), 30), DATE_FMT), to: today },
+    { label: cr?.last90days || 'Last 90 days', from: format(subDays(new Date(), 90), DATE_FMT), to: today },
+    { label: cr?.thisYear || 'This year', from: format(startOfYear(new Date()), DATE_FMT), to: today },
+    { label: cr?.allTime || 'All time', from: '', to: '' },
+  ], [cr, today]);
+
+  const applyQuickDate = (from: string, to: string) => {
+    setDateFrom(from);
+    setDateTo(to);
+    setQuickDateOpen(false);
+  };
+
+  const activePresetLabel = useMemo(() => {
+    const match = quickDatePresets.find(p => p.from === dateFrom && p.to === dateTo);
+    return match?.label || null;
+  }, [dateFrom, dateTo, quickDatePresets]);
 
   const buildQueryParams = () => {
-    const params: Record<string, string> = {};
-    if (dateFrom) params.dateFrom = dateFrom;
-    if (dateTo) params.dateTo = dateTo;
-    if (selectedAgent && selectedAgent !== 'all') params.agentId = selectedAgent;
-    return new URLSearchParams(params).toString();
+    const p: Record<string, string> = {};
+    if (dateFrom) p.dateFrom = dateFrom;
+    if (dateTo) p.dateTo = dateTo;
+    if (selectedAgent && selectedAgent !== 'all') p.agentId = selectedAgent;
+    if (groupBy && groupBy !== 'total') p.groupBy = groupBy;
+    return new URLSearchParams(p).toString();
   };
 
   const { data: campaign } = useQuery<Campaign>({
@@ -171,6 +245,7 @@ export default function CampaignReportsPage() {
           dateFrom: dateFrom || undefined,
           dateTo: dateTo || undefined,
           agentId: selectedAgent !== 'all' ? selectedAgent : undefined,
+          groupBy: activeTab === 'operator-stats' && groupBy !== 'total' ? groupBy : undefined,
         }),
       });
       if (!res.ok) {
@@ -198,6 +273,7 @@ export default function CampaignReportsPage() {
         dateFrom: dateFrom || undefined,
         dateTo: dateTo || undefined,
         agentId: selectedAgent !== 'all' ? selectedAgent : undefined,
+        groupBy: activeTab === 'operator-stats' && groupBy !== 'total' ? groupBy : undefined,
       });
       return res.json();
     },
@@ -218,6 +294,32 @@ export default function CampaignReportsPage() {
     } catch {
       return iso;
     }
+  };
+
+  const formatDateShort = (iso: string) => {
+    if (!iso) return '-';
+    try {
+      return format(new Date(iso), "dd.MM.yyyy HH:mm");
+    } catch {
+      return iso;
+    }
+  };
+
+  const formatDurationLocal = (seconds: number) => {
+    if (!seconds || seconds <= 0) return '0:00:00';
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
+
+  const toggleOperator = (key: string) => {
+    setExpandedOperators(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   };
 
   const SentimentBadge = ({ sentiment }: { sentiment: string }) => {
@@ -243,14 +345,14 @@ export default function CampaignReportsPage() {
 
   const StatusBadge = ({ status }: { status: string }) => {
     const colors: Record<string, string> = {
-      completed: 'bg-green-100 text-green-800',
-      answered: 'bg-blue-100 text-blue-800',
-      failed: 'bg-red-100 text-red-800',
-      no_answer: 'bg-yellow-100 text-yellow-800',
-      busy: 'bg-orange-100 text-orange-800',
-      cancelled: 'bg-gray-100 text-gray-800',
-      initiated: 'bg-purple-100 text-purple-800',
-      ringing: 'bg-cyan-100 text-cyan-800',
+      completed: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+      answered: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+      failed: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+      no_answer: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+      busy: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
+      cancelled: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400',
+      initiated: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
+      ringing: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400',
     };
     return (
       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${colors[status] || 'bg-gray-100 text-gray-800'}`}>
@@ -259,11 +361,47 @@ export default function CampaignReportsPage() {
     );
   };
 
+  const UtilizationBar = ({ value }: { value: number }) => {
+    const color = value >= 80 ? 'bg-green-500' : value >= 50 ? 'bg-yellow-500' : 'bg-red-500';
+    return (
+      <div className="flex items-center gap-2 min-w-[100px]">
+        <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+          <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${Math.min(value, 100)}%` }} />
+        </div>
+        <span className="text-xs font-semibold w-10 text-right">{value}%</span>
+      </div>
+    );
+  };
+
+  const StatMini = ({ icon: Icon, label, value, color = "text-foreground" }: { icon: any; label: string; value: string; color?: string }) => (
+    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50">
+      <Icon className={`h-4 w-4 ${color}`} />
+      <div>
+        <p className="text-[10px] text-muted-foreground leading-none">{label}</p>
+        <p className={`text-sm font-semibold ${color}`}>{value}</p>
+      </div>
+    </div>
+  );
+
   const isLoading = activeTab === 'operator-stats' ? loadingOps : activeTab === 'call-list' ? loadingCalls : loadingAnalysis;
   const hasData = activeTab === 'operator-stats' ? operatorStats.length > 0 : activeTab === 'call-list' ? callList.length > 0 : callAnalysis.length > 0;
 
+  const totalSummary = useMemo(() => {
+    if (operatorStats.length === 0) return null;
+    const totals = operatorStats.reduce((acc, s) => ({
+      sessions: acc.sessions + s.sessionsCount,
+      workTime: acc.workTime + s.totalWorkTime,
+      breakTime: acc.breakTime + s.totalBreakTime,
+      callTime: acc.callTime + s.totalCallTime,
+      contacts: acc.contacts + s.contactsHandled,
+      operators: acc.operators,
+    }), { sessions: 0, workTime: 0, breakTime: 0, callTime: 0, contacts: 0, operators: new Set(operatorStats.map(s => s.operatorId)).size });
+    return totals;
+  }, [operatorStats]);
+
   return (
-    <div className="p-6 max-w-[1400px] mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-[1600px] mx-auto space-y-5">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <Link href={`/campaigns/${campaignId}`}>
@@ -273,78 +411,233 @@ export default function CampaignReportsPage() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold" data-testid="text-page-title">{cr.title}</h1>
-            <p className="text-sm text-muted-foreground">{campaign?.name || ''} - {cr.description}</p>
+            <p className="text-sm text-muted-foreground">{campaign?.name || ''}</p>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={() => handleExport('csv')} disabled={!hasData} data-testid="btn-export-csv">
             <Download className="h-4 w-4 mr-1" />
-            {cr.exportCsv}
+            CSV
           </Button>
           <Button variant="outline" size="sm" onClick={() => handleExport('xlsx')} disabled={!hasData} data-testid="btn-export-xls">
             <FileSpreadsheet className="h-4 w-4 mr-1" />
-            {cr.exportXls}
+            XLSX
           </Button>
           <Button variant="outline" size="sm" onClick={() => setEmailDialogOpen(true)} disabled={!hasData} data-testid="btn-send-email">
             <Mail className="h-4 w-4 mr-1" />
-            {cr.sendEmail}
+            Email
           </Button>
         </div>
       </div>
 
-      <Card data-testid="card-filters">
-        <CardContent className="pt-4 pb-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3">
-            <div className="space-y-1">
-              <Label className="text-xs">{cr.dateFrom}</Label>
-              <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-[160px]" data-testid="input-date-from" />
+      {/* Modern Filters Card */}
+      <Card className="border-2 border-dashed border-muted-foreground/20" data-testid="card-filters">
+        <CardContent className="pt-5 pb-4">
+          <div className="flex flex-col gap-4">
+            {/* Quick date presets */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-muted-foreground mr-1">{cr?.quickDates || 'Quick:'}</span>
+              <div className="flex flex-wrap gap-1.5">
+                {quickDatePresets.slice(0, 6).map((preset, i) => (
+                  <Button
+                    key={i}
+                    variant={activePresetLabel === preset.label ? "default" : "outline"}
+                    size="sm"
+                    className="h-7 text-xs px-2.5 rounded-full"
+                    onClick={() => applyQuickDate(preset.from, preset.to)}
+                    data-testid={`btn-preset-${i}`}
+                  >
+                    {preset.label}
+                  </Button>
+                ))}
+                <Popover open={quickDateOpen} onOpenChange={setQuickDateOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-7 text-xs px-2.5 rounded-full" data-testid="btn-more-presets">
+                      {cr?.more || 'More'} <ChevronDown className="h-3 w-3 ml-1" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-48 p-1" align="start">
+                    {quickDatePresets.slice(6).map((preset, i) => (
+                      <button
+                        key={i}
+                        className="w-full text-left px-3 py-1.5 text-sm rounded hover:bg-muted transition-colors"
+                        onClick={() => applyQuickDate(preset.from, preset.to)}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs">{cr.dateTo}</Label>
-              <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="w-[160px]" data-testid="input-date-to" />
+            {/* Custom date + agent + groupBy filters */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">{cr.dateFrom}</Label>
+                <Input
+                  type="date"
+                  value={dateFrom}
+                  onChange={e => setDateFrom(e.target.value)}
+                  className="w-[155px] h-9"
+                  data-testid="input-date-from"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">{cr.dateTo}</Label>
+                <Input
+                  type="date"
+                  value={dateTo}
+                  onChange={e => setDateTo(e.target.value)}
+                  className="w-[155px] h-9"
+                  data-testid="input-date-to"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-medium">{cr.filterByAgent}</Label>
+                <Select value={selectedAgent} onValueChange={setSelectedAgent}>
+                  <SelectTrigger className="w-[200px] h-9" data-testid="select-agent">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{cr.allAgents}</SelectItem>
+                    {agents.map(a => (
+                      <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {activeTab === 'operator-stats' && (
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">{cr?.groupBy || 'Group by'}</Label>
+                  <Select value={groupBy} onValueChange={setGroupBy}>
+                    <SelectTrigger className="w-[160px] h-9" data-testid="select-group-by">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="total">{cr?.groupTotal || 'Total'}</SelectItem>
+                      <SelectItem value="day">{cr?.groupDay || 'Day'}</SelectItem>
+                      <SelectItem value="week">{cr?.groupWeek || 'Week'}</SelectItem>
+                      <SelectItem value="month">{cr?.groupMonth || 'Month'}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {(dateFrom || dateTo) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 text-xs text-muted-foreground"
+                  onClick={() => { setDateFrom(''); setDateTo(''); }}
+                  data-testid="btn-clear-dates"
+                >
+                  {cr?.clearDates || 'Clear'}
+                </Button>
+              )}
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs">{cr.filterByAgent}</Label>
-              <Select value={selectedAgent} onValueChange={setSelectedAgent}>
-                <SelectTrigger className="w-[200px]" data-testid="select-agent">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{cr.allAgents}</SelectItem>
-                  {agents.map(a => (
-                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {activePresetLabel && (
+              <div className="flex items-center gap-1.5">
+                <Badge variant="secondary" className="text-xs">
+                  <Calendar className="h-3 w-3 mr-1" />
+                  {activePresetLabel}
+                  {dateFrom && dateTo ? ` (${dateFrom} → ${dateTo})` : ''}
+                </Badge>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
 
+      {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-3" data-testid="tabs-reports">
-          <TabsTrigger value="operator-stats" className="gap-1" data-testid="tab-operator-stats">
+          <TabsTrigger value="operator-stats" className="gap-1.5" data-testid="tab-operator-stats">
             <Users className="h-4 w-4" />
             <span className="hidden sm:inline">{cr.operatorStats}</span>
           </TabsTrigger>
-          <TabsTrigger value="call-list" className="gap-1" data-testid="tab-call-list">
+          <TabsTrigger value="call-list" className="gap-1.5" data-testid="tab-call-list">
             <Phone className="h-4 w-4" />
             <span className="hidden sm:inline">{cr.callList}</span>
           </TabsTrigger>
-          <TabsTrigger value="call-analysis" className="gap-1" data-testid="tab-call-analysis">
+          <TabsTrigger value="call-analysis" className="gap-1.5" data-testid="tab-call-analysis">
             <BarChart3 className="h-4 w-4" />
             <span className="hidden sm:inline">{cr.callAnalysis}</span>
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="operator-stats" className="mt-4">
+        {/* ============ OPERATOR STATS TAB ============ */}
+        <TabsContent value="operator-stats" className="mt-4 space-y-4">
+          {/* Summary Cards */}
+          {totalSummary && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+              <Card className="p-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
+                    <Users className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-muted-foreground">{cr?.totalOperators || 'Operators'}</p>
+                    <p className="text-xl font-bold">{totalSummary.operators}</p>
+                  </div>
+                </div>
+              </Card>
+              <Card className="p-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-green-100 dark:bg-green-900/30">
+                    <Activity className="h-4 w-4 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-muted-foreground">{cr?.sessions || 'Sessions'}</p>
+                    <p className="text-xl font-bold">{totalSummary.sessions}</p>
+                  </div>
+                </div>
+              </Card>
+              <Card className="p-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900/30">
+                    <Clock className="h-4 w-4 text-purple-600" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-muted-foreground">{cr.totalWorkTime}</p>
+                    <p className="text-lg font-bold">{formatDurationLocal(totalSummary.workTime)}</p>
+                  </div>
+                </div>
+              </Card>
+              <Card className="p-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
+                    <Headphones className="h-4 w-4 text-emerald-600" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-muted-foreground">{cr.totalCallTime}</p>
+                    <p className="text-lg font-bold">{formatDurationLocal(totalSummary.callTime)}</p>
+                  </div>
+                </div>
+              </Card>
+              <Card className="p-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-orange-100 dark:bg-orange-900/30">
+                    <Target className="h-4 w-4 text-orange-600" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-muted-foreground">{cr.contactsHandled}</p>
+                    <p className="text-xl font-bold">{totalSummary.contacts}</p>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          )}
+
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">{cr.operatorStats}</CardTitle>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                {cr.operatorStats}
+              </CardTitle>
               <CardDescription>{cr.operatorStatsDesc}</CardDescription>
             </CardHeader>
             <CardContent>
-              {isLoading ? (
+              {loadingOps ? (
                 <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
               ) : operatorStats.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
@@ -353,50 +646,202 @@ export default function CampaignReportsPage() {
                   <p className="text-sm">{cr.noDataDesc}</p>
                 </div>
               ) : (
-                <ScrollArea className="w-full">
-                  <div className="min-w-[900px]">
-                    <table className="w-full text-sm" data-testid="table-operator-stats">
-                      <thead>
-                        <tr className="border-b bg-muted/50">
-                          <th className="text-left p-2 font-medium">{cr.operator}</th>
-                          <th className="text-center p-2 font-medium">{cr.totalWorkTime}</th>
-                          <th className="text-center p-2 font-medium">{cr.totalBreakTime}</th>
-                          <th className="text-center p-2 font-medium">{cr.totalCallTime}</th>
-                          <th className="text-center p-2 font-medium">{cr.totalEmailTime}</th>
-                          <th className="text-center p-2 font-medium">{cr.totalSmsTime}</th>
-                          <th className="text-center p-2 font-medium">{cr.totalWrapUpTime}</th>
-                          <th className="text-center p-2 font-medium">{cr.contactsHandled}</th>
-                          <th className="text-center p-2 font-medium">{cr.avgCallDuration}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {operatorStats.map((stat, i) => (
-                          <tr key={i} className="border-b hover:bg-muted/30" data-testid={`row-operator-${i}`}>
-                            <td className="p-2 font-medium">{stat.operator}</td>
-                            <td className="p-2 text-center"><Badge variant="secondary">{stat.totalWorkTimeFormatted}</Badge></td>
-                            <td className="p-2 text-center"><Badge variant="outline" className="text-yellow-600">{stat.totalBreakTimeFormatted}</Badge></td>
-                            <td className="p-2 text-center"><Badge variant="outline" className="text-green-600">{stat.totalCallTimeFormatted}</Badge></td>
-                            <td className="p-2 text-center"><Badge variant="outline" className="text-blue-600">{stat.totalEmailTimeFormatted}</Badge></td>
-                            <td className="p-2 text-center"><Badge variant="outline" className="text-purple-600">{stat.totalSmsTimeFormatted}</Badge></td>
-                            <td className="p-2 text-center"><Badge variant="outline" className="text-orange-600">{stat.totalWrapUpTimeFormatted}</Badge></td>
-                            <td className="p-2 text-center font-semibold">{stat.contactsHandled}</td>
-                            <td className="p-2 text-center">{stat.avgCallDuration}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </ScrollArea>
+                <div className="space-y-3">
+                  {operatorStats.map((stat, i) => {
+                    const key = `${stat.operatorId}__${stat.period}`;
+                    const isExpanded = expandedOperators.has(key);
+                    return (
+                      <Collapsible key={key} open={isExpanded} onOpenChange={() => toggleOperator(key)}>
+                        <div className={`border rounded-lg transition-colors ${isExpanded ? 'border-primary/30 bg-muted/20' : 'hover:bg-muted/10'}`} data-testid={`row-operator-${i}`}>
+                          {/* Operator Header Row */}
+                          <CollapsibleTrigger className="w-full">
+                            <div className="flex items-center gap-3 p-3 cursor-pointer">
+                              <div className="flex items-center gap-2 min-w-[200px]">
+                                {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                                <div className="p-1.5 rounded-full bg-primary/10">
+                                  <User className="h-4 w-4 text-primary" />
+                                </div>
+                                <div className="text-left">
+                                  <p className="font-semibold text-sm">{stat.operator}</p>
+                                  <p className="text-[10px] text-muted-foreground">
+                                    {stat.period !== 'total' && <span className="mr-2">{stat.period.startsWith('W') ? `Week ${stat.period.slice(1)}` : stat.period}</span>}
+                                    {stat.operatorEmail && <span>{stat.operatorEmail}</span>}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex-1 flex items-center gap-4 flex-wrap justify-end">
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <Badge variant="secondary" className="gap-1 text-xs">
+                                        <Activity className="h-3 w-3" />
+                                        {stat.sessionsCount}
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent>{cr?.sessions || 'Sessions'}</TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <Badge variant="outline" className="gap-1 text-xs text-blue-600">
+                                        <Clock className="h-3 w-3" />
+                                        {stat.totalWorkTimeFormatted}
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent>{cr.totalWorkTime}</TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <Badge variant="outline" className="gap-1 text-xs text-green-600">
+                                        <Headphones className="h-3 w-3" />
+                                        {stat.totalCallTimeFormatted}
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent>{cr.totalCallTime}</TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <Badge variant="outline" className="gap-1 text-xs text-yellow-600">
+                                        <Coffee className="h-3 w-3" />
+                                        {stat.totalBreakTimeFormatted}
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent>{cr.totalBreakTime}</TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                                <span className="text-sm font-semibold">{stat.contactsHandled} {cr?.contacts || 'contacts'}</span>
+                                <UtilizationBar value={stat.utilization} />
+                              </div>
+                            </div>
+                          </CollapsibleTrigger>
+
+                          {/* Expanded Details */}
+                          <CollapsibleContent>
+                            <div className="px-4 pb-4 space-y-4 border-t pt-4">
+                              {/* Time breakdown mini cards */}
+                              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+                                <StatMini icon={Clock} label={cr.totalWorkTime} value={stat.totalWorkTimeFormatted} color="text-blue-600" />
+                                <StatMini icon={Zap} label={cr?.activeTime || 'Active'} value={stat.totalActiveTimeFormatted} color="text-emerald-600" />
+                                <StatMini icon={Coffee} label={cr.totalBreakTime} value={stat.totalBreakTimeFormatted} color="text-yellow-600" />
+                                <StatMini icon={Headphones} label={cr.totalCallTime} value={stat.totalCallTimeFormatted} color="text-green-600" />
+                                <StatMini icon={MessageSquare} label={cr.totalEmailTime} value={stat.totalEmailTimeFormatted} color="text-blue-500" />
+                                <StatMini icon={MessageSquare} label={cr.totalSmsTime} value={stat.totalSmsTimeFormatted} color="text-purple-600" />
+                                <StatMini icon={WrapText} label={cr.totalWrapUpTime} value={stat.totalWrapUpTimeFormatted} color="text-orange-600" />
+                                <StatMini icon={Timer} label={cr.avgCallDuration} value={stat.avgCallDuration} color="text-teal-600" />
+                              </div>
+
+                              {/* Session metrics */}
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                <StatMini icon={TrendingUp} label={cr?.longestSession || 'Longest session'} value={stat.longestSessionFormatted} />
+                                <StatMini icon={Timer} label={cr?.shortestSession || 'Shortest session'} value={stat.shortestSessionFormatted} />
+                                <StatMini icon={Activity} label={cr?.avgSession || 'Avg session'} value={stat.avgSessionDuration} />
+                                <StatMini icon={Target} label={cr?.utilization || 'Utilization'} value={`${stat.utilization}%`} color={stat.utilization >= 70 ? 'text-green-600' : 'text-red-600'} />
+                              </div>
+
+                              {/* Login / Logout */}
+                              <div className="flex flex-wrap gap-3 text-xs">
+                                <span className="text-muted-foreground">
+                                  {cr?.firstLogin || 'First login'}: <span className="font-medium text-foreground">{formatDateShort(stat.firstLogin || '')}</span>
+                                </span>
+                                <span className="text-muted-foreground">
+                                  {cr?.lastLogout || 'Last logout'}: <span className="font-medium text-foreground">{formatDateShort(stat.lastLogout || '')}</span>
+                                </span>
+                              </div>
+
+                              {/* Break details */}
+                              {stat.breakSummary.length > 0 && (
+                                <div>
+                                  <p className="text-xs font-medium text-muted-foreground mb-2">{cr?.breakDetails || 'Break details'}</p>
+                                  <div className="flex flex-wrap gap-2">
+                                    {stat.breakSummary.map((b, bi) => (
+                                      <Badge key={bi} variant="outline" className="gap-1 text-xs text-yellow-700">
+                                        <Coffee className="h-3 w-3" />
+                                        {b.type}: {b.count}x ({b.totalFormatted})
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Individual sessions table */}
+                              {stat.sessionDetails.length > 0 && (
+                                <div>
+                                  <p className="text-xs font-medium text-muted-foreground mb-2">{cr?.sessionLog || 'Session log'} ({stat.sessionDetails.length})</p>
+                                  <ScrollArea className="w-full">
+                                    <div className="min-w-[800px]">
+                                      <table className="w-full text-xs" data-testid={`table-sessions-${stat.operatorId}`}>
+                                        <thead>
+                                          <tr className="border-b bg-muted/40">
+                                            <th className="text-left p-1.5 font-medium">{cr?.login || 'Login'}</th>
+                                            <th className="text-left p-1.5 font-medium">{cr?.logout || 'Logout'}</th>
+                                            <th className="text-center p-1.5 font-medium">{cr?.status || 'Status'}</th>
+                                            <th className="text-center p-1.5 font-medium">{cr.totalWorkTime}</th>
+                                            <th className="text-center p-1.5 font-medium">{cr.totalBreakTime}</th>
+                                            <th className="text-center p-1.5 font-medium">{cr.totalCallTime}</th>
+                                            <th className="text-center p-1.5 font-medium">{cr.totalEmailTime}</th>
+                                            <th className="text-center p-1.5 font-medium">{cr.totalSmsTime}</th>
+                                            <th className="text-center p-1.5 font-medium">{cr.totalWrapUpTime}</th>
+                                            <th className="text-center p-1.5 font-medium">{cr.contactsHandled}</th>
+                                            <th className="text-center p-1.5 font-medium">{cr?.breaks || 'Breaks'}</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {stat.sessionDetails.map((sd, si) => (
+                                            <tr key={sd.sessionId} className="border-b hover:bg-muted/20">
+                                              <td className="p-1.5">{formatDateShort(sd.login || '')}</td>
+                                              <td className="p-1.5">{formatDateShort(sd.logout || '')}</td>
+                                              <td className="p-1.5 text-center">
+                                                <Badge variant="outline" className="text-[10px]">{sd.status}</Badge>
+                                              </td>
+                                              <td className="p-1.5 text-center font-mono">{formatDurationLocal(sd.workTime)}</td>
+                                              <td className="p-1.5 text-center font-mono text-yellow-600">{formatDurationLocal(sd.breakTime)}</td>
+                                              <td className="p-1.5 text-center font-mono text-green-600">{formatDurationLocal(sd.callTime)}</td>
+                                              <td className="p-1.5 text-center font-mono text-blue-600">{formatDurationLocal(sd.emailTime)}</td>
+                                              <td className="p-1.5 text-center font-mono text-purple-600">{formatDurationLocal(sd.smsTime)}</td>
+                                              <td className="p-1.5 text-center font-mono text-orange-600">{formatDurationLocal(sd.wrapUpTime)}</td>
+                                              <td className="p-1.5 text-center font-semibold">{sd.contactsHandled}</td>
+                                              <td className="p-1.5 text-center">{sd.breakCount}</td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </ScrollArea>
+                                </div>
+                              )}
+                            </div>
+                          </CollapsibleContent>
+                        </div>
+                      </Collapsible>
+                    );
+                  })}
+                </div>
               )}
             </CardContent>
           </Card>
         </TabsContent>
 
+        {/* ============ CALL LIST TAB ============ */}
         <TabsContent value="call-list" className="mt-4">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">{cr.callList}</CardTitle>
-              <CardDescription>{cr.callListDesc}</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Phone className="h-5 w-5" />
+                    {cr.callList}
+                  </CardTitle>
+                  <CardDescription>{cr.callListDesc}</CardDescription>
+                </div>
+                {callList.length > 0 && (
+                  <Badge variant="secondary">{callList.length} {cr?.records || 'records'}</Badge>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               {loadingCalls ? (
@@ -422,26 +867,32 @@ export default function CampaignReportsPage() {
                           <th className="text-center p-2 font-medium">{cr.ringTime}</th>
                           <th className="text-center p-2 font-medium">{cr.talkTime}</th>
                           <th className="text-center p-2 font-medium">{cr.totalDuration}</th>
+                          <th className="text-center p-2 font-medium">{cr?.hungUpBy || 'Hung up'}</th>
                           <th className="text-center p-2 font-medium">{cr.disposition}</th>
                           <th className="text-left p-2 font-medium">{cr.notes}</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {callList.map((call, i) => (
+                        {callList.map((call) => (
                           <tr key={call.id} className="border-b hover:bg-muted/30" data-testid={`row-call-${call.id}`}>
-                            <td className="p-2">{call.agent}</td>
+                            <td className="p-2 font-medium">{call.agent}</td>
                             <td className="p-2">{call.customer}</td>
                             <td className="p-2 font-mono text-xs">{call.phoneNumber}</td>
                             <td className="p-2 text-center">
                               <Badge variant={call.direction === 'inbound' ? 'secondary' : 'outline'}>
-                                {call.direction === 'inbound' ? cr.inbound : cr.outbound}
+                                {call.direction === 'inbound' ? (cr.inbound || 'In') : (cr.outbound || 'Out')}
                               </Badge>
                             </td>
                             <td className="p-2 text-center"><StatusBadge status={call.status} /></td>
                             <td className="p-2 text-center text-xs">{formatDateTime(call.startedAt)}</td>
                             <td className="p-2 text-center font-mono text-xs">{call.ringTimeFormatted}</td>
-                            <td className="p-2 text-center font-mono text-xs font-semibold">{call.talkTimeFormatted}</td>
+                            <td className="p-2 text-center font-mono text-xs font-semibold text-green-600">{call.talkTimeFormatted}</td>
                             <td className="p-2 text-center font-mono text-xs">{call.totalDurationFormatted}</td>
+                            <td className="p-2 text-center text-xs">
+                              {call.hungUpBy ? (
+                                <Badge variant="outline" className="text-[10px]">{call.hungUpBy}</Badge>
+                              ) : '-'}
+                            </td>
                             <td className="p-2 text-center">
                               {call.disposition ? <Badge variant="outline">{call.disposition}</Badge> : '-'}
                             </td>
@@ -453,18 +904,26 @@ export default function CampaignReportsPage() {
                   </div>
                 </ScrollArea>
               )}
-              {callList.length > 0 && (
-                <p className="text-xs text-muted-foreground mt-3">{callList.length} {cr.reports.toLowerCase()}</p>
-              )}
             </CardContent>
           </Card>
         </TabsContent>
 
+        {/* ============ CALL ANALYSIS TAB ============ */}
         <TabsContent value="call-analysis" className="mt-4">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">{cr.callAnalysis}</CardTitle>
-              <CardDescription>{cr.callAnalysisDesc}</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5" />
+                    {cr.callAnalysis}
+                  </CardTitle>
+                  <CardDescription>{cr.callAnalysisDesc}</CardDescription>
+                </div>
+                {callAnalysis.length > 0 && (
+                  <Badge variant="secondary">{callAnalysis.length} {cr?.records || 'records'}</Badge>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               {loadingAnalysis ? (
@@ -477,7 +936,7 @@ export default function CampaignReportsPage() {
                 </div>
               ) : (
                 <ScrollArea className="w-full">
-                  <div className="min-w-[1400px]">
+                  <div className="min-w-[1500px]">
                     <table className="w-full text-sm" data-testid="table-call-analysis">
                       <thead>
                         <tr className="border-b bg-muted/50">
@@ -485,35 +944,48 @@ export default function CampaignReportsPage() {
                           <th className="text-left p-2 font-medium">{cr.customer}</th>
                           <th className="text-left p-2 font-medium">{cr.phoneNumber}</th>
                           <th className="text-center p-2 font-medium">{cr.totalDuration}</th>
+                          <th className="text-center p-2 font-medium">{cr?.analysisStatus || 'Analysis'}</th>
                           <th className="text-center p-2 font-medium">{cr.sentiment}</th>
                           <th className="text-center p-2 font-medium">{cr.qualityScore}</th>
                           <th className="text-center p-2 font-medium">{cr.scriptCompliance}</th>
                           <th className="text-left p-2 font-medium">{cr.keyTopics}</th>
+                          <th className="text-left p-2 font-medium">{cr?.actionItems || 'Action items'}</th>
                           <th className="text-left p-2 font-medium">{cr.alertKeywords}</th>
                           <th className="text-left p-2 font-medium">{cr.summary}</th>
                           <th className="text-left p-2 font-medium">{cr.complianceNotes}</th>
                           <th className="text-center p-2 font-medium">{cr.startedAt}</th>
+                          <th className="text-center p-2 font-medium">{cr?.analyzedAt || 'Analyzed'}</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {callAnalysis.map((rec, i) => (
+                        {callAnalysis.map((rec) => (
                           <tr key={rec.id} className="border-b hover:bg-muted/30" data-testid={`row-analysis-${rec.id}`}>
-                            <td className="p-2">{rec.agent}</td>
+                            <td className="p-2 font-medium">{rec.agent}</td>
                             <td className="p-2">{rec.customer}</td>
                             <td className="p-2 font-mono text-xs">{rec.phoneNumber}</td>
                             <td className="p-2 text-center font-mono text-xs">{rec.durationFormatted}</td>
+                            <td className="p-2 text-center">
+                              <Badge variant={rec.analysisStatus === 'completed' ? 'secondary' : 'outline'} className="text-[10px]">
+                                {rec.analysisStatus}
+                              </Badge>
+                            </td>
                             <td className="p-2 text-center"><SentimentBadge sentiment={rec.sentiment} /></td>
                             <td className="p-2 text-center"><ScoreBadge score={rec.qualityScore} /></td>
                             <td className="p-2 text-center"><ScoreBadge score={rec.scriptComplianceScore} /></td>
                             <td className="p-2 text-xs max-w-[180px] truncate" title={rec.keyTopics}>{rec.keyTopics || '-'}</td>
+                            <td className="p-2 text-xs max-w-[150px] truncate" title={rec.actionItems}>{rec.actionItems || '-'}</td>
                             <td className="p-2 text-xs max-w-[150px]">
                               {rec.alertKeywords ? (
-                                <span className="text-red-600 font-medium">{rec.alertKeywords}</span>
+                                <span className="text-red-600 font-medium flex items-center gap-1">
+                                  <AlertTriangle className="h-3 w-3" />
+                                  {rec.alertKeywords}
+                                </span>
                               ) : '-'}
                             </td>
                             <td className="p-2 text-xs max-w-[200px] truncate" title={rec.summary}>{rec.summary || '-'}</td>
                             <td className="p-2 text-xs max-w-[150px] truncate" title={rec.complianceNotes}>{rec.complianceNotes || '-'}</td>
                             <td className="p-2 text-center text-xs">{formatDateTime(rec.createdAt)}</td>
+                            <td className="p-2 text-center text-xs">{formatDateTime(rec.analyzedAt)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -521,18 +993,19 @@ export default function CampaignReportsPage() {
                   </div>
                 </ScrollArea>
               )}
-              {callAnalysis.length > 0 && (
-                <p className="text-xs text-muted-foreground mt-3">{callAnalysis.length} {cr.reports.toLowerCase()}</p>
-              )}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
+      {/* Email Dialog */}
       <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{cr.sendEmail}</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5" />
+              {cr.sendEmail}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
@@ -545,9 +1018,13 @@ export default function CampaignReportsPage() {
                 data-testid="input-email-recipient"
               />
             </div>
-            <p className="text-xs text-muted-foreground">
-              {cr.emailSubject}: {campaign?.name || ''} - {activeTab.replace(/-/g, ' ')}
-            </p>
+            <div className="p-3 bg-muted/50 rounded-lg space-y-1">
+              <p className="text-xs text-muted-foreground">{cr.emailSubject}:</p>
+              <p className="text-sm font-medium">{campaign?.name || ''} - {activeTab === 'operator-stats' ? cr.operatorStats : activeTab === 'call-list' ? cr.callList : cr.callAnalysis}</p>
+              {dateFrom && dateTo && (
+                <p className="text-xs text-muted-foreground">{dateFrom} → {dateTo}</p>
+              )}
+            </div>
           </div>
           <DialogFooter>
             <DialogClose asChild>

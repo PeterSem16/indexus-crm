@@ -29,7 +29,7 @@ import {
   DEFAULT_PHONE_DISPOSITIONS, DEFAULT_EMAIL_DISPOSITIONS, DEFAULT_SMS_DISPOSITIONS, DISPOSITION_NAME_TRANSLATIONS,
   callLogs, campaignContacts, campaignContactHistory, campaignContactSessions, campaigns, customers, users,
   collections, executiveSummaries, collectionLabResults,
-  agentSessions, agentSessionActivities,
+  agentSessions, agentSessionActivities, agentBreaks,
   type SafeUser, type Customer, type Product, type BillingDetails, type ActivityLog, type LeadScoringCriteria,
   type ServiceConfiguration, type InvoiceTemplate, type InvoiceLayout, type Role,
   type Campaign, type CampaignContact, type ContractInstance
@@ -14194,15 +14194,19 @@ export async function registerRoutes(
     return csvRows.join('\n');
   }
 
-  // 1. Operator Statistics Report
+  // 1. Operator Statistics Report - Enhanced with per-session daily breakdown
   app.get("/api/campaigns/:id/reports/operator-stats", requireAuth, async (req, res) => {
     try {
       const campaignId = req.params.id;
-      const { dateFrom, dateTo, agentId } = req.query;
+      const { dateFrom, dateTo, agentId, groupBy } = req.query;
 
       const conditions: any[] = [eq(agentSessions.campaignId, campaignId)];
       if (dateFrom) conditions.push(gte(agentSessions.startedAt, new Date(dateFrom as string)));
-      if (dateTo) conditions.push(lte(agentSessions.startedAt, new Date(dateTo as string)));
+      if (dateTo) {
+        const endDate = new Date(dateTo as string);
+        endDate.setHours(23, 59, 59, 999);
+        conditions.push(lte(agentSessions.startedAt, endDate));
+      }
       if (agentId && agentId !== 'all') conditions.push(eq(agentSessions.userId, agentId as string));
 
       const sessions = await db.select().from(agentSessions)
@@ -14212,13 +14216,47 @@ export async function registerRoutes(
       const allUsers = await db.select().from(users);
       const userMap = new Map(allUsers.map(u => [u.id, u]));
 
+      const breaks = await db.select().from(agentBreaks)
+        .where(and(
+          sql`${agentBreaks.sessionId} IN (${sessions.length > 0 ? sql.join(sessions.map(s => sql`${s.id}`), sql`, `) : sql`NULL`})`,
+        ));
+      const breaksBySession = new Map<string, typeof breaks>();
+      for (const b of breaks) {
+        const arr = breaksBySession.get(b.sessionId) || [];
+        arr.push(b);
+        breaksBySession.set(b.sessionId, arr);
+      }
+
+      const getGroupKey = (date: Date): string => {
+        const gb = groupBy as string || 'total';
+        if (gb === 'day') return date.toISOString().split('T')[0];
+        if (gb === 'week') {
+          const d = new Date(date);
+          const day = d.getDay();
+          const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+          d.setDate(diff);
+          return `W${d.toISOString().split('T')[0]}`;
+        }
+        if (gb === 'month') return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        return 'total';
+      };
+
       const operatorStats: Record<string, any> = {};
+
       for (const session of sessions) {
         const userId = session.userId;
-        if (!operatorStats[userId]) {
-          const user = userMap.get(userId);
-          operatorStats[userId] = {
-            operator: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : userId,
+        const user = userMap.get(userId);
+        const operatorName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : userId;
+        const groupKey = session.startedAt ? getGroupKey(new Date(session.startedAt)) : 'total';
+        const compositeKey = `${userId}__${groupKey}`;
+
+        if (!operatorStats[compositeKey]) {
+          operatorStats[compositeKey] = {
+            operatorId: userId,
+            operator: operatorName,
+            operatorEmail: user?.email || '',
+            operatorRole: user?.role || '',
+            period: groupKey,
             sessionsCount: 0,
             firstLogin: null as string | null,
             lastLogout: null as string | null,
@@ -14229,34 +14267,97 @@ export async function registerRoutes(
             totalSmsTime: 0,
             totalWrapUpTime: 0,
             contactsHandled: 0,
+            longestSession: 0,
+            shortestSession: Infinity,
+            breakDetails: {} as Record<string, { count: number; totalSeconds: number }>,
+            sessionDetails: [] as any[],
           };
         }
-        const stats = operatorStats[userId];
+        const stats = operatorStats[compositeKey];
         stats.sessionsCount += 1;
-        stats.totalWorkTime += session.totalWorkTime || 0;
-        stats.totalBreakTime += session.totalBreakTime || 0;
-        stats.totalCallTime += session.totalCallTime || 0;
-        stats.totalEmailTime += session.totalEmailTime || 0;
-        stats.totalSmsTime += session.totalSmsTime || 0;
-        stats.totalWrapUpTime += session.totalWrapUpTime || 0;
+
+        const workTime = session.totalWorkTime || 0;
+        const breakTime = session.totalBreakTime || 0;
+        const callTime = session.totalCallTime || 0;
+        const emailTime = session.totalEmailTime || 0;
+        const smsTime = session.totalSmsTime || 0;
+        const wrapUpTime = session.totalWrapUpTime || 0;
+
+        stats.totalWorkTime += workTime;
+        stats.totalBreakTime += breakTime;
+        stats.totalCallTime += callTime;
+        stats.totalEmailTime += emailTime;
+        stats.totalSmsTime += smsTime;
+        stats.totalWrapUpTime += wrapUpTime;
         stats.contactsHandled += session.contactsHandled || 0;
+
+        const sessionDuration = workTime + breakTime;
+        if (sessionDuration > stats.longestSession) stats.longestSession = sessionDuration;
+        if (sessionDuration < stats.shortestSession) stats.shortestSession = sessionDuration;
 
         const loginStr = session.startedAt ? new Date(session.startedAt).toISOString() : null;
         const logoutStr = session.endedAt ? new Date(session.endedAt).toISOString() : null;
         if (loginStr && (!stats.firstLogin || loginStr < stats.firstLogin)) stats.firstLogin = loginStr;
         if (logoutStr && (!stats.lastLogout || logoutStr > stats.lastLogout)) stats.lastLogout = logoutStr;
+
+        const sessionBreaks = breaksBySession.get(session.id) || [];
+        for (const b of sessionBreaks) {
+          const bName = b.breakTypeName || 'unknown';
+          if (!stats.breakDetails[bName]) stats.breakDetails[bName] = { count: 0, totalSeconds: 0 };
+          stats.breakDetails[bName].count += 1;
+          stats.breakDetails[bName].totalSeconds += b.durationSeconds || 0;
+        }
+
+        stats.sessionDetails.push({
+          sessionId: session.id,
+          login: loginStr,
+          logout: logoutStr,
+          status: session.status,
+          workTime,
+          breakTime,
+          callTime,
+          emailTime,
+          smsTime,
+          wrapUpTime,
+          contactsHandled: session.contactsHandled || 0,
+          duration: sessionDuration,
+          breakCount: sessionBreaks.length,
+        });
       }
 
-      const result = Object.values(operatorStats).map((s: any) => ({
-        ...s,
-        totalWorkTimeFormatted: formatDuration(s.totalWorkTime),
-        totalBreakTimeFormatted: formatDuration(s.totalBreakTime),
-        totalCallTimeFormatted: formatDuration(s.totalCallTime),
-        totalEmailTimeFormatted: formatDuration(s.totalEmailTime),
-        totalSmsTimeFormatted: formatDuration(s.totalSmsTime),
-        totalWrapUpTimeFormatted: formatDuration(s.totalWrapUpTime),
-        avgCallDuration: s.contactsHandled > 0 ? formatDuration(Math.round(s.totalCallTime / s.contactsHandled)) : '0:00:00',
-      }));
+      const result = Object.values(operatorStats).map((s: any) => {
+        const totalActive = s.totalWorkTime - s.totalBreakTime;
+        const utilization = s.totalWorkTime > 0 ? Math.round((totalActive / s.totalWorkTime) * 100) : 0;
+        return {
+          ...s,
+          shortestSession: s.shortestSession === Infinity ? 0 : s.shortestSession,
+          totalActiveTime: totalActive > 0 ? totalActive : 0,
+          totalActiveTimeFormatted: formatDuration(totalActive > 0 ? totalActive : 0),
+          utilization,
+          totalWorkTimeFormatted: formatDuration(s.totalWorkTime),
+          totalBreakTimeFormatted: formatDuration(s.totalBreakTime),
+          totalCallTimeFormatted: formatDuration(s.totalCallTime),
+          totalEmailTimeFormatted: formatDuration(s.totalEmailTime),
+          totalSmsTimeFormatted: formatDuration(s.totalSmsTime),
+          totalWrapUpTimeFormatted: formatDuration(s.totalWrapUpTime),
+          longestSessionFormatted: formatDuration(s.longestSession),
+          shortestSessionFormatted: formatDuration(s.shortestSession === Infinity ? 0 : s.shortestSession),
+          avgSessionDuration: s.sessionsCount > 0 ? formatDuration(Math.round((s.totalWorkTime + s.totalBreakTime) / s.sessionsCount)) : '0:00:00',
+          avgCallDuration: s.contactsHandled > 0 ? formatDuration(Math.round(s.totalCallTime / s.contactsHandled)) : '0:00:00',
+          breakSummary: Object.entries(s.breakDetails).map(([name, d]: [string, any]) => ({
+            type: name,
+            count: d.count,
+            totalFormatted: formatDuration(d.totalSeconds),
+          })),
+        };
+      });
+
+      result.sort((a: any, b: any) => {
+        if (a.operator < b.operator) return -1;
+        if (a.operator > b.operator) return 1;
+        if (a.period < b.period) return -1;
+        return 1;
+      });
 
       res.json(result);
     } catch (error) {
@@ -14273,7 +14374,11 @@ export async function registerRoutes(
 
       const conditions: any[] = [eq(callLogs.campaignId, campaignId)];
       if (dateFrom) conditions.push(gte(callLogs.startedAt, new Date(dateFrom as string)));
-      if (dateTo) conditions.push(lte(callLogs.startedAt, new Date(dateTo as string)));
+      if (dateTo) {
+        const endDate = new Date(dateTo as string);
+        endDate.setHours(23, 59, 59, 999);
+        conditions.push(lte(callLogs.startedAt, endDate));
+      }
       if (agentId && agentId !== 'all') conditions.push(eq(callLogs.userId, agentId as string));
 
       const logs = await db.select().from(callLogs)
@@ -14335,7 +14440,11 @@ export async function registerRoutes(
 
       const conditions: any[] = [eq(callRecordings.campaignId, campaignId)];
       if (dateFrom) conditions.push(gte(callRecordings.createdAt, new Date(dateFrom as string)));
-      if (dateTo) conditions.push(lte(callRecordings.createdAt, new Date(dateTo as string)));
+      if (dateTo) {
+        const endDateRec = new Date(dateTo as string);
+        endDateRec.setHours(23, 59, 59, 999);
+        conditions.push(lte(callRecordings.createdAt, endDateRec));
+      }
       if (agentId && agentId !== 'all') conditions.push(eq(callRecordings.userId, agentId as string));
 
       const recordings = await db.select().from(callRecordings)
@@ -14375,7 +14484,7 @@ export async function registerRoutes(
   // Export campaign report as CSV or XLSX
   app.post("/api/campaigns/:id/reports/export", requireAuth, async (req, res) => {
     try {
-      const { reportType, format: exportFormat, dateFrom, dateTo, agentId } = req.body;
+      const { reportType, format: exportFormat, dateFrom, dateTo, agentId, groupBy: exportGroupBy } = req.body;
       const campaignId = req.params.id;
 
       const campaign = await storage.getCampaign(campaignId);
@@ -14385,6 +14494,7 @@ export async function registerRoutes(
       if (dateFrom) queryParams.set('dateFrom', dateFrom);
       if (dateTo) queryParams.set('dateTo', dateTo);
       if (agentId) queryParams.set('agentId', agentId);
+      if (exportGroupBy) queryParams.set('groupBy', exportGroupBy);
 
       let reportData: Record<string, any>[] = [];
       let sheetName = 'Report';
@@ -14393,25 +14503,45 @@ export async function registerRoutes(
         sheetName = 'Operator Stats';
         const conditions: any[] = [eq(agentSessions.campaignId, campaignId)];
         if (dateFrom) conditions.push(gte(agentSessions.startedAt, new Date(dateFrom)));
-        if (dateTo) conditions.push(lte(agentSessions.startedAt, new Date(dateTo)));
+        if (dateTo) {
+          const endD = new Date(dateTo); endD.setHours(23, 59, 59, 999);
+          conditions.push(lte(agentSessions.startedAt, endD));
+        }
         if (agentId && agentId !== 'all') conditions.push(eq(agentSessions.userId, agentId));
         const sessions = await db.select().from(agentSessions).where(and(...conditions));
         const allUsers = await db.select().from(users);
         const userMap = new Map(allUsers.map(u => [u.id, u]));
 
+        const getExportGroupKey = (date: Date): string => {
+          const gb = exportGroupBy || 'total';
+          if (gb === 'day') return date.toISOString().split('T')[0];
+          if (gb === 'week') {
+            const d = new Date(date);
+            const day = d.getDay();
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+            d.setDate(diff);
+            return `W${d.toISOString().split('T')[0]}`;
+          }
+          if (gb === 'month') return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+          return 'total';
+        };
+
         const operatorStats: Record<string, any> = {};
         for (const session of sessions) {
           const userId = session.userId;
-          if (!operatorStats[userId]) {
+          const gk = session.startedAt ? getExportGroupKey(new Date(session.startedAt)) : 'total';
+          const ck = `${userId}__${gk}`;
+          if (!operatorStats[ck]) {
             const user = userMap.get(userId);
-            operatorStats[userId] = {
+            operatorStats[ck] = {
               Operator: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : userId,
+              Period: gk,
               Sessions: 0, 'Work Time': '', 'Break Time': '', 'Call Time': '',
               'Email Time': '', 'SMS Time': '', 'Wrap-up Time': '', 'Contacts Handled': 0,
               _work: 0, _break: 0, _call: 0, _email: 0, _sms: 0, _wrap: 0,
             };
           }
-          const s = operatorStats[userId];
+          const s = operatorStats[ck];
           s.Sessions += 1;
           s._work += session.totalWorkTime || 0;
           s._break += session.totalBreakTime || 0;
@@ -14421,14 +14551,22 @@ export async function registerRoutes(
           s._wrap += session.totalWrapUpTime || 0;
           s['Contacts Handled'] += session.contactsHandled || 0;
         }
-        reportData = Object.values(operatorStats).map((s: any) => ({
-          Operator: s.Operator, Sessions: s.Sessions,
-          'Work Time': formatDuration(s._work), 'Break Time': formatDuration(s._break),
-          'Call Time': formatDuration(s._call), 'Email Time': formatDuration(s._email),
-          'SMS Time': formatDuration(s._sms), 'Wrap-up Time': formatDuration(s._wrap),
-          'Contacts Handled': s['Contacts Handled'],
-          'Avg Call Duration': s['Contacts Handled'] > 0 ? formatDuration(Math.round(s._call / s['Contacts Handled'])) : '0:00:00',
-        }));
+        reportData = Object.values(operatorStats).map((s: any) => {
+          const active = s._work - s._break;
+          const util = s._work > 0 ? Math.round(((active > 0 ? active : 0) / s._work) * 100) : 0;
+          return {
+            Operator: s.Operator,
+            ...(exportGroupBy ? { Period: s.Period } : {}),
+            Sessions: s.Sessions,
+            'Work Time': formatDuration(s._work), 'Active Time': formatDuration(active > 0 ? active : 0),
+            'Break Time': formatDuration(s._break),
+            'Call Time': formatDuration(s._call), 'Email Time': formatDuration(s._email),
+            'SMS Time': formatDuration(s._sms), 'Wrap-up Time': formatDuration(s._wrap),
+            'Contacts Handled': s['Contacts Handled'],
+            'Avg Call Duration': s['Contacts Handled'] > 0 ? formatDuration(Math.round(s._call / s['Contacts Handled'])) : '0:00:00',
+            'Utilization %': util,
+          };
+        });
 
       } else if (reportType === 'call-list') {
         sheetName = 'Call List';
@@ -14522,7 +14660,7 @@ export async function registerRoutes(
   // Send campaign report via email
   app.post("/api/campaigns/:id/reports/send-email", requireAuth, async (req, res) => {
     try {
-      const { reportType, recipientEmail, dateFrom, dateTo, agentId } = req.body;
+      const { reportType, recipientEmail, dateFrom, dateTo, agentId, groupBy: emailGroupBy } = req.body;
       const campaignId = req.params.id;
 
       if (!recipientEmail) return res.status(400).json({ error: "Recipient email is required" });
@@ -14537,29 +14675,50 @@ export async function registerRoutes(
         sheetName = 'Operator Stats';
         const conditions: any[] = [eq(agentSessions.campaignId, campaignId)];
         if (dateFrom) conditions.push(gte(agentSessions.startedAt, new Date(dateFrom)));
-        if (dateTo) conditions.push(lte(agentSessions.startedAt, new Date(dateTo)));
+        if (dateTo) {
+          const endD2 = new Date(dateTo); endD2.setHours(23, 59, 59, 999);
+          conditions.push(lte(agentSessions.startedAt, endD2));
+        }
         if (agentId && agentId !== 'all') conditions.push(eq(agentSessions.userId, agentId));
         const sessions = await db.select().from(agentSessions).where(and(...conditions));
         const allUsers = await db.select().from(users);
         const userMap = new Map(allUsers.map(u => [u.id, u]));
+        const getEmailGK = (date: Date): string => {
+          const gb = emailGroupBy || 'total';
+          if (gb === 'day') return date.toISOString().split('T')[0];
+          if (gb === 'week') { const d = new Date(date); const day = d.getDay(); d.setDate(d.getDate() - day + (day === 0 ? -6 : 1)); return `W${d.toISOString().split('T')[0]}`; }
+          if (gb === 'month') return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+          return 'total';
+        };
         const operatorStats: Record<string, any> = {};
         for (const session of sessions) {
           const userId = session.userId;
-          if (!operatorStats[userId]) {
+          const gk = session.startedAt ? getEmailGK(new Date(session.startedAt)) : 'total';
+          const ck = `${userId}__${gk}`;
+          if (!operatorStats[ck]) {
             const user = userMap.get(userId);
-            operatorStats[userId] = { Operator: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : userId, Sessions: 0, _work: 0, _break: 0, _call: 0, _email: 0, _sms: 0, _wrap: 0, 'Contacts Handled': 0 };
+            operatorStats[ck] = { Operator: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : userId, Period: gk, Sessions: 0, _work: 0, _break: 0, _call: 0, _email: 0, _sms: 0, _wrap: 0, 'Contacts Handled': 0 };
           }
-          const s = operatorStats[userId];
+          const s = operatorStats[ck];
           s.Sessions += 1; s._work += session.totalWorkTime || 0; s._break += session.totalBreakTime || 0;
           s._call += session.totalCallTime || 0; s._email += session.totalEmailTime || 0;
           s._sms += session.totalSmsTime || 0; s._wrap += session.totalWrapUpTime || 0;
           s['Contacts Handled'] += session.contactsHandled || 0;
         }
-        reportData = Object.values(operatorStats).map((s: any) => ({
-          Operator: s.Operator, Sessions: s.Sessions, 'Work Time': formatDuration(s._work), 'Break Time': formatDuration(s._break),
-          'Call Time': formatDuration(s._call), 'Email Time': formatDuration(s._email), 'SMS Time': formatDuration(s._sms),
-          'Wrap-up Time': formatDuration(s._wrap), 'Contacts Handled': s['Contacts Handled'],
-        }));
+        reportData = Object.values(operatorStats).map((s: any) => {
+          const active = s._work - s._break;
+          const util = s._work > 0 ? Math.round(((active > 0 ? active : 0) / s._work) * 100) : 0;
+          return {
+            Operator: s.Operator,
+            ...(emailGroupBy ? { Period: s.Period } : {}),
+            Sessions: s.Sessions,
+            'Work Time': formatDuration(s._work), 'Active Time': formatDuration(active > 0 ? active : 0),
+            'Break Time': formatDuration(s._break),
+            'Call Time': formatDuration(s._call), 'Email Time': formatDuration(s._email), 'SMS Time': formatDuration(s._sms),
+            'Wrap-up Time': formatDuration(s._wrap), 'Contacts Handled': s['Contacts Handled'],
+            'Utilization %': util,
+          };
+        });
       } else if (reportType === 'call-list') {
         sheetName = 'Call List';
         const conditions: any[] = [eq(callLogs.campaignId, campaignId)];
