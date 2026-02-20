@@ -3100,6 +3100,7 @@ export interface Translations {
     loadingCalls: string;
     noCalls: string;
     noCallsDescription: string;
+    selectCallForAnalysis: string;
     noCallsHelp: string;
     noResults: string;
     noResultsForFilters: string;
@@ -6696,6 +6697,7 @@ export const translations: Record<Locale, Translations> = {
       loadingCalls: 'Loading calls...',
       noCalls: 'No calls',
       noCallsDescription: 'No calls have been recorded yet',
+      selectCallForAnalysis: 'Select a call to view analysis',
       noCallsHelp: 'Calls are recorded automatically when using the SIP phone in the CRM. To record a call, click the record button during the call. The system will then automatically create a transcript and AI analysis.',
       noResults: 'No results',
       noResultsForFilters: 'No calls found for selected filters',
@@ -10237,6 +10239,7 @@ export const translations: Record<Locale, Translations> = {
       loadingCalls: 'Načítavam hovory...',
       noCalls: 'Žiadne hovory',
       noCallsDescription: 'Zatiaľ neboli zaznamenané žiadne hovory',
+      selectCallForAnalysis: 'Vyberte hovor pre zobrazenie analýzy',
       noCallsHelp: 'Hovory sa zaznamenávajú automaticky pri použití SIP telefónu v CRM. Pre nahranie hovoru kliknite na tlačidlo nahrávania počas hovoru. Systém potom automaticky vytvorí prepis a AI analýzu.',
       noResults: 'Žiadne výsledky',
       noResultsForFilters: 'Pre zvolené filtre neboli nájdené žiadne hovory',
@@ -13710,6 +13713,7 @@ export const translations: Record<Locale, Translations> = {
       loadingCalls: 'Načítám hovory...',
       noCalls: 'Žádné hovory',
       noCallsDescription: 'Zatím nebyly zaznamenány žádné hovory',
+      selectCallForAnalysis: 'Vyberte hovor pro zobrazení analýzy',
       noCallsHelp: 'Hovory se zaznamenávají automaticky při použití SIP telefonu v CRM. Pro nahrání hovoru klikněte na tlačítko nahrávání během hovoru. Systém poté automaticky vytvoří přepis a AI analýzu.',
       noResults: 'Žádné výsledky',
       noResultsForFilters: 'Pro zvolené filtry nebyly nalezeny žádné hovory',
@@ -17182,7 +17186,8 @@ export const translations: Record<Locale, Translations> = {
       of: '/',
       loadingCalls: 'Hívások betöltése...',
       noCalls: 'Nincs hívás',
-      noCallsDescription: 'Még nem rögzítettek hívásokat',
+      noCallsDescription: 'Még nem rögzítették hívásokat',
+      selectCallForAnalysis: 'Válasszon hívást az elemzés megtekintéséhez',
       noCallsHelp: 'A hívások automatikusan rögzítésre kerülnek a CRM SIP telefonjának használatakor. A hívás rögzítéséhez kattintson a rögzítés gombra hívás közben. A rendszer ezután automatikusan létrehozza az átiratot és az AI elemzést.',
       noResults: 'Nincs találat',
       noResultsForFilters: 'A kiválasztott szűrőkkel nem találhatók hívások',
@@ -20655,6 +20660,7 @@ export const translations: Record<Locale, Translations> = {
       loadingCalls: 'Se încarcă apelurile...',
       noCalls: 'Niciun apel',
       noCallsDescription: 'Nu au fost înregistrate apeluri încă',
+      selectCallForAnalysis: 'Selectați un apel pentru a vedea analiza',
       noCallsHelp: 'Apelurile sunt înregistrate automat la utilizarea telefonului SIP din CRM. Pentru a înregistra un apel, faceți clic pe butonul de înregistrare în timpul apelului. Sistemul va crea automat o transcriere și o analiză AI.',
       noResults: 'Niciun rezultat',
       noResultsForFilters: 'Nu au fost găsite apeluri pentru filtrele selectate',
@@ -24128,6 +24134,7 @@ export const translations: Record<Locale, Translations> = {
       loadingCalls: 'Caricamento chiamate...',
       noCalls: 'Nessuna chiamata',
       noCallsDescription: 'Non sono state ancora registrate chiamate',
+      selectCallForAnalysis: 'Seleziona una chiamata per visualizzare l\'analisi',
       noCallsHelp: 'Le chiamate vengono registrate automaticamente quando si utilizza il telefono SIP nel CRM. Per registrare una chiamata, fare clic sul pulsante di registrazione durante la chiamata. Il sistema creerà automaticamente una trascrizione e un\'analisi AI.',
       noResults: 'Nessun risultato',
       noResultsForFilters: 'Nessuna chiamata trovata per i filtri selezionati',
@@ -27601,6 +27608,7 @@ export const translations: Record<Locale, Translations> = {
       loadingCalls: 'Anrufe werden geladen...',
       noCalls: 'Keine Anrufe',
       noCallsDescription: 'Es wurden noch keine Anrufe aufgezeichnet',
+      selectCallForAnalysis: 'Wählen Sie einen Anruf aus, um die Analyse anzuzeigen',
       noCallsHelp: 'Anrufe werden automatisch aufgezeichnet, wenn das SIP-Telefon im CRM verwendet wird. Um einen Anruf aufzuzeichnen, klicken Sie während des Anrufs auf die Aufnahmetaste. Das System erstellt dann automatisch ein Transkript und eine KI-Analyse.',
       noResults: 'Keine Ergebnisse',
       noResultsForFilters: 'Keine Anrufe für die ausgewählten Filter gefunden',

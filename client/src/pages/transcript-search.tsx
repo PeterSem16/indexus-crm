@@ -716,6 +716,119 @@ function FilterChip({ label, active, onClick, icon: Icon }: { label: string; act
   );
 }
 
+function AnalysisPanel({ log, ca, locale, sentimentLabels }: { log: CallLogEntry; ca: Record<string, any>; locale: string; sentimentLabels: Record<string, string> }) {
+  const [playbackState, setPlaybackState] = useState<PlaybackState | null>(null);
+  const rec = log.recording;
+  const dateStr = new Date(log.startedAt || log.createdAt).toLocaleString(LOCALE_MAP[locale] || 'en-US', {
+    day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+  });
+
+  return (
+    <div className="space-y-3" data-testid={`analysis-panel-${log.id}`}>
+      <div className="flex items-center gap-2 flex-wrap pb-2 border-b">
+        <DirectionIcon direction={log.direction} status={log.status} />
+        <span className="text-sm font-semibold">{log.phoneNumber}</span>
+        {log.customerName && (
+          <span className="text-sm text-muted-foreground">{log.customerName}</span>
+        )}
+        <span className="text-xs text-muted-foreground ml-auto">{dateStr}</span>
+      </div>
+
+      <div className="flex items-center gap-2 flex-wrap">
+        {log.campaignName && (
+          <Badge variant="outline" className="text-[10px] gap-1">
+            <Megaphone className="h-2.5 w-2.5" />
+            {log.campaignName}
+          </Badge>
+        )}
+        {rec?.agentName && (
+          <Badge variant="outline" className="text-[10px] gap-1">
+            <UserCircle className="h-2.5 w-2.5" />
+            {rec.agentName}
+          </Badge>
+        )}
+        <StatusBadge status={log.status} labels={{ completed: ca.statusCompleted, failed: ca.statusFailed, no_answer: ca.statusNoAnswer, busy: ca.statusBusy, cancelled: ca.statusCancelled, initiated: ca.statusInitiated, ringing: ca.statusRinging, answered: ca.statusAnswered }} />
+        <span className="text-xs text-muted-foreground">{formatDuration(log.durationSeconds)}</span>
+      </div>
+
+      {log.hasRecording && (
+        <div className="py-1">
+          <CallRecordingPlayer callLogId={log.id} compact onTimeUpdate={setPlaybackState} />
+        </div>
+      )}
+
+      {rec && rec.analysisStatus === "completed" && (
+        <CallAnalysisDialogContent recording={rec} callId={log.id} ca={ca} sentimentLabels={sentimentLabels} />
+      )}
+
+      {rec && rec.analysisStatus === "processing" && (
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin mr-2" />
+          <span className="text-sm">{ca.processing}</span>
+        </div>
+      )}
+
+      {(!rec || (rec.analysisStatus !== "completed" && rec.analysisStatus !== "processing")) && !log.hasRecording && (
+        <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+          <MicOff className="h-8 w-8 mb-2 opacity-30" />
+          <p className="text-xs">{ca.withoutRecording}</p>
+        </div>
+      )}
+
+      {log.notes && (
+        <div className="bg-muted/40 rounded-md p-3">
+          <p className="text-xs text-muted-foreground italic">{log.notes}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CompactCallRow({ log, isSelected, onClick, locale, ca }: { log: CallLogEntry; isSelected: boolean; onClick: () => void; locale: string; ca: Record<string, any> }) {
+  const dateStr = new Date(log.startedAt || log.createdAt).toLocaleString(LOCALE_MAP[locale] || 'en-US', {
+    day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
+  });
+  const rec = log.recording;
+
+  const sentimentLabels: Record<string, string> = {
+    positive: ca.positive, neutral: ca.neutral, negative: ca.negative, angry: ca.angry,
+  };
+
+  return (
+    <div
+      className={`flex items-center gap-2.5 p-2.5 rounded-lg cursor-pointer transition-colors ${isSelected ? "bg-primary/10 ring-1 ring-primary/30" : "hover:bg-muted/50"}`}
+      onClick={onClick}
+      data-testid={`compact-call-${log.id}`}
+    >
+      <div className="shrink-0">
+        <DirectionIcon direction={log.direction} status={log.status} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs font-medium truncate">{log.customerName || log.phoneNumber}</span>
+          {log.campaignName && (
+            <Badge variant="outline" className="text-[9px] shrink-0 hidden sm:inline-flex">{log.campaignName}</Badge>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5 mt-0.5">
+          <span className="text-[10px] text-muted-foreground">{dateStr}</span>
+          <span className="text-[10px] text-muted-foreground">{formatDuration(log.durationSeconds)}</span>
+          {log.hasRecording && <Mic className="h-2.5 w-2.5 text-green-500 shrink-0" />}
+          {rec?.analysisStatus === "completed" && <Brain className="h-2.5 w-2.5 text-purple-500 shrink-0" />}
+        </div>
+      </div>
+      <div className="flex flex-col items-end gap-1 shrink-0">
+        <SentimentBadge sentiment={rec?.sentiment ?? null} labels={sentimentLabels} />
+        {rec?.qualityScore != null && (
+          <span className={`text-[10px] font-bold ${rec.qualityScore >= 8 ? "text-green-600 dark:text-green-400" : rec.qualityScore >= 5 ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400"}`}>
+            {rec.qualityScore}/10
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function TranscriptSearchContent() {
   const { user } = useAuth();
   const { t, locale } = useI18n();
@@ -725,6 +838,7 @@ export function TranscriptSearchContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [showBrowseFilters, setShowBrowseFilters] = useState(false);
+  const [selectedCallLogId, setSelectedCallLogId] = useState<string | null>(null);
 
   const [sentimentFilter, setSentimentFilter] = useState<string>("");
   const [hasAlertsFilter, setHasAlertsFilter] = useState(false);
@@ -932,6 +1046,14 @@ export function TranscriptSearchContent() {
     const avgQuality = filteredCallLogs.filter(l => l.recording?.qualityScore).reduce((sum, l) => sum + (l.recording?.qualityScore || 0), 0) / (filteredCallLogs.filter(l => l.recording?.qualityScore).length || 1);
     return { total, recorded, analyzed, withAlerts, avgQuality: Math.round(avgQuality * 10) / 10 };
   }, [filteredCallLogs]);
+
+  useEffect(() => {
+    if (filteredCallLogs.length > 0 && (!selectedCallLogId || !filteredCallLogs.find(l => l.id === selectedCallLogId))) {
+      setSelectedCallLogId(filteredCallLogs[0].id);
+    } else if (filteredCallLogs.length === 0) {
+      setSelectedCallLogId(null);
+    }
+  }, [filteredCallLogs, selectedCallLogId]);
 
   return (
     <div className="flex flex-col h-full">
@@ -1251,86 +1373,121 @@ export function TranscriptSearchContent() {
         )}
       </div>
 
-      <ScrollArea className="flex-1">
-        <div className="p-4 space-y-3">
-          {activeTab === "browse" && logsLoading && (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mr-2" />
-              <span className="text-sm text-muted-foreground">{ca.loadingCalls}</span>
-            </div>
-          )}
+      {activeTab === "browse" && (
+        <div className="flex flex-1 overflow-hidden">
+          <div className="w-[45%] min-w-[320px] border-r flex flex-col">
+            <ScrollArea className="flex-1">
+              <div className="p-2 space-y-0.5">
+                {logsLoading && (
+                  <div className="flex items-center justify-center py-16">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mr-2" />
+                    <span className="text-sm text-muted-foreground">{ca.loadingCalls}</span>
+                  </div>
+                )}
 
-          {activeTab === "browse" && !logsLoading && filteredCallLogs.length === 0 && !hasActiveBrowseFilters && (
-            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-              <Phone className="h-12 w-12 mb-4 opacity-30" />
-              <p className="text-sm font-medium">{ca.noCalls}</p>
-              <p className="text-xs mt-1">{ca.noCallsDescription}</p>
-              <div className="mt-6 bg-muted/40 rounded-md p-4 max-w-md text-center">
-                <p className="text-xs leading-relaxed">
-                  {ca.noCallsHelp}
-                </p>
+                {!logsLoading && filteredCallLogs.length === 0 && !hasActiveBrowseFilters && (
+                  <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                    <Phone className="h-12 w-12 mb-4 opacity-30" />
+                    <p className="text-sm font-medium">{ca.noCalls}</p>
+                    <p className="text-xs mt-1">{ca.noCallsDescription}</p>
+                    <div className="mt-6 bg-muted/40 rounded-md p-4 max-w-md text-center">
+                      <p className="text-xs leading-relaxed">{ca.noCallsHelp}</p>
+                    </div>
+                  </div>
+                )}
+
+                {!logsLoading && filteredCallLogs.length === 0 && hasActiveBrowseFilters && (
+                  <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                    <Filter className="h-12 w-12 mb-4 opacity-30" />
+                    <p className="text-sm font-medium">{ca.noResults}</p>
+                    <Button variant="outline" size="sm" className="mt-4 gap-1" onClick={clearBrowseFilters}>
+                      <X className="h-3 w-3" />
+                      {ca.clearFilters}
+                    </Button>
+                  </div>
+                )}
+
+                {!logsLoading && filteredCallLogs.map((log) => (
+                  <CompactCallRow
+                    key={log.id}
+                    log={log}
+                    isSelected={selectedCallLogId === log.id}
+                    onClick={() => setSelectedCallLogId(log.id)}
+                    locale={locale}
+                    ca={ca}
+                  />
+                ))}
               </div>
-            </div>
-          )}
+            </ScrollArea>
+          </div>
 
-          {activeTab === "browse" && !logsLoading && filteredCallLogs.length === 0 && hasActiveBrowseFilters && (
-            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-              <Filter className="h-12 w-12 mb-4 opacity-30" />
-              <p className="text-sm font-medium">{ca.noResults}</p>
-              <p className="text-xs mt-1">{ca.noResultsForFilters}</p>
-              <Button variant="outline" size="sm" className="mt-4 gap-1" onClick={clearBrowseFilters}>
-                <X className="h-3 w-3" />
-                {ca.clearFilters}
-              </Button>
-            </div>
-          )}
-
-          {activeTab === "browse" && !logsLoading && filteredCallLogs.length > 0 && (
-            <>
-              {filteredCallLogs.map((log) => (
-                <CallLogCard key={log.id} log={log} searchText={browseSearchText} />
-              ))}
-            </>
-          )}
-
-          {activeTab === "search" && !searchQuery && (
-            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-              <Search className="h-12 w-12 mb-4 opacity-30" />
-              <p className="text-sm font-medium">{ca.enterSearchTerm}</p>
-              <p className="text-xs mt-1">{ca.searchDescription}</p>
-            </div>
-          )}
-
-          {activeTab === "search" && searchQuery && isLoading && (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mr-2" />
-              <span className="text-sm text-muted-foreground">{ca.searching}</span>
-            </div>
-          )}
-
-          {activeTab === "search" && searchQuery && !isLoading && results.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-              <FileText className="h-12 w-12 mb-4 opacity-30" />
-              <p className="text-sm font-medium">{ca.noSearchResults}</p>
-              <p className="text-xs mt-1">{ca.noSearchResultsFor} "{searchQuery}"</p>
-            </div>
-          )}
-
-          {activeTab === "search" && searchQuery && !isLoading && results.length > 0 && (
-            <>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-xs text-muted-foreground">
-                  {results.length} {ca.resultsFor} "{searchQuery}"
-                  {isFetching && <Loader2 className="h-3 w-3 animate-spin inline ml-1" />}
-                </span>
+          <div className="flex-1 flex flex-col">
+            <ScrollArea className="flex-1">
+              <div className="p-4">
+                {(() => {
+                  const selectedLog = selectedCallLogId ? filteredCallLogs.find(l => l.id === selectedCallLogId) : null;
+                  if (selectedLog) {
+                    const sentimentLabels: Record<string, string> = {
+                      positive: ca.positive, neutral: ca.neutral, negative: ca.negative, angry: ca.angry,
+                    };
+                    return <AnalysisPanel log={selectedLog} ca={ca} locale={locale} sentimentLabels={sentimentLabels} />;
+                  }
+                  return (
+                    <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                      <Brain className="h-12 w-12 mb-4 opacity-30" />
+                      <p className="text-sm font-medium">{ca.callAnalysis}</p>
+                      <p className="text-xs mt-1">{ca.selectCallForAnalysis || "Select a call to view analysis"}</p>
+                    </div>
+                  );
+                })()}
               </div>
-              {results.map((result) => (
-                <ResultCard key={result.id} result={result} query={searchQuery} />
-              ))}
-            </>
-          )}
+            </ScrollArea>
+          </div>
         </div>
-      </ScrollArea>
+      )}
+
+      {activeTab === "search" && (
+        <ScrollArea className="flex-1">
+          <div className="p-4 space-y-3">
+            {!searchQuery && (
+              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                <Search className="h-12 w-12 mb-4 opacity-30" />
+                <p className="text-sm font-medium">{ca.enterSearchTerm}</p>
+                <p className="text-xs mt-1">{ca.searchDescription}</p>
+              </div>
+            )}
+
+            {searchQuery && isLoading && (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mr-2" />
+                <span className="text-sm text-muted-foreground">{ca.searching}</span>
+              </div>
+            )}
+
+            {searchQuery && !isLoading && results.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                <FileText className="h-12 w-12 mb-4 opacity-30" />
+                <p className="text-sm font-medium">{ca.noSearchResults}</p>
+                <p className="text-xs mt-1">{ca.noSearchResultsFor} "{searchQuery}"</p>
+              </div>
+            )}
+
+            {searchQuery && !isLoading && results.length > 0 && (
+              <>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs text-muted-foreground">
+                    {results.length} {ca.resultsFor} "{searchQuery}"
+                    {isFetching && <Loader2 className="h-3 w-3 animate-spin inline ml-1" />}
+                  </span>
+                </div>
+                {results.map((result) => (
+                  <ResultCard key={result.id} result={result} query={searchQuery} />
+                ))}
+              </>
+            )}
+          </div>
+        </ScrollArea>
+      )}
     </div>
   );
 }
