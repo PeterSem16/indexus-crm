@@ -138,6 +138,7 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
   const [previousSipCountry, setPreviousSipCountry] = useState<string | null>(null);
   const [keepExistingExtension, setKeepExistingExtension] = useState(isEditing && !!(initialData as any)?.sipExtension);
   const [sipEnabledLocal, setSipEnabledLocal] = useState(!!(initialData as any)?.sipEnabled);
+  const [manualSipEntry, setManualSipEntry] = useState(false);
   
   const activeRoles = roles.filter(r => r.isActive);
   const systemRolesWithLegacy = activeRoles.filter(r => (r as any).legacyRole);
@@ -952,8 +953,47 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
             )}
           />
           
+          {isEditing && (
+            <div className="flex items-center gap-2 mb-2">
+              <Switch
+                checked={manualSipEntry}
+                onCheckedChange={(checked) => {
+                  setManualSipEntry(checked);
+                  if (checked) {
+                    setKeepExistingExtension(false);
+                    setSelectedExtensionId(null);
+                  }
+                }}
+                data-testid="switch-manual-sip-entry"
+              />
+              <span className="text-sm font-medium">{t.users?.sip?.manualEntry || "Manuálne zadanie"}</span>
+              <span className="text-xs text-muted-foreground">{t.users?.sip?.manualEntryHint || "Zadať linku a heslo ručne"}</span>
+            </div>
+          )}
+
           <div className="grid gap-4 sm:grid-cols-2">
-            {selectedSipCountry ? (
+            {manualSipEntry ? (
+              <FormField
+                control={form.control}
+                name="sipExtension"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t.users.sip.extension}</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="1001"
+                        {...field}
+                        data-testid="input-sip-extension-manual"
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t.users?.sip?.manualExtensionHint || "Zadajte číslo SIP linky manuálne"}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            ) : selectedSipCountry ? (
               <FormItem>
                 <FormLabel>{t.users.sip.extension}</FormLabel>
                 {keepExistingExtension ? (
@@ -1032,18 +1072,20 @@ export function UserForm({ initialData, onSubmit, isLoading, onCancel }: UserFor
                   <FormLabel>{t.users.sip.password}</FormLabel>
                   <FormControl>
                     <Input 
-                      type="password"
-                      placeholder="••••••••"
+                      type={manualSipEntry ? "text" : "password"}
+                      placeholder={manualSipEntry ? "heslo" : "••••••••"}
                       {...field}
-                      readOnly={!!selectedExtensionId || keepExistingExtension}
-                      className={(selectedExtensionId || keepExistingExtension) ? "bg-muted" : ""}
+                      readOnly={!manualSipEntry && (!!selectedExtensionId || keepExistingExtension)}
+                      className={(!manualSipEntry && (selectedExtensionId || keepExistingExtension)) ? "bg-muted" : ""}
                       data-testid="input-sip-password"
                     />
                   </FormControl>
                   <FormDescription>
-                    {(selectedExtensionId || keepExistingExtension)
-                      ? t.users.sip.passwordAutoFilled
-                      : t.users.sip.passwordHint}
+                    {manualSipEntry
+                      ? (t.users?.sip?.manualPasswordHint || "Zadajte SIP heslo manuálne")
+                      : (selectedExtensionId || keepExistingExtension)
+                        ? t.users.sip.passwordAutoFilled
+                        : t.users.sip.passwordHint}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
