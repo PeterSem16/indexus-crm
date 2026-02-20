@@ -416,7 +416,7 @@ function FilterChip({ label, active, onClick, icon: Icon }: { label: string; act
   );
 }
 
-export default function TranscriptSearchPage() {
+export function TranscriptSearchContent() {
   const { user } = useAuth();
   const { t, locale } = useI18n();
   const ca = t.callAnalysis;
@@ -1004,4 +1004,8 @@ export default function TranscriptSearchPage() {
       </ScrollArea>
     </div>
   );
+}
+
+export default function TranscriptSearchPage() {
+  return <TranscriptSearchContent />;
 }

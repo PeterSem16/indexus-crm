@@ -78,7 +78,6 @@ export function AppSidebar() {
   const mainNavItems = [
     { title: t.nav.dashboard, url: "/", icon: LayoutDashboard, testId: "dashboard", moduleKey: "dashboard" },
     { title: "Agent Workspace", url: "/agent-workspace", icon: Headphones, testId: "agent-workspace", moduleKey: "campaigns", roles: ["callCenter", "admin"] },
-    { title: "Prepisy hovorov", url: "/transcript-search", icon: FileText, testId: "transcript-search", moduleKey: "campaigns" },
     { title: t.nav.hospitalsAndClinics, url: "/hospitals", icon: Building2, testId: "hospitals", moduleKey: "hospitals" },
     { title: t.nav.campaigns, url: "/campaigns", icon: Megaphone, testId: "campaigns", moduleKey: "campaigns" },
     { title: "Pipeline", url: "/pipeline", icon: Kanban, testId: "pipeline", moduleKey: "pipeline" },

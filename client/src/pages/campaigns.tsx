@@ -1,8 +1,9 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Plus, Pencil, Trash2, Search, Megaphone, PlayCircle, CheckCircle, Clock, XCircle, ExternalLink, FileText, Calendar, LayoutList, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, BarChart3, TrendingUp, Phone, RefreshCw, Users, Mail, MessageSquare, User, Check, Loader2, Shield, Headphones, X, Download, HelpCircle, BookOpen, Type, AlignLeft, ListOrdered, CircleDot, Target, Square, TextCursorInput, Variable, GripVertical, Copy, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Megaphone, PlayCircle, CheckCircle, Clock, XCircle, ExternalLink, FileText, Calendar, LayoutList, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, BarChart3, TrendingUp, Phone, RefreshCw, Users, Mail, MessageSquare, User, Check, Loader2, Shield, Headphones, X, Download, HelpCircle, BookOpen, Type, AlignLeft, ListOrdered, CircleDot, Target, Square, TextCursorInput, Variable, GripVertical, Copy, ArrowUp, ArrowDown, Mic } from "lucide-react";
 import { useI18n } from "@/i18n";
+import { TranscriptSearchContent } from "@/pages/transcript-search";
 import { useAuth } from "@/contexts/auth-context";
 import { useCountryFilter } from "@/contexts/country-filter-context";
 import { Button } from "@/components/ui/button";
@@ -1972,6 +1973,10 @@ export default function CampaignsPage() {
               <Shield className="h-4 w-4" />
               {t.campaigns.agentAccess.agentAccessTab}
             </TabsTrigger>
+            <TabsTrigger value="transcripts" className="gap-2" data-testid="tab-transcripts">
+              <Mic className="h-4 w-4" />
+              {t.callAnalysis?.pageTitle || "Transcripts"}
+            </TabsTrigger>
             <TabsTrigger value="faq" className="gap-2" data-testid="tab-faq">
               <HelpCircle className="h-4 w-4" />
               {t.campaigns.faq.faqTab}
@@ -2033,6 +2038,10 @@ export default function CampaignsPage() {
 
         <TabsContent value="access" className="flex-1 overflow-auto mt-0">
           <AgentWorkspaceAccessTab />
+        </TabsContent>
+
+        <TabsContent value="transcripts" className="flex-1 overflow-hidden mt-0">
+          <TranscriptSearchContent />
         </TabsContent>
 
         <TabsContent value="faq" className="flex-1 overflow-auto p-6 mt-0">
