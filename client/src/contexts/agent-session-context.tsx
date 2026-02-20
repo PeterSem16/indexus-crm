@@ -23,7 +23,7 @@ interface AgentSessionContextType {
     totalBreakTime: number;
     totalWorkTime: number;
   };
-  startSession: (campaignId?: string | null) => Promise<void>;
+  startSession: (campaignId?: string | null, campaignIds?: string[]) => Promise<void>;
   endSession: () => Promise<void>;
   updateStatus: (status: AgentStatus) => Promise<void>;
   startBreak: (breakTypeId: string) => Promise<void>;
@@ -115,12 +115,13 @@ export function AgentSessionProvider({ children }: { children: React.ReactNode }
     return () => { if (breakTimerRef.current) clearInterval(breakTimerRef.current); };
   }, [activeBreak]);
 
-  const startSession = useCallback(async (campaignId?: string | null) => {
+  const startSession = useCallback(async (campaignId?: string | null, campaignIds?: string[]) => {
     try {
+      const ids = campaignIds || (campaignId ? [campaignId] : []);
       const res = await fetch("/api/agent-sessions/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ campaignId: campaignId || null }),
+        body: JSON.stringify({ campaignId: campaignId || (ids.length > 0 ? ids[0] : null), campaignIds: ids }),
         credentials: "include",
       });
       if (res.status === 409) {

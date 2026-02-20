@@ -5178,6 +5178,7 @@ export const agentSessions = pgTable("agent_sessions", {
   userId: varchar("user_id").notNull().references(() => users.id),
   status: varchar("status", { length: 20 }).notNull().default("available"),
   campaignId: varchar("campaign_id"),
+  campaignIds: text("campaign_ids").array().default(sql`ARRAY[]::text[]`),
   startedAt: timestamp("started_at").notNull().default(sql`now()`),
   endedAt: timestamp("ended_at"),
   lastActiveAt: timestamp("last_active_at").notNull().default(sql`now()`),

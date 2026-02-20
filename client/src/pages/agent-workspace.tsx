@@ -617,8 +617,8 @@ function TaskListPanel({
           {t.agentWorkspace.campaigns}
         </span>
       </div>
-      <ScrollArea className="flex-1">
-        <div className="px-2 pb-2 space-y-1">
+      <div className="px-2 pb-2">
+        <div className="flex flex-wrap gap-1.5">
           {filteredCampaigns.map((campaign) => {
             const chConfig = CHANNEL_CONFIG[campaign.channel as ChannelType] || CHANNEL_CONFIG.phone;
             const ChIcon = chConfig.icon;
@@ -628,41 +628,30 @@ function TaskListPanel({
               <div
                 key={campaign.id}
                 className={`
-                  flex items-center gap-2.5 p-2.5 rounded-lg cursor-pointer transition-colors
+                  flex items-center gap-1.5 px-2.5 py-1.5 rounded-md cursor-pointer transition-colors text-xs font-medium border
                   ${isSelected
-                    ? "bg-primary text-primary-foreground"
-                    : "hover-elevate"
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-muted/50 border-border hover:bg-muted"
                   }
                 `}
                 onClick={() => onSelectCampaign(campaign.id)}
                 data-testid={`btn-queue-${campaign.id}`}
               >
-                <div className={`p-1.5 rounded-md ${isSelected ? "bg-primary-foreground/20" : "bg-muted"}`}>
-                  <ChIcon className={`h-3.5 w-3.5 ${isSelected ? "text-primary-foreground" : chConfig.color}`} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{campaign.name}</p>
-                  <p className={`text-[10px] ${isSelected ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
-                    {campaign.status === "active" ? "Aktívna" : "Pozastavená"}
-                  </p>
-                </div>
-                <Badge
-                  variant={isSelected ? "secondary" : "outline"}
-                  className={isSelected ? "bg-primary-foreground/20 text-primary-foreground border-0" : ""}
-                >
+                <ChIcon className={`h-3 w-3 shrink-0 ${isSelected ? "text-primary-foreground" : chConfig.color}`} />
+                <span className="truncate max-w-[100px]">{campaign.name}</span>
+                <span className={`text-[9px] font-mono ${isSelected ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
                   {campaign.contactCount}
-                </Badge>
+                </span>
               </div>
             );
           })}
           {filteredCampaigns.length === 0 && (
-            <div className="text-center py-6">
-              <Megaphone className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
-              <p className="text-xs text-muted-foreground">Žiadne kampane</p>
+            <div className="text-center py-3 w-full">
+              <p className="text-xs text-muted-foreground">{t.agentWorkspace.noCampaigns || "No campaigns"}</p>
             </div>
           )}
         </div>
-      </ScrollArea>
+      </div>
 
       {selectedCampaignId && (
         <div className="border-t flex flex-col flex-1 min-h-0">
@@ -3690,6 +3679,7 @@ export default function AgentWorkspacePage() {
   const [modalFilter, setModalFilter] = useState<"all" | "my_callbacks" | "team_callbacks" | "pending" | "due">("all");
   const [modalSort, setModalSort] = useState<"callback_asc" | "name_asc" | "attempts_desc">("callback_asc");
   const [modalSearch, setModalSearch] = useState("");
+  const [selectedLoginCampaignIds, setSelectedLoginCampaignIds] = useState<string[]>([]);
   const [contractWizardOpen, setContractWizardOpen] = useState(false);
   const [contractWizardStep, setContractWizardStep] = useState(1);
   const [contractForm, setContractForm] = useState({ categoryId: "", customerId: "", billingDetailsId: "", currency: "EUR", notes: "", numberRangeId: "" });
@@ -3733,6 +3723,7 @@ export default function AgentWorkspacePage() {
   useEffect(() => {
     if (hasAccess && !agentSession.isSessionActive && !agentSession.isLoading) {
       setSessionLoginOpen(true);
+      setSelectedLoginCampaignIds([]);
     }
   }, [hasAccess, agentSession.isSessionActive, agentSession.isLoading]);
 
@@ -3816,7 +3807,7 @@ export default function AgentWorkspacePage() {
 
   const baseCampaigns = showOnlyAssigned ? assignedCampaigns : allCampaigns;
 
-  const campaigns = useMemo(() => {
+  const campaignFilters = useMemo(() => {
     const now = new Date();
     const isAvailable = (c: Campaign) => {
       if (c.status === "paused" || c.status === "draft" || c.status === "completed" || c.status === "cancelled") return false;
@@ -3830,8 +3821,17 @@ export default function AgentWorkspacePage() {
       if (!c.countryCodes || c.countryCodes.length === 0) return true;
       return c.countryCodes.some((code: string) => allowedCountries.includes(code));
     };
-    return baseCampaigns.filter((c) => isAvailable(c) && countryFilter(c));
-  }, [baseCampaigns, allowedCountries, user?.role]);
+    return { isAvailable, countryFilter };
+  }, [allowedCountries, user?.role]);
+
+  const campaigns = useMemo(() => {
+    return baseCampaigns.filter((c) => campaignFilters.isAvailable(c) && campaignFilters.countryFilter(c));
+  }, [baseCampaigns, campaignFilters]);
+
+  const loginCampaigns = useMemo(() => {
+    const source = user?.role === "admin" ? allCampaigns : assignedCampaigns;
+    return source.filter((c) => campaignFilters.isAvailable(c) && campaignFilters.countryFilter(c));
+  }, [allCampaigns, assignedCampaigns, user?.role, campaignFilters]);
 
   const { data: campaignDispositions = [] } = useQuery<CampaignDisposition[]>({
     queryKey: ["/api/campaigns", selectedCampaignId, "dispositions"],
@@ -3947,9 +3947,16 @@ export default function AgentWorkspacePage() {
     enabled: !!hasAccess,
   });
 
+  const sessionCampaignIds = useMemo(() => {
+    const fromSession = (agentSession.session as any)?.campaignIds as string[] | null;
+    if (fromSession && fromSession.length > 0) return fromSession;
+    return selectedLoginCampaignIds;
+  }, [(agentSession.session as any)?.campaignIds, selectedLoginCampaignIds]);
+
   const activeCampaigns = useMemo(() => {
     return campaigns
       .filter((c) => c.status === "active" || c.status === "paused")
+      .filter((c) => sessionCampaignIds.length === 0 || sessionCampaignIds.includes(c.id))
       .map((c) => ({
         id: c.id,
         name: c.name,
@@ -3957,7 +3964,13 @@ export default function AgentWorkspacePage() {
         status: c.status,
         channel: c.channel || "phone",
       }));
-  }, [campaigns, campaignContactCounts]);
+  }, [campaigns, campaignContactCounts, sessionCampaignIds]);
+
+  useEffect(() => {
+    if (agentSession.isSessionActive && !selectedCampaignId && sessionCampaignIds.length > 0) {
+      setSelectedCampaignId(sessionCampaignIds[0]);
+    }
+  }, [agentSession.isSessionActive, sessionCampaignIds, selectedCampaignId]);
 
   const { data: customerMessages = [] } = useQuery<any[]>({
     queryKey: ["/api/customers", currentContact?.id, "messages"],
@@ -4374,7 +4387,11 @@ export default function AgentWorkspacePage() {
       setRingDuration(0);
       setCallNotes("");
 
-      await agentSession.startSession(selectedCampaignId);
+      const loginIds = selectedLoginCampaignIds.length > 0 ? selectedLoginCampaignIds : (selectedCampaignId ? [selectedCampaignId] : []);
+      await agentSession.startSession(loginIds.length > 0 ? loginIds[0] : null, loginIds);
+      if (loginIds.length > 0) {
+        setSelectedCampaignId(loginIds[0]);
+      }
       setSessionLoginOpen(false);
       toast({ title: t.agentSession.shiftStarted, description: t.agentSession.shiftStartedDesc });
     } catch (error) {
@@ -4638,17 +4655,17 @@ export default function AgentWorkspacePage() {
   return (
     <div className={`flex flex-col ${agentSession.isSessionActive ? "h-[calc(100vh-3.5rem)]" : "h-[calc(100vh-8rem)] -m-6"}`}>
       <Dialog open={sessionLoginOpen && !agentSession.isSessionActive} onOpenChange={(open) => { if (!open) { setSessionLoginOpen(false); setLocation("/"); } }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Headphones className="h-5 w-5" />
               {t.agentSession.shiftLogin}
             </DialogTitle>
+            <DialogDescription>
+              {t.agentSession.shiftLoginDesc}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <p className="text-sm text-muted-foreground">
-              {t.agentSession.shiftLoginDesc}
-            </p>
             <div className="flex items-center gap-3 p-3 rounded-md bg-muted/50">
               <Avatar className="h-10 w-10">
                 {user?.avatarUrl && <AvatarImage src={user.avatarUrl} alt={`${user.firstName} ${user.lastName}`} />}
@@ -4661,9 +4678,79 @@ export default function AgentWorkspacePage() {
                 <p className="text-xs text-muted-foreground">{user?.role === "admin" ? t.agentSession.administrator : t.agentSession.operator}</p>
               </div>
             </div>
+            <div>
+              <Label className="text-sm font-medium mb-2 block">{t.agentWorkspace.campaigns}</Label>
+              <ScrollArea className="max-h-64 border rounded-md">
+                <div className="p-2 space-y-1">
+                  {loginCampaigns.length === 0 ? (
+                    <div className="text-center py-4">
+                      <Megaphone className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
+                      <p className="text-xs text-muted-foreground">{t.agentWorkspace.noCampaigns || "No campaigns available"}</p>
+                    </div>
+                  ) : (
+                    loginCampaigns.map((campaign) => {
+                      const chConfig = CHANNEL_CONFIG[campaign.channel as ChannelType] || CHANNEL_CONFIG.phone;
+                      const ChIcon = chConfig.icon;
+                      const isChecked = selectedLoginCampaignIds.includes(campaign.id);
+                      return (
+                        <div
+                          key={campaign.id}
+                          className={`flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-colors ${isChecked ? "bg-primary/10 border border-primary/30" : "hover:bg-muted/50"}`}
+                          onClick={() => {
+                            setSelectedLoginCampaignIds(prev =>
+                              prev.includes(campaign.id)
+                                ? prev.filter(id => id !== campaign.id)
+                                : [...prev, campaign.id]
+                            );
+                          }}
+                          data-testid={`login-campaign-${campaign.id}`}
+                        >
+                          <Checkbox
+                            checked={isChecked}
+                            onCheckedChange={(checked) => {
+                              setSelectedLoginCampaignIds(prev =>
+                                checked
+                                  ? [...prev, campaign.id]
+                                  : prev.filter(id => id !== campaign.id)
+                              );
+                            }}
+                            data-testid={`checkbox-login-campaign-${campaign.id}`}
+                          />
+                          <div className={`p-1.5 rounded-md bg-muted`}>
+                            <ChIcon className={`h-3.5 w-3.5 ${chConfig.color}`} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{campaign.name}</p>
+                            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                              {campaign.countryCodes && campaign.countryCodes.length > 0 && (
+                                <span className="flex items-center gap-0.5">
+                                  {campaign.countryCodes.map((code: string) => (
+                                    <span key={code}>{getCountryFlag(code)}</span>
+                                  ))}
+                                </span>
+                              )}
+                              {campaign.startDate && (
+                                <span>{format(new Date(campaign.startDate), "dd.MM.yy")} - {campaign.endDate ? format(new Date(campaign.endDate), "dd.MM.yy") : "..."}</span>
+                              )}
+                            </div>
+                          </div>
+                          <Badge variant="outline" className="text-[10px] shrink-0">{chConfig.label}</Badge>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </ScrollArea>
+              {selectedLoginCampaignIds.length > 0 && (
+                <p className="text-xs text-muted-foreground mt-1.5">
+                  {selectedLoginCampaignIds.length} {selectedLoginCampaignIds.length === 1 ? "campaign" : "campaigns"} selected
+                </p>
+              )}
+            </div>
             <Button
               className="w-full gap-2"
               onClick={handleStartSession}
+              disabled={selectedLoginCampaignIds.length === 0}
               data-testid="button-start-session"
             >
               <Play className="h-4 w-4" />

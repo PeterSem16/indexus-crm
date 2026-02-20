@@ -644,3 +644,15 @@
   max-width: none !important;
   margin: 0 !important;
 }
+
+[data-agent-fullscreen="true"] [data-sidebar="sidebar"] {
+  display: none !important;
+}
+
+[data-agent-fullscreen="true"] [data-testid="button-sidebar-toggle"] {
+  display: none !important;
+}
+
+[data-agent-fullscreen="true"] header {
+  display: none !important;
+}

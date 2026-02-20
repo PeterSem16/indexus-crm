@@ -26247,7 +26247,8 @@ Guidelines:
       }
       const session = await storage.createAgentSession({
         userId: req.session.user!.id,
-        campaignId: req.body.campaignId || null,
+        campaignId: req.body.campaignId || (req.body.campaignIds && req.body.campaignIds.length > 0 ? req.body.campaignIds[0] : null),
+        campaignIds: req.body.campaignIds || [],
         status: "available",
       });
       res.status(201).json(session);
