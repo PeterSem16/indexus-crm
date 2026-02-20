@@ -4707,6 +4707,7 @@ export default function AgentWorkspacePage() {
                         >
                           <Checkbox
                             checked={isChecked}
+                            onClick={(e) => e.stopPropagation()}
                             onCheckedChange={(checked) => {
                               setSelectedLoginCampaignIds(prev =>
                                 checked
