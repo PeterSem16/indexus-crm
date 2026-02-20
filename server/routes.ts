@@ -14227,6 +14227,44 @@ export async function registerRoutes(
         breaksBySession.set(b.sessionId, arr);
       }
 
+      const contacts = await db.select().from(campaignContacts)
+        .where(eq(campaignContacts.campaignId, campaignId));
+      const campaignCustomerIds = contacts.map(c => c.customerId).filter(Boolean) as string[];
+
+      const userIds = [...new Set(sessions.map(s => s.userId))];
+      let allCallLogs: any[] = [];
+      let allCommMsgs: any[] = [];
+      if (userIds.length > 0) {
+        const clConditions: any[] = [
+          or(
+            eq(callLogs.campaignId, campaignId),
+            ...(campaignCustomerIds.length > 0 ? [inArray(callLogs.customerId, campaignCustomerIds)] : [])
+          ),
+          inArray(callLogs.userId, userIds),
+        ];
+        if (dateFrom) clConditions.push(gte(callLogs.startedAt, new Date(dateFrom as string)));
+        if (dateTo) {
+          const endDate2 = new Date(dateTo as string);
+          endDate2.setHours(23, 59, 59, 999);
+          clConditions.push(lte(callLogs.startedAt, endDate2));
+        }
+        allCallLogs = await db.select().from(callLogs).where(and(...clConditions));
+
+        if (campaignCustomerIds.length > 0) {
+          const cmConditions: any[] = [
+            inArray(communicationMessages.customerId, campaignCustomerIds),
+            inArray(communicationMessages.userId, userIds),
+          ];
+          if (dateFrom) cmConditions.push(gte(communicationMessages.createdAt, new Date(dateFrom as string)));
+          if (dateTo) {
+            const endDate3 = new Date(dateTo as string);
+            endDate3.setHours(23, 59, 59, 999);
+            cmConditions.push(lte(communicationMessages.createdAt, endDate3));
+          }
+          allCommMsgs = await db.select().from(communicationMessages).where(and(...cmConditions));
+        }
+      }
+
       const getGroupKey = (date: Date): string => {
         const gb = groupBy as string || 'total';
         if (gb === 'day') return date.toISOString().split('T')[0];
@@ -14267,6 +14305,9 @@ export async function registerRoutes(
             totalSmsTime: 0,
             totalWrapUpTime: 0,
             contactsHandled: 0,
+            callCount: 0,
+            emailCount: 0,
+            smsCount: 0,
             longestSession: 0,
             shortestSession: Infinity,
             breakDetails: {} as Record<string, { count: number; totalSeconds: number }>,
@@ -14277,10 +14318,41 @@ export async function registerRoutes(
         stats.sessionsCount += 1;
 
         const workTime = session.totalWorkTime || 0;
-        const breakTime = session.totalBreakTime || 0;
-        const callTime = session.totalCallTime || 0;
-        const emailTime = session.totalEmailTime || 0;
-        const smsTime = session.totalSmsTime || 0;
+
+        const sessionBreaks = breaksBySession.get(session.id) || [];
+        const breakTime = sessionBreaks.reduce((sum, b) => sum + (b.durationSeconds || 0), 0);
+
+        const sessionStart = session.startedAt ? new Date(session.startedAt).getTime() : 0;
+        const sessionEnd = session.endedAt ? new Date(session.endedAt).getTime() : Date.now();
+
+        const sessionCalls = allCallLogs.filter(cl =>
+          cl.userId === userId && cl.startedAt &&
+          new Date(cl.startedAt).getTime() >= sessionStart &&
+          new Date(cl.startedAt).getTime() <= sessionEnd
+        );
+        let callTime = 0;
+        for (const cl of sessionCalls) {
+          if (cl.answeredAt && cl.endedAt) {
+            callTime += diffSeconds(cl.answeredAt, cl.endedAt);
+          } else if (cl.startedAt && cl.endedAt && cl.status === 'completed') {
+            callTime += diffSeconds(cl.startedAt, cl.endedAt);
+          }
+        }
+
+        const sessionEmails = allCommMsgs.filter(cm =>
+          cm.userId === userId && cm.type === 'email' && cm.createdAt &&
+          new Date(cm.createdAt).getTime() >= sessionStart &&
+          new Date(cm.createdAt).getTime() <= sessionEnd
+        );
+        const emailTime = sessionEmails.length * 120;
+
+        const sessionSms = allCommMsgs.filter(cm =>
+          cm.userId === userId && cm.type === 'sms' && cm.createdAt &&
+          new Date(cm.createdAt).getTime() >= sessionStart &&
+          new Date(cm.createdAt).getTime() <= sessionEnd
+        );
+        const smsTime = sessionSms.length * 30;
+
         const wrapUpTime = session.totalWrapUpTime || 0;
 
         stats.totalWorkTime += workTime;
@@ -14289,7 +14361,10 @@ export async function registerRoutes(
         stats.totalEmailTime += emailTime;
         stats.totalSmsTime += smsTime;
         stats.totalWrapUpTime += wrapUpTime;
-        stats.contactsHandled += session.contactsHandled || 0;
+        stats.contactsHandled += (session.contactsHandled || 0) + sessionCalls.length + sessionEmails.length + sessionSms.length;
+        stats.callCount += sessionCalls.length;
+        stats.emailCount += sessionEmails.length;
+        stats.smsCount += sessionSms.length;
 
         const sessionDuration = workTime + breakTime;
         if (sessionDuration > stats.longestSession) stats.longestSession = sessionDuration;
@@ -14300,7 +14375,6 @@ export async function registerRoutes(
         if (loginStr && (!stats.firstLogin || loginStr < stats.firstLogin)) stats.firstLogin = loginStr;
         if (logoutStr && (!stats.lastLogout || logoutStr > stats.lastLogout)) stats.lastLogout = logoutStr;
 
-        const sessionBreaks = breaksBySession.get(session.id) || [];
         for (const b of sessionBreaks) {
           const bName = b.breakTypeName || 'unknown';
           if (!stats.breakDetails[bName]) stats.breakDetails[bName] = { count: 0, totalSeconds: 0 };
@@ -14316,10 +14390,13 @@ export async function registerRoutes(
           workTime,
           breakTime,
           callTime,
+          callCount: sessionCalls.length,
           emailTime,
+          emailCount: sessionEmails.length,
           smsTime,
+          smsCount: sessionSms.length,
           wrapUpTime,
-          contactsHandled: session.contactsHandled || 0,
+          contactsHandled: (session.contactsHandled || 0) + sessionCalls.length + sessionEmails.length + sessionSms.length,
           duration: sessionDuration,
           breakCount: sessionBreaks.length,
         });
@@ -14343,7 +14420,7 @@ export async function registerRoutes(
           longestSessionFormatted: formatDuration(s.longestSession),
           shortestSessionFormatted: formatDuration(s.shortestSession === Infinity ? 0 : s.shortestSession),
           avgSessionDuration: s.sessionsCount > 0 ? formatDuration(Math.round((s.totalWorkTime + s.totalBreakTime) / s.sessionsCount)) : '0:00:00',
-          avgCallDuration: s.contactsHandled > 0 ? formatDuration(Math.round(s.totalCallTime / s.contactsHandled)) : '0:00:00',
+          avgCallDuration: s.callCount > 0 ? formatDuration(Math.round(s.totalCallTime / s.callCount)) : '0:00:00',
           breakSummary: Object.entries(s.breakDetails).map(([name, d]: [string, any]) => ({
             type: name,
             count: d.count,
@@ -14575,6 +14652,31 @@ export async function registerRoutes(
         const allUsers = await db.select().from(users);
         const userMap = new Map(allUsers.map(u => [u.id, u]));
 
+        const expContacts = await db.select().from(campaignContacts).where(eq(campaignContacts.campaignId, campaignId));
+        const expCustIds = expContacts.map(c => c.customerId).filter(Boolean) as string[];
+        const expUserIds = [...new Set(sessions.map(s => s.userId))];
+        let expCallLogs: any[] = [];
+        let expCommMsgs: any[] = [];
+        if (expUserIds.length > 0) {
+          const expClConds: any[] = [
+            or(eq(callLogs.campaignId, campaignId), ...(expCustIds.length > 0 ? [inArray(callLogs.customerId, expCustIds)] : [])),
+            inArray(callLogs.userId, expUserIds),
+          ];
+          if (dateFrom) expClConds.push(gte(callLogs.startedAt, new Date(dateFrom)));
+          if (dateTo) { const ed = new Date(dateTo); ed.setHours(23,59,59,999); expClConds.push(lte(callLogs.startedAt, ed)); }
+          expCallLogs = await db.select().from(callLogs).where(and(...expClConds));
+          if (expCustIds.length > 0) {
+            const expCmConds: any[] = [inArray(communicationMessages.customerId, expCustIds), inArray(communicationMessages.userId, expUserIds)];
+            if (dateFrom) expCmConds.push(gte(communicationMessages.createdAt, new Date(dateFrom)));
+            if (dateTo) { const ed2 = new Date(dateTo); ed2.setHours(23,59,59,999); expCmConds.push(lte(communicationMessages.createdAt, ed2)); }
+            expCommMsgs = await db.select().from(communicationMessages).where(and(...expCmConds));
+          }
+        }
+        const expBreaks = await db.select().from(agentBreaks)
+          .where(and(sql`${agentBreaks.sessionId} IN (${sessions.length > 0 ? sql.join(sessions.map(s => sql`${s.id}`), sql`, `) : sql`NULL`})`));
+        const expBreaksBySession = new Map<string, typeof expBreaks>();
+        for (const b of expBreaks) { const arr = expBreaksBySession.get(b.sessionId) || []; arr.push(b); expBreaksBySession.set(b.sessionId, arr); }
+
         const getExportGroupKey = (date: Date): string => {
           const gb = exportGroupBy || 'total';
           if (gb === 'day') return date.toISOString().split('T')[0];
@@ -14601,18 +14703,30 @@ export async function registerRoutes(
               Period: gk,
               Sessions: 0, 'Work Time': '', 'Break Time': '', 'Call Time': '',
               'Email Time': '', 'SMS Time': '', 'Wrap-up Time': '', 'Contacts Handled': 0,
-              _work: 0, _break: 0, _call: 0, _email: 0, _sms: 0, _wrap: 0,
+              _work: 0, _break: 0, _call: 0, _email: 0, _sms: 0, _wrap: 0, _callCount: 0,
             };
           }
           const s = operatorStats[ck];
           s.Sessions += 1;
           s._work += session.totalWorkTime || 0;
-          s._break += session.totalBreakTime || 0;
-          s._call += session.totalCallTime || 0;
-          s._email += session.totalEmailTime || 0;
-          s._sms += session.totalSmsTime || 0;
+          const sesBreaks = expBreaksBySession.get(session.id) || [];
+          s._break += sesBreaks.reduce((sum: number, b: any) => sum + (b.durationSeconds || 0), 0);
+          const sesStart = session.startedAt ? new Date(session.startedAt).getTime() : 0;
+          const sesEnd = session.endedAt ? new Date(session.endedAt).getTime() : Date.now();
+          const sesCalls = expCallLogs.filter((cl: any) => cl.userId === userId && cl.startedAt && new Date(cl.startedAt).getTime() >= sesStart && new Date(cl.startedAt).getTime() <= sesEnd);
+          let sesCallTime = 0;
+          for (const cl of sesCalls) {
+            if (cl.answeredAt && cl.endedAt) sesCallTime += diffSeconds(cl.answeredAt, cl.endedAt);
+            else if (cl.startedAt && cl.endedAt && cl.status === 'completed') sesCallTime += diffSeconds(cl.startedAt, cl.endedAt);
+          }
+          s._call += sesCallTime;
+          s._callCount += sesCalls.length;
+          const sesEmails = expCommMsgs.filter((cm: any) => cm.userId === userId && cm.type === 'email' && cm.createdAt && new Date(cm.createdAt).getTime() >= sesStart && new Date(cm.createdAt).getTime() <= sesEnd);
+          s._email += sesEmails.length * 120;
+          const sesSms = expCommMsgs.filter((cm: any) => cm.userId === userId && cm.type === 'sms' && cm.createdAt && new Date(cm.createdAt).getTime() >= sesStart && new Date(cm.createdAt).getTime() <= sesEnd);
+          s._sms += sesSms.length * 30;
           s._wrap += session.totalWrapUpTime || 0;
-          s['Contacts Handled'] += session.contactsHandled || 0;
+          s['Contacts Handled'] += (session.contactsHandled || 0) + sesCalls.length + sesEmails.length + sesSms.length;
         }
         reportData = Object.values(operatorStats).map((s: any) => {
           const active = s._work - s._break;
@@ -14626,7 +14740,7 @@ export async function registerRoutes(
             'Call Time': formatDuration(s._call), 'Email Time': formatDuration(s._email),
             'SMS Time': formatDuration(s._sms), 'Wrap-up Time': formatDuration(s._wrap),
             'Contacts Handled': s['Contacts Handled'],
-            'Avg Call Duration': s['Contacts Handled'] > 0 ? formatDuration(Math.round(s._call / s['Contacts Handled'])) : '0:00:00',
+            'Avg Call Duration': s._callCount > 0 ? formatDuration(Math.round(s._call / s._callCount)) : '0:00:00',
             'Utilization %': util,
           };
         });
@@ -14757,6 +14871,29 @@ export async function registerRoutes(
         const sessions = await db.select().from(agentSessions).where(and(...conditions));
         const allUsers = await db.select().from(users);
         const userMap = new Map(allUsers.map(u => [u.id, u]));
+
+        const emContacts = await db.select().from(campaignContacts).where(eq(campaignContacts.campaignId, campaignId));
+        const emCustIds = emContacts.map(c => c.customerId).filter(Boolean) as string[];
+        const emUserIds = [...new Set(sessions.map(s => s.userId))];
+        let emCallLogs: any[] = [];
+        let emCommMsgs: any[] = [];
+        if (emUserIds.length > 0) {
+          const emClC: any[] = [or(eq(callLogs.campaignId, campaignId), ...(emCustIds.length > 0 ? [inArray(callLogs.customerId, emCustIds)] : [])), inArray(callLogs.userId, emUserIds)];
+          if (dateFrom) emClC.push(gte(callLogs.startedAt, new Date(dateFrom)));
+          if (dateTo) { const ed = new Date(dateTo); ed.setHours(23,59,59,999); emClC.push(lte(callLogs.startedAt, ed)); }
+          emCallLogs = await db.select().from(callLogs).where(and(...emClC));
+          if (emCustIds.length > 0) {
+            const emCmC: any[] = [inArray(communicationMessages.customerId, emCustIds), inArray(communicationMessages.userId, emUserIds)];
+            if (dateFrom) emCmC.push(gte(communicationMessages.createdAt, new Date(dateFrom)));
+            if (dateTo) { const ed2 = new Date(dateTo); ed2.setHours(23,59,59,999); emCmC.push(lte(communicationMessages.createdAt, ed2)); }
+            emCommMsgs = await db.select().from(communicationMessages).where(and(...emCmC));
+          }
+        }
+        const emBreaks = await db.select().from(agentBreaks)
+          .where(and(sql`${agentBreaks.sessionId} IN (${sessions.length > 0 ? sql.join(sessions.map(s => sql`${s.id}`), sql`, `) : sql`NULL`})`));
+        const emBrkBySes = new Map<string, typeof emBreaks>();
+        for (const b of emBreaks) { const arr = emBrkBySes.get(b.sessionId) || []; arr.push(b); emBrkBySes.set(b.sessionId, arr); }
+
         const getEmailGK = (date: Date): string => {
           const gb = emailGroupBy || 'total';
           if (gb === 'day') return date.toISOString().split('T')[0];
@@ -14771,13 +14908,25 @@ export async function registerRoutes(
           const ck = `${userId}__${gk}`;
           if (!operatorStats[ck]) {
             const user = userMap.get(userId);
-            operatorStats[ck] = { Operator: user?.fullName || user?.username || userId, Period: gk, Sessions: 0, _work: 0, _break: 0, _call: 0, _email: 0, _sms: 0, _wrap: 0, 'Contacts Handled': 0 };
+            operatorStats[ck] = { Operator: user?.fullName || user?.username || userId, Period: gk, Sessions: 0, _work: 0, _break: 0, _call: 0, _email: 0, _sms: 0, _wrap: 0, _callCount: 0, 'Contacts Handled': 0 };
           }
           const s = operatorStats[ck];
-          s.Sessions += 1; s._work += session.totalWorkTime || 0; s._break += session.totalBreakTime || 0;
-          s._call += session.totalCallTime || 0; s._email += session.totalEmailTime || 0;
-          s._sms += session.totalSmsTime || 0; s._wrap += session.totalWrapUpTime || 0;
-          s['Contacts Handled'] += session.contactsHandled || 0;
+          s.Sessions += 1;
+          s._work += session.totalWorkTime || 0;
+          const sb = emBrkBySes.get(session.id) || [];
+          s._break += sb.reduce((sum: number, b: any) => sum + (b.durationSeconds || 0), 0);
+          const ss = session.startedAt ? new Date(session.startedAt).getTime() : 0;
+          const se = session.endedAt ? new Date(session.endedAt).getTime() : Date.now();
+          const sc = emCallLogs.filter((cl: any) => cl.userId === userId && cl.startedAt && new Date(cl.startedAt).getTime() >= ss && new Date(cl.startedAt).getTime() <= se);
+          let sct = 0;
+          for (const cl of sc) { if (cl.answeredAt && cl.endedAt) sct += diffSeconds(cl.answeredAt, cl.endedAt); else if (cl.startedAt && cl.endedAt && cl.status === 'completed') sct += diffSeconds(cl.startedAt, cl.endedAt); }
+          s._call += sct; s._callCount += sc.length;
+          const sem = emCommMsgs.filter((cm: any) => cm.userId === userId && cm.type === 'email' && cm.createdAt && new Date(cm.createdAt).getTime() >= ss && new Date(cm.createdAt).getTime() <= se);
+          s._email += sem.length * 120;
+          const ssm = emCommMsgs.filter((cm: any) => cm.userId === userId && cm.type === 'sms' && cm.createdAt && new Date(cm.createdAt).getTime() >= ss && new Date(cm.createdAt).getTime() <= se);
+          s._sms += ssm.length * 30;
+          s._wrap += session.totalWrapUpTime || 0;
+          s['Contacts Handled'] += (session.contactsHandled || 0) + sc.length + sem.length + ssm.length;
         }
         reportData = Object.values(operatorStats).map((s: any) => {
           const active = s._work - s._break;
@@ -14790,6 +14939,7 @@ export async function registerRoutes(
             'Break Time': formatDuration(s._break),
             'Call Time': formatDuration(s._call), 'Email Time': formatDuration(s._email), 'SMS Time': formatDuration(s._sms),
             'Wrap-up Time': formatDuration(s._wrap), 'Contacts Handled': s['Contacts Handled'],
+            'Avg Call Duration': s._callCount > 0 ? formatDuration(Math.round(s._call / s._callCount)) : '0:00:00',
             'Utilization %': util,
           };
         });

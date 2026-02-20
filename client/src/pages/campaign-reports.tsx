@@ -40,8 +40,11 @@ interface SessionDetail {
   workTime: number;
   breakTime: number;
   callTime: number;
+  callCount: number;
   emailTime: number;
+  emailCount: number;
   smsTime: number;
+  smsCount: number;
   wrapUpTime: number;
   contactsHandled: number;
   duration: number;
@@ -64,6 +67,9 @@ interface OperatorStat {
   totalSmsTime: number;
   totalWrapUpTime: number;
   contactsHandled: number;
+  callCount: number;
+  emailCount: number;
+  smsCount: number;
   longestSession: number;
   shortestSession: number;
   totalActiveTime: number;
@@ -396,9 +402,15 @@ export default function CampaignReportsPage() {
       workTime: acc.workTime + s.totalWorkTime,
       breakTime: acc.breakTime + s.totalBreakTime,
       callTime: acc.callTime + s.totalCallTime,
+      emailTime: acc.emailTime + s.totalEmailTime,
+      smsTime: acc.smsTime + s.totalSmsTime,
+      wrapUpTime: acc.wrapUpTime + s.totalWrapUpTime,
       contacts: acc.contacts + s.contactsHandled,
+      callCount: acc.callCount + (s.callCount || 0),
+      emailCount: acc.emailCount + (s.emailCount || 0),
+      smsCount: acc.smsCount + (s.smsCount || 0),
       operators: acc.operators,
-    }), { sessions: 0, workTime: 0, breakTime: 0, callTime: 0, contacts: 0, operators: new Set(operatorStats.map(s => s.operatorId)).size });
+    }), { sessions: 0, workTime: 0, breakTime: 0, callTime: 0, emailTime: 0, smsTime: 0, wrapUpTime: 0, contacts: 0, callCount: 0, emailCount: 0, smsCount: 0, operators: new Set(operatorStats.map(s => s.operatorId)).size });
     return totals;
   }, [operatorStats]);
 
@@ -572,7 +584,7 @@ export default function CampaignReportsPage() {
         <TabsContent value="operator-stats" className="mt-4 space-y-4">
           {/* Summary Cards */}
           {totalSummary && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-3">
               <Card className="p-3">
                 <div className="flex items-center gap-2">
                   <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
@@ -608,19 +620,63 @@ export default function CampaignReportsPage() {
               </Card>
               <Card className="p-3">
                 <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-yellow-100 dark:bg-yellow-900/30">
+                    <Coffee className="h-4 w-4 text-yellow-600" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-muted-foreground">{cr.totalBreakTime}</p>
+                    <p className="text-lg font-bold">{formatDurationLocal(totalSummary.breakTime)}</p>
+                  </div>
+                </div>
+              </Card>
+              <Card className="p-3">
+                <div className="flex items-center gap-2">
                   <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
                     <Headphones className="h-4 w-4 text-emerald-600" />
                   </div>
                   <div>
-                    <p className="text-[11px] text-muted-foreground">{cr.totalCallTime}</p>
+                    <p className="text-[11px] text-muted-foreground">{cr.totalCallTime} ({totalSummary.callCount})</p>
                     <p className="text-lg font-bold">{formatDurationLocal(totalSummary.callTime)}</p>
                   </div>
                 </div>
               </Card>
               <Card className="p-3">
                 <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
+                    <Mail className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-muted-foreground">{cr.totalEmailTime} ({totalSummary.emailCount})</p>
+                    <p className="text-lg font-bold">{formatDurationLocal(totalSummary.emailTime)}</p>
+                  </div>
+                </div>
+              </Card>
+              <Card className="p-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-violet-100 dark:bg-violet-900/30">
+                    <MessageSquare className="h-4 w-4 text-violet-600" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-muted-foreground">{cr.totalSmsTime} ({totalSummary.smsCount})</p>
+                    <p className="text-lg font-bold">{formatDurationLocal(totalSummary.smsTime)}</p>
+                  </div>
+                </div>
+              </Card>
+              <Card className="p-3">
+                <div className="flex items-center gap-2">
                   <div className="p-2 rounded-lg bg-orange-100 dark:bg-orange-900/30">
-                    <Target className="h-4 w-4 text-orange-600" />
+                    <WrapText className="h-4 w-4 text-orange-600" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-muted-foreground">{cr.totalWrapUpTime}</p>
+                    <p className="text-lg font-bold">{formatDurationLocal(totalSummary.wrapUpTime)}</p>
+                  </div>
+                </div>
+              </Card>
+              <Card className="p-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-rose-100 dark:bg-rose-900/30">
+                    <Target className="h-4 w-4 text-rose-600" />
                   </div>
                   <div>
                     <p className="text-[11px] text-muted-foreground">{cr.contactsHandled}</p>
@@ -717,6 +773,28 @@ export default function CampaignReportsPage() {
                                     <TooltipContent>{cr.totalBreakTime}</TooltipContent>
                                   </Tooltip>
                                 </TooltipProvider>
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <Badge variant="outline" className="gap-1 text-xs text-blue-500">
+                                        <Mail className="h-3 w-3" />
+                                        {stat.totalEmailTimeFormatted}
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent>{cr.totalEmailTime} ({stat.emailCount || 0})</TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <Badge variant="outline" className="gap-1 text-xs text-purple-600">
+                                        <MessageSquare className="h-3 w-3" />
+                                        {stat.totalSmsTimeFormatted}
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent>{cr.totalSmsTime} ({stat.smsCount || 0})</TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
                                 <span className="text-sm font-semibold">{stat.contactsHandled} {cr?.contacts || 'contacts'}</span>
                                 <UtilizationBar value={stat.utilization} />
                               </div>
@@ -803,9 +881,9 @@ export default function CampaignReportsPage() {
                                               </td>
                                               <td className="p-1.5 text-center font-mono">{formatDurationLocal(sd.workTime)}</td>
                                               <td className="p-1.5 text-center font-mono text-yellow-600">{formatDurationLocal(sd.breakTime)}</td>
-                                              <td className="p-1.5 text-center font-mono text-green-600">{formatDurationLocal(sd.callTime)}</td>
-                                              <td className="p-1.5 text-center font-mono text-blue-600">{formatDurationLocal(sd.emailTime)}</td>
-                                              <td className="p-1.5 text-center font-mono text-purple-600">{formatDurationLocal(sd.smsTime)}</td>
+                                              <td className="p-1.5 text-center font-mono text-green-600">{formatDurationLocal(sd.callTime)} <span className="text-muted-foreground">({sd.callCount || 0})</span></td>
+                                              <td className="p-1.5 text-center font-mono text-blue-600">{formatDurationLocal(sd.emailTime)} <span className="text-muted-foreground">({sd.emailCount || 0})</span></td>
+                                              <td className="p-1.5 text-center font-mono text-purple-600">{formatDurationLocal(sd.smsTime)} <span className="text-muted-foreground">({sd.smsCount || 0})</span></td>
                                               <td className="p-1.5 text-center font-mono text-orange-600">{formatDurationLocal(sd.wrapUpTime)}</td>
                                               <td className="p-1.5 text-center font-semibold">{sd.contactsHandled}</td>
                                               <td className="p-1.5 text-center">{sd.breakCount}</td>
@@ -914,9 +992,15 @@ export default function CampaignReportsPage() {
                             </td>
                             <td className="p-2 text-center"><StatusBadge status={call.status} /></td>
                             <td className="p-2 text-center text-xs">{formatDateTime(call.startedAt)}</td>
-                            <td className="p-2 text-center font-mono text-xs">{call.type === 'call' ? call.ringTimeFormatted : '—'}</td>
-                            <td className="p-2 text-center font-mono text-xs font-semibold text-green-600">{call.type === 'call' ? call.talkTimeFormatted : '—'}</td>
-                            <td className="p-2 text-center font-mono text-xs">{call.type === 'call' ? call.totalDurationFormatted : '—'}</td>
+                            <td className="p-2 text-center font-mono text-xs">
+                              {call.type === 'call' ? call.ringTimeFormatted : '—'}
+                            </td>
+                            <td className="p-2 text-center font-mono text-xs font-semibold text-green-600">
+                              {call.type === 'call' ? call.talkTimeFormatted : '—'}
+                            </td>
+                            <td className="p-2 text-center font-mono text-xs">
+                              {call.type === 'call' ? call.totalDurationFormatted : call.type === 'email' ? '~2:00' : call.type === 'sms' ? '~0:30' : '—'}
+                            </td>
                             <td className="p-2 text-center text-xs">
                               {call.type === 'call' && call.hungUpBy ? (
                                 <Badge variant="outline" className="text-[10px]">{call.hungUpBy}</Badge>
