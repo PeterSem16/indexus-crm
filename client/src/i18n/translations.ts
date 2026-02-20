@@ -3126,6 +3126,12 @@ export interface Translations {
     record: string;
     recordsPlural: string;
     forSearch: string;
+    summaryLabel: string;
+    scriptComplianceLabel: string;
+    scriptComplianceDetails: string;
+    topicsLabel: string;
+    actionItemsLabel: string;
+    complianceLabel: string;
   };
 }
 
@@ -6559,6 +6565,12 @@ export const translations: Record<Locale, Translations> = {
       record: 'record',
       recordsPlural: 'records',
       forSearch: 'for',
+      summaryLabel: 'Summary',
+      scriptComplianceLabel: 'Script Compliance',
+      scriptComplianceDetails: 'Script Compliance Details',
+      topicsLabel: 'Topics',
+      actionItemsLabel: 'Action Items',
+      complianceLabel: 'Compliance',
     },
   },
   sk: {
@@ -9937,6 +9949,12 @@ export const translations: Record<Locale, Translations> = {
       record: 'záznam',
       recordsPlural: 'záznamy',
       forSearch: 'pre',
+      summaryLabel: 'Súhrn',
+      scriptComplianceLabel: 'Dodržiavanie skriptu',
+      scriptComplianceDetails: 'Detaily dodržiavania skriptu',
+      topicsLabel: 'Témy',
+      actionItemsLabel: 'Akčné body',
+      complianceLabel: 'Compliance',
     },
   },
   cs: {
@@ -13247,6 +13265,12 @@ export const translations: Record<Locale, Translations> = {
       record: 'záznam',
       recordsPlural: 'záznamy',
       forSearch: 'pro',
+      summaryLabel: 'Shrnutí',
+      scriptComplianceLabel: 'Dodržování skriptu',
+      scriptComplianceDetails: 'Detaily dodržování skriptu',
+      topicsLabel: 'Témata',
+      actionItemsLabel: 'Akční body',
+      complianceLabel: 'Compliance',
     },
   },
   hu: {
@@ -16557,6 +16581,12 @@ export const translations: Record<Locale, Translations> = {
       record: 'rekord',
       recordsPlural: 'rekordok',
       forSearch: '-ra/-re',
+      summaryLabel: 'Összefoglalás',
+      scriptComplianceLabel: 'Szkript betartása',
+      scriptComplianceDetails: 'Szkript betartásának részletei',
+      topicsLabel: 'Témák',
+      actionItemsLabel: 'Teendők',
+      complianceLabel: 'Megfelelőség',
     },
   },
   ro: {
@@ -19866,6 +19896,12 @@ export const translations: Record<Locale, Translations> = {
       record: 'înregistrare',
       recordsPlural: 'înregistrări',
       forSearch: 'pentru',
+      summaryLabel: 'Rezumat',
+      scriptComplianceLabel: 'Conformitatea scriptului',
+      scriptComplianceDetails: 'Detalii conformitate script',
+      topicsLabel: 'Subiecte',
+      actionItemsLabel: 'Puncte de acțiune',
+      complianceLabel: 'Conformitate',
     },
   },
   it: {
@@ -23176,6 +23212,12 @@ export const translations: Record<Locale, Translations> = {
       record: 'record',
       recordsPlural: 'record',
       forSearch: 'per',
+      summaryLabel: 'Riepilogo',
+      scriptComplianceLabel: 'Conformità script',
+      scriptComplianceDetails: 'Dettagli conformità script',
+      topicsLabel: 'Argomenti',
+      actionItemsLabel: 'Azioni da intraprendere',
+      complianceLabel: 'Conformità',
     },
   },
   de: {
@@ -26486,6 +26528,12 @@ export const translations: Record<Locale, Translations> = {
       record: 'Eintrag',
       recordsPlural: 'Einträge',
       forSearch: 'für',
+      summaryLabel: 'Zusammenfassung',
+      scriptComplianceLabel: 'Skript-Einhaltung',
+      scriptComplianceDetails: 'Details zur Skript-Einhaltung',
+      topicsLabel: 'Themen',
+      actionItemsLabel: 'Aktionspunkte',
+      complianceLabel: 'Compliance',
     },
   },
 };

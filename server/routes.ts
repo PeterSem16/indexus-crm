@@ -15761,13 +15761,18 @@ export async function registerRoutes(
           scriptComplianceScore: callRecordings.scriptComplianceScore,
           summary: callRecordings.summary,
           alertKeywords: callRecordings.alertKeywords,
+          keyTopics: callRecordings.keyTopics,
+          actionItems: callRecordings.actionItems,
+          complianceNotes: callRecordings.complianceNotes,
+          analysisResult: callRecordings.analysisResult,
           agentName: callRecordings.agentName,
           campaignName: callRecordings.campaignName,
         }).from(callRecordings)
           .where(inArray(callRecordings.callLogId, logIds));
         const recordingMap: Record<string, any> = {};
         for (const r of recs) {
-          recordingMap[r.callLogId] = r;
+          const scriptComplianceDetails = (r.analysisResult as any)?.scriptComplianceDetails || null;
+          recordingMap[r.callLogId] = { ...r, scriptComplianceDetails, analysisResult: undefined };
         }
         const enriched = logs.map((log: any) => ({
           ...log,
@@ -15826,13 +15831,18 @@ export async function registerRoutes(
           scriptComplianceScore: callRecordings.scriptComplianceScore,
           summary: callRecordings.summary,
           alertKeywords: callRecordings.alertKeywords,
+          keyTopics: callRecordings.keyTopics,
+          actionItems: callRecordings.actionItems,
+          complianceNotes: callRecordings.complianceNotes,
+          analysisResult: callRecordings.analysisResult,
           customerName: callRecordings.customerName,
           agentName: callRecordings.agentName,
           campaignName: callRecordings.campaignName,
         }).from(callRecordings)
           .where(inArray(callRecordings.callLogId, logIds));
         for (const r of recs) {
-          recordingMap[r.callLogId] = r;
+          const scriptComplianceDetails = (r.analysisResult as any)?.scriptComplianceDetails || null;
+          recordingMap[r.callLogId] = { ...r, scriptComplianceDetails, analysisResult: undefined };
         }
       }
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, MailOpen, Phone, PhoneCall, PhoneOutgoing, PhoneIncoming, Baby, Copy, ListChecks, FileEdit, UserCircle, Clock, PlusCircle, RefreshCw, XCircle, LogIn, LogOut, AlertCircle, CheckCircle2, ArrowRight, Shield, CreditCard, Loader2, Calendar, Globe, Linkedin, Facebook, Twitter, Instagram, Building2, ExternalLink, Sparkles, FileSignature, Receipt, Target, ArrowDownLeft, ArrowUpRight, PenSquare, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, Filter, X, ChevronDown, ChevronUp, Upload, Mic, MicOff, Pause, Play, Grid3X3, Volume2, PhoneOff, User, Brain, Star, AlertTriangle } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, MailOpen, Phone, PhoneCall, PhoneOutgoing, PhoneIncoming, Baby, Copy, ListChecks, FileEdit, UserCircle, Clock, PlusCircle, RefreshCw, XCircle, LogIn, LogOut, AlertCircle, CheckCircle2, ArrowRight, Shield, CreditCard, Loader2, Calendar, Globe, Linkedin, Facebook, Twitter, Instagram, Building2, ExternalLink, Sparkles, FileSignature, Receipt, Target, ArrowDownLeft, ArrowUpRight, PenSquare, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, Filter, X, ChevronDown, ChevronUp, Upload, Mic, MicOff, Pause, Play, Grid3X3, Volume2, PhoneOff, User, Brain, Star, AlertTriangle, Tag, ClipboardList, ShieldCheck } from "lucide-react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import { Button } from "@/components/ui/button";
@@ -2762,6 +2762,10 @@ interface CallAnalysisRecording {
   scriptComplianceScore: number | null;
   summary: string | null;
   alertKeywords: string[] | null;
+  keyTopics: string[] | null;
+  actionItems: string[] | null;
+  complianceNotes: string | null;
+  scriptComplianceDetails: string | null;
   agentName: string | null;
   campaignName: string | null;
 }
@@ -2788,9 +2792,11 @@ function CallAnalysisSection({ recording, callId, t }: { recording: CallAnalysis
   const qualityColor = qScore >= 8 ? "text-green-600 dark:text-green-400" : qScore >= 5 ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400";
   const scriptColor = sScore >= 8 ? "text-green-600 dark:text-green-400" : sScore >= 5 ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400";
   const alerts = recording.alertKeywords ?? [];
+  const topics = recording.keyTopics ?? [];
+  const actionItems = recording.actionItems ?? [];
 
   return (
-    <div className="mt-3 border-t pt-3 space-y-2" data-testid={`call-analysis-${callId}`}>
+    <div className="mt-3 border-t pt-3 space-y-3" data-testid={`call-analysis-${callId}`}>
       <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-1">
         <Brain className="h-3.5 w-3.5" />
         {ca.callAnalysis || "Call Analysis"}
@@ -2823,7 +2829,62 @@ function CallAnalysisSection({ recording, callId, t }: { recording: CallAnalysis
         )}
       </div>
       {recording.summary && (
-        <p className="text-xs text-muted-foreground leading-relaxed" data-testid={`text-summary-${callId}`}>{recording.summary}</p>
+        <div className="space-y-1" data-testid={`section-summary-${callId}`}>
+          <div className="flex items-center gap-1 text-[11px] font-medium text-foreground">
+            <FileText className="h-3 w-3" />
+            {ca.summaryLabel || "Summary"}
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed pl-4" data-testid={`text-summary-${callId}`}>{recording.summary}</p>
+        </div>
+      )}
+      {recording.scriptComplianceDetails && (
+        <div className="space-y-1" data-testid={`section-script-compliance-${callId}`}>
+          <div className="flex items-center gap-1 text-[11px] font-medium text-foreground">
+            <ClipboardList className="h-3 w-3" />
+            {ca.scriptComplianceDetails || ca.scriptComplianceLabel || "Script Compliance"}
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed pl-4" data-testid={`text-script-compliance-${callId}`}>{recording.scriptComplianceDetails}</p>
+        </div>
+      )}
+      {topics.length > 0 && (
+        <div className="space-y-1" data-testid={`section-topics-${callId}`}>
+          <div className="flex items-center gap-1 text-[11px] font-medium text-foreground">
+            <Tag className="h-3 w-3" />
+            {ca.topicsLabel || "Topics"}
+          </div>
+          <div className="flex items-center gap-1 flex-wrap pl-4">
+            {topics.map((topic, i) => (
+              <Badge key={i} variant="outline" className="text-[10px]" data-testid={`badge-topic-${callId}-${i}`}>
+                {topic}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+      {actionItems.length > 0 && (
+        <div className="space-y-1" data-testid={`section-action-items-${callId}`}>
+          <div className="flex items-center gap-1 text-[11px] font-medium text-foreground">
+            <ListChecks className="h-3 w-3" />
+            {ca.actionItemsLabel || "Action Items"}
+          </div>
+          <ul className="text-xs text-muted-foreground leading-relaxed pl-4 space-y-0.5">
+            {actionItems.map((item, i) => (
+              <li key={i} className="flex items-start gap-1.5" data-testid={`text-action-item-${callId}-${i}`}>
+                <span className="text-muted-foreground/60 mt-0.5">&#8226;</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {recording.complianceNotes && (
+        <div className="space-y-1" data-testid={`section-compliance-${callId}`}>
+          <div className="flex items-center gap-1 text-[11px] font-medium text-foreground">
+            <ShieldCheck className="h-3 w-3" />
+            {ca.complianceLabel || "Compliance"}
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed pl-4" data-testid={`text-compliance-${callId}`}>{recording.complianceNotes}</p>
+        </div>
       )}
       {recording.transcriptionText && (
         <>
