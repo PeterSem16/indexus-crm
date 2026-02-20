@@ -16061,13 +16061,10 @@ export async function registerRoutes(
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
           const fs2 = await import("fs");
-          const pathMod = await import("path");
-          const fileName = pathMod.default.basename(filePath);
           const fileStream = fs2.createReadStream(filePath);
-          const file = await openai.toFile(fileStream, fileName);
 
           const transcriptionResult = await openai.audio.transcriptions.create({
-            file: file,
+            file: fileStream,
             model: "whisper-1",
             response_format: "text",
           });
