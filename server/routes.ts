@@ -14246,7 +14246,7 @@ export async function registerRoutes(
       for (const session of sessions) {
         const userId = session.userId;
         const user = userMap.get(userId);
-        const operatorName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : userId;
+        const operatorName = user?.fullName || user?.username || userId;
         const groupKey = session.startedAt ? getGroupKey(new Date(session.startedAt)) : 'total';
         const compositeKey = `${userId}__${groupKey}`;
 
@@ -14399,13 +14399,19 @@ export async function registerRoutes(
         const user = userMap.get(log.userId);
         const customer = log.customerId ? customerMap.get(log.customerId) : null;
         const contact = log.customerId ? contactByCustomer.get(log.customerId) : null;
-        const ringTimeSec = diffSeconds(log.startedAt, log.answeredAt);
-        const talkTimeSec = diffSeconds(log.answeredAt, log.endedAt);
         const totalSec = diffSeconds(log.startedAt, log.endedAt);
+        let ringTimeSec = 0;
+        let talkTimeSec = 0;
+        if (log.answeredAt) {
+          ringTimeSec = diffSeconds(log.startedAt, log.answeredAt);
+          talkTimeSec = diffSeconds(log.answeredAt, log.endedAt);
+        } else if (log.status === 'completed' && totalSec > 0) {
+          talkTimeSec = totalSec;
+        }
 
         return {
           id: log.id,
-          agent: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : log.userId,
+          agent: user?.fullName || user?.username || log.userId,
           customer: customer ? `${customer.firstName || ''} ${customer.lastName || ''}`.trim() : (log.customerId || ''),
           phoneNumber: log.phoneNumber,
           direction: log.direction,
@@ -14534,7 +14540,7 @@ export async function registerRoutes(
           if (!operatorStats[ck]) {
             const user = userMap.get(userId);
             operatorStats[ck] = {
-              Operator: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : userId,
+              Operator: user?.fullName || user?.username || userId,
               Period: gk,
               Sessions: 0, 'Work Time': '', 'Break Time': '', 'Call Time': '',
               'Email Time': '', 'SMS Time': '', 'Wrap-up Time': '', 'Contacts Handled': 0,
@@ -14572,7 +14578,10 @@ export async function registerRoutes(
         sheetName = 'Call List';
         const conditions: any[] = [eq(callLogs.campaignId, campaignId)];
         if (dateFrom) conditions.push(gte(callLogs.startedAt, new Date(dateFrom)));
-        if (dateTo) conditions.push(lte(callLogs.startedAt, new Date(dateTo)));
+        if (dateTo) {
+          const endDCLE = new Date(dateTo); endDCLE.setHours(23, 59, 59, 999);
+          conditions.push(lte(callLogs.startedAt, endDCLE));
+        }
         if (agentId && agentId !== 'all') conditions.push(eq(callLogs.userId, agentId));
         const logs = await db.select().from(callLogs).where(and(...conditions)).orderBy(desc(callLogs.startedAt));
         const allUsers = await db.select().from(users);
@@ -14586,8 +14595,16 @@ export async function registerRoutes(
           const user = userMap.get(log.userId);
           const customer = log.customerId ? customerMap.get(log.customerId) : null;
           const contact = log.customerId ? contactByCustomer.get(log.customerId) : null;
+          const totSecE = diffSeconds(log.startedAt, log.endedAt);
+          let ringSecE = 0, talkSecE = 0;
+          if (log.answeredAt) {
+            ringSecE = diffSeconds(log.startedAt, log.answeredAt);
+            talkSecE = diffSeconds(log.answeredAt, log.endedAt);
+          } else if (log.status === 'completed' && totSecE > 0) {
+            talkSecE = totSecE;
+          }
           return {
-            Agent: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : log.userId,
+            Agent: user?.fullName || user?.username || log.userId,
             Customer: customer ? `${customer.firstName || ''} ${customer.lastName || ''}`.trim() : '',
             'Phone Number': log.phoneNumber,
             Direction: log.direction,
@@ -14595,9 +14612,9 @@ export async function registerRoutes(
             'Started At': log.startedAt ? new Date(log.startedAt).toLocaleString() : '',
             'Answered At': log.answeredAt ? new Date(log.answeredAt).toLocaleString() : '',
             'Ended At': log.endedAt ? new Date(log.endedAt).toLocaleString() : '',
-            'Ring Time': formatDuration(diffSeconds(log.startedAt, log.answeredAt)),
-            'Talk Time': formatDuration(diffSeconds(log.answeredAt, log.endedAt)),
-            'Total Duration': formatDuration(diffSeconds(log.startedAt, log.endedAt)),
+            'Ring Time': formatDuration(ringSecE),
+            'Talk Time': formatDuration(talkSecE),
+            'Total Duration': formatDuration(totSecE),
             Disposition: contact?.dispositionCode || '',
             'Hung Up By': log.hungUpBy || '',
             Notes: log.notes || '',
@@ -14697,7 +14714,7 @@ export async function registerRoutes(
           const ck = `${userId}__${gk}`;
           if (!operatorStats[ck]) {
             const user = userMap.get(userId);
-            operatorStats[ck] = { Operator: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : userId, Period: gk, Sessions: 0, _work: 0, _break: 0, _call: 0, _email: 0, _sms: 0, _wrap: 0, 'Contacts Handled': 0 };
+            operatorStats[ck] = { Operator: user?.fullName || user?.username || userId, Period: gk, Sessions: 0, _work: 0, _break: 0, _call: 0, _email: 0, _sms: 0, _wrap: 0, 'Contacts Handled': 0 };
           }
           const s = operatorStats[ck];
           s.Sessions += 1; s._work += session.totalWorkTime || 0; s._break += session.totalBreakTime || 0;
@@ -14723,7 +14740,10 @@ export async function registerRoutes(
         sheetName = 'Call List';
         const conditions: any[] = [eq(callLogs.campaignId, campaignId)];
         if (dateFrom) conditions.push(gte(callLogs.startedAt, new Date(dateFrom)));
-        if (dateTo) conditions.push(lte(callLogs.startedAt, new Date(dateTo)));
+        if (dateTo) {
+          const endDCL2 = new Date(dateTo); endDCL2.setHours(23, 59, 59, 999);
+          conditions.push(lte(callLogs.startedAt, endDCL2));
+        }
         if (agentId && agentId !== 'all') conditions.push(eq(callLogs.userId, agentId));
         const logs = await db.select().from(callLogs).where(and(...conditions)).orderBy(desc(callLogs.startedAt));
         const allUsers = await db.select().from(users);
@@ -14733,14 +14753,22 @@ export async function registerRoutes(
         reportData = logs.map(log => {
           const user = userMap.get(log.userId);
           const customer = log.customerId ? customerMap.get(log.customerId) : null;
+          const totSecM = diffSeconds(log.startedAt, log.endedAt);
+          let ringSecM = 0, talkSecM = 0;
+          if (log.answeredAt) {
+            ringSecM = diffSeconds(log.startedAt, log.answeredAt);
+            talkSecM = diffSeconds(log.answeredAt, log.endedAt);
+          } else if (log.status === 'completed' && totSecM > 0) {
+            talkSecM = totSecM;
+          }
           return {
-            Agent: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : log.userId,
+            Agent: user?.fullName || user?.username || log.userId,
             Customer: customer ? `${customer.firstName || ''} ${customer.lastName || ''}`.trim() : '',
             'Phone Number': log.phoneNumber, Direction: log.direction, Status: log.status,
             'Started At': log.startedAt ? new Date(log.startedAt).toLocaleString() : '',
-            'Ring Time': formatDuration(diffSeconds(log.startedAt, log.answeredAt)),
-            'Talk Time': formatDuration(diffSeconds(log.answeredAt, log.endedAt)),
-            'Total Duration': formatDuration(diffSeconds(log.startedAt, log.endedAt)),
+            'Ring Time': formatDuration(ringSecM),
+            'Talk Time': formatDuration(talkSecM),
+            'Total Duration': formatDuration(totSecM),
             Notes: log.notes || '',
           };
         });
@@ -14748,7 +14776,10 @@ export async function registerRoutes(
         sheetName = 'Call Analysis';
         const conditions: any[] = [eq(callRecordings.campaignId, campaignId)];
         if (dateFrom) conditions.push(gte(callRecordings.createdAt, new Date(dateFrom)));
-        if (dateTo) conditions.push(lte(callRecordings.createdAt, new Date(dateTo)));
+        if (dateTo) {
+          const endDCA = new Date(dateTo); endDCA.setHours(23, 59, 59, 999);
+          conditions.push(lte(callRecordings.createdAt, endDCA));
+        }
         if (agentId && agentId !== 'all') conditions.push(eq(callRecordings.userId, agentId));
         const recordings = await db.select().from(callRecordings).where(and(...conditions)).orderBy(desc(callRecordings.createdAt));
         reportData = recordings.map(rec => ({
