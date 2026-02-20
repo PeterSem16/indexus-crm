@@ -26,7 +26,7 @@ Preferred communication style: Simple, everyday language.
 ### Data Storage
 - **Database**: PostgreSQL
 - **Schema**: Defined using Drizzle ORM, shared between frontend and backend.
-- **Key Tables**: `users`, `customers`, `products`, `invoices`, `collections`, `collaborators`, `visit_events`, `voice_notes`, `notifications`, `call_logs`, `call_recordings`, `campaigns`, `campaign_contacts`, `campaign_templates`, `sip_settings`, `faq_entries`, `executive_summaries`.
+- **Key Tables**: `users`, `customers`, `products`, `invoices`, `collections`, `collaborators`, `visit_events`, `voice_notes`, `notifications`, `call_logs`, `call_recordings`, `campaigns`, `campaign_contacts`, `campaign_templates`, `sip_settings`, `faq_entries`, `executive_summaries`, `scheduled_reports`.
 
 ### Modules and Features
 - **Collections (Odbery)**: Manages cord blood collections, including client/child info, collection staff, status tracking, and lab results.
@@ -41,7 +41,7 @@ Preferred communication style: Simple, everyday language.
 - **Call Recording & Analysis**: Call recording with pause/resume capability, visual recording indicators, AI-powered call transcription using GPT-4o. Features script compliance checking (1-10 score), sentiment analysis, keyword alert detection, quality scoring, full-text transcript search with advanced filters, export capabilities (TXT/JSON formats), and localized call analysis results displayed across all modules including customer detail pages and agent workspace.
 - **Transcript Search Module**: Dedicated search page for call transcripts with filters by sentiment, quality range, date range, campaign, agent. Supports full-text search with locale-aware date formatting, export to TXT/JSON, and multi-language UI.
 - **Executive Summaries**: AI-powered (GPT-4o) generation of executive summaries from collection data. Highlights key trends, anomalies, and KPIs. Supports period filtering (monthly/quarterly/yearly), country filtering, and multi-language generation. Stored in `executive_summaries` table with expandable card UI showing trends, anomalies, and KPI grids.
-- **Campaign Reports**: Comprehensive per-campaign reporting with 3 report types: Operator Statistics (login/session times, work/break/call durations, contacts handled), Complete Call List (ring time, talk time, total duration, disposition, status), and Call Analysis (sentiment, quality score, script compliance, key topics, alert keywords). All reports exportable to CSV, XLSX, and sendable via email (MS365). Accessible from campaign detail page with date range and agent filters.
+- **Campaign Reports**: Comprehensive per-campaign reporting with 3 report types: Operator Statistics (login/session times including total login time, work/break/call durations, contacts handled), Complete Call List (ring time, talk time, total duration, disposition, status), and Call Analysis (sentiment, quality score, script compliance, key topics, alert keywords). All reports exportable to CSV, XLSX, and sendable via email (MS365) with user selection UI. Accessible from campaign detail page with date range and agent filters. Includes scheduled report system with daily auto-send at configurable time, date range options (yesterday/last 7 days/last 30 days), and recipient user selection. Email sending uses country-specific system MS365 connections.
 
 ### Multi-Language Support (i18n)
 - **Languages**: English (EN), Slovak (SK), Czech (CS), Hungarian (HU), Romanian (RO), Italian (IT), German (DE)

@@ -4,6 +4,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { startAlertEvaluator } from "./alert-evaluator";
 import { startSessionCleanup } from "./session-cleanup";
+import { startScheduledReportRunner } from "./scheduled-report-runner";
 
 const app = express();
 const httpServer = createServer(app);
@@ -106,6 +107,7 @@ app.use((req, res, next) => {
       
       startAlertEvaluator(60 * 1000);
       startSessionCleanup();
+      startScheduledReportRunner();
     },
   );
 })();

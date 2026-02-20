@@ -4653,7 +4653,7 @@ export default function AgentWorkspacePage() {
     : null;
 
   return (
-    <div className={`flex flex-col ${agentSession.isSessionActive ? "h-[calc(100vh-3.5rem)]" : "h-[calc(100vh-8rem)] -m-6"}`}>
+    <div className={`flex flex-col ${agentSession.isSessionActive ? "h-screen" : "h-[calc(100vh-8rem)] -m-6"}`}>
       <Dialog open={sessionLoginOpen && !agentSession.isSessionActive} onOpenChange={(open) => { if (!open) { setSessionLoginOpen(false); setLocation("/"); } }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>

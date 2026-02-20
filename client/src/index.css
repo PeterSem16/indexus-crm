@@ -638,11 +638,14 @@
 
 [data-agent-fullscreen="true"] main {
   padding: 0 !important;
+  height: 100vh !important;
+  overflow: hidden !important;
 }
 
 [data-agent-fullscreen="true"] main > div {
   max-width: none !important;
   margin: 0 !important;
+  height: 100% !important;
 }
 
 [data-agent-fullscreen="true"] [data-sidebar="sidebar"] {

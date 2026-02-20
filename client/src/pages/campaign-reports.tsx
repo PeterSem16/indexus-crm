@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, Link } from "wouter";
 import { useI18n } from "@/i18n";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { format, subDays, startOfWeek, startOfMonth, startOfYear, subMonths, subWeeks } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,8 +12,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Progress } from "@/components/ui/progress";
@@ -22,7 +23,7 @@ import {
   ArrowLeft, Download, Mail, FileSpreadsheet, Users, Phone, BarChart3,
   Loader2, Calendar, ChevronDown, ChevronRight, Clock, TrendingUp,
   Coffee, Headphones, MessageSquare, WrapText, Timer, Activity,
-  User, Zap, Target, AlertTriangle
+  User, Zap, Target, AlertTriangle, CalendarClock, Trash2, Plus, Power
 } from "lucide-react";
 import type { Campaign } from "@shared/schema";
 
@@ -60,6 +61,8 @@ interface OperatorStat {
   sessionsCount: number;
   firstLogin: string | null;
   lastLogout: string | null;
+  totalLoginTime: number;
+  totalLoginTimeFormatted: string;
   totalWorkTime: number;
   totalBreakTime: number;
   totalCallTime: number;
@@ -157,7 +160,13 @@ export default function CampaignReportsPage() {
   const [groupBy, setGroupBy] = useState("total");
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [emailRecipient, setEmailRecipient] = useState("");
+  const [selectedUserEmails, setSelectedUserEmails] = useState<string[]>([]);
   const [expandedOperators, setExpandedOperators] = useState<Set<string>>(new Set());
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  const [schedReportTypes, setSchedReportTypes] = useState<string[]>(['operator-stats']);
+  const [schedRecipientIds, setSchedRecipientIds] = useState<string[]>([]);
+  const [schedSendTime, setSchedSendTime] = useState("08:00");
+  const [schedDateRange, setSchedDateRange] = useState("yesterday");
   const [quickDateOpen, setQuickDateOpen] = useState(false);
 
   const today = format(new Date(), DATE_FMT);
@@ -209,6 +218,55 @@ export default function CampaignReportsPage() {
       return res.json();
     },
     enabled: !!campaignId,
+  });
+
+  const { data: allUsers = [] } = useQuery<Array<{ id: string; email: string; fullName: string; firstName: string; lastName: string; role: string }>>({
+    queryKey: ["/api/users"],
+    enabled: emailDialogOpen || scheduleDialogOpen,
+  });
+
+  const { data: scheduledReportsList = [] } = useQuery<Array<{
+    id: string; reportTypes: string[]; recipientUserIds: string[]; sendTime: string;
+    dateRangeType: string; enabled: boolean; lastRunAt: string | null; nextRunAt: string | null;
+  }>>({
+    queryKey: ["/api/campaigns", campaignId, "scheduled-reports"],
+    enabled: !!campaignId,
+  });
+
+  const createScheduleMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", `/api/campaigns/${campaignId}/scheduled-reports`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "scheduled-reports"] });
+      toast({ title: "Scheduled report created" });
+      setScheduleDialogOpen(false);
+      setSchedRecipientIds([]);
+      setSchedReportTypes(['operator-stats']);
+      setSchedSendTime("08:00");
+      setSchedDateRange("yesterday");
+    },
+    onError: () => toast({ title: "Failed to create schedule", variant: "destructive" }),
+  });
+
+  const toggleScheduleMutation = useMutation({
+    mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
+      const res = await apiRequest("PATCH", `/api/scheduled-reports/${id}`, { enabled });
+      return res.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "scheduled-reports"] }),
+  });
+
+  const deleteScheduleMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/scheduled-reports/${id}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "scheduled-reports"] });
+      toast({ title: "Schedule deleted" });
+    },
   });
 
   const qp = buildQueryParams();
@@ -276,9 +334,11 @@ export default function CampaignReportsPage() {
 
   const emailMutation = useMutation({
     mutationFn: async () => {
+      const recipientEmails = [...selectedUserEmails];
+      if (emailRecipient && !recipientEmails.includes(emailRecipient)) recipientEmails.push(emailRecipient);
       const res = await apiRequest("POST", `/api/campaigns/${campaignId}/reports/send-email`, {
         reportType: activeTab,
-        recipientEmail: emailRecipient,
+        recipientEmails,
         dateFrom: dateFrom || undefined,
         dateTo: dateTo || undefined,
         agentId: selectedAgent !== 'all' ? selectedAgent : undefined,
@@ -290,6 +350,7 @@ export default function CampaignReportsPage() {
       toast({ title: cr.emailSent });
       setEmailDialogOpen(false);
       setEmailRecipient("");
+      setSelectedUserEmails([]);
     },
     onError: () => {
       toast({ title: cr.emailFailed, variant: "destructive" });
@@ -399,6 +460,7 @@ export default function CampaignReportsPage() {
     if (operatorStats.length === 0) return null;
     const totals = operatorStats.reduce((acc, s) => ({
       sessions: acc.sessions + s.sessionsCount,
+      loginTime: acc.loginTime + (s.totalLoginTime || 0),
       workTime: acc.workTime + s.totalWorkTime,
       breakTime: acc.breakTime + s.totalBreakTime,
       callTime: acc.callTime + s.totalCallTime,
@@ -410,7 +472,7 @@ export default function CampaignReportsPage() {
       emailCount: acc.emailCount + (s.emailCount || 0),
       smsCount: acc.smsCount + (s.smsCount || 0),
       operators: acc.operators,
-    }), { sessions: 0, workTime: 0, breakTime: 0, callTime: 0, emailTime: 0, smsTime: 0, wrapUpTime: 0, contacts: 0, callCount: 0, emailCount: 0, smsCount: 0, operators: new Set(operatorStats.map(s => s.operatorId)).size });
+    }), { sessions: 0, loginTime: 0, workTime: 0, breakTime: 0, callTime: 0, emailTime: 0, smsTime: 0, wrapUpTime: 0, contacts: 0, callCount: 0, emailCount: 0, smsCount: 0, operators: new Set(operatorStats.map(s => s.operatorId)).size });
     return totals;
   }, [operatorStats]);
 
@@ -584,15 +646,15 @@ export default function CampaignReportsPage() {
         <TabsContent value="operator-stats" className="mt-4 space-y-4">
           {/* Summary Cards */}
           {totalSummary && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-5 xl:grid-cols-10 gap-2">
               <Card className="p-3">
                 <div className="flex items-center gap-2">
                   <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
                     <Users className="h-4 w-4 text-blue-600" />
                   </div>
                   <div>
-                    <p className="text-[11px] text-muted-foreground">{cr?.totalOperators || 'Operators'}</p>
-                    <p className="text-xl font-bold">{totalSummary.operators}</p>
+                    <p className="text-[10px] text-muted-foreground">{cr?.totalOperators || 'Operators'}</p>
+                    <p className="text-sm font-medium">{totalSummary.operators}</p>
                   </div>
                 </div>
               </Card>
@@ -602,8 +664,19 @@ export default function CampaignReportsPage() {
                     <Activity className="h-4 w-4 text-green-600" />
                   </div>
                   <div>
-                    <p className="text-[11px] text-muted-foreground">{cr?.sessions || 'Sessions'}</p>
-                    <p className="text-xl font-bold">{totalSummary.sessions}</p>
+                    <p className="text-[10px] text-muted-foreground">{cr?.sessions || 'Sessions'}</p>
+                    <p className="text-sm font-medium">{totalSummary.sessions}</p>
+                  </div>
+                </div>
+              </Card>
+              <Card className="p-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
+                    <Timer className="h-4 w-4 text-indigo-600" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground">{cr?.totalLoginTime || 'Login Time'}</p>
+                    <p className="text-sm font-medium">{formatDurationLocal(totalSummary.loginTime)}</p>
                   </div>
                 </div>
               </Card>
@@ -613,8 +686,8 @@ export default function CampaignReportsPage() {
                     <Clock className="h-4 w-4 text-purple-600" />
                   </div>
                   <div>
-                    <p className="text-[11px] text-muted-foreground">{cr.totalWorkTime}</p>
-                    <p className="text-lg font-bold">{formatDurationLocal(totalSummary.workTime)}</p>
+                    <p className="text-[10px] text-muted-foreground">{cr.totalWorkTime}</p>
+                    <p className="text-sm font-medium">{formatDurationLocal(totalSummary.workTime)}</p>
                   </div>
                 </div>
               </Card>
@@ -624,8 +697,8 @@ export default function CampaignReportsPage() {
                     <Coffee className="h-4 w-4 text-yellow-600" />
                   </div>
                   <div>
-                    <p className="text-[11px] text-muted-foreground">{cr.totalBreakTime}</p>
-                    <p className="text-lg font-bold">{formatDurationLocal(totalSummary.breakTime)}</p>
+                    <p className="text-[10px] text-muted-foreground">{cr.totalBreakTime}</p>
+                    <p className="text-sm font-medium">{formatDurationLocal(totalSummary.breakTime)}</p>
                   </div>
                 </div>
               </Card>
@@ -635,8 +708,8 @@ export default function CampaignReportsPage() {
                     <Headphones className="h-4 w-4 text-emerald-600" />
                   </div>
                   <div>
-                    <p className="text-[11px] text-muted-foreground">{cr.totalCallTime} ({totalSummary.callCount})</p>
-                    <p className="text-lg font-bold">{formatDurationLocal(totalSummary.callTime)}</p>
+                    <p className="text-[10px] text-muted-foreground">{cr.totalCallTime} ({totalSummary.callCount})</p>
+                    <p className="text-sm font-medium">{formatDurationLocal(totalSummary.callTime)}</p>
                   </div>
                 </div>
               </Card>
@@ -646,8 +719,8 @@ export default function CampaignReportsPage() {
                     <Mail className="h-4 w-4 text-blue-600" />
                   </div>
                   <div>
-                    <p className="text-[11px] text-muted-foreground">{cr.totalEmailTime} ({totalSummary.emailCount})</p>
-                    <p className="text-lg font-bold">{formatDurationLocal(totalSummary.emailTime)}</p>
+                    <p className="text-[10px] text-muted-foreground">{cr.totalEmailTime} ({totalSummary.emailCount})</p>
+                    <p className="text-sm font-medium">{formatDurationLocal(totalSummary.emailTime)}</p>
                   </div>
                 </div>
               </Card>
@@ -657,8 +730,8 @@ export default function CampaignReportsPage() {
                     <MessageSquare className="h-4 w-4 text-violet-600" />
                   </div>
                   <div>
-                    <p className="text-[11px] text-muted-foreground">{cr.totalSmsTime} ({totalSummary.smsCount})</p>
-                    <p className="text-lg font-bold">{formatDurationLocal(totalSummary.smsTime)}</p>
+                    <p className="text-[10px] text-muted-foreground">{cr.totalSmsTime} ({totalSummary.smsCount})</p>
+                    <p className="text-sm font-medium">{formatDurationLocal(totalSummary.smsTime)}</p>
                   </div>
                 </div>
               </Card>
@@ -668,8 +741,8 @@ export default function CampaignReportsPage() {
                     <WrapText className="h-4 w-4 text-orange-600" />
                   </div>
                   <div>
-                    <p className="text-[11px] text-muted-foreground">{cr.totalWrapUpTime}</p>
-                    <p className="text-lg font-bold">{formatDurationLocal(totalSummary.wrapUpTime)}</p>
+                    <p className="text-[10px] text-muted-foreground">{cr.totalWrapUpTime}</p>
+                    <p className="text-sm font-medium">{formatDurationLocal(totalSummary.wrapUpTime)}</p>
                   </div>
                 </div>
               </Card>
@@ -679,8 +752,8 @@ export default function CampaignReportsPage() {
                     <Target className="h-4 w-4 text-rose-600" />
                   </div>
                   <div>
-                    <p className="text-[11px] text-muted-foreground">{cr.contactsHandled}</p>
-                    <p className="text-xl font-bold">{totalSummary.contacts}</p>
+                    <p className="text-[10px] text-muted-foreground">{cr.contactsHandled}</p>
+                    <p className="text-sm font-medium">{totalSummary.contacts}</p>
                   </div>
                 </div>
               </Card>
@@ -1117,8 +1190,8 @@ export default function CampaignReportsPage() {
       </Tabs>
 
       {/* Email Dialog */}
-      <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
-        <DialogContent>
+      <Dialog open={emailDialogOpen} onOpenChange={(open) => { setEmailDialogOpen(open); if (!open) { setSelectedUserEmails([]); setEmailRecipient(""); } }}>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Mail className="h-5 w-5" />
@@ -1127,7 +1200,39 @@ export default function CampaignReportsPage() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label>{cr.emailRecipient}</Label>
+              <Label className="text-xs font-medium">{cr?.selectRecipients || 'Select recipients'}</Label>
+              <ScrollArea className="max-h-48 border rounded-md">
+                <div className="p-2 space-y-0.5">
+                  {allUsers.filter(u => u.email).map(u => {
+                    const isSelected = selectedUserEmails.includes(u.email);
+                    return (
+                      <div
+                        key={u.id}
+                        className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer transition-colors ${isSelected ? 'bg-primary/10' : 'hover:bg-muted/50'}`}
+                        onClick={() => setSelectedUserEmails(prev => isSelected ? prev.filter(e => e !== u.email) : [...prev, u.email])}
+                        data-testid={`user-recipient-${u.id}`}
+                      >
+                        <Checkbox
+                          checked={isSelected}
+                          onClick={(e) => e.stopPropagation()}
+                          onCheckedChange={(checked) => setSelectedUserEmails(prev => checked ? [...prev, u.email] : prev.filter(e => e !== u.email))}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm truncate">{u.fullName || `${u.firstName} ${u.lastName}`}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">{u.email}</p>
+                        </div>
+                        <Badge variant="outline" className="text-[10px] shrink-0">{u.role}</Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+              {selectedUserEmails.length > 0 && (
+                <p className="text-xs text-muted-foreground">{selectedUserEmails.length} {cr?.recipientsSelected || 'selected'}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">{cr?.additionalEmail || 'Additional email'}</Label>
               <Input
                 type="email"
                 value={emailRecipient}
@@ -1150,11 +1255,172 @@ export default function CampaignReportsPage() {
             </DialogClose>
             <Button
               onClick={() => emailMutation.mutate()}
-              disabled={!emailRecipient || emailMutation.isPending}
+              disabled={(selectedUserEmails.length === 0 && !emailRecipient) || emailMutation.isPending}
               data-testid="btn-send-email-confirm"
             >
               {emailMutation.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Mail className="h-4 w-4 mr-1" />}
               {cr.send}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Scheduled Reports Section */}
+      <Card className="mt-4">
+        <CardHeader className="py-3 px-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <CalendarClock className="h-4 w-4" />
+              {cr?.scheduledReports || 'Scheduled Reports'}
+            </CardTitle>
+            <Button size="sm" variant="outline" onClick={() => setScheduleDialogOpen(true)} data-testid="btn-add-schedule">
+              <Plus className="h-3 w-3 mr-1" />
+              {cr?.addSchedule || 'Add Schedule'}
+            </Button>
+          </div>
+        </CardHeader>
+        {scheduledReportsList.length > 0 && (
+          <CardContent className="px-4 pb-3 pt-0">
+            <div className="space-y-2">
+              {scheduledReportsList.map(sched => (
+                <div key={sched.id} className={`flex items-center gap-3 p-2 rounded-lg border text-xs ${sched.enabled ? 'bg-background' : 'bg-muted/30 opacity-60'}`} data-testid={`schedule-${sched.id}`}>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6 shrink-0"
+                    onClick={() => toggleScheduleMutation.mutate({ id: sched.id, enabled: !sched.enabled })}
+                    data-testid={`toggle-schedule-${sched.id}`}
+                  >
+                    <Power className={`h-3 w-3 ${sched.enabled ? 'text-green-500' : 'text-muted-foreground'}`} />
+                  </Button>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="outline" className="text-[10px]">{sched.sendTime}</Badge>
+                      {sched.reportTypes.map(rt => (
+                        <Badge key={rt} variant="secondary" className="text-[10px]">
+                          {rt === 'operator-stats' ? (cr?.operatorStats || 'Operator Stats') : rt === 'call-list' ? (cr?.callList || 'Call List') : (cr?.callAnalysis || 'Call Analysis')}
+                        </Badge>
+                      ))}
+                      <Badge variant="outline" className="text-[10px]">
+                        {sched.dateRangeType === 'yesterday' ? (cr?.yesterday || 'Yesterday') : sched.dateRangeType === 'last7days' ? (cr?.last7Days || 'Last 7 days') : (cr?.last30Days || 'Last 30 days')}
+                      </Badge>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      {sched.recipientUserIds.length} {cr?.recipients || 'recipients'}
+                      {sched.lastRunAt && ` · ${cr?.lastRun || 'Last run'}: ${new Date(sched.lastRunAt).toLocaleString()}`}
+                    </p>
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6 shrink-0 text-destructive hover:text-destructive"
+                    onClick={() => deleteScheduleMutation.mutate(sched.id)}
+                    data-testid={`delete-schedule-${sched.id}`}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Schedule Dialog */}
+      <Dialog open={scheduleDialogOpen} onOpenChange={(open) => { setScheduleDialogOpen(open); if (!open) setSchedRecipientIds([]); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarClock className="h-5 w-5" />
+              {cr?.createSchedule || 'Create Scheduled Report'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">{cr?.reportType || 'Report Types'}</Label>
+              <div className="flex gap-2 flex-wrap">
+                {(['operator-stats', 'call-list', 'call-analysis'] as const).map(rt => {
+                  const isSelected = schedReportTypes.includes(rt);
+                  return (
+                    <div
+                      key={rt}
+                      className={`flex items-center gap-1.5 px-2 py-1 rounded border cursor-pointer text-xs ${isSelected ? 'bg-primary/10 border-primary/30' : 'hover:bg-muted/50'}`}
+                      onClick={() => setSchedReportTypes(prev => isSelected ? prev.filter(r => r !== rt) : [...prev, rt])}
+                    >
+                      <Checkbox checked={isSelected} onClick={(e) => e.stopPropagation()} onCheckedChange={(checked) => setSchedReportTypes(prev => checked ? [...prev, rt] : prev.filter(r => r !== rt))} />
+                      <span>{rt === 'operator-stats' ? (cr?.operatorStats || 'Operator Stats') : rt === 'call-list' ? (cr?.callList || 'Call List') : (cr?.callAnalysis || 'Call Analysis')}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">{cr?.sendTime || 'Send Time'}</Label>
+                <Input type="time" value={schedSendTime} onChange={e => setSchedSendTime(e.target.value)} data-testid="input-schedule-time" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">{cr?.dateRange || 'Date Range'}</Label>
+                <Select value={schedDateRange} onValueChange={setSchedDateRange}>
+                  <SelectTrigger data-testid="select-schedule-range"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="yesterday">{cr?.yesterday || 'Yesterday'}</SelectItem>
+                    <SelectItem value="last7days">{cr?.last7Days || 'Last 7 days'}</SelectItem>
+                    <SelectItem value="last30days">{cr?.last30Days || 'Last 30 days'}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">{cr?.selectRecipients || 'Select Recipients'}</Label>
+              <ScrollArea className="max-h-40 border rounded-md">
+                <div className="p-2 space-y-0.5">
+                  {allUsers.filter(u => u.email).map(u => {
+                    const isSelected = schedRecipientIds.includes(u.id);
+                    return (
+                      <div
+                        key={u.id}
+                        className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer transition-colors ${isSelected ? 'bg-primary/10' : 'hover:bg-muted/50'}`}
+                        onClick={() => setSchedRecipientIds(prev => isSelected ? prev.filter(id => id !== u.id) : [...prev, u.id])}
+                      >
+                        <Checkbox
+                          checked={isSelected}
+                          onClick={(e) => e.stopPropagation()}
+                          onCheckedChange={(checked) => setSchedRecipientIds(prev => checked ? [...prev, u.id] : prev.filter(id => id !== u.id))}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm truncate">{u.fullName || `${u.firstName} ${u.lastName}`}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">{u.email}</p>
+                        </div>
+                        <Badge variant="outline" className="text-[10px] shrink-0">{u.role}</Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+              {schedRecipientIds.length > 0 && (
+                <p className="text-xs text-muted-foreground">{schedRecipientIds.length} {cr?.recipientsSelected || 'selected'}</p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">{cr?.cancel || 'Cancel'}</Button>
+            </DialogClose>
+            <Button
+              onClick={() => createScheduleMutation.mutate({
+                reportTypes: schedReportTypes,
+                recipientUserIds: schedRecipientIds,
+                sendTime: schedSendTime,
+                dateRangeType: schedDateRange,
+              })}
+              disabled={schedReportTypes.length === 0 || schedRecipientIds.length === 0 || createScheduleMutation.isPending}
+              data-testid="btn-create-schedule"
+            >
+              {createScheduleMutation.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <CalendarClock className="h-4 w-4 mr-1" />}
+              {cr?.createSchedule || 'Create Schedule'}
             </Button>
           </DialogFooter>
         </DialogContent>

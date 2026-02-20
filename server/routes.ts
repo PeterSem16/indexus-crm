@@ -29,7 +29,7 @@ import {
   DEFAULT_PHONE_DISPOSITIONS, DEFAULT_EMAIL_DISPOSITIONS, DEFAULT_SMS_DISPOSITIONS, DISPOSITION_NAME_TRANSLATIONS,
   callLogs, campaignContacts, campaignContactHistory, campaignContactSessions, campaigns, customers, users,
   collections, executiveSummaries, collectionLabResults,
-  agentSessions, agentSessionActivities, agentBreaks,
+  agentSessions, agentSessionActivities, agentBreaks, scheduledReports,
   type SafeUser, type Customer, type Product, type BillingDetails, type ActivityLog, type LeadScoringCriteria,
   type ServiceConfiguration, type InvoiceTemplate, type InvoiceLayout, type Role,
   type Campaign, type CampaignContact, type ContractInstance
@@ -14298,6 +14298,7 @@ export async function registerRoutes(
             sessionsCount: 0,
             firstLogin: null as string | null,
             lastLogout: null as string | null,
+            totalLoginTime: 0,
             totalWorkTime: 0,
             totalBreakTime: 0,
             totalCallTime: 0,
@@ -14355,6 +14356,8 @@ export async function registerRoutes(
 
         const wrapUpTime = session.totalWrapUpTime || 0;
 
+        const loginTimeSec = sessionStart && sessionEnd ? Math.round((sessionEnd - sessionStart) / 1000) : 0;
+        stats.totalLoginTime += loginTimeSec;
         stats.totalWorkTime += workTime;
         stats.totalBreakTime += breakTime;
         stats.totalCallTime += callTime;
@@ -14411,6 +14414,7 @@ export async function registerRoutes(
           totalActiveTime: totalActive > 0 ? totalActive : 0,
           totalActiveTimeFormatted: formatDuration(totalActive > 0 ? totalActive : 0),
           utilization,
+          totalLoginTimeFormatted: formatDuration(s.totalLoginTime),
           totalWorkTimeFormatted: formatDuration(s.totalWorkTime),
           totalBreakTimeFormatted: formatDuration(s.totalBreakTime),
           totalCallTimeFormatted: formatDuration(s.totalCallTime),
@@ -14846,12 +14850,26 @@ export async function registerRoutes(
   });
 
   // Send campaign report via email
-  app.post("/api/campaigns/:id/reports/send-email", requireAuth, async (req, res) => {
+  const internalOrAuth = (req: Request, res: Response, next: NextFunction) => {
+    if (req.headers['x-scheduled-report'] === 'true' && (req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1')) {
+      return next();
+    }
+    return requireAuth(req, res, next);
+  };
+
+  app.post("/api/campaigns/:id/reports/send-email", internalOrAuth, async (req, res) => {
     try {
-      const { reportType, recipientEmail, dateFrom, dateTo, agentId, groupBy: emailGroupBy } = req.body;
+      const { reportType, recipientEmail, recipientEmails, dateFrom, dateTo, agentId, groupBy: emailGroupBy } = req.body;
       const campaignId = req.params.id;
 
-      if (!recipientEmail) return res.status(400).json({ error: "Recipient email is required" });
+      const allRecipients: string[] = [];
+      if (recipientEmail) allRecipients.push(recipientEmail);
+      if (recipientEmails && Array.isArray(recipientEmails)) {
+        for (const e of recipientEmails) {
+          if (e && typeof e === 'string' && !allRecipients.includes(e)) allRecipients.push(e);
+        }
+      }
+      if (allRecipients.length === 0) return res.status(400).json({ error: "At least one recipient email is required" });
 
       const campaign = await storage.getCampaign(campaignId);
       if (!campaign) return res.status(404).json({ error: "Campaign not found" });
@@ -15001,42 +15019,178 @@ export async function registerRoutes(
       const xlsxBuffer = generateXlsx(reportData.length > 0 ? reportData : [{ 'No Data': 'No data found for the selected filters' }], sheetName);
       const csvContent = generateCsv(reportData.length > 0 ? reportData : [{ 'No Data': 'No data found for the selected filters' }]);
 
-      try {
-        const { sendEmail: ms365SendEmail, isConfigured } = await import("./lib/ms365");
-        const configured = await isConfigured();
+      const emailSubject = `Campaign Report: ${campaign.name} - ${reportType.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}`;
+      const emailBody = `<p>Please find attached the campaign report for <strong>${campaign.name}</strong>.</p><p>Report type: ${reportType.replace(/-/g, ' ')}</p><p>Generated: ${new Date().toLocaleString()}</p>`;
+      const emailAttachments = [
+        { name: `${fileName}.xlsx`, contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', contentBase64: xlsxBuffer.toString('base64') },
+        { name: `${fileName}.csv`, contentType: 'text/csv', contentBase64: Buffer.from(csvContent).toString('base64') },
+      ];
 
-        if (configured) {
-          await ms365SendEmail({
-            to: recipientEmail,
-            subject: `Campaign Report: ${campaign.name} - ${reportType.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}`,
-            body: `<p>Please find attached the campaign report for <strong>${campaign.name}</strong>.</p><p>Report type: ${reportType.replace(/-/g, ' ')}</p><p>Generated: ${new Date().toLocaleString()}</p>`,
-            contentType: 'html',
-            attachments: [
-              { name: `${fileName}.xlsx`, contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', contentBytes: xlsxBuffer.toString('base64') },
-              { name: `${fileName}.csv`, contentType: 'text/csv', contentBytes: Buffer.from(csvContent).toString('base64') },
-            ],
-          });
-          res.json({ success: true, message: "Report sent via email" });
-        } else {
-          const { sendEmail: fallbackSend } = await import("./email");
-          await fallbackSend({
-            to: recipientEmail,
-            subject: `Campaign Report: ${campaign.name} - ${reportType.replace(/-/g, ' ')}`,
-            text: `Campaign report for ${campaign.name}. Report type: ${reportType.replace(/-/g, ' ')}. Generated: ${new Date().toLocaleString()}`,
-            attachments: [
-              { filename: `${fileName}.xlsx`, content: xlsxBuffer },
-              { filename: `${fileName}.csv`, content: Buffer.from(csvContent) },
-            ],
-          });
-          res.json({ success: true, message: "Report sent via email" });
+      let sent = false;
+      const countryCode = campaign.countryCodes && campaign.countryCodes.length > 0 ? campaign.countryCodes[0] : null;
+
+      if (countryCode) {
+        try {
+          const systemConnection = await storage.getSystemMs365Connection(countryCode);
+          if (systemConnection && systemConnection.isConnected) {
+            const { getValidAccessToken, sendEmailFromSharedMailbox } = await import("./lib/ms365");
+            const { decryptTokenSafe, encryptTokenWithMarker } = await import("./lib/token-crypto");
+            const decryptedAccessToken = systemConnection.accessToken ? decryptTokenSafe(systemConnection.accessToken) : null;
+            const decryptedRefreshToken = systemConnection.refreshToken ? decryptTokenSafe(systemConnection.refreshToken) : null;
+            const tokenResult = await getValidAccessToken(decryptedAccessToken, systemConnection.tokenExpiresAt, decryptedRefreshToken);
+            if (tokenResult) {
+              if (tokenResult.refreshed) {
+                await storage.updateSystemMs365Connection(countryCode, {
+                  accessToken: encryptTokenWithMarker(tokenResult.accessToken),
+                  refreshToken: tokenResult.refreshToken ? encryptTokenWithMarker(tokenResult.refreshToken) : systemConnection.refreshToken,
+                  tokenExpiresAt: tokenResult.expiresOn
+                });
+              }
+              await sendEmailFromSharedMailbox(tokenResult.accessToken, systemConnection.email, allRecipients, emailSubject, emailBody, true, undefined, emailAttachments);
+              sent = true;
+              console.log(`[CampaignReport] Sent report via system MS365 (${systemConnection.email}) to ${allRecipients.join(', ')}`);
+            }
+          }
+        } catch (sysEmailErr) {
+          console.warn(`[CampaignReport] System MS365 for ${countryCode} failed:`, sysEmailErr);
         }
-      } catch (emailError) {
-        console.error("Failed to send email:", emailError);
+      }
+
+      if (!sent) {
+        try {
+          const { sendEmail: ms365SendEmail, isConfigured } = await import("./lib/ms365");
+          const configured = await isConfigured();
+          if (configured) {
+            await ms365SendEmail({
+              to: allRecipients.join(','),
+              subject: emailSubject,
+              body: emailBody,
+              contentType: 'html',
+              attachments: emailAttachments.map(a => ({ name: a.name, contentType: a.contentType, contentBytes: a.contentBase64 })),
+            });
+            sent = true;
+          }
+        } catch (ms365Err) {
+          console.warn("[CampaignReport] MS365 fallback failed:", ms365Err);
+        }
+      }
+
+      if (!sent) {
+        try {
+          const { sendEmail: fallbackSend } = await import("./email");
+          for (const recipient of allRecipients) {
+            await fallbackSend({
+              to: recipient,
+              subject: emailSubject,
+              text: `Campaign report for ${campaign.name}. Report type: ${reportType.replace(/-/g, ' ')}. Generated: ${new Date().toLocaleString()}`,
+              attachments: [
+                { filename: `${fileName}.xlsx`, content: xlsxBuffer },
+                { filename: `${fileName}.csv`, content: Buffer.from(csvContent) },
+              ],
+            });
+          }
+          sent = true;
+        } catch (fallbackErr) {
+          console.error("[CampaignReport] All email methods failed:", fallbackErr);
+        }
+      }
+
+      if (sent) {
+        res.json({ success: true, message: `Report sent to ${allRecipients.length} recipient(s)` });
+      } else {
         res.status(500).json({ error: "Failed to send email. Check email configuration." });
       }
     } catch (error) {
       console.error("Failed to send campaign report email:", error);
       res.status(500).json({ error: "Failed to generate and send report" });
+    }
+  });
+
+  // ====== Scheduled Reports CRUD ======
+  app.get("/api/campaigns/:id/scheduled-reports", requireAuth, async (req, res) => {
+    try {
+      const campaignId = req.params.id;
+      const results = await db.select().from(scheduledReports)
+        .where(eq(scheduledReports.campaignId, campaignId))
+        .orderBy(desc(scheduledReports.createdAt));
+      res.json(results);
+    } catch (error) {
+      console.error("Failed to get scheduled reports:", error);
+      res.status(500).json({ error: "Failed to get scheduled reports" });
+    }
+  });
+
+  app.post("/api/campaigns/:id/scheduled-reports", requireAuth, async (req, res) => {
+    try {
+      const campaignId = req.params.id;
+      const userId = (req as any).session?.userId || (req as any).user?.id;
+      const { reportTypes, recipientUserIds, sendTime, dateRangeType, enabled } = req.body;
+
+      if (!reportTypes || !reportTypes.length) return res.status(400).json({ error: "At least one report type is required" });
+      if (!recipientUserIds || !recipientUserIds.length) return res.status(400).json({ error: "At least one recipient is required" });
+      if (!sendTime) return res.status(400).json({ error: "Send time is required" });
+
+      const now = new Date();
+      const [hours, minutes] = sendTime.split(':').map(Number);
+      const nextRun = new Date(now);
+      nextRun.setHours(hours, minutes, 0, 0);
+      if (nextRun <= now) nextRun.setDate(nextRun.getDate() + 1);
+
+      const [created] = await db.insert(scheduledReports).values({
+        campaignId,
+        reportTypes,
+        recipientUserIds,
+        sendTime,
+        dateRangeType: dateRangeType || 'yesterday',
+        enabled: enabled !== false,
+        createdBy: userId,
+        nextRunAt: nextRun,
+      }).returning();
+      res.json(created);
+    } catch (error) {
+      console.error("Failed to create scheduled report:", error);
+      res.status(500).json({ error: "Failed to create scheduled report" });
+    }
+  });
+
+  app.patch("/api/scheduled-reports/:id", requireAuth, async (req, res) => {
+    try {
+      const id = req.params.id;
+      const { enabled, reportTypes, recipientUserIds, sendTime, dateRangeType } = req.body;
+
+      const updates: any = { updatedAt: new Date() };
+      if (typeof enabled === 'boolean') updates.enabled = enabled;
+      if (reportTypes) updates.reportTypes = reportTypes;
+      if (recipientUserIds) updates.recipientUserIds = recipientUserIds;
+      if (sendTime) {
+        updates.sendTime = sendTime;
+        const now = new Date();
+        const [hours, minutes] = sendTime.split(':').map(Number);
+        const nextRun = new Date(now);
+        nextRun.setHours(hours, minutes, 0, 0);
+        if (nextRun <= now) nextRun.setDate(nextRun.getDate() + 1);
+        updates.nextRunAt = nextRun;
+      }
+      if (dateRangeType) updates.dateRangeType = dateRangeType;
+
+      const [updated] = await db.update(scheduledReports).set(updates).where(eq(scheduledReports.id, id)).returning();
+      if (!updated) return res.status(404).json({ error: "Scheduled report not found" });
+      res.json(updated);
+    } catch (error) {
+      console.error("Failed to update scheduled report:", error);
+      res.status(500).json({ error: "Failed to update scheduled report" });
+    }
+  });
+
+  app.delete("/api/scheduled-reports/:id", requireAuth, async (req, res) => {
+    try {
+      const id = req.params.id;
+      const [deleted] = await db.delete(scheduledReports).where(eq(scheduledReports.id, id)).returning();
+      if (!deleted) return res.status(404).json({ error: "Scheduled report not found" });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete scheduled report:", error);
+      res.status(500).json({ error: "Failed to delete scheduled report" });
     }
   });
 

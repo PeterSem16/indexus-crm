@@ -5309,3 +5309,28 @@ export const insertExecutiveSummarySchema = createInsertSchema(executiveSummarie
 });
 export type InsertExecutiveSummary = z.infer<typeof insertExecutiveSummarySchema>;
 export type ExecutiveSummary = typeof executiveSummaries.$inferSelect;
+
+export const scheduledReports = pgTable("scheduled_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id").references(() => campaigns.id),
+  reportTypes: text("report_types").array().notNull(),
+  recipientUserIds: text("recipient_user_ids").array().notNull(),
+  sendTime: varchar("send_time", { length: 5 }).notNull(),
+  dateRangeType: text("date_range_type").notNull().default("yesterday"),
+  enabled: boolean("enabled").notNull().default(true),
+  createdBy: varchar("created_by").references(() => users.id),
+  lastRunAt: timestamp("last_run_at"),
+  nextRunAt: timestamp("next_run_at"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertScheduledReportSchema = createInsertSchema(scheduledReports).omit({
+  id: true,
+  lastRunAt: true,
+  nextRunAt: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertScheduledReport = z.infer<typeof insertScheduledReportSchema>;
+export type ScheduledReport = typeof scheduledReports.$inferSelect;
