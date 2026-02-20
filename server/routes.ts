@@ -29,6 +29,7 @@ import {
   DEFAULT_PHONE_DISPOSITIONS, DEFAULT_EMAIL_DISPOSITIONS, DEFAULT_SMS_DISPOSITIONS, DISPOSITION_NAME_TRANSLATIONS,
   callLogs, campaignContacts, campaignContactHistory, campaignContactSessions, campaigns, customers, users,
   collections, executiveSummaries, collectionLabResults,
+  agentSessions, agentSessionActivities,
   type SafeUser, type Customer, type Product, type BillingDetails, type ActivityLog, type LeadScoringCriteria,
   type ServiceConfiguration, type InvoiceTemplate, type InvoiceLayout, type Role,
   type Campaign, type CampaignContact, type ContractInstance
@@ -14148,6 +14149,524 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to export campaign" });
     }
   });
+
+  // ============ CAMPAIGN REPORTS ============
+
+  // Helper: format seconds to HH:MM:SS
+  function formatDuration(seconds: number | null): string {
+    if (!seconds) return "0:00:00";
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
+
+  // Helper: compute diff in seconds between two dates
+  function diffSeconds(start: Date | string | null, end: Date | string | null): number {
+    if (!start || !end) return 0;
+    return Math.max(0, Math.round((new Date(end).getTime() - new Date(start).getTime()) / 1000));
+  }
+
+  // Helper: generate XLSX buffer from data rows
+  function generateXlsx(data: Record<string, any>[], sheetName: string): Buffer {
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(data);
+    XLSX.utils.book_append_sheet(wb, ws, sheetName.substring(0, 31));
+    return Buffer.from(XLSX.write(wb, { type: "buffer", bookType: "xlsx" }));
+  }
+
+  // Helper: generate CSV string from data rows
+  function generateCsv(data: Record<string, any>[]): string {
+    if (data.length === 0) return '';
+    const headers = Object.keys(data[0]);
+    const csvRows = [headers.join(',')];
+    for (const row of data) {
+      const values = headers.map(h => {
+        const val = row[h] ?? '';
+        const str = String(val);
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      });
+      csvRows.push(values.join(','));
+    }
+    return csvRows.join('\n');
+  }
+
+  // 1. Operator Statistics Report
+  app.get("/api/campaigns/:id/reports/operator-stats", requireAuth, async (req, res) => {
+    try {
+      const campaignId = req.params.id;
+      const { dateFrom, dateTo, agentId } = req.query;
+
+      const conditions: any[] = [eq(agentSessions.campaignId, campaignId)];
+      if (dateFrom) conditions.push(gte(agentSessions.startedAt, new Date(dateFrom as string)));
+      if (dateTo) conditions.push(lte(agentSessions.startedAt, new Date(dateTo as string)));
+      if (agentId && agentId !== 'all') conditions.push(eq(agentSessions.userId, agentId as string));
+
+      const sessions = await db.select().from(agentSessions)
+        .where(and(...conditions))
+        .orderBy(desc(agentSessions.startedAt));
+
+      const allUsers = await db.select().from(users);
+      const userMap = new Map(allUsers.map(u => [u.id, u]));
+
+      const operatorStats: Record<string, any> = {};
+      for (const session of sessions) {
+        const userId = session.userId;
+        if (!operatorStats[userId]) {
+          const user = userMap.get(userId);
+          operatorStats[userId] = {
+            operator: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : userId,
+            sessionsCount: 0,
+            firstLogin: null as string | null,
+            lastLogout: null as string | null,
+            totalWorkTime: 0,
+            totalBreakTime: 0,
+            totalCallTime: 0,
+            totalEmailTime: 0,
+            totalSmsTime: 0,
+            totalWrapUpTime: 0,
+            contactsHandled: 0,
+          };
+        }
+        const stats = operatorStats[userId];
+        stats.sessionsCount += 1;
+        stats.totalWorkTime += session.totalWorkTime || 0;
+        stats.totalBreakTime += session.totalBreakTime || 0;
+        stats.totalCallTime += session.totalCallTime || 0;
+        stats.totalEmailTime += session.totalEmailTime || 0;
+        stats.totalSmsTime += session.totalSmsTime || 0;
+        stats.totalWrapUpTime += session.totalWrapUpTime || 0;
+        stats.contactsHandled += session.contactsHandled || 0;
+
+        const loginStr = session.startedAt ? new Date(session.startedAt).toISOString() : null;
+        const logoutStr = session.endedAt ? new Date(session.endedAt).toISOString() : null;
+        if (loginStr && (!stats.firstLogin || loginStr < stats.firstLogin)) stats.firstLogin = loginStr;
+        if (logoutStr && (!stats.lastLogout || logoutStr > stats.lastLogout)) stats.lastLogout = logoutStr;
+      }
+
+      const result = Object.values(operatorStats).map((s: any) => ({
+        ...s,
+        totalWorkTimeFormatted: formatDuration(s.totalWorkTime),
+        totalBreakTimeFormatted: formatDuration(s.totalBreakTime),
+        totalCallTimeFormatted: formatDuration(s.totalCallTime),
+        totalEmailTimeFormatted: formatDuration(s.totalEmailTime),
+        totalSmsTimeFormatted: formatDuration(s.totalSmsTime),
+        totalWrapUpTimeFormatted: formatDuration(s.totalWrapUpTime),
+        avgCallDuration: s.contactsHandled > 0 ? formatDuration(Math.round(s.totalCallTime / s.contactsHandled)) : '0:00:00',
+      }));
+
+      res.json(result);
+    } catch (error) {
+      console.error("Failed to get operator stats:", error);
+      res.status(500).json({ error: "Failed to get operator stats" });
+    }
+  });
+
+  // 2. Complete Call List Report
+  app.get("/api/campaigns/:id/reports/call-list", requireAuth, async (req, res) => {
+    try {
+      const campaignId = req.params.id;
+      const { dateFrom, dateTo, agentId } = req.query;
+
+      const conditions: any[] = [eq(callLogs.campaignId, campaignId)];
+      if (dateFrom) conditions.push(gte(callLogs.startedAt, new Date(dateFrom as string)));
+      if (dateTo) conditions.push(lte(callLogs.startedAt, new Date(dateTo as string)));
+      if (agentId && agentId !== 'all') conditions.push(eq(callLogs.userId, agentId as string));
+
+      const logs = await db.select().from(callLogs)
+        .where(and(...conditions))
+        .orderBy(desc(callLogs.startedAt));
+
+      const allUsers = await db.select().from(users);
+      const userMap = new Map(allUsers.map(u => [u.id, u]));
+
+      const allCustomers = await db.select().from(customers);
+      const customerMap = new Map(allCustomers.map(c => [c.id, c]));
+
+      const contacts = await db.select().from(campaignContacts)
+        .where(eq(campaignContacts.campaignId, campaignId));
+      const contactByCustomer = new Map(contacts.map(c => [c.customerId, c]));
+
+      const result = logs.map(log => {
+        const user = userMap.get(log.userId);
+        const customer = log.customerId ? customerMap.get(log.customerId) : null;
+        const contact = log.customerId ? contactByCustomer.get(log.customerId) : null;
+        const ringTimeSec = diffSeconds(log.startedAt, log.answeredAt);
+        const talkTimeSec = diffSeconds(log.answeredAt, log.endedAt);
+        const totalSec = diffSeconds(log.startedAt, log.endedAt);
+
+        return {
+          id: log.id,
+          agent: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : log.userId,
+          customer: customer ? `${customer.firstName || ''} ${customer.lastName || ''}`.trim() : (log.customerId || ''),
+          phoneNumber: log.phoneNumber,
+          direction: log.direction,
+          status: log.status,
+          startedAt: log.startedAt ? new Date(log.startedAt).toISOString() : '',
+          answeredAt: log.answeredAt ? new Date(log.answeredAt).toISOString() : '',
+          endedAt: log.endedAt ? new Date(log.endedAt).toISOString() : '',
+          ringTimeSec,
+          ringTimeFormatted: formatDuration(ringTimeSec),
+          talkTimeSec,
+          talkTimeFormatted: formatDuration(talkTimeSec),
+          totalDurationSec: totalSec,
+          totalDurationFormatted: formatDuration(totalSec),
+          disposition: contact?.dispositionCode || '',
+          hungUpBy: log.hungUpBy || '',
+          notes: log.notes || '',
+        };
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error("Failed to get call list:", error);
+      res.status(500).json({ error: "Failed to get call list" });
+    }
+  });
+
+  // 3. Call Analysis Report
+  app.get("/api/campaigns/:id/reports/call-analysis", requireAuth, async (req, res) => {
+    try {
+      const campaignId = req.params.id;
+      const { dateFrom, dateTo, agentId } = req.query;
+
+      const conditions: any[] = [eq(callRecordings.campaignId, campaignId)];
+      if (dateFrom) conditions.push(gte(callRecordings.createdAt, new Date(dateFrom as string)));
+      if (dateTo) conditions.push(lte(callRecordings.createdAt, new Date(dateTo as string)));
+      if (agentId && agentId !== 'all') conditions.push(eq(callRecordings.userId, agentId as string));
+
+      const recordings = await db.select().from(callRecordings)
+        .where(and(...conditions))
+        .orderBy(desc(callRecordings.createdAt));
+
+      const result = recordings.map(rec => ({
+        id: rec.id,
+        callLogId: rec.callLogId,
+        agent: rec.agentName || rec.userId,
+        customer: rec.customerName || '',
+        campaign: rec.campaignName || '',
+        phoneNumber: rec.phoneNumber || '',
+        durationSeconds: rec.durationSeconds || 0,
+        durationFormatted: formatDuration(rec.durationSeconds || 0),
+        analysisStatus: rec.analysisStatus || 'pending',
+        sentiment: rec.sentiment || '',
+        qualityScore: rec.qualityScore ?? null,
+        scriptComplianceScore: rec.scriptComplianceScore ?? null,
+        summary: rec.summary || '',
+        keyTopics: (rec.keyTopics || []).join(', '),
+        actionItems: (rec.actionItems || []).join(', '),
+        alertKeywords: (rec.alertKeywords || []).join(', '),
+        complianceNotes: rec.complianceNotes || '',
+        transcriptionText: rec.transcriptionText || '',
+        createdAt: rec.createdAt ? new Date(rec.createdAt).toISOString() : '',
+        analyzedAt: rec.analyzedAt ? new Date(rec.analyzedAt).toISOString() : '',
+      }));
+
+      res.json(result);
+    } catch (error) {
+      console.error("Failed to get call analysis:", error);
+      res.status(500).json({ error: "Failed to get call analysis" });
+    }
+  });
+
+  // Export campaign report as CSV or XLSX
+  app.post("/api/campaigns/:id/reports/export", requireAuth, async (req, res) => {
+    try {
+      const { reportType, format: exportFormat, dateFrom, dateTo, agentId } = req.body;
+      const campaignId = req.params.id;
+
+      const campaign = await storage.getCampaign(campaignId);
+      if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+
+      const queryParams = new URLSearchParams();
+      if (dateFrom) queryParams.set('dateFrom', dateFrom);
+      if (dateTo) queryParams.set('dateTo', dateTo);
+      if (agentId) queryParams.set('agentId', agentId);
+
+      let reportData: Record<string, any>[] = [];
+      let sheetName = 'Report';
+
+      if (reportType === 'operator-stats') {
+        sheetName = 'Operator Stats';
+        const conditions: any[] = [eq(agentSessions.campaignId, campaignId)];
+        if (dateFrom) conditions.push(gte(agentSessions.startedAt, new Date(dateFrom)));
+        if (dateTo) conditions.push(lte(agentSessions.startedAt, new Date(dateTo)));
+        if (agentId && agentId !== 'all') conditions.push(eq(agentSessions.userId, agentId));
+        const sessions = await db.select().from(agentSessions).where(and(...conditions));
+        const allUsers = await db.select().from(users);
+        const userMap = new Map(allUsers.map(u => [u.id, u]));
+
+        const operatorStats: Record<string, any> = {};
+        for (const session of sessions) {
+          const userId = session.userId;
+          if (!operatorStats[userId]) {
+            const user = userMap.get(userId);
+            operatorStats[userId] = {
+              Operator: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : userId,
+              Sessions: 0, 'Work Time': '', 'Break Time': '', 'Call Time': '',
+              'Email Time': '', 'SMS Time': '', 'Wrap-up Time': '', 'Contacts Handled': 0,
+              _work: 0, _break: 0, _call: 0, _email: 0, _sms: 0, _wrap: 0,
+            };
+          }
+          const s = operatorStats[userId];
+          s.Sessions += 1;
+          s._work += session.totalWorkTime || 0;
+          s._break += session.totalBreakTime || 0;
+          s._call += session.totalCallTime || 0;
+          s._email += session.totalEmailTime || 0;
+          s._sms += session.totalSmsTime || 0;
+          s._wrap += session.totalWrapUpTime || 0;
+          s['Contacts Handled'] += session.contactsHandled || 0;
+        }
+        reportData = Object.values(operatorStats).map((s: any) => ({
+          Operator: s.Operator, Sessions: s.Sessions,
+          'Work Time': formatDuration(s._work), 'Break Time': formatDuration(s._break),
+          'Call Time': formatDuration(s._call), 'Email Time': formatDuration(s._email),
+          'SMS Time': formatDuration(s._sms), 'Wrap-up Time': formatDuration(s._wrap),
+          'Contacts Handled': s['Contacts Handled'],
+          'Avg Call Duration': s['Contacts Handled'] > 0 ? formatDuration(Math.round(s._call / s['Contacts Handled'])) : '0:00:00',
+        }));
+
+      } else if (reportType === 'call-list') {
+        sheetName = 'Call List';
+        const conditions: any[] = [eq(callLogs.campaignId, campaignId)];
+        if (dateFrom) conditions.push(gte(callLogs.startedAt, new Date(dateFrom)));
+        if (dateTo) conditions.push(lte(callLogs.startedAt, new Date(dateTo)));
+        if (agentId && agentId !== 'all') conditions.push(eq(callLogs.userId, agentId));
+        const logs = await db.select().from(callLogs).where(and(...conditions)).orderBy(desc(callLogs.startedAt));
+        const allUsers = await db.select().from(users);
+        const userMap = new Map(allUsers.map(u => [u.id, u]));
+        const allCustomers = await db.select().from(customers);
+        const customerMap = new Map(allCustomers.map(c => [c.id, c]));
+        const contacts = await db.select().from(campaignContacts).where(eq(campaignContacts.campaignId, campaignId));
+        const contactByCustomer = new Map(contacts.map(c => [c.customerId, c]));
+
+        reportData = logs.map(log => {
+          const user = userMap.get(log.userId);
+          const customer = log.customerId ? customerMap.get(log.customerId) : null;
+          const contact = log.customerId ? contactByCustomer.get(log.customerId) : null;
+          return {
+            Agent: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : log.userId,
+            Customer: customer ? `${customer.firstName || ''} ${customer.lastName || ''}`.trim() : '',
+            'Phone Number': log.phoneNumber,
+            Direction: log.direction,
+            Status: log.status,
+            'Started At': log.startedAt ? new Date(log.startedAt).toLocaleString() : '',
+            'Answered At': log.answeredAt ? new Date(log.answeredAt).toLocaleString() : '',
+            'Ended At': log.endedAt ? new Date(log.endedAt).toLocaleString() : '',
+            'Ring Time': formatDuration(diffSeconds(log.startedAt, log.answeredAt)),
+            'Talk Time': formatDuration(diffSeconds(log.answeredAt, log.endedAt)),
+            'Total Duration': formatDuration(diffSeconds(log.startedAt, log.endedAt)),
+            Disposition: contact?.dispositionCode || '',
+            'Hung Up By': log.hungUpBy || '',
+            Notes: log.notes || '',
+          };
+        });
+
+      } else if (reportType === 'call-analysis') {
+        sheetName = 'Call Analysis';
+        const conditions: any[] = [eq(callRecordings.campaignId, campaignId)];
+        if (dateFrom) conditions.push(gte(callRecordings.createdAt, new Date(dateFrom)));
+        if (dateTo) conditions.push(lte(callRecordings.createdAt, new Date(dateTo)));
+        if (agentId && agentId !== 'all') conditions.push(eq(callRecordings.userId, agentId));
+        const recordings = await db.select().from(callRecordings).where(and(...conditions)).orderBy(desc(callRecordings.createdAt));
+
+        reportData = recordings.map(rec => ({
+          Agent: rec.agentName || rec.userId,
+          Customer: rec.customerName || '',
+          'Phone Number': rec.phoneNumber || '',
+          Duration: formatDuration(rec.durationSeconds || 0),
+          Sentiment: rec.sentiment || '',
+          'Quality Score': rec.qualityScore ?? '',
+          'Script Compliance': rec.scriptComplianceScore ?? '',
+          Summary: rec.summary || '',
+          'Key Topics': (rec.keyTopics || []).join('; '),
+          'Action Items': (rec.actionItems || []).join('; '),
+          'Alert Keywords': (rec.alertKeywords || []).join('; '),
+          'Compliance Notes': rec.complianceNotes || '',
+          'Created At': rec.createdAt ? new Date(rec.createdAt).toLocaleString() : '',
+          'Analyzed At': rec.analyzedAt ? new Date(rec.analyzedAt).toLocaleString() : '',
+        }));
+      } else {
+        return res.status(400).json({ error: "Invalid report type" });
+      }
+
+      if (reportData.length === 0) {
+        return res.status(404).json({ error: "No data found for the selected filters" });
+      }
+
+      const fileName = `${campaign.name.replace(/\s+/g, '_')}_${reportType}_${new Date().toISOString().split('T')[0]}`;
+
+      if (exportFormat === 'csv') {
+        const csvContent = generateCsv(reportData);
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}.csv"`);
+        res.send(csvContent);
+      } else if (exportFormat === 'xlsx') {
+        const xlsxBuffer = generateXlsx(reportData, sheetName);
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}.xlsx"`);
+        res.send(xlsxBuffer);
+      } else {
+        return res.status(400).json({ error: "Invalid export format. Use 'csv' or 'xlsx'" });
+      }
+    } catch (error) {
+      console.error("Failed to export campaign report:", error);
+      res.status(500).json({ error: "Failed to export campaign report" });
+    }
+  });
+
+  // Send campaign report via email
+  app.post("/api/campaigns/:id/reports/send-email", requireAuth, async (req, res) => {
+    try {
+      const { reportType, recipientEmail, dateFrom, dateTo, agentId } = req.body;
+      const campaignId = req.params.id;
+
+      if (!recipientEmail) return res.status(400).json({ error: "Recipient email is required" });
+
+      const campaign = await storage.getCampaign(campaignId);
+      if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+
+      let reportData: Record<string, any>[] = [];
+      let sheetName = 'Report';
+
+      if (reportType === 'operator-stats') {
+        sheetName = 'Operator Stats';
+        const conditions: any[] = [eq(agentSessions.campaignId, campaignId)];
+        if (dateFrom) conditions.push(gte(agentSessions.startedAt, new Date(dateFrom)));
+        if (dateTo) conditions.push(lte(agentSessions.startedAt, new Date(dateTo)));
+        if (agentId && agentId !== 'all') conditions.push(eq(agentSessions.userId, agentId));
+        const sessions = await db.select().from(agentSessions).where(and(...conditions));
+        const allUsers = await db.select().from(users);
+        const userMap = new Map(allUsers.map(u => [u.id, u]));
+        const operatorStats: Record<string, any> = {};
+        for (const session of sessions) {
+          const userId = session.userId;
+          if (!operatorStats[userId]) {
+            const user = userMap.get(userId);
+            operatorStats[userId] = { Operator: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : userId, Sessions: 0, _work: 0, _break: 0, _call: 0, _email: 0, _sms: 0, _wrap: 0, 'Contacts Handled': 0 };
+          }
+          const s = operatorStats[userId];
+          s.Sessions += 1; s._work += session.totalWorkTime || 0; s._break += session.totalBreakTime || 0;
+          s._call += session.totalCallTime || 0; s._email += session.totalEmailTime || 0;
+          s._sms += session.totalSmsTime || 0; s._wrap += session.totalWrapUpTime || 0;
+          s['Contacts Handled'] += session.contactsHandled || 0;
+        }
+        reportData = Object.values(operatorStats).map((s: any) => ({
+          Operator: s.Operator, Sessions: s.Sessions, 'Work Time': formatDuration(s._work), 'Break Time': formatDuration(s._break),
+          'Call Time': formatDuration(s._call), 'Email Time': formatDuration(s._email), 'SMS Time': formatDuration(s._sms),
+          'Wrap-up Time': formatDuration(s._wrap), 'Contacts Handled': s['Contacts Handled'],
+        }));
+      } else if (reportType === 'call-list') {
+        sheetName = 'Call List';
+        const conditions: any[] = [eq(callLogs.campaignId, campaignId)];
+        if (dateFrom) conditions.push(gte(callLogs.startedAt, new Date(dateFrom)));
+        if (dateTo) conditions.push(lte(callLogs.startedAt, new Date(dateTo)));
+        if (agentId && agentId !== 'all') conditions.push(eq(callLogs.userId, agentId));
+        const logs = await db.select().from(callLogs).where(and(...conditions)).orderBy(desc(callLogs.startedAt));
+        const allUsers = await db.select().from(users);
+        const userMap = new Map(allUsers.map(u => [u.id, u]));
+        const allCustomers = await db.select().from(customers);
+        const customerMap = new Map(allCustomers.map(c => [c.id, c]));
+        reportData = logs.map(log => {
+          const user = userMap.get(log.userId);
+          const customer = log.customerId ? customerMap.get(log.customerId) : null;
+          return {
+            Agent: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : log.userId,
+            Customer: customer ? `${customer.firstName || ''} ${customer.lastName || ''}`.trim() : '',
+            'Phone Number': log.phoneNumber, Direction: log.direction, Status: log.status,
+            'Started At': log.startedAt ? new Date(log.startedAt).toLocaleString() : '',
+            'Ring Time': formatDuration(diffSeconds(log.startedAt, log.answeredAt)),
+            'Talk Time': formatDuration(diffSeconds(log.answeredAt, log.endedAt)),
+            'Total Duration': formatDuration(diffSeconds(log.startedAt, log.endedAt)),
+            Notes: log.notes || '',
+          };
+        });
+      } else if (reportType === 'call-analysis') {
+        sheetName = 'Call Analysis';
+        const conditions: any[] = [eq(callRecordings.campaignId, campaignId)];
+        if (dateFrom) conditions.push(gte(callRecordings.createdAt, new Date(dateFrom)));
+        if (dateTo) conditions.push(lte(callRecordings.createdAt, new Date(dateTo)));
+        if (agentId && agentId !== 'all') conditions.push(eq(callRecordings.userId, agentId));
+        const recordings = await db.select().from(callRecordings).where(and(...conditions)).orderBy(desc(callRecordings.createdAt));
+        reportData = recordings.map(rec => ({
+          Agent: rec.agentName || rec.userId, Customer: rec.customerName || '', Duration: formatDuration(rec.durationSeconds || 0),
+          Sentiment: rec.sentiment || '', 'Quality Score': rec.qualityScore ?? '', 'Script Compliance': rec.scriptComplianceScore ?? '',
+          Summary: rec.summary || '', 'Key Topics': (rec.keyTopics || []).join('; '),
+          'Alert Keywords': (rec.alertKeywords || []).join('; '),
+        }));
+      }
+
+      const fileName = `${campaign.name.replace(/\s+/g, '_')}_${reportType}_${new Date().toISOString().split('T')[0]}`;
+      const xlsxBuffer = generateXlsx(reportData.length > 0 ? reportData : [{ 'No Data': 'No data found for the selected filters' }], sheetName);
+      const csvContent = generateCsv(reportData.length > 0 ? reportData : [{ 'No Data': 'No data found for the selected filters' }]);
+
+      try {
+        const { sendEmail: ms365SendEmail, isConfigured } = await import("./lib/ms365");
+        const configured = await isConfigured();
+
+        if (configured) {
+          await ms365SendEmail({
+            to: recipientEmail,
+            subject: `Campaign Report: ${campaign.name} - ${reportType.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}`,
+            body: `<p>Please find attached the campaign report for <strong>${campaign.name}</strong>.</p><p>Report type: ${reportType.replace(/-/g, ' ')}</p><p>Generated: ${new Date().toLocaleString()}</p>`,
+            contentType: 'html',
+            attachments: [
+              { name: `${fileName}.xlsx`, contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', contentBytes: xlsxBuffer.toString('base64') },
+              { name: `${fileName}.csv`, contentType: 'text/csv', contentBytes: Buffer.from(csvContent).toString('base64') },
+            ],
+          });
+          res.json({ success: true, message: "Report sent via email" });
+        } else {
+          const { sendEmail: fallbackSend } = await import("./email");
+          await fallbackSend({
+            to: recipientEmail,
+            subject: `Campaign Report: ${campaign.name} - ${reportType.replace(/-/g, ' ')}`,
+            text: `Campaign report for ${campaign.name}. Report type: ${reportType.replace(/-/g, ' ')}. Generated: ${new Date().toLocaleString()}`,
+            attachments: [
+              { filename: `${fileName}.xlsx`, content: xlsxBuffer },
+              { filename: `${fileName}.csv`, content: Buffer.from(csvContent) },
+            ],
+          });
+          res.json({ success: true, message: "Report sent via email" });
+        }
+      } catch (emailError) {
+        console.error("Failed to send email:", emailError);
+        res.status(500).json({ error: "Failed to send email. Check email configuration." });
+      }
+    } catch (error) {
+      console.error("Failed to send campaign report email:", error);
+      res.status(500).json({ error: "Failed to generate and send report" });
+    }
+  });
+
+  // Get agents for a campaign (for filter dropdown)
+  app.get("/api/campaigns/:id/reports/agents", requireAuth, async (req, res) => {
+    try {
+      const campaignId = req.params.id;
+      const sessionAgents = await db.select({ userId: agentSessions.userId }).from(agentSessions)
+        .where(eq(agentSessions.campaignId, campaignId));
+      const callAgents = await db.select({ userId: callLogs.userId }).from(callLogs)
+        .where(eq(callLogs.campaignId, campaignId));
+
+      const agentIds = [...new Set([...sessionAgents.map(s => s.userId), ...callAgents.map(c => c.userId)])];
+      if (agentIds.length === 0) return res.json([]);
+
+      const agents = await db.select().from(users).where(inArray(users.id, agentIds));
+      res.json(agents.map(u => ({
+        id: u.id,
+        name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.username,
+      })));
+    } catch (error) {
+      console.error("Failed to get campaign agents:", error);
+      res.status(500).json({ error: "Failed to get agents" });
+    }
+  });
+
+  // ============ END CAMPAIGN REPORTS ============
 
   app.delete("/api/campaigns/:id", requireAuth, async (req, res) => {
     try {

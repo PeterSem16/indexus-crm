@@ -2065,6 +2065,12 @@ export default function CampaignDetailPage() {
               {t.campaigns.statuses.active}
             </Button>
           )}
+          <Link href={`/campaigns/${campaign.id}/reports`}>
+            <Button variant="outline" data-testid="button-campaign-reports">
+              <BarChart3 className="w-4 h-4 mr-2" />
+              {t.campaignReports?.reports || 'Reports'}
+            </Button>
+          </Link>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon" data-testid="button-campaign-more">

@@ -49,6 +49,7 @@ import LandingPage from "@/pages/landing";
 import MobilePreview from "@/pages/mobile-preview";
 import CollectionsPage from "@/pages/collections";
 import ExecutiveSummariesPage from "@/pages/executive-summaries";
+import CampaignReportsPage from "@/pages/campaign-reports";
 import CustomerInvoicesPage from "@/pages/customer-invoices";
 import AgentWorkspacePage from "@/pages/agent-workspace";
 import { AgentSessionProvider } from "@/contexts/agent-session-context";
@@ -207,6 +208,7 @@ function AuthenticatedApp() {
                     <Route path="/executive-summaries" component={ExecutiveSummariesPage} />
                     <Route path="/campaigns" component={CampaignsPage} />
                     <Route path="/campaigns/:id" component={CampaignDetailPage} />
+                    <Route path="/campaigns/:id/reports" component={CampaignReportsPage} />
                     <Route path="/pipeline" component={PipelinePage} />
                     <Route path="/tasks" component={TasksPage} />
                     <Route path="/contracts/editor/:categoryId/:countryCode">
