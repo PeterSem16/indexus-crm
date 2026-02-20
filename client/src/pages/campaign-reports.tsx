@@ -999,7 +999,7 @@ export default function CampaignReportsPage() {
                               {call.type === 'call' ? call.talkTimeFormatted : '—'}
                             </td>
                             <td className="p-2 text-center font-mono text-xs">
-                              {call.type === 'call' ? call.totalDurationFormatted : call.type === 'email' ? '~2:00' : call.type === 'sms' ? '~0:30' : '—'}
+                              {call.type === 'call' ? call.totalDurationFormatted : '—'}
                             </td>
                             <td className="p-2 text-center text-xs">
                               {call.type === 'call' && call.hungUpBy ? (
