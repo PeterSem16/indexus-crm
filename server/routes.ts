@@ -16132,12 +16132,17 @@ Skript kampane, ktorý mal agent dodržiavať:
 ${campaignScriptText.substring(0, 2000)}
 """
 `;
+          console.log(`[CallAnalysis] Script section included for ${recordingId} (${campaignScriptText.length} chars)`);
+        } else {
+          console.log(`[CallAnalysis] No campaign script available for ${recordingId}`);
         }
 
         let alertSection = "";
         if (detectedAlerts.length > 0) {
           alertSection = `\nV prepise boli detegované tieto kľúčové/varovné slová: ${detectedAlerts.join(", ")}. Zahrň ich do analýzy.`;
         }
+
+        console.log(`[CallAnalysis] Starting GPT-4o analysis for ${recordingId}, language: ${userLanguage}, transcript: ${transcriptionText.length} chars, hasScript: ${!!campaignScriptText}`);
 
         const analysisPrompt = `Analyze the following phone call transcript from a cord blood banking call center.
 
@@ -16183,12 +16188,15 @@ Rules:
         });
 
         const analysisText = analysisResponse.choices[0]?.message?.content || "{}";
+        console.log(`[CallAnalysis] GPT-4o raw response for ${recordingId}: ${analysisText.substring(0, 500)}`);
         const analysis = JSON.parse(analysisText);
+
+        console.log(`[CallAnalysis] Parsed GPT response for ${recordingId}: sentiment=${analysis.sentiment}, quality=${analysis.qualityScore}, scriptScore=${analysis.scriptComplianceScore}, hasScriptDetails=${!!analysis.scriptComplianceDetails}, topics=${(analysis.keyTopics || []).length}, actions=${(analysis.actionItems || []).length}`);
 
         const allAlerts = [...new Set([...detectedAlerts, ...(analysis.alertKeywords || [])])];
 
         const qualityScoreVal = Math.min(10, Math.max(1, parseInt(analysis.qualityScore) || 5));
-        const scriptComplianceScoreVal = analysis.scriptComplianceScore ? Math.min(10, Math.max(1, parseInt(analysis.scriptComplianceScore))) : null;
+        const scriptComplianceScoreVal = analysis.scriptComplianceScore !== null && analysis.scriptComplianceScore !== undefined ? Math.min(10, Math.max(1, parseInt(analysis.scriptComplianceScore))) : null;
         const sentimentVal = analysis.sentiment || "neutral";
 
         await db.update(callRecordings).set({
@@ -16241,13 +16249,16 @@ Rules:
       } catch (analysisErr: any) {
         console.error(`[CallAnalysis] GPT analysis failed for ${recordingId}:`, analysisErr.message);
         if (analysisErr.status) console.error(`[CallAnalysis] GPT HTTP status: ${analysisErr.status}`);
+        if (analysisErr.error) console.error(`[CallAnalysis] GPT error details:`, JSON.stringify(analysisErr.error));
+        const [existingRec] = await db.select({ analysisResult: callRecordings.analysisResult }).from(callRecordings).where(eq(callRecordings.id, recordingId));
+        const preservedResult = existingRec?.analysisResult && typeof existingRec.analysisResult === 'object' && !(existingRec.analysisResult as any)?.error
+          ? { ...(existingRec.analysisResult as any), _gptRetryError: analysisErr.message }
+          : { error: `Analysis failed: ${analysisErr.message}` };
         await db.update(callRecordings).set({
           analysisStatus: "completed",
           analyzedAt: new Date(),
-          sentiment: "neutral",
-          qualityScore: 5,
           summary: transcriptionText ? `Prepis bol úspešný, ale AI analýza zlyhala: ${analysisErr.message}` : null,
-          analysisResult: { error: `Analysis failed: ${analysisErr.message}` },
+          analysisResult: preservedResult,
         }).where(eq(callRecordings.id, recordingId));
       }
     } catch (err: any) {

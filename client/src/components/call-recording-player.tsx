@@ -136,6 +136,8 @@ function RecordingItem({ recording, compact, onTimeUpdate }: { recording: CallRe
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/call-recordings", recording.id, "analysis"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/call-recordings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/call-logs"] });
     },
   });
 
@@ -392,7 +394,7 @@ function AnalysisPanel({
       <div className="flex items-center gap-2 flex-wrap">
         <SentimentIcon sentiment={analysis.sentiment} />
         <QualityBadge score={analysis.qualityScore} />
-        {analysis.scriptComplianceScore && (
+        {analysis.scriptComplianceScore !== null && analysis.scriptComplianceScore !== undefined && (
           <Badge variant="secondary" className="text-[10px] h-5 gap-1" data-testid="badge-script-compliance">
             <ClipboardCheck className={`h-2.5 w-2.5 ${analysis.scriptComplianceScore >= 8 ? "text-green-600 dark:text-green-400" : analysis.scriptComplianceScore >= 5 ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400"}`} />
             <span className={analysis.scriptComplianceScore >= 8 ? "text-green-600 dark:text-green-400" : analysis.scriptComplianceScore >= 5 ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400"}>
