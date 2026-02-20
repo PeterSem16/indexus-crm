@@ -48,7 +48,6 @@ import EmailClientPage from "@/pages/email-client";
 import LandingPage from "@/pages/landing";
 import MobilePreview from "@/pages/mobile-preview";
 import CollectionsPage from "@/pages/collections";
-import ExecutiveSummariesPage from "@/pages/executive-summaries";
 import CampaignReportsPage from "@/pages/campaign-reports";
 import CustomerInvoicesPage from "@/pages/customer-invoices";
 import AgentWorkspacePage from "@/pages/agent-workspace";
@@ -205,7 +204,6 @@ function AuthenticatedApp() {
                     <Route path="/collections" component={CollectionsPage} />
                     <Route path="/collections/new" component={CollectionsPage} />
                     <Route path="/collections/:id" component={CollectionsPage} />
-                    <Route path="/executive-summaries" component={ExecutiveSummariesPage} />
                     <Route path="/campaigns" component={CampaignsPage} />
                     <Route path="/campaigns/:id" component={CampaignDetailPage} />
                     <Route path="/campaigns/:id/reports" component={CampaignReportsPage} />

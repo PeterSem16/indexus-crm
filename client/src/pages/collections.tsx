@@ -16,16 +16,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
 import { 
   Plus, Search, Eye, Edit, Trash2, Syringe, Building2, User, Calendar, 
   FileText, FlaskConical, AlertCircle, ArrowLeft, ArrowRight, Check, Baby, 
-  Users, Clock, LayoutDashboard, List, TrendingUp, Globe, Activity, ChevronLeft, ChevronRight, Download
+  Users, Clock, LayoutDashboard, List, TrendingUp, Globe, Activity, ChevronLeft, ChevronRight, Download,
+  Loader2, RefreshCw, ChevronDown, BarChart3, Target, Sparkles, AlertTriangle,
+  ArrowUpRight, ArrowDownRight, Minus, Info, HelpCircle, TrendingDown
 } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, LineChart, Line } from "recharts";
 import { Link, useLocation, useRoute } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Collection, BillingDetails, Product, Customer, Collaborator, Hospital, ProductSet, CollectionLabResult } from "@shared/schema";
+import type { Collection, BillingDetails, Product, Customer, Collaborator, Hospital, ProductSet, CollectionLabResult, ExecutiveSummary } from "@shared/schema";
 
 const dateLocales: Record<string, Locale> = {
   sk, cs, hu, ro, it, de, en: enUS
@@ -131,8 +134,13 @@ export default function CollectionsPage() {
   const [wizardStep, setWizardStep] = useState(0);
   const [formData, setFormData] = useState<CollectionFormData>(initialFormData);
   const [activeTab, setActiveTab] = useState("client");
-  const [viewMode, setViewMode] = useState<"dashboard" | "list" | "calendar">("dashboard");
+  const [viewMode, setViewMode] = useState<"dashboard" | "list" | "calendar" | "executive">("dashboard");
   const [calendarMonth, setCalendarMonth] = useState(new Date());
+  const [esCountry, setEsCountry] = useState<string>("all");
+  const [esPeriod, setEsPeriod] = useState<string>("monthly");
+  const [esExpandedId, setEsExpandedId] = useState<string | null>(null);
+  const [esDeleteId, setEsDeleteId] = useState<string | null>(null);
+  const [esShowInfo, setEsShowInfo] = useState<boolean>(false);
   
   const dateFnsLocale = dateLocales[locale] || enUS;
 
@@ -171,6 +179,57 @@ export default function CollectionsPage() {
 
   const { data: collectionStatuses = [] } = useQuery<CollectionStatusType[]>({
     queryKey: ["/api/config/collection-statuses"],
+  });
+
+  const esSummariesUrl = esCountry === "all"
+    ? "/api/executive-summaries"
+    : `/api/executive-summaries?countryCode=${esCountry}`;
+  const { data: esSummaries = [], isLoading: esLoading } = useQuery<ExecutiveSummary[]>({
+    queryKey: ["/api/executive-summaries", esCountry],
+    queryFn: async () => {
+      const res = await fetch(esSummariesUrl, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: viewMode === "executive",
+    refetchInterval: viewMode === "executive" ? 5000 : false,
+  });
+
+  const esOverviewUrl = esCountry === "all"
+    ? "/api/executive-summaries/stats/overview"
+    : `/api/executive-summaries/stats/overview?countryCode=${esCountry}`;
+  const { data: esOverview } = useQuery<any>({
+    queryKey: ["/api/executive-summaries/stats/overview", esCountry],
+    queryFn: async () => {
+      const res = await fetch(esOverviewUrl, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: viewMode === "executive",
+  });
+
+  const esGenerateMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/executive-summaries/generate", {
+        countryCode: esCountry === "all" ? null : esCountry,
+        periodType: esPeriod,
+        locale,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/executive-summaries"] });
+    },
+  });
+
+  const esDeleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/executive-summaries/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/executive-summaries"] });
+      setEsDeleteId(null);
+    },
   });
 
   const { data: labResults, isLoading: isLoadingLabResults } = useQuery<CollectionLabResult[]>({
@@ -1753,6 +1812,222 @@ export default function CollectionsPage() {
   ];
   const calendarDays = getDaysInMonth(calendarMonth);
 
+  const esT = t.executiveSummaries || {} as any;
+  const esCountries = ["SK", "CZ", "HU", "RO", "IT", "DE", "US"];
+
+  const renderExecutiveSummaries = () => (
+    <div className="space-y-4">
+      {esShowInfo && (
+        <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/20">
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-start gap-3">
+              <Info className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
+              <div className="space-y-3">
+                <p className="text-sm text-foreground leading-relaxed">{esT.featureDescription}</p>
+                <Separator className="bg-blue-200 dark:bg-blue-800" />
+                <div>
+                  <p className="text-sm font-semibold mb-2">{esT.howItWorks}:</p>
+                  <div className="space-y-1 text-sm text-muted-foreground">
+                    <p>{esT.step1}</p>
+                    <p>{esT.step2}</p>
+                    <p>{esT.step3}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {esOverview && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Card><CardContent className="pt-4 pb-3"><p className="text-xs text-muted-foreground">{esT.totalCollections}</p><p className="text-2xl font-bold">{esOverview.totalAll}</p></CardContent></Card>
+          <Card><CardContent className="pt-4 pb-3"><p className="text-xs text-muted-foreground">{esT.monthly}</p><p className="text-2xl font-bold">{esOverview.totalMonth}</p></CardContent></Card>
+          <Card><CardContent className="pt-4 pb-3"><p className="text-xs text-muted-foreground">{esT.yearly}</p><p className="text-2xl font-bold">{esOverview.totalYear}</p></CardContent></Card>
+        </div>
+      )}
+
+      <Card>
+        <CardContent className="pt-4 pb-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <div className="flex items-center gap-2 flex-1">
+              <Select value={esPeriod} onValueChange={setEsPeriod}>
+                <SelectTrigger className="w-[140px]" data-testid="select-es-period"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="monthly">{esT.monthly}</SelectItem>
+                  <SelectItem value="quarterly">{esT.quarterly}</SelectItem>
+                  <SelectItem value="yearly">{esT.yearly}</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={esCountry} onValueChange={setEsCountry}>
+                <SelectTrigger className="w-[140px]" data-testid="select-es-country"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{esT.allCountries}</SelectItem>
+                  {esCountries.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Button variant="outline" size="sm" onClick={() => setEsShowInfo(!esShowInfo)} data-testid="btn-es-info">
+                <HelpCircle className="h-4 w-4" />
+              </Button>
+            </div>
+            <Button
+              onClick={() => esGenerateMutation.mutate()}
+              disabled={esGenerateMutation.isPending}
+              className="bg-[hsl(var(--burgundy))] hover:bg-[hsl(var(--burgundy))]/90 text-white"
+              data-testid="btn-es-generate"
+            >
+              {esGenerateMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+              {esGenerateMutation.isPending ? esT.generating : esT.generate}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="space-y-3">
+        {esLoading ? (
+          <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+        ) : esSummaries.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+              <BarChart3 className="h-12 w-12 text-muted-foreground/30 mb-4" />
+              <h3 className="text-lg font-semibold mb-1">{esT.noSummaries}</h3>
+              <p className="text-sm text-muted-foreground mb-4 max-w-sm">{esT.noSummariesDesc}</p>
+              <Button onClick={() => esGenerateMutation.mutate()} disabled={esGenerateMutation.isPending} className="bg-[hsl(var(--burgundy))] hover:bg-[hsl(var(--burgundy))]/90 text-white" data-testid="btn-es-generate-first">
+                <Sparkles className="h-4 w-4 mr-2" />{esT.generateFirst}
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          esSummaries.map((summary) => {
+            const isExpanded = esExpandedId === summary.id;
+            const trends = (summary.trends || []) as any[];
+            const anomalies = (summary.anomalies || []) as any[];
+            const kpis = (summary.kpis || []) as any[];
+            return (
+              <Card key={summary.id} className="transition-all hover:shadow-md" data-testid={`card-summary-${summary.id}`}>
+                <CardHeader className="pb-3 cursor-pointer" onClick={() => setEsExpandedId(isExpanded ? null : summary.id)}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <CardTitle className="text-base truncate">{summary.title}</CardTitle>
+                        {summary.status === "generating" ? (
+                          <Badge variant="outline" className="gap-1 text-yellow-600 border-yellow-300"><Loader2 className="h-3 w-3 animate-spin" />{esT.generating}</Badge>
+                        ) : summary.status === "failed" ? (
+                          <Badge variant="destructive" className="gap-1">{esT.failed}</Badge>
+                        ) : (
+                          <Badge variant="secondary" className="gap-1 text-green-600"><Sparkles className="h-3 w-3" />{esT.generated}</Badge>
+                        )}
+                      </div>
+                      <p className="flex items-center gap-3 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />
+                          {summary.periodStart && summary.periodEnd ? `${format(new Date(summary.periodStart), "dd.MM.yyyy")} - ${format(new Date(summary.periodEnd), "dd.MM.yyyy")}` : esT.periodRange}
+                        </span>
+                        {summary.countryCode && <span className="flex items-center gap-1"><Globe className="h-3 w-3" />{summary.countryCode}</span>}
+                        <span className="flex items-center gap-1"><BarChart3 className="h-3 w-3" />{summary.totalCollections} {esT.collections}</span>
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); setEsDeleteId(summary.id); }}><Trash2 className="h-4 w-4 text-muted-foreground" /></Button>
+                      <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                    </div>
+                  </div>
+                </CardHeader>
+                {isExpanded && summary.status === "completed" && (
+                  <CardContent className="pt-0 space-y-5">
+                    <Separator />
+                    {summary.summaryText && (
+                      <div>
+                        <h4 className="text-sm font-semibold mb-2 flex items-center gap-2"><FileText className="h-4 w-4 text-[hsl(var(--burgundy))]" />{esT.summary}</h4>
+                        <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap bg-muted/30 rounded-lg p-4">{summary.summaryText}</div>
+                      </div>
+                    )}
+                    {kpis.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-semibold mb-3 flex items-center gap-2"><Target className="h-4 w-4 text-[hsl(var(--burgundy))]" />{esT.kpis}</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          {kpis.map((kpi: any, i: number) => {
+                            const isPos = kpi.change?.startsWith("+");
+                            const isNeg = kpi.change?.startsWith("-");
+                            return (
+                              <div key={i} className="bg-muted/40 rounded-lg p-3 space-y-1">
+                                <p className="text-[11px] text-muted-foreground truncate">{kpi.label}</p>
+                                <p className="text-lg font-bold">{kpi.value}</p>
+                                {kpi.change && (
+                                  <p className={`text-xs flex items-center gap-1 ${isPos ? "text-green-600" : isNeg ? "text-red-600" : "text-muted-foreground"}`}>
+                                    {isPos ? <ArrowUpRight className="h-3 w-3" /> : isNeg ? <ArrowDownRight className="h-3 w-3" /> : null}
+                                    {kpi.change} {kpi.changePercent && `(${kpi.changePercent})`}
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    {trends.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-semibold mb-3 flex items-center gap-2"><Activity className="h-4 w-4 text-[hsl(var(--burgundy))]" />{esT.trends}</h4>
+                        <div className="space-y-2">
+                          {trends.map((trend: any, i: number) => (
+                            <div key={i} className="flex items-start gap-3 bg-muted/30 rounded-lg p-3">
+                              {trend.direction === "up" ? <TrendingUp className="h-4 w-4 text-green-500" /> : trend.direction === "down" ? <TrendingDown className="h-4 w-4 text-red-500" /> : <Minus className="h-4 w-4 text-gray-400" />}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-medium">{trend.value}</span>
+                                  <Badge variant="outline" className="text-[10px] h-5">{trend.direction === "up" ? esT.trendUp : trend.direction === "down" ? esT.trendDown : esT.trendStable}</Badge>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-0.5">{trend.description}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {anomalies.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-semibold mb-3 flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-yellow-500" />{esT.anomalies}</h4>
+                        <div className="space-y-2">
+                          {anomalies.map((anomaly: any, i: number) => (
+                            <div key={i} className="border rounded-lg p-3 space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${anomaly.severity === "high" ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" : anomaly.severity === "medium" ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" : "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"}`}>
+                                  {anomaly.severity === "high" ? esT.severityHigh : anomaly.severity === "medium" ? esT.severityMedium : esT.severityLow}
+                                </span>
+                                <span className="text-sm font-medium">{anomaly.title}</span>
+                              </div>
+                              <p className="text-xs text-muted-foreground">{anomaly.description}</p>
+                              {anomaly.metric && <p className="text-[11px] text-muted-foreground/70">{anomaly.metric}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {summary.createdAt && (
+                      <p className="text-[11px] text-muted-foreground text-right">{esT.generatedAt}: {format(new Date(summary.createdAt), "dd.MM.yyyy HH:mm")}</p>
+                    )}
+                  </CardContent>
+                )}
+              </Card>
+            );
+          })
+        )}
+      </div>
+
+      <Dialog open={!!esDeleteId} onOpenChange={(open) => !open && setEsDeleteId(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{esT.delete}</DialogTitle></DialogHeader>
+          <DialogDescription>{esT.confirmDelete}</DialogDescription>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEsDeleteId(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => esDeleteId && esDeleteMutation.mutate(esDeleteId)} disabled={esDeleteMutation.isPending}>
+              {esDeleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : esT.delete}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+
   const renderCalendar = () => (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
@@ -1865,6 +2140,15 @@ export default function CollectionsPage() {
             <Calendar className="h-4 w-4 mr-2" />
             {dashboardT.calendarView}
           </Button>
+          <Button
+            variant={viewMode === "executive" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode("executive")}
+            data-testid="button-view-executive"
+          >
+            <Sparkles className="h-4 w-4 mr-2" />
+            {t.executiveSummaries?.title || 'Executive Summaries'}
+          </Button>
         </div>
         <div className="flex items-center gap-2">
           <Button 
@@ -1888,6 +2172,8 @@ export default function CollectionsPage() {
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
+      ) : viewMode === "executive" ? (
+        renderExecutiveSummaries()
       ) : viewMode === "dashboard" ? (
         renderDashboard()
       ) : viewMode === "calendar" ? (
