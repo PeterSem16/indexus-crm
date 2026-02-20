@@ -360,15 +360,21 @@ function AnalysisPanel({
   }
 
   if (analysis.analysisStatus === "failed") {
+    const errorDetail = (analysis.analysisResult as any)?.error || "";
     return (
-      <div className="flex items-center gap-2 py-3 px-2 bg-destructive/10 rounded-md mt-1">
-        <AlertTriangle className="h-4 w-4 text-destructive" />
-        <span className="text-xs text-destructive">Analýza zlyhala</span>
-        {canReanalyze && (
-          <Button size="sm" variant="outline" className="ml-auto" onClick={onReanalyze} disabled={reanalyzing} data-testid="btn-reanalyze">
-            {reanalyzing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
-            Skúsiť znova
-          </Button>
+      <div className="flex flex-col gap-1.5 py-3 px-2 bg-destructive/10 rounded-md mt-1">
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4 text-destructive" />
+          <span className="text-xs text-destructive font-medium">Analýza zlyhala</span>
+          {canReanalyze && (
+            <Button size="sm" variant="outline" className="ml-auto" onClick={onReanalyze} disabled={reanalyzing} data-testid="btn-reanalyze">
+              {reanalyzing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+              Skúsiť znova
+            </Button>
+          )}
+        </div>
+        {errorDetail && (
+          <span className="text-[10px] text-destructive/70 pl-6">{errorDetail}</span>
         )}
       </div>
     );

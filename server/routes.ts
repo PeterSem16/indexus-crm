@@ -16041,21 +16041,52 @@ export async function registerRoutes(
 
       let transcriptionText = "";
       let transcriptionLanguage = "sk";
-      try {
-        const transcriptionResult = await openai.audio.transcriptions.create({
-          file: fsSync.createReadStream(filePath),
-          model: "whisper-1",
-          response_format: "text",
-        });
-        transcriptionText = transcriptionResult as unknown as string;
-        console.log(`[CallAnalysis] Transcription complete for ${recordingId}: ${transcriptionText.length} chars`);
-      } catch (whisperErr: any) {
-        console.error(`[CallAnalysis] Whisper transcription failed for ${recordingId}:`, whisperErr.message);
+
+      const fileStats = fsSync.statSync(filePath);
+      console.log(`[CallAnalysis] File size for ${recordingId}: ${fileStats.size} bytes, path: ${filePath}`);
+
+      if (fileStats.size < 100) {
+        console.error(`[CallAnalysis] File too small for ${recordingId}: ${fileStats.size} bytes`);
         await db.update(callRecordings).set({
-          analysisStatus: "failed",
-          analysisResult: { error: `Transcription failed: ${whisperErr.message}` },
+          analysisStatus: "completed",
+          sentiment: "neutral",
+          qualityScore: 5,
+          summary: "Nahrávka je príliš krátka na prepis",
+          analyzedAt: new Date(),
         }).where(eq(callRecordings.id, recordingId));
         return;
+      }
+
+      const maxRetries = 2;
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          const fs2 = await import("fs");
+          const pathMod = await import("path");
+          const fileName = pathMod.default.basename(filePath);
+          const fileStream = fs2.createReadStream(filePath);
+          const file = await openai.toFile(fileStream, fileName);
+
+          const transcriptionResult = await openai.audio.transcriptions.create({
+            file: file,
+            model: "whisper-1",
+            response_format: "text",
+          });
+          transcriptionText = transcriptionResult as unknown as string;
+          console.log(`[CallAnalysis] Transcription complete for ${recordingId}: ${transcriptionText.length} chars (attempt ${attempt + 1})`);
+          break;
+        } catch (whisperErr: any) {
+          console.error(`[CallAnalysis] Whisper transcription failed for ${recordingId} (attempt ${attempt + 1}/${maxRetries + 1}):`, whisperErr.message);
+          if (whisperErr.status) console.error(`[CallAnalysis] Whisper HTTP status: ${whisperErr.status}`);
+          if (whisperErr.error) console.error(`[CallAnalysis] Whisper error details:`, JSON.stringify(whisperErr.error));
+          if (attempt === maxRetries) {
+            await db.update(callRecordings).set({
+              analysisStatus: "failed",
+              analysisResult: { error: `Transcription failed after ${maxRetries + 1} attempts: ${whisperErr.message}` },
+            }).where(eq(callRecordings.id, recordingId));
+            return;
+          }
+          await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
+        }
       }
 
       const detectedAlerts: string[] = [];
@@ -16212,15 +16243,22 @@ Rules:
         console.log(`[CallAnalysis] Analysis complete for ${recordingId}: sentiment=${sentimentVal}, score=${qualityScoreVal}, scriptScore=${scriptComplianceScoreVal || 'N/A'}, alerts=${allAlerts.length}`);
       } catch (analysisErr: any) {
         console.error(`[CallAnalysis] GPT analysis failed for ${recordingId}:`, analysisErr.message);
+        if (analysisErr.status) console.error(`[CallAnalysis] GPT HTTP status: ${analysisErr.status}`);
         await db.update(callRecordings).set({
           analysisStatus: "completed",
           analyzedAt: new Date(),
+          sentiment: "neutral",
+          qualityScore: 5,
+          summary: transcriptionText ? `Prepis bol úspešný, ale AI analýza zlyhala: ${analysisErr.message}` : null,
           analysisResult: { error: `Analysis failed: ${analysisErr.message}` },
         }).where(eq(callRecordings.id, recordingId));
       }
     } catch (err: any) {
-      console.error(`[CallAnalysis] Unexpected error for ${recordingId}:`, err.message);
-      await db.update(callRecordings).set({ analysisStatus: "failed" }).where(eq(callRecordings.id, recordingId));
+      console.error(`[CallAnalysis] Unexpected error for ${recordingId}:`, err.message, err.stack);
+      await db.update(callRecordings).set({
+        analysisStatus: "failed",
+        analysisResult: { error: `Unexpected error: ${err.message}` },
+      }).where(eq(callRecordings.id, recordingId));
     }
   }
 
