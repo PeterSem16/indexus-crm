@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Search, FileText, Star, AlertTriangle, Download, ChevronDown, ChevronUp, Loader2, Phone, User, Megaphone, Clock, Filter, X, PhoneIncoming, PhoneOutgoing, PhoneMissed, Mic, MicOff, Brain, List, Calendar, UserCircle, Activity, Tag, BarChart3, SlidersHorizontal, ListChecks, ClipboardList, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useI18n } from "@/i18n";
+import { CallRecordingPlayer } from "@/components/call-recording-player";
 
 const LOCALE_MAP: Record<string, string> = { en: 'en-US', sk: 'sk-SK', cs: 'cs-CZ', hu: 'hu-HU', ro: 'ro-RO', it: 'it-IT', de: 'de-DE' };
 
@@ -386,6 +387,10 @@ function CallLogCard({ log }: { log: CallLogEntry }) {
             )}
           </div>
 
+          {log.hasRecording && (
+            <CallRecordingPlayer callLogId={log.id} compact />
+          )}
+
           {rec && rec.analysisStatus === "completed" && (
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5 flex-wrap">
@@ -526,6 +531,12 @@ function ResultCard({ result, query }: { result: TranscriptResult; query: string
               </DialogContent>
             </Dialog>
           </div>
+
+          {result.callLogId && (
+            <div className="mb-2">
+              <CallRecordingPlayer callLogId={result.callLogId} compact />
+            </div>
+          )}
 
           {result.summary && (
             <p className="text-xs text-muted-foreground mb-2 leading-relaxed">{result.summary}</p>
