@@ -15736,7 +15736,7 @@ export async function registerRoutes(
   // Get all call logs (with optional filters)
   app.get("/api/call-logs", requireAuth, async (req, res) => {
     try {
-      const { userId, customerId, campaignId, limit } = req.query;
+      const { userId, customerId, campaignId, limit, includeRecordings } = req.query;
       
       let logs;
       if (userId) {
@@ -15747,6 +15747,34 @@ export async function registerRoutes(
         logs = await storage.getCallLogsByCampaign(campaignId as string);
       } else {
         logs = await storage.getAllCallLogs(limit ? parseInt(limit as string) : undefined);
+      }
+      
+      if (includeRecordings === "true" && logs.length > 0) {
+        const logIds = logs.map((l: any) => l.id);
+        const recs = await db.select({
+          id: callRecordings.id,
+          callLogId: callRecordings.callLogId,
+          analysisStatus: callRecordings.analysisStatus,
+          transcriptionText: callRecordings.transcriptionText,
+          sentiment: callRecordings.sentiment,
+          qualityScore: callRecordings.qualityScore,
+          scriptComplianceScore: callRecordings.scriptComplianceScore,
+          summary: callRecordings.summary,
+          alertKeywords: callRecordings.alertKeywords,
+          agentName: callRecordings.agentName,
+          campaignName: callRecordings.campaignName,
+        }).from(callRecordings)
+          .where(inArray(callRecordings.callLogId, logIds));
+        const recordingMap: Record<string, any> = {};
+        for (const r of recs) {
+          recordingMap[r.callLogId] = r;
+        }
+        const enriched = logs.map((log: any) => ({
+          ...log,
+          hasRecording: !!recordingMap[log.id],
+          recording: recordingMap[log.id] || null,
+        }));
+        return res.json(enriched);
       }
       
       res.json(logs);

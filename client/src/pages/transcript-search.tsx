@@ -8,6 +8,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, FileText, Star, AlertTriangle, Download, ChevronDown, ChevronUp, Loader2, Phone, User, Megaphone, Clock, Filter, X, PhoneIncoming, PhoneOutgoing, PhoneMissed, Mic, MicOff, Brain, List, Calendar, UserCircle, Activity, Tag, BarChart3, SlidersHorizontal } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+import { useI18n } from "@/i18n";
+
+const LOCALE_MAP: Record<string, string> = { en: 'en-US', sk: 'sk-SK', cs: 'cs-CZ', hu: 'hu-HU', ro: 'ro-RO', it: 'it-IT', de: 'de-DE' };
 
 interface TranscriptResult {
   id: string;
@@ -98,16 +101,17 @@ function getSnippet(text: string, query: string, maxLen = 300): string {
   return snippet;
 }
 
-function SentimentBadge({ sentiment }: { sentiment: string | null }) {
+function SentimentBadge({ sentiment, labels }: { sentiment: string | null; labels?: Record<string, string> }) {
   if (!sentiment) return null;
-  const config: Record<string, { cls: string; label: string }> = {
-    positive: { cls: "text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-950/40", label: "Pozit." },
-    neutral: { cls: "text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-950/40", label: "Neutr." },
-    negative: { cls: "text-orange-700 dark:text-orange-400 bg-orange-100 dark:bg-orange-950/40", label: "Negat." },
-    angry: { cls: "text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-950/40", label: "Nahn." },
+  const config: Record<string, { cls: string }> = {
+    positive: { cls: "text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-950/40" },
+    neutral: { cls: "text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-950/40" },
+    negative: { cls: "text-orange-700 dark:text-orange-400 bg-orange-100 dark:bg-orange-950/40" },
+    angry: { cls: "text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-950/40" },
   };
   const c = config[sentiment] || config.neutral;
-  return <Badge variant="secondary" className={`text-[10px] ${c.cls}`}>{c.label}</Badge>;
+  const label = labels?.[sentiment] || sentiment.charAt(0).toUpperCase() + sentiment.slice(1);
+  return <Badge variant="secondary" className={`text-[10px] ${c.cls}`}>{label}</Badge>;
 }
 
 function ScoreBadge({ score, label }: { score: number | null; label: string }) {
@@ -132,29 +136,42 @@ function DirectionIcon({ direction, status }: { direction: string; status: strin
   return <PhoneOutgoing className="h-4 w-4 text-blue-600 dark:text-blue-400" />;
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const config: Record<string, { cls: string; label: string }> = {
-    completed: { cls: "text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-950/40", label: "Dokonceny" },
-    failed: { cls: "text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-950/40", label: "Zlyhany" },
-    no_answer: { cls: "text-orange-700 dark:text-orange-400 bg-orange-100 dark:bg-orange-950/40", label: "Neprijaty" },
-    busy: { cls: "text-yellow-700 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-950/40", label: "Obsadeny" },
-    cancelled: { cls: "text-muted-foreground bg-muted", label: "Zruseny" },
-    initiated: { cls: "text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-950/40", label: "Zahajeny" },
-    ringing: { cls: "text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-950/40", label: "Zvoni" },
-    answered: { cls: "text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-950/40", label: "Prebieha" },
+function StatusBadge({ status, labels }: { status: string; labels?: Record<string, string> }) {
+  const config: Record<string, { cls: string }> = {
+    completed: { cls: "text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-950/40" },
+    failed: { cls: "text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-950/40" },
+    no_answer: { cls: "text-orange-700 dark:text-orange-400 bg-orange-100 dark:bg-orange-950/40" },
+    busy: { cls: "text-yellow-700 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-950/40" },
+    cancelled: { cls: "text-muted-foreground bg-muted" },
+    initiated: { cls: "text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-950/40" },
+    ringing: { cls: "text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-950/40" },
+    answered: { cls: "text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-950/40" },
   };
-  const c = config[status] || { cls: "text-muted-foreground bg-muted", label: status };
-  return <Badge variant="secondary" className={`text-[10px] ${c.cls}`}>{c.label}</Badge>;
+  const c = config[status] || { cls: "text-muted-foreground bg-muted" };
+  const label = labels?.[status] || status;
+  return <Badge variant="secondary" className={`text-[10px] ${c.cls}`}>{label}</Badge>;
 }
 
 function CallLogCard({ log }: { log: CallLogEntry }) {
+  const { t, locale } = useI18n();
+  const ca = t.callAnalysis;
   const [expanded, setExpanded] = useState(false);
-  const dateStr = new Date(log.startedAt || log.createdAt).toLocaleString("sk-SK", {
+  const dateStr = new Date(log.startedAt || log.createdAt).toLocaleString(LOCALE_MAP[locale] || 'en-US', {
     day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
   });
 
   const rec = log.recording;
   const hasTranscription = rec?.transcriptionText;
+
+  const statusLabels: Record<string, string> = {
+    completed: ca.statusCompleted, failed: ca.statusFailed, no_answer: ca.statusNoAnswer,
+    busy: ca.statusBusy, cancelled: ca.statusCancelled, initiated: ca.statusInitiated,
+    ringing: ca.statusRinging, answered: ca.statusAnswered,
+  };
+
+  const sentimentLabels: Record<string, string> = {
+    positive: ca.positive, neutral: ca.neutral, negative: ca.negative, angry: ca.angry,
+  };
 
   return (
     <Card className="p-3" data-testid={`call-log-${log.id}`}>
@@ -186,7 +203,7 @@ function CallLogCard({ log }: { log: CallLogEntry }) {
                 {rec.agentName}
               </span>
             )}
-            <StatusBadge status={log.status} />
+            <StatusBadge status={log.status} labels={statusLabels} />
           </div>
 
           <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
@@ -200,24 +217,24 @@ function CallLogCard({ log }: { log: CallLogEntry }) {
             {log.hasRecording ? (
               <Badge variant="secondary" className="text-[10px] gap-1 text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-950/40">
                 <Mic className="h-2.5 w-2.5" />
-                Nahrane
+                {ca.withRecording}
               </Badge>
             ) : (
               <Badge variant="secondary" className="text-[10px] gap-1 text-muted-foreground">
                 <MicOff className="h-2.5 w-2.5" />
-                Bez nahravky
+                {ca.withoutRecording}
               </Badge>
             )}
             {rec?.analysisStatus === "completed" && (
               <Badge variant="secondary" className="text-[10px] gap-1 text-purple-700 dark:text-purple-400 bg-purple-100 dark:bg-purple-950/40">
                 <Brain className="h-2.5 w-2.5" />
-                Analyzovane
+                {ca.analyzed}
               </Badge>
             )}
             {rec?.analysisStatus === "processing" && (
               <Badge variant="secondary" className="text-[10px] gap-1 text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-950/40">
                 <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                Spracovava sa
+                {ca.processing}
               </Badge>
             )}
           </div>
@@ -225,9 +242,9 @@ function CallLogCard({ log }: { log: CallLogEntry }) {
           {rec && rec.analysisStatus === "completed" && (
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <SentimentBadge sentiment={rec.sentiment} />
-                <ScoreBadge score={rec.qualityScore} label="Kvalita" />
-                <ScoreBadge score={rec.scriptComplianceScore} label="Skript" />
+                <SentimentBadge sentiment={rec.sentiment} labels={sentimentLabels} />
+                <ScoreBadge score={rec.qualityScore} label={ca.quality} />
+                <ScoreBadge score={rec.scriptComplianceScore} label={ca.script} />
                 {rec.alertKeywords && rec.alertKeywords.length > 0 && (
                   <Badge variant="destructive" className="text-[10px] gap-1">
                     <AlertTriangle className="h-2.5 w-2.5" />
@@ -248,7 +265,7 @@ function CallLogCard({ log }: { log: CallLogEntry }) {
                     data-testid={`btn-expand-transcript-${log.id}`}
                   >
                     {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                    <span className="text-[11px]">{expanded ? "Skryt prepis" : "Zobrazit prepis"}</span>
+                    <span className="text-[11px]">{expanded ? ca.hideTranscript : ca.showTranscript}</span>
                   </Button>
                   {expanded && (
                     <div className="bg-muted/40 rounded-md p-2">
@@ -270,6 +287,8 @@ function CallLogCard({ log }: { log: CallLogEntry }) {
 }
 
 function ResultCard({ result, query }: { result: TranscriptResult; query: string }) {
+  const { t, locale } = useI18n();
+  const ca = t.callAnalysis;
   const [expanded, setExpanded] = useState(false);
 
   const handleExport = (format: string) => {
@@ -277,9 +296,13 @@ function ResultCard({ result, query }: { result: TranscriptResult; query: string
   };
 
   const snippet = getSnippet(result.transcriptionText, query);
-  const dateStr = new Date(result.createdAt).toLocaleString("sk-SK", {
+  const dateStr = new Date(result.createdAt).toLocaleString(LOCALE_MAP[locale] || 'en-US', {
     day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
   });
+
+  const sentimentLabels: Record<string, string> = {
+    positive: ca.positive, neutral: ca.neutral, negative: ca.negative, angry: ca.angry,
+  };
 
   return (
     <Card className="p-3" data-testid={`transcript-result-${result.id}`}>
@@ -315,13 +338,13 @@ function ResultCard({ result, query }: { result: TranscriptResult; query: string
               {dateStr}
             </span>
             <span className="text-[10px] text-muted-foreground">{formatDuration(result.durationSeconds)}</span>
-            <SentimentBadge sentiment={result.sentiment} />
-            <ScoreBadge score={result.qualityScore} label="Kvalita" />
-            <ScoreBadge score={result.scriptComplianceScore} label="Skript" />
+            <SentimentBadge sentiment={result.sentiment} labels={sentimentLabels} />
+            <ScoreBadge score={result.qualityScore} label={ca.quality} />
+            <ScoreBadge score={result.scriptComplianceScore} label={ca.script} />
             {result.alertKeywords && result.alertKeywords.length > 0 && (
               <Badge variant="destructive" className="text-[10px] gap-1">
                 <AlertTriangle className="h-2.5 w-2.5" />
-                {result.alertKeywords.length} upoz.
+                {result.alertKeywords.length} {ca.alerts}
               </Badge>
             )}
           </div>
@@ -343,7 +366,7 @@ function ResultCard({ result, query }: { result: TranscriptResult; query: string
               data-testid={`btn-full-transcript-${result.id}`}
             >
               {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-              <span className="text-[11px]">{expanded ? "Skryt cely prepis" : "Cely prepis"}</span>
+              <span className="text-[11px]">{expanded ? ca.hideFullTranscript : ca.fullTranscript}</span>
             </Button>
             <Button
               size="sm"
@@ -395,6 +418,8 @@ function FilterChip({ label, active, onClick, icon: Icon }: { label: string; act
 
 export default function TranscriptSearchPage() {
   const { user } = useAuth();
+  const { t, locale } = useI18n();
+  const ca = t.callAnalysis;
   const [activeTab, setActiveTab] = useState<"browse" | "search">("browse");
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -600,7 +625,7 @@ export default function TranscriptSearchPage() {
       <div className="border-b px-4 py-3">
         <div className="flex items-center gap-2 mb-2">
           <FileText className="h-5 w-5 text-muted-foreground" />
-          <h1 className="text-lg font-semibold" data-testid="text-page-title">Hovory a prepisy</h1>
+          <h1 className="text-lg font-semibold" data-testid="text-page-title">{ca.pageTitle}</h1>
         </div>
 
         <div className="flex items-center gap-1 mb-3">
@@ -611,7 +636,7 @@ export default function TranscriptSearchPage() {
             data-testid="btn-tab-browse"
           >
             <List className="h-4 w-4 mr-1" />
-            Vsetky hovory
+            {ca.allCalls}
           </Button>
           <Button
             variant={activeTab === "search" ? "default" : "outline"}
@@ -620,7 +645,7 @@ export default function TranscriptSearchPage() {
             data-testid="btn-tab-search"
           >
             <Search className="h-4 w-4 mr-1" />
-            Hladat v prepisoch
+            {ca.searchTranscripts}
           </Button>
         </div>
 
@@ -630,7 +655,7 @@ export default function TranscriptSearchPage() {
               <div className="relative flex-1 max-w-sm">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
-                  placeholder="Hladat v hovoroch..."
+                  placeholder={ca.searchInCalls}
                   className="pl-8 h-8 text-xs"
                   value={browseSearchText}
                   onChange={(e) => setBrowseSearchText(e.target.value)}
@@ -645,7 +670,7 @@ export default function TranscriptSearchPage() {
                 data-testid="btn-browse-filters"
               >
                 <SlidersHorizontal className="h-3.5 w-3.5" />
-                <span className="text-xs">Filtre</span>
+                <span className="text-xs">{ca.filters}</span>
                 {activeBrowseFilterCount > 0 && (
                   <Badge variant="secondary" className="text-[9px] h-4 min-w-4 px-1">{activeBrowseFilterCount}</Badge>
                 )}
@@ -653,7 +678,7 @@ export default function TranscriptSearchPage() {
               {hasActiveBrowseFilters && (
                 <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={clearBrowseFilters} data-testid="btn-clear-browse-filters">
                   <X className="h-3 w-3" />
-                  <span className="text-xs">Zrusit</span>
+                  <span className="text-xs">{ca.clearFilters}</span>
                 </Button>
               )}
             </div>
@@ -665,11 +690,11 @@ export default function TranscriptSearchPage() {
                     <Megaphone className="h-3.5 w-3.5 text-muted-foreground" />
                     <Select value={browseCampaignFilter} onValueChange={(v) => setBrowseCampaignFilter(v === "all" ? "" : v)}>
                       <SelectTrigger className="w-[180px] h-8 text-xs" data-testid="select-browse-campaign">
-                        <SelectValue placeholder="Kampan" />
+                        <SelectValue placeholder={ca.campaign} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Vsetky kampane</SelectItem>
-                        <SelectItem value="__none__">Bez kampane</SelectItem>
+                        <SelectItem value="all">{ca.allCampaigns}</SelectItem>
+                        <SelectItem value="__none__">{ca.noCampaign}</SelectItem>
                         {(uniqueCampaignsInLogs.length > 0 ? uniqueCampaignsInLogs : campaignsList).map(c => (
                           <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                         ))}
@@ -681,15 +706,15 @@ export default function TranscriptSearchPage() {
                     <Activity className="h-3.5 w-3.5 text-muted-foreground" />
                     <Select value={browseStatusFilter} onValueChange={(v) => setBrowseStatusFilter(v === "all" ? "" : v)}>
                       <SelectTrigger className="w-[140px] h-8 text-xs" data-testid="select-browse-status">
-                        <SelectValue placeholder="Status" />
+                        <SelectValue placeholder={ca.status} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Vsetky statusy</SelectItem>
-                        <SelectItem value="completed">Dokonceny</SelectItem>
-                        <SelectItem value="failed">Zlyhany</SelectItem>
-                        <SelectItem value="no_answer">Neprijaty</SelectItem>
-                        <SelectItem value="busy">Obsadeny</SelectItem>
-                        <SelectItem value="cancelled">Zruseny</SelectItem>
+                        <SelectItem value="all">{ca.allStatuses}</SelectItem>
+                        <SelectItem value="completed">{ca.statusCompleted}</SelectItem>
+                        <SelectItem value="failed">{ca.statusFailed}</SelectItem>
+                        <SelectItem value="no_answer">{ca.statusNoAnswer}</SelectItem>
+                        <SelectItem value="busy">{ca.statusBusy}</SelectItem>
+                        <SelectItem value="cancelled">{ca.statusCancelled}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -698,12 +723,12 @@ export default function TranscriptSearchPage() {
                     <Phone className="h-3.5 w-3.5 text-muted-foreground" />
                     <Select value={browseDirectionFilter} onValueChange={(v) => setBrowseDirectionFilter(v === "all" ? "" : v)}>
                       <SelectTrigger className="w-[140px] h-8 text-xs" data-testid="select-browse-direction">
-                        <SelectValue placeholder="Smer" />
+                        <SelectValue placeholder={ca.direction} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Vsetky smery</SelectItem>
-                        <SelectItem value="outbound">Odchadzajuce</SelectItem>
-                        <SelectItem value="inbound">Prichadzajuce</SelectItem>
+                        <SelectItem value="all">{ca.allDirections}</SelectItem>
+                        <SelectItem value="outbound">{ca.outbound}</SelectItem>
+                        <SelectItem value="inbound">{ca.inbound}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -714,14 +739,14 @@ export default function TranscriptSearchPage() {
                     <Mic className="h-3.5 w-3.5 text-muted-foreground" />
                     <Select value={browseRecordingFilter} onValueChange={(v) => setBrowseRecordingFilter(v === "all" ? "" : v)}>
                       <SelectTrigger className="w-[150px] h-8 text-xs" data-testid="select-browse-recording">
-                        <SelectValue placeholder="Nahravka" />
+                        <SelectValue placeholder={ca.recording} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Vsetky</SelectItem>
-                        <SelectItem value="recorded">S nahravkou</SelectItem>
-                        <SelectItem value="not_recorded">Bez nahravky</SelectItem>
-                        <SelectItem value="analyzed">Analyzovane</SelectItem>
-                        <SelectItem value="transcribed">S prepisom</SelectItem>
+                        <SelectItem value="all">{ca.allRecordings}</SelectItem>
+                        <SelectItem value="recorded">{ca.withRecording}</SelectItem>
+                        <SelectItem value="not_recorded">{ca.withoutRecording}</SelectItem>
+                        <SelectItem value="analyzed">{ca.analyzed}</SelectItem>
+                        <SelectItem value="transcribed">{ca.withTranscript}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -730,14 +755,14 @@ export default function TranscriptSearchPage() {
                     <Tag className="h-3.5 w-3.5 text-muted-foreground" />
                     <Select value={browseSentimentFilter} onValueChange={(v) => setBrowseSentimentFilter(v === "all" ? "" : v)}>
                       <SelectTrigger className="w-[140px] h-8 text-xs" data-testid="select-browse-sentiment">
-                        <SelectValue placeholder="Sentiment" />
+                        <SelectValue placeholder={ca.sentiment} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Vsetky</SelectItem>
-                        <SelectItem value="positive">Pozitivny</SelectItem>
-                        <SelectItem value="neutral">Neutralny</SelectItem>
-                        <SelectItem value="negative">Negativny</SelectItem>
-                        <SelectItem value="angry">Nahnevany</SelectItem>
+                        <SelectItem value="all">{ca.allSentiments}</SelectItem>
+                        <SelectItem value="positive">{ca.positive}</SelectItem>
+                        <SelectItem value="neutral">{ca.neutral}</SelectItem>
+                        <SelectItem value="negative">{ca.negative}</SelectItem>
+                        <SelectItem value="angry">{ca.angry}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -747,10 +772,10 @@ export default function TranscriptSearchPage() {
                       <UserCircle className="h-3.5 w-3.5 text-muted-foreground" />
                       <Select value={browseAgentFilter} onValueChange={(v) => setBrowseAgentFilter(v === "all" ? "" : v)}>
                         <SelectTrigger className="w-[160px] h-8 text-xs" data-testid="select-browse-agent">
-                          <SelectValue placeholder="Agent" />
+                          <SelectValue placeholder={ca.agent} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all">Vsetci agenti</SelectItem>
+                          <SelectItem value="all">{ca.allAgents}</SelectItem>
                           {uniqueAgents.map(a => (
                             <SelectItem key={a} value={a}>{a}</SelectItem>
                           ))}
@@ -770,7 +795,7 @@ export default function TranscriptSearchPage() {
                       onChange={(e) => setBrowseDateFrom(e.target.value)}
                       data-testid="input-date-from"
                     />
-                    <span className="text-xs text-muted-foreground">do</span>
+                    <span className="text-xs text-muted-foreground">{ca.dateTo}</span>
                     <Input
                       type="date"
                       className="h-8 text-xs w-[140px]"
@@ -784,20 +809,20 @@ export default function TranscriptSearchPage() {
                     <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
                     <Select value={browseMinQuality} onValueChange={(v) => setBrowseMinQuality(v === "all" ? "" : v)}>
                       <SelectTrigger className="w-[150px] h-8 text-xs" data-testid="select-browse-quality">
-                        <SelectValue placeholder="Min. kvalita" />
+                        <SelectValue placeholder={ca.minQuality} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Vsetky</SelectItem>
-                        <SelectItem value="8">8+ (vynikajuce)</SelectItem>
-                        <SelectItem value="6">6+ (dobre)</SelectItem>
-                        <SelectItem value="4">4+ (priemerne)</SelectItem>
-                        <SelectItem value="1">1+ (slabe)</SelectItem>
+                        <SelectItem value="all">{ca.allRecordings}</SelectItem>
+                        <SelectItem value="8">8+ ({ca.excellent})</SelectItem>
+                        <SelectItem value="6">6+ ({ca.good})</SelectItem>
+                        <SelectItem value="4">4+ ({ca.average})</SelectItem>
+                        <SelectItem value="1">1+ ({ca.poor})</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   <FilterChip
-                    label="S upozorneniami"
+                    label={ca.withAlerts}
                     active={browseHasAlertsFilter}
                     onClick={() => setBrowseHasAlertsFilter(!browseHasAlertsFilter)}
                     icon={AlertTriangle}
@@ -807,23 +832,23 @@ export default function TranscriptSearchPage() {
             )}
 
             <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-              <span>{stats.total} hovorov</span>
-              <span>{stats.recorded} nahranych</span>
-              <span>{stats.analyzed} analyzovanych</span>
+              <span>{stats.total} {ca.calls}</span>
+              <span>{stats.recorded} {ca.recorded}</span>
+              <span>{stats.analyzed} {ca.analyzed}</span>
               {stats.withAlerts > 0 && (
                 <span className="text-destructive flex items-center gap-0.5">
                   <AlertTriangle className="h-3 w-3" />
-                  {stats.withAlerts} s upoz.
+                  {stats.withAlerts} {ca.alerts}
                 </span>
               )}
               {stats.analyzed > 0 && (
                 <span className="flex items-center gap-0.5">
                   <Star className="h-3 w-3" />
-                  Priemer: {stats.avgQuality}/10
+                  {ca.avgQuality}: {stats.avgQuality}/10
                 </span>
               )}
               {hasActiveBrowseFilters && callLogs.length !== filteredCallLogs.length && (
-                <span className="text-primary font-medium">(filtre aktivne: {filteredCallLogs.length} z {callLogs.length})</span>
+                <span className="text-primary font-medium">({ca.filtersActive}: {filteredCallLogs.length} {ca.of} {callLogs.length})</span>
               )}
             </div>
           </>
@@ -835,7 +860,7 @@ export default function TranscriptSearchPage() {
               <div className="relative flex-1 max-w-xl">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Hladat v prepisoch hovorov..."
+                  placeholder={ca.searchPlaceholder}
                   className="pl-9"
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
@@ -845,7 +870,7 @@ export default function TranscriptSearchPage() {
               </div>
               <Button onClick={handleSearch} disabled={searchInput.trim().length < 2} data-testid="btn-search-transcripts">
                 <Search className="h-4 w-4 mr-1" />
-                Hladat
+                {ca.search}
               </Button>
               <Button
                 variant="outline"
@@ -861,17 +886,17 @@ export default function TranscriptSearchPage() {
             {showFilters && (
               <div className="flex items-center gap-3 mt-2 flex-wrap">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs text-muted-foreground">Sentiment:</span>
+                  <span className="text-xs text-muted-foreground">{ca.sentiment}:</span>
                   <Select value={sentimentFilter} onValueChange={(v) => setSentimentFilter(v === "all" ? "" : v)}>
                     <SelectTrigger className="w-[130px] h-8 text-xs" data-testid="select-sentiment-filter">
-                      <SelectValue placeholder="Vsetky" />
+                      <SelectValue placeholder={ca.allSentiments} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Vsetky</SelectItem>
-                      <SelectItem value="positive">Pozitivny</SelectItem>
-                      <SelectItem value="neutral">Neutralny</SelectItem>
-                      <SelectItem value="negative">Negativny</SelectItem>
-                      <SelectItem value="angry">Nahnevany</SelectItem>
+                      <SelectItem value="all">{ca.allSentiments}</SelectItem>
+                      <SelectItem value="positive">{ca.positive}</SelectItem>
+                      <SelectItem value="neutral">{ca.neutral}</SelectItem>
+                      <SelectItem value="negative">{ca.negative}</SelectItem>
+                      <SelectItem value="angry">{ca.angry}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -883,12 +908,12 @@ export default function TranscriptSearchPage() {
                   data-testid="btn-filter-alerts"
                 >
                   <AlertTriangle className="h-3 w-3" />
-                  <span className="text-xs">S upozorneniami</span>
+                  <span className="text-xs">{ca.withAlerts}</span>
                 </Button>
                 {hasActiveFilters && (
                   <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={clearFilters} data-testid="btn-clear-filters">
                     <X className="h-3 w-3" />
-                    <span className="text-xs">Zrusit filtre</span>
+                    <span className="text-xs">{ca.clearFilters}</span>
                   </Button>
                 )}
               </div>
@@ -902,20 +927,18 @@ export default function TranscriptSearchPage() {
           {activeTab === "browse" && logsLoading && (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mr-2" />
-              <span className="text-sm text-muted-foreground">Nacitavam hovory...</span>
+              <span className="text-sm text-muted-foreground">{ca.loadingCalls}</span>
             </div>
           )}
 
           {activeTab === "browse" && !logsLoading && filteredCallLogs.length === 0 && !hasActiveBrowseFilters && (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
               <Phone className="h-12 w-12 mb-4 opacity-30" />
-              <p className="text-sm font-medium">Ziadne hovory</p>
-              <p className="text-xs mt-1">Zatial neboli zaznamenane ziadne hovory</p>
+              <p className="text-sm font-medium">{ca.noCalls}</p>
+              <p className="text-xs mt-1">{ca.noCallsDescription}</p>
               <div className="mt-6 bg-muted/40 rounded-md p-4 max-w-md text-center">
                 <p className="text-xs leading-relaxed">
-                  Hovory sa zaznamenavaju automaticky pri pouziti SIP telefonu v CRM.
-                  Pre nahranie hovoru kliknite na tlacidlo nahravanie pocas hovoru.
-                  System potom automaticky vytvori prepis a AI analyzu.
+                  {ca.noCallsHelp}
                 </p>
               </div>
             </div>
@@ -924,11 +947,11 @@ export default function TranscriptSearchPage() {
           {activeTab === "browse" && !logsLoading && filteredCallLogs.length === 0 && hasActiveBrowseFilters && (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
               <Filter className="h-12 w-12 mb-4 opacity-30" />
-              <p className="text-sm font-medium">Ziadne vysledky</p>
-              <p className="text-xs mt-1">Pre zvolene filtre neboli najdene ziadne hovory</p>
+              <p className="text-sm font-medium">{ca.noResults}</p>
+              <p className="text-xs mt-1">{ca.noResultsForFilters}</p>
               <Button variant="outline" size="sm" className="mt-4 gap-1" onClick={clearBrowseFilters}>
                 <X className="h-3 w-3" />
-                Zrusit filtre
+                {ca.clearFilters}
               </Button>
             </div>
           )}
@@ -944,23 +967,23 @@ export default function TranscriptSearchPage() {
           {activeTab === "search" && !searchQuery && (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
               <Search className="h-12 w-12 mb-4 opacity-30" />
-              <p className="text-sm font-medium">Zadajte hladany vyraz</p>
-              <p className="text-xs mt-1">Vyhladavanie v prepisoch hovorov, suhrnoch a klucovych slovach</p>
+              <p className="text-sm font-medium">{ca.enterSearchTerm}</p>
+              <p className="text-xs mt-1">{ca.searchDescription}</p>
             </div>
           )}
 
           {activeTab === "search" && searchQuery && isLoading && (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mr-2" />
-              <span className="text-sm text-muted-foreground">Vyhladavam...</span>
+              <span className="text-sm text-muted-foreground">{ca.searching}</span>
             </div>
           )}
 
           {activeTab === "search" && searchQuery && !isLoading && results.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
               <FileText className="h-12 w-12 mb-4 opacity-30" />
-              <p className="text-sm font-medium">Ziadne vysledky</p>
-              <p className="text-xs mt-1">Pre hladany vyraz "{searchQuery}" neboli najdene ziadne prepisy</p>
+              <p className="text-sm font-medium">{ca.noSearchResults}</p>
+              <p className="text-xs mt-1">{ca.noSearchResultsFor} "{searchQuery}"</p>
             </div>
           )}
 
@@ -968,7 +991,7 @@ export default function TranscriptSearchPage() {
             <>
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-xs text-muted-foreground">
-                  {results.length} vysledkov pre "{searchQuery}"
+                  {results.length} {ca.resultsFor} "{searchQuery}"
                   {isFetching && <Loader2 className="h-3 w-3 animate-spin inline ml-1" />}
                 </span>
               </div>

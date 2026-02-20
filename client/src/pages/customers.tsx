@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, MailOpen, Phone, PhoneCall, PhoneOutgoing, PhoneIncoming, Baby, Copy, ListChecks, FileEdit, UserCircle, Clock, PlusCircle, RefreshCw, XCircle, LogIn, LogOut, AlertCircle, CheckCircle2, ArrowRight, Shield, CreditCard, Loader2, Calendar, Globe, Linkedin, Facebook, Twitter, Instagram, Building2, ExternalLink, Sparkles, FileSignature, Receipt, Target, ArrowDownLeft, ArrowUpRight, PenSquare, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, Filter, X, ChevronDown, ChevronUp, Upload, Mic, MicOff, Pause, Play, Grid3X3, Volume2, PhoneOff, User } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Eye, Package, FileText, Download, Calculator, MessageSquare, History, Send, Mail, MailOpen, Phone, PhoneCall, PhoneOutgoing, PhoneIncoming, Baby, Copy, ListChecks, FileEdit, UserCircle, Clock, PlusCircle, RefreshCw, XCircle, LogIn, LogOut, AlertCircle, CheckCircle2, ArrowRight, Shield, CreditCard, Loader2, Calendar, Globe, Linkedin, Facebook, Twitter, Instagram, Building2, ExternalLink, Sparkles, FileSignature, Receipt, Target, ArrowDownLeft, ArrowUpRight, PenSquare, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, FileSpreadsheet, Filter, X, ChevronDown, ChevronUp, Upload, Mic, MicOff, Pause, Play, Grid3X3, Volume2, PhoneOff, User, Brain, Star, AlertTriangle } from "lucide-react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import { Button } from "@/components/ui/button";
@@ -1816,7 +1816,7 @@ function CustomerHistoryTimeline({
     },
   });
 
-  // Fetch customer call logs for timeline
+  // Fetch customer call logs for timeline (with recording data)
   const { data: customerCallLogs = [] } = useQuery<Array<{
     id: string;
     userId: string;
@@ -1829,10 +1829,23 @@ function CustomerHistoryTimeline({
     durationSeconds: number | null;
     notes: string | null;
     hungUpBy: string | null;
+    hasRecording?: boolean;
+    recording?: {
+      id: string;
+      analysisStatus: string | null;
+      transcriptionText: string | null;
+      sentiment: string | null;
+      qualityScore: number | null;
+      scriptComplianceScore: number | null;
+      summary: string | null;
+      alertKeywords: string[] | null;
+      agentName: string | null;
+      campaignName: string | null;
+    } | null;
   }>>({
     queryKey: ["/api/customers", customerId, "call-logs"],
     queryFn: async () => {
-      const res = await fetch(`/api/call-logs?customerId=${customerId}`, { credentials: "include" });
+      const res = await fetch(`/api/call-logs?customerId=${customerId}&includeRecordings=true`, { credentials: "include" });
       if (!res.ok) return [];
       return res.json();
     },
@@ -2740,6 +2753,101 @@ function CustomerHistoryTimeline({
   );
 }
 
+interface CallAnalysisRecording {
+  id: string;
+  analysisStatus: string | null;
+  transcriptionText: string | null;
+  sentiment: string | null;
+  qualityScore: number | null;
+  scriptComplianceScore: number | null;
+  summary: string | null;
+  alertKeywords: string[] | null;
+  agentName: string | null;
+  campaignName: string | null;
+}
+
+function CallAnalysisSection({ recording, callId, t }: { recording: CallAnalysisRecording; callId: string; t: Record<string, any> }) {
+  const [showTranscript, setShowTranscript] = useState(false);
+  const ca = t.callAnalysis || {};
+  const sentimentConfig: Record<string, { cls: string }> = {
+    positive: { cls: "text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-950/40" },
+    neutral: { cls: "text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-950/40" },
+    negative: { cls: "text-orange-700 dark:text-orange-400 bg-orange-100 dark:bg-orange-950/40" },
+    angry: { cls: "text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-950/40" },
+  };
+  const sentimentLabels: Record<string, string> = {
+    positive: ca.positive || "Positive",
+    neutral: ca.neutral || "Neutral",
+    negative: ca.negative || "Negative",
+    angry: ca.angry || "Angry",
+  };
+  const sentiment = recording.sentiment ?? "neutral";
+  const sc = sentimentConfig[sentiment] || sentimentConfig.neutral;
+  const qScore = recording.qualityScore ?? 0;
+  const sScore = recording.scriptComplianceScore ?? 0;
+  const qualityColor = qScore >= 8 ? "text-green-600 dark:text-green-400" : qScore >= 5 ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400";
+  const scriptColor = sScore >= 8 ? "text-green-600 dark:text-green-400" : sScore >= 5 ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400";
+  const alerts = recording.alertKeywords ?? [];
+
+  return (
+    <div className="mt-3 border-t pt-3 space-y-2" data-testid={`call-analysis-${callId}`}>
+      <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-1">
+        <Brain className="h-3.5 w-3.5" />
+        {ca.callAnalysis || "Call Analysis"}
+      </div>
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {recording.sentiment && (
+          <Badge variant="secondary" className={`text-[10px] ${sc.cls}`} data-testid={`badge-sentiment-${callId}`}>
+            {sentimentLabels[sentiment] || sentiment}
+          </Badge>
+        )}
+        {recording.qualityScore != null && (
+          <Badge variant="secondary" className="text-[10px] gap-1" data-testid={`badge-quality-${callId}`}>
+            <Star className={`h-2.5 w-2.5 ${qualityColor}`} />
+            <span className={qualityColor}>{recording.qualityScore}/10</span>
+            <span className="text-muted-foreground ml-0.5">{ca.quality || "Quality"}</span>
+          </Badge>
+        )}
+        {recording.scriptComplianceScore != null && (
+          <Badge variant="secondary" className="text-[10px] gap-1" data-testid={`badge-script-${callId}`}>
+            <Star className={`h-2.5 w-2.5 ${scriptColor}`} />
+            <span className={scriptColor}>{recording.scriptComplianceScore}/10</span>
+            <span className="text-muted-foreground ml-0.5">{ca.script || "Script"}</span>
+          </Badge>
+        )}
+        {alerts.length > 0 && (
+          <Badge variant="destructive" className="text-[10px] gap-1" data-testid={`badge-alerts-${callId}`}>
+            <AlertTriangle className="h-2.5 w-2.5" />
+            {alerts.length} {ca.alerts || "alerts"}
+          </Badge>
+        )}
+      </div>
+      {recording.summary && (
+        <p className="text-xs text-muted-foreground leading-relaxed" data-testid={`text-summary-${callId}`}>{recording.summary}</p>
+      )}
+      {recording.transcriptionText && (
+        <>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 gap-1"
+            onClick={() => setShowTranscript(!showTranscript)}
+            data-testid={`btn-toggle-transcript-${callId}`}
+          >
+            {showTranscript ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            <span className="text-[11px]">{showTranscript ? (ca.hideTranscript || "Hide transcript") : (ca.showTranscript || "Show transcript")}</span>
+          </Button>
+          {showTranscript && (
+            <div className="bg-muted/40 rounded-md p-2" data-testid={`text-transcript-${callId}`}>
+              <p className="text-xs leading-relaxed whitespace-pre-wrap">{recording.transcriptionText}</p>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 export function CustomerDetailsContent({ 
   customer, 
   onEdit,
@@ -2852,7 +2960,7 @@ export function CustomerDetailsContent({
     refetchInterval: 30000,
   });
 
-  // Customer call logs - phone call history
+  // Customer call logs - phone call history (with recording data)
   const { data: customerCallLogs = [], isLoading: callLogsLoading } = useQuery<Array<{
     id: string;
     userId: string;
@@ -2865,10 +2973,23 @@ export function CustomerDetailsContent({
     durationSeconds: number | null;
     notes: string | null;
     hungUpBy: string | null;
+    hasRecording?: boolean;
+    recording?: {
+      id: string;
+      analysisStatus: string | null;
+      transcriptionText: string | null;
+      sentiment: string | null;
+      qualityScore: number | null;
+      scriptComplianceScore: number | null;
+      summary: string | null;
+      alertKeywords: string[] | null;
+      agentName: string | null;
+      campaignName: string | null;
+    } | null;
   }>>({
     queryKey: ["/api/customers", customer.id, "call-logs"],
     queryFn: async () => {
-      const res = await fetch(`/api/call-logs?customerId=${customer.id}`, { credentials: "include" });
+      const res = await fetch(`/api/call-logs?customerId=${customer.id}&includeRecordings=true`, { credentials: "include" });
       if (!res.ok) return [];
       return res.json();
     },
@@ -4775,6 +4896,17 @@ export function CustomerDetailsContent({
                                       </div>
                                       {call.durationSeconds > 0 && (
                                         <CallRecordingPlayer callLogId={call.id} compact />
+                                      )}
+                                      {call.recording && call.recording.analysisStatus === "completed" && (
+                                        <CallAnalysisSection recording={call.recording} callId={call.id} t={t} />
+                                      )}
+                                      {call.recording && call.recording.analysisStatus === "processing" && (
+                                        <div className="flex items-center gap-1.5 mt-2">
+                                          <Badge variant="secondary" className="text-[10px] gap-1 text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-950/40">
+                                            <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                                            {t.callAnalysis?.processing || "Processing"}
+                                          </Badge>
+                                        </div>
                                       )}
                                     </div>
                                   </div>
