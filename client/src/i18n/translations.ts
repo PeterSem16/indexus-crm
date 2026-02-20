@@ -3174,6 +3174,11 @@ export interface Translations {
     newSummary: string;
     previous: string;
     change: string;
+    featureDescription: string;
+    howItWorks: string;
+    step1: string;
+    step2: string;
+    step3: string;
   };
 }
 
@@ -6655,6 +6660,11 @@ export const translations: Record<Locale, Translations> = {
       newSummary: 'New Summary',
       previous: 'Previous period',
       change: 'Change',
+      featureDescription: 'Executive Summaries use AI (GPT-4o) to automatically analyze your collection data and generate comprehensive reports. Each summary includes key trends (growing/declining metrics), anomalies (unusual values requiring attention), and KPIs (key performance indicators with period-over-period comparison). You can filter by country and time period (monthly, quarterly, yearly).',
+      howItWorks: 'How it works',
+      step1: '1. Select the desired time period and country (or all countries)',
+      step2: '2. Click "Generate Summary" — AI will analyze all collection data for the selected period',
+      step3: '3. The generated summary will appear as an expandable card with trends, anomalies, and KPIs',
     },
   },
   sk: {
@@ -10081,6 +10091,11 @@ export const translations: Record<Locale, Translations> = {
       newSummary: 'Nový prehľad',
       previous: 'Predchádzajúce obdobie',
       change: 'Zmena',
+      featureDescription: 'Manažérske prehľady využívajú AI (GPT-4o) na automatickú analýzu dát z odberov a generovanie komplexných reportov. Každý prehľad obsahuje kľúčové trendy (rastúce/klesajúce metriky), anomálie (neobvyklé hodnoty vyžadujúce pozornosť) a KPI (kľúčové ukazovatele výkonnosti s porovnaním medzi obdobiami). Môžete filtrovať podľa krajiny a časového obdobia (mesačne, kvartálne, ročne).',
+      howItWorks: 'Ako to funguje',
+      step1: '1. Vyberte požadované časové obdobie a krajinu (alebo všetky krajiny)',
+      step2: '2. Kliknite na "Generovať prehľad" — AI analyzuje všetky dáta odberov za vybrané obdobie',
+      step3: '3. Vygenerovaný prehľad sa zobrazí ako rozbaliteľná karta s trendmi, anomáliami a KPI',
     },
   },
   cs: {
@@ -13439,6 +13454,11 @@ export const translations: Record<Locale, Translations> = {
       newSummary: 'Nový přehled',
       previous: 'Předchozí období',
       change: 'Změna',
+      featureDescription: 'Manažerské přehledy využívají AI (GPT-4o) k automatické analýze dat z odběrů a generování komplexních reportů. Každý přehled obsahuje klíčové trendy (rostoucí/klesající metriky), anomálie (neobvyklé hodnoty vyžadující pozornost) a KPI (klíčové ukazatele výkonnosti se srovnáním mezi obdobími). Můžete filtrovat podle země a časového období (měsíčně, kvartálně, ročně).',
+      howItWorks: 'Jak to funguje',
+      step1: '1. Vyberte požadované časové období a zemi (nebo všechny země)',
+      step2: '2. Klikněte na "Generovat přehled" — AI analyzuje všechna data odběrů za vybrané období',
+      step3: '3. Vygenerovaný přehled se zobrazí jako rozbalitelná karta s trendy, anomáliemi a KPI',
     },
   },
   hu: {
@@ -16797,6 +16817,11 @@ export const translations: Record<Locale, Translations> = {
       newSummary: 'Új összefoglaló',
       previous: 'Előző időszak',
       change: 'Változás',
+      featureDescription: 'A vezetői összefoglalók AI-t (GPT-4o) használnak a gyűjtési adatok automatikus elemzéséhez és átfogó jelentések generálásához. Minden összefoglaló tartalmazza a legfontosabb trendeket (növekvő/csökkenő mutatók), anomáliákat (figyelmet igénylő szokatlan értékek) és KPI-kat (kulcs teljesítménymutatók időszakos összehasonlítással). Szűrhet ország és időszak (havi, negyedéves, éves) szerint.',
+      howItWorks: 'Hogyan működik',
+      step1: '1. Válassza ki a kívánt időszakot és országot (vagy az összes országot)',
+      step2: '2. Kattintson az "Összefoglaló generálása" gombra — az AI elemzi az összes gyűjtési adatot a kiválasztott időszakra',
+      step3: '3. A generált összefoglaló kibontható kártyaként jelenik meg trendekkel, anomáliákkal és KPI-kkal',
     },
   },
   ro: {
@@ -20154,6 +20179,11 @@ export const translations: Record<Locale, Translations> = {
       newSummary: 'Raport nou',
       previous: 'Perioada anterioară',
       change: 'Modificare',
+      featureDescription: 'Rapoartele executive utilizează AI (GPT-4o) pentru analiza automată a datelor de colectare și generarea de rapoarte cuprinzătoare. Fiecare raport include tendințe cheie (metrici în creștere/scădere), anomalii (valori neobișnuite care necesită atenție) și KPI (indicatori cheie de performanță cu comparație între perioade). Puteți filtra după țară și perioadă de timp (lunar, trimestrial, anual).',
+      howItWorks: 'Cum funcționează',
+      step1: '1. Selectați perioada de timp și țara dorită (sau toate țările)',
+      step2: '2. Faceți clic pe "Generare raport" — AI va analiza toate datele de colectare pentru perioada selectată',
+      step3: '3. Raportul generat va apărea ca un card extensibil cu tendințe, anomalii și KPI',
     },
   },
   it: {
@@ -23512,6 +23542,11 @@ export const translations: Record<Locale, Translations> = {
       newSummary: 'Nuovo report',
       previous: 'Periodo precedente',
       change: 'Variazione',
+      featureDescription: 'I report esecutivi utilizzano l\'AI (GPT-4o) per analizzare automaticamente i dati delle raccolte e generare report completi. Ogni report include tendenze chiave (metriche in crescita/calo), anomalie (valori insoliti che richiedono attenzione) e KPI (indicatori chiave di prestazione con confronto tra periodi). È possibile filtrare per paese e periodo (mensile, trimestrale, annuale).',
+      howItWorks: 'Come funziona',
+      step1: '1. Seleziona il periodo di tempo e il paese desiderato (o tutti i paesi)',
+      step2: '2. Fai clic su "Genera report" — l\'AI analizzerà tutti i dati delle raccolte per il periodo selezionato',
+      step3: '3. Il report generato apparirà come una scheda espandibile con tendenze, anomalie e KPI',
     },
   },
   de: {
@@ -26870,6 +26905,11 @@ export const translations: Record<Locale, Translations> = {
       newSummary: 'Neuer Bericht',
       previous: 'Vorheriger Zeitraum',
       change: 'Änderung',
+      featureDescription: 'Managementberichte nutzen KI (GPT-4o) zur automatischen Analyse von Entnahmedaten und Erstellung umfassender Berichte. Jeder Bericht enthält wichtige Trends (steigende/sinkende Kennzahlen), Anomalien (ungewöhnliche Werte, die Aufmerksamkeit erfordern) und KPIs (Leistungskennzahlen mit Periodenvergleich). Sie können nach Land und Zeitraum (monatlich, vierteljährlich, jährlich) filtern.',
+      howItWorks: 'So funktioniert es',
+      step1: '1. Wählen Sie den gewünschten Zeitraum und das Land (oder alle Länder)',
+      step2: '2. Klicken Sie auf "Bericht generieren" — die KI analysiert alle Entnahmedaten für den ausgewählten Zeitraum',
+      step3: '3. Der generierte Bericht erscheint als aufklappbare Karte mit Trends, Anomalien und KPIs',
     },
   },
 };

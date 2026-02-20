@@ -13,7 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   TrendingUp, TrendingDown, Minus, AlertTriangle, BarChart3, FileText,
   Loader2, Plus, Trash2, RefreshCw, ChevronRight, ArrowUpRight, ArrowDownRight,
-  Activity, Target, Sparkles, Calendar, Globe, ChevronDown
+  Activity, Target, Sparkles, Calendar, Globe, ChevronDown, Info, HelpCircle
 } from "lucide-react";
 import type { ExecutiveSummary } from "@shared/schema";
 
@@ -45,6 +45,7 @@ export default function ExecutiveSummariesPage() {
   const [selectedPeriod, setSelectedPeriod] = useState<string>("monthly");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [showInfo, setShowInfo] = useState<boolean>(false);
 
   const summariesUrl = selectedCountry === "all"
     ? "/api/executive-summaries"
@@ -282,12 +283,38 @@ export default function ExecutiveSummariesPage() {
           <p className="text-sm text-muted-foreground mt-1">{es.description}</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setShowInfo(!showInfo)} data-testid="btn-info">
+            <HelpCircle className="h-4 w-4 mr-1" />
+            {es.howItWorks}
+          </Button>
           <Button variant="outline" size="sm" onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/executive-summaries"] })} data-testid="btn-refresh">
             <RefreshCw className="h-4 w-4 mr-1" />
             {es.refreshData}
           </Button>
         </div>
       </div>
+
+      {showInfo && (
+        <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/20" data-testid="card-feature-info">
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-start gap-3">
+              <Info className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
+              <div className="space-y-3">
+                <p className="text-sm text-foreground leading-relaxed">{es.featureDescription}</p>
+                <Separator className="bg-blue-200 dark:bg-blue-800" />
+                <div>
+                  <p className="text-sm font-semibold mb-2">{es.howItWorks}:</p>
+                  <div className="space-y-1 text-sm text-muted-foreground">
+                    <p>{es.step1}</p>
+                    <p>{es.step2}</p>
+                    <p>{es.step3}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {overviewStats && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
