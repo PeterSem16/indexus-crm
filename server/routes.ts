@@ -15980,6 +15980,16 @@ export async function registerRoutes(
     "reklamace", "stížnost", "právník", "zrušit smlouvu",
   ];
 
+  const COUNTRY_LANGUAGE_MAP: Record<string, { lang: string; name: string }> = {
+    SK: { lang: "sk", name: "slovenčina" },
+    CZ: { lang: "cs", name: "čeština" },
+    HU: { lang: "hu", name: "magyar" },
+    RO: { lang: "ro", name: "română" },
+    IT: { lang: "it", name: "italiano" },
+    DE: { lang: "de", name: "Deutsch" },
+    US: { lang: "en", name: "English" },
+  };
+
   async function processCallRecordingAnalysis(recordingId: string, filePath: string) {
     try {
       console.log(`[CallAnalysis] Starting transcription for recording ${recordingId}`);
@@ -16013,6 +16023,21 @@ export async function registerRoutes(
           console.log(`[CallAnalysis] Loaded campaign script for ${recording.campaignId} (${campaignScriptText.length} chars)`);
         }
       }
+
+      let userLanguage = "sk";
+      let userLanguageName = "slovenčina";
+      if (recording?.userId) {
+        const [recUser] = await db.select({ assignedCountries: users.assignedCountries }).from(users).where(eq(users.id, recording.userId));
+        if (recUser?.assignedCountries?.length) {
+          const primaryCountry = recUser.assignedCountries[0];
+          const langInfo = COUNTRY_LANGUAGE_MAP[primaryCountry];
+          if (langInfo) {
+            userLanguage = langInfo.lang;
+            userLanguageName = langInfo.name;
+          }
+        }
+      }
+      console.log(`[CallAnalysis] User language for ${recordingId}: ${userLanguage} (${userLanguageName})`);
 
       let transcriptionText = "";
       let transcriptionLanguage = "sk";
@@ -16076,38 +16101,40 @@ ${campaignScriptText.substring(0, 2000)}
           alertSection = `\nV prepise boli detegované tieto kľúčové/varovné slová: ${detectedAlerts.join(", ")}. Zahrň ich do analýzy.`;
         }
 
-        const analysisPrompt = `Analyzuj nasledujúci prepis telefonického hovoru z call centra krvnej banky (cord blood banking).
+        const analysisPrompt = `Analyze the following phone call transcript from a cord blood banking call center.
 
-Prepis hovoru:
+IMPORTANT: All text fields in the response (summary, keyTopics, actionItems, complianceNotes, scriptComplianceDetails) MUST be written in ${userLanguageName} (language code: ${userLanguage}).
+
+Call transcript:
 """
 ${transcriptionText}
 """
 ${scriptSection}${alertSection}
 
-Vráť analýzu v JSON formáte s presne týmito poliami:
+Return analysis in JSON format with exactly these fields:
 {
   "sentiment": "positive" | "neutral" | "negative" | "angry",
-  "qualityScore": číslo 1-10 (1=veľmi slabý, 10=výborný),
-  "summary": "stručný súhrn hovoru v 2-4 vetách",
-  "keyTopics": ["téma1", "téma2", ...],
-  "actionItems": ["akčný bod 1", "akčný bod 2", ...],
-  "complianceNotes": "poznámky o súlade s pravidlami / kvalite obsluhy, alebo null ak je všetko ok",
-  "scriptComplianceScore": číslo 1-10 alebo null (len ak bol dodaný skript kampane),
-  "scriptComplianceDetails": "detailné zhodnotenie dodržiavania skriptu - čo agent splnil, čo vynechal, čo pridali navyše" alebo null,
-  "alertKeywords": ["detegované varovné slová z prepisu"],
+  "qualityScore": number 1-10 (1=very poor, 10=excellent),
+  "summary": "brief summary of the call in 2-4 sentences in ${userLanguageName}",
+  "keyTopics": ["topic1 in ${userLanguageName}", "topic2 in ${userLanguageName}", ...],
+  "actionItems": ["action item 1 in ${userLanguageName}", "action item 2 in ${userLanguageName}", ...],
+  "complianceNotes": "compliance notes in ${userLanguageName}, or null if everything is ok",
+  "scriptComplianceScore": number 1-10 or null (only if campaign script was provided),
+  "scriptComplianceDetails": "detailed script compliance evaluation in ${userLanguageName}" or null,
+  "alertKeywords": ["detected alert words from transcript"],
   "detectedLanguage": "sk" | "cs" | "hu" | "ro" | "it" | "de" | "en"
 }
 
-Pravidlá:
-- sentiment: celkový sentiment klienta počas hovoru
-- qualityScore: hodnoť kvalitu obsluhy agentom (profesionalita, empatia, riešenie problému, dodržiavanie postupov)
-- keyTopics: hlavné témy hovoru (max 5)
-- actionItems: čo treba urobiť po hovore (max 5)
-- complianceNotes: ak agent porušil pravidlá alebo bol neprofesionálny, opíš to; inak null
-- scriptComplianceScore: ak bol dodaný skript kampane, ohodnoť 1-10 ako dobre agent dodržiaval skript (1=vôbec, 10=perfektne). Ak nebol skript, vráť null
-- scriptComplianceDetails: podrobnosti o dodržiavaní/nedodržiavaní skriptu. Ak nebol skript, vráť null
-- alertKeywords: varovné slová detegované v prepise (napr. reklamácia, právnik, zrušiť zmluvu, sťažnosť). Ak žiadne, vráť prázdne pole []
-- Odpovedaj VÝHRADNE validným JSON, bez ďalšieho textu`;
+Rules:
+- sentiment: overall client sentiment during the call
+- qualityScore: rate agent service quality (professionalism, empathy, problem resolution, procedure compliance)
+- keyTopics: main topics of the call (max 5), written in ${userLanguageName}
+- actionItems: what needs to be done after the call (max 5), written in ${userLanguageName}
+- complianceNotes: if agent violated rules or was unprofessional, describe it in ${userLanguageName}; otherwise null
+- scriptComplianceScore: if campaign script was provided, rate 1-10 how well agent followed the script. If no script, return null
+- scriptComplianceDetails: details about script compliance/non-compliance in ${userLanguageName}. If no script, return null
+- alertKeywords: alert words detected in transcript (e.g. complaint, lawyer, cancel contract). If none, return empty array []
+- Respond EXCLUSIVELY with valid JSON, no additional text`;
 
         const analysisResponse = await openai.chat.completions.create({
           model: "gpt-4o",
@@ -16420,14 +16447,23 @@ Pravidlá:
         scriptComplianceScore: callRecordings.scriptComplianceScore,
         summary: callRecordings.summary,
         alertKeywords: callRecordings.alertKeywords,
+        keyTopics: callRecordings.keyTopics,
+        actionItems: callRecordings.actionItems,
+        complianceNotes: callRecordings.complianceNotes,
         transcriptionText: callRecordings.transcriptionText,
+        analysisResult: callRecordings.analysisResult,
         createdAt: callRecordings.createdAt,
       }).from(callRecordings)
         .where(and(...conditions))
         .orderBy(desc(callRecordings.createdAt))
         .limit(parseInt(limitParam as string) || 30);
 
-      res.json(results);
+      const enrichedResults = results.map(r => {
+        const scriptComplianceDetails = (r.analysisResult as any)?.scriptComplianceDetails || null;
+        return { ...r, scriptComplianceDetails, analysisResult: undefined };
+      });
+
+      res.json(enrichedResults);
     } catch (error) {
       console.error("Failed to search transcripts:", error);
       res.status(500).json({ error: "Failed to search transcripts" });

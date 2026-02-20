@@ -2770,14 +2770,14 @@ interface CallAnalysisRecording {
   campaignName: string | null;
 }
 
-function CallAnalysisSection({ recording, callId, t }: { recording: CallAnalysisRecording; callId: string; t: Record<string, any> }) {
+function CallAnalysisDialog({ recording, callId, t }: { recording: CallAnalysisRecording; callId: string; t: Record<string, any> }) {
   const [showTranscript, setShowTranscript] = useState(false);
   const ca = t.callAnalysis || {};
-  const sentimentConfig: Record<string, { cls: string }> = {
-    positive: { cls: "text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-950/40" },
-    neutral: { cls: "text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-950/40" },
-    negative: { cls: "text-orange-700 dark:text-orange-400 bg-orange-100 dark:bg-orange-950/40" },
-    angry: { cls: "text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-950/40" },
+  const sentimentConfig: Record<string, { cls: string; bg: string }> = {
+    positive: { cls: "text-green-700 dark:text-green-400", bg: "bg-green-100 dark:bg-green-950/40" },
+    neutral: { cls: "text-blue-700 dark:text-blue-400", bg: "bg-blue-100 dark:bg-blue-950/40" },
+    negative: { cls: "text-orange-700 dark:text-orange-400", bg: "bg-orange-100 dark:bg-orange-950/40" },
+    angry: { cls: "text-red-700 dark:text-red-400", bg: "bg-red-100 dark:bg-red-950/40" },
   };
   const sentimentLabels: Record<string, string> = {
     positive: ca.positive || "Positive",
@@ -2790,122 +2790,150 @@ function CallAnalysisSection({ recording, callId, t }: { recording: CallAnalysis
   const qScore = recording.qualityScore ?? 0;
   const sScore = recording.scriptComplianceScore ?? 0;
   const qualityColor = qScore >= 8 ? "text-green-600 dark:text-green-400" : qScore >= 5 ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400";
+  const qualityBg = qScore >= 8 ? "bg-green-100 dark:bg-green-950/40" : qScore >= 5 ? "bg-yellow-100 dark:bg-yellow-950/40" : "bg-red-100 dark:bg-red-950/40";
   const scriptColor = sScore >= 8 ? "text-green-600 dark:text-green-400" : sScore >= 5 ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400";
+  const scriptBg = sScore >= 8 ? "bg-green-100 dark:bg-green-950/40" : sScore >= 5 ? "bg-yellow-100 dark:bg-yellow-950/40" : "bg-red-100 dark:bg-red-950/40";
   const alerts = recording.alertKeywords ?? [];
   const topics = recording.keyTopics ?? [];
   const actionItems = recording.actionItems ?? [];
 
   return (
-    <div className="mt-3 border-t pt-3 space-y-3" data-testid={`call-analysis-${callId}`}>
-      <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-1">
-        <Brain className="h-3.5 w-3.5" />
-        {ca.callAnalysis || "Call Analysis"}
-      </div>
-      <div className="flex items-center gap-1.5 flex-wrap">
-        {recording.sentiment && (
-          <Badge variant="secondary" className={`text-[10px] ${sc.cls}`} data-testid={`badge-sentiment-${callId}`}>
-            {sentimentLabels[sentiment] || sentiment}
-          </Badge>
-        )}
-        {recording.qualityScore != null && (
-          <Badge variant="secondary" className="text-[10px] gap-1" data-testid={`badge-quality-${callId}`}>
-            <Star className={`h-2.5 w-2.5 ${qualityColor}`} />
-            <span className={qualityColor}>{recording.qualityScore}/10</span>
-            <span className="text-muted-foreground ml-0.5">{ca.quality || "Quality"}</span>
-          </Badge>
-        )}
-        {recording.scriptComplianceScore != null && (
-          <Badge variant="secondary" className="text-[10px] gap-1" data-testid={`badge-script-${callId}`}>
-            <Star className={`h-2.5 w-2.5 ${scriptColor}`} />
-            <span className={scriptColor}>{recording.scriptComplianceScore}/10</span>
-            <span className="text-muted-foreground ml-0.5">{ca.script || "Script"}</span>
-          </Badge>
-        )}
-        {alerts.length > 0 && (
-          <Badge variant="destructive" className="text-[10px] gap-1" data-testid={`badge-alerts-${callId}`}>
-            <AlertTriangle className="h-2.5 w-2.5" />
-            {alerts.length} {ca.alerts || "alerts"}
-          </Badge>
-        )}
-      </div>
-      {recording.summary && (
-        <div className="space-y-1" data-testid={`section-summary-${callId}`}>
-          <div className="flex items-center gap-1 text-[11px] font-medium text-foreground">
-            <FileText className="h-3 w-3" />
-            {ca.summaryLabel || "Summary"}
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button size="icon" variant="ghost" data-testid={`btn-analysis-${callId}`}>
+          <Brain className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Brain className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+            {ca.callAnalysis || "Call Analysis"}
+          </DialogTitle>
+          <DialogDescription className="sr-only">{ca.callAnalysis || "Call Analysis"}</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4" data-testid={`call-analysis-${callId}`}>
+          <div className="grid grid-cols-3 gap-3">
+            <div className={`rounded-md p-3 text-center ${sc.bg}`}>
+              <div className={`text-sm font-semibold ${sc.cls}`}>{sentimentLabels[sentiment] || sentiment}</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">{ca.sentiment || "Sentiment"}</div>
+            </div>
+            {recording.qualityScore != null && (
+              <div className={`rounded-md p-3 text-center ${qualityBg}`}>
+                <div className={`text-lg font-bold ${qualityColor}`}>{recording.qualityScore}/10</div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">{ca.quality || "Quality"}</div>
+              </div>
+            )}
+            {recording.scriptComplianceScore != null && (
+              <div className={`rounded-md p-3 text-center ${scriptBg}`}>
+                <div className={`text-lg font-bold ${scriptColor}`}>{recording.scriptComplianceScore}/10</div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">{ca.script || "Script"}</div>
+              </div>
+            )}
           </div>
-          <p className="text-xs text-muted-foreground leading-relaxed pl-4" data-testid={`text-summary-${callId}`}>{recording.summary}</p>
-        </div>
-      )}
-      {recording.scriptComplianceDetails && (
-        <div className="space-y-1" data-testid={`section-script-compliance-${callId}`}>
-          <div className="flex items-center gap-1 text-[11px] font-medium text-foreground">
-            <ClipboardList className="h-3 w-3" />
-            {ca.scriptComplianceDetails || ca.scriptComplianceLabel || "Script Compliance"}
-          </div>
-          <p className="text-xs text-muted-foreground leading-relaxed pl-4" data-testid={`text-script-compliance-${callId}`}>{recording.scriptComplianceDetails}</p>
-        </div>
-      )}
-      {topics.length > 0 && (
-        <div className="space-y-1" data-testid={`section-topics-${callId}`}>
-          <div className="flex items-center gap-1 text-[11px] font-medium text-foreground">
-            <Tag className="h-3 w-3" />
-            {ca.topicsLabel || "Topics"}
-          </div>
-          <div className="flex items-center gap-1 flex-wrap pl-4">
-            {topics.map((topic, i) => (
-              <Badge key={i} variant="outline" className="text-[10px]" data-testid={`badge-topic-${callId}-${i}`}>
-                {topic}
-              </Badge>
-            ))}
-          </div>
-        </div>
-      )}
-      {actionItems.length > 0 && (
-        <div className="space-y-1" data-testid={`section-action-items-${callId}`}>
-          <div className="flex items-center gap-1 text-[11px] font-medium text-foreground">
-            <ListChecks className="h-3 w-3" />
-            {ca.actionItemsLabel || "Action Items"}
-          </div>
-          <ul className="text-xs text-muted-foreground leading-relaxed pl-4 space-y-0.5">
-            {actionItems.map((item, i) => (
-              <li key={i} className="flex items-start gap-1.5" data-testid={`text-action-item-${callId}-${i}`}>
-                <span className="text-muted-foreground/60 mt-0.5">&#8226;</span>
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {recording.complianceNotes && (
-        <div className="space-y-1" data-testid={`section-compliance-${callId}`}>
-          <div className="flex items-center gap-1 text-[11px] font-medium text-foreground">
-            <ShieldCheck className="h-3 w-3" />
-            {ca.complianceLabel || "Compliance"}
-          </div>
-          <p className="text-xs text-muted-foreground leading-relaxed pl-4" data-testid={`text-compliance-${callId}`}>{recording.complianceNotes}</p>
-        </div>
-      )}
-      {recording.transcriptionText && (
-        <>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7 gap-1"
-            onClick={() => setShowTranscript(!showTranscript)}
-            data-testid={`btn-toggle-transcript-${callId}`}
-          >
-            {showTranscript ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-            <span className="text-[11px]">{showTranscript ? (ca.hideTranscript || "Hide transcript") : (ca.showTranscript || "Show transcript")}</span>
-          </Button>
-          {showTranscript && (
-            <div className="bg-muted/40 rounded-md p-2" data-testid={`text-transcript-${callId}`}>
-              <p className="text-xs leading-relaxed whitespace-pre-wrap">{recording.transcriptionText}</p>
+
+          {recording.summary && (
+            <div className="space-y-1.5" data-testid={`section-summary-${callId}`}>
+              <div className="flex items-center gap-1.5 text-sm font-medium">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                {ca.summaryLabel || "Summary"}
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed pl-5.5" data-testid={`text-summary-${callId}`}>{recording.summary}</p>
             </div>
           )}
-        </>
-      )}
-    </div>
+
+          {recording.scriptComplianceDetails && (
+            <div className="space-y-1.5" data-testid={`section-script-compliance-${callId}`}>
+              <div className="flex items-center gap-1.5 text-sm font-medium">
+                <ClipboardList className="h-4 w-4 text-muted-foreground" />
+                {ca.scriptComplianceLabel || "Script Compliance"}
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed pl-5.5" data-testid={`text-script-compliance-${callId}`}>{recording.scriptComplianceDetails}</p>
+            </div>
+          )}
+
+          {topics.length > 0 && (
+            <div className="space-y-1.5" data-testid={`section-topics-${callId}`}>
+              <div className="flex items-center gap-1.5 text-sm font-medium">
+                <Tag className="h-4 w-4 text-muted-foreground" />
+                {ca.topicsLabel || "Topics"}
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap pl-5.5">
+                {topics.map((topic, i) => (
+                  <Badge key={i} variant="outline" className="text-xs" data-testid={`badge-topic-${callId}-${i}`}>
+                    {topic}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {actionItems.length > 0 && (
+            <div className="space-y-1.5" data-testid={`section-action-items-${callId}`}>
+              <div className="flex items-center gap-1.5 text-sm font-medium">
+                <ListChecks className="h-4 w-4 text-muted-foreground" />
+                {ca.actionItemsLabel || "Action Items"}
+              </div>
+              <ul className="text-sm text-muted-foreground leading-relaxed pl-5.5 space-y-1">
+                {actionItems.map((item, i) => (
+                  <li key={i} className="flex items-start gap-2" data-testid={`text-action-item-${callId}-${i}`}>
+                    <span className="text-muted-foreground/60 mt-0.5">&#8226;</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {recording.complianceNotes && (
+            <div className="space-y-1.5" data-testid={`section-compliance-${callId}`}>
+              <div className="flex items-center gap-1.5 text-sm font-medium">
+                <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+                {ca.complianceLabel || "Compliance"}
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed pl-5.5" data-testid={`text-compliance-${callId}`}>{recording.complianceNotes}</p>
+            </div>
+          )}
+
+          {alerts.length > 0 && (
+            <div className="space-y-1.5" data-testid={`section-alerts-${callId}`}>
+              <div className="flex items-center gap-1.5 text-sm font-medium">
+                <AlertTriangle className="h-4 w-4 text-destructive" />
+                {ca.alerts || "Alerts"}
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap pl-5.5">
+                {alerts.map((alert, i) => (
+                  <Badge key={i} variant="destructive" className="text-xs" data-testid={`badge-alert-${callId}-${i}`}>
+                    {alert}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {recording.transcriptionText && (
+            <div className="space-y-1.5">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="gap-1.5"
+                onClick={() => setShowTranscript(!showTranscript)}
+                data-testid={`btn-toggle-transcript-${callId}`}
+              >
+                {showTranscript ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                <span className="text-xs">{showTranscript ? (ca.hideTranscript || "Hide transcript") : (ca.showTranscript || "Show transcript")}</span>
+              </Button>
+              {showTranscript && (
+                <div className="bg-muted/40 rounded-md p-3" data-testid={`text-transcript-${callId}`}>
+                  <p className="text-xs leading-relaxed whitespace-pre-wrap">{recording.transcriptionText}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -4959,7 +4987,9 @@ export function CustomerDetailsContent({
                                         <CallRecordingPlayer callLogId={call.id} compact />
                                       )}
                                       {call.recording && call.recording.analysisStatus === "completed" && (
-                                        <CallAnalysisSection recording={call.recording} callId={call.id} t={t} />
+                                        <div className="mt-2 flex items-center gap-1.5">
+                                          <CallAnalysisDialog recording={call.recording} callId={call.id} t={t} />
+                                        </div>
                                       )}
                                       {call.recording && call.recording.analysisStatus === "processing" && (
                                         <div className="flex items-center gap-1.5 mt-2">

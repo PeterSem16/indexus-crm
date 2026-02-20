@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, FileText, Star, AlertTriangle, Download, ChevronDown, ChevronUp, Loader2, Phone, User, Megaphone, Clock, Filter, X, PhoneIncoming, PhoneOutgoing, PhoneMissed, Mic, MicOff, Brain, List, Calendar, UserCircle, Activity, Tag, BarChart3, SlidersHorizontal } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
+import { Search, FileText, Star, AlertTriangle, Download, ChevronDown, ChevronUp, Loader2, Phone, User, Megaphone, Clock, Filter, X, PhoneIncoming, PhoneOutgoing, PhoneMissed, Mic, MicOff, Brain, List, Calendar, UserCircle, Activity, Tag, BarChart3, SlidersHorizontal, ListChecks, ClipboardList, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useI18n } from "@/i18n";
 
@@ -26,6 +27,10 @@ interface TranscriptResult {
   scriptComplianceScore: number | null;
   summary: string | null;
   alertKeywords: string[] | null;
+  keyTopics: string[] | null;
+  actionItems: string[] | null;
+  complianceNotes: string | null;
+  scriptComplianceDetails: string | null;
   transcriptionText: string;
   createdAt: string;
 }
@@ -54,6 +59,10 @@ interface CallLogEntry {
     scriptComplianceScore: number | null;
     summary: string | null;
     alertKeywords: string[] | null;
+    keyTopics: string[] | null;
+    actionItems: string[] | null;
+    complianceNotes: string | null;
+    scriptComplianceDetails: string | null;
     customerName: string | null;
     agentName: string | null;
     campaignName: string | null;
@@ -150,6 +159,144 @@ function StatusBadge({ status, labels }: { status: string; labels?: Record<strin
   const c = config[status] || { cls: "text-muted-foreground bg-muted" };
   const label = labels?.[status] || status;
   return <Badge variant="secondary" className={`text-[10px] ${c.cls}`}>{label}</Badge>;
+}
+
+function CallAnalysisDialogContent({ recording, callId, ca, sentimentLabels }: { 
+  recording: { sentiment: string | null; qualityScore: number | null; scriptComplianceScore: number | null; summary: string | null; alertKeywords: string[] | null; keyTopics: string[] | null; actionItems: string[] | null; complianceNotes: string | null; scriptComplianceDetails: string | null; transcriptionText: string | null };
+  callId: string; 
+  ca: Record<string, any>;
+  sentimentLabels: Record<string, string>;
+}) {
+  const [showTranscript, setShowTranscript] = useState(false);
+  const sentimentConfig: Record<string, { cls: string; bg: string }> = {
+    positive: { cls: "text-green-700 dark:text-green-400", bg: "bg-green-100 dark:bg-green-950/40" },
+    neutral: { cls: "text-blue-700 dark:text-blue-400", bg: "bg-blue-100 dark:bg-blue-950/40" },
+    negative: { cls: "text-orange-700 dark:text-orange-400", bg: "bg-orange-100 dark:bg-orange-950/40" },
+    angry: { cls: "text-red-700 dark:text-red-400", bg: "bg-red-100 dark:bg-red-950/40" },
+  };
+  const sentiment = recording.sentiment ?? "neutral";
+  const sc = sentimentConfig[sentiment] || sentimentConfig.neutral;
+  const qScore = recording.qualityScore ?? 0;
+  const sScore = recording.scriptComplianceScore ?? 0;
+  const qualityColor = qScore >= 8 ? "text-green-600 dark:text-green-400" : qScore >= 5 ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400";
+  const qualityBg = qScore >= 8 ? "bg-green-100 dark:bg-green-950/40" : qScore >= 5 ? "bg-yellow-100 dark:bg-yellow-950/40" : "bg-red-100 dark:bg-red-950/40";
+  const scriptColor = sScore >= 8 ? "text-green-600 dark:text-green-400" : sScore >= 5 ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400";
+  const scriptBg = sScore >= 8 ? "bg-green-100 dark:bg-green-950/40" : sScore >= 5 ? "bg-yellow-100 dark:bg-yellow-950/40" : "bg-red-100 dark:bg-red-950/40";
+  const alerts = recording.alertKeywords ?? [];
+  const topics = recording.keyTopics ?? [];
+  const actionItems = recording.actionItems ?? [];
+
+  return (
+    <div className="space-y-4" data-testid={`call-analysis-dialog-${callId}`}>
+      <div className="grid grid-cols-3 gap-3">
+        <div className={`rounded-md p-3 text-center ${sc.bg}`}>
+          <div className={`text-sm font-semibold ${sc.cls}`}>{sentimentLabels[sentiment] || sentiment}</div>
+          <div className="text-[10px] text-muted-foreground mt-0.5">{ca.sentiment || "Sentiment"}</div>
+        </div>
+        {recording.qualityScore != null && (
+          <div className={`rounded-md p-3 text-center ${qualityBg}`}>
+            <div className={`text-lg font-bold ${qualityColor}`}>{recording.qualityScore}/10</div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">{ca.quality || "Quality"}</div>
+          </div>
+        )}
+        {recording.scriptComplianceScore != null && (
+          <div className={`rounded-md p-3 text-center ${scriptBg}`}>
+            <div className={`text-lg font-bold ${scriptColor}`}>{recording.scriptComplianceScore}/10</div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">{ca.script || "Script"}</div>
+          </div>
+        )}
+      </div>
+
+      {recording.summary && (
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5 text-sm font-medium">
+            <FileText className="h-4 w-4 text-muted-foreground" />
+            {ca.summaryLabel || "Summary"}
+          </div>
+          <p className="text-sm text-muted-foreground leading-relaxed pl-5.5">{recording.summary}</p>
+        </div>
+      )}
+
+      {recording.scriptComplianceDetails && (
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5 text-sm font-medium">
+            <ClipboardList className="h-4 w-4 text-muted-foreground" />
+            {ca.scriptComplianceLabel || "Script Compliance"}
+          </div>
+          <p className="text-sm text-muted-foreground leading-relaxed pl-5.5">{recording.scriptComplianceDetails}</p>
+        </div>
+      )}
+
+      {topics.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5 text-sm font-medium">
+            <Tag className="h-4 w-4 text-muted-foreground" />
+            {ca.topicsLabel || "Topics"}
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap pl-5.5">
+            {topics.map((topic, i) => (
+              <Badge key={i} variant="outline" className="text-xs">{topic}</Badge>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {actionItems.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5 text-sm font-medium">
+            <ListChecks className="h-4 w-4 text-muted-foreground" />
+            {ca.actionItemsLabel || "Action Items"}
+          </div>
+          <ul className="text-sm text-muted-foreground leading-relaxed pl-5.5 space-y-1">
+            {actionItems.map((item, i) => (
+              <li key={i} className="flex items-start gap-2">
+                <span className="text-muted-foreground/60 mt-0.5">&#8226;</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {recording.complianceNotes && (
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5 text-sm font-medium">
+            <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+            {ca.complianceLabel || "Compliance"}
+          </div>
+          <p className="text-sm text-muted-foreground leading-relaxed pl-5.5">{recording.complianceNotes}</p>
+        </div>
+      )}
+
+      {alerts.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5 text-sm font-medium">
+            <AlertTriangle className="h-4 w-4 text-destructive" />
+            {ca.alerts || "Alerts"}
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap pl-5.5">
+            {alerts.map((alert, i) => (
+              <Badge key={i} variant="destructive" className="text-xs">{alert}</Badge>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {recording.transcriptionText && (
+        <div className="space-y-1.5">
+          <Button size="sm" variant="ghost" className="gap-1.5" onClick={() => setShowTranscript(!showTranscript)}>
+            {showTranscript ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            <span className="text-xs">{showTranscript ? (ca.hideTranscript || "Hide transcript") : (ca.showTranscript || "Show transcript")}</span>
+          </Button>
+          {showTranscript && (
+            <div className="bg-muted/40 rounded-md p-3">
+              <p className="text-xs leading-relaxed whitespace-pre-wrap">{recording.transcriptionText}</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function CallLogCard({ log }: { log: CallLogEntry }) {
@@ -251,10 +398,24 @@ function CallLogCard({ log }: { log: CallLogEntry }) {
                     {rec.alertKeywords.length}
                   </Badge>
                 )}
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button size="icon" variant="ghost" data-testid={`btn-analysis-${log.id}`}>
+                      <Brain className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2">
+                        <Brain className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                        {ca.callAnalysis}
+                      </DialogTitle>
+                      <DialogDescription className="sr-only">{ca.callAnalysis}</DialogDescription>
+                    </DialogHeader>
+                    <CallAnalysisDialogContent recording={rec} callId={log.id} ca={ca} sentimentLabels={sentimentLabels} />
+                  </DialogContent>
+                </Dialog>
               </div>
-              {rec.summary && (
-                <p className="text-xs text-muted-foreground leading-relaxed">{rec.summary}</p>
-              )}
               {hasTranscription && (
                 <>
                   <Button
@@ -347,6 +508,23 @@ function ResultCard({ result, query }: { result: TranscriptResult; query: string
                 {result.alertKeywords.length} {ca.alerts}
               </Badge>
             )}
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button size="icon" variant="ghost" data-testid={`btn-analysis-result-${result.id}`}>
+                  <Brain className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Brain className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                    {ca.callAnalysis}
+                  </DialogTitle>
+                  <DialogDescription className="sr-only">{ca.callAnalysis}</DialogDescription>
+                </DialogHeader>
+                <CallAnalysisDialogContent recording={result} callId={result.id} ca={ca} sentimentLabels={sentimentLabels} />
+              </DialogContent>
+            </Dialog>
           </div>
 
           {result.summary && (
@@ -437,6 +615,7 @@ export function TranscriptSearchContent() {
   const [browseAgentFilter, setBrowseAgentFilter] = useState<string>("");
   const [browseHasAlertsFilter, setBrowseHasAlertsFilter] = useState(false);
   const [browseMinQuality, setBrowseMinQuality] = useState<string>("");
+  const [browseMinScriptScore, setBrowseMinScriptScore] = useState<string>("");
   const [browseDateFrom, setBrowseDateFrom] = useState<string>("");
   const [browseDateTo, setBrowseDateTo] = useState<string>("");
   const [browseSearchText, setBrowseSearchText] = useState<string>("");
@@ -498,6 +677,7 @@ export function TranscriptSearchContent() {
     setBrowseAgentFilter("");
     setBrowseHasAlertsFilter(false);
     setBrowseMinQuality("");
+    setBrowseMinScriptScore("");
     setBrowseDateFrom("");
     setBrowseDateTo("");
     setBrowseSearchText("");
@@ -507,12 +687,12 @@ export function TranscriptSearchContent() {
 
   const hasActiveBrowseFilters = browseCampaignFilter || browseDirectionFilter || browseStatusFilter ||
     browseRecordingFilter || browseSentimentFilter || browseAgentFilter || browseHasAlertsFilter ||
-    browseMinQuality || browseDateFrom || browseDateTo || browseSearchText;
+    browseMinQuality || browseMinScriptScore || browseDateFrom || browseDateTo || browseSearchText;
 
   const activeBrowseFilterCount = [
     browseCampaignFilter, browseDirectionFilter, browseStatusFilter,
     browseRecordingFilter, browseSentimentFilter, browseAgentFilter,
-    browseHasAlertsFilter ? "yes" : "", browseMinQuality, browseDateFrom, browseDateTo, browseSearchText,
+    browseHasAlertsFilter ? "yes" : "", browseMinQuality, browseMinScriptScore, browseDateFrom, browseDateTo, browseSearchText,
   ].filter(Boolean).length;
 
   const uniqueAgents = useMemo(() => {
@@ -543,6 +723,8 @@ export function TranscriptSearchContent() {
         log.customerName?.toLowerCase().includes(q) ||
         log.campaignName?.toLowerCase().includes(q) ||
         log.recording?.agentName?.toLowerCase().includes(q) ||
+        log.recording?.transcriptionText?.toLowerCase().includes(q) ||
+        log.recording?.summary?.toLowerCase().includes(q) ||
         log.notes?.toLowerCase().includes(q)
       );
     }
@@ -594,6 +776,13 @@ export function TranscriptSearchContent() {
       }
     }
 
+    if (browseMinScriptScore) {
+      const minS = parseInt(browseMinScriptScore);
+      if (!isNaN(minS)) {
+        filtered = filtered.filter(log => log.recording?.scriptComplianceScore != null && log.recording.scriptComplianceScore >= minS);
+      }
+    }
+
     if (browseDateFrom) {
       const from = new Date(browseDateFrom);
       from.setHours(0, 0, 0, 0);
@@ -609,7 +798,7 @@ export function TranscriptSearchContent() {
     return filtered;
   }, [callLogs, browseSearchText, browseCampaignFilter, browseDirectionFilter, browseStatusFilter,
     browseRecordingFilter, browseSentimentFilter, browseAgentFilter, browseHasAlertsFilter,
-    browseMinQuality, browseDateFrom, browseDateTo]);
+    browseMinQuality, browseMinScriptScore, browseDateFrom, browseDateTo]);
 
   const stats = useMemo(() => {
     const total = filteredCallLogs.length;
@@ -810,6 +999,22 @@ export function TranscriptSearchContent() {
                     <Select value={browseMinQuality} onValueChange={(v) => setBrowseMinQuality(v === "all" ? "" : v)}>
                       <SelectTrigger className="w-[150px] h-8 text-xs" data-testid="select-browse-quality">
                         <SelectValue placeholder={ca.minQuality} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">{ca.allRecordings}</SelectItem>
+                        <SelectItem value="8">8+ ({ca.excellent})</SelectItem>
+                        <SelectItem value="6">6+ ({ca.good})</SelectItem>
+                        <SelectItem value="4">4+ ({ca.average})</SelectItem>
+                        <SelectItem value="1">1+ ({ca.poor})</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <ClipboardList className="h-3.5 w-3.5 text-muted-foreground" />
+                    <Select value={browseMinScriptScore} onValueChange={(v) => setBrowseMinScriptScore(v === "all" ? "" : v)}>
+                      <SelectTrigger className="w-[150px] h-8 text-xs" data-testid="select-browse-script-score">
+                        <SelectValue placeholder={ca.scriptComplianceLabel || "Script Score"} />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">{ca.allRecordings}</SelectItem>
