@@ -16082,6 +16082,16 @@ export async function registerRoutes(
           actionItems: [],
           analyzedAt: new Date(),
         }).where(eq(callRecordings.id, recordingId));
+
+        if (recording?.callLogId) {
+          try {
+            const [existingLog] = await db.select({ metadata: callLogs.metadata }).from(callLogs).where(eq(callLogs.id, recording.callLogId));
+            let existingMeta: Record<string, any> = {};
+            if (existingLog?.metadata) { try { existingMeta = JSON.parse(existingLog.metadata); } catch (e) {} }
+            const shortMeta = { ...existingMeta, callAnalysis: { recordingId, sentiment: "neutral", qualityScore: 5, summary: "Krátky alebo neidentifikovateľný hovor", keyTopics: [], actionItems: [], alertKeywords: [], analyzedAt: new Date().toISOString() } };
+            await db.update(callLogs).set({ metadata: JSON.stringify(shortMeta) }).where(eq(callLogs.id, recording.callLogId));
+          } catch (e) {}
+        }
         return;
       }
 
@@ -16149,22 +16159,57 @@ Rules:
 
         const allAlerts = [...new Set([...detectedAlerts, ...(analysis.alertKeywords || [])])];
 
+        const qualityScoreVal = Math.min(10, Math.max(1, parseInt(analysis.qualityScore) || 5));
+        const scriptComplianceScoreVal = analysis.scriptComplianceScore ? Math.min(10, Math.max(1, parseInt(analysis.scriptComplianceScore))) : null;
+        const sentimentVal = analysis.sentiment || "neutral";
+
         await db.update(callRecordings).set({
           analysisStatus: "completed",
           analysisResult: analysis,
-          sentiment: analysis.sentiment || "neutral",
-          qualityScore: Math.min(10, Math.max(1, parseInt(analysis.qualityScore) || 5)),
+          sentiment: sentimentVal,
+          qualityScore: qualityScoreVal,
           summary: analysis.summary || null,
           keyTopics: analysis.keyTopics || [],
           actionItems: analysis.actionItems || [],
           complianceNotes: analysis.complianceNotes || null,
-          scriptComplianceScore: analysis.scriptComplianceScore ? Math.min(10, Math.max(1, parseInt(analysis.scriptComplianceScore))) : null,
+          scriptComplianceScore: scriptComplianceScoreVal,
           alertKeywords: allAlerts.length > 0 ? allAlerts : null,
           transcriptionLanguage: analysis.detectedLanguage || "sk",
           analyzedAt: new Date(),
         }).where(eq(callRecordings.id, recordingId));
 
-        console.log(`[CallAnalysis] Analysis complete for ${recordingId}: sentiment=${analysis.sentiment}, score=${analysis.qualityScore}, scriptScore=${analysis.scriptComplianceScore || 'N/A'}, alerts=${allAlerts.length}`);
+        if (recording?.callLogId) {
+          try {
+            const [existingLog] = await db.select({ metadata: callLogs.metadata }).from(callLogs).where(eq(callLogs.id, recording.callLogId));
+            let existingMeta: Record<string, any> = {};
+            if (existingLog?.metadata) {
+              try { existingMeta = JSON.parse(existingLog.metadata); } catch (e) {}
+            }
+            const analysisMetadata = {
+              ...existingMeta,
+              callAnalysis: {
+                recordingId: recordingId,
+                sentiment: sentimentVal,
+                qualityScore: qualityScoreVal,
+                scriptComplianceScore: scriptComplianceScoreVal,
+                summary: analysis.summary || null,
+                keyTopics: analysis.keyTopics || [],
+                actionItems: analysis.actionItems || [],
+                complianceNotes: analysis.complianceNotes || null,
+                scriptComplianceDetails: analysis.scriptComplianceDetails || null,
+                alertKeywords: allAlerts.length > 0 ? allAlerts : [],
+                detectedLanguage: analysis.detectedLanguage || "sk",
+                analyzedAt: new Date().toISOString(),
+              },
+            };
+            await db.update(callLogs).set({ metadata: JSON.stringify(analysisMetadata) }).where(eq(callLogs.id, recording.callLogId));
+            console.log(`[CallAnalysis] Stored analysis metadata in call_log ${recording.callLogId}`);
+          } catch (metaErr: any) {
+            console.error(`[CallAnalysis] Failed to store metadata in call_log:`, metaErr.message);
+          }
+        }
+
+        console.log(`[CallAnalysis] Analysis complete for ${recordingId}: sentiment=${sentimentVal}, score=${qualityScoreVal}, scriptScore=${scriptComplianceScoreVal || 'N/A'}, alerts=${allAlerts.length}`);
       } catch (analysisErr: any) {
         console.error(`[CallAnalysis] GPT analysis failed for ${recordingId}:`, analysisErr.message);
         await db.update(callRecordings).set({

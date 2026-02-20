@@ -673,6 +673,8 @@ export function TranscriptSearchContent() {
       return res.json();
     },
     enabled: activeTab === "browse",
+    refetchInterval: 15000,
+    refetchIntervalInBackground: false,
   });
 
   const { data: campaignsList = [] } = useQuery<CampaignBasic[]>({

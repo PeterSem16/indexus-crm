@@ -132,6 +132,9 @@ export function SipPhone({
   const recordingChunksRef = useRef<Blob[]>([]);
   const recordingContextRef = useRef<AudioContext | null>(null);
   const isRecordingRef = useRef<boolean>(false);
+  const recordingDestinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
+  const recordingSourceNodesRef = useRef<MediaStreamAudioSourceNode[]>([]);
+  const pauseToneNodesRef = useRef<{ oscillators: OscillatorNode[]; gains: GainNode[] } | null>(null);
 
   const { data: globalSipSettings, isLoading: sipSettingsLoading } = useQuery<SipSettings | null>({
     queryKey: ["/api/sip-settings"],
@@ -191,6 +194,8 @@ export function SipPhone({
       const recCtx = new AudioContext();
       recordingContextRef.current = recCtx;
       const destination = recCtx.createMediaStreamDestination();
+      recordingDestinationRef.current = destination;
+      recordingSourceNodesRef.current = [];
 
       const localSenders = pc.getSenders();
       const localAudioSender = localSenders.find(s => s.track?.kind === "audio");
@@ -198,6 +203,7 @@ export function SipPhone({
         const localStream = new MediaStream([localAudioSender.track]);
         const localSource = recCtx.createMediaStreamSource(localStream);
         localSource.connect(destination);
+        recordingSourceNodesRef.current.push(localSource);
       }
 
       const connectRemoteTrack = (track: MediaStreamTrack) => {
@@ -206,6 +212,7 @@ export function SipPhone({
             const remoteStream = new MediaStream([track]);
             const remoteSource = recCtx.createMediaStreamSource(remoteStream);
             remoteSource.connect(destination);
+            recordingSourceNodesRef.current.push(remoteSource);
             console.log("[Recording] Remote audio track connected to recorder");
           } catch (e) {
             console.warn("[Recording] Could not connect remote track:", e);
@@ -255,17 +262,105 @@ export function SipPhone({
 
   const pauseRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
-      mediaRecorderRef.current.pause();
+      const recCtx = recordingContextRef.current;
+      const destination = recordingDestinationRef.current;
+      if (recCtx && destination && recCtx.state !== "closed") {
+        for (const src of recordingSourceNodesRef.current) {
+          try { src.disconnect(destination); } catch (e) {}
+        }
+
+        const osc = recCtx.createOscillator();
+        const gainNode = recCtx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(440, recCtx.currentTime);
+        osc.frequency.setValueAtTime(523.25, recCtx.currentTime + 0.15);
+        osc.frequency.setValueAtTime(659.25, recCtx.currentTime + 0.3);
+        gainNode.gain.setValueAtTime(0, recCtx.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.08, recCtx.currentTime + 0.05);
+        gainNode.gain.setValueAtTime(0.08, recCtx.currentTime + 0.4);
+        gainNode.gain.linearRampToValueAtTime(0, recCtx.currentTime + 0.5);
+        gainNode.gain.setValueAtTime(0, recCtx.currentTime + 0.5);
+
+        const lfo = recCtx.createOscillator();
+        const lfoGain = recCtx.createGain();
+        lfo.type = "sine";
+        lfo.frequency.setValueAtTime(1.0, recCtx.currentTime);
+        lfoGain.gain.setValueAtTime(0.015, recCtx.currentTime);
+        lfo.connect(lfoGain);
+        lfoGain.connect(gainNode.gain);
+        lfo.start(recCtx.currentTime + 0.5);
+
+        const sustainOsc = recCtx.createOscillator();
+        const sustainGain = recCtx.createGain();
+        sustainOsc.type = "sine";
+        sustainOsc.frequency.setValueAtTime(523.25, recCtx.currentTime + 0.5);
+        sustainGain.gain.setValueAtTime(0, recCtx.currentTime);
+        sustainGain.gain.setValueAtTime(0, recCtx.currentTime + 0.5);
+        sustainGain.gain.linearRampToValueAtTime(0.03, recCtx.currentTime + 0.6);
+
+        osc.connect(gainNode);
+        gainNode.connect(destination);
+        sustainOsc.connect(sustainGain);
+        sustainGain.connect(destination);
+        osc.start(recCtx.currentTime);
+        sustainOsc.start(recCtx.currentTime + 0.5);
+        osc.stop(recCtx.currentTime + 0.5);
+
+        pauseToneNodesRef.current = {
+          oscillators: [sustainOsc, lfo],
+          gains: [sustainGain, lfoGain],
+        };
+
+        console.log("[Recording] Paused - tone injected into recording");
+      }
       callContext.setIsRecordingPaused(true);
-      console.log("[Recording] Paused");
     }
   }, []);
 
   const resumeRecording = useCallback(() => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "paused") {
-      mediaRecorderRef.current.resume();
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      const recCtx = recordingContextRef.current;
+      const destination = recordingDestinationRef.current;
+      if (recCtx && destination && recCtx.state !== "closed") {
+        if (pauseToneNodesRef.current) {
+          for (const g of pauseToneNodesRef.current.gains) {
+            try { g.gain.cancelScheduledValues(recCtx.currentTime); g.gain.linearRampToValueAtTime(0, recCtx.currentTime + 0.3); } catch (e) {}
+          }
+          for (const o of pauseToneNodesRef.current.oscillators) {
+            try { o.stop(recCtx.currentTime + 0.35); o.disconnect(); } catch (e) {}
+          }
+          for (const g of pauseToneNodesRef.current.gains) {
+            try { g.disconnect(); } catch (e) {}
+          }
+          pauseToneNodesRef.current = null;
+        }
+
+        const resumeOsc = recCtx.createOscillator();
+        const resumeGain = recCtx.createGain();
+        resumeOsc.type = "sine";
+        resumeOsc.frequency.setValueAtTime(659.25, recCtx.currentTime);
+        resumeOsc.frequency.setValueAtTime(523.25, recCtx.currentTime + 0.1);
+        resumeOsc.frequency.setValueAtTime(440, recCtx.currentTime + 0.2);
+        resumeGain.gain.setValueAtTime(0, recCtx.currentTime);
+        resumeGain.gain.linearRampToValueAtTime(0.08, recCtx.currentTime + 0.03);
+        resumeGain.gain.setValueAtTime(0.08, recCtx.currentTime + 0.25);
+        resumeGain.gain.linearRampToValueAtTime(0, recCtx.currentTime + 0.35);
+        resumeOsc.connect(resumeGain);
+        resumeGain.connect(destination);
+        resumeOsc.start(recCtx.currentTime);
+        resumeOsc.stop(recCtx.currentTime + 0.4);
+
+        setTimeout(() => {
+          if (recCtx.state !== "closed" && destination) {
+            for (const src of recordingSourceNodesRef.current) {
+              try { src.connect(destination); } catch (e) {}
+            }
+          }
+        }, 400);
+
+        console.log("[Recording] Resumed - tone fading, real audio reconnecting");
+      }
       callContext.setIsRecordingPaused(false);
-      console.log("[Recording] Resumed");
     }
   }, []);
 
@@ -282,9 +377,16 @@ export function SipPhone({
     isRecordingRef.current = false;
     callContext.setIsRecording(false);
     callContext.setIsRecordingPaused(false);
+    if (pauseToneNodesRef.current) {
+      for (const o of pauseToneNodesRef.current.oscillators) { try { o.stop(); o.disconnect(); } catch (e) {} }
+      for (const g of pauseToneNodesRef.current.gains) { try { g.disconnect(); } catch (e) {} }
+      pauseToneNodesRef.current = null;
+    }
     try { mediaRecorderRef.current.stop(); } catch (e) {}
     mediaRecorderRef.current = null;
     recordingChunksRef.current = [];
+    recordingDestinationRef.current = null;
+    recordingSourceNodesRef.current = [];
     if (recordingContextRef.current && recordingContextRef.current.state !== "closed") {
       try { recordingContextRef.current.close(); } catch (e) {}
       recordingContextRef.current = null;
@@ -309,6 +411,13 @@ export function SipPhone({
     isRecordingRef.current = false;
     callContext.setIsRecording(false);
     callContext.setIsRecordingPaused(false);
+    if (pauseToneNodesRef.current) {
+      for (const o of pauseToneNodesRef.current.oscillators) { try { o.stop(); o.disconnect(); } catch (e) {} }
+      for (const g of pauseToneNodesRef.current.gains) { try { g.disconnect(); } catch (e) {} }
+      pauseToneNodesRef.current = null;
+    }
+    recordingDestinationRef.current = null;
+    recordingSourceNodesRef.current = [];
 
     const recorder = mediaRecorderRef.current;
     mediaRecorderRef.current = null;
@@ -628,12 +737,15 @@ export function SipPhone({
               stopRecordingAndUpload(callLogId, duration);
             } else {
               if (mediaRecorderRef.current) {
+                if (pauseToneNodesRef.current) { for (const o of pauseToneNodesRef.current.oscillators) { try { o.stop(); o.disconnect(); } catch (e) {} } for (const g of pauseToneNodesRef.current.gains) { try { g.disconnect(); } catch (e) {} } pauseToneNodesRef.current = null; }
                 try { mediaRecorderRef.current.stop(); } catch (e) {}
                 mediaRecorderRef.current = null;
                 isRecordingRef.current = false;
                 callContext.setIsRecording(false);
                 callContext.setIsRecordingPaused(false);
                 recordingChunksRef.current = [];
+                recordingDestinationRef.current = null;
+                recordingSourceNodesRef.current = [];
               }
             }
             callContext.setAutoRecord(true);
@@ -848,12 +960,15 @@ export function SipPhone({
         stopRecordingAndUpload(currentCallLogId, duration);
       } else {
         if (mediaRecorderRef.current) {
+          if (pauseToneNodesRef.current) { for (const o of pauseToneNodesRef.current.oscillators) { try { o.stop(); o.disconnect(); } catch (e) {} } for (const g of pauseToneNodesRef.current.gains) { try { g.disconnect(); } catch (e) {} } pauseToneNodesRef.current = null; }
           try { mediaRecorderRef.current.stop(); } catch (e) {}
           mediaRecorderRef.current = null;
           isRecordingRef.current = false;
           callContext.setIsRecording(false);
           callContext.setIsRecordingPaused(false);
           recordingChunksRef.current = [];
+          recordingDestinationRef.current = null;
+          recordingSourceNodesRef.current = [];
         }
       }
       updateCallLogMutation.mutate({
