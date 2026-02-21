@@ -3124,7 +3124,7 @@ function CustomerInfoPanel({
                               {highlightMatch(contentText) || "—"}
                             </p>
                             {plainDetails && (
-                              <p className={`${isModal ? "text-xs mt-1" : "text-[10px] mt-0.5"} text-muted-foreground ${isModal ? "line-clamp-3" : "line-clamp-1"} leading-snug`}>
+                              <p className={`${isModal ? "text-xs mt-1" : "text-[10px] mt-0.5"} text-muted-foreground ${isModal ? "line-clamp-5" : "line-clamp-2"} leading-snug`}>
                                 {highlightMatch(plainDetails)}
                               </p>
                             )}
