@@ -5418,11 +5418,16 @@ export type QueueMember = typeof queueMembers.$inferSelect;
 export const ivrMessages = pgTable("ivr_messages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
-  type: text("type").notNull().default("welcome"), // welcome, hold_music, announcement, overflow, position, wait_time
+  type: text("type").notNull().default("welcome"), // welcome, hold_music, announcement, overflow, position, wait_time, ivr_prompt
+  source: text("source").notNull().default("upload"), // upload, tts
   filePath: text("file_path"), // path to audio file
-  textContent: text("text_content"), // for TTS fallback
+  textContent: text("text_content"), // for TTS text
+  ttsVoice: text("tts_voice"), // OpenAI voice: alloy, echo, fable, onyx, nova, shimmer
+  ttsGender: text("tts_gender"), // male, female
   language: text("language").notNull().default("sk"), // sk, cs, hu, ro, it, de, en
   countryCode: text("country_code"), // SK, CZ, HU, etc.
+  duration: integer("duration"), // duration in seconds
+  fileSize: integer("file_size"), // file size in bytes
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
@@ -5435,6 +5440,50 @@ export const insertIvrMessageSchema = createInsertSchema(ivrMessages).omit({
 });
 export type InsertIvrMessage = z.infer<typeof insertIvrMessageSchema>;
 export type IvrMessage = typeof ivrMessages.$inferSelect;
+
+// IVR Menus - IVR decision trees with DTMF options
+export const ivrMenus = pgTable("ivr_menus", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  countryCode: text("country_code"),
+  promptMessageId: varchar("prompt_message_id").references(() => ivrMessages.id),
+  invalidMessageId: varchar("invalid_message_id").references(() => ivrMessages.id),
+  timeoutMessageId: varchar("timeout_message_id").references(() => ivrMessages.id),
+  maxRetries: integer("max_retries").notNull().default(3),
+  timeout: integer("timeout").notNull().default(5), // seconds to wait for DTMF
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertIvrMenuSchema = createInsertSchema(ivrMenus).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertIvrMenu = z.infer<typeof insertIvrMenuSchema>;
+export type IvrMenu = typeof ivrMenus.$inferSelect;
+
+// IVR Menu Options - DTMF key mappings
+export const ivrMenuOptions = pgTable("ivr_menu_options", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  menuId: varchar("menu_id").notNull().references(() => ivrMenus.id, { onDelete: "cascade" }),
+  dtmfKey: text("dtmf_key").notNull(), // 0-9, *, #
+  label: text("label").notNull(),
+  action: text("action").notNull(), // queue, submenu, transfer, hangup, voicemail, repeat
+  targetId: text("target_id"), // queue ID, submenu ID, or phone number
+  announcementId: varchar("announcement_id").references(() => ivrMessages.id),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertIvrMenuOptionSchema = createInsertSchema(ivrMenuOptions).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertIvrMenuOption = z.infer<typeof insertIvrMenuOptionSchema>;
+export type IvrMenuOption = typeof ivrMenuOptions.$inferSelect;
 
 // Inbound Call Log - tracks inbound calls through the queue system
 export const inboundCallLogs = pgTable("inbound_call_logs", {

@@ -44,6 +44,10 @@ import {
   Settings,
   ChevronDown,
   ChevronUp,
+  Music,
+  Volume2,
+  Play,
+  Square,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -119,6 +123,8 @@ export function InboundQueuesTab() {
     wrapUpTime: 30,
     maxQueueSize: 50,
     priority: 1,
+    welcomeMessageId: "" as string | null,
+    holdMusicId: "" as string | null,
     overflowAction: "voicemail",
     overflowTarget: "",
     announcePosition: true,
@@ -128,6 +134,9 @@ export function InboundQueuesTab() {
     isActive: true,
   });
 
+  const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
+  const audioRef = useState<HTMLAudioElement | null>(null);
+
   const { data: queues = [], isLoading } = useQuery<InboundQueue[]>({
     queryKey: ["/api/inbound-queues"],
   });
@@ -135,6 +144,27 @@ export function InboundQueuesTab() {
   const { data: allUsers = [] } = useQuery<any[]>({
     queryKey: ["/api/users"],
   });
+
+  const { data: ivrMessages = [] } = useQuery<any[]>({
+    queryKey: ["/api/ivr-messages"],
+  });
+
+  const welcomeMessages = ivrMessages.filter((m: any) => m.type === "welcome" && m.isActive);
+  const holdMusicMessages = ivrMessages.filter((m: any) => m.type === "hold_music" && m.isActive);
+
+  const playAudio = (id: string) => {
+    if (playingAudioId === id) {
+      audioRef[0]?.pause();
+      setPlayingAudioId(null);
+      return;
+    }
+    if (audioRef[0]) audioRef[0].pause();
+    const audio = new Audio(`/api/ivr-messages/${id}/audio`);
+    audio.onended = () => setPlayingAudioId(null);
+    audio.play();
+    audioRef[1](audio);
+    setPlayingAudioId(id);
+  };
 
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/inbound-queues", data),
@@ -200,7 +230,8 @@ export function InboundQueuesTab() {
     setFormData({
       name: "", description: "", countryCode: "SK", didNumber: "",
       strategy: "round-robin", maxWaitTime: 300, wrapUpTime: 30,
-      maxQueueSize: 50, priority: 1, overflowAction: "voicemail",
+      maxQueueSize: 50, priority: 1, welcomeMessageId: null, holdMusicId: null,
+      overflowAction: "voicemail",
       overflowTarget: "", announcePosition: true, announceWaitTime: true,
       announceFrequency: 30, serviceLevelTarget: 20, isActive: true,
     });
@@ -217,6 +248,8 @@ export function InboundQueuesTab() {
       wrapUpTime: queue.wrapUpTime,
       maxQueueSize: queue.maxQueueSize,
       priority: queue.priority,
+      welcomeMessageId: queue.welcomeMessageId || null,
+      holdMusicId: queue.holdMusicId || null,
       overflowAction: queue.overflowAction,
       overflowTarget: queue.overflowTarget || "",
       announcePosition: queue.announcePosition,
@@ -418,6 +451,69 @@ export function InboundQueuesTab() {
               <Label>SLA Target (sec)</Label>
               <Input type="number" min={1} value={formData.serviceLevelTarget} onChange={e => setFormData(f => ({ ...f, serviceLevelTarget: parseInt(e.target.value) || 20 }))} data-testid="input-sla-target" />
             </div>
+
+            <div className="col-span-2 border-t pt-4 mt-2">
+              <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                <Volume2 className="h-4 w-4" />
+                Audio & IVR Settings
+              </h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Welcome Greeting</Label>
+                  <div className="flex gap-2">
+                    <Select value={formData.welcomeMessageId || "__none__"} onValueChange={v => setFormData(f => ({ ...f, welcomeMessageId: v === "__none__" ? null : v }))}>
+                      <SelectTrigger className="flex-1" data-testid="select-welcome-message"><SelectValue placeholder="None" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">None</SelectItem>
+                        {welcomeMessages.map((m: any) => (
+                          <SelectItem key={m.id} value={m.id}>
+                            {m.name} ({m.language?.toUpperCase()})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {formData.welcomeMessageId && (
+                      <Button type="button" variant="ghost" size="icon" onClick={() => playAudio(formData.welcomeMessageId!)} data-testid="btn-play-welcome">
+                        {playingAudioId === formData.welcomeMessageId ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">Audio played when caller enters queue</p>
+                </div>
+                <div>
+                  <Label>Music on Hold</Label>
+                  <div className="flex gap-2">
+                    <Select value={formData.holdMusicId || "__none__"} onValueChange={v => setFormData(f => ({ ...f, holdMusicId: v === "__none__" ? null : v }))}>
+                      <SelectTrigger className="flex-1" data-testid="select-hold-music"><SelectValue placeholder="None" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">None</SelectItem>
+                        {holdMusicMessages.map((m: any) => (
+                          <SelectItem key={m.id} value={m.id}>
+                            <span className="flex items-center gap-1">
+                              <Music className="h-3 w-3" />
+                              {m.name} ({m.language?.toUpperCase()})
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {formData.holdMusicId && (
+                      <Button type="button" variant="ghost" size="icon" onClick={() => playAudio(formData.holdMusicId!)} data-testid="btn-play-hold-music">
+                        {playingAudioId === formData.holdMusicId ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">Music played while caller waits</p>
+                </div>
+                <div>
+                  <Label>Announce Frequency (sec)</Label>
+                  <Input type="number" min={10} max={300} value={formData.announceFrequency} onChange={e => setFormData(f => ({ ...f, announceFrequency: parseInt(e.target.value) || 30 }))} data-testid="input-announce-freq" />
+                  <p className="text-xs text-muted-foreground mt-1">How often to announce position/wait time</p>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-3">Manage audio files in the IVR Audio tab. Create welcome greetings, hold music, and announcements there.</p>
+            </div>
+
             <div>
               <Label>Overflow Action</Label>
               <Select value={formData.overflowAction} onValueChange={v => setFormData(f => ({ ...f, overflowAction: v }))}>

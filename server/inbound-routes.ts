@@ -6,6 +6,8 @@ import {
   inboundQueues, insertInboundQueueSchema,
   queueMembers, insertQueueMemberSchema,
   ivrMessages, insertIvrMessageSchema,
+  ivrMenus, insertIvrMenuSchema,
+  ivrMenuOptions, insertIvrMenuOptionSchema,
   inboundCallLogs,
   agentQueueStatus,
   users,
@@ -389,13 +391,16 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         ? path.relative(process.cwd(), (req as any).file.path)
         : null;
 
+      const fileObj = (req as any).file;
       const created = await db.insert(ivrMessages).values({
         name: req.body.name,
         type: req.body.type || "welcome",
+        source: "upload",
         filePath,
         textContent: req.body.textContent,
         language: req.body.language || "sk",
         countryCode: req.body.countryCode,
+        fileSize: fileObj ? fileObj.size : null,
       }).returning();
 
       res.status(201).json(created[0]);
@@ -451,6 +456,215 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
     } catch (error) {
       console.error("Error deleting IVR message:", error);
       res.status(500).json({ error: "Failed to delete IVR message" });
+    }
+  });
+
+  // ============ TTS GENERATION ============
+
+  app.post("/api/ivr-messages/generate-tts", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = (req.session as any)?.user;
+      if (!["admin", "manager"].includes(user.role)) {
+        return res.status(403).json({ error: "Admin or manager access required" });
+      }
+
+      const { name, textContent, voice, language, countryCode, type } = req.body;
+
+      if (!textContent || !textContent.trim()) {
+        return res.status(400).json({ error: "Text content is required" });
+      }
+
+      const OpenAI = (await import("openai")).default;
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+      const ttsVoice = voice || "nova";
+      const response = await openai.audio.speech.create({
+        model: "tts-1",
+        voice: ttsVoice as any,
+        input: textContent,
+        response_format: "mp3",
+      });
+
+      const dir = path.join(DATA_ROOT, "ivr-audio");
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+      const filename = `tts-${Date.now()}.mp3`;
+      const filePath = path.join(dir, filename);
+      const buffer = Buffer.from(await response.arrayBuffer());
+      fs.writeFileSync(filePath, buffer);
+
+      const gender = ["onyx", "echo", "fable"].includes(ttsVoice) ? "male" : "female";
+
+      const created = await db.insert(ivrMessages).values({
+        name: name || `TTS - ${textContent.substring(0, 50)}`,
+        type: type || "welcome",
+        source: "tts",
+        filePath: path.relative(process.cwd(), filePath),
+        textContent,
+        ttsVoice,
+        ttsGender: gender,
+        language: language || "sk",
+        countryCode: countryCode || null,
+        fileSize: buffer.length,
+      }).returning();
+
+      res.status(201).json(created[0]);
+    } catch (error: any) {
+      console.error("Error generating TTS:", error);
+      res.status(500).json({ error: `TTS generation failed: ${error.message}` });
+    }
+  });
+
+  // ============ AUDIO PLAYBACK ============
+
+  app.get("/api/ivr-messages/:id/audio", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const message = await db.select().from(ivrMessages).where(eq(ivrMessages.id, req.params.id)).limit(1);
+      if (!message[0] || !message[0].filePath) {
+        return res.status(404).json({ error: "Audio file not found" });
+      }
+
+      const fullPath = path.resolve(process.cwd(), message[0].filePath);
+      if (!fs.existsSync(fullPath)) {
+        return res.status(404).json({ error: "Audio file not found on disk" });
+      }
+
+      const ext = path.extname(fullPath).toLowerCase();
+      const mimeTypes: Record<string, string> = {
+        ".mp3": "audio/mpeg",
+        ".wav": "audio/wav",
+        ".ogg": "audio/ogg",
+        ".gsm": "audio/gsm",
+      };
+
+      res.setHeader("Content-Type", mimeTypes[ext] || "application/octet-stream");
+      res.setHeader("Content-Disposition", `inline; filename="${path.basename(fullPath)}"`);
+      fs.createReadStream(fullPath).pipe(res);
+    } catch (error) {
+      console.error("Error serving audio:", error);
+      res.status(500).json({ error: "Failed to serve audio" });
+    }
+  });
+
+  // ============ IVR MENUS ============
+
+  app.get("/api/ivr-menus", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const menus = await db.select().from(ivrMenus).orderBy(asc(ivrMenus.name));
+      const menusWithOptions = await Promise.all(
+        menus.map(async (menu) => {
+          const options = await db.select().from(ivrMenuOptions)
+            .where(eq(ivrMenuOptions.menuId, menu.id))
+            .orderBy(asc(ivrMenuOptions.sortOrder));
+          return { ...menu, options };
+        })
+      );
+      res.json(menusWithOptions);
+    } catch (error) {
+      console.error("Error fetching IVR menus:", error);
+      res.status(500).json({ error: "Failed to fetch IVR menus" });
+    }
+  });
+
+  app.get("/api/ivr-menus/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const menu = await db.select().from(ivrMenus).where(eq(ivrMenus.id, req.params.id)).limit(1);
+      if (!menu[0]) return res.status(404).json({ error: "IVR menu not found" });
+
+      const options = await db.select().from(ivrMenuOptions)
+        .where(eq(ivrMenuOptions.menuId, menu[0].id))
+        .orderBy(asc(ivrMenuOptions.sortOrder));
+
+      res.json({ ...menu[0], options });
+    } catch (error) {
+      console.error("Error fetching IVR menu:", error);
+      res.status(500).json({ error: "Failed to fetch IVR menu" });
+    }
+  });
+
+  app.post("/api/ivr-menus", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = (req.session as any)?.user;
+      if (!["admin", "manager"].includes(user.role)) {
+        return res.status(403).json({ error: "Admin or manager access required" });
+      }
+
+      const { options, ...menuData } = req.body;
+      const created = await db.insert(ivrMenus).values(menuData).returning();
+      const menu = created[0];
+
+      if (options && Array.isArray(options) && options.length > 0) {
+        await db.insert(ivrMenuOptions).values(
+          options.map((opt: any, idx: number) => ({
+            ...opt,
+            menuId: menu.id,
+            sortOrder: opt.sortOrder ?? idx,
+          }))
+        );
+      }
+
+      const fullOptions = await db.select().from(ivrMenuOptions)
+        .where(eq(ivrMenuOptions.menuId, menu.id))
+        .orderBy(asc(ivrMenuOptions.sortOrder));
+
+      res.status(201).json({ ...menu, options: fullOptions });
+    } catch (error: any) {
+      console.error("Error creating IVR menu:", error);
+      res.status(500).json({ error: `Failed to create IVR menu: ${error.message}` });
+    }
+  });
+
+  app.put("/api/ivr-menus/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = (req.session as any)?.user;
+      if (!["admin", "manager"].includes(user.role)) {
+        return res.status(403).json({ error: "Admin or manager access required" });
+      }
+
+      const { options, ...menuData } = req.body;
+      const updated = await db.update(ivrMenus)
+        .set({ ...menuData, updatedAt: new Date() })
+        .where(eq(ivrMenus.id, req.params.id))
+        .returning();
+
+      if (!updated[0]) return res.status(404).json({ error: "IVR menu not found" });
+
+      if (options && Array.isArray(options)) {
+        await db.delete(ivrMenuOptions).where(eq(ivrMenuOptions.menuId, req.params.id));
+        if (options.length > 0) {
+          await db.insert(ivrMenuOptions).values(
+            options.map((opt: any, idx: number) => ({
+              ...opt,
+              menuId: req.params.id,
+              sortOrder: opt.sortOrder ?? idx,
+            }))
+          );
+        }
+      }
+
+      const fullOptions = await db.select().from(ivrMenuOptions)
+        .where(eq(ivrMenuOptions.menuId, req.params.id))
+        .orderBy(asc(ivrMenuOptions.sortOrder));
+
+      res.json({ ...updated[0], options: fullOptions });
+    } catch (error: any) {
+      console.error("Error updating IVR menu:", error);
+      res.status(500).json({ error: `Failed to update IVR menu: ${error.message}` });
+    }
+  });
+
+  app.delete("/api/ivr-menus/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = (req.session as any)?.user;
+      if (user.role !== "admin") {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+
+      await db.delete(ivrMenus).where(eq(ivrMenus.id, req.params.id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting IVR menu:", error);
+      res.status(500).json({ error: "Failed to delete IVR menu" });
     }
   });
 

@@ -6,6 +6,8 @@ import { useI18n } from "@/i18n";
 import { TranscriptSearchContent } from "@/pages/transcript-search";
 import { BreakTypesTab } from "@/components/campaigns/BreakTypesTab";
 import { InboundQueuesTab } from "@/components/campaigns/InboundQueuesTab";
+import { IvrMessagesTab } from "@/components/campaigns/IvrMessagesTab";
+import { IvrMenusTab } from "@/components/campaigns/IvrMenusTab";
 import { useAuth } from "@/contexts/auth-context";
 import { useCountryFilter } from "@/contexts/country-filter-context";
 import { Button } from "@/components/ui/button";
@@ -1991,6 +1993,14 @@ export default function CampaignsPage() {
               <Phone className="h-4 w-4" />
               Inbound Queues
             </TabsTrigger>
+            <TabsTrigger value="ivr-messages" className="gap-2" data-testid="tab-ivr-messages">
+              <Mic className="h-4 w-4" />
+              IVR Audio
+            </TabsTrigger>
+            <TabsTrigger value="ivr-menus" className="gap-2" data-testid="tab-ivr-menus">
+              <Phone className="h-4 w-4" />
+              IVR Menu
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -2064,6 +2074,14 @@ export default function CampaignsPage() {
 
         <TabsContent value="inbound-queues" className="flex-1 overflow-auto p-6 mt-0">
           <InboundQueuesTab />
+        </TabsContent>
+
+        <TabsContent value="ivr-messages" className="flex-1 overflow-auto p-6 mt-0">
+          <IvrMessagesTab />
+        </TabsContent>
+
+        <TabsContent value="ivr-menus" className="flex-1 overflow-auto p-6 mt-0">
+          <IvrMenusTab />
         </TabsContent>
       </Tabs>
 
