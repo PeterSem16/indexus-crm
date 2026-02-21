@@ -7799,7 +7799,7 @@ export async function registerRoutes(
           content: msgType === "email" 
             ? ((msg as any).subject || "Email") 
             : ((msg as any).content?.substring(0, 100) || "SMS"),
-          details: msgType === "email" ? (msg as any).content?.substring(0, 500) : null,
+          details: msgType === "email" ? (msg as any).content : null,
           htmlBody: msgType === "email" ? (msg as any).content : null,
           fullContent: msgType === "sms" ? (msg as any).content : null,
           recipientEmail: (msg as any).recipientEmail || null,
