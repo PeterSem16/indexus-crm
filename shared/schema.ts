@@ -5353,6 +5353,10 @@ export const ariSettings = pgTable("ari_settings", {
   wsPort: integer("ws_port").notNull().default(8088),
   isEnabled: boolean("is_enabled").notNull().default(false),
   autoConnect: boolean("auto_connect").notNull().default(false),
+  sshPort: integer("ssh_port").notNull().default(22),
+  sshUsername: text("ssh_username").notNull().default(""),
+  sshPassword: text("ssh_password").notNull().default(""),
+  asteriskSoundsPath: text("asterisk_sounds_path").notNull().default("/var/lib/asterisk/sounds/custom"),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
   updatedBy: varchar("updated_by"),
 });

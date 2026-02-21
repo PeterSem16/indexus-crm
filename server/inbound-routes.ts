@@ -53,10 +53,12 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
           host: "", port: 8088, protocol: "http",
           username: "", password: "", appName: "indexus-inbound",
           wsProtocol: "ws", wsPort: 8088, isEnabled: false, autoConnect: false,
+          sshPort: 22, sshUsername: "", sshPassword: "", asteriskSoundsPath: "/var/lib/asterisk/sounds/custom",
         });
       }
       const s = { ...settings[0] };
       (s as any).password = s.password ? "••••••••" : "";
+      (s as any).sshPassword = s.sshPassword ? "••••••••" : "";
       res.json(s);
     } catch (error) {
       console.error("Error fetching ARI settings:", error);
@@ -79,6 +81,11 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         password = existing[0].password;
       }
 
+      let sshPassword = body.sshPassword;
+      if (sshPassword === "••••••••" && existing.length > 0) {
+        sshPassword = existing[0].sshPassword;
+      }
+
       const settingsData = {
         host: body.host || "",
         port: body.port || 8088,
@@ -90,6 +97,10 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         wsPort: body.wsPort || 8088,
         isEnabled: body.isEnabled ?? false,
         autoConnect: body.autoConnect ?? false,
+        sshPort: body.sshPort || 22,
+        sshUsername: body.sshUsername || "",
+        sshPassword: sshPassword || "",
+        asteriskSoundsPath: body.asteriskSoundsPath || "/var/lib/asterisk/sounds/custom",
         updatedAt: new Date(),
         updatedBy: user.id,
       };
@@ -193,6 +204,20 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       });
     } catch (error) {
       res.json({ ariConnected: false, queueEngineRunning: false });
+    }
+  });
+
+  app.post("/api/ari-settings/sync-audio", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = (req.session as any)?.user;
+      if (user.role !== "admin") {
+        return res.status(403).json({ error: "Admin access required" });
+      }
+      const { syncAudioToAsterisk } = await import("./lib/asterisk-audio-sync");
+      const result = await syncAudioToAsterisk();
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ success: false, synced: 0, failed: 0, errors: [error.message] });
     }
   });
 
@@ -410,6 +435,10 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         fileSize: fileObj ? fileObj.size : null,
       }).returning();
 
+      if (created[0]?.filePath) {
+        import("./lib/asterisk-audio-sync").then(m => m.syncSingleAudio(created[0].id)).catch(() => {});
+      }
+
       res.status(201).json(created[0]);
     } catch (error) {
       console.error("Error creating IVR message:", error);
@@ -444,6 +473,11 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         .returning();
 
       if (!updated[0]) return res.status(404).json({ error: "IVR message not found" });
+
+      if (updated[0]?.filePath) {
+        import("./lib/asterisk-audio-sync").then(m => m.syncSingleAudio(updated[0].id)).catch(() => {});
+      }
+
       res.json(updated[0]);
     } catch (error) {
       console.error("Error updating IVR message:", error);
@@ -515,6 +549,10 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         fileSize: buffer.length,
       }).returning();
 
+      if (created[0]?.filePath) {
+        import("./lib/asterisk-audio-sync").then(m => m.syncSingleAudio(created[0].id)).catch(() => {});
+      }
+
       res.status(201).json(created[0]);
     } catch (error: any) {
       console.error("Error generating TTS:", error);
@@ -581,6 +619,10 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         .where(eq(ivrMessages.id, req.params.id))
         .returning();
 
+      if (updated[0]?.filePath) {
+        import("./lib/asterisk-audio-sync").then(m => m.syncSingleAudio(updated[0].id)).catch(() => {});
+      }
+
       res.json(updated[0]);
     } catch (error: any) {
       console.error("Error regenerating TTS:", error);
@@ -630,6 +672,10 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         })
         .where(eq(ivrMessages.id, req.params.id))
         .returning();
+
+      if (updated[0]?.filePath) {
+        import("./lib/asterisk-audio-sync").then(m => m.syncSingleAudio(updated[0].id)).catch(() => {});
+      }
 
       res.json(updated[0]);
     } catch (error: any) {
@@ -684,6 +730,10 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         duration: result.duration,
         fileSize: result.fileSize,
       }).returning();
+
+      if (created[0]?.filePath) {
+        import("./lib/asterisk-audio-sync").then(m => m.syncSingleAudio(created[0].id)).catch(() => {});
+      }
 
       res.status(201).json(created[0]);
     } catch (error: any) {

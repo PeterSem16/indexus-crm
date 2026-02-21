@@ -155,11 +155,11 @@ export class QueueEngine extends EventEmitter {
     if (queue.welcomeMessageId) {
       try {
         const [msg] = await db.select().from(ivrMessages).where(eq(ivrMessages.id, queue.welcomeMessageId)).limit(1);
-        const soundName = msg?.name
-          ? msg.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-          : 'hello-world';
-        console.log(`[QueueEngine] Playing welcome: sound:${soundName} (IVR message: ${msg?.name || 'default'})`);
-        await this.ariClient.playMedia(channel.id, `sound:${soundName}`);
+        if (msg) {
+          const soundName = msg.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+          console.log(`[QueueEngine] Playing welcome: sound:custom/${soundName} (IVR message: ${msg.name})`);
+          await this.ariClient.playMedia(channel.id, `sound:custom/${soundName}`);
+        }
       } catch (err) {
         console.warn(`[QueueEngine] Welcome message playback failed, continuing:`, err instanceof Error ? err.message : err);
       }

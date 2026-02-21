@@ -37,6 +37,10 @@ interface AriSettingsData {
   wsPort: number;
   isEnabled: boolean;
   autoConnect: boolean;
+  sshPort: number;
+  sshUsername: string;
+  sshPassword: string;
+  asteriskSoundsPath: string;
 }
 
 interface AriStatus {
@@ -49,7 +53,9 @@ export function AriSettingsTab() {
   const [testing, setTesting] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [syncResult, setSyncResult] = useState<{ success: boolean; synced: number; failed: number; errors: string[] } | null>(null);
 
   const [formData, setFormData] = useState<AriSettingsData>({
     host: "",
@@ -62,6 +68,10 @@ export function AriSettingsTab() {
     wsPort: 8088,
     isEnabled: false,
     autoConnect: false,
+    sshPort: 22,
+    sshUsername: "",
+    sshPassword: "",
+    asteriskSoundsPath: "/var/lib/asterisk/sounds/custom",
   });
 
   const { data: settings, isLoading } = useQuery<AriSettingsData>({
@@ -88,6 +98,10 @@ export function AriSettingsTab() {
         wsPort: settings.wsPort || 8088,
         isEnabled: settings.isEnabled || false,
         autoConnect: settings.autoConnect || false,
+        sshPort: settings.sshPort || 22,
+        sshUsername: settings.sshUsername || "",
+        sshPassword: settings.sshPassword || "",
+        asteriskSoundsPath: settings.asteriskSoundsPath || "/var/lib/asterisk/sounds/custom",
       });
     }
   }, [settings]);
@@ -157,6 +171,25 @@ export function AriSettingsTab() {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
       setDisconnecting(false);
+    }
+  };
+
+  const handleSyncAudio = async () => {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const res = await apiRequest("POST", "/api/ari-settings/sync-audio");
+      const data = await res.json();
+      setSyncResult(data);
+      if (data.success) {
+        toast({ title: "Audio sync complete", description: `${data.synced} files synced to Asterisk` });
+      } else {
+        toast({ title: "Audio sync finished with errors", description: `${data.synced} synced, ${data.failed} failed`, variant: "destructive" });
+      }
+    } catch (err: any) {
+      toast({ title: "Sync failed", description: err.message, variant: "destructive" });
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -412,6 +445,98 @@ export function AriSettingsTab() {
               Save Settings
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Server className="h-4 w-4" />
+            Audio Sync (SSH)
+          </CardTitle>
+          <CardDescription>
+            SSH credentials for automatic audio file sync to Asterisk sounds directory
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>SSH Username</Label>
+              <Input
+                value={formData.sshUsername}
+                onChange={e => setFormData(f => ({ ...f, sshUsername: e.target.value }))}
+                placeholder="root"
+                data-testid="input-ari-ssh-username"
+              />
+            </div>
+            <div>
+              <Label>SSH Password</Label>
+              <Input
+                type="password"
+                value={formData.sshPassword}
+                onChange={e => setFormData(f => ({ ...f, sshPassword: e.target.value }))}
+                data-testid="input-ari-ssh-password"
+              />
+            </div>
+            <div>
+              <Label>SSH Port</Label>
+              <Input
+                type="number"
+                value={formData.sshPort}
+                onChange={e => setFormData(f => ({ ...f, sshPort: parseInt(e.target.value) || 22 }))}
+                data-testid="input-ari-ssh-port"
+              />
+            </div>
+            <div>
+              <Label>Asterisk Sounds Path</Label>
+              <Input
+                value={formData.asteriskSoundsPath}
+                onChange={e => setFormData(f => ({ ...f, asteriskSoundsPath: e.target.value }))}
+                placeholder="/var/lib/asterisk/sounds/custom"
+                data-testid="input-ari-sounds-path"
+              />
+            </div>
+          </div>
+
+          <p className="text-xs text-muted-foreground" data-testid="text-ssh-info">
+            IVR audio files are automatically synced to Asterisk when created or updated. Use the sync button to push all existing audio files.
+          </p>
+
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              onClick={handleSyncAudio}
+              disabled={syncing || !formData.sshUsername}
+              data-testid="btn-sync-audio"
+            >
+              {syncing ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4 mr-2" />
+              )}
+              Sync All Audio to Asterisk
+            </Button>
+          </div>
+
+          {syncResult && (
+            <div className={`p-3 rounded-md text-sm space-y-1 ${
+              syncResult.success ? "bg-green-50 text-green-800 border border-green-200" : "bg-amber-50 text-amber-800 border border-amber-200"
+            }`} data-testid="text-sync-result">
+              <div className="flex items-center gap-2">
+                {syncResult.success ? (
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                ) : (
+                  <XCircle className="h-4 w-4 text-amber-600" />
+                )}
+                {syncResult.synced} files synced, {syncResult.failed} failed
+              </div>
+              {syncResult.errors.length > 0 && (
+                <ul className="text-xs ml-6 list-disc">
+                  {syncResult.errors.map((e, i) => <li key={i}>{e}</li>)}
+                </ul>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
