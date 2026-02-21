@@ -21,13 +21,20 @@ function connectSSH(settings: { host: string; sshPort: number; sshUsername: stri
   return new Promise((resolve, reject) => {
     const conn = new Client();
     conn.on("ready", () => resolve(conn));
-    conn.on("error", (err: Error) => reject(err));
+    conn.on("error", (err: Error) => {
+      console.error(`[AudioSync] SSH error event: ${err.message}, level=${(err as any).level}`);
+      reject(err);
+    });
+    conn.on("keyboard-interactive", (_name, _instructions, _lang, _prompts, finish) => {
+      finish([settings.sshPassword]);
+    });
     conn.connect({
       host: settings.host,
       port: settings.sshPort,
       username: settings.sshUsername,
       password: settings.sshPassword,
-      readyTimeout: 10000,
+      readyTimeout: 15000,
+      tryKeyboard: true,
     });
   });
 }
@@ -61,8 +68,11 @@ function sftpUpload(sftp: any, localPath: string, remotePath: string): Promise<v
 
 export async function syncAudioToAsterisk(messageId?: string): Promise<SyncResult> {
   const settings = await getAriSettings();
+  console.log(`[AudioSync] Settings loaded: host=${settings?.host || 'null'}, sshUsername=${settings?.sshUsername || 'null'}, sshPort=${settings?.sshPort || 'null'}, asteriskSoundsPath=${settings?.asteriskSoundsPath || 'null'}, sshPassword=${settings?.sshPassword ? '***SET***' : 'EMPTY'}`);
   if (!settings || !settings.host || !settings.sshUsername) {
-    return { success: false, synced: 0, failed: 0, errors: ["SSH credentials not configured in ARI settings"] };
+    const reason = !settings ? 'no settings row' : !settings.host ? 'host is empty' : 'sshUsername is empty';
+    console.log(`[AudioSync] Aborting: ${reason}`);
+    return { success: false, synced: 0, failed: 0, errors: [`SSH credentials not configured in ARI settings (${reason})`] };
   }
 
   let messages;
@@ -76,6 +86,7 @@ export async function syncAudioToAsterisk(messageId?: string): Promise<SyncResul
     return { success: true, synced: 0, failed: 0, errors: [] };
   }
 
+  console.log(`[AudioSync] Attempting SSH connection to ${settings.host}:${settings.sshPort} as '${settings.sshUsername}'...`);
   let conn: Client;
   try {
     conn = await connectSSH({
@@ -84,8 +95,11 @@ export async function syncAudioToAsterisk(messageId?: string): Promise<SyncResul
       sshUsername: settings.sshUsername,
       sshPassword: settings.sshPassword,
     });
+    console.log(`[AudioSync] SSH connected successfully`);
   } catch (err) {
-    return { success: false, synced: 0, failed: 0, errors: [`SSH connection failed: ${err instanceof Error ? err.message : err}`] };
+    const errDetail = err instanceof Error ? `${err.message} (${(err as any).level || 'unknown level'})` : String(err);
+    console.error(`[AudioSync] SSH connection failed: ${errDetail}`);
+    return { success: false, synced: 0, failed: 0, errors: [`SSH connection failed: ${errDetail}`] };
   }
 
   const remoteSoundsPath = settings.asteriskSoundsPath || "/var/lib/asterisk/sounds/custom";

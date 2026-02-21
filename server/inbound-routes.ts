@@ -221,6 +221,57 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
     }
   });
 
+  app.post("/api/ari-settings/test-ssh", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = (req.session as any)?.user;
+      if (user.role !== "admin") {
+        return res.status(403).json({ success: false, error: "Admin access required" });
+      }
+      const settings = await db.select().from(ariSettings).limit(1);
+      if (!settings[0]) {
+        return res.json({ success: false, error: "No ARI settings found" });
+      }
+      const s = settings[0];
+      if (!s.host || !s.sshUsername || !s.sshPassword) {
+        return res.json({
+          success: false,
+          error: `Missing SSH config: host=${s.host ? 'set' : 'EMPTY'}, sshUsername=${s.sshUsername ? 'set' : 'EMPTY'}, sshPassword=${s.sshPassword ? 'set' : 'EMPTY'}, sshPort=${s.sshPort}`
+        });
+      }
+      const { Client } = await import("ssh2");
+      const conn = new Client();
+      const result = await new Promise<{ success: boolean; error?: string }>((resolve) => {
+        const timeout = setTimeout(() => {
+          conn.end();
+          resolve({ success: false, error: "SSH connection timed out after 15s" });
+        }, 15000);
+        conn.on("ready", () => {
+          clearTimeout(timeout);
+          conn.end();
+          resolve({ success: true });
+        });
+        conn.on("error", (err: Error) => {
+          clearTimeout(timeout);
+          resolve({ success: false, error: `SSH error: ${err.message} (level: ${(err as any).level || 'unknown'})` });
+        });
+        conn.on("keyboard-interactive", (_name: any, _instructions: any, _lang: any, _prompts: any, finish: any) => {
+          finish([s.sshPassword]);
+        });
+        conn.connect({
+          host: s.host,
+          port: s.sshPort || 22,
+          username: s.sshUsername,
+          password: s.sshPassword,
+          readyTimeout: 15000,
+          tryKeyboard: true,
+        });
+      });
+      res.json(result);
+    } catch (error: any) {
+      res.json({ success: false, error: error.message });
+    }
+  });
+
   // ============ INBOUND QUEUES ============
 
   app.get("/api/inbound-queues", requireAuth, async (req: Request, res: Response) => {

@@ -54,6 +54,8 @@ export function AriSettingsTab() {
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [testingSSH, setTestingSSH] = useState(false);
+  const [sshTestResult, setSshTestResult] = useState<{ success: boolean; error?: string } | null>(null);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [syncResult, setSyncResult] = useState<{ success: boolean; synced: number; failed: number; errors: string[] } | null>(null);
 
@@ -171,6 +173,26 @@ export function AriSettingsTab() {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
       setDisconnecting(false);
+    }
+  };
+
+  const handleTestSSH = async () => {
+    setTestingSSH(true);
+    setSshTestResult(null);
+    try {
+      const res = await apiRequest("POST", "/api/ari-settings/test-ssh");
+      const data = await res.json();
+      setSshTestResult(data);
+      if (data.success) {
+        toast({ title: "SSH connection successful" });
+      } else {
+        toast({ title: "SSH connection failed", description: data.error, variant: "destructive" });
+      }
+    } catch (err: any) {
+      setSshTestResult({ success: false, error: err.message });
+      toast({ title: "SSH test failed", description: err.message, variant: "destructive" });
+    } finally {
+      setTestingSSH(false);
     }
   };
 
@@ -505,6 +527,19 @@ export function AriSettingsTab() {
           <div className="flex items-center gap-3">
             <Button
               variant="outline"
+              onClick={handleTestSSH}
+              disabled={testingSSH || !formData.sshUsername}
+              data-testid="btn-test-ssh"
+            >
+              {testingSSH ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Wifi className="h-4 w-4 mr-2" />
+              )}
+              Test SSH Connection
+            </Button>
+            <Button
+              variant="outline"
               onClick={handleSyncAudio}
               disabled={syncing || !formData.sshUsername}
               data-testid="btn-sync-audio"
@@ -517,6 +552,20 @@ export function AriSettingsTab() {
               Sync All Audio to Asterisk
             </Button>
           </div>
+
+          {sshTestResult && (
+            <div className={`p-3 rounded-md text-sm ${
+              sshTestResult.success ? "bg-green-50 text-green-800 border border-green-200" : "bg-red-50 text-red-800 border border-red-200"
+            }`} data-testid="text-ssh-test-result">
+              <div className="flex items-center gap-2">
+                {sshTestResult.success ? (
+                  <><CheckCircle2 className="h-4 w-4 text-green-600" /> SSH connection successful</>
+                ) : (
+                  <><XCircle className="h-4 w-4 text-red-600" /> {sshTestResult.error}</>
+                )}
+              </div>
+            </div>
+          )}
 
           {syncResult && (
             <div className={`p-3 rounded-md text-sm space-y-1 ${
