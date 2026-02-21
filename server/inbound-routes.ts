@@ -64,7 +64,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
 
   app.put("/api/ari-settings", requireAuth, async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
+      const user = (req.session as any)?.user;
       if (user.role !== "admin") {
         return res.status(403).json({ error: "Admin access required" });
       }
@@ -135,7 +135,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
 
   app.post("/api/ari-settings/connect", requireAuth, async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
+      const user = (req.session as any)?.user;
       if (user.role !== "admin") {
         return res.status(403).json({ error: "Admin access required" });
       }
@@ -167,7 +167,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
 
   app.post("/api/ari-settings/disconnect", requireAuth, async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
+      const user = (req.session as any)?.user;
       if (user.role !== "admin") {
         return res.status(403).json({ error: "Admin access required" });
       }
@@ -252,7 +252,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
 
   app.post("/api/inbound-queues", requireAuth, async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
+      const user = (req.session as any)?.user;
       if (!["admin", "manager"].includes(user.role)) {
         return res.status(403).json({ error: "Admin or manager access required" });
       }
@@ -267,7 +267,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
 
   app.put("/api/inbound-queues/:id", requireAuth, async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
+      const user = (req.session as any)?.user;
       if (!["admin", "manager"].includes(user.role)) {
         return res.status(403).json({ error: "Admin or manager access required" });
       }
@@ -287,7 +287,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
 
   app.delete("/api/inbound-queues/:id", requireAuth, async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
+      const user = (req.session as any)?.user;
       if (user.role !== "admin") {
         return res.status(403).json({ error: "Admin access required" });
       }
@@ -304,7 +304,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
 
   app.post("/api/inbound-queues/:queueId/members", requireAuth, async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
+      const user = (req.session as any)?.user;
       if (!["admin", "manager"].includes(user.role)) {
         return res.status(403).json({ error: "Admin or manager access required" });
       }
@@ -333,7 +333,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
 
   app.put("/api/queue-members/:id", requireAuth, async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
+      const user = (req.session as any)?.user;
       if (!["admin", "manager"].includes(user.role)) {
         return res.status(403).json({ error: "Admin or manager access required" });
       }
@@ -353,7 +353,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
 
   app.delete("/api/queue-members/:id", requireAuth, async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
+      const user = (req.session as any)?.user;
       if (!["admin", "manager"].includes(user.role)) {
         return res.status(403).json({ error: "Admin or manager access required" });
       }
@@ -380,7 +380,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
 
   app.post("/api/ivr-messages", requireAuth, ivrUpload.single("audio"), async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
+      const user = (req.session as any)?.user;
       if (!["admin", "manager"].includes(user.role)) {
         return res.status(403).json({ error: "Admin or manager access required" });
       }
@@ -407,7 +407,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
 
   app.put("/api/ivr-messages/:id", requireAuth, ivrUpload.single("audio"), async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
+      const user = (req.session as any)?.user;
       if (!["admin", "manager"].includes(user.role)) {
         return res.status(403).json({ error: "Admin or manager access required" });
       }
@@ -441,7 +441,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
 
   app.delete("/api/ivr-messages/:id", requireAuth, async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
+      const user = (req.session as any)?.user;
       if (user.role !== "admin") {
         return res.status(403).json({ error: "Admin access required" });
       }
@@ -496,7 +496,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
 
   app.post("/api/agent-queue-status/update", requireAuth, async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
+      const user = (req.session as any)?.user;
       const { status } = req.body;
 
       if (!["available", "busy", "break", "wrap_up", "offline"].includes(status)) {
@@ -530,7 +530,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
 
   app.post("/api/agent-queue-status/end-wrap-up", requireAuth, async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
+      const user = (req.session as any)?.user;
       const engine = getQueueEngine();
       if (engine) {
         await engine.agentEndedWrapUp(user.id);
@@ -617,7 +617,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
 
   app.post("/api/inbound-calls/:callId/answer", requireAuth, async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
+      const user = (req.session as any)?.user;
       const engine = getQueueEngine();
       if (!engine) {
         return res.status(503).json({ error: "Queue engine not running" });
@@ -632,7 +632,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
 
   app.post("/api/inbound-calls/:callId/complete", requireAuth, async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
+      const user = (req.session as any)?.user;
       const engine = getQueueEngine();
       if (!engine) {
         return res.status(503).json({ error: "Queue engine not running" });
@@ -710,7 +710,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
 
   app.get("/api/agent/queue-status", requireAuth, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id;
+      const userId = (req.session as any)?.user?.id;
       if (!userId) return res.status(401).json({ error: "Not authenticated" });
 
       const memberships = await db.select({
