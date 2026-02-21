@@ -106,18 +106,26 @@ async function runDueReports() {
       try {
         log(`Processing scheduled report ${report.id} for campaign ${report.campaignId} (sendTime: ${report.sendTime})`, "scheduler");
 
-        if (!report.recipientUserIds || report.recipientUserIds.length === 0) {
-          log(`Scheduled report ${report.id}: no recipient user IDs configured`, "scheduler");
+        const hasUsers = report.recipientUserIds && report.recipientUserIds.length > 0;
+        const hasExternal = report.externalEmails && report.externalEmails.length > 0;
+        if (!hasUsers && !hasExternal) {
+          log(`Scheduled report ${report.id}: no recipients configured`, "scheduler");
           continue;
         }
 
-        const recipientUsers = await db.select({ id: users.id, email: users.email })
-          .from(users)
-          .where(inArray(users.id, report.recipientUserIds));
-
-        const recipientEmails = recipientUsers.map(u => u.email).filter(Boolean);
+        let recipientEmails: string[] = [];
+        if (hasUsers) {
+          const recipientUsers = await db.select({ id: users.id, email: users.email })
+            .from(users)
+            .where(inArray(users.id, report.recipientUserIds));
+          recipientEmails.push(...recipientUsers.map(u => u.email).filter(Boolean));
+        }
+        if (hasExternal) {
+          recipientEmails.push(...report.externalEmails!.filter(Boolean));
+        }
+        recipientEmails = [...new Set(recipientEmails)];
         if (recipientEmails.length === 0) {
-          log(`Scheduled report ${report.id}: no valid recipient emails found for users: ${report.recipientUserIds.join(', ')}`, "scheduler");
+          log(`Scheduled report ${report.id}: no valid recipient emails found`, "scheduler");
           continue;
         }
 

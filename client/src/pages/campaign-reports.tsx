@@ -23,7 +23,7 @@ import {
   ArrowLeft, Download, Mail, FileSpreadsheet, Users, Phone, BarChart3,
   Loader2, Calendar, ChevronDown, ChevronRight, Clock, TrendingUp,
   Coffee, Headphones, MessageSquare, WrapText, Timer, Activity,
-  User, Zap, Target, AlertTriangle, CalendarClock, Trash2, Plus, Power, Pencil, Send
+  User, Zap, Target, AlertTriangle, CalendarClock, Trash2, Plus, Power, Pencil, Send, X
 } from "lucide-react";
 import type { Campaign } from "@shared/schema";
 
@@ -168,6 +168,8 @@ export default function CampaignReportsPage() {
   const [schedSendTime, setSchedSendTime] = useState("08:00");
   const [schedDateRange, setSchedDateRange] = useState("yesterday");
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
+  const [schedExternalEmails, setSchedExternalEmails] = useState<string[]>([]);
+  const [externalEmailInput, setExternalEmailInput] = useState("");
   const [quickDateOpen, setQuickDateOpen] = useState(false);
 
   const today = format(new Date(), DATE_FMT);
@@ -227,7 +229,7 @@ export default function CampaignReportsPage() {
   });
 
   const { data: scheduledReportsList = [] } = useQuery<Array<{
-    id: string; reportTypes: string[]; recipientUserIds: string[]; sendTime: string;
+    id: string; reportTypes: string[]; recipientUserIds: string[]; externalEmails: string[] | null; sendTime: string;
     dateRangeType: string; enabled: boolean; lastRunAt: string | null; nextRunAt: string | null;
   }>>({
     queryKey: ["/api/campaigns", campaignId, "scheduled-reports"],
@@ -244,6 +246,8 @@ export default function CampaignReportsPage() {
       toast({ title: "Scheduled report created" });
       setScheduleDialogOpen(false);
       setSchedRecipientIds([]);
+      setSchedExternalEmails([]);
+      setExternalEmailInput("");
       setSchedReportTypes(['operator-stats']);
       setSchedSendTime("08:00");
       setSchedDateRange("yesterday");
@@ -281,6 +285,8 @@ export default function CampaignReportsPage() {
       setScheduleDialogOpen(false);
       setEditingScheduleId(null);
       setSchedRecipientIds([]);
+      setSchedExternalEmails([]);
+      setExternalEmailInput("");
       setSchedReportTypes(['operator-stats']);
       setSchedSendTime("08:00");
       setSchedDateRange("yesterday");
@@ -305,6 +311,8 @@ export default function CampaignReportsPage() {
     setEditingScheduleId(sched.id);
     setSchedReportTypes([...sched.reportTypes]);
     setSchedRecipientIds([...sched.recipientUserIds]);
+    setSchedExternalEmails([...(sched.externalEmails || [])]);
+    setExternalEmailInput("");
     setSchedSendTime(sched.sendTime);
     setSchedDateRange(sched.dateRangeType);
     setScheduleDialogOpen(true);
@@ -1347,7 +1355,7 @@ export default function CampaignReportsPage() {
                       </Badge>
                     </div>
                     <p className="text-[10px] text-muted-foreground mt-0.5">
-                      {sched.recipientUserIds.length} {cr?.recipients || 'recipients'}
+                      {sched.recipientUserIds.length + (sched.externalEmails?.length || 0)} {cr?.recipients || 'recipients'}
                       {sched.lastRunAt && ` · ${cr?.lastRun || 'Last run'}: ${new Date(sched.lastRunAt).toLocaleString()}`}
                     </p>
                   </div>
@@ -1403,7 +1411,7 @@ export default function CampaignReportsPage() {
       </Card>
 
       {/* Schedule Dialog */}
-      <Dialog open={scheduleDialogOpen} onOpenChange={(open) => { setScheduleDialogOpen(open); if (!open) { setSchedRecipientIds([]); setEditingScheduleId(null); setSchedReportTypes(['operator-stats']); setSchedSendTime("08:00"); setSchedDateRange("yesterday"); } }}>
+      <Dialog open={scheduleDialogOpen} onOpenChange={(open) => { setScheduleDialogOpen(open); if (!open) { setSchedRecipientIds([]); setSchedExternalEmails([]); setExternalEmailInput(""); setEditingScheduleId(null); setSchedReportTypes(['operator-stats']); setSchedSendTime("08:00"); setSchedDateRange("yesterday"); } }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -1480,6 +1488,63 @@ export default function CampaignReportsPage() {
                 <p className="text-xs text-muted-foreground">{schedRecipientIds.length} {cr?.recipientsSelected || 'selected'}</p>
               )}
             </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">{cr?.externalEmails || 'External Email Addresses'}</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="email"
+                  placeholder={cr?.externalEmailPlaceholder || 'Enter email address...'}
+                  value={externalEmailInput}
+                  onChange={e => setExternalEmailInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const email = externalEmailInput.trim();
+                      if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && !schedExternalEmails.includes(email)) {
+                        setSchedExternalEmails(prev => [...prev, email]);
+                        setExternalEmailInput("");
+                      }
+                    }
+                  }}
+                  data-testid="input-external-email"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const email = externalEmailInput.trim();
+                    if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && !schedExternalEmails.includes(email)) {
+                      setSchedExternalEmails(prev => [...prev, email]);
+                      setExternalEmailInput("");
+                    }
+                  }}
+                  data-testid="btn-add-external-email"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              {schedExternalEmails.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {schedExternalEmails.map(email => (
+                    <Badge key={email} variant="secondary" className="text-xs gap-1 pr-1" data-testid={`badge-external-email-${email}`}>
+                      <Mail className="h-3 w-3" />
+                      {email}
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-4 w-4 ml-0.5 p-0"
+                        onClick={() => setSchedExternalEmails(prev => prev.filter(e => e !== email))}
+                        data-testid={`btn-remove-external-email-${email}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           <DialogFooter>
             <DialogClose asChild>
@@ -1490,6 +1555,7 @@ export default function CampaignReportsPage() {
                 const payload = {
                   reportTypes: schedReportTypes,
                   recipientUserIds: schedRecipientIds,
+                  externalEmails: schedExternalEmails,
                   sendTime: schedSendTime,
                   dateRangeType: schedDateRange,
                 };
@@ -1499,7 +1565,7 @@ export default function CampaignReportsPage() {
                   createScheduleMutation.mutate(payload);
                 }
               }}
-              disabled={schedReportTypes.length === 0 || schedRecipientIds.length === 0 || createScheduleMutation.isPending || updateScheduleMutation.isPending}
+              disabled={schedReportTypes.length === 0 || (schedRecipientIds.length === 0 && schedExternalEmails.length === 0) || createScheduleMutation.isPending || updateScheduleMutation.isPending}
               data-testid="btn-create-schedule"
             >
               {(createScheduleMutation.isPending || updateScheduleMutation.isPending) ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <CalendarClock className="h-4 w-4 mr-1" />}

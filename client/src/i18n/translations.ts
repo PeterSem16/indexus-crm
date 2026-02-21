@@ -3311,6 +3311,8 @@ export interface Translations {
     dateRange: string;
     last7Days: string;
     last30Days: string;
+    externalEmails: string;
+    externalEmailPlaceholder: string;
   };
 }
 
@@ -6929,6 +6931,8 @@ export const translations: Record<Locale, Translations> = {
       dateRange: 'Date Range',
       last7Days: 'Last 7 days',
       last30Days: 'Last 30 days',
+      externalEmails: 'External Email Addresses',
+      externalEmailPlaceholder: 'Enter email address...',
     },
   },
   sk: {
@@ -10492,6 +10496,8 @@ export const translations: Record<Locale, Translations> = {
       dateRange: 'Rozsah dátumov',
       last7Days: 'Posledných 7 dní',
       last30Days: 'Posledných 30 dní',
+      externalEmails: 'Externé emailové adresy',
+      externalEmailPlaceholder: 'Zadajte emailovú adresu...',
     },
   },
   cs: {
@@ -13987,6 +13993,8 @@ export const translations: Record<Locale, Translations> = {
       dateRange: 'Rozsah dat',
       last7Days: 'Posledních 7 dní',
       last30Days: 'Posledních 30 dní',
+      externalEmails: 'Externí e-mailové adresy',
+      externalEmailPlaceholder: 'Zadejte e-mailovou adresu...',
     },
   },
   hu: {
@@ -17482,6 +17490,8 @@ export const translations: Record<Locale, Translations> = {
       dateRange: 'Dátum tartomány',
       last7Days: 'Utolsó 7 nap',
       last30Days: 'Utolsó 30 nap',
+      externalEmails: 'Külső e-mail címek',
+      externalEmailPlaceholder: 'Adja meg az e-mail címet...',
     },
   },
   ro: {
@@ -20976,6 +20986,8 @@ export const translations: Record<Locale, Translations> = {
       dateRange: 'Interval date',
       last7Days: 'Ultimele 7 zile',
       last30Days: 'Ultimele 30 zile',
+      externalEmails: 'Adrese de e-mail externe',
+      externalEmailPlaceholder: 'Introduceți adresa de e-mail...',
     },
   },
   it: {
@@ -24471,6 +24483,8 @@ export const translations: Record<Locale, Translations> = {
       dateRange: 'Intervallo date',
       last7Days: 'Ultimi 7 giorni',
       last30Days: 'Ultimi 30 giorni',
+      externalEmails: 'Indirizzi email esterni',
+      externalEmailPlaceholder: 'Inserisci indirizzo email...',
     },
   },
   de: {
@@ -27965,6 +27979,8 @@ export const translations: Record<Locale, Translations> = {
       dateRange: 'Datumsbereich',
       last7Days: 'Letzte 7 Tage',
       last30Days: 'Letzte 30 Tage',
+      externalEmails: 'Externe E-Mail-Adressen',
+      externalEmailPlaceholder: 'E-Mail-Adresse eingeben...',
     },
   },
 };

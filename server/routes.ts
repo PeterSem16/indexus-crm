@@ -15168,10 +15168,12 @@ export async function registerRoutes(
     try {
       const campaignId = req.params.id;
       const userId = (req as any).session?.userId || (req as any).user?.id;
-      const { reportTypes, recipientUserIds, sendTime, dateRangeType, enabled } = req.body;
+      const { reportTypes, recipientUserIds, externalEmails, sendTime, dateRangeType, enabled } = req.body;
 
       if (!reportTypes || !reportTypes.length) return res.status(400).json({ error: "At least one report type is required" });
-      if (!recipientUserIds || !recipientUserIds.length) return res.status(400).json({ error: "At least one recipient is required" });
+      const hasUsers = recipientUserIds && recipientUserIds.length > 0;
+      const hasExternal = externalEmails && externalEmails.length > 0;
+      if (!hasUsers && !hasExternal) return res.status(400).json({ error: "At least one recipient is required" });
       if (!sendTime) return res.status(400).json({ error: "Send time is required" });
 
       const { computeNextRunAtUtc } = await import("./scheduled-report-runner");
@@ -15184,7 +15186,8 @@ export async function registerRoutes(
       const [created] = await db.insert(scheduledReports).values({
         campaignId,
         reportTypes,
-        recipientUserIds,
+        recipientUserIds: recipientUserIds || [],
+        externalEmails: externalEmails || [],
         sendTime,
         dateRangeType: dateRangeType || 'yesterday',
         enabled: enabled !== false,
@@ -15201,12 +15204,13 @@ export async function registerRoutes(
   app.patch("/api/scheduled-reports/:id", requireAuth, async (req, res) => {
     try {
       const id = req.params.id;
-      const { enabled, reportTypes, recipientUserIds, sendTime, dateRangeType } = req.body;
+      const { enabled, reportTypes, recipientUserIds, externalEmails, sendTime, dateRangeType } = req.body;
 
       const updates: any = { updatedAt: new Date() };
       if (typeof enabled === 'boolean') updates.enabled = enabled;
       if (reportTypes) updates.reportTypes = reportTypes;
-      if (recipientUserIds) updates.recipientUserIds = recipientUserIds;
+      if (recipientUserIds !== undefined) updates.recipientUserIds = recipientUserIds;
+      if (externalEmails !== undefined) updates.externalEmails = externalEmails;
       if (sendTime) {
         updates.sendTime = sendTime;
         const existingReport = await db.select({ campaignId: scheduledReports.campaignId }).from(scheduledReports).where(eq(scheduledReports.id, id));
@@ -15249,12 +15253,21 @@ export async function registerRoutes(
       const [report] = await db.select().from(scheduledReports).where(eq(scheduledReports.id, id));
       if (!report) return res.status(404).json({ error: "Scheduled report not found" });
       if (!report.campaignId) return res.status(400).json({ error: "No campaign linked" });
-      if (!report.recipientUserIds || report.recipientUserIds.length === 0) return res.status(400).json({ error: "No recipients configured" });
+      const hasUsers = report.recipientUserIds && report.recipientUserIds.length > 0;
+      const hasExternal = report.externalEmails && report.externalEmails.length > 0;
+      if (!hasUsers && !hasExternal) return res.status(400).json({ error: "No recipients configured" });
 
-      const recipientUsers = await db.select({ id: users.id, email: users.email })
-        .from(users)
-        .where(inArray(users.id, report.recipientUserIds));
-      const recipientEmails = recipientUsers.map(u => u.email).filter(Boolean);
+      let recipientEmails: string[] = [];
+      if (hasUsers) {
+        const recipientUsers = await db.select({ id: users.id, email: users.email })
+          .from(users)
+          .where(inArray(users.id, report.recipientUserIds));
+        recipientEmails.push(...recipientUsers.map(u => u.email).filter(Boolean));
+      }
+      if (hasExternal) {
+        recipientEmails.push(...report.externalEmails!.filter(Boolean));
+      }
+      recipientEmails = [...new Set(recipientEmails)];
       if (recipientEmails.length === 0) return res.status(400).json({ error: "No valid recipient emails" });
 
       const localDateStr = (d: Date) => {
