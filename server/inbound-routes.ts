@@ -103,9 +103,9 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
           .returning();
         res.json(created[0]);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating ARI settings:", error);
-      res.status(500).json({ error: "Failed to update ARI settings" });
+      res.status(500).json({ error: `Failed to update ARI settings: ${error.message || error}` });
     }
   });
 

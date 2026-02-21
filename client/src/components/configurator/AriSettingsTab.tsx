@@ -94,6 +94,8 @@ export function AriSettingsTab() {
         username: formData.username,
         password: formData.password,
         appName: formData.appName,
+        wsProtocol: formData.wsProtocol,
+        wsPort: formData.wsPort,
       });
       const data = await res.json();
       setTestResult({ success: data.success, message: data.message || data.error || "Connection test completed" });

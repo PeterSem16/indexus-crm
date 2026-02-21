@@ -175,17 +175,27 @@ export class AriClient extends EventEmitter {
     }
   }
 
-  async testConnection(): Promise<{ success: boolean; error?: string }> {
+  async testConnection(): Promise<{ success: boolean; error?: string; message?: string }> {
     try {
-      const response = await fetch(`${this.baseUrl}/ari/asterisk/info`, {
+      const url = `${this.baseUrl}/ari/asterisk/info`;
+      console.log(`[ARI] Testing connection to: ${url}`);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      const response = await fetch(url, {
         headers: { Authorization: this.authHeader },
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
       if (!response.ok) {
         const text = await response.text();
         return { success: false, error: `HTTP ${response.status}: ${text}` };
       }
-      return { success: true };
+      const info = await response.json();
+      return { success: true, message: `Connected to Asterisk ${info?.system?.version || ""}` };
     } catch (err: any) {
+      if (err.name === "AbortError") {
+        return { success: false, error: "Connection timed out after 10 seconds" };
+      }
       return { success: false, error: err.message };
     }
   }
