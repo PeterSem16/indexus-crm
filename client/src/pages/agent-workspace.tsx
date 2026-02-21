@@ -112,6 +112,7 @@ import {
   HelpCircle,
   BookOpen,
   ChevronUp,
+  Download,
 } from "lucide-react";
 import {
   Dialog,
@@ -1375,7 +1376,7 @@ function CommunicationCanvas({
   onOpenScriptModal: () => void;
   onUpdateContact?: (data: CustomerFormData) => void;
   isUpdatingContact?: boolean;
-  externalPhoneSubTab?: "card" | "details" | "history" | null;
+  externalPhoneSubTab?: "card" | "details" | "documents" | "history" | null;
   callState?: string;
   callDuration?: number;
   ringDuration?: number;
@@ -1415,7 +1416,7 @@ function CommunicationCanvas({
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [emailOpenedAt, setEmailOpenedAt] = useState<number | null>(null);
   const [smsOpenedAt, setSmsOpenedAt] = useState<number | null>(null);
-  const [phoneSubTab, setPhoneSubTab] = useState<"card" | "details" | "history">(externalPhoneSubTab || "card");
+  const [phoneSubTab, setPhoneSubTab] = useState<"card" | "details" | "documents" | "history">(externalPhoneSubTab || "card");
   
   useEffect(() => {
     if (externalPhoneSubTab) {
@@ -1883,6 +1884,18 @@ function CommunicationCanvas({
               <Eye className="h-3 w-3" />
               {t.agentWorkspace.customerDetail}
             </button>
+            <button
+              className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium border-b-2 transition-colors ${
+                phoneSubTab === "documents"
+                  ? "border-green-500 text-green-600 dark:text-green-400"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+              onClick={() => setPhoneSubTab("documents")}
+              data-testid="subtab-customer-documents"
+            >
+              <FileText className="h-3 w-3" />
+              {t.agentWorkspace.customerDocumentsTab}
+            </button>
           </div>
 
           {(phoneSubTab === "card" || phoneSubTab === "details") && contact && contact.phone && isSipRegistered && onMakeCall && (
@@ -1943,6 +1956,10 @@ function CommunicationCanvas({
                 <CustomerDetailsContent customer={contact} onEdit={() => {}} compact visibleTabs={["overview", "potential", "gdpr", "notes"]} hideEditButton useCardLayout onCreateContract={onCreateContract} />
               </div>
             </ScrollArea>
+          )}
+
+          {phoneSubTab === "documents" && contact && (
+            <CustomerDocumentsPanel customerId={contact.id} />
           )}
 
         </div>
@@ -2355,6 +2372,112 @@ function CommunicationCanvas({
       </Dialog>
 
     </div>
+  );
+}
+
+function CustomerDocumentsPanel({ customerId }: { customerId: string }) {
+  const { t } = useI18n();
+  const { data: documents = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/customers", customerId, "documents"],
+    queryFn: async () => {
+      const res = await fetch(`/api/customers/${customerId}/documents`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!customerId,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (documents.length === 0) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground py-12">
+        <FileText className="h-10 w-10 mb-3 opacity-30" />
+        <span className="text-sm">{t.customers?.details?.noDocuments || "No documents"}</span>
+      </div>
+    );
+  }
+
+  const handleDownloadPdf = (doc: any) => {
+    window.open(`/api/customers/${customerId}/documents/${doc.type}/${doc.id}/pdf`, "_blank");
+  };
+
+  return (
+    <ScrollArea className="flex-1">
+      <div className="px-4 py-3 space-y-2">
+        {documents.map((doc: any) => (
+          <div
+            key={`${doc.type}-${doc.id}`}
+            className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+            data-testid={`doc-row-${doc.type}-${doc.id}`}
+          >
+            <div className={`h-8 w-8 rounded-md flex items-center justify-center shrink-0 ${
+              doc.type === "contract"
+                ? "bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400"
+                : "bg-green-100 dark:bg-green-950 text-green-600 dark:text-green-400"
+            }`}>
+              <FileText className="h-4 w-4" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium truncate">
+                  {doc.number || doc.id}
+                </span>
+                <Badge variant={doc.type === "contract" ? "default" : "secondary"} className="text-[9px] h-4 px-1.5 shrink-0">
+                  {doc.type === "contract" ? (t.customers?.details?.contract || "Contract") : (t.customers?.details?.invoice || "Invoice")}
+                </Badge>
+                {doc.status && (
+                  <Badge
+                    variant="outline"
+                    className={`text-[9px] h-4 px-1.5 shrink-0 ${
+                      doc.status === "active" || doc.status === "paid" ? "text-green-600 border-green-300" :
+                      doc.status === "cancelled" || doc.status === "overdue" ? "text-red-600 border-red-300" :
+                      "text-yellow-600 border-yellow-300"
+                    }`}
+                  >
+                    {doc.status}
+                  </Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-2 mt-0.5">
+                {doc.totalAmount && (
+                  <span className="text-[10px] font-semibold text-foreground">
+                    {Number(doc.totalAmount).toLocaleString()} {doc.currency || "EUR"}
+                  </span>
+                )}
+                {doc.createdAt && (
+                  <span className="text-[10px] text-muted-foreground">
+                    {new Date(doc.createdAt).toLocaleDateString()}
+                  </span>
+                )}
+                {doc.createdByName && (
+                  <span className="text-[10px] text-muted-foreground">
+                    {doc.createdByName}
+                  </span>
+                )}
+              </div>
+            </div>
+            {doc.pdfPath && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7 shrink-0"
+                onClick={() => handleDownloadPdf(doc)}
+                data-testid={`btn-download-doc-${doc.id}`}
+              >
+                <Download className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
+        ))}
+      </div>
+    </ScrollArea>
   );
 }
 
@@ -3668,7 +3791,7 @@ export default function AgentWorkspacePage() {
   const [disposedContactIds, setDisposedContactIds] = useState<Set<string>>(new Set());
   const [sessionLoginOpen, setSessionLoginOpen] = useState(true);
   const [activeChannel, setActiveChannel] = useState("phone");
-  const [phoneSubTabOverride, setPhoneSubTabOverride] = useState<"card" | "details" | "history" | null>(null);
+  const [phoneSubTabOverride, setPhoneSubTabOverride] = useState<"card" | "details" | "documents" | "history" | null>(null);
   const [rightTab, setRightTab] = useState("actions");
   const [callNotes, setCallNotes] = useState("");
   const [channelFilter, setChannelFilter] = useState("all");

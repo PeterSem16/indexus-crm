@@ -1616,6 +1616,7 @@ export interface Translations {
     taskAction: string;
     customerCard: string;
     customerDetail: string;
+    customerDocumentsTab: string;
     addNote: string;
     notePlaceholder: string;
     moreNotes: string;
@@ -5203,6 +5204,7 @@ export const translations: Record<Locale, Translations> = {
       taskAction: 'Task',
       customerCard: 'Customer Card',
       customerDetail: 'Customer Detail',
+      customerDocumentsTab: 'Documents',
       addNote: 'Add note',
       notePlaceholder: 'Write a note...',
       moreNotes: 'more notes',
@@ -8729,6 +8731,7 @@ export const translations: Record<Locale, Translations> = {
       taskAction: 'Úloha',
       customerCard: 'Karta zákazníka',
       customerDetail: 'Detail zákazníka',
+      customerDocumentsTab: 'Dokumenty',
       addNote: 'Pridať poznámku',
       notePlaceholder: 'Napíšte poznámku...',
       moreNotes: 'ďalších poznámok',
@@ -12240,6 +12243,7 @@ export const translations: Record<Locale, Translations> = {
       taskAction: 'Úkol',
       customerCard: 'Karta zákazníka',
       customerDetail: 'Detail zákazníka',
+      customerDocumentsTab: 'Dokumenty',
       addNote: 'Přidat poznámku',
       notePlaceholder: 'Napište poznámku...',
       moreNotes: 'dalších poznámek',
@@ -15714,6 +15718,7 @@ export const translations: Record<Locale, Translations> = {
       taskAction: 'Feladat',
       customerCard: 'Ügyfél kártya',
       customerDetail: 'Ügyfél részletek',
+      customerDocumentsTab: 'Dokumentumok',
       addNote: 'Jegyzet hozzáadása',
       notePlaceholder: 'Írjon jegyzetet...',
       moreNotes: 'további jegyzet',
@@ -19187,6 +19192,7 @@ export const translations: Record<Locale, Translations> = {
       taskAction: 'Sarcină',
       customerCard: 'Fișa clientului',
       customerDetail: 'Detalii client',
+      customerDocumentsTab: 'Documente',
       addNote: 'Adăugare notă',
       notePlaceholder: 'Scrieți o notă...',
       moreNotes: 'alte note',
@@ -22661,6 +22667,7 @@ export const translations: Record<Locale, Translations> = {
       taskAction: 'Attività',
       customerCard: 'Scheda cliente',
       customerDetail: 'Dettaglio cliente',
+      customerDocumentsTab: 'Documenti',
       addNote: 'Aggiungi nota',
       notePlaceholder: 'Scrivi una nota...',
       moreNotes: 'altre note',
@@ -26135,6 +26142,7 @@ export const translations: Record<Locale, Translations> = {
       taskAction: 'Aufgabe',
       customerCard: 'Kundenkarte',
       customerDetail: 'Kundendetail',
+      customerDocumentsTab: 'Dokumente',
       addNote: 'Notiz hinzufügen',
       notePlaceholder: 'Notiz schreiben...',
       moreNotes: 'weitere Notizen',
