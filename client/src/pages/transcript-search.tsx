@@ -716,7 +716,7 @@ function FilterChip({ label, active, onClick, icon: Icon }: { label: string; act
   );
 }
 
-function AnalysisPanel({ log, ca, locale, sentimentLabels }: { log: CallLogEntry; ca: Record<string, any>; locale: string; sentimentLabels: Record<string, string> }) {
+function AnalysisPanel({ log, ca, locale, sentimentLabels, searchText }: { log: CallLogEntry; ca: Record<string, any>; locale: string; sentimentLabels: Record<string, string>; searchText?: string }) {
   const [playbackState, setPlaybackState] = useState<PlaybackState | null>(null);
   const rec = log.recording;
   const dateStr = new Date(log.startedAt || log.createdAt).toLocaleString(LOCALE_MAP[locale] || 'en-US', {
@@ -905,7 +905,7 @@ function AnalysisPanel({ log, ca, locale, sentimentLabels }: { log: CallLogEntry
                 <ScoreBadge score={rec.scriptComplianceScore} label={ca.script} />
               </div>
               <ScrollArea className="flex-1">
-                <TranscriptWithPlayback text={rec.transcriptionText} playback={playbackState} />
+                <TranscriptWithPlayback text={rec.transcriptionText} searchText={searchText} playback={playbackState} />
               </ScrollArea>
             </div>
           )}
@@ -1526,7 +1526,7 @@ export function TranscriptSearchContent() {
 
       {activeTab === "browse" && (
         <div className="flex flex-1 overflow-hidden">
-          <div className="w-[45%] min-w-[320px] border-r flex flex-col">
+          <div className="w-[30%] min-w-[280px] border-r flex flex-col">
             <ScrollArea className="flex-1">
               <div className="p-2 space-y-0.5">
                 {logsLoading && (
@@ -1581,7 +1581,7 @@ export function TranscriptSearchContent() {
                     const sentimentLabels: Record<string, string> = {
                       positive: ca.positive, neutral: ca.neutral, negative: ca.negative, angry: ca.angry,
                     };
-                    return <AnalysisPanel log={selectedLog} ca={ca} locale={locale} sentimentLabels={sentimentLabels} />;
+                    return <AnalysisPanel log={selectedLog} ca={ca} locale={locale} sentimentLabels={sentimentLabels} searchText={browseSearchText} />;
                   }
                   return (
                     <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
