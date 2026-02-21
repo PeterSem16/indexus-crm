@@ -43,6 +43,8 @@ export class QueueEngine extends EventEmitter {
   private roundRobinIndex: Map<string, number> = new Map();
   private wrapUpTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
   private checkInterval: ReturnType<typeof setInterval> | null = null;
+  private pendingWelcome: Map<string, { channelId: string; queueId: string }> = new Map();
+  private mohPlaybacks: Map<string, string> = new Map();
 
   constructor(ariClient: AriClient) {
     super();
@@ -66,6 +68,76 @@ export class QueueEngine extends EventEmitter {
         this.handleCallerHangup(event.channel.id);
       }
     });
+
+    this.ariClient.on("playback-finished", (event: AriEvent) => {
+      this.handlePlaybackFinished(event);
+    });
+  }
+
+  private async handlePlaybackFinished(event: AriEvent): Promise<void> {
+    const playbackId = event.playback?.id;
+    if (!playbackId) return;
+
+    const welcome = this.pendingWelcome.get(playbackId);
+    if (welcome) {
+      this.pendingWelcome.delete(playbackId);
+      console.log(`[QueueEngine] Welcome playback finished for channel ${welcome.channelId}, starting MOH`);
+      await this.startMohForChannel(welcome.channelId, welcome.queueId);
+      return;
+    }
+
+    for (const [channelId, mohPbId] of this.mohPlaybacks.entries()) {
+      if (mohPbId === playbackId) {
+        if (this.waitingCalls.has(channelId)) {
+          console.log(`[QueueEngine] MOH playback finished, restarting for channel ${channelId}`);
+          await this.startMohForChannel(channelId, this.waitingCalls.get(channelId)!.queueId);
+        }
+        break;
+      }
+    }
+  }
+
+  private async startMohForChannel(channelId: string, queueId: string): Promise<void> {
+    try {
+      const existingPbId = this.mohPlaybacks.get(channelId);
+      if (existingPbId && existingPbId !== "default-moh") {
+        try { await this.ariClient.stopPlayback(existingPbId); } catch {}
+      }
+
+      const queue = (await db.select().from(inboundQueues).where(eq(inboundQueues.id, queueId)).limit(1))[0];
+      if (queue?.holdMusicId) {
+        const [holdMsg] = await db.select().from(ivrMessages).where(eq(ivrMessages.id, queue.holdMusicId)).limit(1);
+        if (holdMsg) {
+          const holdSoundName = holdMsg.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+          const pbId = `moh-${channelId}-${Date.now()}`;
+          console.log(`[QueueEngine] Playing custom MOH: sound:custom/${holdSoundName} (pbId: ${pbId})`);
+          this.mohPlaybacks.set(channelId, pbId);
+          await this.ariClient.playMedia(channelId, `sound:custom/${holdSoundName}`, pbId);
+          return;
+        }
+      }
+      console.log(`[QueueEngine] Starting default MOH for channel ${channelId}`);
+      this.mohPlaybacks.set(channelId, "default-moh");
+      await this.ariClient.startMoh(channelId);
+    } catch (err) {
+      console.warn(`[QueueEngine] MOH start failed for ${channelId}:`, err instanceof Error ? err.message : err);
+    }
+  }
+
+  private async stopMohForChannel(channelId: string): Promise<void> {
+    const mohPbId = this.mohPlaybacks.get(channelId);
+    if (!mohPbId) return;
+    this.mohPlaybacks.delete(channelId);
+    try {
+      if (mohPbId === "default-moh") {
+        await this.ariClient.stopMoh(channelId);
+      } else {
+        await this.ariClient.stopPlayback(mohPbId);
+      }
+      console.log(`[QueueEngine] Stopped MOH for channel ${channelId}`);
+    } catch (err) {
+      console.warn(`[QueueEngine] Failed to stop MOH for ${channelId}:`, err instanceof Error ? err.message : err);
+    }
   }
 
   async start(): Promise<void> {
@@ -168,17 +240,25 @@ export class QueueEngine extends EventEmitter {
       return;
     }
 
+    let welcomePlayed = false;
     if (queue.welcomeMessageId) {
       try {
         const [msg] = await db.select().from(ivrMessages).where(eq(ivrMessages.id, queue.welcomeMessageId)).limit(1);
         if (msg) {
           const soundName = msg.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-          console.log(`[QueueEngine] Playing welcome: sound:custom/${soundName} (IVR message: ${msg.name})`);
-          await this.ariClient.playMedia(channel.id, `sound:custom/${soundName}`);
+          const welcomePbId = `welcome-${channel.id}-${Date.now()}`;
+          console.log(`[QueueEngine] Playing welcome: sound:custom/${soundName} (pbId: ${welcomePbId})`);
+          this.pendingWelcome.set(welcomePbId, { channelId: channel.id, queueId: queue.id });
+          await this.ariClient.playMedia(channel.id, `sound:custom/${soundName}`, welcomePbId);
+          welcomePlayed = true;
         }
       } catch (err) {
         console.warn(`[QueueEngine] Welcome message playback failed, continuing:`, err instanceof Error ? err.message : err);
       }
+    }
+
+    if (!welcomePlayed) {
+      await this.startMohForChannel(channel.id, queue.id);
     }
 
     const customerId = await this.lookupCustomer(callerNumber);
@@ -281,6 +361,31 @@ export class QueueEngine extends EventEmitter {
 
     console.log(`[QueueEngine] Selecting agent for queue "${queue.name}": ${members.length} active members`);
 
+    const memberUserIds = members.map(m => m.userId);
+    const dbStates = memberUserIds.length > 0
+      ? await db.select().from(agentQueueStatus).where(inArray(agentQueueStatus.userId, memberUserIds))
+      : [];
+
+    for (const dbState of dbStates) {
+      const existing = this.agentStates.get(dbState.userId);
+      const memberInfo = members.find(m => m.userId === dbState.userId);
+      const memberQueueIds = members.filter(m => m.userId === dbState.userId).map(m => m.queueId);
+      const wasChanged = !existing || existing.status !== dbState.status;
+      this.agentStates.set(dbState.userId, {
+        userId: dbState.userId,
+        status: dbState.status as AgentState["status"],
+        currentCallId: dbState.currentCallId,
+        lastCallEndedAt: dbState.lastCallEndedAt,
+        callsHandled: dbState.callsHandled,
+        queueIds: memberQueueIds.length > 0 ? memberQueueIds : (existing?.queueIds || []),
+        sipExtension: existing?.sipExtension || null,
+        penalty: memberInfo?.penalty ?? existing?.penalty ?? 0,
+      });
+      if (wasChanged) {
+        console.log(`[QueueEngine]   Synced agent ${dbState.userId} from DB: ${dbState.status}`);
+      }
+    }
+
     const availableAgents: AgentState[] = [];
     for (const member of members) {
       const state = this.agentStates.get(member.userId);
@@ -352,6 +457,8 @@ export class QueueEngine extends EventEmitter {
 
   private async connectCallToAgent(call: QueuedCall, agent: AgentState, queue: InboundQueue): Promise<void> {
     console.log(`[QueueEngine] Connecting call ${call.id} to agent ${agent.userId}`);
+
+    await this.stopMohForChannel(call.channelId);
 
     this.updateAgentStatus(agent.userId, "busy", call.id);
 
@@ -468,6 +575,12 @@ export class QueueEngine extends EventEmitter {
   }
 
   private handleChannelDestroyed(channelId: string): void {
+    this.mohPlaybacks.delete(channelId);
+    for (const [pbId, info] of this.pendingWelcome.entries()) {
+      if (info.channelId === channelId) {
+        this.pendingWelcome.delete(pbId);
+      }
+    }
     const call = this.waitingCalls.get(channelId);
     if (call) {
       this.handleCallerHangup(channelId);
@@ -478,6 +591,7 @@ export class QueueEngine extends EventEmitter {
     const call = this.waitingCalls.get(channelId);
     if (!call) return;
 
+    this.mohPlaybacks.delete(channelId);
     this.waitingCalls.delete(channelId);
 
     await db.update(inboundCallLogs)

@@ -341,6 +341,15 @@ export class AriClient extends EventEmitter {
     await this.ariRequest("DELETE", `/channels/${channelId}/hold`);
   }
 
+  async startMoh(channelId: string, mohClass?: string): Promise<void> {
+    const params = mohClass ? `?mohClass=${mohClass}` : "";
+    await this.ariRequest("POST", `/channels/${channelId}/moh${params}`);
+  }
+
+  async stopMoh(channelId: string): Promise<void> {
+    await this.ariRequest("DELETE", `/channels/${channelId}/moh`);
+  }
+
   async startRecording(channelId: string, name: string, format: string = "wav"): Promise<any> {
     return this.ariRequest("POST", `/channels/${channelId}/record?name=${name}&format=${format}&ifExists=overwrite`);
   }
