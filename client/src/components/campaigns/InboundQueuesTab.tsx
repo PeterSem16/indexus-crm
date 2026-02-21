@@ -206,8 +206,9 @@ export function InboundQueuesTab() {
   const addMemberMutation = useMutation({
     mutationFn: ({ queueId, data }: { queueId: string; data: any }) =>
       apiRequest("POST", `/api/inbound-queues/${queueId}/members`, data),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/inbound-queues"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/inbound-queues", variables.queueId] });
       setShowAddMemberDialog(null);
       setNewMemberUserId("");
       setNewMemberPenalty(0);
@@ -215,14 +216,6 @@ export function InboundQueuesTab() {
     },
     onError: (err: any) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
-    },
-  });
-
-  const removeMemberMutation = useMutation({
-    mutationFn: (memberId: string) => apiRequest("DELETE", `/api/queue-members/${memberId}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/inbound-queues"] });
-      toast({ title: "Member removed" });
     },
   });
 
@@ -612,6 +605,7 @@ function QueueDetailPanel({ queueId, sipUsers, onAddMember }: {
     mutationFn: (memberId: string) => apiRequest("DELETE", `/api/queue-members/${memberId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/inbound-queues"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/inbound-queues", queueId] });
       toast({ title: "Member removed" });
     },
   });
