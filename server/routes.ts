@@ -64,7 +64,7 @@ import QRCode from "qrcode";
 import { PDFDocument as PDFLibDocument, rgb, degrees, StandardFonts } from "pdf-lib";
 import { notificationService } from "./lib/notification-service";
 import * as XLSX from "xlsx";
-import { STORAGE_PATHS, ensureAllDirectoriesExist, getPublicUrl, DATA_ROOT } from "./config/storage-paths";
+import { STORAGE_PATHS, ensureAllDirectoriesExist, getPublicUrl, getRelativePath, getAbsolutePath, DATA_ROOT } from "./config/storage-paths";
 
 // Initialize all storage directories
 ensureAllDirectoriesExist();
@@ -5208,6 +5208,10 @@ export async function registerRoutes(
       
       console.log("[InvoiceCreate] Success - returning invoice");
       res.status(201).json(invoice);
+
+      generateAndSaveInvoicePdf(invoice.id).catch(err =>
+        console.error("[InvoiceCreate] Background PDF generation failed:", err)
+      );
     } catch (error: any) {
       console.error("[InvoiceCreate] Error:", error.message);
       console.error("[InvoiceCreate] Full error:", JSON.stringify(error, null, 2));
@@ -5654,6 +5658,10 @@ export async function registerRoutes(
       });
 
       res.status(201).json(invoice);
+
+      generateAndSaveInvoicePdf(invoice.id).catch(err =>
+        console.error("[AutoGenerate] Background PDF generation failed:", err)
+      );
     } catch (error) {
       console.error("Error generating invoice:", error);
       res.status(500).json({ error: "Failed to generate invoice" });
@@ -5853,13 +5861,332 @@ export async function registerRoutes(
     return result;
   }
 
+  async function generateAndSaveInvoicePdf(invoiceId: string): Promise<string | null> {
+    try {
+      const invoice = await storage.getInvoice(invoiceId);
+      if (!invoice) {
+        console.log(`[PDF-Save] Invoice ${invoiceId} not found`);
+        return null;
+      }
+
+      const customer = await storage.getCustomer(invoice.customerId);
+      if (!customer) {
+        console.log(`[PDF-Save] Customer not found for invoice ${invoiceId}`);
+        return null;
+      }
+
+      const invoiceItems = await storage.getInvoiceItems(invoice.id);
+      const countryCode = customer.country?.toUpperCase() || "SK";
+
+      const docxTemplate = await storage.getDefaultDocxTemplate(countryCode, "invoice");
+
+      const pdfDir = STORAGE_PATHS.invoicePdfs;
+      if (!fs.existsSync(pdfDir)) {
+        fs.mkdirSync(pdfDir, { recursive: true });
+      }
+
+      const safeName = (invoice.invoiceNumber || invoice.id).replace(/[^a-zA-Z0-9-_]/g, "_");
+      const finalPdfPath = path.join(pdfDir, `${safeName}.pdf`);
+      const relativePdfPath = getRelativePath(finalPdfPath);
+
+      if (docxTemplate) {
+        const docxPath = path.join(process.cwd(), docxTemplate.filePath);
+        if (!fs.existsSync(docxPath)) {
+          console.log(`[PDF-Save] DOCX template file not found: ${docxPath}`);
+          return null;
+        }
+
+        const content = fs.readFileSync(docxPath, "binary");
+        const zip = new PizZip(content);
+
+        const cleanXmlTags = (zipFile: PizZip) => {
+          const files = ["word/document.xml", "word/header1.xml", "word/header2.xml", "word/footer1.xml", "word/footer2.xml"];
+          for (const fileName of files) {
+            const file = zipFile.file(fileName);
+            if (file) {
+              let xmlContent = file.asText();
+              let result = "";
+              let i = 0;
+              while (i < xmlContent.length) {
+                const openPos = xmlContent.indexOf("{{", i);
+                if (openPos === -1) { result += xmlContent.substring(i); break; }
+                result += xmlContent.substring(i, openPos);
+                const closePos = xmlContent.indexOf("}}", openPos);
+                if (closePos === -1) { result += xmlContent.substring(openPos); break; }
+                const section = xmlContent.substring(openPos, closePos + 2);
+                let textOnly = section.replace(/<[^>]+>/g, "");
+                if (textOnly.startsWith("{{") && textOnly.endsWith("}}")) {
+                  textOnly = "{" + textOnly.slice(2, -2) + "}";
+                }
+                result += textOnly;
+                i = closePos + 2;
+              }
+              xmlContent = result;
+              result = "";
+              i = 0;
+              while (i < xmlContent.length) {
+                const hashPos = xmlContent.indexOf("{#", i);
+                const slashPos = xmlContent.indexOf("{/", i);
+                const caretPos = xmlContent.indexOf("{^", i);
+                const positions = [hashPos, slashPos, caretPos].filter(p => p !== -1);
+                if (positions.length === 0) { result += xmlContent.substring(i); break; }
+                const openPos = Math.min(...positions);
+                result += xmlContent.substring(i, openPos);
+                const closePos = xmlContent.indexOf("}", openPos + 2);
+                if (closePos === -1) { result += xmlContent.substring(openPos); break; }
+                const section = xmlContent.substring(openPos, closePos + 1);
+                result += section.replace(/<[^>]+>/g, "");
+                i = closePos + 1;
+              }
+              xmlContent = result;
+              result = "";
+              const singleBracePattern = /\{(?![#/^])([^{}]*?)\}/g;
+              let lastIndex = 0;
+              let match;
+              while ((match = singleBracePattern.exec(xmlContent)) !== null) {
+                if (/<[^>]+>/.test(match[0])) {
+                  result += xmlContent.substring(lastIndex, match.index);
+                  result += match[0].replace(/<[^>]+>/g, "");
+                  lastIndex = match.index + match[0].length;
+                }
+              }
+              result += xmlContent.substring(lastIndex);
+              xmlContent = result;
+              zipFile.file(fileName, xmlContent);
+            }
+          }
+        };
+
+        cleanXmlTags(zip);
+
+        const doc = new Docxtemplater(zip, {
+          paragraphLoop: true,
+          linebreaks: true,
+          parser: expressionParser,
+          nullGetter() { return ""; },
+        });
+
+        const templateData = {
+          qrCodePayBySquare: "",
+          qrCodeEpc: "",
+          invoice: {
+            number: invoice.invoiceNumber,
+            date: new Date(invoice.generatedAt).toLocaleDateString("sk-SK"),
+            dueDate: invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString("sk-SK") : "",
+            variableSymbol: invoice.variableSymbol || "",
+            subtotal: invoice.subtotal ? parseFloat(invoice.subtotal).toFixed(2) : "",
+            vatRate: invoice.vatRate ? parseFloat(invoice.vatRate).toFixed(0) : "",
+            vatAmount: invoice.vatAmount ? parseFloat(invoice.vatAmount).toFixed(2) : "",
+            total: parseFloat(invoice.totalAmount).toFixed(2),
+            currency: invoice.currency,
+            type: invoice.invoiceType === "proforma" ? "Zálohová faktúra" : "Faktúra",
+          },
+          customer: {
+            firstName: customer.firstName || "",
+            lastName: customer.lastName || "",
+            fullName: `${customer.firstName || ""} ${customer.lastName || ""}`.trim(),
+            companyName: (customer as any).companyName || "",
+            email: customer.email || "",
+            phone: customer.phone || "",
+            address: customer.address || "",
+            street: customer.address || "",
+            city: customer.city || "",
+            postalCode: customer.postalCode || "",
+            country: customer.country || "",
+            ico: (customer as any).ico || "",
+            dic: (customer as any).dic || "",
+            icDph: (customer as any).icDph || "",
+          },
+          billing: {
+            companyName: invoice.billingCompanyName || "",
+            address: invoice.billingAddress || "",
+            city: invoice.billingCity || "",
+            postalCode: invoice.billingZip || "",
+            zip: invoice.billingZip || "",
+            country: invoice.billingCountry || "",
+            taxId: invoice.billingTaxId || "",
+            vatId: invoice.billingVatId || "",
+            bankName: invoice.billingBankName || "",
+            iban: invoice.billingBankIban || "",
+            swift: invoice.billingBankSwift || "",
+            accountNumber: invoice.billingBankAccountNumber || "",
+            email: invoice.billingEmail || "",
+            phone: invoice.billingPhone || "",
+          },
+          items: invoiceItems.map((item, index) => ({
+            index: index + 1,
+            name: item.name || "",
+            description: item.description || item.name || "",
+            quantity: item.quantity,
+            unit: (item as any).unit || "ks",
+            unitPrice: parseFloat(item.unitPrice).toFixed(2),
+            vatRate: invoice.vatRate ? parseFloat(invoice.vatRate).toFixed(0) : "20",
+            totalPrice: parseFloat(item.totalPrice).toFixed(2),
+            currency: invoice.currency,
+          })),
+        };
+
+        try {
+          doc.render(templateData);
+        } catch (renderError: any) {
+          console.error(`[PDF-Save] Template render error for invoice ${invoiceId}:`, renderError?.message);
+          return null;
+        }
+
+        const qrCodes = await generateInvoiceQRCodes(invoice);
+        const renderedZip = doc.getZip();
+
+        if (qrCodes.payBySquare || qrCodes.epc) {
+          try {
+            let docXml = renderedZip.file("word/document.xml")?.asText() || "";
+            const relsFile = renderedZip.file("word/_rels/document.xml.rels");
+            let relsXml = relsFile?.asText() || "";
+            let rIdCounter = 100;
+            const addQrImage = (imgName: string, imgBuffer: Buffer, placeholder: string) => {
+              const rId = `rIdQr${rIdCounter++}`;
+              renderedZip.file(`word/media/${imgName}`, imgBuffer);
+              const relEntry = `<Relationship Id="${rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${imgName}"/>`;
+              relsXml = relsXml.replace("</Relationships>", `${relEntry}</Relationships>`);
+              const imgXml = `<w:r><w:rPr></w:rPr><w:drawing><wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" distT="0" distB="0" distL="0" distR="0"><wp:extent cx="900000" cy="900000"/><wp:docPr id="${rIdCounter}" name="${imgName}"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${rIdCounter}" name="${imgName}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rId}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="900000" cy="900000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
+              const placeholderEscaped = placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              const regex = new RegExp(`<w:r[^>]*>(?:<w:rPr>[\\s\\S]*?</w:rPr>)?<w:t[^>]*>${placeholderEscaped}</w:t></w:r>`, 'g');
+              if (regex.test(docXml)) {
+                docXml = docXml.replace(regex, imgXml);
+              } else {
+                docXml = docXml.replace(new RegExp(placeholderEscaped, 'g'), '');
+              }
+            };
+            if (qrCodes.payBySquare) addQrImage("qr-payBySquare.png", qrCodes.payBySquare, "{qrCodePayBySquare}");
+            else docXml = docXml.replace(/\{qrCodePayBySquare\}/g, "");
+            if (qrCodes.epc) addQrImage("qr-epc.png", qrCodes.epc, "{qrCodeEpc}");
+            else docXml = docXml.replace(/\{qrCodeEpc\}/g, "");
+            renderedZip.file("word/document.xml", docXml);
+            renderedZip.file("word/_rels/document.xml.rels", relsXml);
+            const contentTypesFile = renderedZip.file("[Content_Types].xml");
+            let contentTypesXml = contentTypesFile?.asText() || "";
+            if (!contentTypesXml.includes('Extension="png"')) {
+              contentTypesXml = contentTypesXml.replace("</Types>", '<Default Extension="png" ContentType="image/png"/></Types>');
+              renderedZip.file("[Content_Types].xml", contentTypesXml);
+            }
+          } catch (qrErr) {
+            console.error("[PDF-Save] Failed to inject QR codes:", qrErr);
+          }
+        }
+
+        const buf = renderedZip.generate({ type: "nodebuffer", compression: "DEFLATE" });
+        const tempDir = path.join(process.cwd(), "uploads/temp");
+        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+        const filledDocxPath = path.join(tempDir, `invoice-save-${invoice.id}-${Date.now()}.docx`);
+        fs.writeFileSync(filledDocxPath, buf);
+
+        const userProfile = `/tmp/libreoffice-save-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        try {
+          execSync(
+            `soffice --headless -env:UserInstallation=file://${userProfile} --convert-to pdf --outdir "${tempDir}" "${filledDocxPath}"`,
+            { timeout: 60000, encoding: "utf8" }
+          );
+        } catch (convErr: any) {
+          console.error("[PDF-Save] LibreOffice conversion failed, retrying:", convErr?.message);
+          try {
+            const retryProfile = `/tmp/libreoffice-save-retry-${Date.now()}`;
+            execSync(
+              `soffice --headless -env:UserInstallation=file://${retryProfile} --convert-to pdf --outdir "${tempDir}" "${filledDocxPath}"`,
+              { timeout: 60000, encoding: "utf8" }
+            );
+            try { execSync(`rm -rf "${retryProfile}"`, { timeout: 5000 }); } catch {}
+          } catch (retryErr: any) {
+            console.error("[PDF-Save] LibreOffice retry also failed:", retryErr?.message);
+            try { if (fs.existsSync(filledDocxPath)) fs.unlinkSync(filledDocxPath); } catch {}
+            return null;
+          }
+        } finally {
+          try { execSync(`rm -rf "${userProfile}"`, { timeout: 5000 }); } catch {}
+        }
+
+        const tempPdfPath = filledDocxPath.replace(".docx", ".pdf");
+        if (fs.existsSync(tempPdfPath)) {
+          fs.copyFileSync(tempPdfPath, finalPdfPath);
+          try {
+            if (fs.existsSync(filledDocxPath)) fs.unlinkSync(filledDocxPath);
+            if (fs.existsSync(tempPdfPath)) fs.unlinkSync(tempPdfPath);
+          } catch {}
+
+          await db.update(invoices).set({ pdfPath: relativePdfPath }).where(eq(invoices.id, invoiceId));
+          console.log(`[PDF-Save] Invoice ${invoice.invoiceNumber} PDF saved to ${relativePdfPath}`);
+          return relativePdfPath;
+        }
+
+        try { if (fs.existsSync(filledDocxPath)) fs.unlinkSync(filledDocxPath); } catch {}
+        console.log(`[PDF-Save] PDF conversion failed for invoice ${invoiceId}`);
+        return null;
+      } else {
+        console.log(`[PDF-Save] No DOCX template for ${countryCode}, skipping automatic PDF generation for invoice ${invoiceId}`);
+        return null;
+      }
+    } catch (error) {
+      console.error(`[PDF-Save] Error generating PDF for invoice ${invoiceId}:`, error);
+      return null;
+    }
+  }
+
   // Generate PDF from DOCX template
+  app.get("/api/invoices/:id/pdf-download", requireAuth, async (req, res) => {
+    try {
+      const invoice = await storage.getInvoice(req.params.id);
+      if (!invoice) {
+        return res.status(404).json({ error: "Invoice not found" });
+      }
+
+      if (invoice.pdfPath) {
+        const absPath = getAbsolutePath(invoice.pdfPath);
+        if (fs.existsSync(absPath)) {
+          res.setHeader("Content-Type", "application/pdf");
+          res.setHeader("Content-Disposition", `inline; filename="Faktura_${invoice.invoiceNumber || invoice.id}.pdf"`);
+          return res.sendFile(absPath);
+        }
+      }
+
+      res.status(404).json({ error: "PDF not yet generated" });
+    } catch (error) {
+      console.error("Error serving stored PDF:", error);
+      res.status(500).json({ error: "Failed to serve PDF" });
+    }
+  });
+
+  app.post("/api/invoices/:id/regenerate-pdf", requireAuth, async (req, res) => {
+    try {
+      const invoice = await storage.getInvoice(req.params.id);
+      if (!invoice) {
+        return res.status(404).json({ error: "Invoice not found" });
+      }
+
+      const pdfPath = await generateAndSaveInvoicePdf(invoice.id);
+      if (pdfPath) {
+        res.json({ success: true, pdfPath });
+      } else {
+        res.status(500).json({ error: "Failed to generate PDF" });
+      }
+    } catch (error) {
+      console.error("Error regenerating PDF:", error);
+      res.status(500).json({ error: "Failed to regenerate PDF" });
+    }
+  });
+
   app.get("/api/invoices/:id/pdf-docx", requireAuth, async (req, res) => {
     try {
       const { templateId } = req.query;
       const invoice = await storage.getInvoice(req.params.id);
       if (!invoice) {
         return res.status(404).json({ error: "Invoice not found" });
+      }
+
+      if (!templateId && invoice.pdfPath) {
+        const absPath = getAbsolutePath(invoice.pdfPath);
+        if (fs.existsSync(absPath)) {
+          res.setHeader("Content-Type", "application/pdf");
+          res.setHeader("Content-Disposition", `inline; filename="Faktura_${invoice.invoiceNumber || invoice.id}.pdf"`);
+          return res.sendFile(absPath);
+        }
       }
 
       const customer = await storage.getCustomer(invoice.customerId);
@@ -7573,6 +7900,10 @@ export async function registerRoutes(
 
       console.log(`[ScheduledInvoice] Created invoice ${invoice.id} (${invoiceNumber}) from scheduled ${scheduled.id}`);
       res.status(201).json(invoice);
+
+      generateAndSaveInvoicePdf(invoice.id).catch(err =>
+        console.error("[ScheduledInvoice] Background PDF generation failed:", err)
+      );
     } catch (error: any) {
       console.error("Error creating invoice from scheduled:", error?.message, error?.stack);
       res.status(500).json({ error: "Failed to create invoice", details: error?.message });

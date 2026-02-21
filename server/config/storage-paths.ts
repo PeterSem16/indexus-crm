@@ -25,6 +25,7 @@ export const STORAGE_PATHS = {
   emailImages: path.join(DATA_ROOT, "email-images"),
   generatedContracts: path.join(DATA_ROOT, "generated-contracts"),
   invoiceImages: path.join(DATA_ROOT, "invoice-images"),
+  invoicePdfs: path.join(DATA_ROOT, "invoice-pdfs"),
   templatePreviews: path.join(DATA_ROOT, "template-previews"),
   exports: path.join(DATA_ROOT, "exports"),
   voiceNotes: path.join(DATA_ROOT, "voice-notes"),

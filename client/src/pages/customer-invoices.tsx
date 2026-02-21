@@ -945,7 +945,8 @@ export default function CustomerInvoicesPage() {
                               handleQuickDownloadPdf(invoice.id, invoice.invoiceNumber);
                             }}
                             data-testid={`btn-download-pdf-${invoice.id}`}
-                            title={t.invoices?.downloadPdf || "Download PDF"}
+                            title={invoice.pdfPath ? (t.invoices?.downloadStoredPdf || "Download stored PDF") : (t.invoices?.downloadPdf || "Download PDF")}
+                            className={invoice.pdfPath ? "text-green-600" : ""}
                           >
                             {downloadingPdfId === invoice.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                           </Button>

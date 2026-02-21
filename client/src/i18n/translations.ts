@@ -2760,6 +2760,7 @@ export interface Translations {
     cancelReason: string;
     regenerate: string;
     downloadPdf: string;
+    downloadStoredPdf: string;
     downloadDocx: string;
     viewDetail: string;
     wizardTitle: string;
@@ -6380,6 +6381,7 @@ export const translations: Record<Locale, Translations> = {
       cancelReason: 'Cancellation Reason',
       regenerate: 'Regenerate',
       downloadPdf: 'Download PDF',
+      downloadStoredPdf: 'Download stored PDF',
       downloadDocx: 'Download DOCX',
       viewDetail: 'View Detail',
       wizardTitle: 'New Contract Wizard',
@@ -9945,6 +9947,7 @@ export const translations: Record<Locale, Translations> = {
       cancelReason: 'Dôvod zrušenia',
       regenerate: 'Pregenerovať',
       downloadPdf: 'Stiahnuť PDF',
+      downloadStoredPdf: 'Stiahnuť uložené PDF',
       downloadDocx: 'Stiahnuť DOCX',
       viewDetail: 'Zobraziť detail',
       wizardTitle: 'Sprievodca novou zmluvou',
@@ -13442,6 +13445,7 @@ export const translations: Record<Locale, Translations> = {
       cancelReason: 'Důvod zrušení',
       regenerate: 'Přegenerovat',
       downloadPdf: 'Stáhnout PDF',
+      downloadStoredPdf: 'Stáhnout uložené PDF',
       downloadDocx: 'Stáhnout DOCX',
       viewDetail: 'Zobrazit detail',
       wizardTitle: 'Průvodce novou smlouvou',
@@ -16939,6 +16943,7 @@ export const translations: Record<Locale, Translations> = {
       cancelReason: 'Törlés oka',
       regenerate: 'Újragenerálás',
       downloadPdf: 'PDF letöltése',
+      downloadStoredPdf: 'Mentett PDF letöltése',
       downloadDocx: 'DOCX letöltése',
       viewDetail: 'Részletek megtekintése',
       wizardTitle: 'Új szerződés varázsló',
@@ -20435,6 +20440,7 @@ export const translations: Record<Locale, Translations> = {
       cancelReason: 'Motiv anulare',
       regenerate: 'Regenerează',
       downloadPdf: 'Descarcă PDF',
+      downloadStoredPdf: 'Descarcă PDF stocat',
       downloadDocx: 'Descarcă DOCX',
       viewDetail: 'Vezi detalii',
       wizardTitle: 'Asistent contract nou',
@@ -23932,6 +23938,7 @@ export const translations: Record<Locale, Translations> = {
       cancelReason: 'Motivo annullamento',
       regenerate: 'Rigenera',
       downloadPdf: 'Scarica PDF',
+      downloadStoredPdf: 'Scarica PDF archiviato',
       downloadDocx: 'Scarica DOCX',
       viewDetail: 'Vedi dettaglio',
       wizardTitle: 'Procedura guidata nuovo contratto',
@@ -27429,6 +27436,7 @@ export const translations: Record<Locale, Translations> = {
       cancelReason: 'Stornierungsgrund',
       regenerate: 'Neu generieren',
       downloadPdf: 'PDF herunterladen',
+      downloadStoredPdf: 'Gespeichertes PDF herunterladen',
       downloadDocx: 'DOCX herunterladen',
       viewDetail: 'Detail anzeigen',
       wizardTitle: 'Neuer Vertrag Assistent',
