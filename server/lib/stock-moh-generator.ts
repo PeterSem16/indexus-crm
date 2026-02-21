@@ -242,10 +242,18 @@ function mixInto(target: Float64Array, source: number[], offset: number): void {
 }
 
 function normalize(samples: number[], peak: number = 0.85): number[] {
-  const maxAbs = Math.max(...samples.map(Math.abs));
+  let maxAbs = 0;
+  for (let i = 0; i < samples.length; i++) {
+    const a = Math.abs(samples[i]);
+    if (a > maxAbs) maxAbs = a;
+  }
   if (maxAbs === 0) return samples;
   const scale = peak / maxAbs;
-  return samples.map(s => s * scale);
+  const out = new Float64Array(samples.length);
+  for (let i = 0; i < samples.length; i++) {
+    out[i] = samples[i] * scale;
+  }
+  return Array.from(out);
 }
 
 const NOTE_FREQS: Record<string, number> = {
