@@ -46,6 +46,9 @@ import {
   FileAudio,
   Loader2,
   Mic,
+  Music,
+  Library,
+  Check,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -126,17 +129,24 @@ export function IvrMessagesTab() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingMessage, setEditingMessage] = useState<IvrMessage | null>(null);
   const [formData, setFormData] = useState<FormData>(defaultFormData);
-  const [sourceMode, setSourceMode] = useState<"upload" | "tts">("upload");
+  const [sourceMode, setSourceMode] = useState<"upload" | "tts" | "stock">("upload");
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<string>("all");
   const [filterLanguage, setFilterLanguage] = useState<string>("all");
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [selectedStockId, setSelectedStockId] = useState<string | null>(null);
+  const [previewingStockId, setPreviewingStockId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const stockAudioRef = useRef<HTMLAudioElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const { data: messages = [], isLoading } = useQuery<IvrMessage[]>({
     queryKey: ["/api/ivr-messages"],
+  });
+
+  const { data: stockMohOptions = [] } = useQuery<any[]>({
+    queryKey: ["/api/ivr-messages/stock-moh"],
   });
 
   const createMutation = useMutation({
@@ -212,6 +222,20 @@ export function IvrMessagesTab() {
     },
   });
 
+  const stockMohMutation = useMutation({
+    mutationFn: async (data: { stockId: string; name?: string; countryCode: string }) => {
+      return apiRequest("POST", "/api/ivr-messages/stock-moh", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ivr-messages"] });
+      closeDialog();
+      toast({ title: "Stock hold music added" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
   const toggleActiveMutation = useMutation({
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
       const fd = new globalThis.FormData();
@@ -235,6 +259,12 @@ export function IvrMessagesTab() {
     setFormData(defaultFormData);
     setSourceMode("upload");
     setAudioFile(null);
+    setSelectedStockId(null);
+    setPreviewingStockId(null);
+    if (stockAudioRef.current) {
+      stockAudioRef.current.pause();
+      stockAudioRef.current = null;
+    }
   };
 
   const openCreate = () => {
@@ -242,6 +272,7 @@ export function IvrMessagesTab() {
     setFormData(defaultFormData);
     setSourceMode("upload");
     setAudioFile(null);
+    setSelectedStockId(null);
     setDialogOpen(true);
   };
 
@@ -261,7 +292,38 @@ export function IvrMessagesTab() {
     setDialogOpen(true);
   };
 
+  const toggleStockPreview = (stockId: string) => {
+    if (previewingStockId === stockId) {
+      stockAudioRef.current?.pause();
+      setPreviewingStockId(null);
+      return;
+    }
+    if (stockAudioRef.current) stockAudioRef.current.pause();
+    const audio = new Audio(`/api/ivr-messages/stock-moh/${stockId}/preview`);
+    audio.onended = () => setPreviewingStockId(null);
+    audio.onerror = () => {
+      setPreviewingStockId(null);
+      toast({ title: "Error", description: "Failed to preview audio", variant: "destructive" });
+    };
+    audio.play();
+    stockAudioRef.current = audio;
+    setPreviewingStockId(stockId);
+  };
+
   const handleSubmit = () => {
+    if (sourceMode === "stock") {
+      if (!selectedStockId) {
+        toast({ title: "Error", description: "Please select a hold music style", variant: "destructive" });
+        return;
+      }
+      stockMohMutation.mutate({
+        stockId: selectedStockId,
+        name: formData.name.trim() || undefined,
+        countryCode: formData.countryCode,
+      });
+      return;
+    }
+
     if (!formData.name.trim()) {
       toast({ title: "Error", description: "Name is required", variant: "destructive" });
       return;
@@ -350,7 +412,7 @@ export function IvrMessagesTab() {
     return `${min}:${sec.toString().padStart(2, "0")}`;
   };
 
-  const isSaving = createMutation.isPending || updateMutation.isPending || ttsMutation.isPending;
+  const isSaving = createMutation.isPending || updateMutation.isPending || ttsMutation.isPending || stockMohMutation.isPending;
 
   return (
     <div className="space-y-4">
@@ -454,6 +516,8 @@ export function IvrMessagesTab() {
                     <Badge variant="secondary" className="text-xs" data-testid={`badge-source-${msg.id}`}>
                       {msg.source === "tts" ? (
                         <><Mic className="h-3 w-3 mr-1" />TTS</>
+                      ) : msg.source === "stock" ? (
+                        <><Library className="h-3 w-3 mr-1" />Stock</>
                       ) : (
                         <><Upload className="h-3 w-3 mr-1" />Upload</>
                       )}
@@ -531,7 +595,14 @@ export function IvrMessagesTab() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Type</Label>
-                <Select value={formData.type} onValueChange={(v) => setFormData((f) => ({ ...f, type: v }))}>
+                <Select value={formData.type} onValueChange={(v) => {
+                  setFormData((f) => ({ ...f, type: v }));
+                  if (v === "hold_music" && !editingMessage) {
+                    setSourceMode("stock");
+                  } else if (sourceMode === "stock" && v !== "hold_music") {
+                    setSourceMode("upload");
+                  }
+                }}>
                   <SelectTrigger data-testid="select-ivr-type"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {MESSAGE_TYPES.map((t) => (
@@ -576,8 +647,14 @@ export function IvrMessagesTab() {
             </div>
 
             {!editingMessage && (
-              <Tabs value={sourceMode} onValueChange={(v) => setSourceMode(v as "upload" | "tts")}>
-                <TabsList className="w-full">
+              <Tabs value={sourceMode} onValueChange={(v) => setSourceMode(v as "upload" | "tts" | "stock")}>
+                <TabsList className={formData.type === "hold_music" ? "w-full" : "w-full"}>
+                  {formData.type === "hold_music" && (
+                    <TabsTrigger value="stock" className="flex-1 gap-2" data-testid="tab-stock">
+                      <Library className="h-4 w-4" />
+                      Stock Library
+                    </TabsTrigger>
+                  )}
                   <TabsTrigger value="upload" className="flex-1 gap-2" data-testid="tab-upload">
                     <Upload className="h-4 w-4" />
                     Upload Audio
@@ -587,6 +664,71 @@ export function IvrMessagesTab() {
                     Text-to-Speech
                   </TabsTrigger>
                 </TabsList>
+
+                {formData.type === "hold_music" && (
+                  <TabsContent value="stock" className="space-y-3 mt-3">
+                    <p className="text-sm text-muted-foreground">
+                      Choose from free built-in hold music styles. Click play to preview before adding.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {stockMohOptions.map((option: any) => (
+                        <div
+                          key={option.id}
+                          className={`relative border rounded-lg p-3 cursor-pointer transition-all hover:border-primary/50 ${
+                            selectedStockId === option.id
+                              ? "border-primary bg-primary/5 ring-1 ring-primary"
+                              : "border-border"
+                          }`}
+                          onClick={() => setSelectedStockId(option.id)}
+                          data-testid={`stock-moh-${option.id}`}
+                        >
+                          {selectedStockId === option.id && (
+                            <div className="absolute top-2 right-2">
+                              <Check className="h-4 w-4 text-primary" />
+                            </div>
+                          )}
+                          <div className="flex items-start gap-3">
+                            <div className="p-2 rounded-md bg-primary/10 shrink-0">
+                              <Music className="h-4 w-4 text-primary" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-sm">{option.name}</div>
+                              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{option.description}</p>
+                              <div className="flex items-center gap-2 mt-2">
+                                <Badge variant="outline" className="text-xs">{option.durationSeconds}s</Badge>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 px-2 text-xs gap-1"
+                                  onClick={(e) => { e.stopPropagation(); toggleStockPreview(option.id); }}
+                                  data-testid={`btn-preview-stock-${option.id}`}
+                                >
+                                  {previewingStockId === option.id ? (
+                                    <><Square className="h-3 w-3" /> Stop</>
+                                  ) : (
+                                    <><Play className="h-3 w-3" /> Preview</>
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {selectedStockId && (
+                      <div>
+                        <Label>Custom Name (optional)</Label>
+                        <Input
+                          value={formData.name}
+                          onChange={(e) => setFormData((f) => ({ ...f, name: e.target.value }))}
+                          placeholder={stockMohOptions.find((o: any) => o.id === selectedStockId)?.name || ""}
+                          data-testid="input-stock-custom-name"
+                        />
+                      </div>
+                    )}
+                  </TabsContent>
+                )}
 
                 <TabsContent value="upload" className="space-y-3 mt-3">
                   <div>

@@ -515,6 +515,84 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
     }
   });
 
+  // ============ STOCK MOH LIBRARY ============
+
+  app.get("/api/ivr-messages/stock-moh", requireAuth, async (_req: Request, res: Response) => {
+    try {
+      const { STOCK_MOH_OPTIONS } = await import("./lib/stock-moh-generator");
+      res.json(STOCK_MOH_OPTIONS);
+    } catch (error: any) {
+      console.error("Error fetching stock MOH options:", error);
+      res.status(500).json({ error: "Failed to fetch stock MOH options" });
+    }
+  });
+
+  app.post("/api/ivr-messages/stock-moh", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = (req.session as any)?.user;
+      if (!["admin", "manager"].includes(user.role)) {
+        return res.status(403).json({ error: "Admin or manager access required" });
+      }
+
+      const { stockId, name, countryCode } = req.body;
+      if (!stockId) {
+        return res.status(400).json({ error: "Stock MOH ID is required" });
+      }
+
+      const { generateStockMoh, STOCK_MOH_OPTIONS } = await import("./lib/stock-moh-generator");
+      const option = STOCK_MOH_OPTIONS.find(o => o.id === stockId);
+      if (!option) {
+        return res.status(404).json({ error: "Unknown stock MOH option" });
+      }
+
+      const dir = path.join(DATA_ROOT, "ivr-audio");
+      const result = await generateStockMoh(stockId, dir);
+
+      const created = await db.insert(ivrMessages).values({
+        name: name || option.name,
+        type: "hold_music",
+        source: "stock",
+        filePath: path.relative(process.cwd(), result.filePath),
+        textContent: null,
+        ttsVoice: null,
+        ttsGender: null,
+        language: "EN",
+        countryCode: countryCode || null,
+        duration: result.duration,
+        fileSize: result.fileSize,
+      }).returning();
+
+      res.status(201).json(created[0]);
+    } catch (error: any) {
+      console.error("Error generating stock MOH:", error);
+      res.status(500).json({ error: `Stock MOH generation failed: ${error.message}` });
+    }
+  });
+
+  app.get("/api/ivr-messages/stock-moh/:stockId/preview", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { generateStockMoh, STOCK_MOH_OPTIONS } = await import("./lib/stock-moh-generator");
+      const option = STOCK_MOH_OPTIONS.find(o => o.id === req.params.stockId);
+      if (!option) {
+        return res.status(404).json({ error: "Unknown stock MOH option" });
+      }
+
+      const tmpDir = path.join(DATA_ROOT, "ivr-audio", "previews");
+      const result = await generateStockMoh(req.params.stockId, tmpDir);
+      
+      res.setHeader("Content-Type", "audio/wav");
+      res.setHeader("Content-Length", result.fileSize.toString());
+      const stream = fs.createReadStream(result.filePath);
+      stream.pipe(res);
+      stream.on("end", () => {
+        try { fs.unlinkSync(result.filePath); } catch {}
+      });
+    } catch (error: any) {
+      console.error("Error previewing stock MOH:", error);
+      res.status(500).json({ error: "Preview generation failed" });
+    }
+  });
+
   // ============ AUDIO PLAYBACK ============
 
   app.get("/api/ivr-messages/:id/audio", requireAuth, async (req: Request, res: Response) => {
