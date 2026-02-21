@@ -648,7 +648,7 @@ function samplesToWav(samples: number[], sampleRate: number): Buffer {
   return buffer;
 }
 
-export async function generateStockMoh(stockId: string, outputDir: string): Promise<{
+export async function generateStockMoh(stockId: string, outputDir: string, overrideDuration?: number): Promise<{
   filePath: string;
   duration: number;
   fileSize: number;
@@ -662,7 +662,8 @@ export async function generateStockMoh(stockId: string, outputDir: string): Prom
     fs.mkdirSync(outputDir, { recursive: true });
   }
 
-  const samples = generateByStyle(option.style, option.durationSeconds);
+  const duration = overrideDuration || option.durationSeconds;
+  const samples = generateByStyle(option.style, duration);
   const wavBuffer = samplesToWav(samples, SAMPLE_RATE);
 
   const fileName = `stock-moh-${stockId}-${Date.now()}.wav`;

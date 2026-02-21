@@ -82,7 +82,7 @@ interface QueueMemberWithUser {
   penalty: number;
   skills: string[];
   isActive: boolean;
-  user: { id: string; username: string; name: string; role: string } | null;
+  user: { id: string; username: string; fullName: string; role: string } | null;
   agentStatus: string;
   callsHandled: number;
 }
@@ -560,7 +560,7 @@ export function InboundQueuesTab() {
                 <SelectTrigger data-testid="select-member-user"><SelectValue placeholder="Select agent..." /></SelectTrigger>
                 <SelectContent>
                   {sipUsers.map((u: any) => (
-                    <SelectItem key={u.id} value={u.id}>{u.name || u.username}</SelectItem>
+                    <SelectItem key={u.id} value={u.id}>{u.fullName || u.username}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -653,7 +653,7 @@ function QueueDetailPanel({ queueId, sipUsers, onAddMember }: {
               <TableRow key={member.id}>
                 <TableCell>
                   <span data-testid={`text-member-name-${member.id}`}>
-                    {member.user?.name || member.user?.username || "Unknown"}
+                    {member.user?.fullName || member.user?.username || "Unknown"}
                   </span>
                 </TableCell>
                 <TableCell>

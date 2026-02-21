@@ -224,7 +224,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         user: {
           id: users.id,
           username: users.username,
-          name: users.name,
+          fullName: users.fullName,
           role: users.role,
         },
       })
@@ -259,7 +259,10 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         return res.status(403).json({ error: "Admin or manager access required" });
       }
 
-      const created = await db.insert(inboundQueues).values(req.body).returning();
+      const data = { ...req.body };
+      if (data.welcomeMessageId === "") data.welcomeMessageId = null;
+      if (data.holdMusicId === "") data.holdMusicId = null;
+      const created = await db.insert(inboundQueues).values(data).returning();
       res.status(201).json(created[0]);
     } catch (error) {
       console.error("Error creating queue:", error);
@@ -274,8 +277,11 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         return res.status(403).json({ error: "Admin or manager access required" });
       }
 
+      const data = { ...req.body };
+      if (data.welcomeMessageId === "") data.welcomeMessageId = null;
+      if (data.holdMusicId === "") data.holdMusicId = null;
       const updated = await db.update(inboundQueues)
-        .set({ ...req.body, updatedAt: new Date() })
+        .set({ ...data, updatedAt: new Date() })
         .where(eq(inboundQueues.id, req.params.id))
         .returning();
 
@@ -578,7 +584,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       }
 
       const tmpDir = path.join(DATA_ROOT, "ivr-audio", "previews");
-      const result = await generateStockMoh(req.params.stockId, tmpDir);
+      const result = await generateStockMoh(req.params.stockId, tmpDir, 15);
       
       res.setHeader("Content-Type", "audio/wav");
       res.setHeader("Content-Length", result.fileSize.toString());
@@ -755,19 +761,19 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         const states = engine.getAllAgentStates();
         const userIds = states.map(s => s.userId);
         const userList = userIds.length > 0
-          ? await db.select({ id: users.id, name: users.name, username: users.username })
+          ? await db.select({ id: users.id, fullName: users.fullName, username: users.username })
               .from(users).where(inArray(users.id, userIds))
           : [];
         const userMap = new Map(userList.map(u => [u.id, u]));
 
         res.json(states.map(s => ({
           ...s,
-          userName: userMap.get(s.userId)?.name || userMap.get(s.userId)?.username || "Unknown",
+          userName: userMap.get(s.userId)?.fullName || userMap.get(s.userId)?.username || "Unknown",
         })));
       } else {
         const states = await db.select({
           status: agentQueueStatus,
-          user: { id: users.id, name: users.name, username: users.username },
+          user: { id: users.id, fullName: users.fullName, username: users.username },
         })
           .from(agentQueueStatus)
           .leftJoin(users, eq(agentQueueStatus.userId, users.id));
@@ -777,7 +783,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
           status: s.status.status,
           currentCallId: s.status.currentCallId,
           callsHandled: s.status.callsHandled,
-          userName: s.user?.name || s.user?.username || "Unknown",
+          userName: s.user?.fullName || s.user?.username || "Unknown",
         })));
       }
     } catch (error) {
