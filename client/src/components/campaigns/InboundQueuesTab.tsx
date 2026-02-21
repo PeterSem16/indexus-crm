@@ -610,6 +610,17 @@ function QueueDetailPanel({ queueId, sipUsers, onAddMember }: {
     },
   });
 
+  const updateMemberMutation = useMutation({
+    mutationFn: ({ memberId, data }: { memberId: string; data: { penalty: number } }) =>
+      apiRequest("PUT", `/api/queue-members/${memberId}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/inbound-queues", queueId] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
   const members: QueueMemberWithUser[] = queueDetail?.members || [];
 
   const statusColor = (status: string) => {
@@ -619,6 +630,13 @@ function QueueDetailPanel({ queueId, sipUsers, onAddMember }: {
       case "break": return "bg-yellow-500";
       case "wrap_up": return "bg-orange-500";
       default: return "bg-gray-400";
+    }
+  };
+
+  const changePriority = (memberId: string, currentPenalty: number, delta: number) => {
+    const newPenalty = Math.max(0, Math.min(10, currentPenalty + delta));
+    if (newPenalty !== currentPenalty) {
+      updateMemberMutation.mutate({ memberId, data: { penalty: newPenalty } });
     }
   };
 
@@ -662,7 +680,31 @@ function QueueDetailPanel({ queueId, sipUsers, onAddMember }: {
                     <span className="text-sm capitalize">{member.agentStatus}</span>
                   </div>
                 </TableCell>
-                <TableCell>{member.penalty}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      disabled={member.penalty <= 0 || updateMemberMutation.isPending}
+                      onClick={() => changePriority(member.id, member.penalty, -1)}
+                      data-testid={`btn-priority-down-${member.id}`}
+                    >
+                      <ChevronDown className="h-3 w-3" />
+                    </Button>
+                    <span className="w-6 text-center font-medium text-sm" data-testid={`text-priority-${member.id}`}>{member.penalty}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      disabled={member.penalty >= 10 || updateMemberMutation.isPending}
+                      onClick={() => changePriority(member.id, member.penalty, 1)}
+                      data-testid={`btn-priority-up-${member.id}`}
+                    >
+                      <ChevronUp className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </TableCell>
                 <TableCell>{member.callsHandled}</TableCell>
                 <TableCell>
                   <Button variant="ghost" size="icon"
