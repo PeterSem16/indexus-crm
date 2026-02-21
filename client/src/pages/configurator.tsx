@@ -4,6 +4,7 @@ import { useI18n } from "@/i18n";
 import { useCountryFilter } from "@/contexts/country-filter-context";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { PageHeader } from "@/components/page-header";
+import { AriSettingsTab } from "@/components/configurator/AriSettingsTab";
 import { DataTable } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17128,6 +17129,10 @@ export default function ConfiguratorPage() {
             <Shield className="h-4 w-4 shrink-0" />
             <span className="hidden md:inline">{t.konfigurator.permissionsRoles}</span>
           </TabsTrigger>
+          <TabsTrigger value="asterisk" className="flex items-center gap-2 text-xs sm:text-sm" data-testid="tab-asterisk">
+            <Phone className="h-4 w-4 shrink-0" />
+            <span className="hidden md:inline">Asterisk ARI</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="products">
@@ -17324,6 +17329,18 @@ export default function ConfiguratorPage() {
             </CardHeader>
             <CardContent>
               <PermissionsRolesTab />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="asterisk">
+          <Card>
+            <CardHeader>
+              <CardTitle>Asterisk ARI</CardTitle>
+              <CardDescription>Configure Asterisk REST Interface connection for inbound call management</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <AriSettingsTab />
             </CardContent>
           </Card>
         </TabsContent>

@@ -1,4 +1,5 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
+import { registerInboundRoutes } from "./inbound-routes";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { startOfDay, endOfDay, subDays } from "date-fns";
@@ -1096,6 +1097,10 @@ export async function registerRoutes(
 ): Promise<Server> {
   // Initialize WebSocket notification service
   notificationService.initialize(httpServer);
+
+  // Initialize inbound call WebSocket service
+  const { inboundCallWs } = await import("./lib/inbound-call-ws");
+  inboundCallWs.initialize(httpServer);
   
   // Start email monitoring service for automatic sentiment analysis
   const { startEmailMonitoring } = await import("./lib/email-monitoring-service");
@@ -27237,6 +27242,8 @@ Guidelines:
       res.status(500).json({ error: "Failed to delete executive summary" });
     }
   });
+
+  registerInboundRoutes(app, requireAuth);
 
   return httpServer;
 }

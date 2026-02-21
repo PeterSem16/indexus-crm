@@ -5337,3 +5337,144 @@ export const insertScheduledReportSchema = createInsertSchema(scheduledReports).
 });
 export type InsertScheduledReport = z.infer<typeof insertScheduledReportSchema>;
 export type ScheduledReport = typeof scheduledReports.$inferSelect;
+
+// ========== INBOUND QUEUE SYSTEM (ASTERISK ARI) ==========
+
+// ARI Connection Settings - Asterisk REST Interface connection configuration
+export const ariSettings = pgTable("ari_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  host: text("host").notNull().default(""),
+  port: integer("port").notNull().default(8088),
+  protocol: text("protocol").notNull().default("http"), // http, https
+  username: text("username").notNull().default(""),
+  password: text("password").notNull().default(""),
+  appName: text("app_name").notNull().default("indexus-crm"),
+  wsProtocol: text("ws_protocol").notNull().default("ws"), // ws, wss
+  wsPort: integer("ws_port").notNull().default(8088),
+  isEnabled: boolean("is_enabled").notNull().default(false),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+  updatedBy: varchar("updated_by"),
+});
+
+export const insertAriSettingsSchema = createInsertSchema(ariSettings).omit({
+  id: true,
+  updatedAt: true,
+});
+export type InsertAriSettings = z.infer<typeof insertAriSettingsSchema>;
+export type AriSettings = typeof ariSettings.$inferSelect;
+
+// Inbound Queues - call queue definitions managed from CRM
+export const inboundQueues = pgTable("inbound_queues", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  countryCode: text("country_code"), // SK, CZ, HU, etc.
+  didNumber: text("did_number"), // DID/phone number routed to this queue
+  strategy: text("strategy").notNull().default("round-robin"), // round-robin, least-calls, longest-idle, skills-based, random
+  maxWaitTime: integer("max_wait_time").notNull().default(300), // max wait in seconds before overflow
+  wrapUpTime: integer("wrap_up_time").notNull().default(30), // wrap-up time after call in seconds
+  maxQueueSize: integer("max_queue_size").notNull().default(50), // max callers in queue
+  priority: integer("priority").notNull().default(1), // queue priority (higher = more important)
+  welcomeMessageId: varchar("welcome_message_id"), // IVR welcome message
+  holdMusicId: varchar("hold_music_id"), // hold music file
+  overflowAction: text("overflow_action").notNull().default("voicemail"), // voicemail, hangup, transfer, queue
+  overflowTarget: text("overflow_target"), // target number/queue for overflow
+  announcePosition: boolean("announce_position").notNull().default(true),
+  announceWaitTime: boolean("announce_wait_time").notNull().default(true),
+  announceFrequency: integer("announce_frequency").notNull().default(30), // seconds between announcements
+  serviceLevelTarget: integer("service_level_target").notNull().default(20), // target answer time in seconds (for SLA)
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertInboundQueueSchema = createInsertSchema(inboundQueues).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertInboundQueue = z.infer<typeof insertInboundQueueSchema>;
+export type InboundQueue = typeof inboundQueues.$inferSelect;
+
+// Queue Members - agents assigned to queues
+export const queueMembers = pgTable("queue_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  queueId: varchar("queue_id").notNull().references(() => inboundQueues.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  penalty: integer("penalty").notNull().default(0), // lower = higher priority in queue
+  skills: text("skills").array().default(sql`'{}'::text[]`), // skill tags for skills-based routing
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertQueueMemberSchema = createInsertSchema(queueMembers).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertQueueMember = z.infer<typeof insertQueueMemberSchema>;
+export type QueueMember = typeof queueMembers.$inferSelect;
+
+// IVR Audio Messages - welcome messages, hold music, announcements
+export const ivrMessages = pgTable("ivr_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  type: text("type").notNull().default("welcome"), // welcome, hold_music, announcement, overflow, position, wait_time
+  filePath: text("file_path"), // path to audio file
+  textContent: text("text_content"), // for TTS fallback
+  language: text("language").notNull().default("sk"), // sk, cs, hu, ro, it, de, en
+  countryCode: text("country_code"), // SK, CZ, HU, etc.
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertIvrMessageSchema = createInsertSchema(ivrMessages).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertIvrMessage = z.infer<typeof insertIvrMessageSchema>;
+export type IvrMessage = typeof ivrMessages.$inferSelect;
+
+// Inbound Call Log - tracks inbound calls through the queue system
+export const inboundCallLogs = pgTable("inbound_call_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  queueId: varchar("queue_id").references(() => inboundQueues.id),
+  callLogId: varchar("call_log_id").references(() => callLogs.id), // linked to existing call_logs when answered
+  callerNumber: text("caller_number").notNull(),
+  callerName: text("caller_name"), // caller ID name if available
+  customerId: varchar("customer_id"), // auto-matched customer
+  assignedAgentId: varchar("assigned_agent_id"),
+  ariChannelId: text("ari_channel_id"), // Asterisk ARI channel ID
+  status: text("status").notNull().default("queued"), // queued, ringing, answered, completed, abandoned, timeout, overflow
+  enteredQueueAt: timestamp("entered_queue_at").notNull().default(sql`now()`),
+  answeredAt: timestamp("answered_at"),
+  completedAt: timestamp("completed_at"),
+  waitDurationSeconds: integer("wait_duration_seconds").default(0),
+  talkDurationSeconds: integer("talk_duration_seconds").default(0),
+  queuePosition: integer("queue_position"),
+  abandonReason: text("abandon_reason"), // caller_hangup, timeout, overflow
+  transferredTo: text("transferred_to"), // if call was transferred
+  metadata: jsonb("metadata"), // additional ARI event data
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertInboundCallLogSchema = createInsertSchema(inboundCallLogs).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertInboundCallLog = z.infer<typeof insertInboundCallLogSchema>;
+export type InboundCallLog = typeof inboundCallLogs.$inferSelect;
+
+// Agent Queue Status - real-time agent availability tracking per queue
+export const agentQueueStatus = pgTable("agent_queue_status", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  status: text("status").notNull().default("offline"), // available, busy, break, wrap_up, offline
+  currentCallId: varchar("current_call_id"), // current inbound call being handled
+  lastCallEndedAt: timestamp("last_call_ended_at"),
+  callsHandled: integer("calls_handled").notNull().default(0),
+  loginAt: timestamp("login_at"),
+  totalTalkTime: integer("total_talk_time").notNull().default(0), // seconds
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});

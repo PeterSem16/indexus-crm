@@ -5,6 +5,7 @@ import { Plus, Pencil, Trash2, Search, Megaphone, PlayCircle, CheckCircle, Clock
 import { useI18n } from "@/i18n";
 import { TranscriptSearchContent } from "@/pages/transcript-search";
 import { BreakTypesTab } from "@/components/campaigns/BreakTypesTab";
+import { InboundQueuesTab } from "@/components/campaigns/InboundQueuesTab";
 import { useAuth } from "@/contexts/auth-context";
 import { useCountryFilter } from "@/contexts/country-filter-context";
 import { Button } from "@/components/ui/button";
@@ -1986,6 +1987,10 @@ export default function CampaignsPage() {
               <Coffee className="h-4 w-4" />
               {locale === "sk" ? "Prestávky" : "Breaks"}
             </TabsTrigger>
+            <TabsTrigger value="inbound-queues" className="gap-2" data-testid="tab-inbound-queues">
+              <Phone className="h-4 w-4" />
+              Inbound Queues
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -2055,6 +2060,10 @@ export default function CampaignsPage() {
 
         <TabsContent value="breaks" className="flex-1 overflow-auto mt-0">
           <BreakTypesTab />
+        </TabsContent>
+
+        <TabsContent value="inbound-queues" className="flex-1 overflow-auto p-6 mt-0">
+          <InboundQueuesTab />
         </TabsContent>
       </Tabs>
 

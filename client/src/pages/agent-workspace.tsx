@@ -135,6 +135,7 @@ import { CustomerDetailsContent } from "@/pages/customers";
 import { StatusBadge } from "@/components/status-badge";
 import { CallRecordingPlayer } from "@/components/call-recording-player";
 import { CustomerForm, type CustomerFormData } from "@/components/customer-form";
+import { InboundCallPopup, InboundQueueStatus } from "@/components/agent/InboundCallPopup";
 import type { Campaign, Customer, CampaignContact, CampaignDisposition, AgentBreakType } from "@shared/schema";
 import { DISPOSITION_NAME_TRANSLATIONS } from "@shared/schema";
 import ReactQuill from "react-quill";
@@ -3954,6 +3955,11 @@ export default function AgentWorkspacePage() {
   const [contractWizardOpen, setContractWizardOpen] = useState(false);
   const [contractWizardStep, setContractWizardStep] = useState(1);
   const [contractForm, setContractForm] = useState({ categoryId: "", customerId: "", billingDetailsId: "", currency: "EUR", notes: "", numberRangeId: "" });
+  const [inboundCall, setInboundCall] = useState<{
+    callId: string; callerNumber: string; callerName?: string;
+    queueName: string; queueId: string; waitTime: number;
+    channelId: string; timestamp: number;
+  } | null>(null);
 
   const allowedRoles = ["callCenter", "admin"];
   const hasRoleAccess = user && allowedRoles.includes(user.role);
@@ -4931,6 +4937,48 @@ export default function AgentWorkspacePage() {
     }
   };
 
+  useEffect(() => {
+    if (!user?.id || !agentSession.isSessionActive) return;
+
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsUrl = `${protocol}//${window.location.host}/ws/inbound-calls?userId=${user.id}`;
+    let ws: WebSocket | null = null;
+    let reconnectTimer: NodeJS.Timeout | null = null;
+
+    const connect = () => {
+      ws = new WebSocket(wsUrl);
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === "inbound-call") {
+            setInboundCall({
+              callId: data.callId,
+              callerNumber: data.callerNumber,
+              callerName: data.callerName,
+              queueName: data.queueName,
+              queueId: data.queueId,
+              waitTime: data.waitTime || 0,
+              channelId: data.channelId,
+              timestamp: Date.now(),
+            });
+          } else if (data.type === "call-cancelled") {
+            setInboundCall(prev => prev?.callId === data.callId ? null : prev);
+          }
+        } catch {}
+      };
+      ws.onclose = () => {
+        reconnectTimer = setTimeout(connect, 5000);
+      };
+    };
+
+    connect();
+
+    return () => {
+      ws?.close();
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+    };
+  }, [user?.id, agentSession.isSessionActive]);
+
   const activeBreakTypeObj = agentSession.activeBreak
     ? agentSession.breakTypes.find(bt => bt.id === agentSession.activeBreak?.breakTypeId) || null
     : null;
@@ -4938,6 +4986,21 @@ export default function AgentWorkspacePage() {
 
   return (
     <div className={`flex flex-col ${agentSession.isSessionActive ? "h-screen" : "h-[calc(100vh-8rem)] -m-6"}`}>
+      <InboundCallPopup
+        inboundCall={inboundCall}
+        onAccept={(call) => {
+          apiRequest("POST", `/api/inbound-calls/${call.callId}/accept`, { userId: user?.id }).then(() => {
+            toast({ title: "Call accepted" });
+            setInboundCall(null);
+          }).catch((err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }));
+        }}
+        onReject={(call) => {
+          apiRequest("POST", `/api/inbound-calls/${call.callId}/reject`, { userId: user?.id }).then(() => {
+            setInboundCall(null);
+          }).catch(() => setInboundCall(null));
+        }}
+        onDismiss={() => setInboundCall(null)}
+      />
       <Dialog open={sessionLoginOpen && !agentSession.isSessionActive} onOpenChange={(open) => { if (!open) { setSessionLoginOpen(false); setLocation("/"); } }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
