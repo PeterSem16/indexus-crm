@@ -10,7 +10,6 @@ import { Separator } from "@/components/ui/separator";
 import {
   Server,
   Wifi,
-  WifiOff,
   Save,
   TestTube,
   Loader2,
@@ -26,12 +25,13 @@ interface AriSettingsData {
   id?: string;
   host: string;
   port: number;
+  protocol: string;
   username: string;
   password: string;
   appName: string;
+  wsProtocol: string;
   wsPort: number;
-  useTls: boolean;
-  isActive: boolean;
+  isEnabled: boolean;
 }
 
 export function AriSettingsTab() {
@@ -40,14 +40,15 @@ export function AriSettingsTab() {
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
   const [formData, setFormData] = useState<AriSettingsData>({
-    host: "localhost",
+    host: "",
     port: 8088,
-    username: "asterisk",
+    protocol: "http",
+    username: "",
     password: "",
-    appName: "indexus-crm",
+    appName: "indexus-inbound",
+    wsProtocol: "ws",
     wsPort: 8088,
-    useTls: false,
-    isActive: false,
+    isEnabled: false,
   });
 
   const { data: settings, isLoading } = useQuery<AriSettingsData>({
@@ -58,14 +59,15 @@ export function AriSettingsTab() {
     if (settings) {
       setFormData({
         id: settings.id,
-        host: settings.host || "localhost",
+        host: settings.host || "",
         port: settings.port || 8088,
-        username: settings.username || "asterisk",
+        protocol: settings.protocol || "http",
+        username: settings.username || "",
         password: settings.password || "",
-        appName: settings.appName || "indexus-crm",
+        appName: settings.appName || "indexus-inbound",
+        wsProtocol: settings.wsProtocol || "ws",
         wsPort: settings.wsPort || 8088,
-        useTls: settings.useTls || false,
-        isActive: settings.isActive || false,
+        isEnabled: settings.isEnabled || false,
       });
     }
   }, [settings]);
@@ -85,14 +87,30 @@ export function AriSettingsTab() {
     setTesting(true);
     setTestResult(null);
     try {
-      const res = await apiRequest("POST", "/api/ari-settings/test", formData);
+      const res = await apiRequest("POST", "/api/ari-settings/test", {
+        host: formData.host,
+        port: formData.port,
+        protocol: formData.protocol,
+        username: formData.username,
+        password: formData.password,
+        appName: formData.appName,
+      });
       const data = await res.json();
-      setTestResult({ success: data.success, message: data.message || "Connection successful" });
+      setTestResult({ success: data.success, message: data.message || data.error || "Connection test completed" });
     } catch (err: any) {
       setTestResult({ success: false, message: err.message || "Connection failed" });
     } finally {
       setTesting(false);
     }
+  };
+
+  const useTls = formData.protocol === "https";
+  const setUseTls = (v: boolean) => {
+    setFormData(f => ({
+      ...f,
+      protocol: v ? "https" : "http",
+      wsProtocol: v ? "wss" : "ws",
+    }));
   };
 
   if (isLoading) {
@@ -169,6 +187,7 @@ export function AriSettingsTab() {
                 onChange={e => setFormData(f => ({ ...f, appName: e.target.value }))}
                 data-testid="input-ari-app-name"
               />
+              <p className="text-xs text-muted-foreground mt-1">Must match Stasis() name in dialplan</p>
             </div>
             <div>
               <Label>WebSocket Port</Label>
@@ -186,8 +205,8 @@ export function AriSettingsTab() {
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
               <Switch
-                checked={formData.useTls}
-                onCheckedChange={v => setFormData(f => ({ ...f, useTls: v }))}
+                checked={useTls}
+                onCheckedChange={setUseTls}
                 data-testid="switch-ari-tls"
               />
               <Label className="flex items-center gap-1">
@@ -197,8 +216,8 @@ export function AriSettingsTab() {
             </div>
             <div className="flex items-center gap-2">
               <Switch
-                checked={formData.isActive}
-                onCheckedChange={v => setFormData(f => ({ ...f, isActive: v }))}
+                checked={formData.isEnabled}
+                onCheckedChange={v => setFormData(f => ({ ...f, isEnabled: v }))}
                 data-testid="switch-ari-active"
               />
               <Label className="flex items-center gap-1">
@@ -264,10 +283,10 @@ export function AriSettingsTab() {
             </p>
             <div className="flex items-center gap-2 mt-3">
               <Badge variant="outline" className="text-xs">
-                HTTP: {formData.useTls ? "https" : "http"}://{formData.host}:{formData.port}
+                HTTP: {formData.protocol}://{formData.host || "..."}:{formData.port}
               </Badge>
               <Badge variant="outline" className="text-xs">
-                WS: {formData.useTls ? "wss" : "ws"}://{formData.host}:{formData.wsPort}/ari/events
+                WS: {formData.wsProtocol}://{formData.host || "..."}:{formData.wsPort}/ari/events
               </Badge>
             </div>
           </div>

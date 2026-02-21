@@ -49,7 +49,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       if (settings.length === 0) {
         return res.json({
           host: "", port: 8088, protocol: "http",
-          username: "", password: "", appName: "indexus-crm",
+          username: "", password: "", appName: "indexus-inbound",
           wsProtocol: "ws", wsPort: 8088, isEnabled: false,
         });
       }
@@ -72,19 +72,34 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       const body = req.body;
       const existing = await db.select().from(ariSettings).limit(1);
 
-      if (body.password === "••••••••" && existing.length > 0) {
-        body.password = existing[0].password;
+      let password = body.password;
+      if (password === "••••••••" && existing.length > 0) {
+        password = existing[0].password;
       }
+
+      const settingsData = {
+        host: body.host || "",
+        port: body.port || 8088,
+        protocol: body.protocol || "http",
+        username: body.username || "",
+        password: password || "",
+        appName: body.appName || "indexus-inbound",
+        wsProtocol: body.wsProtocol || "ws",
+        wsPort: body.wsPort || 8088,
+        isEnabled: body.isEnabled ?? false,
+        updatedAt: new Date(),
+        updatedBy: user.id,
+      };
 
       if (existing.length > 0) {
         const updated = await db.update(ariSettings)
-          .set({ ...body, updatedAt: new Date(), updatedBy: user.id })
+          .set(settingsData)
           .where(eq(ariSettings.id, existing[0].id))
           .returning();
         res.json(updated[0]);
       } else {
         const created = await db.insert(ariSettings)
-          .values({ ...body, updatedBy: user.id })
+          .values(settingsData)
           .returning();
         res.json(created[0]);
       }
@@ -102,10 +117,13 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       const actualPassword = password === "••••••••" && existing.length > 0
         ? existing[0].password : password;
 
+      const wsProtocol = req.body.wsProtocol || (protocol === "https" ? "wss" : "ws");
+      const wsPort = req.body.wsPort || port;
+
       const client = new AriClient({
         host, port, protocol, username,
-        password: actualPassword, appName: appName || "indexus-crm",
-        wsProtocol: "ws", wsPort: port,
+        password: actualPassword, appName: appName || "indexus-inbound",
+        wsProtocol, wsPort,
       });
 
       const result = await client.testConnection();

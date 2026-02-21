@@ -7,7 +7,8 @@ import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/auth-context";
 import { COUNTRIES, type ComplaintType, type CooperationType, type VipStatus, type HealthInsurance, type LeadScoringCriteria } from "@shared/schema";
 import { Separator } from "@/components/ui/separator";
-import { Droplets, Globe, Shield, Save, Loader2, Plus, Trash2, Settings2, Heart, FlaskConical, Pencil, Star, Target, RefreshCw, Phone, Upload, FileText, CheckCircle, AlertCircle, Users, User, Check } from "lucide-react";
+import { Droplets, Globe, Shield, Save, Loader2, Plus, Trash2, Settings2, Heart, FlaskConical, Pencil, Star, Target, RefreshCw, Phone, Upload, FileText, CheckCircle, AlertCircle, Users, User, Check, Server } from "lucide-react";
+import { AriSettingsTab } from "@/components/configurator/AriSettingsTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -1153,6 +1154,30 @@ function SipSettingsTab() {
   );
 }
 
+function SipPhoneSection() {
+  const [sipSubTab, setSipSubTab] = useState("sip-server");
+  return (
+    <Tabs value={sipSubTab} onValueChange={setSipSubTab}>
+      <TabsList>
+        <TabsTrigger value="sip-server" data-testid="tab-sip-server">
+          <Phone className="h-4 w-4 mr-2" />
+          SIP Server
+        </TabsTrigger>
+        <TabsTrigger value="asterisk-ari" data-testid="tab-asterisk-ari">
+          <Server className="h-4 w-4 mr-2" />
+          Asterisk ARI
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent value="sip-server" className="mt-4">
+        <SipSettingsTab />
+      </TabsContent>
+      <TabsContent value="asterisk-ari" className="mt-4">
+        <AriSettingsTab />
+      </TabsContent>
+    </Tabs>
+  );
+}
+
 export default function SettingsPage() {
   const { t } = useI18n();
   const { user } = useAuth();
@@ -1406,9 +1431,8 @@ export default function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="sip" className="mt-6">
-          <SipSettingsTab />
+          <SipPhoneSection />
         </TabsContent>
-
 
       </Tabs>
     </div>
