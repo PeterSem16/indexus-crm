@@ -521,6 +521,122 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
     }
   });
 
+  app.post("/api/ivr-messages/:id/regenerate-tts", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = (req.session as any)?.user;
+      if (!["admin", "manager"].includes(user.role)) {
+        return res.status(403).json({ error: "Admin or manager access required" });
+      }
+
+      const { textContent, voice, language, countryCode, type, name, isActive } = req.body;
+      if (!textContent || typeof textContent !== "string" || !textContent.trim()) {
+        return res.status(400).json({ error: "Text content is required" });
+      }
+      if (!name || typeof name !== "string" || !name.trim()) {
+        return res.status(400).json({ error: "Name is required" });
+      }
+
+      const existing = await db.select().from(ivrMessages).where(eq(ivrMessages.id, req.params.id));
+      if (!existing[0]) return res.status(404).json({ error: "IVR message not found" });
+
+      const validVoices = ["nova", "shimmer", "alloy", "onyx", "echo", "fable"];
+      const ttsVoice = validVoices.includes(voice) ? voice : "nova";
+
+      const OpenAI = (await import("openai")).default;
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+      const response = await openai.audio.speech.create({
+        model: "tts-1",
+        voice: ttsVoice as any,
+        input: textContent.trim(),
+        response_format: "mp3",
+      });
+
+      const dir = path.join(DATA_ROOT, "ivr-audio");
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+      const filename = `tts-${Date.now()}.mp3`;
+      const filePath = path.join(dir, filename);
+      const buffer = Buffer.from(await response.arrayBuffer());
+      fs.writeFileSync(filePath, buffer);
+
+      const gender = ["onyx", "echo", "fable"].includes(ttsVoice) ? "male" : "female";
+
+      const updated = await db.update(ivrMessages)
+        .set({
+          name: name.trim(),
+          type: type || existing[0].type,
+          source: "tts",
+          filePath: path.relative(process.cwd(), filePath),
+          textContent: textContent.trim(),
+          ttsVoice,
+          ttsGender: gender,
+          language: language || existing[0].language,
+          countryCode: countryCode || existing[0].countryCode,
+          isActive: isActive !== undefined ? (isActive === true || isActive === "true") : existing[0].isActive,
+          fileSize: buffer.length,
+          updatedAt: new Date(),
+        })
+        .where(eq(ivrMessages.id, req.params.id))
+        .returning();
+
+      res.json(updated[0]);
+    } catch (error: any) {
+      console.error("Error regenerating TTS:", error);
+      res.status(500).json({ error: `TTS regeneration failed: ${error.message}` });
+    }
+  });
+
+  app.post("/api/ivr-messages/:id/regenerate-stock-moh", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = (req.session as any)?.user;
+      if (!["admin", "manager"].includes(user.role)) {
+        return res.status(403).json({ error: "Admin or manager access required" });
+      }
+
+      const { stockId, name, countryCode, isActive } = req.body;
+      if (!stockId || typeof stockId !== "string") {
+        return res.status(400).json({ error: "Stock MOH ID is required" });
+      }
+
+      const existing = await db.select().from(ivrMessages).where(eq(ivrMessages.id, req.params.id));
+      if (!existing[0]) return res.status(404).json({ error: "IVR message not found" });
+
+      const { generateStockMoh, STOCK_MOH_OPTIONS } = await import("./lib/stock-moh-generator");
+      const option = STOCK_MOH_OPTIONS.find(o => o.id === stockId);
+      if (!option) {
+        return res.status(404).json({ error: "Unknown stock MOH option" });
+      }
+
+      const dir = path.join(DATA_ROOT, "ivr-audio");
+      const result = await generateStockMoh(stockId, dir);
+
+      const updated = await db.update(ivrMessages)
+        .set({
+          name: (name && typeof name === "string" && name.trim()) ? name.trim() : option.name,
+          type: "hold_music",
+          source: "stock",
+          filePath: path.relative(process.cwd(), result.filePath),
+          textContent: null,
+          ttsVoice: null,
+          ttsGender: null,
+          language: "EN",
+          countryCode: countryCode || existing[0].countryCode,
+          isActive: isActive !== undefined ? (isActive === true || isActive === "true") : existing[0].isActive,
+          duration: result.duration,
+          fileSize: result.fileSize,
+          updatedAt: new Date(),
+        })
+        .where(eq(ivrMessages.id, req.params.id))
+        .returning();
+
+      res.json(updated[0]);
+    } catch (error: any) {
+      console.error("Error regenerating stock MOH:", error);
+      res.status(500).json({ error: `Stock MOH regeneration failed: ${error.message}` });
+    }
+  });
+
   // ============ STOCK MOH LIBRARY ============
 
   app.get("/api/ivr-messages/stock-moh", requireAuth, async (_req: Request, res: Response) => {

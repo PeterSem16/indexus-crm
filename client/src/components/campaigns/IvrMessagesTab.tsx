@@ -49,6 +49,7 @@ import {
   Music,
   Library,
   Check,
+  RefreshCw,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -236,6 +237,34 @@ export function IvrMessagesTab() {
     },
   });
 
+  const regenerateTtsMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: { name: string; textContent: string; voice: string; language: string; countryCode: string; type: string; isActive: boolean } }) => {
+      return apiRequest("POST", `/api/ivr-messages/${id}/regenerate-tts`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ivr-messages"] });
+      closeDialog();
+      toast({ title: "TTS regenerated successfully" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error regenerating TTS", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const regenerateStockMohMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: { stockId: string; name?: string; countryCode: string; isActive: boolean } }) => {
+      return apiRequest("POST", `/api/ivr-messages/${id}/regenerate-stock-moh`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ivr-messages"] });
+      closeDialog();
+      toast({ title: "Stock hold music regenerated" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
   const toggleActiveMutation = useMutation({
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
       const fd = new globalThis.FormData();
@@ -287,7 +316,14 @@ export function IvrMessagesTab() {
       textContent: msg.textContent || "",
       ttsVoice: msg.ttsVoice || "nova",
     });
-    setSourceMode(msg.source === "tts" ? "tts" : "upload");
+    if (msg.source === "stock") {
+      setSourceMode("stock");
+      setSelectedStockId(null);
+    } else if (msg.source === "tts") {
+      setSourceMode("tts");
+    } else {
+      setSourceMode("upload");
+    }
     setAudioFile(null);
     setDialogOpen(true);
   };
@@ -329,11 +365,23 @@ export function IvrMessagesTab() {
         toast({ title: "Error", description: "Please select a hold music style", variant: "destructive" });
         return;
       }
-      stockMohMutation.mutate({
-        stockId: selectedStockId,
-        name: formData.name.trim() || undefined,
-        countryCode: formData.countryCode,
-      });
+      if (editingMessage) {
+        regenerateStockMohMutation.mutate({
+          id: editingMessage.id,
+          data: {
+            stockId: selectedStockId,
+            name: formData.name.trim() || undefined,
+            countryCode: formData.countryCode,
+            isActive: formData.isActive,
+          },
+        });
+      } else {
+        stockMohMutation.mutate({
+          stockId: selectedStockId,
+          name: formData.name.trim() || undefined,
+          countryCode: formData.countryCode,
+        });
+      }
       return;
     }
 
@@ -347,14 +395,29 @@ export function IvrMessagesTab() {
         toast({ title: "Error", description: "Text content is required for TTS", variant: "destructive" });
         return;
       }
-      ttsMutation.mutate({
-        name: formData.name,
-        textContent: formData.textContent,
-        voice: formData.ttsVoice,
-        language: formData.language,
-        countryCode: formData.countryCode,
-        type: formData.type,
-      });
+      if (editingMessage) {
+        regenerateTtsMutation.mutate({
+          id: editingMessage.id,
+          data: {
+            name: formData.name,
+            textContent: formData.textContent,
+            voice: formData.ttsVoice,
+            language: formData.language,
+            countryCode: formData.countryCode,
+            type: formData.type,
+            isActive: formData.isActive,
+          },
+        });
+      } else {
+        ttsMutation.mutate({
+          name: formData.name,
+          textContent: formData.textContent,
+          voice: formData.ttsVoice,
+          language: formData.language,
+          countryCode: formData.countryCode,
+          type: formData.type,
+        });
+      }
       return;
     }
 
@@ -425,7 +488,7 @@ export function IvrMessagesTab() {
     return `${min}:${sec.toString().padStart(2, "0")}`;
   };
 
-  const isSaving = createMutation.isPending || updateMutation.isPending || ttsMutation.isPending || stockMohMutation.isPending;
+  const isSaving = createMutation.isPending || updateMutation.isPending || ttsMutation.isPending || stockMohMutation.isPending || regenerateTtsMutation.isPending || regenerateStockMohMutation.isPending;
 
   return (
     <div className="space-y-4">
@@ -659,214 +722,170 @@ export function IvrMessagesTab() {
               </div>
             </div>
 
-            {!editingMessage && (
-              <Tabs value={sourceMode} onValueChange={(v) => setSourceMode(v as "upload" | "tts" | "stock")}>
-                <TabsList className={formData.type === "hold_music" ? "w-full" : "w-full"}>
-                  {formData.type === "hold_music" && (
-                    <TabsTrigger value="stock" className="flex-1 gap-2" data-testid="tab-stock">
-                      <Library className="h-4 w-4" />
-                      Stock Library
-                    </TabsTrigger>
-                  )}
-                  <TabsTrigger value="upload" className="flex-1 gap-2" data-testid="tab-upload">
-                    <Upload className="h-4 w-4" />
-                    Upload Audio
+            <Tabs value={sourceMode} onValueChange={(v) => setSourceMode(v as "upload" | "tts" | "stock")}>
+              <TabsList className="w-full">
+                {(formData.type === "hold_music" || (editingMessage && editingMessage.source === "stock")) && (
+                  <TabsTrigger value="stock" className="flex-1 gap-2" data-testid="tab-stock">
+                    <Library className="h-4 w-4" />
+                    Stock Library
                   </TabsTrigger>
-                  <TabsTrigger value="tts" className="flex-1 gap-2" data-testid="tab-tts">
-                    <Mic className="h-4 w-4" />
-                    Text-to-Speech
-                  </TabsTrigger>
-                </TabsList>
+                )}
+                <TabsTrigger value="upload" className="flex-1 gap-2" data-testid="tab-upload">
+                  <Upload className="h-4 w-4" />
+                  Upload Audio
+                </TabsTrigger>
+                <TabsTrigger value="tts" className="flex-1 gap-2" data-testid="tab-tts">
+                  <Mic className="h-4 w-4" />
+                  Text-to-Speech
+                </TabsTrigger>
+              </TabsList>
 
-                {formData.type === "hold_music" && (
-                  <TabsContent value="stock" className="space-y-3 mt-3">
-                    <p className="text-sm text-muted-foreground">
-                      Choose from free built-in hold music styles. Click play to preview before adding.
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {stockMohOptions.map((option: any) => (
-                        <div
-                          key={option.id}
-                          className={`relative border rounded-lg p-3 cursor-pointer transition-all hover:border-primary/50 ${
-                            selectedStockId === option.id
-                              ? "border-primary bg-primary/5 ring-1 ring-primary"
-                              : "border-border"
-                          }`}
-                          onClick={() => setSelectedStockId(option.id)}
-                          data-testid={`stock-moh-${option.id}`}
-                        >
-                          {selectedStockId === option.id && (
-                            <div className="absolute top-2 right-2">
-                              <Check className="h-4 w-4 text-primary" />
-                            </div>
-                          )}
-                          <div className="flex items-start gap-3">
-                            <div className="p-2 rounded-md bg-primary/10 shrink-0">
-                              <Music className="h-4 w-4 text-primary" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-sm">{option.name}</div>
-                              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{option.description}</p>
-                              <div className="flex items-center gap-2 mt-2">
-                                <Badge variant="outline" className="text-xs">{option.durationSeconds}s</Badge>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 px-2 text-xs gap-1"
-                                  onClick={(e) => { e.stopPropagation(); toggleStockPreview(option.id); }}
-                                  data-testid={`btn-preview-stock-${option.id}`}
-                                >
-                                  {previewingStockId === option.id ? (
-                                    <><Square className="h-3 w-3" /> Stop</>
-                                  ) : (
-                                    <><Play className="h-3 w-3" /> Preview</>
-                                  )}
-                                </Button>
-                              </div>
+              {(formData.type === "hold_music" || (editingMessage && editingMessage.source === "stock")) && (
+                <TabsContent value="stock" className="space-y-3 mt-3">
+                  <p className="text-sm text-muted-foreground">
+                    {editingMessage ? "Select a new hold music style to replace the current one." : "Choose from free built-in hold music styles. Click play to preview before adding."}
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {stockMohOptions.map((option: any) => (
+                      <div
+                        key={option.id}
+                        className={`relative border rounded-lg p-3 cursor-pointer transition-all hover:border-primary/50 ${
+                          selectedStockId === option.id
+                            ? "border-primary bg-primary/5 ring-1 ring-primary"
+                            : "border-border"
+                        }`}
+                        onClick={() => setSelectedStockId(option.id)}
+                        data-testid={`stock-moh-${option.id}`}
+                      >
+                        {selectedStockId === option.id && (
+                          <div className="absolute top-2 right-2">
+                            <Check className="h-4 w-4 text-primary" />
+                          </div>
+                        )}
+                        <div className="flex items-start gap-3">
+                          <div className="p-2 rounded-md bg-primary/10 shrink-0">
+                            <Music className="h-4 w-4 text-primary" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm">{option.name}</div>
+                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{option.description}</p>
+                            <div className="flex items-center gap-2 mt-2">
+                              <Badge variant="outline" className="text-xs">{option.durationSeconds}s</Badge>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-xs gap-1"
+                                onClick={(e) => { e.stopPropagation(); toggleStockPreview(option.id); }}
+                                data-testid={`btn-preview-stock-${option.id}`}
+                              >
+                                {previewingStockId === option.id ? (
+                                  <><Square className="h-3 w-3" /> Stop</>
+                                ) : (
+                                  <><Play className="h-3 w-3" /> Preview</>
+                                )}
+                              </Button>
                             </div>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                    {selectedStockId && (
-                      <div>
-                        <Label>Custom Name (optional)</Label>
-                        <Input
-                          value={formData.name}
-                          onChange={(e) => setFormData((f) => ({ ...f, name: e.target.value }))}
-                          placeholder={stockMohOptions.find((o: any) => o.id === selectedStockId)?.name || ""}
-                          data-testid="input-stock-custom-name"
-                        />
                       </div>
-                    )}
-                  </TabsContent>
-                )}
-
-                <TabsContent value="upload" className="space-y-3 mt-3">
-                  <div>
-                    <Label>Audio File (.wav, .mp3, .ogg, .gsm)</Label>
-                    <div className="mt-2">
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept={ACCEPTED_AUDIO}
-                        onChange={(e) => setAudioFile(e.target.files?.[0] || null)}
-                        className="hidden"
-                        data-testid="input-audio-file"
+                    ))}
+                  </div>
+                  {selectedStockId && (
+                    <div>
+                      <Label>Custom Name (optional)</Label>
+                      <Input
+                        value={formData.name}
+                        onChange={(e) => setFormData((f) => ({ ...f, name: e.target.value }))}
+                        placeholder={stockMohOptions.find((o: any) => o.id === selectedStockId)?.name || ""}
+                        data-testid="input-stock-custom-name"
                       />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="w-full justify-center gap-2"
-                        data-testid="btn-select-file"
-                      >
-                        <Upload className="h-4 w-4" />
-                        {audioFile ? audioFile.name : "Select Audio File"}
-                      </Button>
-                      {audioFile && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {formatFileSize(audioFile.size)}
-                        </p>
-                      )}
                     </div>
-                  </div>
+                  )}
                 </TabsContent>
+              )}
 
-                <TabsContent value="tts" className="space-y-3 mt-3">
-                  <div>
-                    <Label>Text Content *</Label>
-                    <Textarea
-                      value={formData.textContent}
-                      onChange={(e) => setFormData((f) => ({ ...f, textContent: e.target.value }))}
-                      placeholder="Enter the text to be converted to speech..."
-                      rows={4}
-                      data-testid="input-tts-text"
-                    />
-                  </div>
-                  <div>
-                    <Label>Voice</Label>
-                    <Select value={formData.ttsVoice} onValueChange={(v) => setFormData((f) => ({ ...f, ttsVoice: v }))}>
-                      <SelectTrigger data-testid="select-tts-voice"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="_female_header" disabled>
-                          Female Voices
-                        </SelectItem>
-                        {TTS_VOICES.filter((v) => v.gender === "female").map((v) => (
-                          <SelectItem key={v.value} value={v.value}>
-                            {v.label} — {v.description}
-                          </SelectItem>
-                        ))}
-                        <SelectItem value="_male_header" disabled>
-                          Male Voices
-                        </SelectItem>
-                        {TTS_VOICES.filter((v) => v.gender === "male").map((v) => (
-                          <SelectItem key={v.value} value={v.value}>
-                            {v.label} — {v.description}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      OpenAI TTS voice — {TTS_VOICES.find((v) => v.value === formData.ttsVoice)?.description || ""}
-                    </p>
-                  </div>
-                </TabsContent>
-              </Tabs>
-            )}
-
-            {editingMessage && editingMessage.source === "upload" && (
-              <div>
-                <Label>Replace Audio File (optional)</Label>
-                <div className="mt-2">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept={ACCEPTED_AUDIO}
-                    onChange={(e) => setAudioFile(e.target.files?.[0] || null)}
-                    className="hidden"
-                    data-testid="input-audio-file-edit"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-full justify-center gap-2"
-                    data-testid="btn-select-file-edit"
-                  >
-                    <Upload className="h-4 w-4" />
-                    {audioFile ? audioFile.name : "Select New Audio File"}
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {editingMessage && editingMessage.source === "tts" && (
-              <div className="space-y-3">
+              <TabsContent value="upload" className="space-y-3 mt-3">
                 <div>
-                  <Label>Text Content</Label>
+                  <Label>{editingMessage ? "Replace Audio File" : "Audio File (.wav, .mp3, .ogg, .gsm)"}</Label>
+                  <div className="mt-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept={ACCEPTED_AUDIO}
+                      onChange={(e) => setAudioFile(e.target.files?.[0] || null)}
+                      className="hidden"
+                      data-testid="input-audio-file"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full justify-center gap-2"
+                      data-testid="btn-select-file"
+                    >
+                      <Upload className="h-4 w-4" />
+                      {audioFile ? audioFile.name : editingMessage ? "Select New Audio File" : "Select Audio File"}
+                    </Button>
+                    {audioFile && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {formatFileSize(audioFile.size)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="tts" className="space-y-3 mt-3">
+                <div>
+                  <Label>Text Content *</Label>
                   <Textarea
                     value={formData.textContent}
                     onChange={(e) => setFormData((f) => ({ ...f, textContent: e.target.value }))}
+                    placeholder="Enter the text to be converted to speech..."
                     rows={4}
-                    data-testid="input-tts-text-edit"
-                    disabled
+                    data-testid="input-tts-text"
                   />
+                </div>
+                <div>
+                  <Label>Voice</Label>
+                  <Select value={formData.ttsVoice} onValueChange={(v) => setFormData((f) => ({ ...f, ttsVoice: v }))}>
+                    <SelectTrigger data-testid="select-tts-voice"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_female_header" disabled>
+                        Female Voices
+                      </SelectItem>
+                      {TTS_VOICES.filter((v) => v.gender === "female").map((v) => (
+                        <SelectItem key={v.value} value={v.value}>
+                          {v.label} — {v.description}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="_male_header" disabled>
+                        Male Voices
+                      </SelectItem>
+                      {TTS_VOICES.filter((v) => v.gender === "male").map((v) => (
+                        <SelectItem key={v.value} value={v.value}>
+                          {v.label} — {v.description}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Voice: {editingMessage.ttsVoice} ({editingMessage.ttsGender})
+                    OpenAI TTS voice — {TTS_VOICES.find((v) => v.value === formData.ttsVoice)?.description || ""}
                   </p>
                 </div>
-              </div>
-            )}
+              </TabsContent>
+            </Tabs>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeDialog} data-testid="btn-cancel-ivr">
               Cancel
             </Button>
             <Button onClick={handleSubmit} disabled={isSaving} data-testid="btn-save-ivr">
-              {ttsMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {ttsMutation.isPending ? "Generating..." : editingMessage ? "Update" : "Create"}
+              {(ttsMutation.isPending || regenerateTtsMutation.isPending || stockMohMutation.isPending || regenerateStockMohMutation.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {(ttsMutation.isPending || regenerateTtsMutation.isPending) ? "Generating TTS..." :
+               (stockMohMutation.isPending || regenerateStockMohMutation.isPending) ? "Generating MOH..." :
+               editingMessage ? (sourceMode === "stock" && selectedStockId ? "Regenerate" : sourceMode === "tts" ? "Regenerate TTS" : "Update") : "Create"}
             </Button>
           </DialogFooter>
         </DialogContent>
