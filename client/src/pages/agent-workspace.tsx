@@ -185,6 +185,10 @@ interface ContactHistory {
   recipientPhone?: string;
   sentiment?: "positive" | "neutral" | "negative" | "angry" | null;
   callLogId?: string | null;
+  dispositionCode?: string | null;
+  dispositionName?: string | null;
+  dispositionColor?: string | null;
+  dispositionIcon?: string | null;
 }
 
 interface TimelineEntry {
@@ -3089,7 +3093,24 @@ function CustomerInfoPanel({
                               {item.type === "disposition" && (
                                 <span className={`${isModal ? "text-xs" : "text-[9px]"} font-medium text-purple-600 dark:text-purple-400`}>Dispozícia</span>
                               )}
-                              {item.status && (
+                              {item.type === "disposition" && (item as any).dispositionName && (() => {
+                                const dColor = (item as any).dispositionColor || "gray";
+                                const colorMap: Record<string, string> = {
+                                  green: "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800",
+                                  red: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-800",
+                                  blue: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-800",
+                                  orange: "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-800",
+                                  yellow: "bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/40 dark:text-yellow-300 dark:border-yellow-800",
+                                  purple: "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/40 dark:text-purple-300 dark:border-purple-800",
+                                  gray: "bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700",
+                                };
+                                return (
+                                  <span className={`inline-flex items-center gap-1 ${isModal ? "text-[10px] h-5 px-2" : "text-[9px] h-4 px-1.5"} rounded-full border font-semibold ${colorMap[dColor] || colorMap.gray}`}>
+                                    {(item as any).dispositionName}
+                                  </span>
+                                );
+                              })()}
+                              {item.status && item.type !== "disposition" && (
                                 <Badge variant="secondary" className={`${isModal ? "text-[10px] h-5" : "text-[9px] h-4"} px-1`}>{item.status}</Badge>
                               )}
                               {(item.type === "email" || item.type === "sms") && item.sentiment && (
@@ -4192,6 +4213,10 @@ export default function AgentWorkspacePage() {
       newStatus: item.newStatus,
       sentiment: item.sentiment || null,
       callLogId: item.callLogId || null,
+      dispositionCode: item.dispositionCode || null,
+      dispositionName: item.dispositionName || null,
+      dispositionColor: item.dispositionColor || null,
+      dispositionIcon: item.dispositionIcon || null,
     }));
   }, [persistentHistory]);
 

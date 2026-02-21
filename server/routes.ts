@@ -7808,6 +7808,15 @@ export async function registerRoutes(
         });
       }
 
+      const campaignIds = [...new Set(campaignHistory.map(h => h.campaignId).filter(Boolean))] as string[];
+      const allDispositions = campaignIds.length > 0
+        ? await db.select().from(campaignDispositions).where(inArray(campaignDispositions.campaignId, campaignIds))
+        : [];
+      const dispCodeToName = new Map<string, { name: string; color: string | null; icon: string | null; actionType: string }>();
+      for (const d of allDispositions) {
+        dispCodeToName.set(d.code, { name: d.name, color: d.color, icon: d.icon, actionType: d.actionType });
+      }
+
       for (const h of campaignHistory) {
         const agentName = userMap.get(h.userId) || "Neznámy";
         const actionLabels: Record<string, string> = {
@@ -7820,6 +7829,17 @@ export async function registerRoutes(
         if (h.action === "status_change" && h.previousStatus && h.newStatus) {
           content = `${statusLabels[h.previousStatus] || h.previousStatus} → ${statusLabels[h.newStatus] || h.newStatus}`;
         }
+
+        let dispositionName: string | null = null;
+        let dispositionColor: string | null = null;
+        let dispositionIcon: string | null = null;
+        const notesVal = h.notes || null;
+        if (notesVal && dispCodeToName.has(notesVal)) {
+          const dInfo = dispCodeToName.get(notesVal)!;
+          dispositionName = dInfo.name;
+          dispositionColor = dInfo.color;
+          dispositionIcon = dInfo.icon;
+        }
         
         historyItems.push({
           id: `cch-${h.id}`,
@@ -7828,7 +7848,11 @@ export async function registerRoutes(
           agentName,
           agentId: h.userId,
           content,
-          details: h.notes || null,
+          details: dispositionName ? null : notesVal,
+          dispositionCode: notesVal,
+          dispositionName,
+          dispositionColor,
+          dispositionIcon,
           campaignName: h.campaignName || null,
           campaignId: h.campaignId || null,
           action: h.action,
