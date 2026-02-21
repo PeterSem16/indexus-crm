@@ -1,6 +1,7 @@
 import { Client } from "ssh2";
 import * as fs from "fs";
 import * as path from "path";
+import { execSync } from "child_process";
 import { db } from "../db";
 import { eq } from "drizzle-orm";
 import { ariSettings, ivrMessages } from "@shared/schema";
@@ -66,6 +67,24 @@ function sftpUpload(sftp: any, localPath: string, remotePath: string): Promise<v
   });
 }
 
+function convertToAsteriskWav(inputPath: string): string {
+  const dir = path.dirname(inputPath);
+  const baseName = path.basename(inputPath, path.extname(inputPath));
+  const outputPath = path.join(dir, `${baseName}_ast.wav`);
+
+  try {
+    execSync(
+      `ffmpeg -y -i ${JSON.stringify(inputPath)} -ar 8000 -ac 1 -sample_fmt s16 -acodec pcm_s16le ${JSON.stringify(outputPath)}`,
+      { timeout: 30000, stdio: "pipe" }
+    );
+    console.log(`[AudioSync] Converted ${path.basename(inputPath)} → WAV 8kHz mono 16-bit`);
+    return outputPath;
+  } catch (err) {
+    console.error(`[AudioSync] FFmpeg conversion failed for ${inputPath}: ${err instanceof Error ? err.message : err}`);
+    throw new Error(`Audio conversion failed: ${err instanceof Error ? err.message : err}`);
+  }
+}
+
 export async function syncAudioToAsterisk(messageId?: string): Promise<SyncResult> {
   const settings = await getAriSettings();
   console.log(`[AudioSync] Settings loaded: host=${settings?.host || 'null'}, sshUsername=${settings?.sshUsername || 'null'}, sshPort=${settings?.sshPort || 'null'}, asteriskSoundsPath=${settings?.asteriskSoundsPath || 'null'}, sshPassword=${settings?.sshPassword ? '***SET***' : 'EMPTY'}`);
@@ -116,6 +135,7 @@ export async function syncAudioToAsterisk(messageId?: string): Promise<SyncResul
   let synced = 0;
   let failed = 0;
   const errors: string[] = [];
+  const tempFiles: string[] = [];
 
   for (const msg of messages) {
     if (!msg.filePath) {
@@ -132,16 +152,24 @@ export async function syncAudioToAsterisk(messageId?: string): Promise<SyncResul
     }
 
     const soundName = msg.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    const ext = path.extname(msg.filePath) || ".wav";
-    const remoteFileName = `${soundName}${ext}`;
+    const remoteFileName = `${soundName}.wav`;
     const remotePath = `${remoteSoundsPath}/${remoteFileName}`;
 
     try {
-      await sftpUpload(sftp, localPath, remotePath);
+      const ext = path.extname(localPath).toLowerCase();
+      let uploadPath = localPath;
+
+      if (ext !== ".wav" || !isAsteriskCompatibleWav(localPath)) {
+        console.log(`[AudioSync] Converting ${msg.name} (${ext}) to Asterisk WAV format...`);
+        uploadPath = convertToAsteriskWav(localPath);
+        tempFiles.push(uploadPath);
+      }
+
+      await sftpUpload(sftp, uploadPath, remotePath);
       console.log(`[AudioSync] Uploaded ${msg.name} → ${remotePath}`);
       synced++;
     } catch (err) {
-      const errMsg = `${msg.name}: upload failed - ${err instanceof Error ? err.message : err}`;
+      const errMsg = `${msg.name}: ${err instanceof Error ? err.message : err}`;
       errors.push(errMsg);
       console.error(`[AudioSync] ${errMsg}`);
       failed++;
@@ -150,7 +178,27 @@ export async function syncAudioToAsterisk(messageId?: string): Promise<SyncResul
 
   conn.end();
 
+  for (const tmp of tempFiles) {
+    try { fs.unlinkSync(tmp); } catch {}
+  }
+
   return { success: failed === 0, synced, failed, errors };
+}
+
+function isAsteriskCompatibleWav(filePath: string): boolean {
+  try {
+    const output = execSync(
+      `ffprobe -v error -select_streams a:0 -show_entries stream=sample_rate,channels,codec_name -of csv=p=0 ${JSON.stringify(filePath)}`,
+      { timeout: 10000, encoding: "utf-8" }
+    ).trim();
+    const parts = output.split(",");
+    const codec = parts[0];
+    const sampleRate = parseInt(parts[1]);
+    const channels = parseInt(parts[2]);
+    return codec === "pcm_s16le" && sampleRate === 8000 && channels === 1;
+  } catch {
+    return false;
+  }
 }
 
 export async function syncSingleAudio(messageId: string): Promise<SyncResult> {
