@@ -23,7 +23,7 @@ import {
   ArrowLeft, Download, Mail, FileSpreadsheet, Users, Phone, BarChart3,
   Loader2, Calendar, ChevronDown, ChevronRight, Clock, TrendingUp,
   Coffee, Headphones, MessageSquare, WrapText, Timer, Activity,
-  User, Zap, Target, AlertTriangle, CalendarClock, Trash2, Plus, Power
+  User, Zap, Target, AlertTriangle, CalendarClock, Trash2, Plus, Power, Pencil, Send
 } from "lucide-react";
 import type { Campaign } from "@shared/schema";
 
@@ -167,6 +167,7 @@ export default function CampaignReportsPage() {
   const [schedRecipientIds, setSchedRecipientIds] = useState<string[]>([]);
   const [schedSendTime, setSchedSendTime] = useState("08:00");
   const [schedDateRange, setSchedDateRange] = useState("yesterday");
+  const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
   const [quickDateOpen, setQuickDateOpen] = useState(false);
 
   const today = format(new Date(), DATE_FMT);
@@ -268,6 +269,46 @@ export default function CampaignReportsPage() {
       toast({ title: "Schedule deleted" });
     },
   });
+
+  const updateScheduleMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const res = await apiRequest("PATCH", `/api/scheduled-reports/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "scheduled-reports"] });
+      toast({ title: cr?.scheduleUpdated || "Schedule updated" });
+      setScheduleDialogOpen(false);
+      setEditingScheduleId(null);
+      setSchedRecipientIds([]);
+      setSchedReportTypes(['operator-stats']);
+      setSchedSendTime("08:00");
+      setSchedDateRange("yesterday");
+    },
+    onError: () => toast({ title: cr?.updateFailed || "Failed to update schedule", variant: "destructive" }),
+  });
+
+  const sendNowMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("POST", `/api/scheduled-reports/${id}/send-now`);
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      const successCount = data.results?.filter((r: any) => r.success).length || 0;
+      const totalCount = data.results?.length || 0;
+      toast({ title: cr?.reportsSentNow || "Reports sent", description: `${successCount}/${totalCount} ${cr?.reportsSentSuccessfully || 'reports sent successfully'} (${data.dateFrom} - ${data.dateTo})` });
+    },
+    onError: () => toast({ title: cr?.sendNowFailed || "Failed to send reports", variant: "destructive" }),
+  });
+
+  const openEditSchedule = (sched: typeof scheduledReportsList[0]) => {
+    setEditingScheduleId(sched.id);
+    setSchedReportTypes([...sched.reportTypes]);
+    setSchedRecipientIds([...sched.recipientUserIds]);
+    setSchedSendTime(sched.sendTime);
+    setSchedDateRange(sched.dateRangeType);
+    setScheduleDialogOpen(true);
+  };
 
   const qp = buildQueryParams();
   const { data: operatorStats = [], isLoading: loadingOps } = useQuery<OperatorStat[]>({
@@ -1310,15 +1351,50 @@ export default function CampaignReportsPage() {
                       {sched.lastRunAt && ` · ${cr?.lastRun || 'Last run'}: ${new Date(sched.lastRunAt).toLocaleString()}`}
                     </p>
                   </div>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-6 w-6 shrink-0 text-destructive hover:text-destructive"
-                    onClick={() => deleteScheduleMutation.mutate(sched.id)}
-                    data-testid={`delete-schedule-${sched.id}`}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6"
+                            onClick={() => sendNowMutation.mutate(sched.id)}
+                            disabled={sendNowMutation.isPending}
+                            data-testid={`sendnow-schedule-${sched.id}`}
+                          >
+                            {sendNowMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>{cr?.sendNow || 'Send Now'}</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6"
+                            onClick={() => openEditSchedule(sched)}
+                            data-testid={`edit-schedule-${sched.id}`}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>{cr?.editSchedule || 'Edit'}</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-6 w-6 text-destructive hover:text-destructive"
+                      onClick={() => deleteScheduleMutation.mutate(sched.id)}
+                      data-testid={`delete-schedule-${sched.id}`}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -1327,12 +1403,12 @@ export default function CampaignReportsPage() {
       </Card>
 
       {/* Schedule Dialog */}
-      <Dialog open={scheduleDialogOpen} onOpenChange={(open) => { setScheduleDialogOpen(open); if (!open) setSchedRecipientIds([]); }}>
+      <Dialog open={scheduleDialogOpen} onOpenChange={(open) => { setScheduleDialogOpen(open); if (!open) { setSchedRecipientIds([]); setEditingScheduleId(null); setSchedReportTypes(['operator-stats']); setSchedSendTime("08:00"); setSchedDateRange("yesterday"); } }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CalendarClock className="h-5 w-5" />
-              {cr?.createSchedule || 'Create Scheduled Report'}
+              {editingScheduleId ? (cr?.editSchedule || 'Edit Scheduled Report') : (cr?.createSchedule || 'Create Scheduled Report')}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -1410,17 +1486,24 @@ export default function CampaignReportsPage() {
               <Button variant="outline">{cr?.cancel || 'Cancel'}</Button>
             </DialogClose>
             <Button
-              onClick={() => createScheduleMutation.mutate({
-                reportTypes: schedReportTypes,
-                recipientUserIds: schedRecipientIds,
-                sendTime: schedSendTime,
-                dateRangeType: schedDateRange,
-              })}
-              disabled={schedReportTypes.length === 0 || schedRecipientIds.length === 0 || createScheduleMutation.isPending}
+              onClick={() => {
+                const payload = {
+                  reportTypes: schedReportTypes,
+                  recipientUserIds: schedRecipientIds,
+                  sendTime: schedSendTime,
+                  dateRangeType: schedDateRange,
+                };
+                if (editingScheduleId) {
+                  updateScheduleMutation.mutate({ id: editingScheduleId, data: payload });
+                } else {
+                  createScheduleMutation.mutate(payload);
+                }
+              }}
+              disabled={schedReportTypes.length === 0 || schedRecipientIds.length === 0 || createScheduleMutation.isPending || updateScheduleMutation.isPending}
               data-testid="btn-create-schedule"
             >
-              {createScheduleMutation.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <CalendarClock className="h-4 w-4 mr-1" />}
-              {cr?.createSchedule || 'Create Schedule'}
+              {(createScheduleMutation.isPending || updateScheduleMutation.isPending) ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <CalendarClock className="h-4 w-4 mr-1" />}
+              {editingScheduleId ? (cr?.saveChanges || 'Save Changes') : (cr?.createSchedule || 'Create Schedule')}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -15044,7 +15044,27 @@ export async function registerRoutes(
       const csvContent = generateCsv(reportData.length > 0 ? reportData : [{ 'No Data': 'No data found for the selected filters' }]);
 
       const emailSubject = `Campaign Report: ${campaign.name} - ${reportType.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}`;
-      const emailBody = `<p>Please find attached the campaign report for <strong>${campaign.name}</strong>.</p><p>Report type: ${reportType.replace(/-/g, ' ')}</p><p>Generated: ${new Date().toLocaleString()}</p>`;
+      
+      let signatureHtml = '';
+      const reportCountryCode = campaign.countryCodes && campaign.countryCodes.length > 0 ? campaign.countryCodes[0] : null;
+      if (reportCountryCode) {
+        try {
+          const countrySettings = await storage.getCountrySystemSettingsByCountry(reportCountryCode);
+          if (countrySettings) {
+            const brandName = countrySettings.systemBrandName || '';
+            const emailSig = countrySettings.systemEmailSignature || '';
+            if (brandName || emailSig) {
+              signatureHtml = '<br/><hr style="border:none;border-top:1px solid #e0e0e0;margin:16px 0 12px 0;"/>';
+              if (brandName) signatureHtml += `<p style="margin:0;font-weight:600;color:#333;">${brandName}</p>`;
+              if (emailSig) signatureHtml += `<p style="margin:4px 0 0 0;color:#666;font-size:13px;white-space:pre-line;">${emailSig}</p>`;
+            }
+          }
+        } catch (sigErr) {
+          console.warn("[CampaignReport] Failed to fetch country system settings for signature:", sigErr);
+        }
+      }
+      
+      const emailBody = `<p>Please find attached the campaign report for <strong>${campaign.name}</strong>.</p><p>Report type: ${reportType.replace(/-/g, ' ')}</p><p>Generated: ${new Date().toLocaleString()}</p>${signatureHtml}`;
       const emailAttachments = [
         { name: `${fileName}.xlsx`, contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', contentBase64: xlsxBuffer.toString('base64') },
         { name: `${fileName}.csv`, contentType: 'text/csv', contentBase64: Buffer.from(csvContent).toString('base64') },
@@ -15220,6 +15240,71 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Failed to delete scheduled report:", error);
       res.status(500).json({ error: "Failed to delete scheduled report" });
+    }
+  });
+
+  app.post("/api/scheduled-reports/:id/send-now", requireAuth, async (req, res) => {
+    try {
+      const id = req.params.id;
+      const [report] = await db.select().from(scheduledReports).where(eq(scheduledReports.id, id));
+      if (!report) return res.status(404).json({ error: "Scheduled report not found" });
+      if (!report.campaignId) return res.status(400).json({ error: "No campaign linked" });
+      if (!report.recipientUserIds || report.recipientUserIds.length === 0) return res.status(400).json({ error: "No recipients configured" });
+
+      const recipientUsers = await db.select({ id: users.id, email: users.email })
+        .from(users)
+        .where(inArray(users.id, report.recipientUserIds));
+      const recipientEmails = recipientUsers.map(u => u.email).filter(Boolean);
+      if (recipientEmails.length === 0) return res.status(400).json({ error: "No valid recipient emails" });
+
+      const localDateStr = (d: Date) => {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+      };
+      const today = new Date();
+      let dateFrom: string, dateTo: string;
+      if (report.dateRangeType === 'yesterday') {
+        const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+        dateFrom = localDateStr(yesterday); dateTo = localDateStr(yesterday);
+      } else if (report.dateRangeType === 'last7days') {
+        const weekAgo = new Date(today); weekAgo.setDate(weekAgo.getDate() - 7);
+        const yesterdayD = new Date(today); yesterdayD.setDate(yesterdayD.getDate() - 1);
+        dateFrom = localDateStr(weekAgo); dateTo = localDateStr(yesterdayD);
+      } else if (report.dateRangeType === 'last30days') {
+        const monthAgo = new Date(today); monthAgo.setDate(monthAgo.getDate() - 30);
+        const yesterdayD = new Date(today); yesterdayD.setDate(yesterdayD.getDate() - 1);
+        dateFrom = localDateStr(monthAgo); dateTo = localDateStr(yesterdayD);
+      } else {
+        const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+        dateFrom = localDateStr(yesterday); dateTo = localDateStr(yesterday);
+      }
+
+      const results: { reportType: string; success: boolean; error?: string }[] = [];
+      for (const reportType of report.reportTypes) {
+        try {
+          const response = await fetch(`http://localhost:${process.env.PORT || 5000}/api/campaigns/${report.campaignId}/reports/send-email`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-scheduled-report': 'true' },
+            body: JSON.stringify({ reportType, recipientEmails, dateFrom, dateTo }),
+          });
+          if (response.ok) {
+            results.push({ reportType, success: true });
+          } else {
+            const errBody = await response.text();
+            results.push({ reportType, success: false, error: errBody });
+          }
+        } catch (err) {
+          results.push({ reportType, success: false, error: String(err) });
+        }
+      }
+
+      const allOk = results.every(r => r.success);
+      res.json({ success: allOk, results, recipientCount: recipientEmails.length, dateFrom, dateTo });
+    } catch (error) {
+      console.error("Failed to send scheduled report now:", error);
+      res.status(500).json({ error: "Failed to send report" });
     }
   });
 
