@@ -5317,6 +5317,7 @@ export const scheduledReports = pgTable("scheduled_reports", {
   campaignId: varchar("campaign_id").references(() => campaigns.id),
   reportTypes: text("report_types").array().notNull(),
   recipientUserIds: text("recipient_user_ids").array().notNull(),
+  externalEmails: text("external_emails").array().default(sql`'{}'::text[]`),
   sendTime: varchar("send_time", { length: 5 }).notNull(),
   dateRangeType: text("date_range_type").notNull().default("yesterday"),
   enabled: boolean("enabled").notNull().default(true),
