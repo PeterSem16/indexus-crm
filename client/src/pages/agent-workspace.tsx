@@ -3065,6 +3065,75 @@ function CustomerInfoPanel({
                     const contentText = item.content || item.notes || "";
 
                     return (
+                      isModal && (item.type === "email" || item.type === "sms") ? (
+                      <div
+                        key={item.id}
+                        className={`relative cursor-pointer group transition-all duration-200 hover:scale-[1.01] ${
+                          item.direction === "outbound"
+                            ? "ml-8"
+                            : "mr-8"
+                        }`}
+                        data-testid={`history-item-${item.id}`}
+                        onClick={() => { if (onOpenHistoryDetail) onOpenHistoryDetail(item); }}
+                      >
+                        <div className={`rounded-2xl overflow-hidden shadow-sm border transition-shadow hover:shadow-md ${
+                          item.direction === "outbound"
+                            ? "bg-primary/5 border-primary/15 dark:bg-primary/10 dark:border-primary/20 rounded-br-md"
+                            : "bg-muted/40 border-border/50 dark:bg-muted/20 rounded-bl-md"
+                        }`}>
+                          <div className="px-3.5 pt-2.5 pb-1 flex items-center gap-2">
+                            <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
+                              item.type === "email"
+                                ? "bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400"
+                                : "bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400"
+                            }`}>
+                              {item.type === "email" ? <Mail className="h-3 w-3" /> : <MessageSquare className="h-3 w-3" />}
+                            </div>
+                            <span className={`text-[11px] font-medium ${item.direction === "outbound" ? "text-green-600 dark:text-green-400" : "text-blue-600 dark:text-blue-400"}`}>
+                              {item.direction === "inbound" ? "Prijatý" : "Odoslaný"}
+                            </span>
+                            {item.status && (
+                              <Badge variant="secondary" className="text-[9px] h-4 px-1.5">{item.status}</Badge>
+                            )}
+                            {item.sentiment && (
+                              <SentimentBadge sentiment={item.sentiment} size="sm" />
+                            )}
+                            <span className="text-[10px] text-muted-foreground/60 ml-auto">
+                              {format(new Date(item.date), "d. MMM yyyy, HH:mm", { locale: sk })}
+                            </span>
+                          </div>
+                          <div className="px-3.5 pb-1">
+                            <p className="text-sm font-medium text-foreground leading-snug">
+                              {highlightMatch(contentText) || "—"}
+                            </p>
+                          </div>
+                          {plainDetails && (
+                            <div className="px-3.5 pb-2">
+                              <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">
+                                {highlightMatch(plainDetails)}
+                              </p>
+                            </div>
+                          )}
+                          <div className="px-3.5 pb-2 flex items-center gap-2 text-[10px] text-muted-foreground/50">
+                            {item.agentName && (
+                              <span className="flex items-center gap-0.5">
+                                <UserCircle className="h-2.5 w-2.5" />
+                                {item.agentName}
+                              </span>
+                            )}
+                            {(item as any).recipientEmail && (
+                              <span className="truncate max-w-[180px]" title={(item as any).recipientEmail}>
+                                → {(item as any).recipientEmail}
+                              </span>
+                            )}
+                            {(item as any).recipientPhone && (
+                              <span>→ {(item as any).recipientPhone}</span>
+                            )}
+                            <ExternalLink className="h-3 w-3 ml-auto opacity-0 group-hover:opacity-60 transition-opacity" />
+                          </div>
+                        </div>
+                      </div>
+                      ) : (
                       <div
                         key={item.id}
                         className={`rounded-md border border-border/40 overflow-visible transition-colors ${isClickable ? "cursor-pointer hover-elevate group" : ""}`}
@@ -3124,7 +3193,7 @@ function CustomerInfoPanel({
                               {highlightMatch(contentText) || "—"}
                             </p>
                             {plainDetails && (
-                              <p className={`${isModal ? "text-xs mt-1" : "text-[10px] mt-0.5"} text-muted-foreground ${isModal ? "line-clamp-5" : "line-clamp-2"} leading-snug`}>
+                              <p className={`${isModal ? "text-xs mt-1" : "text-[10px] mt-0.5"} text-muted-foreground ${isModal ? "line-clamp-3" : "line-clamp-2"} leading-snug`}>
                                 {highlightMatch(plainDetails)}
                               </p>
                             )}
@@ -3155,6 +3224,7 @@ function CustomerInfoPanel({
                           )}
                         </div>
                       </div>
+                      )
                     );
                   })}
                 </div>
