@@ -180,7 +180,12 @@ export function AriSettingsTab() {
     setTestingSSH(true);
     setSshTestResult(null);
     try {
-      const res = await apiRequest("POST", "/api/ari-settings/test-ssh");
+      const res = await apiRequest("POST", "/api/ari-settings/test-ssh", {
+        host: formData.host,
+        sshUsername: formData.sshUsername,
+        sshPassword: formData.sshPassword,
+        sshPort: formData.sshPort,
+      });
       const data = await res.json();
       setSshTestResult(data);
       if (data.success) {
@@ -200,6 +205,8 @@ export function AriSettingsTab() {
     setSyncing(true);
     setSyncResult(null);
     try {
+      await apiRequest("PUT", "/api/ari-settings", formData);
+      queryClient.invalidateQueries({ queryKey: ["/api/ari-settings"] });
       const res = await apiRequest("POST", "/api/ari-settings/sync-audio");
       const data = await res.json();
       setSyncResult(data);
@@ -524,7 +531,19 @@ export function AriSettingsTab() {
             IVR audio files are automatically synced to Asterisk when created or updated. Use the sync button to push all existing audio files.
           </p>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <Button
+              onClick={() => saveMutation.mutate(formData)}
+              disabled={saveMutation.isPending}
+              data-testid="btn-save-ssh"
+            >
+              {saveMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4 mr-2" />
+              )}
+              Save SSH Settings
+            </Button>
             <Button
               variant="outline"
               onClick={handleTestSSH}
@@ -536,7 +555,7 @@ export function AriSettingsTab() {
               ) : (
                 <Wifi className="h-4 w-4 mr-2" />
               )}
-              Test SSH Connection
+              Test SSH
             </Button>
             <Button
               variant="outline"
@@ -547,9 +566,9 @@ export function AriSettingsTab() {
               {syncing ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
-                <Save className="h-4 w-4 mr-2" />
+                <Server className="h-4 w-4 mr-2" />
               )}
-              Sync All Audio to Asterisk
+              Sync All Audio
             </Button>
           </div>
 

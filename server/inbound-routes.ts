@@ -74,6 +74,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       }
 
       const body = req.body;
+      console.log(`[ARI Settings PUT] Received fields: host=${body.host}, sshUsername='${body.sshUsername}', sshPort=${body.sshPort}, sshPassword=${body.sshPassword ? '***SET***' : 'EMPTY'}, asteriskSoundsPath=${body.asteriskSoundsPath}`);
       const existing = await db.select().from(ariSettings).limit(1);
 
       let password = body.password;
@@ -227,15 +228,24 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       if (user.role !== "admin") {
         return res.status(403).json({ success: false, error: "Admin access required" });
       }
-      const settings = await db.select().from(ariSettings).limit(1);
-      if (!settings[0]) {
-        return res.json({ success: false, error: "No ARI settings found" });
+
+      const { host, sshUsername, sshPassword, sshPort } = req.body;
+      const existing = await db.select().from(ariSettings).limit(1);
+
+      const testHost = host || existing[0]?.host;
+      const testUsername = sshUsername || existing[0]?.sshUsername;
+      let testPassword = sshPassword || existing[0]?.sshPassword;
+      if (testPassword === "••••••••" && existing[0]) {
+        testPassword = existing[0].sshPassword;
       }
-      const s = settings[0];
-      if (!s.host || !s.sshUsername || !s.sshPassword) {
+      const testPort = sshPort || existing[0]?.sshPort || 22;
+
+      console.log(`[SSH Test] host=${testHost}, user=${testUsername}, port=${testPort}, password=${testPassword ? '***SET***' : 'EMPTY'}`);
+
+      if (!testHost || !testUsername || !testPassword) {
         return res.json({
           success: false,
-          error: `Missing SSH config: host=${s.host ? 'set' : 'EMPTY'}, sshUsername=${s.sshUsername ? 'set' : 'EMPTY'}, sshPassword=${s.sshPassword ? 'set' : 'EMPTY'}, sshPort=${s.sshPort}`
+          error: `Missing SSH config: host=${testHost ? 'set' : 'EMPTY'}, sshUsername=${testUsername ? 'set' : 'EMPTY'}, sshPassword=${testPassword ? 'set' : 'EMPTY'}, sshPort=${testPort}`
         });
       }
       const { Client } = await import("ssh2");
@@ -255,13 +265,13 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
           resolve({ success: false, error: `SSH error: ${err.message} (level: ${(err as any).level || 'unknown'})` });
         });
         conn.on("keyboard-interactive", (_name: any, _instructions: any, _lang: any, _prompts: any, finish: any) => {
-          finish([s.sshPassword]);
+          finish([testPassword]);
         });
         conn.connect({
-          host: s.host,
-          port: s.sshPort || 22,
-          username: s.sshUsername,
-          password: s.sshPassword,
+          host: testHost,
+          port: testPort,
+          username: testUsername,
+          password: testPassword,
           readyTimeout: 15000,
           tryKeyboard: true,
         });
