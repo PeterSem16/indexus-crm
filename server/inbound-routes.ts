@@ -1277,12 +1277,22 @@ function setupQueueEngineWebSocketEvents(engine: QueueEngine): void {
     return inboundCallWs;
   };
 
-  engine.on("call-queued", (data) => {
-    console.log(`[QueueEngine] Call queued: ${data.callerNumber} in ${data.queueName} (pos: ${data.position})`);
+  engine.on("call-queued", async (data) => {
+    console.log(`[QueueEngine WS] Call queued: ${data.callerNumber} in ${data.queueName} (pos: ${data.position})`);
+    const ws = await getWs();
+    ws.broadcastToAllAgents({
+      type: "queue-update",
+      event: "call-queued",
+      callerNumber: data.callerNumber,
+      queueName: data.queueName,
+      queueId: data.queueId,
+      position: data.position,
+    });
   });
 
   engine.on("call-assigned", async (data) => {
-    console.log(`[QueueEngine] Call assigned: ${data.callerNumber} → agent ${data.agentId}`);
+    console.log(`[QueueEngine WS] Call assigned: ${data.callerNumber} → agent ${data.agentId}`);
+    console.log(`[QueueEngine WS]   callId=${data.callId}, channelId=${data.channelId}, queueId=${data.queueId}`);
     const ws = await getWs();
     ws.notifyInboundCall(data.agentId, {
       callId: data.callId,
@@ -1290,7 +1300,7 @@ function setupQueueEngineWebSocketEvents(engine: QueueEngine): void {
       callerName: data.callerName,
       queueName: data.queueName,
       queueId: data.queueId,
-      waitTime: data.waitTime || 0,
+      waitTime: data.waitDuration || 0,
       channelId: data.channelId || "",
     });
   });

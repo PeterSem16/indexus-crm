@@ -121,23 +121,39 @@ export class QueueEngine extends EventEmitter {
   }
 
   async handleIncomingCall(event: AriEvent): Promise<void> {
-    if (!event.channel) return;
+    if (!event.channel) {
+      console.log(`[QueueEngine] StasisStart event received but no channel data`);
+      return;
+    }
 
     const channel = event.channel;
-    const callerNumber = channel.caller?.number || "unknown";
+    const callerNumber = channel.caller?.number || event.args?.[2] || "unknown";
     const callerName = channel.caller?.name || "";
-    const dialedNumber = channel.dialplan?.exten || "";
+    const dialedNumber = channel.dialplan?.exten || event.args?.[1] || "";
+    const stasisArgs = event.args || [];
 
-    console.log(`[QueueEngine] Incoming call from ${callerNumber} to ${dialedNumber} (channel: ${channel.id})`);
+    console.log(`[QueueEngine] === INCOMING CALL ===`);
+    console.log(`[QueueEngine]   Caller: ${callerNumber} (${callerName})`);
+    console.log(`[QueueEngine]   Dialed: ${dialedNumber}`);
+    console.log(`[QueueEngine]   Channel: ${channel.id}`);
+    console.log(`[QueueEngine]   Channel state: ${channel.state}`);
+    console.log(`[QueueEngine]   Stasis args: ${JSON.stringify(stasisArgs)}`);
+    console.log(`[QueueEngine]   Dialplan: ${JSON.stringify(channel.dialplan)}`);
 
     const queue = await this.findQueueForNumber(dialedNumber);
     if (!queue) {
-      console.log(`[QueueEngine] No queue found for DID ${dialedNumber}, hanging up`);
+      console.log(`[QueueEngine] No queue found for DID "${dialedNumber}". Available queues:`);
+      const allQueues = await db.select().from(inboundQueues);
+      allQueues.forEach(q => console.log(`[QueueEngine]   Queue "${q.name}" → DID: "${q.didNumber}" (active: ${q.isActive})`));
+      console.log(`[QueueEngine] Hanging up channel ${channel.id}`);
       try {
         await this.ariClient.hangupChannel(channel.id, "normal");
       } catch {}
       return;
     }
+
+    console.log(`[QueueEngine] Matched queue: "${queue.name}" (id: ${queue.id}, strategy: ${queue.strategy})`);
+
 
     if (this.getQueueSize(queue.id) >= queue.maxQueueSize) {
       console.log(`[QueueEngine] Queue ${queue.name} is full, handling overflow`);
@@ -263,15 +279,22 @@ export class QueueEngine extends EventEmitter {
     const members = await db.select().from(queueMembers)
       .where(and(eq(queueMembers.queueId, queue.id), eq(queueMembers.isActive, true)));
 
+    console.log(`[QueueEngine] Selecting agent for queue "${queue.name}": ${members.length} active members`);
+
     const availableAgents: AgentState[] = [];
     for (const member of members) {
       const state = this.agentStates.get(member.userId);
+      console.log(`[QueueEngine]   Member ${member.userId}: state=${state?.status || 'NOT_IN_MEMORY'} (penalty: ${member.penalty})`);
       if (state && state.status === "available") {
         availableAgents.push({ ...state, penalty: member.penalty });
       }
     }
 
-    if (availableAgents.length === 0) return null;
+    console.log(`[QueueEngine] Available agents: ${availableAgents.length}`);
+    if (availableAgents.length === 0) {
+      console.log(`[QueueEngine] No available agents! All agents in memory: ${Array.from(this.agentStates.entries()).map(([id, s]) => `${id}=${s.status}`).join(', ') || 'NONE'}`);
+      return null;
+    }
 
     switch (queue.strategy) {
       case "round-robin":

@@ -104,7 +104,7 @@ function convertToAsteriskWav(inputPath: string): string | null {
 
   try {
     execSync(
-      `${ffmpeg} -y -i ${JSON.stringify(inputPath)} -ar 8000 -ac 1 -sample_fmt s16 -acodec pcm_s16le ${JSON.stringify(outputPath)}`,
+      `${ffmpeg} -y -i ${JSON.stringify(inputPath)} -af "loudnorm=I=-16:TP=-1.5:LRA=11,volume=1.5" -ar 8000 -ac 1 -sample_fmt s16 -acodec pcm_s16le ${JSON.stringify(outputPath)}`,
       { timeout: 30000, stdio: "pipe" }
     );
     console.log(`[AudioSync] Converted ${path.basename(inputPath)} → WAV 8kHz mono 16-bit`);

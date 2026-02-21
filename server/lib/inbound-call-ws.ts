@@ -49,6 +49,7 @@ class InboundCallWebSocketService {
     const agents = this.agents.get(userId) || [];
     agents.push({ ws, userId, connectedAt: new Date() });
     this.agents.set(userId, agents);
+    console.log(`[InboundCallWS] Agent ${userId} connected (total connections: ${agents.length}, total agents: ${this.agents.size})`);
   }
 
   private removeAgent(userId: string, ws: WebSocket) {
@@ -59,6 +60,7 @@ class InboundCallWebSocketService {
     } else {
       this.agents.set(userId, filtered);
     }
+    console.log(`[InboundCallWS] Agent ${userId} disconnected (remaining: ${filtered.length}, total agents: ${this.agents.size})`);
   }
 
   sendToAgent(userId: string, data: any) {
@@ -80,10 +82,29 @@ class InboundCallWebSocketService {
     waitTime: number;
     channelId: string;
   }) {
+    const isConnected = this.isAgentConnected(agentUserId);
+    const connectedAgents = this.getConnectedAgentIds();
+    console.log(`[InboundCallWS] Notifying agent ${agentUserId} of inbound call ${callData.callId} from ${callData.callerNumber}`);
+    console.log(`[InboundCallWS]   Agent connected: ${isConnected}`);
+    console.log(`[InboundCallWS]   All connected agents: ${connectedAgents.join(', ') || 'NONE'}`);
     this.sendToAgent(agentUserId, {
       type: "inbound-call",
       ...callData,
     });
+  }
+
+  broadcastToAllAgents(data: any) {
+    const message = JSON.stringify(data);
+    let sent = 0;
+    for (const [userId, agents] of this.agents.entries()) {
+      for (const agent of agents) {
+        if (agent.ws.readyState === WebSocket.OPEN) {
+          agent.ws.send(message);
+          sent++;
+        }
+      }
+    }
+    console.log(`[InboundCallWS] Broadcast to ${sent} agent connections`);
   }
 
   notifyCallCancelled(agentUserId: string, callId: string) {

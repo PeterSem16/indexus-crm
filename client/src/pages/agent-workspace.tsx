@@ -4946,11 +4946,17 @@ export default function AgentWorkspacePage() {
     let reconnectTimer: NodeJS.Timeout | null = null;
 
     const connect = () => {
+      console.log(`[AgentWS] Connecting to ${wsUrl}`);
       ws = new WebSocket(wsUrl);
+      ws.onopen = () => {
+        console.log(`[AgentWS] Connected to inbound-calls WebSocket`);
+      };
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
+          console.log(`[AgentWS] Received message:`, data.type, data);
           if (data.type === "inbound-call") {
+            console.log(`[AgentWS] === INBOUND CALL POPUP === from ${data.callerNumber}`);
             setInboundCall({
               callId: data.callId,
               callerNumber: data.callerNumber,
@@ -4964,10 +4970,16 @@ export default function AgentWorkspacePage() {
           } else if (data.type === "call-cancelled") {
             setInboundCall(prev => prev?.callId === data.callId ? null : prev);
           }
-        } catch {}
+        } catch (err) {
+          console.error(`[AgentWS] Failed to parse message:`, err);
+        }
       };
-      ws.onclose = () => {
+      ws.onclose = (event) => {
+        console.log(`[AgentWS] Disconnected (code: ${event.code}), reconnecting in 5s...`);
         reconnectTimer = setTimeout(connect, 5000);
+      };
+      ws.onerror = (event) => {
+        console.error(`[AgentWS] WebSocket error`);
       };
     };
 
