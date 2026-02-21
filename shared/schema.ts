@@ -5352,6 +5352,7 @@ export const ariSettings = pgTable("ari_settings", {
   wsProtocol: text("ws_protocol").notNull().default("ws"), // ws, wss
   wsPort: integer("ws_port").notNull().default(8088),
   isEnabled: boolean("is_enabled").notNull().default(false),
+  autoConnect: boolean("auto_connect").notNull().default(false),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
   updatedBy: varchar("updated_by"),
 });

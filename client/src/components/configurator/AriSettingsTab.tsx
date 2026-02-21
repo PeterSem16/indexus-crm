@@ -32,6 +32,7 @@ interface AriSettingsData {
   wsProtocol: string;
   wsPort: number;
   isEnabled: boolean;
+  autoConnect: boolean;
 }
 
 export function AriSettingsTab() {
@@ -49,6 +50,7 @@ export function AriSettingsTab() {
     wsProtocol: "ws",
     wsPort: 8088,
     isEnabled: false,
+    autoConnect: false,
   });
 
   const { data: settings, isLoading } = useQuery<AriSettingsData>({
@@ -68,6 +70,7 @@ export function AriSettingsTab() {
         wsProtocol: settings.wsProtocol || "ws",
         wsPort: settings.wsPort || 8088,
         isEnabled: settings.isEnabled || false,
+        autoConnect: settings.autoConnect || false,
       });
     }
   }, [settings]);
@@ -225,6 +228,17 @@ export function AriSettingsTab() {
               <Label className="flex items-center gap-1">
                 <Phone className="h-3.5 w-3.5" />
                 Enable Connection
+              </Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={formData.autoConnect}
+                onCheckedChange={v => setFormData(f => ({ ...f, autoConnect: v }))}
+                data-testid="switch-ari-autoconnect"
+              />
+              <Label className="flex items-center gap-1">
+                <Wifi className="h-3.5 w-3.5" />
+                Auto-Connect on Startup
               </Label>
             </div>
           </div>

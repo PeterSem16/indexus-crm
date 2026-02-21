@@ -1,5 +1,5 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
-import { registerInboundRoutes } from "./inbound-routes";
+import { registerInboundRoutes, autoConnectAri } from "./inbound-routes";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { startOfDay, endOfDay, subDays } from "date-fns";
@@ -27244,6 +27244,10 @@ Guidelines:
   });
 
   registerInboundRoutes(app, requireAuth);
+
+  setTimeout(() => {
+    autoConnectAri().catch(err => console.error("[ARI AutoConnect] Error:", err.message));
+  }, 3000);
 
   return httpServer;
 }

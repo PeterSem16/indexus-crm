@@ -52,7 +52,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         return res.json({
           host: "", port: 8088, protocol: "http",
           username: "", password: "", appName: "indexus-inbound",
-          wsProtocol: "ws", wsPort: 8088, isEnabled: false,
+          wsProtocol: "ws", wsPort: 8088, isEnabled: false, autoConnect: false,
         });
       }
       const s = { ...settings[0] };
@@ -89,6 +89,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         wsProtocol: body.wsProtocol || "ws",
         wsPort: body.wsPort || 8088,
         isEnabled: body.isEnabled ?? false,
+        autoConnect: body.autoConnect ?? false,
         updatedAt: new Date(),
         updatedBy: user.id,
       };
@@ -1210,4 +1211,48 @@ function setupQueueEngineWebSocketEvents(engine: QueueEngine): void {
   engine.on("agent-status-changed", (data) => {
     console.log(`[QueueEngine] Agent ${data.userId} → ${data.status}`);
   });
+}
+
+export async function autoConnectAri(): Promise<void> {
+  try {
+    const settings = await db.select().from(ariSettings).limit(1);
+    if (settings.length === 0) {
+      console.log("[ARI AutoConnect] No ARI settings configured, skipping");
+      return;
+    }
+
+    const s = settings[0];
+    if (!s.isEnabled) {
+      console.log("[ARI AutoConnect] ARI is disabled in settings, skipping");
+      return;
+    }
+    if (!s.autoConnect) {
+      console.log("[ARI AutoConnect] Auto-connect is disabled, skipping (use manual Connect button)");
+      return;
+    }
+    if (!s.host || !s.username || !s.password) {
+      console.log("[ARI AutoConnect] ARI settings incomplete (missing host/username/password), skipping");
+      return;
+    }
+
+    console.log(`[ARI AutoConnect] Connecting to Asterisk at ${s.host}:${s.port} (app: ${s.appName})...`);
+
+    const client = initializeAriClient({
+      host: s.host, port: s.port, protocol: s.protocol,
+      username: s.username, password: s.password,
+      appName: s.appName, wsProtocol: s.wsProtocol, wsPort: s.wsPort,
+    });
+
+    await client.connect();
+
+    const engine = initializeQueueEngine(client);
+    await engine.start();
+
+    setupQueueEngineWebSocketEvents(engine);
+
+    console.log("[ARI AutoConnect] Successfully connected to Asterisk and started queue engine");
+  } catch (err: any) {
+    console.error("[ARI AutoConnect] Failed to auto-connect:", err.message);
+    console.log("[ARI AutoConnect] Will retry via reconnect mechanism or manual Connect button");
+  }
 }
