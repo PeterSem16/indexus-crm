@@ -723,6 +723,33 @@ function AnalysisPanel({ log, ca, locale, sentimentLabels }: { log: CallLogEntry
     day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
   });
 
+  const sentimentConfig: Record<string, { cls: string; bg: string; icon: string }> = {
+    positive: { cls: "text-green-700 dark:text-green-400", bg: "bg-green-50 dark:bg-green-950/30", icon: "text-green-500" },
+    neutral: { cls: "text-blue-700 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-950/30", icon: "text-blue-500" },
+    negative: { cls: "text-orange-700 dark:text-orange-400", bg: "bg-orange-50 dark:bg-orange-950/30", icon: "text-orange-500" },
+    angry: { cls: "text-red-700 dark:text-red-400", bg: "bg-red-50 dark:bg-red-950/30", icon: "text-red-500" },
+  };
+
+  const sentiment = rec?.sentiment ?? "neutral";
+  const sc = sentimentConfig[sentiment] || sentimentConfig.neutral;
+  const qScore = rec?.qualityScore ?? 0;
+  const sScore = rec?.scriptComplianceScore ?? 0;
+  const qualityColor = qScore >= 8 ? "text-green-600 dark:text-green-400" : qScore >= 5 ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400";
+  const qualityBg = qScore >= 8 ? "bg-green-50 dark:bg-green-950/30" : qScore >= 5 ? "bg-yellow-50 dark:bg-yellow-950/30" : "bg-red-50 dark:bg-red-950/30";
+  const qualityIcon = qScore >= 8 ? "text-green-500" : qScore >= 5 ? "text-yellow-500" : "text-red-500";
+  const scriptColor = sScore >= 8 ? "text-green-600 dark:text-green-400" : sScore >= 5 ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400";
+  const scriptBg = sScore >= 8 ? "bg-green-50 dark:bg-green-950/30" : sScore >= 5 ? "bg-yellow-50 dark:bg-yellow-950/30" : "bg-red-50 dark:bg-red-950/30";
+  const scriptIcon = sScore >= 8 ? "text-green-500" : sScore >= 5 ? "text-yellow-500" : "text-red-500";
+  const alerts = rec?.alertKeywords ?? [];
+  const topics = rec?.keyTopics ?? [];
+  const actionItems = rec?.actionItems ?? [];
+
+  const handleExport = (format: string) => {
+    if (rec?.id) {
+      window.open(`/api/call-recordings/${rec.id}/export-transcript?format=${format}`, "_blank");
+    }
+  };
+
   return (
     <div className="space-y-3" data-testid={`analysis-panel-${log.id}`}>
       <div className="flex items-center gap-2 flex-wrap pb-2 border-b">
@@ -731,10 +758,6 @@ function AnalysisPanel({ log, ca, locale, sentimentLabels }: { log: CallLogEntry
         {log.customerName && (
           <span className="text-sm text-muted-foreground">{log.customerName}</span>
         )}
-        <span className="text-xs text-muted-foreground ml-auto">{dateStr}</span>
-      </div>
-
-      <div className="flex items-center gap-2 flex-wrap">
         {log.campaignName && (
           <Badge variant="outline" className="text-[10px] gap-1">
             <Megaphone className="h-2.5 w-2.5" />
@@ -748,6 +771,7 @@ function AnalysisPanel({ log, ca, locale, sentimentLabels }: { log: CallLogEntry
           </Badge>
         )}
         <StatusBadge status={log.status} labels={{ completed: ca.statusCompleted, failed: ca.statusFailed, no_answer: ca.statusNoAnswer, busy: ca.statusBusy, cancelled: ca.statusCancelled, initiated: ca.statusInitiated, ringing: ca.statusRinging, answered: ca.statusAnswered }} />
+        <span className="text-xs text-muted-foreground ml-auto">{dateStr}</span>
         <span className="text-xs text-muted-foreground">{formatDuration(log.durationSeconds)}</span>
       </div>
 
@@ -758,7 +782,134 @@ function AnalysisPanel({ log, ca, locale, sentimentLabels }: { log: CallLogEntry
       )}
 
       {rec && rec.analysisStatus === "completed" && (
-        <CallAnalysisDialogContent recording={rec} callId={log.id} ca={ca} sentimentLabels={sentimentLabels} />
+        <div className="flex gap-4">
+          <div className="flex-1 min-w-0 space-y-3">
+            <div className="grid grid-cols-3 gap-2">
+              <div className={`rounded-md p-2.5 text-center ${sc.bg}`}>
+                <Sparkles className={`h-4 w-4 mx-auto mb-0.5 ${sc.icon}`} />
+                <div className={`text-sm font-semibold ${sc.cls}`}>{sentimentLabels[sentiment] || sentiment}</div>
+              </div>
+              {rec.qualityScore != null && (
+                <div className={`rounded-md p-2.5 text-center ${qualityBg}`}>
+                  <Star className={`h-4 w-4 mx-auto mb-0.5 ${qualityIcon}`} />
+                  <div className={`text-lg font-bold ${qualityColor}`}>{rec.qualityScore}/10</div>
+                  <div className="text-[10px] text-muted-foreground">{ca.quality || "Quality"}</div>
+                </div>
+              )}
+              {rec.scriptComplianceScore != null && (
+                <div className={`rounded-md p-2.5 text-center ${scriptBg}`}>
+                  <ClipboardCheck className={`h-4 w-4 mx-auto mb-0.5 ${scriptIcon}`} />
+                  <div className={`text-lg font-bold ${scriptColor}`}>{rec.scriptComplianceScore}/10</div>
+                  <div className="text-[10px] text-muted-foreground">{ca.script || "Script"}</div>
+                </div>
+              )}
+            </div>
+
+            {alerts.length > 0 && (
+              <div className="bg-red-50 dark:bg-red-950/30 rounded-md p-3">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <ShieldAlert className="h-4 w-4 text-red-500" />
+                  <span className="text-sm font-medium text-red-700 dark:text-red-400">{ca.alerts || "Alerts"}</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {alerts.map((alert, i) => (
+                    <Badge key={i} variant="destructive" className="text-xs">{alert}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {rec.summary && (
+              <div className="bg-muted/40 rounded-md p-3">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Brain className="h-4 w-4 text-purple-500" />
+                  <span className="text-sm font-medium">{ca.summaryLabel || "Summary"}</span>
+                </div>
+                <p className="text-sm text-foreground leading-relaxed">{rec.summary}</p>
+              </div>
+            )}
+
+            {rec.scriptComplianceDetails && (
+              <div className="bg-blue-50 dark:bg-blue-950/30 rounded-md p-3">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <ClipboardCheck className="h-4 w-4 text-blue-500" />
+                  <span className="text-sm font-medium text-blue-700 dark:text-blue-400">{ca.scriptComplianceLabel || "Script Compliance"}</span>
+                </div>
+                <p className="text-sm text-blue-700 dark:text-blue-300 leading-relaxed">{rec.scriptComplianceDetails}</p>
+              </div>
+            )}
+
+            {topics.length > 0 && (
+              <div className="bg-muted/40 rounded-md p-3">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Tag className="h-4 w-4 text-indigo-500" />
+                  <span className="text-sm font-medium">{ca.topicsLabel || "Topics"}</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {topics.map((topic, i) => (
+                    <Badge key={i} variant="outline" className="text-xs">{topic}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {actionItems.length > 0 && (
+              <div className="bg-emerald-50 dark:bg-emerald-950/30 rounded-md p-3">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <ListChecks className="h-4 w-4 text-emerald-500" />
+                  <span className="text-sm font-medium text-emerald-700 dark:text-emerald-400">{ca.actionItemsLabel || "Action Items"}</span>
+                </div>
+                <ul className="space-y-1">
+                  {actionItems.map((item, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mt-0.5 shrink-0" />
+                      <span className="text-emerald-700 dark:text-emerald-300">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {rec.complianceNotes && (
+              <div className="bg-orange-50 dark:bg-orange-950/30 rounded-md p-3">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <AlertTriangle className="h-4 w-4 text-orange-500" />
+                  <span className="text-sm font-medium text-orange-700 dark:text-orange-400">{ca.complianceLabel || "Compliance"}</span>
+                </div>
+                <p className="text-sm text-orange-700 dark:text-orange-300 leading-relaxed">{rec.complianceNotes}</p>
+              </div>
+            )}
+          </div>
+
+          {rec.transcriptionText && (
+            <div className="w-[45%] shrink-0 flex flex-col border-l pl-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5">
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">{ca.showTranscript || "Transcript"}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="sm" className="h-7 gap-1" onClick={() => handleExport("txt")} data-testid={`btn-export-txt-panel-${log.id}`}>
+                    <Download className="h-3 w-3" />
+                    <span className="text-xs">TXT</span>
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-7 gap-1" onClick={() => handleExport("json")} data-testid={`btn-export-json-panel-${log.id}`}>
+                    <Download className="h-3 w-3" />
+                    <span className="text-xs">JSON</span>
+                  </Button>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap mb-2">
+                <SentimentBadge sentiment={rec.sentiment} labels={sentimentLabels} />
+                <ScoreBadge score={rec.qualityScore} label={ca.quality} />
+                <ScoreBadge score={rec.scriptComplianceScore} label={ca.script} />
+              </div>
+              <ScrollArea className="flex-1">
+                <TranscriptWithPlayback text={rec.transcriptionText} playback={playbackState} />
+              </ScrollArea>
+            </div>
+          )}
+        </div>
       )}
 
       {rec && rec.analysisStatus === "processing" && (
