@@ -176,23 +176,78 @@ export class AriClient extends EventEmitter {
   }
 
   async testConnection(): Promise<{ success: boolean; error?: string; message?: string }> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    const fetchOpts = { signal: controller.signal };
+
     try {
-      const url = `${this.baseUrl}/ari/asterisk/info`;
-      console.log(`[ARI] Testing connection to: ${url}`);
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 10000);
-      const response = await fetch(url, {
-        headers: { Authorization: this.authHeader },
-        signal: controller.signal,
-      });
-      clearTimeout(timeout);
-      if (!response.ok) {
-        const text = await response.text();
-        return { success: false, error: `HTTP ${response.status}: ${text}` };
+      console.log(`[ARI] Testing connection to: ${this.baseUrl}`);
+
+      // Step 1: Basic connectivity check via /httpstatus (no auth needed)
+      try {
+        const httpStatusRes = await fetch(`${this.baseUrl}/httpstatus`, fetchOpts);
+        console.log(`[ARI] /httpstatus returned: ${httpStatusRes.status}`);
+      } catch (connErr: any) {
+        clearTimeout(timeout);
+        if (connErr.name === "AbortError") {
+          return { success: false, error: `Cannot reach ${this.config.host}:${this.config.port} - connection timed out` };
+        }
+        return { success: false, error: `Cannot reach ${this.config.host}:${this.config.port} - ${connErr.message}` };
       }
-      const info = await response.json();
-      return { success: true, message: `Connected to Asterisk ${info?.system?.version || ""}` };
+
+      // Step 2: Try ARI with Basic auth
+      try {
+        const url = `${this.baseUrl}/ari/asterisk/info`;
+        console.log(`[ARI] Testing ARI endpoint: ${url}`);
+        const response = await fetch(url, {
+          ...fetchOpts,
+          headers: { Authorization: this.authHeader },
+        });
+        console.log(`[ARI] Basic auth response: ${response.status}`);
+
+        if (response.ok) {
+          clearTimeout(timeout);
+          const info = await response.json();
+          return { success: true, message: `Connected to Asterisk ${info?.system?.version || ""}` };
+        }
+
+        // If 401, auth is wrong
+        if (response.status === 401) {
+          clearTimeout(timeout);
+          return { success: false, error: "Authentication failed - check username and password in ari.conf" };
+        }
+
+        // If 404, try api_key approach
+        if (response.status === 404) {
+          console.log(`[ARI] Basic auth got 404, trying api_key parameter...`);
+        }
+      } catch (err: any) {
+        console.log(`[ARI] Basic auth failed: ${err.message}`);
+      }
+
+      // Step 3: Try ARI with api_key query param (some Asterisk versions prefer this)
+      try {
+        const apiKeyUrl = `${this.baseUrl}/ari/asterisk/info?api_key=${encodeURIComponent(this.config.username)}:${encodeURIComponent(this.config.password)}`;
+        console.log(`[ARI] Trying api_key auth...`);
+        const response2 = await fetch(apiKeyUrl, fetchOpts);
+        console.log(`[ARI] api_key auth response: ${response2.status}`);
+
+        if (response2.ok) {
+          clearTimeout(timeout);
+          const info = await response2.json();
+          return { success: true, message: `Connected to Asterisk ${info?.system?.version || ""}` };
+        }
+
+        clearTimeout(timeout);
+        const text = await response2.text();
+        return { success: false, error: `Server reachable but ARI returned HTTP ${response2.status}: ${text}. Verify ARI is enabled and user "${this.config.username}" exists in ari.conf` };
+      } catch (err: any) {
+        clearTimeout(timeout);
+        return { success: false, error: `Server reachable but ARI request failed: ${err.message}` };
+      }
+
     } catch (err: any) {
+      clearTimeout(timeout);
       if (err.name === "AbortError") {
         return { success: false, error: "Connection timed out after 10 seconds" };
       }
