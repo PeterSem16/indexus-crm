@@ -577,6 +577,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
 
   app.get("/api/ivr-messages/stock-moh/:stockId/preview", requireAuth, async (req: Request, res: Response) => {
     try {
+      console.log(`[MOH Preview] Generating preview for: ${req.params.stockId}`);
       const { generateStockMoh, STOCK_MOH_OPTIONS } = await import("./lib/stock-moh-generator");
       const option = STOCK_MOH_OPTIONS.find(o => o.id === req.params.stockId);
       if (!option) {
@@ -584,10 +585,13 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       }
 
       const tmpDir = path.join(DATA_ROOT, "ivr-audio", "previews");
+      const startTime = Date.now();
       const result = await generateStockMoh(req.params.stockId, tmpDir, 15);
+      console.log(`[MOH Preview] Generated ${result.fileSize} bytes in ${Date.now() - startTime}ms`);
       
       res.setHeader("Content-Type", "audio/wav");
       res.setHeader("Content-Length", result.fileSize.toString());
+      res.setHeader("Cache-Control", "public, max-age=3600");
       const stream = fs.createReadStream(result.filePath);
       stream.pipe(res);
       stream.on("end", () => {

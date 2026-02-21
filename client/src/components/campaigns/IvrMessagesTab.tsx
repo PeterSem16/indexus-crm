@@ -292,22 +292,35 @@ export function IvrMessagesTab() {
     setDialogOpen(true);
   };
 
-  const toggleStockPreview = (stockId: string) => {
+  const toggleStockPreview = async (stockId: string) => {
     if (previewingStockId === stockId) {
       stockAudioRef.current?.pause();
       setPreviewingStockId(null);
       return;
     }
     if (stockAudioRef.current) stockAudioRef.current.pause();
-    const audio = new Audio(`/api/ivr-messages/stock-moh/${stockId}/preview`);
-    audio.onended = () => setPreviewingStockId(null);
-    audio.onerror = () => {
-      setPreviewingStockId(null);
-      toast({ title: "Error", description: "Failed to preview audio", variant: "destructive" });
-    };
-    audio.play();
-    stockAudioRef.current = audio;
     setPreviewingStockId(stockId);
+    try {
+      const res = await fetch(`/api/ivr-messages/stock-moh/${stockId}/preview`, { credentials: "include" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.onended = () => {
+        setPreviewingStockId(null);
+        URL.revokeObjectURL(url);
+      };
+      audio.onerror = () => {
+        setPreviewingStockId(null);
+        URL.revokeObjectURL(url);
+        toast({ title: "Error", description: "Failed to play audio", variant: "destructive" });
+      };
+      await audio.play();
+      stockAudioRef.current = audio;
+    } catch (error: any) {
+      setPreviewingStockId(null);
+      toast({ title: "Error", description: "Failed to preview audio: " + (error.message || "Unknown error"), variant: "destructive" });
+    }
   };
 
   const handleSubmit = () => {
