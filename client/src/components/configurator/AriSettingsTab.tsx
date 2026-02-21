@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   Server,
   Wifi,
+  WifiOff,
   Save,
   TestTube,
   Loader2,
@@ -17,6 +18,9 @@ import {
   XCircle,
   Phone,
   Shield,
+  Plug,
+  Unplug,
+  Activity,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -35,9 +39,16 @@ interface AriSettingsData {
   autoConnect: boolean;
 }
 
+interface AriStatus {
+  ariConnected: boolean;
+  queueEngineRunning: boolean;
+}
+
 export function AriSettingsTab() {
   const { toast } = useToast();
   const [testing, setTesting] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
   const [formData, setFormData] = useState<AriSettingsData>({
@@ -55,6 +66,12 @@ export function AriSettingsTab() {
 
   const { data: settings, isLoading } = useQuery<AriSettingsData>({
     queryKey: ["/api/ari-settings"],
+  });
+
+  const { data: status, isError: statusError } = useQuery<AriStatus>({
+    queryKey: ["/api/ari-settings/status"],
+    refetchInterval: 5000,
+    retry: false,
   });
 
   useEffect(() => {
@@ -109,6 +126,40 @@ export function AriSettingsTab() {
     }
   };
 
+  const handleConnect = async () => {
+    setConnecting(true);
+    try {
+      const res = await apiRequest("POST", "/api/ari-settings/connect");
+      const data = await res.json();
+      if (data.success) {
+        toast({ title: "Connected to Asterisk ARI", description: "WebSocket connection established. Stasis app registered." });
+        queryClient.invalidateQueries({ queryKey: ["/api/ari-settings/status"] });
+      } else {
+        toast({ title: "Connection failed", description: data.error || "Unknown error", variant: "destructive" });
+      }
+    } catch (err: any) {
+      toast({ title: "Connection failed", description: err.message, variant: "destructive" });
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    setDisconnecting(true);
+    try {
+      const res = await apiRequest("POST", "/api/ari-settings/disconnect");
+      const data = await res.json();
+      if (data.success) {
+        toast({ title: "Disconnected from Asterisk ARI" });
+        queryClient.invalidateQueries({ queryKey: ["/api/ari-settings/status"] });
+      }
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setDisconnecting(false);
+    }
+  };
+
   const useTls = formData.protocol === "https";
   const setUseTls = (v: boolean) => {
     setFormData(f => ({
@@ -117,6 +168,10 @@ export function AriSettingsTab() {
       wsProtocol: v ? "wss" : "ws",
     }));
   };
+
+  const isConnected = status?.ariConnected || false;
+  const isQueueRunning = status?.queueEngineRunning || false;
+  const statusUnavailable = statusError && !status;
 
   if (isLoading) {
     return (
@@ -137,6 +192,80 @@ export function AriSettingsTab() {
           Configure the connection to your Asterisk server for inbound call management
         </p>
       </div>
+
+      <Card className={isConnected ? "border-green-300 dark:border-green-700" : ""}>
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Activity className="h-4 w-4" />
+              Live Status
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              {statusUnavailable ? (
+                <Badge variant="outline" data-testid="badge-ari-status-unavailable">
+                  <XCircle className="h-3 w-3 mr-1" />
+                  Status unavailable
+                </Badge>
+              ) : isConnected ? (
+                <Badge className="bg-green-100 text-green-800 border-green-300 dark:bg-green-900 dark:text-green-200" data-testid="badge-ari-connected">
+                  <Wifi className="h-3 w-3 mr-1" />
+                  Connected
+                </Badge>
+              ) : (
+                <Badge variant="secondary" className="text-muted-foreground" data-testid="badge-ari-disconnected">
+                  <WifiOff className="h-3 w-3 mr-1" />
+                  Disconnected
+                </Badge>
+              )}
+              {isQueueRunning && (
+                <Badge className="bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900 dark:text-blue-200" data-testid="badge-queue-running">
+                  Queue Engine Active
+                </Badge>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-3">
+            {!isConnected ? (
+              <Button
+                onClick={handleConnect}
+                disabled={connecting || !formData.host || !formData.isEnabled}
+                data-testid="btn-connect-ari"
+              >
+                {connecting ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Plug className="h-4 w-4 mr-2" />
+                )}
+                Connect to Asterisk
+              </Button>
+            ) : (
+              <Button
+                variant="destructive"
+                onClick={handleDisconnect}
+                disabled={disconnecting}
+                data-testid="btn-disconnect-ari"
+              >
+                {disconnecting ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Unplug className="h-4 w-4 mr-2" />
+                )}
+                Disconnect
+              </Button>
+            )}
+            {!isConnected && !formData.isEnabled && (
+              <p className="text-xs text-muted-foreground" data-testid="text-ari-enable-hint">Enable Connection first, then Save Settings before connecting</p>
+            )}
+            {isConnected && (
+              <p className="text-xs text-green-700 dark:text-green-300" data-testid="text-ari-stasis-status">
+                WebSocket active — Stasis app "{formData.appName}" registered on Asterisk
+              </p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="pb-4">
@@ -207,7 +336,7 @@ export function AriSettingsTab() {
 
           <Separator />
 
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-6 flex-wrap">
             <div className="flex items-center gap-2">
               <Switch
                 checked={useTls}
@@ -296,6 +425,11 @@ export function AriSettingsTab() {
               The ARI connection allows INDEXUS CRM to control Asterisk for inbound call management.
               Asterisk acts as the media server while all queue logic, routing decisions, and agent
               assignments are handled by the CRM.
+            </p>
+            <p className="text-xs mt-2">
+              <strong>Test Connection</strong> — checks if Asterisk HTTP API is reachable (does not register Stasis app).
+              <br />
+              <strong>Connect to Asterisk</strong> — establishes persistent WebSocket and registers the Stasis application so inbound calls are handled.
             </p>
             <div className="flex items-center gap-2 mt-3">
               <Badge variant="outline" className="text-xs">
