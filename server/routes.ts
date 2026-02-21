@@ -1,5 +1,6 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import { registerInboundRoutes, autoConnectAri } from "./inbound-routes";
+import { getQueueEngine } from "./lib/queue-engine";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { startOfDay, endOfDay, subDays } from "date-fns";
@@ -26860,6 +26861,12 @@ Guidelines:
     try {
       const existing = await storage.getActiveAgentSession(req.session.user!.id);
       if (existing) {
+        const engine409 = getQueueEngine();
+        if (engine409) {
+          const activeBreak409 = await storage.getActiveAgentBreak(existing.id);
+          const effectiveStatus = activeBreak409 ? "break" : ((existing.status as any) || "available");
+          await engine409.updateAgentStatus(req.session.user!.id, effectiveStatus, null);
+        }
         return res.status(409).json({ error: "Active session already exists", session: existing });
       }
       const session = await storage.createAgentSession({
@@ -26868,6 +26875,13 @@ Guidelines:
         campaignIds: req.body.campaignIds || [],
         status: "available",
       });
+
+      const engine = getQueueEngine();
+      if (engine) {
+        await engine.updateAgentStatus(req.session.user!.id, "available", null);
+        console.log(`[AgentSession] Synced agent ${req.session.user!.id} to QueueEngine as available`);
+      }
+
       res.status(201).json(session);
     } catch (error) {
       console.error("Error starting agent session:", error);
@@ -26884,6 +26898,12 @@ Guidelines:
         lastActiveAt: new Date(),
       });
       if (!session) return res.status(404).json({ error: "Session not found" });
+
+      const engine = getQueueEngine();
+      if (engine && session.userId) {
+        await engine.updateAgentStatus(session.userId, status, null);
+      }
+
       res.json(session);
     } catch (error) {
       console.error("Error updating session status:", error);
@@ -26899,6 +26919,13 @@ Guidelines:
       if (activeActivity) await storage.endAgentActivity(activeActivity.id);
       const session = await storage.endAgentSession(req.params.id);
       if (!session) return res.status(404).json({ error: "Session not found" });
+
+      const engine = getQueueEngine();
+      if (engine && session.userId) {
+        await engine.updateAgentStatus(session.userId, "offline", null);
+        console.log(`[AgentSession] Synced agent ${session.userId} to QueueEngine as offline`);
+      }
+
       res.json(session);
     } catch (error) {
       console.error("Error ending agent session:", error);
@@ -27036,6 +27063,12 @@ Guidelines:
         breakTypeName: breakType?.name || "Prestávka",
       });
       await storage.updateAgentSession(req.params.sessionId, { status: "break", lastActiveAt: new Date() });
+
+      const engineBreakStart = getQueueEngine();
+      if (engineBreakStart) {
+        await engineBreakStart.updateAgentStatus(req.session.user!.id, "break", null);
+      }
+
       res.status(201).json(brk);
     } catch (error) {
       console.error("Error starting break:", error);
@@ -27055,6 +27088,11 @@ Guidelines:
             totalBreakTime: (session.totalBreakTime || 0) + (brk.durationSeconds || 0),
             lastActiveAt: new Date(),
           });
+
+          const engineBreakEnd = getQueueEngine();
+          if (engineBreakEnd && session.userId) {
+            await engineBreakEnd.updateAgentStatus(session.userId, "available", null);
+          }
         }
       }
       res.json(brk);
