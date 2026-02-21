@@ -2377,6 +2377,7 @@ function CommunicationCanvas({
 
 function CustomerDocumentsPanel({ customerId }: { customerId: string }) {
   const { t } = useI18n();
+  const [typeFilter, setTypeFilter] = useState<"all" | "contract" | "invoice">("all");
   const { data: documents = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/customers", customerId, "documents"],
     queryFn: async () => {
@@ -2386,6 +2387,10 @@ function CustomerDocumentsPanel({ customerId }: { customerId: string }) {
     },
     enabled: !!customerId,
   });
+
+  const filteredDocs = typeFilter === "all" ? documents : documents.filter((d: any) => d.type === typeFilter);
+  const contractCount = documents.filter((d: any) => d.type === "contract").length;
+  const invoiceCount = documents.filter((d: any) => d.type === "invoice").length;
 
   if (isLoading) {
     return (
@@ -2409,9 +2414,39 @@ function CustomerDocumentsPanel({ customerId }: { customerId: string }) {
   };
 
   return (
-    <ScrollArea className="flex-1">
-      <div className="px-4 py-3 space-y-2">
-        {documents.map((doc: any) => (
+    <div className="flex-1 flex flex-col">
+      <div className="px-4 pt-3 pb-2 flex gap-1.5" data-testid="doc-type-filter">
+        <Button
+          size="sm"
+          variant={typeFilter === "all" ? "default" : "outline"}
+          className="h-6 text-[10px] px-2 rounded-full"
+          onClick={() => setTypeFilter("all")}
+          data-testid="filter-doc-all"
+        >
+          {t.common?.all || "All"} ({documents.length})
+        </Button>
+        <Button
+          size="sm"
+          variant={typeFilter === "contract" ? "default" : "outline"}
+          className="h-6 text-[10px] px-2 rounded-full"
+          onClick={() => setTypeFilter("contract")}
+          data-testid="filter-doc-contract"
+        >
+          {t.customers?.details?.contract || "Contracts"} ({contractCount})
+        </Button>
+        <Button
+          size="sm"
+          variant={typeFilter === "invoice" ? "default" : "outline"}
+          className="h-6 text-[10px] px-2 rounded-full"
+          onClick={() => setTypeFilter("invoice")}
+          data-testid="filter-doc-invoice"
+        >
+          {t.customers?.details?.invoice || "Invoices"} ({invoiceCount})
+        </Button>
+      </div>
+      <ScrollArea className="flex-1">
+      <div className="px-4 py-2 space-y-2">
+        {filteredDocs.map((doc: any) => (
           <div
             key={`${doc.type}-${doc.id}`}
             className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
@@ -2478,6 +2513,7 @@ function CustomerDocumentsPanel({ customerId }: { customerId: string }) {
         ))}
       </div>
     </ScrollArea>
+    </div>
   );
 }
 
