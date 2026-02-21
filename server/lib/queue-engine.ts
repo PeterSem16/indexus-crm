@@ -6,6 +6,7 @@ import {
   queueMembers,
   agentQueueStatus,
   inboundCallLogs,
+  ivrMessages,
   type InboundQueue,
   type QueueMember,
   type InboundCallLog,
@@ -153,8 +154,15 @@ export class QueueEngine extends EventEmitter {
 
     if (queue.welcomeMessageId) {
       try {
-        await this.ariClient.playMedia(channel.id, `sound:queue-welcome`);
-      } catch {}
+        const [msg] = await db.select().from(ivrMessages).where(eq(ivrMessages.id, queue.welcomeMessageId)).limit(1);
+        const soundName = msg?.name
+          ? msg.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+          : 'hello-world';
+        console.log(`[QueueEngine] Playing welcome: sound:${soundName} (IVR message: ${msg?.name || 'default'})`);
+        await this.ariClient.playMedia(channel.id, `sound:${soundName}`);
+      } catch (err) {
+        console.warn(`[QueueEngine] Welcome message playback failed, continuing:`, err instanceof Error ? err.message : err);
+      }
     }
 
     const customerId = await this.lookupCustomer(callerNumber);
