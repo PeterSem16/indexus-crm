@@ -15154,11 +15154,12 @@ export async function registerRoutes(
       if (!recipientUserIds || !recipientUserIds.length) return res.status(400).json({ error: "At least one recipient is required" });
       if (!sendTime) return res.status(400).json({ error: "Send time is required" });
 
-      const now = new Date();
-      const [hours, minutes] = sendTime.split(':').map(Number);
-      const nextRun = new Date(now);
-      nextRun.setHours(hours, minutes, 0, 0);
-      if (nextRun <= now) nextRun.setDate(nextRun.getDate() + 1);
+      const { computeNextRunAtUtc } = await import("./scheduled-report-runner");
+      const campaign = await storage.getCampaign(campaignId);
+      const countryTzMap: Record<string, string> = { SK: 'Europe/Bratislava', CZ: 'Europe/Prague', HU: 'Europe/Budapest', RO: 'Europe/Bucharest', IT: 'Europe/Rome', DE: 'Europe/Berlin', US: 'America/New_York' };
+      const cc = campaign?.countryCodes?.[0];
+      const timezone = (cc && countryTzMap[cc]) || 'Europe/Bratislava';
+      const nextRun = computeNextRunAtUtc(sendTime, timezone);
 
       const [created] = await db.insert(scheduledReports).values({
         campaignId,
@@ -15188,12 +15189,16 @@ export async function registerRoutes(
       if (recipientUserIds) updates.recipientUserIds = recipientUserIds;
       if (sendTime) {
         updates.sendTime = sendTime;
-        const now = new Date();
-        const [hours, minutes] = sendTime.split(':').map(Number);
-        const nextRun = new Date(now);
-        nextRun.setHours(hours, minutes, 0, 0);
-        if (nextRun <= now) nextRun.setDate(nextRun.getDate() + 1);
-        updates.nextRunAt = nextRun;
+        const existingReport = await db.select({ campaignId: scheduledReports.campaignId }).from(scheduledReports).where(eq(scheduledReports.id, id));
+        let timezone = 'Europe/Bratislava';
+        if (existingReport.length > 0 && existingReport[0].campaignId) {
+          const campaign = await storage.getCampaign(existingReport[0].campaignId);
+          const countryTzMap: Record<string, string> = { SK: 'Europe/Bratislava', CZ: 'Europe/Prague', HU: 'Europe/Budapest', RO: 'Europe/Bucharest', IT: 'Europe/Rome', DE: 'Europe/Berlin', US: 'America/New_York' };
+          const cc = campaign?.countryCodes?.[0];
+          timezone = (cc && countryTzMap[cc]) || 'Europe/Bratislava';
+        }
+        const { computeNextRunAtUtc } = await import("./scheduled-report-runner");
+        updates.nextRunAt = computeNextRunAtUtc(sendTime, timezone);
       }
       if (dateRangeType) updates.dateRangeType = dateRangeType;
 
