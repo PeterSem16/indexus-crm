@@ -1085,7 +1085,7 @@ export class QueueEngine extends EventEmitter {
       console.log(`[QueueEngine] Could not set channel vars (non-critical): ${e.message}`);
     }
 
-    const contexts = ["from-internal", "default", "indexus-inbound"];
+    const contexts = ["from-internal-indexus", "from-internal", "default"];
     for (const ctx of contexts) {
       try {
         console.log(`[QueueEngine] Attempting continueDialplan: context=${ctx}, extension=${extension}, priority=1`);
