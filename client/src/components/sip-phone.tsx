@@ -76,7 +76,7 @@ export function SipPhone({
   hideSettingsAndRegistration = false
 }: SipPhoneProps) {
   const { toast } = useToast();
-  const { isRegistered, isRegistering, registrationError, register, unregister, userAgentRef, registererRef, pendingCall, clearPendingCall } = useSip();
+  const { isRegistered, isRegistering, registrationError, register, unregister, ensureRegistered, userAgentRef, registererRef, pendingCall, clearPendingCall } = useSip();
   const callContext = useCall();
   const [localCustomerId, setLocalCustomerId] = useState(customerId);
   const [localCampaignId, setLocalCampaignId] = useState(campaignId);
@@ -624,19 +624,25 @@ export function SipPhone({
       return;
     }
     
-    if (!phoneNumber || !userAgentRef.current || !isRegistered) {
-      if (!isRegistered) {
-        toast({
-          title: "Nepripojené",
-          description: "Najprv sa pripojte k SIP serveru",
-          variant: "destructive"
-        });
-      }
+    if (!phoneNumber) {
+      return;
+    }
+
+    setCallState("connecting");
+
+    const ready = await ensureRegistered();
+    if (!ready || !userAgentRef.current) {
+      toast({
+        title: "Nepripojené",
+        description: "Nepodarilo sa pripojiť k SIP serveru. Skúste znova.",
+        variant: "destructive"
+      });
+      setCallState("idle");
+      callContext.setCallState("idle");
       return;
     }
 
     try {
-      setCallState("connecting");
       callContext.resetCallTiming();
       
       const callLogData = await createCallLogMutation.mutateAsync({
@@ -791,7 +797,7 @@ export function SipPhone({
       });
       setCallState("idle");
     }
-  }, [phoneNumber, sipConfig.server, sipConfig.realm, isRegistered, onCallStart, onCallEnd, toast, createCallLogMutation, updateCallLogMutation, userId, currentUser, localCustomerId, localCampaignId, localCustomerName, currentCallLogId, isSipConfigured]);
+  }, [phoneNumber, sipConfig.server, sipConfig.realm, ensureRegistered, onCallStart, onCallEnd, toast, createCallLogMutation, updateCallLogMutation, userId, currentUser, localCustomerId, localCampaignId, localCustomerName, currentCallLogId, isSipConfigured]);
 
   useEffect(() => {
     if (pendingCall && (callState === "idle" || callState === "ended")) {
@@ -810,15 +816,11 @@ export function SipPhone({
       setLocalClientStatus(callData.clientStatus);
       clearPendingCall();
       
-      if (isRegistered) {
-        setTimeout(() => {
-          makeCall();
-        }, 100);
-      } else {
-        pendingCallProcessedRef.current = true;
-      }
+      setTimeout(() => {
+        makeCall();
+      }, 100);
     }
-  }, [pendingCall, callState, clearPendingCall, isRegistered, makeCall]);
+  }, [pendingCall, callState, clearPendingCall, makeCall]);
 
   useEffect(() => {
     if (pendingCallProcessedRef.current && isRegistered && (callState === "idle" || callState === "ended")) {

@@ -27,6 +27,7 @@ interface SipContextType {
   registrationError: string | null;
   register: () => Promise<void>;
   unregister: () => Promise<void>;
+  ensureRegistered: () => Promise<boolean>;
   userAgentRef: React.MutableRefObject<any>;
   registererRef: React.MutableRefObject<any>;
   pendingCall: PendingCall | null;
@@ -38,9 +39,10 @@ const SipContext = createContext<SipContextType | undefined>(undefined);
 
 const REGISTER_EXPIRES = 120;
 const RE_REGISTER_INTERVAL = 45_000;
-const RECONNECT_BASE_DELAY = 2_000;
+const RECONNECT_BASE_DELAY = 1_000;
 const RECONNECT_MAX_DELAY = 30_000;
 const KEEPALIVE_INTERVAL = 25_000;
+const ENSURE_REGISTERED_TIMEOUT = 8_000;
 
 export function SipProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -57,6 +59,8 @@ export function SipProvider({ children }: { children: ReactNode }) {
   const reconnectAttemptRef = useRef(0);
   const intentionalDisconnectRef = useRef(false);
   const isConnectingRef = useRef(false);
+  const registeredCallbacksRef = useRef<Array<() => void>>([]);
+  const isRegisteredRef = useRef(false);
 
   const makeCall = useCallback((call: PendingCall) => {
     setPendingCall(call);
@@ -96,6 +100,21 @@ export function SipProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const notifyRegistered = useCallback(() => {
+    const cbs = registeredCallbacksRef.current.splice(0);
+    for (const cb of cbs) {
+      try { cb(); } catch (_) {}
+    }
+  }, []);
+
+  const setRegisteredState = useCallback((val: boolean) => {
+    isRegisteredRef.current = val;
+    setIsRegistered(val);
+    if (val) {
+      notifyRegistered();
+    }
+  }, [notifyRegistered]);
+
   const startKeepalive = useCallback(() => {
     if (keepaliveTimerRef.current) {
       clearInterval(keepaliveTimerRef.current);
@@ -106,9 +125,7 @@ export function SipProvider({ children }: { children: ReactNode }) {
         if (transport && (transport as any)._ws?.readyState === WebSocket.OPEN) {
           (transport as any)._ws.send("\r\n\r\n");
         }
-      } catch (e) {
-        // ignore keepalive errors
-      }
+      } catch (e) {}
     }, KEEPALIVE_INTERVAL);
   }, []);
 
@@ -131,6 +148,24 @@ export function SipProvider({ children }: { children: ReactNode }) {
     }, RE_REGISTER_INTERVAL);
   }, []);
 
+  const doReconnectNow = useCallback(async (): Promise<boolean> => {
+    if (!userAgentRef.current || !registererRef.current) return false;
+    try {
+      const transport = userAgentRef.current.transport;
+      if (transport && !transport.isConnected()) {
+        console.log("[SIP] Immediate reconnect: connecting transport...");
+        await transport.connect();
+      }
+      console.log("[SIP] Immediate reconnect: sending REGISTER...");
+      await registererRef.current.register();
+      reconnectAttemptRef.current = 0;
+      return true;
+    } catch (e: any) {
+      console.warn("[SIP] Immediate reconnect failed:", e.message);
+      return false;
+    }
+  }, []);
+
   const scheduleReconnect = useCallback(() => {
     if (intentionalDisconnectRef.current || isConnectingRef.current) return;
     if (reconnectTimerRef.current) {
@@ -147,31 +182,16 @@ export function SipProvider({ children }: { children: ReactNode }) {
 
       try {
         isConnectingRef.current = true;
-        console.log(`[SIP] Reconnect attempt ${attempt + 1}...`);
-
-        if (userAgentRef.current) {
-          const transport = userAgentRef.current.transport;
-          if (transport && !transport.isConnected()) {
-            await transport.connect();
-          }
-
-          if (registererRef.current) {
-            await registererRef.current.register();
-            reconnectAttemptRef.current = 0;
-            console.log("[SIP] Reconnected and re-registered successfully");
-          }
-        } else {
-          reconnectAttemptRef.current = 0;
+        const ok = await doReconnectNow();
+        if (!ok) {
+          reconnectAttemptRef.current = attempt + 1;
+          scheduleReconnect();
         }
-      } catch (e: any) {
-        console.warn(`[SIP] Reconnect attempt ${attempt + 1} failed:`, e.message);
-        reconnectAttemptRef.current = attempt + 1;
-        scheduleReconnect();
       } finally {
         isConnectingRef.current = false;
       }
     }, delay);
-  }, []);
+  }, [doReconnectNow]);
 
   const register = useCallback(async () => {
     if (!canRegister()) return;
@@ -239,7 +259,7 @@ export function SipProvider({ children }: { children: ReactNode }) {
 
       userAgent.transport.onDisconnect = (error?: Error) => {
         console.warn("[SIP] Transport disconnected", error?.message || "");
-        setIsRegistered(false);
+        setRegisteredState(false);
         if (keepaliveTimerRef.current) {
           clearInterval(keepaliveTimerRef.current);
           keepaliveTimerRef.current = null;
@@ -265,17 +285,17 @@ export function SipProvider({ children }: { children: ReactNode }) {
       registerer.stateChange.addListener((newState: any) => {
         console.log("[SIP] Registerer state:", newState);
         if (newState === RegistererState.Registered) {
-          setIsRegistered(true);
+          setRegisteredState(true);
           setIsRegistering(false);
           setRegistrationError(null);
           reconnectAttemptRef.current = 0;
         } else if (newState === RegistererState.Unregistered) {
-          setIsRegistered(false);
+          setRegisteredState(false);
           if (!intentionalDisconnectRef.current) {
             scheduleReconnect();
           }
         } else if (newState === RegistererState.Terminated) {
-          setIsRegistered(false);
+          setRegisteredState(false);
           setIsRegistering(false);
         }
       });
@@ -289,7 +309,7 @@ export function SipProvider({ children }: { children: ReactNode }) {
     } catch (error: any) {
       console.error("[SIP] Registration failed:", error);
       setRegistrationError(error.message || "Registration failed");
-      setIsRegistered(false);
+      setRegisteredState(false);
       setIsRegistering(false);
       if (!intentionalDisconnectRef.current) {
         scheduleReconnect();
@@ -297,7 +317,48 @@ export function SipProvider({ children }: { children: ReactNode }) {
     } finally {
       isConnectingRef.current = false;
     }
-  }, [canRegister, sipSettings, user, clearTimers, startReRegisterTimer, startKeepalive, scheduleReconnect]);
+  }, [canRegister, sipSettings, user, clearTimers, startReRegisterTimer, startKeepalive, scheduleReconnect, setRegisteredState]);
+
+  const ensureRegistered = useCallback(async (): Promise<boolean> => {
+    if (isRegisteredRef.current) {
+      const transport = userAgentRef.current?.transport;
+      if (transport && transport.isConnected()) {
+        console.log("[SIP] ensureRegistered: already registered and connected");
+        return true;
+      }
+    }
+
+    console.log("[SIP] ensureRegistered: not registered, attempting immediate reconnect...");
+
+    if (userAgentRef.current && registererRef.current) {
+      const ok = await doReconnectNow();
+      if (ok) {
+        await new Promise(r => setTimeout(r, 300));
+        if (isRegisteredRef.current) return true;
+      }
+    }
+
+    if (!userAgentRef.current && canRegister()) {
+      register();
+    }
+
+    return new Promise<boolean>((resolve) => {
+      const timeout = setTimeout(() => {
+        const idx = registeredCallbacksRef.current.indexOf(cb);
+        if (idx >= 0) registeredCallbacksRef.current.splice(idx, 1);
+        console.warn("[SIP] ensureRegistered: timed out waiting for registration");
+        resolve(isRegisteredRef.current);
+      }, ENSURE_REGISTERED_TIMEOUT);
+
+      const cb = () => {
+        clearTimeout(timeout);
+        console.log("[SIP] ensureRegistered: registration confirmed");
+        resolve(true);
+      };
+
+      registeredCallbacksRef.current.push(cb);
+    });
+  }, [doReconnectNow, canRegister, register]);
 
   const unregister = useCallback(async () => {
     intentionalDisconnectRef.current = true;
@@ -315,9 +376,9 @@ export function SipProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error("[SIP] Unregister error:", error);
     }
-    setIsRegistered(false);
+    setRegisteredState(false);
     setIsRegistering(false);
-  }, [clearTimers]);
+  }, [clearTimers, setRegisteredState]);
 
   useEffect(() => {
     if (user && canRegister() && !isRegistered && !isRegistering && !isConnectingRef.current) {
@@ -371,7 +432,7 @@ export function SipProvider({ children }: { children: ReactNode }) {
   }, [clearTimers]);
 
   return (
-    <SipContext.Provider value={{ isRegistered, isRegistering, registrationError, register, unregister, userAgentRef, registererRef, pendingCall, makeCall, clearPendingCall }}>
+    <SipContext.Provider value={{ isRegistered, isRegistering, registrationError, register, unregister, ensureRegistered, userAgentRef, registererRef, pendingCall, makeCall, clearPendingCall }}>
       {children}
     </SipContext.Provider>
   );

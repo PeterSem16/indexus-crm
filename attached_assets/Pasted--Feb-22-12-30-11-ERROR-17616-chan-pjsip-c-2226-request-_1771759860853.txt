@@ -1,0 +1,55 @@
+[Feb 22 12:30:11] ERROR[17616]: chan_pjsip.c:2226 request: Failed to create outgoing session to endpoint '2001'
+  == WebSocket connection from '10.9.20.180:49741' for protocol 'sip' accepted using version '13'
+[Feb 22 12:30:11] ERROR[17616]: res_pjsip.c:3188 ast_sip_create_dialog_uac: Endpoint '2001': Could not create dialog to invalid URI '2001'.  Is endpoint registered and reachable?
+[Feb 22 12:30:11] ERROR[17616]: chan_pjsip.c:2226 request: Failed to create outgoing session to endpoint '2001'
+    -- Added contact 'sip:r8pcvio9@10.9.20.180:49741;transport=ws' to AOR '2001' with expiration of 120 seconds
+  == Contact 2001/sip:r8pcvio9@10.9.20.180:49741;transport=ws has been created
+  == Endpoint 2001 is now Reachable
+    -- Called 2001
+    -- Contact 2001/sip:r8pcvio9@10.9.20.180:49741;transport=ws is now Reachable.  RTT: 16.892 msec
+  == DTLS ECDH initialized (automatic), faster PFS enabled
+    -- Called 2001
+  == DTLS ECDH initialized (automatic), faster PFS enabled
+    -- Called 2001
+  == DTLS ECDH initialized (automatic), faster PFS enabled
+    -- Called 2001
+  == DTLS ECDH initialized (automatic), faster PFS enabled
+    -- Called 2001
+  == DTLS ECDH initialized (automatic), faster PFS enabled
+    -- Called 2001
+  == DTLS ECDH initialized (automatic), faster PFS enabled
+    -- Called 2001
+  == DTLS ECDH initialized (automatic), faster PFS enabled
+    -- Called 2001
+       > 0x7f64fc0066b0 -- Strict RTP learning complete - Locking on source address 195.28.88.42:26282
+  == DTLS ECDH initialized (automatic), faster PFS enabled
+    -- Called 2001
+    -- Called 2001
+  == DTLS ECDH initialized (automatic), faster PFS enabled
+  == DTLS ECDH initialized (automatic), faster PFS enabled
+    -- Called 2001
+    -- Called 2001
+    -- Called 2001
+  == DTLS ECDH initialized (automatic), faster PFS enabled
+  == DTLS ECDH initialized (automatic), faster PFS enabled
+  == DTLS ECDH initialized (automatic), faster PFS enabled
+    -- Called 2001
+    -- Called 2001
+    -- Called 2001
+  == DTLS ECDH initialized (automatic), faster PFS enabled
+  == DTLS ECDH initialized (automatic), faster PFS enabled
+  == DTLS ECDH initialized (automatic), faster PFS enabled
+    -- Called 2001
+    -- Called 2001
+    -- Called 2001
+  == DTLS ECDH initialized (automatic), faster PFS enabled
+  == DTLS ECDH initialized (automatic), faster PFS enabled
+  == DTLS ECDH initialized (automatic), faster PFS enabled
+    -- Called 2001
+    -- Called 2001
+    -- Called 2001
+    -- Called 2001
+  == DTLS ECDH initialized (automatic), faster PFS enabled
+  == DTLS ECDH initialized (automatic), faster PFS enabled
+  == DTLS ECDH initialized (automatic), faster PFS enabled
+  == DTLS ECDH initialized (automatic), faster PFS enabled
