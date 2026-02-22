@@ -76,7 +76,7 @@ export function SipPhone({
   hideSettingsAndRegistration = false
 }: SipPhoneProps) {
   const { toast } = useToast();
-  const { isRegistered, isRegistering, registrationError, register, unregister, ensureRegistered, userAgentRef, registererRef, pendingCall, clearPendingCall, incomingCall, answerIncomingCall, rejectIncomingCall } = useSip();
+  const { isRegistered, isRegistering, registrationError, register, unregister, ensureRegistered, userAgentRef, registererRef, pendingCall, clearPendingCall, incomingCall, answeredIncomingSession, clearAnsweredSession, answerIncomingCall, rejectIncomingCall } = useSip();
   const callContext = useCall();
   const [localCustomerId, setLocalCustomerId] = useState(customerId);
   const [localCampaignId, setLocalCampaignId] = useState(campaignId);
@@ -588,6 +588,90 @@ export function SipPhone({
     }
     return () => stopRingtone();
   }, [callState, startRingtone, stopRingtone]);
+
+  useEffect(() => {
+    if (!answeredIncomingSession) return;
+    const session = answeredIncomingSession;
+    clearAnsweredSession();
+    console.log("[SIP] Externally answered incoming session detected, setting up audio...");
+
+    sessionRef.current = session;
+    const callerNumber = session._inboundCallerNumber || "Unknown";
+    setPhoneNumber(callerNumber);
+    setCallState("active");
+    setIsOnHold(false);
+    callContext.resetCallTiming();
+    callStartTimeRef.current = Date.now();
+    callContext.setCallTiming({ callStartTime: Date.now() });
+
+    const timer = setInterval(() => {
+      setCallDuration(Math.floor((Date.now() - callStartTimeRef.current) / 1000));
+    }, 1000);
+    callTimerRef.current = timer;
+
+    setupAudio(session);
+
+    if (callContext.autoRecord) {
+      setTimeout(() => startRecording(session), 500);
+    }
+
+    const onTerminated = (state: any) => {
+      if (state !== SessionState.Terminated) return;
+      if (forceIdleRef.current) { forceIdleRef.current = false; return; }
+      const duration = callStartTimeRef.current ? Math.floor((Date.now() - callStartTimeRef.current) / 1000) : 0;
+      setCallState("ended");
+      if (callTimerRef.current) clearInterval(callTimerRef.current);
+      const hungUpBy = userHungUpRef.current ? "user" : "customer";
+      userHungUpRef.current = false;
+      callContext.setCallTiming({ callEndTime: Date.now(), talkDurationSeconds: duration > 0 ? duration : null, hungUpBy });
+      if (duration > 0) {
+        stopRecordingAndUpload(currentCallLogIdRef.current || 0, duration);
+      } else {
+        if (mediaRecorderRef.current) { try { mediaRecorderRef.current.stop(); } catch {} mediaRecorderRef.current = null; isRecordingRef.current = false; callContext.setIsRecording(false); callContext.setIsRecordingPaused(false); recordingChunksRef.current = []; }
+      }
+      callContext.setAutoRecord(true);
+      onCallEnd?.(duration, duration > 0 ? "completed" : "failed", currentCallLogIdRef.current || 0);
+      setCurrentCallLogId(null);
+      if (!callContext.preventAutoReset) {
+        setTimeout(() => {
+          setCallStateLocal((prev) => { if (prev === "ended") { callContext.setCallState("idle"); callContext.setCallInfo(null); callContext.resetCallTiming(); return "idle"; } return prev; });
+          setCallDuration(0);
+          sessionRef.current = null;
+        }, 3000);
+      }
+    };
+
+    session.stateChange.addListener(onTerminated);
+
+    const currentCallLogIdRef = { current: null as number | null };
+
+    createCallLogMutation.mutateAsync({
+      phoneNumber: callerNumber,
+      direction: "inbound",
+      status: "answered",
+      userId: userId || currentUser?.id,
+      customerId: localCustomerId,
+      customerName: session._inboundCallerName || callerNumber,
+    }).then((callLogData) => {
+      setCurrentCallLogId(callLogData.id);
+      currentCallLogIdRef.current = callLogData.id;
+
+      updateCallLogMutation.mutate({
+        id: callLogData.id,
+        data: { status: "answered", answeredAt: new Date().toISOString() },
+        customerId: localCustomerId
+      });
+
+      onCallStart?.(callerNumber, callLogData.id);
+    }).catch((err) => {
+      console.error("[SIP] Failed to create call log for externally answered call:", err);
+    });
+
+    return () => {
+      clearInterval(timer);
+      try { session.stateChange.removeListener(onTerminated); } catch {}
+    };
+  }, [answeredIncomingSession]);
 
   const connect = useCallback(async () => {
     if (!sipConfig.server || !sipConfig.username || !sipConfig.password) {

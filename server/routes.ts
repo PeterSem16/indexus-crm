@@ -1807,6 +1807,41 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/customers/lookup-phone", requireAuth, async (req, res) => {
+    try {
+      const phone = req.query.phone as string;
+      if (!phone) return res.status(400).json({ error: "Phone parameter required" });
+
+      const normalized = phone.replace(/[\s\-\(\)]/g, "");
+      const shortNum = normalized.replace(/^(\+|00)/, "").replace(/^421|^420|^36|^40|^39|^49|^1/, "");
+
+      const allCustomers = await storage.getAllCustomers();
+      const match = allCustomers.find((c: any) => {
+        const phones = [c.phone, c.mobile, c.mobile2, c.otherContact].filter(Boolean);
+        return phones.some((p: string) => {
+          const norm = p.replace(/[\s\-\(\)]/g, "");
+          return norm === normalized || norm.endsWith(shortNum) || normalized.endsWith(norm.replace(/^(\+|00)/, "").replace(/^421|^420|^36|^40|^39|^49|^1/, ""));
+        });
+      });
+
+      if (match) {
+        res.json({
+          id: match.id,
+          name: `${match.firstName} ${match.lastName}`,
+          email: match.email,
+          phone: match.phone || match.mobile,
+          company: (match as any).company || null,
+          country: match.country,
+        });
+      } else {
+        res.json(null);
+      }
+    } catch (error) {
+      console.error("Error looking up customer by phone:", error);
+      res.status(500).json({ error: "Failed to lookup customer" });
+    }
+  });
+
   app.get("/api/customers/:id", requireAuth, async (req, res) => {
     try {
       const customer = await storage.getCustomer(req.params.id);

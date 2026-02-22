@@ -40,6 +40,8 @@ interface SipContextType {
   makeCall: (call: PendingCall) => void;
   clearPendingCall: () => void;
   incomingCall: IncomingCall | null;
+  answeredIncomingSession: any;
+  clearAnsweredSession: () => void;
   answerIncomingCall: () => Promise<any>;
   rejectIncomingCall: () => void;
 }
@@ -60,6 +62,7 @@ export function SipProvider({ children }: { children: ReactNode }) {
   const [registrationError, setRegistrationError] = useState<string | null>(null);
   const [pendingCall, setPendingCall] = useState<PendingCall | null>(null);
   const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
+  const [answeredIncomingSession, setAnsweredIncomingSession] = useState<any>(null);
 
   const userAgentRef = useRef<any>(null);
   const registererRef = useRef<any>(null);
@@ -80,17 +83,26 @@ export function SipProvider({ children }: { children: ReactNode }) {
     setPendingCall(null);
   }, []);
 
+  const clearAnsweredSession = useCallback(() => {
+    setAnsweredIncomingSession(null);
+  }, []);
+
   const answerIncomingCall = useCallback(async () => {
     if (!incomingCall?.invitation) return null;
     try {
       console.log("[SIP] Answering incoming call...");
+      const callerNumber = incomingCall.callerNumber;
+      const callerName = incomingCall.callerName;
       await incomingCall.invitation.accept({
         sessionDescriptionHandlerOptions: {
           constraints: { audio: true, video: false }
         }
       });
       const session = incomingCall.invitation;
+      session._inboundCallerNumber = callerNumber;
+      session._inboundCallerName = callerName;
       setIncomingCall(null);
+      setAnsweredIncomingSession(session);
       return session;
     } catch (e: any) {
       console.error("[SIP] Failed to answer incoming call:", e);
@@ -540,7 +552,7 @@ export function SipProvider({ children }: { children: ReactNode }) {
   }, [clearTimers]);
 
   return (
-    <SipContext.Provider value={{ isRegistered, isRegistering, registrationError, register, unregister, ensureRegistered, userAgentRef, registererRef, pendingCall, makeCall, clearPendingCall, incomingCall, answerIncomingCall, rejectIncomingCall }}>
+    <SipContext.Provider value={{ isRegistered, isRegistering, registrationError, register, unregister, ensureRegistered, userAgentRef, registererRef, pendingCall, makeCall, clearPendingCall, incomingCall, answeredIncomingSession, clearAnsweredSession, answerIncomingCall, rejectIncomingCall }}>
       {children}
     </SipContext.Provider>
   );

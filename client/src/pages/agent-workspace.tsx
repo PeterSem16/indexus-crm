@@ -3911,7 +3911,7 @@ export default function AgentWorkspacePage() {
   const { t, locale } = useI18n();
   const { user } = useAuth();
   const { toast } = useToast();
-  const { makeCall, isRegistered: isSipRegistered } = useSip();
+  const { makeCall, isRegistered: isSipRegistered, incomingCall: sipIncomingCall, answerIncomingCall, rejectIncomingCall } = useSip();
   const callContext = useCall();
   const [, setLocation] = useLocation();
   const { open: sidebarOpen, setOpen: setSidebarOpen } = useSidebar();
@@ -5014,6 +5014,118 @@ export default function AgentWorkspacePage() {
     };
   }, [user?.id, agentSession.isSessionActive]);
 
+  useEffect(() => {
+    if (sipIncomingCall && agentSession.isSessionActive) {
+      console.log("[AgentWS] SIP incoming call detected, showing popup:", sipIncomingCall.callerNumber);
+      setInboundCall({
+        callId: `sip-${Date.now()}`,
+        callerNumber: sipIncomingCall.callerNumber,
+        callerName: sipIncomingCall.callerName,
+        queueName: "Inbound",
+        queueId: "sip-direct",
+        waitTime: 0,
+        channelId: "sip-webrtc",
+        timestamp: Date.now(),
+      });
+    } else if (!sipIncomingCall && inboundCall?.channelId === "sip-webrtc") {
+      setInboundCall(null);
+    }
+  }, [sipIncomingCall, agentSession.isSessionActive]);
+
+  const handleAcceptInboundCall = useCallback(async (call: typeof inboundCall) => {
+    if (!call) return;
+    try {
+      if (call.channelId === "sip-webrtc" && sipIncomingCall) {
+        console.log("[AgentWS] Accepting SIP inbound call...");
+        const callerNumber = call.callerNumber;
+        const session = await answerIncomingCall();
+        if (!session) {
+          toast({ title: "Chyba", description: "Nepodarilo sa prijať hovor", variant: "destructive" });
+          setInboundCall(null);
+          return;
+        }
+
+        setInboundCall(null);
+        agentSession.updateStatus("busy").catch(() => {});
+        setActiveChannel("phone");
+        setRightTab("actions");
+        setCallNotes("");
+
+        let customerFound = false;
+        try {
+          const res = await fetch(`/api/customers/lookup-phone?phone=${encodeURIComponent(callerNumber)}`, { credentials: "include" });
+          if (res.ok) {
+            const matched = await res.json();
+            if (matched?.id) {
+              const custRes = await fetch(`/api/customers/${matched.id}`, { credentials: "include" });
+              if (custRes.ok) {
+                const customer = await custRes.json();
+                customerFound = true;
+                setCurrentContact(customer);
+                setCurrentCampaignContactId(null);
+
+                const newTask: TaskItem = {
+                  id: `task-inbound-${Date.now()}`,
+                  contact: customer,
+                  campaignId: selectedCampaignId || "",
+                  campaignName: selectedCampaign?.name || "Inbound",
+                  campaignContactId: null,
+                  channel: "phone",
+                  startedAt: new Date(),
+                  status: "active",
+                  direction: "inbound",
+                };
+                setTasks((prev) => [...prev, newTask]);
+                setActiveTaskId(newTask.id);
+
+                setTimeline([{
+                  id: `sys-inbound-${Date.now()}`,
+                  type: "system",
+                  timestamp: new Date(),
+                  content: `Prichádzajúci hovor od ${customer.firstName} ${customer.lastName} (${callerNumber})`,
+                  details: "Inbound call",
+                }]);
+              }
+            }
+          }
+        } catch (lookupErr) {
+          console.warn("[AgentWS] Customer lookup failed:", lookupErr);
+        }
+
+        if (!customerFound) {
+          setTimeline([{
+            id: `sys-inbound-${Date.now()}`,
+            type: "system",
+            timestamp: new Date(),
+            content: `Prichádzajúci hovor od ${callerNumber} (neznámy zákazník)`,
+          }]);
+        }
+
+        toast({ title: "Hovor prijatý", description: `Prepojený s ${callerNumber}` });
+      } else {
+        await apiRequest("POST", `/api/inbound-calls/${call.callId}/accept`, { userId: user?.id });
+        toast({ title: "Call accepted" });
+        setInboundCall(null);
+      }
+    } catch (err: any) {
+      console.error("[AgentWS] Error accepting call:", err);
+      toast({ title: "Chyba", description: err.message || "Nepodarilo sa prijať hovor", variant: "destructive" });
+    }
+  }, [sipIncomingCall, answerIncomingCall, callContext, toast, user?.id, agentSession, selectedCampaignId, selectedCampaign]);
+
+  const handleRejectInboundCall = useCallback((call: typeof inboundCall) => {
+    if (!call) return;
+    if (call.channelId === "sip-webrtc") {
+      rejectIncomingCall();
+      setInboundCall(null);
+      toast({ title: "Hovor odmietnutý" });
+    } else {
+      apiRequest("POST", `/api/inbound-calls/${call.callId}/reject`, { userId: user?.id })
+        .then(() => setInboundCall(null))
+        .catch(() => setInboundCall(null));
+    }
+  }, [rejectIncomingCall, toast, user?.id]);
+
   const activeBreakTypeObj = agentSession.activeBreak
     ? agentSession.breakTypes.find(bt => bt.id === agentSession.activeBreak?.breakTypeId) || null
     : null;
@@ -5023,17 +5135,8 @@ export default function AgentWorkspacePage() {
     <div className={`flex flex-col ${agentSession.isSessionActive ? "h-screen" : "h-[calc(100vh-8rem)] -m-6"}`}>
       <InboundCallPopup
         inboundCall={inboundCall}
-        onAccept={(call) => {
-          apiRequest("POST", `/api/inbound-calls/${call.callId}/accept`, { userId: user?.id }).then(() => {
-            toast({ title: "Call accepted" });
-            setInboundCall(null);
-          }).catch((err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }));
-        }}
-        onReject={(call) => {
-          apiRequest("POST", `/api/inbound-calls/${call.callId}/reject`, { userId: user?.id }).then(() => {
-            setInboundCall(null);
-          }).catch(() => setInboundCall(null));
-        }}
+        onAccept={(call) => handleAcceptInboundCall(call)}
+        onReject={(call) => handleRejectInboundCall(call)}
         onDismiss={() => setInboundCall(null)}
       />
       <Dialog open={sessionLoginOpen && !agentSession.isSessionActive} onOpenChange={(open) => { if (!open) { setSessionLoginOpen(false); setLocation("/"); } }}>
