@@ -3965,6 +3965,7 @@ export default function AgentWorkspacePage() {
   const [isAutoMode, setIsAutoMode] = useState(false);
   const [scheduledQueueOpen, setScheduledQueueOpen] = useState(false);
   const [abandonedCallsOpen, setAbandonedCallsOpen] = useState(false);
+  const pendingCallbackAbandonedIdRef = useRef<string | null>(null);
   const [historyDetailModal, setHistoryDetailModal] = useState<TimelineEntry | ContactHistory | null>(null);
   const [autoCountdown, setAutoCountdown] = useState<number | null>(null);
   const autoTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -4104,10 +4105,30 @@ export default function AgentWorkspacePage() {
           setDispositionChannelFilter("phone");
           setMandatoryDisposition(true);
         }
+        if (pendingCallbackAbandonedIdRef.current) {
+          const abandonedId = pendingCallbackAbandonedIdRef.current;
+          pendingCallbackAbandonedIdRef.current = null;
+          fetch(`/api/agent/abandoned-calls/${abandonedId}/called-back`, {
+            method: "POST",
+            credentials: "include",
+          }).then(() => {
+            queryClient.invalidateQueries({ queryKey: ["/api/agent/abandoned-calls"] });
+          }).catch(console.error);
+        }
       }
       if (curr === "idle") {
         callWasActiveRef.current = false;
         setRingDuration(0);
+        if (pendingCallbackAbandonedIdRef.current) {
+          const abandonedId = pendingCallbackAbandonedIdRef.current;
+          pendingCallbackAbandonedIdRef.current = null;
+          fetch(`/api/agent/abandoned-calls/${abandonedId}/called-back`, {
+            method: "POST",
+            credentials: "include",
+          }).then(() => {
+            queryClient.invalidateQueries({ queryKey: ["/api/agent/abandoned-calls"] });
+          }).catch(console.error);
+        }
       }
     }
     prevCallStateRef.current = curr;
@@ -5485,7 +5506,7 @@ export default function AgentWorkspacePage() {
         t={t}
         onOpenScheduledQueue={() => setScheduledQueueOpen(true)}
         scheduledQueueCounts={scheduledQueueCounts}
-        abandonedCallsCount={abandonedCalls.length}
+        abandonedCallsCount={abandonedCalls.filter((c: any) => !c.calledBack).length}
         onOpenAbandonedCalls={() => setAbandonedCallsOpen(true)}
       />
 
@@ -5985,24 +6006,44 @@ export default function AgentWorkspacePage() {
                   const statusLabel = call.status === "abandoned" ? "Zrušený" : call.status === "timeout" ? "Časový limit" : "Pretečenie";
                   const statusColor = call.status === "abandoned" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400";
 
+                  const isCalledBack = !!call.calledBack;
+
                   return (
                     <div
                       key={call.id}
-                      className="flex items-center justify-between gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                      className={`flex items-center justify-between gap-3 p-3 rounded-lg border transition-colors ${
+                        isCalledBack
+                          ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
+                          : "bg-card hover:bg-accent/50"
+                      }`}
                       data-testid={`abandoned-call-${call.id}`}
                     >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
-                          <PhoneOff className="h-4 w-4 text-red-600 dark:text-red-400" />
+                        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+                          isCalledBack
+                            ? "bg-green-100 dark:bg-green-900/30"
+                            : "bg-red-100 dark:bg-red-900/30"
+                        }`}>
+                          {isCalledBack ? (
+                            <PhoneForwarded className="h-4 w-4 text-green-600 dark:text-green-400" />
+                          ) : (
+                            <PhoneOff className="h-4 w-4 text-red-600 dark:text-red-400" />
+                          )}
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <span className="font-medium text-sm truncate">
                               {call.customerName || call.callerName || call.callerNumber}
                             </span>
-                            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${statusColor}`}>
-                              {statusLabel}
-                            </Badge>
+                            {isCalledBack ? (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                Spätne volaný
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${statusColor}`}>
+                                {statusLabel}
+                              </Badge>
+                            )}
                           </div>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
                             <span>{call.callerNumber}</span>
@@ -6023,27 +6064,61 @@ export default function AgentWorkspacePage() {
                           </div>
                         </div>
                       </div>
-                      <Button
-                        size="sm"
-                        variant="default"
-                        className="shrink-0 gap-1.5"
-                        onClick={() => {
-                          const phoneNum = call.customerPhone || call.callerNumber;
-                          if (phoneNum && makeCall) {
+                      {isCalledBack ? (
+                        <Badge variant="outline" className="shrink-0 gap-1 text-green-600 dark:text-green-400 border-green-300 dark:border-green-700">
+                          <CheckCircle className="h-3.5 w-3.5" />
+                          Vybavené
+                        </Badge>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="default"
+                          className="shrink-0 gap-1.5"
+                          onClick={async () => {
+                            const phoneNum = call.customerPhone || call.callerNumber;
+                            if (!phoneNum || !makeCall) return;
+                            pendingCallbackAbandonedIdRef.current = call.id;
+                            if (call.customerId) {
+                              try {
+                                const custRes = await fetch(`/api/customers/${call.customerId}`, { credentials: "include" });
+                                if (custRes.ok) {
+                                  const customer = await custRes.json();
+                                  setCurrentContact(customer);
+                                  setCurrentCampaignContactId(null);
+                                  setRightTab("actions");
+                                }
+                              } catch (e) { console.error("Failed to load customer:", e); }
+                            } else {
+                              try {
+                                const lookupRes = await fetch(`/api/customers/lookup-phone?phone=${encodeURIComponent(phoneNum)}`, { credentials: "include" });
+                                if (lookupRes.ok) {
+                                  const matched = await lookupRes.json();
+                                  if (matched?.id) {
+                                    const custRes = await fetch(`/api/customers/${matched.id}`, { credentials: "include" });
+                                    if (custRes.ok) {
+                                      const customer = await custRes.json();
+                                      setCurrentContact(customer);
+                                      setCurrentCampaignContactId(null);
+                                      setRightTab("actions");
+                                    }
+                                  }
+                                }
+                              } catch (e) { console.error("Failed to lookup customer:", e); }
+                            }
                             makeCall({
                               phoneNumber: phoneNum,
                               customerId: call.customerId || undefined,
                               customerName: call.customerName || call.callerName || phoneNum,
                             });
                             setAbandonedCallsOpen(false);
-                          }
-                        }}
-                        disabled={!isSipRegistered}
-                        data-testid={`btn-callback-${call.id}`}
-                      >
-                        <Phone className="h-3.5 w-3.5" />
-                        Zavolať
-                      </Button>
+                          }}
+                          disabled={!isSipRegistered}
+                          data-testid={`btn-callback-${call.id}`}
+                        >
+                          <Phone className="h-3.5 w-3.5" />
+                          Zavolať
+                        </Button>
+                      )}
                     </div>
                   );
                 })}

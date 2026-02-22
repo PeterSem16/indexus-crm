@@ -1532,6 +1532,29 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
     }
   });
 
+  app.post("/api/agent/abandoned-calls/:callId/called-back", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = (req.session as any)?.user;
+      if (!user?.id) return res.status(401).json({ error: "Unauthorized" });
+
+      await db.update(inboundCallLogs)
+        .set({
+          calledBack: true,
+          calledBackAt: new Date(),
+          calledBackByUserId: user.id,
+        })
+        .where(and(
+          eq(inboundCallLogs.id, req.params.callId),
+          inArray(inboundCallLogs.status, ["abandoned", "timeout", "overflow"]),
+        ));
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking call as called back:", error);
+      res.status(500).json({ error: "Failed to mark call as called back" });
+    }
+  });
+
   app.post("/api/inbound-calls/:callId/answer", requireAuth, async (req: Request, res: Response) => {
     try {
       const user = (req.session as any)?.user;
