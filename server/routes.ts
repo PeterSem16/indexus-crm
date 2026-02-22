@@ -17328,7 +17328,7 @@ export async function registerRoutes(
   // Get all call logs (with optional filters)
   app.get("/api/call-logs", requireAuth, async (req, res) => {
     try {
-      const { userId, customerId, campaignId, limit, includeRecordings } = req.query;
+      const { userId, customerId, campaignId, limit, includeRecordings, queueId, direction: dirFilter } = req.query;
       
       let logs;
       if (userId) {
@@ -17341,6 +17341,13 @@ export async function registerRoutes(
         logs = await storage.getAllCallLogs(limit ? parseInt(limit as string) : undefined);
       }
       
+      if (queueId) {
+        logs = logs.filter((l: any) => l.inboundQueueId === queueId);
+      }
+      if (dirFilter) {
+        logs = logs.filter((l: any) => l.direction === dirFilter);
+      }
+
       if (includeRecordings === "true" && logs.length > 0) {
         const logIds = logs.map((l: any) => l.id);
         const recs = await db.select({
@@ -17869,7 +17876,7 @@ Rules:
 
       if (!req.file) return res.status(400).json({ error: "No recording file uploaded" });
 
-      const { callLogId, customerId, campaignId, customerName, agentName, campaignName, phoneNumber, durationSeconds } = req.body;
+      const { callLogId, customerId, campaignId, customerName, agentName, campaignName, phoneNumber, durationSeconds, direction, inboundQueueId, inboundQueueName } = req.body;
 
       if (!callLogId) return res.status(400).json({ error: "callLogId is required" });
 
@@ -17920,6 +17927,9 @@ Rules:
         campaignName: resolvedCampaignName,
         phoneNumber: phoneNumber || null,
         analysisStatus: "pending",
+        direction: direction || "outbound",
+        inboundQueueId: inboundQueueId || null,
+        inboundQueueName: inboundQueueName || null,
       };
 
       const [recording] = await db.insert(callRecordings).values(recordingData).returning();
@@ -18095,7 +18105,7 @@ Rules:
       const user = req.session.user;
       if (!user) return res.status(401).json({ error: "Not authenticated" });
 
-      const { query, customerId, campaignId, agentId, sentiment: sentimentFilter, minScore, maxScore, hasAlerts, limit: limitParam } = req.query;
+      const { query, customerId, campaignId, agentId, sentiment: sentimentFilter, minScore, maxScore, hasAlerts, limit: limitParam, queueId, direction: dirFilter } = req.query;
       if (!query || typeof query !== "string" || query.trim().length < 2) {
         return res.status(400).json({ error: "Search query must be at least 2 characters" });
       }
@@ -18114,6 +18124,8 @@ Rules:
       if (minScore) conditions.push(sql`${callRecordings.qualityScore} >= ${parseInt(minScore as string)}`);
       if (maxScore) conditions.push(sql`${callRecordings.qualityScore} <= ${parseInt(maxScore as string)}`);
       if (hasAlerts === "true") conditions.push(sql`${callRecordings.alertKeywords} IS NOT NULL AND array_length(${callRecordings.alertKeywords}, 1) > 0`);
+      if (queueId) conditions.push(eq(callRecordings.inboundQueueId, queueId as string));
+      if (dirFilter) conditions.push(eq(callRecordings.direction, dirFilter as string));
       if (!isPrivileged) conditions.push(eq(callRecordings.userId, user.id));
 
       const results = await db.select({
@@ -18135,6 +18147,9 @@ Rules:
         complianceNotes: callRecordings.complianceNotes,
         transcriptionText: callRecordings.transcriptionText,
         analysisResult: callRecordings.analysisResult,
+        direction: callRecordings.direction,
+        inboundQueueId: callRecordings.inboundQueueId,
+        inboundQueueName: callRecordings.inboundQueueName,
         createdAt: callRecordings.createdAt,
       }).from(callRecordings)
         .where(and(...conditions))

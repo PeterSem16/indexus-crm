@@ -5076,6 +5076,10 @@ export default function AgentWorkspacePage() {
           return;
         }
 
+        session._inboundQueueId = call.queueId;
+        session._inboundQueueName = call.queueName;
+        session._inboundCallLogId = call.callId;
+
         removeCall();
         agentSession.updateStatus("busy").catch(() => {});
         setActiveChannel("phone");

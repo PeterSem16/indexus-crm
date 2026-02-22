@@ -1003,6 +1003,7 @@ export function TranscriptSearchContent() {
   const [browseHasAlertsFilter, setBrowseHasAlertsFilter] = useState(false);
   const [browseMinQuality, setBrowseMinQuality] = useState<string>("");
   const [browseMinScriptScore, setBrowseMinScriptScore] = useState<string>("");
+  const [browseQueueFilter, setBrowseQueueFilter] = useState<string>("");
   const [browseDateFrom, setBrowseDateFrom] = useState<string>("");
   const [browseDateTo, setBrowseDateTo] = useState<string>("");
   const [browseSearchText, setBrowseSearchText] = useState<string>("");
@@ -1067,6 +1068,7 @@ export function TranscriptSearchContent() {
     setBrowseHasAlertsFilter(false);
     setBrowseMinQuality("");
     setBrowseMinScriptScore("");
+    setBrowseQueueFilter("");
     setBrowseDateFrom("");
     setBrowseDateTo("");
     setBrowseSearchText("");
@@ -1076,12 +1078,12 @@ export function TranscriptSearchContent() {
 
   const hasActiveBrowseFilters = browseCampaignFilter || browseDirectionFilter || browseStatusFilter ||
     browseRecordingFilter || browseSentimentFilter || browseAgentFilter || browseHasAlertsFilter ||
-    browseMinQuality || browseMinScriptScore || browseDateFrom || browseDateTo || browseSearchText;
+    browseMinQuality || browseMinScriptScore || browseQueueFilter || browseDateFrom || browseDateTo || browseSearchText;
 
   const activeBrowseFilterCount = [
     browseCampaignFilter, browseDirectionFilter, browseStatusFilter,
     browseRecordingFilter, browseSentimentFilter, browseAgentFilter,
-    browseHasAlertsFilter ? "yes" : "", browseMinQuality, browseMinScriptScore, browseDateFrom, browseDateTo, browseSearchText,
+    browseHasAlertsFilter ? "yes" : "", browseMinQuality, browseMinScriptScore, browseQueueFilter, browseDateFrom, browseDateTo, browseSearchText,
   ].filter(Boolean).length;
 
   const uniqueAgents = useMemo(() => {
@@ -1100,6 +1102,18 @@ export function TranscriptSearchContent() {
       }
     });
     return Array.from(camps.entries()).map(([id, name]) => ({ id, name }));
+  }, [callLogs]);
+
+  const uniqueQueuesInLogs = useMemo(() => {
+    const queues = new Map<string, string>();
+    callLogs.forEach(log => {
+      const qId = (log as any).inboundQueueId;
+      const qName = (log as any).inboundQueueName;
+      if (qId && qName) {
+        queues.set(qId, qName);
+      }
+    });
+    return Array.from(queues.entries()).map(([id, name]) => ({ id, name }));
   }, [callLogs]);
 
   const filteredCallLogs = useMemo(() => {
@@ -1128,6 +1142,10 @@ export function TranscriptSearchContent() {
 
     if (browseDirectionFilter) {
       filtered = filtered.filter(log => log.direction === browseDirectionFilter);
+    }
+
+    if (browseQueueFilter) {
+      filtered = filtered.filter(log => (log as any).inboundQueueId === browseQueueFilter);
     }
 
     if (browseStatusFilter) {
@@ -1185,7 +1203,7 @@ export function TranscriptSearchContent() {
     }
 
     return filtered;
-  }, [callLogs, browseSearchText, browseCampaignFilter, browseDirectionFilter, browseStatusFilter,
+  }, [callLogs, browseSearchText, browseCampaignFilter, browseDirectionFilter, browseQueueFilter, browseStatusFilter,
     browseRecordingFilter, browseSentimentFilter, browseAgentFilter, browseHasAlertsFilter,
     browseMinQuality, browseMinScriptScore, browseDateFrom, browseDateTo]);
 
@@ -1318,6 +1336,23 @@ export function TranscriptSearchContent() {
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {uniqueQueuesInLogs.length > 0 && (
+                    <div className="flex items-center gap-1.5">
+                      <PhoneIncoming className="h-3.5 w-3.5 text-muted-foreground" />
+                      <Select value={browseQueueFilter} onValueChange={(v) => setBrowseQueueFilter(v === "all" ? "" : v)}>
+                        <SelectTrigger className="w-[160px] h-8 text-xs" data-testid="select-browse-queue">
+                          <SelectValue placeholder="Queue" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Queues</SelectItem>
+                          {uniqueQueuesInLogs.map(q => (
+                            <SelectItem key={q.id} value={q.id}>{q.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">

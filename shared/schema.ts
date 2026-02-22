@@ -3173,6 +3173,9 @@ export const callLogs = pgTable("call_logs", {
   sipCallId: text("sip_call_id"),
   notes: text("notes"),
   metadata: text("metadata"), // JSON string for additional data
+  inboundQueueId: varchar("inbound_queue_id"),
+  inboundQueueName: text("inbound_queue_name"),
+  inboundCallLogId: varchar("inbound_call_log_id"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
@@ -3217,6 +3220,9 @@ export const callRecordings = pgTable("call_recordings", {
   scriptComplianceScore: integer("script_compliance_score"),
   alertKeywords: text("alert_keywords").array(),
   analyzedAt: timestamp("analyzed_at"),
+  direction: text("direction").default("outbound"),
+  inboundQueueId: varchar("inbound_queue_id"),
+  inboundQueueName: text("inbound_queue_name"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 

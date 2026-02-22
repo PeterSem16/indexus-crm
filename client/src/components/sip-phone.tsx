@@ -128,6 +128,7 @@ export function SipPhone({
   const userHungUpRef = useRef<boolean>(false);
   const pendingCallProcessedRef = useRef<boolean>(false);
   const forceIdleRef = useRef<boolean>(false);
+  const activeInboundMetaRef = useRef<{ queueId?: string; queueName?: string; direction?: string } | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingChunksRef = useRef<Blob[]>([]);
   const recordingContextRef = useRef<AudioContext | null>(null);
@@ -446,6 +447,15 @@ export function SipPhone({
       formData.append("campaignName", localCampaignName || "");
       formData.append("phoneNumber", phoneNumber);
       formData.append("durationSeconds", String(duration));
+      if (activeInboundMetaRef.current?.direction) {
+        formData.append("direction", activeInboundMetaRef.current.direction);
+      }
+      if (activeInboundMetaRef.current?.queueId) {
+        formData.append("inboundQueueId", activeInboundMetaRef.current.queueId);
+      }
+      if (activeInboundMetaRef.current?.queueName) {
+        formData.append("inboundQueueName", activeInboundMetaRef.current.queueName);
+      }
 
       fetch("/api/call-recordings", {
         method: "POST",
@@ -604,6 +614,12 @@ export function SipPhone({
     callStartTimeRef.current = Date.now();
     callContext.setCallTiming({ callStartTime: Date.now() });
 
+    activeInboundMetaRef.current = {
+      queueId: session._inboundQueueId,
+      queueName: session._inboundQueueName,
+      direction: "inbound",
+    };
+
     const timer = setInterval(() => {
       setCallDuration(Math.floor((Date.now() - callStartTimeRef.current) / 1000));
     }, 1000);
@@ -632,6 +648,7 @@ export function SipPhone({
       callContext.setAutoRecord(true);
       onCallEnd?.(duration, duration > 0 ? "completed" : "failed", currentCallLogIdRef.current || 0);
       setCurrentCallLogId(null);
+      activeInboundMetaRef.current = null;
       if (!callContext.preventAutoReset) {
         setTimeout(() => {
           setCallStateLocal((prev) => { if (prev === "ended") { callContext.setCallState("idle"); callContext.setCallInfo(null); callContext.resetCallTiming(); return "idle"; } return prev; });
@@ -652,6 +669,9 @@ export function SipPhone({
       userId: userId || currentUser?.id,
       customerId: localCustomerId,
       customerName: session._inboundCallerName || callerNumber,
+      inboundQueueId: session._inboundQueueId || undefined,
+      inboundQueueName: session._inboundQueueName || undefined,
+      inboundCallLogId: session._inboundCallLogId || undefined,
     }).then((callLogData) => {
       setCurrentCallLogId(callLogData.id);
       currentCallLogIdRef.current = callLogData.id;
