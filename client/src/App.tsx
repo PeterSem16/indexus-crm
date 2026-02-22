@@ -144,7 +144,11 @@ function AppRouter() {
     );
   }
 
-  return <AuthenticatedApp />;
+  return (
+    <ErrorBoundary>
+      <AuthenticatedApp />
+    </ErrorBoundary>
+  );
 }
 
 function I18nWrapper({ children, userCountries }: { children: React.ReactNode; userCountries: string[] }) {

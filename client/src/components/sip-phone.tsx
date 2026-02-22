@@ -137,6 +137,8 @@ export function SipPhone({
   const recordingDestinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
   const recordingSourceNodesRef = useRef<MediaStreamAudioSourceNode[]>([]);
   const pauseToneNodesRef = useRef<{ oscillators: OscillatorNode[]; gains: GainNode[] } | null>(null);
+  const callContextRef = useRef(callContext);
+  callContextRef.current = callContext;
 
   const { data: globalSipSettings, isLoading: sipSettingsLoading } = useQuery<SipSettings | null>({
     queryKey: ["/api/sip-settings"],
@@ -602,6 +604,7 @@ export function SipPhone({
 
   const handleInboundAnswered = useCallback((session: any, options: { autoRecord: boolean }) => {
     console.log("[SIP] handleInboundAnswered called directly, autoRecord:", options.autoRecord);
+    const ctx = callContextRef.current;
 
     if (inboundTerminatedListenerRef.current) {
       try { inboundTerminatedListenerRef.current.session.stateChange.removeListener(inboundTerminatedListenerRef.current.listener); } catch {}
@@ -613,9 +616,9 @@ export function SipPhone({
     setPhoneNumber(callerNumber);
     setCallState("active");
     setIsOnHold(false);
-    callContext.resetCallTiming();
+    ctx.resetCallTiming();
     callStartTimeRef.current = Date.now();
-    callContext.setCallTiming({ callStartTime: Date.now() });
+    ctx.setCallTiming({ callStartTime: Date.now() });
 
     activeInboundMetaRef.current = {
       queueId: session._inboundQueueId,
@@ -627,7 +630,7 @@ export function SipPhone({
     const timer = setInterval(() => {
       const dur = Math.floor((Date.now() - callStartTimeRef.current) / 1000);
       setCallDuration(dur);
-      callContext.setCallDuration(dur);
+      callContextRef.current.setCallDuration(dur);
     }, 1000);
     callTimerRef.current = timer;
 
@@ -645,26 +648,27 @@ export function SipPhone({
       if (forceIdleRef.current) { forceIdleRef.current = false; return; }
       console.log("[SIP] Inbound call terminated by remote party");
       inboundTerminatedListenerRef.current = null;
+      const ctxNow = callContextRef.current;
       const duration = callStartTimeRef.current ? Math.floor((Date.now() - callStartTimeRef.current) / 1000) : 0;
       setCallState("ended");
       if (callTimerRef.current) { clearInterval(callTimerRef.current); callTimerRef.current = null; }
       const hungUpBy = userHungUpRef.current ? "user" : "customer";
       userHungUpRef.current = false;
-      callContext.setCallTiming({ callEndTime: Date.now(), talkDurationSeconds: duration > 0 ? duration : null, hungUpBy });
+      ctxNow.setCallTiming({ callEndTime: Date.now(), talkDurationSeconds: duration > 0 ? duration : null, hungUpBy });
       if (duration > 0) {
         stopRecordingAndUpload(inboundCallLogIdRef.current || 0, duration);
       } else {
-        if (mediaRecorderRef.current) { try { mediaRecorderRef.current.stop(); } catch {} mediaRecorderRef.current = null; isRecordingRef.current = false; callContext.setIsRecording(false); callContext.setIsRecordingPaused(false); recordingChunksRef.current = []; }
+        if (mediaRecorderRef.current) { try { mediaRecorderRef.current.stop(); } catch {} mediaRecorderRef.current = null; isRecordingRef.current = false; ctxNow.setIsRecording(false); ctxNow.setIsRecordingPaused(false); recordingChunksRef.current = []; }
       }
-      callContext.setAutoRecord(true);
+      ctxNow.setAutoRecord(true);
       onCallEnd?.(duration, duration > 0 ? "completed" : "failed", inboundCallLogIdRef.current || 0);
       setCurrentCallLogId(null);
       activeInboundMetaRef.current = null;
-      if (!callContext.preventAutoReset) {
+      if (!ctxNow.preventAutoReset) {
         setTimeout(() => {
-          setCallStateLocal((prev) => { if (prev === "ended") { callContext.setCallState("idle"); callContext.setCallInfo(null); callContext.resetCallTiming(); return "idle"; } return prev; });
+          setCallStateLocal((prev) => { if (prev === "ended") { callContextRef.current.setCallState("idle"); callContextRef.current.setCallInfo(null); callContextRef.current.resetCallTiming(); return "idle"; } return prev; });
           setCallDuration(0);
-          callContext.setCallDuration(0);
+          callContextRef.current.setCallDuration(0);
           sessionRef.current = null;
         }, 3000);
       }
@@ -697,33 +701,37 @@ export function SipPhone({
     }).catch((err) => {
       console.error("[SIP] Failed to create call log for externally answered call:", err);
     });
-  }, [setupAudio, startRecording, stopRecordingAndUpload, callContext, onCallStart, onCallEnd]);
+  }, [setupAudio, startRecording, stopRecordingAndUpload, onCallStart, onCallEnd]);
+
+  const handleInboundAnsweredRef = useRef(handleInboundAnswered);
+  handleInboundAnsweredRef.current = handleInboundAnswered;
 
   useEffect(() => {
-    callContext.handleInboundAnsweredFn.current = handleInboundAnswered;
-    if (callContext.queuedInboundSession.current) {
+    const ctx = callContextRef.current;
+    ctx.handleInboundAnsweredFn.current = (...args: Parameters<typeof handleInboundAnswered>) => handleInboundAnsweredRef.current(...args);
+    if (ctx.queuedInboundSession.current) {
       console.log("[SIP] Processing queued inbound session on registration");
-      const queued = callContext.queuedInboundSession.current;
-      callContext.queuedInboundSession.current = null;
-      handleInboundAnswered(queued.session, queued.options);
+      const queued = ctx.queuedInboundSession.current;
+      ctx.queuedInboundSession.current = null;
+      handleInboundAnsweredRef.current(queued.session, queued.options);
     }
     return () => {
-      callContext.handleInboundAnsweredFn.current = null;
+      ctx.handleInboundAnsweredFn.current = null;
       if (inboundTerminatedListenerRef.current) {
         try { inboundTerminatedListenerRef.current.session.stateChange.removeListener(inboundTerminatedListenerRef.current.listener); } catch {}
         inboundTerminatedListenerRef.current = null;
       }
       if (callTimerRef.current) { clearInterval(callTimerRef.current); callTimerRef.current = null; }
     };
-  }, [handleInboundAnswered]);
+  }, []);
 
   useEffect(() => {
     if (!answeredIncomingSession) return;
     console.log("[SIP] answeredIncomingSession changed (fallback), calling handleInboundAnswered");
     const session = answeredIncomingSession;
     clearAnsweredSession();
-    const shouldRecord = callContext.autoRecord || session._inboundRecordCalls;
-    handleInboundAnswered(session, { autoRecord: shouldRecord });
+    const shouldRecord = callContextRef.current.autoRecord || session._inboundRecordCalls;
+    handleInboundAnsweredRef.current(session, { autoRecord: shouldRecord });
   }, [answeredIncomingSession]);
 
   const connect = useCallback(async () => {
