@@ -1,0 +1,20 @@
+    -- Executing [0232399030@from-sk-inbound:1] NoOp("SIP/SLOVANET-VGW-00000017", "INDEXUS OVERRIDE DID=0232399030 FROM=0421948519438 UNIQUEID=1771760382.22908") in new stack
+    -- Executing [0232399030@from-sk-inbound:2] Goto("SIP/SLOVANET-VGW-00000017", "indexus-incoming,0232399030,1") in new stack
+    -- Goto (indexus-incoming,0232399030,1)
+    -- Executing [0232399030@indexus-incoming:1] NoOp("SIP/SLOVANET-VGW-00000017", "INDEXUS INBOUND from=0421948519438 did=0232399030 uniqueid=1771760382.22908") in new stack
+    -- Executing [0232399030@indexus-incoming:2] Set("SIP/SLOVANET-VGW-00000017", "__INDEXUS_FROM=0421948519438") in new stack
+    -- Executing [0232399030@indexus-incoming:3] Set("SIP/SLOVANET-VGW-00000017", "__INDEXUS_DID=0232399030") in new stack
+    -- Executing [0232399030@indexus-incoming:4] Set("SIP/SLOVANET-VGW-00000017", "__INDEXUS_UNIQUEID=1771760382.22908") in new stack
+    -- Executing [0232399030@indexus-incoming:5] Stasis("SIP/SLOVANET-VGW-00000017", "indexus-inbound,0232399030,0421948519438,1771760382.22908") in new stack
+    -- <SIP/SLOVANET-VGW-00000017> Playing 'custom/uvitanie-pre-slovensku-infolinku.slin' (language 'sk')
+       > 0x7f64fc0066b0 -- Strict RTP switching to RTP target address 195.28.88.42:26292 as source
+       > 0x7f64fc0066b0 -- Strict RTP learning complete - Locking on source address 195.28.88.42:26292
+    -- Executing [2001@from-internal-indexus:1] NoOp("SIP/SLOVANET-VGW-00000017", "Transfer to 2001 - Contacts: PJSIP/2001/sip:da7iu00l@10.9.20.180:50276;transport=ws") in new stack
+    -- Executing [2001@from-internal-indexus:2] Set("SIP/SLOVANET-VGW-00000017", "CONTACTS=PJSIP/2001/sip:da7iu00l@10.9.20.180:50276;transport=ws") in new stack
+    -- Executing [2001@from-internal-indexus:3] GotoIf("SIP/SLOVANET-VGW-00000017", "0?nocontact") in new stack
+    -- Executing [2001@from-internal-indexus:4] Dial("SIP/SLOVANET-VGW-00000017", "PJSIP/2001/sip:da7iu00l@10.9.20.180:50276;transport=ws,30,tT") in new stack
+    -- Called PJSIP/2001/sip:da7iu00l@10.9.20.180:50276;transport=ws
+  == DTLS ECDH initialized (automatic), faster PFS enabled
+  == Everyone is busy/congested at this time (1:1/0/0)
+    -- Executing [2001@from-internal-indexus:5] Hangup("SIP/SLOVANET-VGW-00000017", "") in new stack
+  == Spawn extension (from-internal-indexus, 2001, 5) exited non-zero on 'SIP/SLOVANET-VGW-00000017'

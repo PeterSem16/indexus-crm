@@ -76,7 +76,7 @@ export function SipPhone({
   hideSettingsAndRegistration = false
 }: SipPhoneProps) {
   const { toast } = useToast();
-  const { isRegistered, isRegistering, registrationError, register, unregister, ensureRegistered, userAgentRef, registererRef, pendingCall, clearPendingCall } = useSip();
+  const { isRegistered, isRegistering, registrationError, register, unregister, ensureRegistered, userAgentRef, registererRef, pendingCall, clearPendingCall, incomingCall, answerIncomingCall, rejectIncomingCall } = useSip();
   const callContext = useCall();
   const [localCustomerId, setLocalCustomerId] = useState(customerId);
   const [localCampaignId, setLocalCampaignId] = useState(campaignId);
@@ -836,6 +836,145 @@ export function SipPhone({
     }
   }, [isRegistered, callState, makeCall]);
 
+  const handleAnswerIncoming = useCallback(async () => {
+    if (!incomingCall) return;
+    
+    try {
+      setCallState("connecting");
+      callContext.resetCallTiming();
+      setPhoneNumber(incomingCall.callerNumber);
+      
+      const callLogData = await createCallLogMutation.mutateAsync({
+        phoneNumber: incomingCall.callerNumber,
+        direction: "inbound",
+        status: "initiated",
+        userId: userId || currentUser?.id,
+        customerId: localCustomerId,
+        customerName: incomingCall.callerName !== incomingCall.callerNumber ? incomingCall.callerName : localCustomerName,
+      });
+      setCurrentCallLogId(callLogData.id);
+      
+      const session = await answerIncomingCall();
+      if (!session) {
+        toast({
+          title: "Chyba",
+          description: "Nepodarilo sa prijať hovor",
+          variant: "destructive"
+        });
+        setCallState("idle");
+        return;
+      }
+      
+      sessionRef.current = session;
+      const callLogId = callLogData.id;
+      
+      setCallState("active");
+      setIsOnHold(false);
+      callStartTimeRef.current = Date.now();
+      callContext.setCallTiming({ callStartTime: Date.now() });
+      
+      callTimerRef.current = setInterval(() => {
+        setCallDuration(Math.floor((Date.now() - callStartTimeRef.current) / 1000));
+      }, 1000);
+      
+      updateCallLogMutation.mutate({
+        id: callLogId,
+        data: { status: "answered", answeredAt: new Date().toISOString() },
+        customerId: localCustomerId
+      });
+      
+      onCallStart?.(incomingCall.callerNumber, callLogId);
+      setupAudio(session);
+      
+      if (callContext.autoRecord) {
+        setTimeout(() => startRecording(session), 500);
+      }
+      
+      session.stateChange.addListener((state: any) => {
+        if (state === SessionState.Terminated) {
+          if (forceIdleRef.current) {
+            forceIdleRef.current = false;
+            return;
+          }
+          const duration = callStartTimeRef.current 
+            ? Math.floor((Date.now() - callStartTimeRef.current) / 1000) 
+            : 0;
+          setCallState("ended");
+          if (callTimerRef.current) {
+            clearInterval(callTimerRef.current);
+          }
+          const hungUpBy = userHungUpRef.current ? "user" : "customer";
+          userHungUpRef.current = false;
+          callContext.setCallTiming({
+            callEndTime: Date.now(),
+            talkDurationSeconds: duration > 0 ? duration : null,
+            hungUpBy,
+          });
+          updateCallLogMutation.mutate({
+            id: callLogId,
+            data: { 
+              status: duration > 0 ? "completed" : "failed",
+              endedAt: new Date().toISOString(),
+              durationSeconds: duration,
+              hungUpBy
+            },
+            customerId: localCustomerId
+          });
+          if (duration > 0) {
+            stopRecordingAndUpload(callLogId, duration);
+          } else {
+            if (mediaRecorderRef.current) {
+              if (pauseToneNodesRef.current) { for (const o of pauseToneNodesRef.current.oscillators) { try { o.stop(); o.disconnect(); } catch (e) {} } for (const g of pauseToneNodesRef.current.gains) { try { g.disconnect(); } catch (e) {} } pauseToneNodesRef.current = null; }
+              try { mediaRecorderRef.current.stop(); } catch (e) {}
+              mediaRecorderRef.current = null;
+              isRecordingRef.current = false;
+              callContext.setIsRecording(false);
+              callContext.setIsRecordingPaused(false);
+              recordingChunksRef.current = [];
+              recordingDestinationRef.current = null;
+              recordingSourceNodesRef.current = [];
+            }
+          }
+          callContext.setAutoRecord(true);
+          onCallEnd?.(duration, duration > 0 ? "completed" : "failed", callLogId);
+          setCurrentCallLogId(null);
+          if (!callContext.preventAutoReset) {
+            setTimeout(() => {
+              setCallStateLocal((prev) => {
+                if (prev === "ended") {
+                  callContext.setCallState("idle");
+                  callContext.setCallInfo(null);
+                  callContext.resetCallTiming();
+                  return "idle";
+                }
+                return prev;
+              });
+              setCallDuration(0);
+              sessionRef.current = null;
+            }, 3000);
+          }
+        }
+      });
+      
+    } catch (error: any) {
+      console.error("[SIP] Error handling incoming call:", error);
+      toast({
+        title: "Chyba hovoru",
+        description: "Nepodarilo sa spracovať prichádzajúci hovor",
+        variant: "destructive"
+      });
+      setCallState("idle");
+    }
+  }, [incomingCall, answerIncomingCall, toast, createCallLogMutation, updateCallLogMutation, userId, currentUser, localCustomerId, localCustomerName, onCallStart, onCallEnd, stopRecordingAndUpload, startRecording]);
+
+  const handleRejectIncoming = useCallback(() => {
+    rejectIncomingCall();
+    toast({
+      title: "Hovor odmietnutý",
+      description: "Prichádzajúci hovor bol odmietnutý",
+    });
+  }, [rejectIncomingCall, toast]);
+
   const setupAudio = async (session: Session) => {
     const sessionDescriptionHandler = session.sessionDescriptionHandler;
     if (!sessionDescriptionHandler) return;
@@ -1297,6 +1436,39 @@ export function SipPhone({
       <CardContent className="space-y-4">
         <audio ref={audioRef} autoPlay />
         
+        {incomingCall && callState === "idle" && (
+          <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-3 space-y-2 animate-pulse" data-testid="incoming-call-panel">
+            <div className="flex items-center gap-2">
+              <Phone className="h-5 w-5 text-green-600 animate-bounce" />
+              <div>
+                <p className="font-semibold text-sm">Prichádzajúci hovor</p>
+                <p className="text-xs text-muted-foreground">{incomingCall.callerName || incomingCall.callerNumber}</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                className="flex-1 bg-green-600 hover:bg-green-700"
+                onClick={handleAnswerIncoming}
+                data-testid="button-answer-incoming"
+              >
+                <Phone className="h-4 w-4 mr-1" />
+                Prijať
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                className="flex-1"
+                onClick={handleRejectIncoming}
+                data-testid="button-reject-incoming"
+              >
+                <PhoneOff className="h-4 w-4 mr-1" />
+                Odmietnuť
+              </Button>
+            </div>
+          </div>
+        )}
+
         {isLoading && (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />

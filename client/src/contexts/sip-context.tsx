@@ -21,6 +21,12 @@ export interface PendingCall {
   clientStatus?: string;
 }
 
+export interface IncomingCall {
+  invitation: any;
+  callerNumber: string;
+  callerName: string;
+}
+
 interface SipContextType {
   isRegistered: boolean;
   isRegistering: boolean;
@@ -33,6 +39,9 @@ interface SipContextType {
   pendingCall: PendingCall | null;
   makeCall: (call: PendingCall) => void;
   clearPendingCall: () => void;
+  incomingCall: IncomingCall | null;
+  answerIncomingCall: () => Promise<any>;
+  rejectIncomingCall: () => void;
 }
 
 const SipContext = createContext<SipContextType | undefined>(undefined);
@@ -50,6 +59,7 @@ export function SipProvider({ children }: { children: ReactNode }) {
   const [isRegistering, setIsRegistering] = useState(false);
   const [registrationError, setRegistrationError] = useState<string | null>(null);
   const [pendingCall, setPendingCall] = useState<PendingCall | null>(null);
+  const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
 
   const userAgentRef = useRef<any>(null);
   const registererRef = useRef<any>(null);
@@ -69,6 +79,36 @@ export function SipProvider({ children }: { children: ReactNode }) {
   const clearPendingCall = useCallback(() => {
     setPendingCall(null);
   }, []);
+
+  const answerIncomingCall = useCallback(async () => {
+    if (!incomingCall?.invitation) return null;
+    try {
+      console.log("[SIP] Answering incoming call...");
+      await incomingCall.invitation.accept({
+        sessionDescriptionHandlerOptions: {
+          constraints: { audio: true, video: false }
+        }
+      });
+      const session = incomingCall.invitation;
+      setIncomingCall(null);
+      return session;
+    } catch (e: any) {
+      console.error("[SIP] Failed to answer incoming call:", e);
+      setIncomingCall(null);
+      return null;
+    }
+  }, [incomingCall]);
+
+  const rejectIncomingCall = useCallback(() => {
+    if (!incomingCall?.invitation) return;
+    try {
+      console.log("[SIP] Rejecting incoming call...");
+      incomingCall.invitation.reject();
+    } catch (e: any) {
+      console.error("[SIP] Failed to reject incoming call:", e);
+    }
+    setIncomingCall(null);
+  }, [incomingCall]);
 
   const { data: sipSettings } = useQuery<SipSettingsData | null>({
     queryKey: ["/api/sip-settings"],
@@ -193,6 +233,30 @@ export function SipProvider({ children }: { children: ReactNode }) {
     }, delay);
   }, [doReconnectNow]);
 
+  const handleIncomingInvite = useCallback((invitation: any) => {
+    const remoteIdentity = invitation.remoteIdentity;
+    const callerNumber = remoteIdentity?.uri?.user || "Unknown";
+    const callerName = remoteIdentity?.displayName || callerNumber;
+    console.log(`[SIP] Incoming call from ${callerName} <${callerNumber}>`);
+
+    setIncomingCall({
+      invitation,
+      callerNumber,
+      callerName,
+    });
+
+    const { SessionState } = require("sip.js");
+    invitation.stateChange.addListener((state: any) => {
+      if (state === SessionState.Terminated) {
+        console.log("[SIP] Incoming call terminated/cancelled");
+        setIncomingCall((prev) => {
+          if (prev?.invitation === invitation) return null;
+          return prev;
+        });
+      }
+    });
+  }, []);
+
   const register = useCallback(async () => {
     if (!canRegister()) return;
     if (isConnectingRef.current) return;
@@ -246,6 +310,30 @@ export function SipProvider({ children }: { children: ReactNode }) {
         reconnectionDelay: 1,
         noResponseTimeout: 60,
         gracefulShutdown: false,
+        delegate: {
+          onInvite: (invitation: any) => {
+            const remoteIdentity = invitation.remoteIdentity;
+            const callerNumber = remoteIdentity?.uri?.user || "Unknown";
+            const callerName = remoteIdentity?.displayName || callerNumber;
+            console.log(`[SIP] Incoming call from ${callerName} <${callerNumber}>`);
+
+            setIncomingCall({
+              invitation,
+              callerNumber,
+              callerName,
+            });
+
+            invitation.stateChange.addListener((state: any) => {
+              if (state === "Terminated") {
+                console.log("[SIP] Incoming call terminated/cancelled");
+                setIncomingCall((prev) => {
+                  if (prev?.invitation === invitation) return null;
+                  return prev;
+                });
+              }
+            });
+          },
+        },
       };
 
       const userAgent = new UserAgent(userAgentOptions);
@@ -432,7 +520,7 @@ export function SipProvider({ children }: { children: ReactNode }) {
   }, [clearTimers]);
 
   return (
-    <SipContext.Provider value={{ isRegistered, isRegistering, registrationError, register, unregister, ensureRegistered, userAgentRef, registererRef, pendingCall, makeCall, clearPendingCall }}>
+    <SipContext.Provider value={{ isRegistered, isRegistering, registrationError, register, unregister, ensureRegistered, userAgentRef, registererRef, pendingCall, makeCall, clearPendingCall, incomingCall, answerIncomingCall, rejectIncomingCall }}>
       {children}
     </SipContext.Provider>
   );
