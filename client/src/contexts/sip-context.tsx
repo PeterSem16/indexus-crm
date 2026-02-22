@@ -337,11 +337,13 @@ export function SipProvider({ children }: { children: ReactNode }) {
             }
             console.log(`[SIP] Incoming call from ${callerName} <${callerNumber}>`);
 
-            invitation.progress().then(() => {
-              console.log("[SIP] Sent 180 Ringing for incoming call");
-            }).catch((err: any) => {
-              console.warn("[SIP] Failed to send 180 Ringing:", err);
-            });
+            try {
+              invitation.progress({ statusCode: 180 }).catch((err: any) => {
+                console.warn("[SIP] Failed to send 180:", err);
+              });
+            } catch (e) {
+              console.warn("[SIP] progress() sync error:", e);
+            }
 
             setIncomingCall({
               invitation,

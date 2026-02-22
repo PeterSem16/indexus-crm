@@ -840,7 +840,7 @@ export function SipPhone({
     if (!incomingCall) return;
     
     try {
-      setCallState("connecting");
+      setCallState("active");
       callContext.resetCallTiming();
       setPhoneNumber(incomingCall.callerNumber);
       
