@@ -621,13 +621,17 @@ export function SipPhone({
     };
 
     const timer = setInterval(() => {
-      setCallDuration(Math.floor((Date.now() - callStartTimeRef.current) / 1000));
+      const dur = Math.floor((Date.now() - callStartTimeRef.current) / 1000);
+      setCallDuration(dur);
+      callContext.setCallDuration(dur);
     }, 1000);
     callTimerRef.current = timer;
 
     setupAudio(session);
 
-    if (callContext.autoRecord) {
+    const shouldRecord = callContext.autoRecord || session._inboundRecordCalls;
+    console.log("[SIP] Inbound autoRecord check:", shouldRecord, "callContext.autoRecord:", callContext.autoRecord, "session._inboundRecordCalls:", session._inboundRecordCalls);
+    if (shouldRecord) {
       setTimeout(() => startRecording(session), 500);
     }
 
@@ -1380,12 +1384,13 @@ export function SipPhone({
 
   useEffect(() => {
     if (callState !== "idle" && callState !== "ended") {
+      const direction = activeInboundMetaRef.current?.direction || "outbound";
       callContext.setCallInfo({
         phoneNumber,
         callerName: localCustomerName,
         customerId: localCustomerId,
         campaignId: localCampaignId,
-        direction: "outbound",
+        direction,
         callLogId: currentCallLogId ?? undefined,
         leadScore: localLeadScore,
         clientStatus: localClientStatus,

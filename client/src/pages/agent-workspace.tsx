@@ -5239,6 +5239,7 @@ export default function AgentWorkspacePage() {
         invitation._inboundCallLogId = call.callId;
         invitation._inboundCallerNumber = callerNumber;
         invitation._inboundCallerName = call.callerName;
+        invitation._inboundRecordCalls = !!call.recordCalls;
 
         if (invState === "Established") {
           console.log("[AgentWS] Call already established, proceeding directly");
@@ -5266,6 +5267,7 @@ export default function AgentWorkspacePage() {
 
         removeCall();
         setIncomingCallWithRef(null);
+        callContext.setAutoRecord(!!call.recordCalls);
         setAnsweredIncomingSession(invitation);
         toast({ title: "Hovor prijatý", description: `Prepojený s ${callerNumber}` });
         await setupCallContext();
