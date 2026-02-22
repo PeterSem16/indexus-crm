@@ -381,7 +381,23 @@ export class AriClient extends EventEmitter {
     if (context) params.set("context", context);
     if (extension) params.set("extension", extension);
     if (priority) params.set("priority", String(priority));
+    console.log(`[ARI] continueDialplan: channelId=${channelId}, context=${context}, extension=${extension}, priority=${priority}`);
     await this.ariRequest("POST", `/channels/${channelId}/continue?${params}`);
+  }
+
+  async getEndpointStatus(tech: string, resource: string): Promise<{ state: string; technology: string; resource: string; channel_ids: string[] } | null> {
+    try {
+      const result = await this.ariRequest("GET", `/endpoints/${tech}/${resource}`);
+      console.log(`[ARI] Endpoint ${tech}/${resource} status: state=${result.state}, channels=${(result.channel_ids || []).length}`);
+      return result;
+    } catch (err: any) {
+      console.error(`[ARI] Failed to get endpoint ${tech}/${resource} status:`, err.message);
+      return null;
+    }
+  }
+
+  async setChannelVar(channelId: string, variable: string, value: string): Promise<void> {
+    await this.ariRequest("POST", `/channels/${channelId}/variable?variable=${encodeURIComponent(variable)}&value=${encodeURIComponent(value)}`);
   }
 }
 

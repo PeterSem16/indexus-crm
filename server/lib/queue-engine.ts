@@ -1060,42 +1060,73 @@ export class QueueEngine extends EventEmitter {
     try {
       const waitingCall = this.waitingCalls.get(callerChannelId);
       const callerNumber = waitingCall?.callerNumber || "unknown";
-      const callerName = waitingCall?.callerName || "";
+      const extension = endpoint.replace(/^PJSIP\//, "").replace(/^SIP\//, "");
 
       console.log(`[QueueEngine] === TRANSFER TO ENDPOINT ===`);
       console.log(`[QueueEngine]   Caller channel: ${callerChannelId}`);
       console.log(`[QueueEngine]   Target endpoint: ${endpoint}`);
+      console.log(`[QueueEngine]   Extension: ${extension}`);
       console.log(`[QueueEngine]   Caller: ${callerNumber}`);
+
+      const endpointStatus = await this.ariClient.getEndpointStatus("PJSIP", extension);
+      if (endpointStatus) {
+        console.log(`[QueueEngine]   Endpoint PJSIP/${extension} state: ${endpointStatus.state}`);
+        if (endpointStatus.state === "offline" || endpointStatus.state === "unknown") {
+          console.warn(`[QueueEngine] WARNING: Endpoint PJSIP/${extension} is ${endpointStatus.state} - phone may not be registered!`);
+        }
+      }
 
       await this.stopMohForChannel(callerChannelId);
       this.waitingCalls.delete(callerChannelId);
 
-      const agentChannel = await this.ariClient.originateChannel(
-        endpoint,
-        endpoint.replace(/^PJSIP\//, ""),
-        "default",
-        callerNumber !== "unknown" ? callerNumber : undefined,
-        `transfer,${callerChannelId}`
-      );
+      try {
+        await this.ariClient.setChannelVar(callerChannelId, "TRANSFER_ENDPOINT", endpoint);
+        await this.ariClient.setChannelVar(callerChannelId, "TRANSFER_EXTENSION", extension);
+      } catch (e: any) {
+        console.log(`[QueueEngine] Could not set channel vars (non-critical): ${e.message}`);
+      }
 
-      console.log(`[QueueEngine] Transfer channel created: ${agentChannel.id}, waiting for answer...`);
-
-      this.pendingAgentCalls.set(agentChannel.id, {
-        callerChannelId,
-        agentId: "transfer-target",
-        callId: waitingCall?.id || `transfer-${Date.now()}`,
-        queueId: queue.id,
-        callerNumber,
-        callerName,
-        customerId: null,
-        waitDuration: waitingCall ? (Date.now() - waitingCall.enteredAt.getTime()) / 1000 : 0,
-        queueName: queue.name,
-      });
+      await this.ariClient.continueDialplan(callerChannelId, "from-internal", extension, 1);
+      console.log(`[QueueEngine] Transfer initiated via continueDialplan: context=from-internal, extension=${extension}, priority=1`);
+      console.log(`[QueueEngine] Caller channel ${callerChannelId} has exited Stasis and continues in dialplan`);
 
       return true;
     } catch (err: any) {
       console.error(`[QueueEngine] Transfer to ${endpoint} failed:`, err.message);
-      return false;
+
+      try {
+        console.log(`[QueueEngine] Trying fallback: originate+bridge for ${endpoint}...`);
+        const waitingCall = this.waitingCalls.get(callerChannelId);
+        const callerNumber = waitingCall?.callerNumber || "unknown";
+        const extension = endpoint.replace(/^PJSIP\//, "").replace(/^SIP\//, "");
+
+        const agentChannel = await this.ariClient.originateChannel(
+          endpoint,
+          extension,
+          "default",
+          callerNumber !== "unknown" ? callerNumber : undefined,
+          `transfer,${callerChannelId}`
+        );
+
+        console.log(`[QueueEngine] Fallback transfer channel created: ${agentChannel.id}, waiting for answer...`);
+
+        this.pendingAgentCalls.set(agentChannel.id, {
+          callerChannelId,
+          agentId: "transfer-target",
+          callId: waitingCall?.id || `transfer-${Date.now()}`,
+          queueId: queue.id,
+          callerNumber,
+          callerName: waitingCall?.callerName || "",
+          customerId: null,
+          waitDuration: waitingCall ? (Date.now() - waitingCall.enteredAt.getTime()) / 1000 : 0,
+          queueName: queue.name,
+        });
+
+        return true;
+      } catch (fallbackErr: any) {
+        console.error(`[QueueEngine] Fallback transfer also failed:`, fallbackErr.message);
+        return false;
+      }
     }
   }
 
