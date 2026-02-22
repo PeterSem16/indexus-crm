@@ -226,6 +226,11 @@ export class QueueEngine extends EventEmitter {
 
     console.log(`[QueueEngine] Matched queue: "${queue.name}" (id: ${queue.id}, strategy: ${queue.strategy})`);
 
+    if (!this.isWithinBusinessHours(queue)) {
+      console.log(`[QueueEngine] Queue "${queue.name}" is outside business hours (${queue.activeFrom}-${queue.activeTo}, tz: ${queue.timezone})`);
+      await this.handleAfterHours(channel.id, queue);
+      return;
+    }
 
     if (this.getQueueSize(queue.id) >= queue.maxQueueSize) {
       console.log(`[QueueEngine] Queue ${queue.name} is full, handling overflow`);
@@ -609,6 +614,102 @@ export class QueueEngine extends EventEmitter {
       callerNumber: call.callerNumber,
       reason: "caller_hangup",
     });
+  }
+
+  private isWithinBusinessHours(queue: InboundQueue): boolean {
+    if (!queue.activeFrom || !queue.activeTo) return true;
+
+    const tz = queue.timezone || "Europe/Bratislava";
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      weekday: "short",
+    });
+    const parts = formatter.formatToParts(now);
+    const hour = parseInt(parts.find(p => p.type === "hour")?.value || "0");
+    const minute = parseInt(parts.find(p => p.type === "minute")?.value || "0");
+
+    const dayMap: Record<string, string> = { Sun: "0", Mon: "1", Tue: "2", Wed: "3", Thu: "4", Fri: "5", Sat: "6" };
+    const currentDay = dayMap[parts.find(p => p.type === "weekday")?.value || "Mon"] || "1";
+
+    const activeDays = queue.activeDays || ["1", "2", "3", "4", "5"];
+    if (!activeDays.includes(currentDay)) {
+      console.log(`[QueueEngine] Day ${currentDay} not in active days ${activeDays.join(",")}`);
+      return false;
+    }
+
+    const currentMinutes = hour * 60 + minute;
+    const [fromH, fromM] = queue.activeFrom.split(":").map(Number);
+    const [toH, toM] = queue.activeTo.split(":").map(Number);
+    const fromMinutes = fromH * 60 + fromM;
+    const toMinutes = toH * 60 + toM;
+
+    const withinHours = currentMinutes >= fromMinutes && currentMinutes < toMinutes;
+    if (!withinHours) {
+      console.log(`[QueueEngine] Current time ${hour}:${minute.toString().padStart(2, "0")} outside ${queue.activeFrom}-${queue.activeTo}`);
+    }
+    return withinHours;
+  }
+
+  private async handleAfterHours(channelId: string, queue: InboundQueue): Promise<void> {
+    try {
+      await this.ariClient.answerChannel(channelId);
+
+      if (queue.afterHoursMessageId) {
+        const [msg] = await db.select().from(ivrMessages).where(eq(ivrMessages.id, queue.afterHoursMessageId)).limit(1);
+        if (msg) {
+          const soundName = msg.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+          const pbId = `afterhours-${channelId}-${Date.now()}`;
+          console.log(`[QueueEngine] Playing after-hours message: custom/${soundName}`);
+          await this.ariClient.playMedia(channelId, `sound:custom/${soundName}`, pbId);
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        }
+      }
+
+      const action = queue.afterHoursAction || "voicemail";
+      console.log(`[QueueEngine] After-hours action: ${action}`);
+
+      switch (action) {
+        case "hangup":
+          await this.ariClient.hangupChannel(channelId, "normal");
+          break;
+        case "transfer":
+          if (queue.afterHoursTarget) {
+            await this.ariClient.redirectChannel(channelId, `SIP/${queue.afterHoursTarget}`);
+          } else {
+            await this.ariClient.hangupChannel(channelId, "normal");
+          }
+          break;
+        case "queue":
+          if (queue.afterHoursTarget) {
+            const targetQueue = await db.select().from(inboundQueues)
+              .where(and(eq(inboundQueues.id, queue.afterHoursTarget), eq(inboundQueues.isActive, true)))
+              .limit(1);
+            if (targetQueue[0]) {
+              console.log(`[QueueEngine] Routing after-hours call to queue "${targetQueue[0].name}"`);
+              const fakeEvent: AriEvent = {
+                type: "StasisStart",
+                channel: { id: channelId, state: "Up", caller: { number: "afterhours", name: "" }, dialplan: { exten: targetQueue[0].didNumber || "" } } as any,
+                args: [],
+              };
+              await this.handleIncomingCall(fakeEvent);
+              return;
+            }
+          }
+          await this.ariClient.hangupChannel(channelId, "normal");
+          break;
+        case "voicemail":
+        default:
+          await this.ariClient.hangupChannel(channelId, "normal");
+          break;
+      }
+    } catch (err) {
+      console.error("[QueueEngine] After-hours handling failed:", err);
+      try { await this.ariClient.hangupChannel(channelId, "normal"); } catch {}
+    }
   }
 
   private async handleOverflow(channelId: string, queue: InboundQueue): Promise<void> {

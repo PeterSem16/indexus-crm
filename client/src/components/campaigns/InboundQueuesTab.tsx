@@ -71,6 +71,13 @@ interface InboundQueue {
   announceWaitTime: boolean;
   announceFrequency: number;
   serviceLevelTarget: number;
+  activeFrom: string | null;
+  activeTo: string | null;
+  activeDays: string[] | null;
+  timezone: string;
+  afterHoursAction: string;
+  afterHoursTarget: string | null;
+  afterHoursMessageId: string | null;
   isActive: boolean;
   stats?: { waiting: number; active: number; agents: number };
 }
@@ -99,6 +106,37 @@ const OVERFLOW_ACTIONS = [
   { value: "voicemail", label: "Voicemail" },
   { value: "hangup", label: "Hangup" },
   { value: "transfer", label: "Transfer" },
+  { value: "queue", label: "Route to Queue" },
+];
+
+const AFTER_HOURS_ACTIONS = [
+  { value: "voicemail", label: "Voicemail" },
+  { value: "hangup", label: "Hang up" },
+  { value: "transfer", label: "Transfer to number" },
+  { value: "queue", label: "Route to another Queue" },
+];
+
+const DAYS_OF_WEEK = [
+  { value: "1", label: "Mon" },
+  { value: "2", label: "Tue" },
+  { value: "3", label: "Wed" },
+  { value: "4", label: "Thu" },
+  { value: "5", label: "Fri" },
+  { value: "6", label: "Sat" },
+  { value: "0", label: "Sun" },
+];
+
+const TIMEZONES = [
+  "Europe/Bratislava",
+  "Europe/Prague",
+  "Europe/Budapest",
+  "Europe/Bucharest",
+  "Europe/Rome",
+  "Europe/Berlin",
+  "America/New_York",
+  "America/Chicago",
+  "America/Los_Angeles",
+  "UTC",
 ];
 
 const COUNTRIES = ["SK", "CZ", "HU", "RO", "IT", "DE", "US"];
@@ -131,6 +169,13 @@ export function InboundQueuesTab() {
     announceWaitTime: true,
     announceFrequency: 30,
     serviceLevelTarget: 20,
+    activeFrom: "" as string | null,
+    activeTo: "" as string | null,
+    activeDays: ["1", "2", "3", "4", "5"] as string[],
+    timezone: "Europe/Bratislava",
+    afterHoursAction: "voicemail",
+    afterHoursTarget: "",
+    afterHoursMessageId: "" as string | null,
     isActive: true,
   });
 
@@ -139,6 +184,7 @@ export function InboundQueuesTab() {
 
   const { data: queues = [], isLoading } = useQuery<InboundQueue[]>({
     queryKey: ["/api/inbound-queues"],
+    refetchInterval: 5000,
   });
 
   const { data: allUsers = [] } = useQuery<any[]>({
@@ -226,7 +272,11 @@ export function InboundQueuesTab() {
       maxQueueSize: 50, priority: 1, welcomeMessageId: null, holdMusicId: null,
       overflowAction: "voicemail",
       overflowTarget: "", announcePosition: true, announceWaitTime: true,
-      announceFrequency: 30, serviceLevelTarget: 20, isActive: true,
+      announceFrequency: 30, serviceLevelTarget: 20,
+      activeFrom: "", activeTo: "", activeDays: ["1", "2", "3", "4", "5"],
+      timezone: "Europe/Bratislava", afterHoursAction: "voicemail",
+      afterHoursTarget: "", afterHoursMessageId: null,
+      isActive: true,
     });
   };
 
@@ -249,6 +299,13 @@ export function InboundQueuesTab() {
       announceWaitTime: queue.announceWaitTime,
       announceFrequency: queue.announceFrequency,
       serviceLevelTarget: queue.serviceLevelTarget,
+      activeFrom: queue.activeFrom || "",
+      activeTo: queue.activeTo || "",
+      activeDays: queue.activeDays || ["1", "2", "3", "4", "5"],
+      timezone: queue.timezone || "Europe/Bratislava",
+      afterHoursAction: queue.afterHoursAction || "voicemail",
+      afterHoursTarget: queue.afterHoursTarget || "",
+      afterHoursMessageId: queue.afterHoursMessageId || null,
       isActive: queue.isActive,
     });
     setEditingQueue(queue);
@@ -327,6 +384,12 @@ export function InboundQueuesTab() {
                         </Badge>
                         {queue.countryCode && (
                           <Badge variant="outline" className="text-xs">{queue.countryCode}</Badge>
+                        )}
+                        {queue.activeFrom && queue.activeTo && (
+                          <Badge variant="outline" className="text-xs">
+                            <Clock className="h-3 w-3 mr-1" />
+                            {queue.activeFrom}–{queue.activeTo}
+                          </Badge>
                         )}
                         {!queue.isActive && (
                           <Badge variant="destructive" className="text-xs">Inactive</Badge>
@@ -507,6 +570,110 @@ export function InboundQueuesTab() {
               <p className="text-xs text-muted-foreground mt-3">Manage audio files in the IVR Audio tab. Create welcome greetings, hold music, and announcements there.</p>
             </div>
 
+            <div className="col-span-2 border-t pt-4 mt-2">
+              <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                Business Hours
+              </h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Active From</Label>
+                  <Input type="time" value={formData.activeFrom || ""} onChange={e => setFormData(f => ({ ...f, activeFrom: e.target.value || null }))} data-testid="input-active-from" />
+                  <p className="text-xs text-muted-foreground mt-1">Leave empty for 24/7 operation</p>
+                </div>
+                <div>
+                  <Label>Active To</Label>
+                  <Input type="time" value={formData.activeTo || ""} onChange={e => setFormData(f => ({ ...f, activeTo: e.target.value || null }))} data-testid="input-active-to" />
+                </div>
+                <div>
+                  <Label>Timezone</Label>
+                  <Select value={formData.timezone} onValueChange={v => setFormData(f => ({ ...f, timezone: v }))}>
+                    <SelectTrigger data-testid="select-timezone"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {TIMEZONES.map(tz => <SelectItem key={tz} value={tz}>{tz}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Active Days</Label>
+                  <div className="flex gap-1 mt-1 flex-wrap">
+                    {DAYS_OF_WEEK.map(day => (
+                      <Button
+                        key={day.value}
+                        type="button"
+                        size="sm"
+                        variant={formData.activeDays.includes(day.value) ? "default" : "outline"}
+                        className="h-7 px-2 text-xs"
+                        onClick={() => {
+                          setFormData(f => ({
+                            ...f,
+                            activeDays: f.activeDays.includes(day.value)
+                              ? f.activeDays.filter(d => d !== day.value)
+                              : [...f.activeDays, day.value],
+                          }));
+                        }}
+                        data-testid={`btn-day-${day.value}`}
+                      >
+                        {day.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              {(formData.activeFrom || formData.activeTo) && (
+                <div className="grid grid-cols-2 gap-4 mt-4 pt-3 border-t border-dashed">
+                  <div>
+                    <Label>After-Hours Action</Label>
+                    <Select value={formData.afterHoursAction} onValueChange={v => setFormData(f => ({ ...f, afterHoursAction: v }))}>
+                      <SelectTrigger data-testid="select-after-hours-action"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {AFTER_HOURS_ACTIONS.map(a => <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">What happens when calls arrive outside business hours</p>
+                  </div>
+                  {(formData.afterHoursAction === "transfer" || formData.afterHoursAction === "queue") && (
+                    <div>
+                      <Label>{formData.afterHoursAction === "queue" ? "Target Queue" : "Transfer Target"}</Label>
+                      {formData.afterHoursAction === "queue" ? (
+                        <Select value={formData.afterHoursTarget || "__none__"} onValueChange={v => setFormData(f => ({ ...f, afterHoursTarget: v === "__none__" ? "" : v }))}>
+                          <SelectTrigger data-testid="select-after-hours-queue"><SelectValue placeholder="Select queue" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">None</SelectItem>
+                            {queues.filter(q => !editingQueue || q.id !== editingQueue.id).map(q => (
+                              <SelectItem key={q.id} value={q.id}>{q.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Input value={formData.afterHoursTarget} onChange={e => setFormData(f => ({ ...f, afterHoursTarget: e.target.value }))} placeholder="Phone number or extension" data-testid="input-after-hours-target" />
+                      )}
+                    </div>
+                  )}
+                  <div>
+                    <Label>After-Hours Message</Label>
+                    <div className="flex gap-2">
+                      <Select value={formData.afterHoursMessageId || "__none__"} onValueChange={v => setFormData(f => ({ ...f, afterHoursMessageId: v === "__none__" ? null : v }))}>
+                        <SelectTrigger className="flex-1" data-testid="select-after-hours-msg"><SelectValue placeholder="None" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">None</SelectItem>
+                          {ivrMessages.filter((m: any) => m.isActive).map((m: any) => (
+                            <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {formData.afterHoursMessageId && (
+                        <Button type="button" variant="ghost" size="icon" onClick={() => playAudio(formData.afterHoursMessageId!)} data-testid="btn-play-afterhours">
+                          {playingAudioId === formData.afterHoursMessageId ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">Audio played before executing after-hours action</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div>
               <Label>Overflow Action</Label>
               <Select value={formData.overflowAction} onValueChange={v => setFormData(f => ({ ...f, overflowAction: v }))}>
@@ -516,10 +683,22 @@ export function InboundQueuesTab() {
                 </SelectContent>
               </Select>
             </div>
-            {formData.overflowAction === "transfer" && (
+            {(formData.overflowAction === "transfer" || formData.overflowAction === "queue") && (
               <div>
-                <Label>Transfer Target</Label>
-                <Input value={formData.overflowTarget} onChange={e => setFormData(f => ({ ...f, overflowTarget: e.target.value }))} placeholder="Phone number or extension" data-testid="input-overflow-target" />
+                <Label>{formData.overflowAction === "queue" ? "Target Queue" : "Transfer Target"}</Label>
+                {formData.overflowAction === "queue" ? (
+                  <Select value={formData.overflowTarget || "__none__"} onValueChange={v => setFormData(f => ({ ...f, overflowTarget: v === "__none__" ? "" : v }))}>
+                    <SelectTrigger data-testid="select-overflow-queue"><SelectValue placeholder="Select queue" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">None</SelectItem>
+                      {queues.filter(q => !editingQueue || q.id !== editingQueue.id).map(q => (
+                        <SelectItem key={q.id} value={q.id}>{q.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input value={formData.overflowTarget} onChange={e => setFormData(f => ({ ...f, overflowTarget: e.target.value }))} placeholder="Phone number or extension" data-testid="input-overflow-target" />
+                )}
               </div>
             )}
             <div className="col-span-2 flex gap-6">

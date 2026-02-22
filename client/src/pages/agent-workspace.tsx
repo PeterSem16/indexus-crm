@@ -99,6 +99,7 @@ import {
   Grid3X3,
   CalendarClock,
   PhoneForwarded,
+  PhoneIncoming,
   MailPlus,
   MessageSquarePlus,
   RotateCcw,
@@ -3952,6 +3953,7 @@ export default function AgentWorkspacePage() {
   const [modalSort, setModalSort] = useState<"callback_asc" | "name_asc" | "attempts_desc">("callback_asc");
   const [modalSearch, setModalSearch] = useState("");
   const [selectedLoginCampaignIds, setSelectedLoginCampaignIds] = useState<string[]>([]);
+  const [selectedLoginQueueIds, setSelectedLoginQueueIds] = useState<string[]>([]);
   const [contractWizardOpen, setContractWizardOpen] = useState(false);
   const [contractWizardStep, setContractWizardStep] = useState(1);
   const [contractForm, setContractForm] = useState({ categoryId: "", customerId: "", billingDetailsId: "", currency: "EUR", notes: "", numberRangeId: "" });
@@ -4110,6 +4112,17 @@ export default function AgentWorkspacePage() {
     return source.filter((c) => campaignFilters.isAvailable(c) && campaignFilters.countryFilter(c));
   }, [allCampaigns, assignedCampaigns, user?.role, campaignFilters]);
 
+  const { data: myQueues = [] } = useQuery<Array<{
+    id: string; name: string; description: string | null; countryCode: string | null;
+    didNumber: string | null; strategy: string; isActive: boolean;
+    activeFrom: string | null; activeTo: string | null;
+    waiting: number; activeAgents: number; activeCalls: number;
+  }>>({
+    queryKey: ["/api/agent/my-queues"],
+    enabled: !!hasAccess,
+    refetchInterval: 10000,
+  });
+
   const { data: campaignDispositions = [] } = useQuery<CampaignDisposition[]>({
     queryKey: ["/api/campaigns", selectedCampaignId, "dispositions"],
     enabled: !!selectedCampaignId,
@@ -4229,6 +4242,12 @@ export default function AgentWorkspacePage() {
     if (fromSession && fromSession.length > 0) return fromSession;
     return selectedLoginCampaignIds;
   }, [(agentSession.session as any)?.campaignIds, selectedLoginCampaignIds]);
+
+  const sessionInboundQueueIds = useMemo(() => {
+    const fromSession = (agentSession.session as any)?.inboundQueueIds as string[] | null;
+    if (fromSession && fromSession.length > 0) return fromSession;
+    return selectedLoginQueueIds;
+  }, [(agentSession.session as any)?.inboundQueueIds, selectedLoginQueueIds]);
 
   const activeCampaigns = useMemo(() => {
     return campaigns
@@ -4671,7 +4690,7 @@ export default function AgentWorkspacePage() {
       setCallNotes("");
 
       const loginIds = selectedLoginCampaignIds.length > 0 ? selectedLoginCampaignIds : (selectedCampaignId ? [selectedCampaignId] : []);
-      await agentSession.startSession(loginIds.length > 0 ? loginIds[0] : null, loginIds);
+      await agentSession.startSession(loginIds.length > 0 ? loginIds[0] : null, loginIds, selectedLoginQueueIds);
       if (loginIds.length > 0) {
         setSelectedCampaignId(loginIds[0]);
       }
@@ -5107,10 +5126,76 @@ export default function AgentWorkspacePage() {
                 </p>
               )}
             </div>
+            {myQueues.length > 0 && (
+              <div>
+                <Label className="text-sm font-medium mb-2 block">
+                  <PhoneIncoming className="h-3.5 w-3.5 inline mr-1.5" />
+                  Inbound Queues
+                </Label>
+                <ScrollArea className="max-h-48 border rounded-md">
+                  <div className="p-2 space-y-1">
+                    {myQueues.map((queue) => {
+                      const isChecked = selectedLoginQueueIds.includes(queue.id);
+                      return (
+                        <div
+                          key={queue.id}
+                          className={`flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-colors ${isChecked ? "bg-green-500/10 border border-green-500/30" : "hover:bg-muted/50"}`}
+                          onClick={() => {
+                            setSelectedLoginQueueIds(prev =>
+                              prev.includes(queue.id) ? prev.filter(id => id !== queue.id) : [...prev, queue.id]
+                            );
+                          }}
+                          data-testid={`login-queue-${queue.id}`}
+                        >
+                          <Checkbox
+                            checked={isChecked}
+                            onClick={(e) => e.stopPropagation()}
+                            onCheckedChange={(checked) => {
+                              setSelectedLoginQueueIds(prev =>
+                                checked ? [...prev, queue.id] : prev.filter(id => id !== queue.id)
+                              );
+                            }}
+                            data-testid={`checkbox-login-queue-${queue.id}`}
+                          />
+                          <div className="p-1.5 rounded-md bg-green-100 dark:bg-green-900/30">
+                            <PhoneIncoming className="h-3.5 w-3.5 text-green-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{queue.name}</p>
+                            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                              {queue.countryCode && <span>{queue.countryCode}</span>}
+                              {queue.activeFrom && queue.activeTo && (
+                                <span>{queue.activeFrom} - {queue.activeTo}</span>
+                              )}
+                              {queue.didNumber && <span>DID: {queue.didNumber}</span>}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {queue.waiting > 0 && (
+                              <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                                {queue.waiting}
+                              </Badge>
+                            )}
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                              {queue.activeAgents} online
+                            </Badge>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </ScrollArea>
+                {selectedLoginQueueIds.length > 0 && (
+                  <p className="text-xs text-muted-foreground mt-1.5">
+                    {selectedLoginQueueIds.length} {selectedLoginQueueIds.length === 1 ? "queue" : "queues"} selected
+                  </p>
+                )}
+              </div>
+            )}
             <Button
               className="w-full gap-2"
               onClick={handleStartSession}
-              disabled={selectedLoginCampaignIds.length === 0}
+              disabled={selectedLoginCampaignIds.length === 0 && selectedLoginQueueIds.length === 0}
               data-testid="button-start-session"
             >
               <Play className="h-4 w-4" />

@@ -349,6 +349,10 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       const data = { ...req.body };
       if (data.welcomeMessageId === "") data.welcomeMessageId = null;
       if (data.holdMusicId === "") data.holdMusicId = null;
+      if (data.activeFrom === "") data.activeFrom = null;
+      if (data.activeTo === "") data.activeTo = null;
+      if (data.afterHoursTarget === "") data.afterHoursTarget = null;
+      if (data.afterHoursMessageId === "") data.afterHoursMessageId = null;
       const created = await db.insert(inboundQueues).values(data).returning();
       res.status(201).json(created[0]);
     } catch (error) {
@@ -367,6 +371,10 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       const data = { ...req.body };
       if (data.welcomeMessageId === "") data.welcomeMessageId = null;
       if (data.holdMusicId === "") data.holdMusicId = null;
+      if (data.activeFrom === "") data.activeFrom = null;
+      if (data.activeTo === "") data.activeTo = null;
+      if (data.afterHoursTarget === "") data.afterHoursTarget = null;
+      if (data.afterHoursMessageId === "") data.afterHoursMessageId = null;
       const updated = await db.update(inboundQueues)
         .set({ ...data, updatedAt: new Date() })
         .where(eq(inboundQueues.id, req.params.id))
@@ -1256,15 +1264,89 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       const queueList = await db.select().from(inboundQueues)
         .where(and(inArray(inboundQueues.id, queueIds), eq(inboundQueues.isActive, true)));
 
-      const queueData = queueList.map(q => ({
-        id: q.id,
-        name: q.name,
-        waiting: 0,
-        activeAgents: 0,
-        strategy: q.strategy,
-      }));
+      const engine = getQueueEngine();
+      const queueData = queueList.map(q => {
+        const stats = engine?.getQueueStats(q.id) || { waiting: 0, active: 0, agents: 0 };
+        return {
+          id: q.id,
+          name: q.name,
+          waiting: stats.waiting,
+          activeAgents: stats.agents,
+          activeCalls: stats.active,
+          strategy: q.strategy,
+        };
+      });
 
       res.json({ queues: queueData });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/agent/my-queues", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.session as any)?.user?.id;
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+
+      const memberships = await db.select({
+        member: queueMembers,
+        queue: {
+          id: inboundQueues.id,
+          name: inboundQueues.name,
+          description: inboundQueues.description,
+          countryCode: inboundQueues.countryCode,
+          didNumber: inboundQueues.didNumber,
+          strategy: inboundQueues.strategy,
+          isActive: inboundQueues.isActive,
+          activeFrom: inboundQueues.activeFrom,
+          activeTo: inboundQueues.activeTo,
+        },
+      })
+        .from(queueMembers)
+        .innerJoin(inboundQueues, eq(queueMembers.queueId, inboundQueues.id))
+        .where(and(eq(queueMembers.userId, userId), eq(queueMembers.isActive, true), eq(inboundQueues.isActive, true)));
+
+      const engine = getQueueEngine();
+      const result = memberships.map(m => {
+        const stats = engine?.getQueueStats(m.queue.id) || { waiting: 0, active: 0, agents: 0 };
+        return {
+          ...m.queue,
+          penalty: m.member.penalty,
+          waiting: stats.waiting,
+          activeAgents: stats.agents,
+          activeCalls: stats.active,
+        };
+      });
+
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/inbound-queues/live-stats", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const queues = await db.select().from(inboundQueues).orderBy(desc(inboundQueues.priority));
+      const engine = getQueueEngine();
+
+      const stats = queues.map(q => {
+        const qStats = engine?.getQueueStats(q.id) || { waiting: 0, active: 0, agents: 0 };
+        const onlineAgents = engine ? Array.from((engine as any).agentStates?.entries?.() || [])
+          .filter(([_, s]: [string, any]) => s.queueIds?.includes(q.id) && s.status === "available").length : 0;
+        return {
+          id: q.id,
+          name: q.name,
+          isActive: q.isActive,
+          waiting: qStats.waiting,
+          activeCalls: qStats.active,
+          totalAgents: qStats.agents,
+          onlineAgents,
+          activeFrom: q.activeFrom,
+          activeTo: q.activeTo,
+        };
+      });
+
+      res.json(stats);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

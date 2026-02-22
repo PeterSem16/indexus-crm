@@ -26873,6 +26873,7 @@ Guidelines:
         userId: req.session.user!.id,
         campaignId: req.body.campaignId || (req.body.campaignIds && req.body.campaignIds.length > 0 ? req.body.campaignIds[0] : null),
         campaignIds: req.body.campaignIds || [],
+        inboundQueueIds: req.body.inboundQueueIds || [],
         status: "available",
       });
 

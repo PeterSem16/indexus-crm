@@ -5179,6 +5179,7 @@ export const agentSessions = pgTable("agent_sessions", {
   status: varchar("status", { length: 20 }).notNull().default("available"),
   campaignId: varchar("campaign_id"),
   campaignIds: text("campaign_ids").array().default(sql`ARRAY[]::text[]`),
+  inboundQueueIds: text("inbound_queue_ids").array().default(sql`ARRAY[]::text[]`),
   startedAt: timestamp("started_at").notNull().default(sql`now()`),
   endedAt: timestamp("ended_at"),
   lastActiveAt: timestamp("last_active_at").notNull().default(sql`now()`),
@@ -5388,6 +5389,13 @@ export const inboundQueues = pgTable("inbound_queues", {
   announceWaitTime: boolean("announce_wait_time").notNull().default(true),
   announceFrequency: integer("announce_frequency").notNull().default(30), // seconds between announcements
   serviceLevelTarget: integer("service_level_target").notNull().default(20), // target answer time in seconds (for SLA)
+  activeFrom: text("active_from"), // business hours start "HH:MM" e.g. "08:00"
+  activeTo: text("active_to"), // business hours end "HH:MM" e.g. "17:00"
+  activeDays: text("active_days").array().default(sql`ARRAY['1','2','3','4','5']::text[]`), // days of week: 0=Sun, 1=Mon..6=Sat
+  timezone: text("timezone").notNull().default("Europe/Bratislava"),
+  afterHoursAction: text("after_hours_action").notNull().default("voicemail"), // voicemail, hangup, transfer, queue
+  afterHoursTarget: text("after_hours_target"), // target queue/number for after-hours routing
+  afterHoursMessageId: varchar("after_hours_message_id"), // IVR message to play after hours
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
