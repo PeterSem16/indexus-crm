@@ -15,6 +15,8 @@ import {
   MapPin,
   X,
   Users,
+  Minimize2,
+  Maximize2,
 } from "lucide-react";
 
 interface InboundCallData {
@@ -154,8 +156,44 @@ function CallCard({ call, onAccept, onReject, onDismiss, isFirst }: {
   );
 }
 
+function MinimizedBadge({ count, onClick }: { count: number; onClick: () => void }) {
+  return (
+    <div className="fixed top-4 right-4 z-[100] animate-in slide-in-from-top-2 duration-200" data-testid="inbound-call-minimized">
+      <button
+        onClick={onClick}
+        className="flex items-center gap-2 px-3 py-2 rounded-full bg-green-600 hover:bg-green-700 text-white shadow-lg hover:shadow-xl transition-all cursor-pointer group"
+        data-testid="btn-expand-inbound"
+      >
+        <div className="relative">
+          <PhoneIncoming className="h-4 w-4" />
+          <span className="absolute -top-1.5 -right-1.5 flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-60" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white" />
+          </span>
+        </div>
+        <span className="text-sm font-semibold">{count}</span>
+        <Maximize2 className="h-3 w-3 opacity-60 group-hover:opacity-100 transition-opacity" />
+      </button>
+    </div>
+  );
+}
+
 export function InboundCallPopup({ inboundCalls, onAccept, onReject, onDismiss }: InboundCallPopupProps) {
+  const [isMinimized, setIsMinimized] = useState(false);
+  const prevCountRef = useRef(inboundCalls.length);
+
+  useEffect(() => {
+    if (inboundCalls.length > prevCountRef.current && isMinimized) {
+      setIsMinimized(false);
+    }
+    prevCountRef.current = inboundCalls.length;
+  }, [inboundCalls.length, isMinimized]);
+
   if (inboundCalls.length === 0) return null;
+
+  if (isMinimized) {
+    return <MinimizedBadge count={inboundCalls.length} onClick={() => setIsMinimized(false)} />;
+  }
 
   return (
     <div className="fixed top-4 right-4 z-[100] w-[460px] animate-in slide-in-from-top-4 duration-300" data-testid="inbound-call-overlay">
@@ -172,10 +210,22 @@ export function InboundCallPopup({ inboundCalls, onAccept, onReject, onDismiss }
               </div>
               Incoming Calls
             </CardTitle>
-            <Badge variant="secondary" className="text-xs">
-              <Users className="h-3 w-3 mr-1" />
-              {inboundCalls.length} {inboundCalls.length === 1 ? "call" : "calls"}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="text-xs">
+                <Users className="h-3 w-3 mr-1" />
+                {inboundCalls.length} {inboundCalls.length === 1 ? "call" : "calls"}
+              </Badge>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6"
+                onClick={() => setIsMinimized(true)}
+                title="Minimize"
+                data-testid="btn-minimize-inbound"
+              >
+                <Minimize2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="p-3">
